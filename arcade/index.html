@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Glow Clinic — by JC Medical · Arcade</title>
+  <link rel="stylesheet" href="shared/theme.css?v=16" />
+  <style>
+    .hero{display:flex;align-items:center;gap:16px;background:var(--white);border:1px solid var(--light);border-radius:18px;padding:18px 22px;box-shadow:var(--shadow)}
+    .hero .logo{font-size:34px;width:60px;height:60px;display:grid;place-items:center;background:var(--blue);border-radius:16px;box-shadow:inset 0 0 0 3px var(--gold)}
+    .hero h1{font-size:24px;color:var(--blue);line-height:1.1}
+    .hero h1 span{color:var(--gold);font-size:15px;display:block;font-weight:600;margin-top:2px}
+    .hero p{color:#7a869a;font-size:13px;margin-top:6px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+    .card{display:flex;flex-direction:column;gap:10px;text-decoration:none;background:var(--white);border:1px solid var(--light);border-radius:18px;padding:18px;box-shadow:var(--shadow);transition:transform .12s,box-shadow .2s;color:var(--text);position:relative;overflow:hidden}
+    .card:hover{transform:translateY(-4px);box-shadow:0 14px 36px rgba(42,59,82,.20)}
+    .card .ico{font-size:30px;width:56px;height:56px;display:grid;place-items:center;border-radius:14px;color:#fff}
+    .card h2{font-size:17px;color:var(--blue)}
+    .card .tag{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gold);font-weight:800}
+    .card p{font-size:13px;color:#5a6678;line-height:1.45;flex:1}
+    .card .go{align-self:flex-start;font-weight:800;font-size:13px;color:var(--blue);background:var(--bg);border-radius:10px;padding:7px 12px}
+    .card:hover .go{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:#4a3a17}
+    footer{text-align:center;color:#9aa4b2;font-size:12px;padding:6px 0 18px}
+    footer b{color:var(--blue)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <span class="logo">◆</span>
+      <div>
+        <h1>Glow Clinic <span>by JC Medical · Arcade</span></h1>
+        <p>Medicina estética facial premium · Talca, Chile · 10 juegos, una misma clínica.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+
+      <a class="card" href="games/defense/index.html">
+        <span class="ico" style="background:#4A6272">🛡️</span>
+        <span class="tag">Tower defense</span>
+        <h2>Skin Defense</h2>
+        <p>Arrugas, manchas y flacidez avanzan hacia el rostro. Coloca estaciones de tratamiento, mejora tus torres y sobrevive las oleadas.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/precision/index.html">
+        <span class="ico" style="background:#5E7A99">🎯</span>
+        <span class="tag">Habilidad / timing</span>
+        <h2>Precision Clinic</h2>
+        <p>Detén el marcador en el punto exacto para cada procedimiento. Encadena aciertos perfectos, sube el combo y maximiza la facturación.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/idle/index.html">
+        <span class="ico" style="background:#B9C2CB">📈</span>
+        <span class="tag">Idle / incremental</span>
+        <h2>Glow Empire</h2>
+        <p>De clickear pacientes a un imperio de sucursales que producen solas. Mejora generadores, automatiza y renueva la marca para crecer más.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/triage/index.html">
+        <span class="ico" style="background:#5BBF8A">🔎</span>
+        <span class="tag">Decisiones / criterio</span>
+        <h2>Triage</h2>
+        <p>Lee la ficha, aplica el protocolo y decide: aprobar, sugerir alternativa o rechazar. Tu criterio define tu reputación… y las demandas.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/tycoon/index.html">
+        <span class="ico" style="background:#3C5174">🏥</span>
+        <span class="tag">Gestión / tycoon</span>
+        <h2>Glow Clinic Tycoon</h2>
+        <p>El clásico: pacientes en la sala de espera, clic para atender en camillas, cobra, sube de nivel y amplía la clínica. El MVP original.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/glow2048/index.html">
+        <span class="ico" style="background:#3C5174">🔢</span>
+        <span class="tag">Puzzle / fusión</span>
+        <h2>Glow 2048</h2>
+        <p>Fusiona tratamientos iguales para subir de categoría, de Limpieza hasta Exosomas. Desliza, combina y bate tu récord.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/vialsort/index.html">
+        <span class="ico" style="background:#6FB3B8">🧫</span>
+        <span class="tag">Puzzle / orden</span>
+        <h2>Vial Sort</h2>
+        <p>Vierte el sérum entre viales hasta dejar cada uno de un solo color. Niveles que suman colores, con deshacer y reinicio.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/glowlab/index.html">
+        <span class="ico" style="background:#9C8AB5">🧪</span>
+        <span class="tag">Match-3 / niveles</span>
+        <h2>Glow Lab</h2>
+        <p>Alinea 3 o más insumos para sumar puntos en cascada. Metas por nivel y movimientos contados: ¿cuánto llegas?</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/trivia/index.html">
+        <span class="ico" style="background:#5BBF8A">🧠</span>
+        <span class="tag">Trivia / educativo</span>
+        <h2>Consultorio Trivia</h2>
+        <p>Pon a prueba lo que sabes de estética. Contra reloj, con vidas y rachas que multiplican el puntaje. Aprende jugando.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+      <a class="card" href="games/glowsnake/index.html">
+        <span class="ico" style="background:#B9C2CB">🐍</span>
+        <span class="tag">Arcade / clásico</span>
+        <h2>Glow Snake</h2>
+        <p>Guía la cánula para recoger glow y crecer sin chocar. Acelera mientras más comes. Simple, rápido y adictivo.</p>
+        <span class="go">Jugar →</span>
+      </a>
+
+    </div>
+
+    <footer>Hecho con Vanilla JS + Canvas · Arte por código · <b>JC Medical</b> — Talca, Chile</footer>
+  </div>
+</body>
+</html>

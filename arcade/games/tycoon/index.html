@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Glow Clinic — by JC Medical</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- HUD superior -->
+    <header id="hud">
+      <div class="brand">
+        <span class="logo">◆</span>
+        <div class="brand-text">
+          <strong>Glow Clinic</strong>
+          <small>by JC Medical · Talca</small>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat money-stat">
+          <span class="stat-label">Dinero</span>
+          <span class="stat-value" id="money">$0</span>
+        </div>
+
+        <div class="stat level-stat">
+          <span class="stat-label">Nivel <b id="level">1</b></span>
+          <div class="xp-bar"><div class="xp-fill" id="xpFill"></div></div>
+        </div>
+
+        <div class="stat star-stat">
+          <span class="stat-label">Reputación</span>
+          <span class="stat-value stars" id="stars"></span>
+        </div>
+
+        <div class="stat served-stat">
+          <span class="stat-label">Atendidos</span>
+          <span class="stat-value" id="served">0</span>
+        </div>
+      </div>
+
+      <button id="muteBtn" class="icon-btn" title="Silenciar / activar sonido">🔊</button>
+    </header>
+
+    <!-- Zona de juego -->
+    <main id="stage">
+      <canvas id="game"></canvas>
+
+      <!-- Panel lateral -->
+      <aside id="sidebar">
+        <h2>Tratamientos</h2>
+        <div id="treatList"></div>
+
+        <button id="buyBed" class="buy-btn">🛏️ Comprar camilla</button>
+
+        <div id="hint" class="hint">Haz clic en un paciente que espera, luego en una camilla libre.</div>
+      </aside>
+
+      <!-- Toast / mensajes -->
+      <div id="toast" class="toast"></div>
+    </main>
+  </div>
+
+  <!-- Tutorial inicial -->
+  <div id="tutorial" class="overlay">
+    <div class="modal">
+      <h1>Glow Clinic <small>by JC Medical</small></h1>
+      <p class="sub">Medicina estética facial premium · Talca, Chile</p>
+      <ol>
+        <li>Los <b>pacientes</b> llegan y se sientan a esperar. Sobre su cabeza ves el <b>tratamiento que quieren</b>.</li>
+        <li>Haz <b>clic en un paciente</b> y luego en una <b>camilla libre</b> para atenderlo.</li>
+        <li>Iniciar un tratamiento descuenta sus <b>insumos</b>; al terminar, el paciente <b>paga</b> 💰 (ganancia neta) y suma XP.</li>
+        <li>¡Cuidado con la <b>paciencia</b>! Si se agota (barra roja), se va molesto y baja tu <b>reputación</b> ⭐.</li>
+        <li>Sube de nivel para <b>desbloquear tratamientos</b> y compra <b>camillas extra</b> para atender en paralelo.</li>
+      </ol>
+      <button id="tutorialClose" class="start-btn">¡Empezar a atender!</button>
+    </div>
+  </div>
+
+  <!-- Scripts (orden importa: config → data → audio → state → entities → render → main) -->
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

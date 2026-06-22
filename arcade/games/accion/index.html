@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Juegos de acción · JC Medical</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0D0D0D;--surface:#141414;--line:rgba(242,237,230,.13);--text:#F2EDE6;--mute:rgba(242,237,230,.55);--accent:#8B9EB0;--gold:#B9C2CB}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:'Jost',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  .wrap{max-width:480px;margin:0 auto;padding-bottom:30px}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(13,13,13,.92);backdrop-filter:blur(12px);z-index:5}
+  .top .jc{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:24px;color:var(--text)}
+  .top a{font-family:'Jost';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:7px 13px}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--accent)}
+  .eyebrow:before{content:"";width:20px;height:1px;background:var(--gold)}
+  h1{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:38px;letter-spacing:-.02em;margin-top:10px}
+  h3{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:26px;margin:4px 0 6px}
+  .body{font-size:13px;font-weight:300;line-height:1.6;color:var(--mute)}
+  .ginstr{font-size:12.5px;line-height:1.6;color:var(--mute);margin-bottom:14px}
+  #gamesGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 18px}
+  .gtile{text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:15px 13px;color:var(--text);display:flex;flex-direction:column;gap:8px;min-height:104px}
+  .gtile .gico{font-size:24px}
+  .gtile .gd{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  .gtile .gname{font-family:'Cormorant Garamond',serif;font-size:19px;line-height:1.05}
+  .gstat{display:flex;gap:10px;margin:6px 0 12px}
+  .gstat>div{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;text-align:center}
+  .gstat .l{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+  .gstat .v{font-family:'Cormorant Garamond',serif;font-size:20px;margin-top:2px}
+  .opt{display:block;width:100%;text-align:left;margin-top:8px;padding:13px 15px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-family:'Jost';font-size:14px;cursor:pointer}
+  .opt.ok{border-color:#5BBF8A;background:rgba(91,191,138,.12)}
+  .opt.no{border-color:#C0566B;background:rgba(192,86,107,.12)}
+  .btn{display:block;width:100%;text-align:center;padding:14px;border-radius:4px;border:none;font-family:'Jost';font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;cursor:pointer}
+  .btn-primary{background:var(--text);color:var(--bg)}
+  .btn-ghost{background:transparent;color:var(--mute);border:1px solid var(--line)}
+  .cta{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;cursor:pointer;color:var(--text)}
+  .cta .t{font-family:'Cormorant Garamond',serif;font-size:17px}
+  .cta small{display:block;font-family:'Jost';font-size:11px;color:var(--mute);margin-top:2px}
+  .gbig{font-family:'Cormorant Garamond',serif;font-size:40px}
+  #gameStage{display:none;padding:18px 18px 0}
+  .back{background:none;border:none;color:var(--mute);font-family:'Jost';font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-bottom:10px}
+  .ghead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+  .ghead .nm{font-family:'Cormorant Garamond',serif;font-size:24px}
+  .ghead .sc{font-size:13px;color:var(--mute)}
+  .overlay{position:fixed;inset:0;background:rgba(7,7,7,.6);display:none;align-items:flex-end;justify-content:center;z-index:40;backdrop-filter:blur(4px)}
+  .overlay.show{display:flex}
+  .overlay.cen{align-items:center}
+  .sheet{width:100%;max-width:480px;background:var(--surface);border:1px solid var(--line);border-radius:18px 18px 0 0;padding:22px 20px 26px}
+  .overlay.cen .sheet{border-radius:18px;margin:0 16px}
+  .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
+  .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--surface);border:1px solid var(--line);color:var(--text);font-size:12.5px;padding:10px 16px;border-radius:999px;opacity:0;transition:opacity .2s;z-index:60;pointer-events:none}
+  .toast.show{opacity:1}
+  .timerbar{height:9px;background:rgba(242,237,230,.16);border-radius:6px;overflow:hidden;margin:8px 0 16px;border:1px solid rgba(242,237,230,.12)}
+  .timerbar>i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#DCE2E7);width:100%;transition:width .12s linear}
+  .btn-dark{display:block;flex:1;text-align:center;padding:14px;border-radius:6px;border:none;background:var(--gold);color:#0D0D0D;font-family:'Jost';font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+  .opt.ok{border-color:#5BBF8A}.opt.no{border-color:#C0566B}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span class="jc">jc</span><a href="../../../JC_App.html">← Volver a la app</a></div>
+  <div id="gamesHubWrap">
+    <div style="padding:18px 18px 0"><span class="eyebrow">Juega y gana Glow Points</span><h1>Juegos de acción</h1>
+      <p class="body" style="margin-top:8px">Mini-juegos rápidos de la clínica. Si inicias sesión en la app, los Glow Points que ganes se suman a tu cuenta (máx. 2.000 al día).</p></div>
+    <div id="gamesGrid"></div>
+  </div>
+  <div id="gameStage">
+    <button class="back" onclick="gamesHub()">‹ Todos los juegos</button>
+    <div class="ghead"><span class="nm" id="gameName"></span><span class="sc">Glow: <b id="gameScore">0</b></span></div>
+    <div id="gamePlay"></div>
+  </div>
+</div>
+<div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="../../../jcm_shared.js?v=6"></script>
+<script>
+'use strict';
+function el(id){return document.getElementById(id);}
+var gScore=0,G=null,HEART='&#9829;',DAILY_CAP=2000;
+function hearts(n){return n>0?HEART.repeat(n):'&mdash;';}
+function setScore(n){gScore=n;var e=el('gameScore');if(e)e.textContent=n;}
+function gClean(){if(window.__gc){try{window.__gc();}catch(e){}window.__gc=null;}}
+function sheet(html,centered){var o=el('overlay');o.classList.toggle('cen',!!centered);el('sheet').innerHTML=(centered?'':'<div class="grab"></div>')+html;o.classList.add('show');}
+function closeSheet(){el('overlay').classList.remove('show');}
+var _toastT=null;
+function toast(m){var t=el('toast');t.innerHTML=m;t.classList.add('show');clearTimeout(_toastT);_toastT=setTimeout(function(){t.classList.remove('show');},1500);}
+function _today(){return new Date().toDateString();}
+function addGamePoints(g){
+  var gain=Math.max(0,Math.round(g*0.5));
+  var o=(window.DB&&DB.get('action_pts'))||{};if(o.d!==_today()){o={d:_today(),p:0};}
+  var allow=Math.max(0,DAILY_CAP-(o.p||0));var act=Math.min(gain,allow);
+  o.p=(o.p||0)+act; if(window.DB)DB.set('action_pts',o);
+  try{var s=jcmGetSession&&jcmGetSession(); if(s){var np=(s.points||0)+act; jcmUpdatePoints(s.id,np); s.points=np; jcmSaveSession(s);}}catch(e){}
+  return {act:act,capped:gain>act,today:o.p};
+}
+function ctaG(){return '<div class="cta" style="margin-top:16px" onclick="claimDiscount()"><div><div class="t">Agenda tu evaluación</div><small>Conversemos tu plan por WhatsApp</small></div><div>→</div></div>';}
+function claimDiscount(){window.open('https://wa.me/56997880877?text='+encodeURIComponent('Hola, quiero agendar mi evaluación.'),'_blank');}
+function gEnd(gain,msg){recordBest();var res=addGamePoints(gain);var extra=res.capped?'<br><br>Llegaste al máximo de 2.000 Glow Points de hoy. ¡Vuelve mañana!':'';
+  sheet('<div class="eyebrow">Fin del juego</div><h3>'+msg+'</h3><div class="gbig" style="color:var(--gold);margin:6px 0">+'+res.act+'</div><p class="body" style="margin-bottom:14px">Glow Points sumados ('+res.today+'/2.000 hoy).'+extra+'</p><button class="btn btn-primary" onclick="closeSheet();G.replay()">Jugar otra vez</button><button class="btn btn-ghost" style="margin-top:8px" onclick="closeSheet();gamesHub()">Elegir otro juego</button>');}
+function gamesHub(){gClean();el('gameStage').style.display='none';el('gamesHubWrap').style.display='block';window.scrollTo(0,0);}
+function openGame(k){gClean();G=GAMES[k];G.key=k;el('gamesHubWrap').style.display='none';el('gameStage').style.display='block';el('gameName').textContent=G.nm;setScore(0);window.scrollTo(0,0);G.mount();}
+function recordBest(){try{if(!G||!G.key)return;var R=JSON.parse(localStorage.getItem('jcm_records')||'{}');var id='acc_'+G.key;if((gScore||0)>(R[id]||0)){R[id]=gScore||0;localStorage.setItem('jcm_records',JSON.stringify(R));}}catch(e){}}
+
+function reflexGame(){var round=0,times=[],state='idle',t0=0,to=null;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca apenas se ilumine. 5 rondas. Solo ganas puntos si tu promedio es <b>menor a 350&nbsp;ms</b>.</p><div id="rf" style="height:240px;border-radius:14px;background:var(--ink);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--serif);font-size:22px;cursor:pointer;transition:background .12s">Toca para empezar</div>'+ctaG();
+  el('rf').onclick=tap;window.__gc=function(){clearTimeout(to);};
+  function arm(){state='wait';el('rf').style.background='var(--ink)';el('rf').innerHTML='Espera&hellip;';to=setTimeout(function(){state='go';t0=performance.now();el('rf').style.background='var(--accent-bright)';el('rf').style.color='var(--ink)';el('rf').innerHTML='&iexcl;TOCA!';},800+Math.random()*2200);}
+  function tap(){if(state==='idle'){el('rf').style.color='#fff';arm();return;}if(state==='wait'){clearTimeout(to);state='idle';el('rf').style.background='#7a2422';el('rf').innerHTML='Muy pronto &mdash; reintenta';return;}if(state==='go'){var ms=Math.round(performance.now()-t0);times.push(ms);round++;el('rf').style.background='var(--ink)';el('rf').style.color='#fff';var avg=Math.round(times.reduce(function(a,b){return a+b;},0)/times.length);setScore(avg<350?Math.max(0,500-avg):0);if(round<5){el('rf').innerHTML=ms+'&nbsp;ms &middot; sigue';state='idle';}else{var gain=avg<350?Math.max(60,Math.round((350-avg)*4)):0;gEnd(gain,avg+'&nbsp;ms prom.'+(avg<350?'':' &mdash; bajo 350&nbsp;ms para ganar'));}}}
+  G.replay=function(){openGame('reflex');};}
+
+/* 3 Glow Quiz */
+var QUIZ=[{q:'&iquest;Cu&aacute;nto dura aprox. el b&oacute;tox?',o:['Para siempre','3 a 6 meses','1 semana'],a:1},{q:'El ADN de salm&oacute;n sirve para&hellip;',o:['Regenerar la piel','Blanquear dientes','Bajar de peso'],a:0},{q:'La bioestimulaci&oacute;n con Sculptra estimula&hellip;',o:['Melanina','Col&aacute;geno propio','Grasa'],a:1},{q:'Un buen b&oacute;tox se ve&hellip;',o:['Sin expresi&oacute;n','Natural','M&aacute;s oscuro'],a:1},{q:'La rinomodelaci&oacute;n usa&hellip;',o:['&Aacute;cido hialur&oacute;nico','Cirug&iacute;a','L&aacute;ser'],a:0}];
+function quizGame(){var i=0,sc=0;
+  function r(){var Q=QUIZ[i];el('gamePlay').innerHTML='<p class="ginstr">Pregunta '+(i+1)+' de '+QUIZ.length+'</p><p class="body" style="font-size:15px;margin-bottom:14px">'+Q.q+'</p><div id="qo"></div>'+ctaG();Q.o.forEach(function(t,k){var b=document.createElement('button');b.className='opt';b.innerHTML=t;b.onclick=function(){pick(k,b);};el('qo').appendChild(b);});}
+  function pick(k,b){[].forEach.call(el('qo').children,function(x){x.style.pointerEvents='none';});var Q=QUIZ[i];if(k===Q.a){b.classList.add('ok');sc++;}else{b.classList.add('no');el('qo').children[Q.a].classList.add('ok');}setScore(sc*20);setTimeout(function(){i++;if(i<QUIZ.length)r();else gEnd(sc*20,sc+'/'+QUIZ.length+' correctas');},700);}
+  G.replay=function(){openGame('quiz');};r();}
+
+/* 5 Dosis Justa */
+function doseGame(){var lives=2,lvl=1,raf=null,pos=0,dir=1,zL=35,zW=30,run=false;
+  el('gamePlay').innerHTML='<p class="ginstr">Det&eacute;n el marcador en la zona clara. Se achica con cada acierto. 2 vidas.</p><div class="gstat"><div><div class="l">Nivel</div><div class="v" id="dL">1</div></div><div><div class="l">Vidas</div><div class="v" id="dV">'+hearts(lives)+'</div></div></div><div class="track" id="trk"><div class="zone" id="zn"></div><div class="marker" id="mk"></div></div><button class="btn btn-primary" id="stp">Detener</button>'+ctaG();
+  el('stp').onclick=stop;window.__gc=function(){cancelAnimationFrame(raf);};nr();
+  function nr(){zL=8+Math.random()*(92-zW);el('zn').style.left=zL+'%';el('zn').style.width=zW+'%';pos=0;dir=1;run=true;loop();}
+  function loop(){pos+=dir*(1.1+lvl*0.25);if(pos>=100){pos=100;dir=-1;}if(pos<=0){pos=0;dir=1;}el('mk').style.left=pos+'%';if(run)raf=requestAnimationFrame(loop);}
+  function stop(){if(!run)return;run=false;cancelAnimationFrame(raf);if(pos>=zL&&pos<=zL+zW){lvl++;el('dL').textContent=lvl;setScore(gScore+30);zW=Math.max(8,zW-3);toast('&iexcl;Dosis perfecta!');setTimeout(nr,450);}else{lives--;el('dV').innerHTML=hearts(lives);if(lives<=0)gEnd(gScore,'Nivel '+lvl);else setTimeout(nr,450);}}
+  G.replay=function(){openGame('dose');};}
+
+/* 7 Mito o Verdad */
+var MV=[{t:'Un buen b&oacute;tox puede verse natural.',v:true},{t:'El relleno de &aacute;cido hialur&oacute;nico es permanente.',v:false},{t:'El ADN de salm&oacute;n mejora la piel.',v:true},{t:'El sol no afecta tus tratamientos.',v:false},{t:'La bioestimulaci&oacute;n da resultados progresivos.',v:true},{t:'Toda intervenci&oacute;n parte por evaluaci&oacute;n.',v:true}];
+function mvGame(){var i=0,sc=0,lives=2,raf=null,t0=0,dur=6000,order=MV.map(function(_,k){return k;}).sort(function(){return Math.random()-0.5;});
+  el('gamePlay').innerHTML='<p class="ginstr">Responde antes de que baje la barra. 2 vidas.</p><div class="gstat"><div><div class="l">Aciertos</div><div class="v" id="mS">0</div></div><div><div class="l">Vidas</div><div class="v" id="mV">'+hearts(lives)+'</div></div></div><div class="timerbar"><i id="tb"></i></div><p class="body" id="mt" style="font-size:16px;min-height:50px;margin-bottom:14px"></p><div style="display:flex;gap:10px"><button class="btn btn-dark" onclick="window._mv(true)">Verdad</button><button class="btn btn-ghost" onclick="window._mv(false)">Mito</button></div>'+ctaG();
+  window.__gc=function(){cancelAnimationFrame(raf);};
+  function show(){el('mt').innerHTML=MV[order[i]].t;t0=performance.now();anim();}
+  function anim(){var p=Math.max(0,1-(performance.now()-t0)/dur);el('tb').style.width=(p*100)+'%';if(p<=0){ans(null);return;}raf=requestAnimationFrame(anim);}
+  function ans(a){cancelAnimationFrame(raf);if(a===MV[order[i]].v){sc++;el('mS').textContent=sc;setScore(sc*20);}else{lives--;el('mV').innerHTML=hearts(lives);}i++;if(lives<=0||i>=order.length)return gEnd(sc*20,sc+' correctas');setTimeout(show,250);}
+  window._mv=ans;G.replay=function(){openGame('mv');};show();}
+
+/* 9 Anagrama */
+var WORDS=['BOTOX','EXOSOMAS','COLAGENO','SCULPTRA','SALMON','RELLENO','HIALURONICO'];
+function anagramGame(){var word='',picked=[],round=0,sc=0,lives=2,raf=null,t0=0,dur=12000,queue=WORDS.slice().sort(function(){return Math.random()-0.5;});
+  window.__gc=function(){cancelAnimationFrame(raf);};
+  function r(){word=queue[round];picked=[];var letters=word.split('').sort(function(){return Math.random()-0.5;});
+    el('gamePlay').innerHTML='<p class="ginstr">Forma el tratamiento antes de que baje la barra. Ronda '+(round+1)+' de 5. 2 vidas.</p><div class="gstat"><div><div class="l">Ronda</div><div class="v" id="aR">'+(round+1)+'/5</div></div><div><div class="l">Vidas</div><div class="v" id="aV">'+hearts(lives)+'</div></div></div><div class="timerbar"><i id="atb"></i></div><div class="slots" id="slots"></div><div class="letters" id="lts"></div>'+ctaG()+'<div id="arev" style="text-align:center;margin-top:12px;color:var(--accent-deep);font-family:var(--serif);font-size:18px"></div>';
+    slots();var L=el('lts');letters.forEach(function(ch){var b=document.createElement('div');b.className='lt';b.innerHTML=ch;b.onclick=function(){if(b.classList.contains('used'))return;b.classList.add('used');picked.push({c:ch,b:b});slots();check();};L.appendChild(b);});t0=performance.now();anim();}
+  function anim(){var bar=el('atb');if(!bar)return;var p=Math.max(0,1-(performance.now()-t0)/dur);bar.style.width=(p*100)+'%';if(p<=0){up();return;}raf=requestAnimationFrame(anim);}
+  function slots(){var s=el('slots');if(!s)return;s.innerHTML='';for(var k=0;k<word.length;k++){var d=document.createElement('div');d.className='slot';d.innerHTML=picked[k]?picked[k].c:'';s.appendChild(d);}}
+  function up(){cancelAnimationFrame(raf);lives--;round++;el('arev').innerHTML='La palabra era: <b>'+word+'</b>';if(lives<=0||round>=5)setTimeout(function(){gEnd(sc*40,sc+'/5 palabras');},1500);else setTimeout(r,1600);}
+  function check(){if(picked.length===word.length){var g=picked.map(function(p){return p.c;}).join('');if(g===word){cancelAnimationFrame(raf);sc++;setScore(sc*40);round++;toast('&iexcl;Correcto!');if(round<5)setTimeout(r,600);else setTimeout(function(){gEnd(sc*40,sc+'/5 palabras');},600);}else{toast('No es&hellip;');setTimeout(function(){picked.forEach(function(p){p.b.classList.remove('used');});picked=[];slots();},500);}}}
+  G.replay=function(){openGame('anagram');};r();}
+
+
+/* ===== JUEGOS DE ACCIÓN (canvas) — "Doctor Injector" ===== */
+function _rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function _gCanvas(h){
+  var wrap=el('gamePlay');
+  var W=Math.min(wrap.clientWidth||390,430), H=h||360;
+  var host=document.createElement('div');
+  host.style.cssText='position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--hd);background:#0D0D0D;touch-action:none;margin-bottom:4px;';
+  var cv=document.createElement('canvas');
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';cv.style.display='block';
+  var ctx=cv.getContext('2d');ctx.scale(dpr,dpr);
+  host.appendChild(cv);
+  return {host:host,cv:cv,ctx:ctx,W:W,H:H};
+}
+function _drawDoc(ctx,x,y,pw,ph){
+  ctx.fillStyle='#F2EDE6';_rr(ctx,x,y+10,pw,ph-10,6);ctx.fill();              // bata
+  ctx.fillStyle='#E8C2A0';ctx.beginPath();ctx.arc(x+pw/2,y+8,9,0,7);ctx.fill();// cabeza
+  ctx.fillStyle='#5E7A99';ctx.fillRect(x+pw/2-9,y-1,18,5);                      // gorro
+  ctx.fillStyle='#C2CAD2';ctx.fillRect(x+pw-4,y+18,13,4);                       // jeringa
+}
+
+/* === Inyector Run — endless runner estilo Mario === */
+function runnerGame(){
+  var c=_gCanvas(360),ctx=c.ctx,W=c.W,H=c.H,ground=H-46;
+  var px=52,pw=30,ph=44,py=ground-ph,vy=0,jumps=0,GRAV=0.9,JV=14;
+  var obs=[],items=[],t=0,speed=4.2,dist=0,score=0,lives=3,inv=0,alive=true,raf=null,spawnT=60,itemT=45;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca la pista para <b>saltar</b> (doble salto disponible). Junta ✦ glow y esquiva los microbios. 3 vidas.</p>'+
+    '<div class="gstat"><div><div class="l">Vidas</div><div class="v" id="rnV"></div></div><div><div class="l">Glow</div><div class="v" id="rnS">0</div></div><div><div class="l">Metros</div><div class="v" id="rnM">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());
+  el('rnV').innerHTML=hearts(lives);
+  function jump(){if(!alive)return;if(jumps<2){vy=-JV;jumps++;}}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();jump();});
+  function key(e){if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();jump();}}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);var m=Math.round(dist/12);gEnd(score+m,'Corriste '+m+' m · '+score+' glow');}
+  function loop(){
+    if(!alive)return;t++;dist+=speed;speed=Math.min(9,4.2+dist/2600);
+    vy+=GRAV;py+=vy;if(py>=ground-ph){py=ground-ph;vy=0;jumps=0;}
+    if(--spawnT<=0){var hh=22+Math.random()*16;obs.push({x:W+20,y:ground-hh,w:18+Math.random()*10,h:hh});spawnT=Math.max(42,86-dist/320);}
+    if(--itemT<=0){items.push({x:W+20,y:ground-58-Math.random()*92,r:11,got:false});itemT=64+Math.random()*60;}
+    obs.forEach(function(o){o.x-=speed;});items.forEach(function(it){it.x-=speed;});
+    obs=obs.filter(function(o){return o.x+o.w>-12;});items=items.filter(function(it){return it.x+it.r>-12;});
+    if(inv>0)inv--;
+    var pb={x:px,y:py,w:pw,h:ph};
+    obs.forEach(function(o){if(inv<=0&&hit(pb,o)){lives--;inv=64;el('rnV').innerHTML=hearts(lives);o.x=-999;if(lives<=0)return end();}});
+    items.forEach(function(it){if(!it.got){var ib={x:it.x-it.r,y:it.y-it.r,w:it.r*2,h:it.r*2};if(hit(pb,ib)){it.got=true;score+=50;el('rnS').textContent=score;}}});
+    el('rnM').textContent=Math.round(dist/12);
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(139,158,176,.18)';for(var i=0;i<6;i++){var x=W-((t*speed*0.5)+i*92)%(W+92);ctx.fillRect(x,ground+12,32,2);}
+    ctx.strokeStyle='rgba(201,172,115,.55)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,ground);ctx.lineTo(W,ground);ctx.stroke();
+    items.forEach(function(it){if(it.got)return;ctx.save();ctx.translate(it.x,it.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#C2CAD2';_rr(ctx,-it.r*0.7,-it.r*0.7,it.r*1.4,it.r*1.4,3);ctx.fill();ctx.restore();});
+    obs.forEach(function(o){ctx.fillStyle='#B4453C';ctx.beginPath();ctx.arc(o.x+o.w/2,o.y+o.h/2,o.w/2+2,0,7);ctx.fill();ctx.fillStyle='#0D0D0D';ctx.beginPath();ctx.arc(o.x+o.w/2-3,o.y+o.h/2-2,2,0,7);ctx.arc(o.x+o.w/2+3,o.y+o.h/2-2,2,0,7);ctx.fill();});
+    if(!(inv>0&&Math.floor(t/4)%2))_drawDoc(ctx,px,py,pw,ph);
+    raf=requestAnimationFrame(loop);
+  }
+  G.replay=function(){openGame('run');};loop();
+}
+
+/* === Salto Glow — vertical, estilo Doodle Jump === */
+function jumpGame(){
+  var c=_gCanvas(400),ctx=c.ctx,W=c.W,H=c.H,PW=64,PH=12,pw=28,ph=30;
+  var px=W/2-pw/2,py=H-90,vx=0,vy=-10,GRAV=0.42,BOUNCE=-11.6,dir=0,climb=0,score=0,alive=true,raf=null;
+  var plats=[];
+  function mkPlat(y){return {x:Math.random()*(W-PW),y:y,wrinkle:Math.random()<0.34,hit:false};}
+  var yy=H-30;for(var i=0;i<9;i++){plats.push(mkPlat(yy));yy-=Math.random()*28+56;}
+  plats[0].x=Math.max(0,Math.min(W-PW,px-18));plats[0].wrinkle=false;
+  el('gamePlay').innerHTML='<p class="ginstr">Mantén tocado el lado <b>izquierdo o derecho</b> para moverte. Rebotas solo: inyecta las arrugas (azules) y sube lo más alto. No caigas.</p>'+
+    '<div class="gstat"><div><div class="l">Altura</div><div class="v" id="jpH">0</div></div><div><div class="l">Glow</div><div class="v" id="jpS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());
+  function setDir(e){var r=c.cv.getBoundingClientRect();var x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;dir=x<c.W/2?-1:1;}
+  function down(e){e.preventDefault();setDir(e);}
+  function move(e){if(dir!==0){e.preventDefault();setDir(e);}}
+  function up(){dir=0;}
+  c.cv.addEventListener('pointerdown',down);c.cv.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
+  function key(e){if(e.code==='ArrowLeft')dir=-1;else if(e.code==='ArrowRight')dir=1;}
+  function keyup(){dir=0;}
+  window.addEventListener('keydown',key);window.addEventListener('keyup',keyup);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('pointerup',up);window.removeEventListener('keydown',key);window.removeEventListener('keyup',keyup);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('pointerup',up);window.removeEventListener('keydown',key);window.removeEventListener('keyup',keyup);var m=Math.round(climb/10);gEnd(score+m,'Subiste '+m+' m · '+score+' glow');}
+  function loop(){
+    if(!alive)return;
+    vx=dir*5.2;px+=vx;if(px<-pw)px=W;if(px>W)px=-pw;
+    vy+=GRAV;py+=vy;
+    if(vy>0)plats.forEach(function(p){if(px+pw>p.x&&px<p.x+PW&&py+ph>p.y&&py+ph<p.y+PH+14){vy=BOUNCE;if(p.wrinkle&&!p.hit){p.hit=true;score+=40;el('jpS').textContent=score;}}});
+    if(py<H*0.42){var d=H*0.42-py;py=H*0.42;plats.forEach(function(p){p.y+=d;});climb+=d;el('jpH').textContent=Math.round(climb/10);}
+    plats=plats.filter(function(p){return p.y<H+24;});
+    while(plats.length<9){var top=Math.min.apply(null,plats.map(function(p){return p.y;}));plats.push(mkPlat(top-(Math.random()*28+56)));}
+    if(py>H+12)return end();
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    plats.forEach(function(p){
+      ctx.fillStyle=p.wrinkle?(p.hit?'rgba(94,122,153,.4)':'#5E7A99'):'rgba(242,237,230,.9)';
+      _rr(ctx,p.x,p.y,PW,PH,6);ctx.fill();
+      if(p.wrinkle&&!p.hit){ctx.strokeStyle='#0D0D0D';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x+14,p.y+6);ctx.lineTo(p.x+PW-14,p.y+6);ctx.stroke();}
+    });
+    _drawDoc(ctx,px,py,pw,ph);
+    raf=requestAnimationFrame(loop);
+  }
+  G.replay=function(){openGame('jump');};loop();
+}
+
+
+/* ===== 5 JUEGOS DE ACCIÓN ADICIONALES (canvas) ===== */
+
+/* A) Inyección Precisa — detén el marcador en la zona dorada */
+function precisionGame(){
+  var c=_gCanvas(340),ctx=c.ctx,W=c.W,H=c.H;
+  var lives=3,score=0,hits=0,alive=true,raf=null,pos=0,dir=1,speed=0.9,zoneC=0.5,zoneW=0.26,barX=30,barW=W-60,barY=H*0.56;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca cuando el marcador entre en la <b>zona dorada</b> para inyectar con precisión. 3 vidas; la zona se achica con cada acierto.</p><div class="gstat"><div><div class="l">Vidas</div><div class="v" id="prV"></div></div><div><div class="l">Aciertos</div><div class="v" id="prS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());el('prV').innerHTML=hearts(lives);
+  function newZone(){zoneW=Math.max(0.08,0.26-hits*0.012);zoneC=zoneW/2+Math.random()*(1-zoneW);speed=0.9+hits*0.05;}
+  newZone();
+  function tap(){if(!alive)return;if(pos>=zoneC-zoneW/2&&pos<=zoneC+zoneW/2){hits++;score+=Math.round(100*(0.26/zoneW));el('prS').textContent=hits;toast('&#10003; Preciso');newZone();}else{lives--;el('prV').innerHTML=hearts(lives);if(lives<=0)return end();toast('&#10007; Falló');}}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();tap();});
+  function key(e){if(e.code==='Space'){e.preventDefault();tap();}}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);gEnd(score,hits+' inyecciones precisas');}
+  function loop(){if(!alive)return;pos+=dir*speed*0.016;if(pos>1){pos=1;dir=-1;}if(pos<0){pos=0;dir=1;}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    _drawDoc(ctx,W/2-15,barY-104,30,44);
+    ctx.fillStyle='rgba(255,255,255,.10)';_rr(ctx,barX,barY-10,barW,20,10);ctx.fill();
+    ctx.fillStyle='rgba(201,172,115,.9)';_rr(ctx,barX+(zoneC-zoneW/2)*barW,barY-10,zoneW*barW,20,10);ctx.fill();
+    var mx=barX+pos*barW;ctx.fillStyle='#F2EDE6';_rr(ctx,mx-3,barY-20,6,40,3);ctx.fill();
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('precise');};loop();
+}
+
+/* B) Glow Catcher — arrastra la bandeja, atrapa ✦ y evita microbios */
+function catchGame2(){
+  var c=_gCanvas(360),ctx=c.ctx,W=c.W,H=c.H,trayW=72,trayX=W/2-trayW/2,trayY=H-28;
+  var items=[],score=0,lives=3,alive=true,raf=null,spawn=40,speed=120;
+  el('gamePlay').innerHTML='<p class="ginstr">Arrastra para mover la bandeja. Atrapa &#10022; glow y evita los microbios. 3 vidas.</p><div class="gstat"><div><div class="l">Vidas</div><div class="v" id="caV"></div></div><div><div class="l">Glow</div><div class="v" id="caS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());el('caV').innerHTML=hearts(lives);
+  function setX(e){var r=c.cv.getBoundingClientRect();var x=((e.touches?e.touches[0].clientX:e.clientX)-r.left)*(W/r.width);trayX=Math.max(0,Math.min(W-trayW,x-trayW/2));}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();setX(e);});
+  c.cv.addEventListener('pointermove',function(e){if(e.buttons){e.preventDefault();setX(e);}});
+  c.cv.addEventListener('touchmove',function(e){e.preventDefault();setX(e);},{passive:false});
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);};
+  function end(){alive=false;cancelAnimationFrame(raf);gEnd(score,score+' glow recolectado');}
+  function loop(){if(!alive)return;speed=120+score*1.1;
+    if(--spawn<=0){items.push({x:20+Math.random()*(W-40),y:-12,bad:Math.random()<0.32,r:13});spawn=Math.max(16,38-score*0.12);}
+    for(var i=items.length-1;i>=0;i--){var o=items[i];o.y+=speed*0.016;
+      if(o.y>=trayY-10&&o.y<=trayY+16&&o.x>=trayX-6&&o.x<=trayX+trayW+6){if(o.bad){lives--;el('caV').innerHTML=hearts(lives);toast('&#10007; microbio');if(lives<=0){items.splice(i,1);return end();}}else{score+=10;el('caS').textContent=score;}items.splice(i,1);continue;}
+      if(o.y>H+14)items.splice(i,1);}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    items.forEach(function(o){if(o.bad){ctx.fillStyle='#B4453C';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill();ctx.fillStyle='#0D0D0D';ctx.beginPath();ctx.arc(o.x-3,o.y-2,2,0,7);ctx.arc(o.x+3,o.y-2,2,0,7);ctx.fill();}else{ctx.save();ctx.translate(o.x,o.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#C2CAD2';_rr(ctx,-9,-9,18,18,3);ctx.fill();ctx.restore();}});
+    ctx.fillStyle='#F2EDE6';_rr(ctx,trayX,trayY,trayW,12,6);ctx.fill();ctx.fillStyle='#C2CAD2';_rr(ctx,trayX,trayY,trayW,4,2);ctx.fill();
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('catch');};loop();
+}
+
+/* C) Esquiva Glow — 3 carriles: muévete al carril seguro */
+function dodgeGame(){
+  var c=_gCanvas(380),ctx=c.ctx,W=c.W,H=c.H,L=3,lane=1,docY=H-54;
+  function laneX(i){return W*(i+0.5)/L;}
+  var items=[],score=0,lives=3,alive=true,raf=null,spawn=46,speed=150;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca <b>izquierda/derecha</b> para cambiar de carril. Esquiva los microbios y recoge &#10022;. 3 vidas; acelera.</p><div class="gstat"><div><div class="l">Vidas</div><div class="v" id="doV"></div></div><div><div class="l">Glow</div><div class="v" id="doS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());el('doV').innerHTML=hearts(lives);
+  function tap(e){var r=c.cv.getBoundingClientRect();var x=((e.touches?e.touches[0].clientX:e.clientX)-r.left)*(W/r.width);if(x<W/2)lane=Math.max(0,lane-1);else lane=Math.min(L-1,lane+1);}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();tap(e);});
+  function key(e){if(e.code==='ArrowLeft')lane=Math.max(0,lane-1);else if(e.code==='ArrowRight')lane=Math.min(L-1,lane+1);}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);gEnd(score,score+' glow · buen reflejo');}
+  function loop(){if(!alive)return;speed=150+score*1.4;
+    if(--spawn<=0){items.push({lane:Math.floor(Math.random()*L),y:-12,bad:Math.random()<0.55,r:14});spawn=Math.max(20,46-score*0.18);}
+    for(var i=items.length-1;i>=0;i--){var o=items[i];o.y+=speed*0.016;
+      if(o.y>=docY-16&&o.y<=docY+16&&o.lane===lane){if(o.bad){lives--;el('doV').innerHTML=hearts(lives);toast('&#10007;');if(lives<=0){items.splice(i,1);return end();}}else{score+=12;el('doS').textContent=score;}items.splice(i,1);continue;}
+      if(o.y>H+14)items.splice(i,1);}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    for(var k=1;k<L;k++){ctx.strokeStyle='rgba(139,158,176,.12)';ctx.beginPath();ctx.moveTo(W*k/L,0);ctx.lineTo(W*k/L,H);ctx.stroke();}
+    items.forEach(function(o){var x=laneX(o.lane);if(o.bad){ctx.fillStyle='#B4453C';ctx.beginPath();ctx.arc(x,o.y,o.r,0,7);ctx.fill();}else{ctx.save();ctx.translate(x,o.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#C2CAD2';_rr(ctx,-9,-9,18,18,3);ctx.fill();ctx.restore();}});
+    _drawDoc(ctx,laneX(lane)-15,docY-22,30,44);
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('dodge');};loop();
+}
+
+/* D) Pulso Estable — flappy: toca para elevar y pasa los huecos */
+function flappyGame(){
+  var c=_gCanvas(400),ctx=c.ctx,W=c.W,H=c.H,y=H/2,vy=0,GRAV=0.5,FLAP=-7.6,x=70,r=12,gap=132;
+  var pipes=[],score=0,alive=true,raf=null,spawn=0,speed=130;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca para <b>elevar</b> la jeringa y pasa por los huecos entre capas de piel. Un choque y termina.</p><div class="gstat"><div><div class="l">Capas pasadas</div><div class="v" id="flS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());
+  function flap(){if(!alive)return;vy=FLAP;}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();flap();});
+  function key(e){if(e.code==='Space'){e.preventDefault();flap();}}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);gEnd(score*15,score+' capas pasadas');}
+  function loop(){if(!alive)return;vy+=GRAV;y+=vy;
+    if(--spawn<=0){pipes.push({x:W+20,gy:46+Math.random()*(H-92-gap),passed:false});spawn=Math.round(112-Math.min(46,score*2));}
+    speed=130+score*4;
+    for(var i=pipes.length-1;i>=0;i--){var p=pipes[i];p.x-=speed*0.016;
+      if(!p.passed&&p.x+44<x){p.passed=true;score++;el('flS').textContent=score;}
+      if(x+r>p.x&&x-r<p.x+44&&(y-r<p.gy||y+r>p.gy+gap))return end();
+      if(p.x<-50)pipes.splice(i,1);}
+    if(y+r>H||y-r<0)return end();
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    pipes.forEach(function(p){ctx.fillStyle='#5E7A99';_rr(ctx,p.x,0,44,p.gy,4);ctx.fill();_rr(ctx,p.x,p.gy+gap,44,H-(p.gy+gap),4);ctx.fill();});
+    ctx.fillStyle='#C2CAD2';ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.fillStyle='#F2EDE6';ctx.fillRect(x+r-2,y-3,10,6);
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('flappy');};loop();
+}
+
+/* E) Glow Stack — apila capas de sérum lo más alto posible */
+function stackGame(){
+  var c=_gCanvas(400),ctx=c.ctx,W=c.W,H=c.H,bh=22,baseW=160;
+  var blocks=[],cur=null,dir=1,speed=2.6,score=0,alive=true,raf=null;
+  function topY(n){return H-30-n*bh;}
+  function spawnBlock(){var prev=blocks[blocks.length-1];cur={w:prev.w,x:0};var fromLeft=Math.random()<0.5;cur.x=fromLeft?0:W-cur.w;dir=fromLeft?1:-1;speed=2.6+blocks.length*0.12;}
+  function reset(){blocks=[{x:W/2-baseW/2,w:baseW}];spawnBlock();}
+  el('gamePlay').innerHTML='<p class="ginstr">Toca para <b>soltar</b> la capa de sérum sobre la anterior. Lo que sobresale se cae; apila lo más alto posible.</p><div class="gstat"><div><div class="l">Capas</div><div class="v" id="stS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());
+  function drop(){if(!alive||!cur)return;var prev=blocks[blocks.length-1];var left=Math.max(cur.x,prev.x),right=Math.min(cur.x+cur.w,prev.x+prev.w),ov=right-left;
+    if(ov<=2)return end();blocks.push({x:left,w:ov});score++;el('stS').textContent=score;if(ov>baseW*0.86)toast('&#10003; Perfecto');spawnBlock();}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();drop();});
+  function key(e){if(e.code==='Space'){e.preventDefault();drop();}}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);gEnd(score*20,score+' capas apiladas');}
+  reset();
+  function loop(){if(!alive)return;
+    if(cur){cur.x+=dir*speed;if(cur.x<0){cur.x=0;dir=1;}if(cur.x+cur.w>W){cur.x=W-cur.w;dir=-1;}}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    var camShift=Math.max(0,(blocks.length-6)*bh);
+    blocks.forEach(function(b,n){var yy=topY(n)+camShift;if(yy>-bh&&yy<H){ctx.fillStyle=n%2?'#C2CAD2':'#8B9EB0';_rr(ctx,b.x,yy,b.w,bh-2,4);ctx.fill();}});
+    if(cur){var cyy=topY(blocks.length)+camShift;ctx.fillStyle='#F2EDE6';_rr(ctx,cur.x,cyy,cur.w,bh-2,4);ctx.fill();}
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('stack');};loop();
+}
+
+var GAMES={
+  jump:   {nm:'Salto Glow',     d:'Acción',  ic:'⬆',  mount:jumpGame},
+  reflex: {nm:'Reflejo Glow',   d:'Reflejos',ic:'⚡',  mount:reflexGame},
+  mv:     {nm:'Mito o Verdad',  d:'Educativo',ic:'✓',  mount:mvGame},
+  anagram:{nm:'Anagrama',       d:'Palabras',ic:'A',  mount:anagramGame}
+};
+
+function buildGames(){var g=el('gamesGrid');g.innerHTML='';
+  Object.keys(GAMES).forEach(function(k){var G2=GAMES[k];var d=document.createElement('button');d.className='gtile';
+    d.innerHTML='<div class="gico">'+G2.ic+'</div><div><div class="gd">'+G2.d+'</div><div class="gname">'+G2.nm+'</div></div>';
+    d.onclick=function(){openGame(k);};g.appendChild(d);});}
+buildGames();
+// Auto-abrir un juego si viene ?game=clave (desde la app)
+(function(){var m=location.search.match(/[?&]game=([a-z]+)/);if(m&&GAMES[m[1]])openGame(m[1]);})();
+</script>
+</body>
+</html>

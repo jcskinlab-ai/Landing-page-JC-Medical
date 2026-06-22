@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glow Snake — Glow Clinic</title>
+<link rel="stylesheet" href="../../shared/theme.css?v=16">
+<style>
+  .game-wrap{display:flex;flex-direction:column;gap:12px;align-items:center}
+  .hud{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .stat{background:var(--white);border:1px solid var(--light);border-radius:12px;padding:8px 14px;text-align:center;min-width:90px}
+  .stat small{color:#7a869a;font-size:10px;text-transform:uppercase;letter-spacing:.05em;display:block}
+  .stat b{font-size:18px;color:var(--blue)}
+  canvas{border-radius:14px;background:#0D0D0D;touch-action:none;max-width:100%;height:auto}
+  .pad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:6px;justify-content:center}
+  .pad button{border:1px solid var(--light);background:var(--white);border-radius:12px;font-size:20px;cursor:pointer}
+  .pad .sp{visibility:hidden}
+  #muteBtn{cursor:pointer;border:1px solid var(--light);background:var(--white);border-radius:12px;padding:9px 12px;font-size:16px}
+  .hint{font-size:12px;color:#7a869a;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <span class="logo">◆</span>
+    <span class="brand"><strong>Glow Clinic</strong><small>by JC Medical · Glow Snake</small></span>
+    <span class="spacer"></span>
+    <button id="muteBtn" title="Silenciar">🔊</button>
+    <a class="back-btn" href="../../index.html">← Menú</a>
+  </header>
+
+  <main class="game-wrap">
+    <section class="hud">
+      <div class="stat"><small>Glow</small><b id="score">0</b></div>
+      <div class="stat"><small>Largo</small><b id="len">3</b></div>
+      <div class="stat"><small>Récord</small><b id="best">0</b></div>
+    </section>
+    <canvas id="game" width="360" height="360"></canvas>
+    <p class="hint">Recoge ✦ glow para crecer. Desliza o usa las flechas. No choques con los bordes ni contigo.</p>
+    <div class="pad">
+      <span class="sp"></span><button data-d="up">▲</button><span class="sp"></span>
+      <button data-d="left">◀</button><span class="sp"></span><button data-d="right">▶</button>
+      <span class="sp"></span><button data-d="down">▼</button><span class="sp"></span>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h1 id="ovTitle">Glow Snake</h1>
+    <p id="ovText"></p>
+    <button id="ovBtn" class="btn btn-blue" style="margin-top:8px">Jugar</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="../../shared/sound.js?v=16"></script>
+<script src="game.js"></script>
+</body>
+</html>

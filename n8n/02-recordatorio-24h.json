@@ -1,0 +1,75 @@
+{
+  "name": "JC Medical · Recordatorio 24 h antes",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] }
+      },
+      "id": "cron",
+      "name": "Cada hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://TU-FUENTE-DE-CITAS/api/citas?desde=manana",
+        "options": {}
+      },
+      "id": "fetch-citas",
+      "name": "Obtener citas de mañana",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": { "fieldToSplitOut": "data", "options": {} },
+      "id": "split",
+      "name": "Separar citas",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [{ "leftValue": "={{$json.recordatorioEnviado}}", "rightValue": "", "operator": { "type": "boolean", "operation": "false", "singleValue": true } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-pendiente",
+      "name": "¿No recordada aún?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/PHONE_NUMBER_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$json.telefono}}\",\"type\":\"text\",\"text\":{\"body\":\"Hola {{$json.nombre}} 👋 Te recordamos tu cita en JC Medical mañana {{$json.fecha}} a las {{$json.hora}}. Llega 5 min antes. Para reagendar, responde este mensaje. 🌿\"}}",
+        "options": {}
+      },
+      "id": "wa-recordatorio",
+      "name": "Enviar recordatorio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 220]
+    }
+  ],
+  "connections": {
+    "Cada hora": { "main": [[{ "node": "Obtener citas de mañana", "type": "main", "index": 0 }]] },
+    "Obtener citas de mañana": { "main": [[{ "node": "Separar citas", "type": "main", "index": 0 }]] },
+    "Separar citas": { "main": [[{ "node": "¿No recordada aún?", "type": "main", "index": 0 }]] },
+    "¿No recordada aún?": { "main": [[{ "node": "Enviar recordatorio", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

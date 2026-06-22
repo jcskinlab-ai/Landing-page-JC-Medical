@@ -1,0 +1,59 @@
+{
+  "name": "JC Medical · Reseña post-visita (Google)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "days", "triggerAtHour": 19 }] }
+      },
+      "id": "cron-dia",
+      "name": "Cada día 19:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://TU-FUENTE-DE-CITAS/api/citas?estado=atendida&dia=hoy",
+        "options": {}
+      },
+      "id": "fetch-atendidas",
+      "name": "Citas atendidas hoy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": { "fieldToSplitOut": "data", "options": {} },
+      "id": "split2",
+      "name": "Separar",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/PHONE_NUMBER_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$json.telefono}}\",\"type\":\"text\",\"text\":{\"body\":\"Hola {{$json.nombre}} 🌿 Gracias por tu visita a JC Medical. ¿Nos ayudas con una reseña en Google? Nos toma 1 minuto y nos ayuda muchísimo: https://g.page/r/TU-ID-DE-GOOGLE/review\"}}",
+        "options": {}
+      },
+      "id": "wa-resena",
+      "name": "Pedir reseña",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Cada día 19:00": { "main": [[{ "node": "Citas atendidas hoy", "type": "main", "index": 0 }]] },
+    "Citas atendidas hoy": { "main": [[{ "node": "Separar", "type": "main", "index": 0 }]] },
+    "Separar": { "main": [[{ "node": "Pedir reseña", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glow Lab — Glow Clinic</title>
+<link rel="stylesheet" href="../../shared/theme.css?v=16">
+<style>
+  .game-wrap{display:flex;flex-direction:column;gap:12px;align-items:center}
+  .hud{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .stat{background:var(--white);border:1px solid var(--light);border-radius:12px;padding:8px 14px;text-align:center;min-width:84px}
+  .stat small{color:#7a869a;font-size:10px;text-transform:uppercase;letter-spacing:.05em;display:block}
+  .stat b{font-size:17px;color:var(--blue)}
+  .bar{width:min(92vw,364px);height:9px;background:var(--light);border-radius:6px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--green));width:0;transition:width .2s}
+  canvas{border-radius:14px;background:#0D0D0D;touch-action:none;max-width:100%;height:auto}
+  #muteBtn{cursor:pointer;border:1px solid var(--light);background:var(--white);border-radius:12px;padding:9px 12px;font-size:16px}
+  .hint{font-size:12px;color:#7a869a;text-align:center;max-width:380px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <span class="logo">◆</span>
+    <span class="brand"><strong>Glow Clinic</strong><small>by JC Medical · Glow Lab</small></span>
+    <span class="spacer"></span>
+    <button id="muteBtn" title="Silenciar">🔊</button>
+    <a class="back-btn" href="../../index.html">← Menú</a>
+  </header>
+
+  <main class="game-wrap">
+    <section class="hud">
+      <div class="stat"><small>Nivel</small><b id="level">1</b></div>
+      <div class="stat"><small>Movimientos</small><b id="moves">20</b></div>
+      <div class="stat"><small>Puntaje</small><b id="score">0</b></div>
+      <div class="stat"><small>Meta</small><b id="target">1000</b></div>
+    </section>
+    <div class="bar"><i id="goalFill"></i></div>
+    <canvas id="game" width="364" height="416"></canvas>
+    <p class="hint">Intercambia dos insumos vecinos para alinear <b>3 o más</b> iguales. Llega a la <b>meta</b> antes de quedarte sin movimientos.</p>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h1 id="ovTitle">Glow Lab</h1>
+    <p id="ovText"></p>
+    <button id="ovBtn" class="btn btn-blue" style="margin-top:8px">Jugar</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="../../shared/sound.js?v=16"></script>
+<script src="game.js"></script>
+</body>
+</html>

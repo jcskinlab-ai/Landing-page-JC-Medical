@@ -1,0 +1,284 @@
+/* ============================================================================
+ * style.css — Estilo premium clínica para Clinic Tycoon — JC Medical
+ * Paleta: blanco, gris claro, azul metálico (#2A3B52), dorado (#B9C2CB).
+ * ==========================================================================*/
+
+:root {
+  --white: #ffffff;
+  --bg: #eef1f5;
+  --light: #d9dee6;
+  --blue: #2a3b52;
+  --blue-soft: #3c5174;
+  --gold: #B9C2CB;
+  --gold-soft: #d8c290;
+  --green: #4caf7d;
+  --red: #e05b5b;
+  --text: #2a3b52;
+  --shadow: 0 8px 28px rgba(42, 59, 82, 0.14);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #f7f9fc 0%, var(--bg) 60%) fixed;
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 14px clamp(8px, 2vw, 22px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100%;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: var(--white);
+  border: 1px solid var(--light);
+  border-radius: 16px;
+  padding: 10px 16px;
+  box-shadow: var(--shadow);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .logo {
+  font-size: 26px;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  background: var(--blue);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-text strong { font-size: 16px; color: var(--blue); }
+.brand-text small { font-size: 11px; color: #7a869a; }
+
+.stats {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.stat { display: flex; flex-direction: column; gap: 3px; min-width: 70px; }
+.stat-label { font-size: 11px; color: #7a869a; text-transform: uppercase; letter-spacing: .04em; }
+.stat-value { font-size: 20px; font-weight: 800; color: var(--blue); }
+.money-stat .stat-value { color: #2f8a5b; }
+
+.level-stat { min-width: 130px; }
+.xp-bar {
+  width: 130px; height: 9px;
+  background: var(--light);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.xp-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--gold), var(--gold-soft));
+  border-radius: 6px;
+  transition: width .35s ease;
+}
+
+.stars { font-size: 18px; letter-spacing: 1px; }
+.star { color: var(--light); }
+.star.full { color: var(--gold); }
+.star.half { background: linear-gradient(90deg, var(--gold) 50%, var(--light) 50%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.rep-num { font-size: 13px; color: #7a869a; margin-left: 6px; font-weight: 700; }
+
+.icon-btn {
+  width: 42px; height: 42px;
+  border: 1px solid var(--light);
+  background: var(--white);
+  border-radius: 12px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: transform .1s, background .2s;
+}
+.icon-btn:hover { background: var(--bg); transform: translateY(-1px); }
+.icon-btn:active { transform: translateY(0); }
+
+/* ---------- Escenario ---------- */
+#stage {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+#game {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 960px;
+  height: auto;
+  aspect-ratio: 960 / 600;
+  background: var(--bg);
+  border: 1px solid var(--light);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* ---------- Sidebar ---------- */
+#sidebar {
+  width: 250px;
+  flex: 0 0 250px;
+  background: var(--white);
+  border: 1px solid var(--light);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#sidebar h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #7a869a; }
+
+#treatList { display: flex; flex-direction: column; gap: 7px; }
+.treat {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.treat.locked { opacity: .5; }
+.treat .dot {
+  width: 22px; height: 22px; border-radius: 50%; flex: 0 0 22px;
+  display: grid; place-items: center;
+  color: #fff; font-size: 13px; font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+}
+.treat .tname { font-weight: 700; color: var(--blue); }
+.treat .tinfo { margin-left: auto; font-size: 11px; color: #7a869a; white-space: nowrap; }
+
+.buy-btn {
+  margin-top: 4px;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+  color: #4a3a17;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(196, 169, 106, .4);
+  transition: transform .1s, filter .2s;
+}
+.buy-btn b { font-weight: 900; }
+.buy-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.05); }
+.buy-btn:active:not(:disabled) { transform: translateY(0); }
+.buy-btn:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+.buy-btn.maxed { background: var(--light); color: #7a869a; }
+
+.hint {
+  font-size: 12px;
+  color: #7a869a;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px;
+  line-height: 1.4;
+  border-left: 3px solid var(--light);
+  transition: all .2s;
+}
+.hint.active {
+  color: var(--blue);
+  font-weight: 700;
+  border-left-color: var(--gold);
+  background: #fbf6ea;
+}
+
+/* ---------- Toast ---------- */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translate(-50%, 20px);
+  background: var(--blue);
+  color: #fff;
+  padding: 11px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  z-index: 20;
+  max-width: 90%;
+  text-align: center;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Overlay / tutorial ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 59, 82, .55);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.overlay.show { display: flex; }
+.modal {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 28px 30px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  border-top: 5px solid var(--gold);
+  animation: pop .25s ease;
+}
+@keyframes pop { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal h1 { font-size: 24px; color: var(--blue); }
+.modal h1 small { font-size: 14px; color: var(--gold); font-weight: 700; }
+.modal .sub { color: var(--gold); font-size: 13px; margin: 4px 0 16px; font-weight: 600; }
+.modal ol { margin: 0 0 20px 18px; display: flex; flex-direction: column; gap: 9px; }
+.modal li { font-size: 14px; line-height: 1.45; color: #41506a; }
+.modal b { color: var(--blue); }
+.start-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--blue-soft), var(--blue));
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(42,59,82,.35);
+  transition: transform .1s, filter .2s;
+}
+.start-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.start-btn:active { transform: translateY(0); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  #stage { flex-direction: column; }
+  #sidebar { width: 100%; flex: 1 1 auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  #sidebar h2 { width: 100%; }
+  #treatList { flex: 1 1 280px; }
+  .buy-btn { flex: 1 1 160px; }
+  .hint { flex: 1 1 100%; }
+  .stats { gap: 14px; }
+}
+@media (max-width: 560px) {
+  .brand-text { display: none; }
+  .stat { min-width: 56px; }
+  .stat-value { font-size: 16px; }
+  .level-stat, .xp-bar { min-width: 90px; width: 90px; }
+}

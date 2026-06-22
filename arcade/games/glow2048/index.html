@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glow 2048 — Glow Clinic</title>
+<link rel="stylesheet" href="../../shared/theme.css?v=16">
+<style>
+  .game-wrap{display:flex;flex-direction:column;gap:12px;align-items:center}
+  .hud{display:flex;gap:10px;align-items:center;width:100%;max-width:460px;justify-content:center}
+  .stat{background:var(--white);border:1px solid var(--light);border-radius:12px;padding:8px 14px;text-align:center;min-width:90px}
+  .stat small{color:#7a869a;font-size:10px;text-transform:uppercase;letter-spacing:.05em;display:block}
+  .stat b{font-size:18px;color:var(--blue)}
+  #board{position:relative;background:#cdd6e0;border-radius:14px;padding:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:min(92vw,420px);aspect-ratio:1;touch-action:none}
+  .cell{background:#dde4ec;border-radius:10px}
+  .tile{position:absolute;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;color:#fff;transition:left .12s,top .12s,transform .1s;box-shadow:0 2px 6px rgba(42,59,82,.18)}
+  .tile .ic{font-size:min(6vw,26px);line-height:1}
+  .tile .nm{font-size:min(2.6vw,11px);font-weight:700;opacity:.92;margin-top:2px;padding:0 4px;text-align:center}
+  .tile.pop{animation:pop2048 .16s ease}
+  @keyframes pop2048{0%{transform:scale(.6)}100%{transform:scale(1)}}
+  .controls{display:flex;gap:10px}
+  #muteBtn{cursor:pointer;border:1px solid var(--light);background:var(--white);border-radius:12px;padding:9px 12px;font-size:16px}
+  .hint{font-size:12px;color:#7a869a;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <span class="logo">◆</span>
+    <span class="brand"><strong>Glow Clinic</strong><small>by JC Medical · Glow 2048</small></span>
+    <span class="spacer"></span>
+    <button id="muteBtn" title="Silenciar">🔊</button>
+    <a class="back-btn" href="../../index.html">← Menú</a>
+  </header>
+
+  <main class="game-wrap">
+    <section class="hud">
+      <div class="stat"><small>Puntaje</small><b id="score">0</b></div>
+      <div class="stat"><small>Récord</small><b id="best">0</b></div>
+      <div class="stat"><small>Tope</small><b id="topTier">Limpieza</b></div>
+    </section>
+    <div id="board"></div>
+    <p class="hint">Desliza (o flechas) para fusionar. Une dos iguales y sube el tratamiento: de <b>Limpieza</b> hasta <b>Exosomas</b>.</p>
+    <div class="controls">
+      <button id="newBtn" class="btn btn-gold">↺ Nueva partida</button>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h1 id="ovTitle">Glow 2048</h1>
+    <p id="ovText"></p>
+    <button id="ovBtn" class="btn btn-blue" style="margin-top:8px">Jugar</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="../../shared/sound.js?v=16"></script>
+<script src="game.js"></script>
+</body>
+</html>

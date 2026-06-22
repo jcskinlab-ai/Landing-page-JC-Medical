@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consultorio Trivia — Glow Clinic</title>
+<link rel="stylesheet" href="../../shared/theme.css?v=16">
+<style>
+  .game-wrap{display:flex;flex-direction:column;gap:14px;align-items:center;max-width:520px;margin:0 auto;width:100%}
+  .hud{display:flex;gap:10px;width:100%;justify-content:center;flex-wrap:wrap}
+  .stat{background:var(--white);border:1px solid var(--light);border-radius:12px;padding:8px 14px;text-align:center;min-width:78px}
+  .stat small{color:#7a869a;font-size:10px;text-transform:uppercase;letter-spacing:.05em;display:block}
+  .stat b{font-size:17px;color:var(--blue)}
+  .timer{width:100%;height:8px;background:var(--light);border-radius:6px;overflow:hidden}
+  .timer > i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--green));width:100%;transition:width .1s linear}
+  .qcard{background:var(--white);border:1px solid var(--light);border-radius:16px;padding:20px;width:100%;box-shadow:var(--shadow)}
+  .qcat{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);font-weight:800}
+  .qtext{font-size:18px;color:var(--blue);font-weight:700;margin:8px 0 4px;line-height:1.3}
+  .opts{display:flex;flex-direction:column;gap:10px;width:100%}
+  .opt{text-align:left;padding:13px 16px;font-size:15px;border:2px solid var(--light);background:var(--white);border-radius:12px;cursor:pointer;transition:transform .08s,border-color .15s;color:var(--text)}
+  .opt:hover{border-color:var(--gold)}
+  .opt.ok{border-color:var(--green);background:#eafaf1}
+  .opt.no{border-color:var(--red);background:#fdeeee}
+  .opt:disabled{cursor:default}
+  #muteBtn{cursor:pointer;border:1px solid var(--light);background:var(--white);border-radius:12px;padding:9px 12px;font-size:16px}
+  .streak{font-size:12px;color:#7a869a;text-align:center;min-height:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <span class="logo">◆</span>
+    <span class="brand"><strong>Glow Clinic</strong><small>by JC Medical · Consultorio Trivia</small></span>
+    <span class="spacer"></span>
+    <button id="muteBtn" title="Silenciar">🔊</button>
+    <a class="back-btn" href="../../index.html">← Menú</a>
+  </header>
+
+  <main class="game-wrap">
+    <section class="hud">
+      <div class="stat"><small>Puntaje</small><b id="score">0</b></div>
+      <div class="stat"><small>Vidas</small><b id="lives">●●●</b></div>
+      <div class="stat"><small>Racha</small><b id="streak">0</b></div>
+      <div class="stat"><small>Récord</small><b id="best">0</b></div>
+    </section>
+    <div class="timer"><i id="timerFill"></i></div>
+    <div class="qcard">
+      <div class="qcat" id="qcat">Tratamientos</div>
+      <div class="qtext" id="qtext">…</div>
+      <div class="opts" id="opts"></div>
+      <div class="streak" id="streakMsg"></div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h1 id="ovTitle">Consultorio Trivia</h1>
+    <p id="ovText"></p>
+    <button id="ovBtn" class="btn btn-blue" style="margin-top:8px">Empezar</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="../../shared/sound.js?v=16"></script>
+<script src="game.js"></script>
+</body>
+</html>

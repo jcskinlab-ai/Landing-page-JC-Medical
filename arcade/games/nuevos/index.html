@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>JC Medical · Juegos nuevos</title>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F5F2EC;--surface:#fff;--ink:#1A1A14;--mute:#5C5A50;--line:rgba(20,20,15,.12);--accent:#54707F;--silver:#8A929B;--good:#4E8A72;--bad:#c0563f}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+html{background:#DCD7CC}
+body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);overflow:hidden;display:flex;flex-direction:column;height:100dvh;max-width:440px;margin:0 auto;box-shadow:0 24px 70px -28px rgba(0,0,0,.55)}
+.top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+.top .nm{font-family:'Marcellus';font-size:16px}
+.top .nm span{color:var(--accent)}
+.top button{font-family:'Jost';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);background:none;border:none;cursor:pointer}
+.hud{display:flex;gap:18px;align-items:center}
+.hud .s{font-size:11px;color:var(--mute);letter-spacing:.04em}
+.hud .s b{font-family:'Marcellus';font-size:18px;color:var(--ink);display:block;line-height:1}
+.stage{flex:1;position:relative;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+/* menu */
+.menu{position:absolute;inset:0;overflow-y:auto;padding:22px 18px 30px}
+.menu h1{font-family:'Marcellus';font-weight:400;font-size:30px;letter-spacing:-.01em}
+.menu h1 em{font-style:italic;color:var(--accent)}
+.menu p{color:var(--mute);font-size:13px;font-weight:300;margin-top:6px;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+.card{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;cursor:pointer;transition:transform .25s,box-shadow .25s;display:flex;flex-direction:column;gap:6px}
+.card:active{transform:scale(.97)}
+.card:hover{transform:translateY(-3px);box-shadow:0 16px 34px -22px rgba(40,38,30,.5)}
+.card .ic{font-size:26px}
+.card .t{font-family:'Marcellus';font-size:17px;line-height:1.1}
+.card .d{font-size:11.5px;color:var(--mute);font-weight:300;line-height:1.4}
+.card .rec{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:2px}
+/* overlay (intro / gameover) */
+.ov{position:absolute;inset:0;background:rgba(245,242,236,.92);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:5}
+.ov h2{font-family:'Marcellus';font-size:30px;font-weight:400}
+.ov p{color:var(--mute);font-size:13.5px;font-weight:300;margin-top:8px;max-width:280px;line-height:1.55}
+.ov .big{font-family:'Marcellus';font-size:54px;color:var(--accent);line-height:1;margin:10px 0}
+.btn{margin-top:18px;font-family:'Jost';font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:14px 26px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:10px}
+.hidden{display:none!important}
+/* DOM game helpers */
+#dom{position:absolute;inset:0}
+.lives{display:flex;gap:5px}
+.lives i{width:9px;height:9px;border-radius:50%;background:var(--bad)}
+.lives i.off{background:var(--line)}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="nm">JC <span>Medical</span> · Juegos</div>
+  <div class="hud" id="hud"></div>
+  <button id="menuBtn" class="hidden" onclick="toMenu()">☰ Menú</button>
+</div>
+<div class="stage">
+  <canvas id="cv" class="hidden"></canvas>
+  <div id="dom" class="hidden"></div>
+  <div class="menu" id="menu"></div>
+  <div class="ov hidden" id="ov"></div>
+</div>
+
+<script>
+// ───────── núcleo común ─────────
+const REC_KEY='jcm_records';
+function getRecs(){try{return JSON.parse(localStorage.getItem(REC_KEY)||'{}')}catch(e){return{}}}
+function bestOf(rk){return getRecs()[rk]||0;}
+function saveBest(rk,score){const r=getRecs();if(score>(r[rk]||0)){r[rk]=score;try{localStorage.setItem(REC_KEY,JSON.stringify(r))}catch(e){}}return r[rk]||0;}
+function fmt(n){return (n||0).toLocaleString('es-CL');}
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),dom=$('#dom'),ov=$('#ov'),hud=$('#hud'),menuEl=$('#menu'),menuBtn=$('#menuBtn');
+let ctx=cv.getContext('2d'),W=0,H=0,raf=0,game=null;
+function resize(){const r=cv.getBoundingClientRect();const d=window.devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;ctx.setTransform(d,0,0,d,1,1);W=r.width;H=r.height;}
+window.addEventListener('resize',()=>{if(!cv.classList.contains('hidden'))resize();});
+function setHud(html){hud.innerHTML=html;}
+function showOverlay(html){ov.innerHTML=html;ov.classList.remove('hidden');}
+function hideOverlay(){ov.classList.add('hidden');}
+function stopRAF(){if(raf)cancelAnimationFrame(raf);raf=0;}
+function toMenu(){stopRAF();game=null;cv.classList.add('hidden');dom.classList.add('hidden');dom.innerHTML='';hideOverlay();menuEl.classList.remove('hidden');menuBtn.classList.add('hidden');setHud('');location.hash='';}
+
+// ───────── catálogo de juegos nuevos ─────────
+const GAMES=[
+ {id:'corta',  rk:'acc_corta',  ic:'🔪', t:'Corta Toxinas', d:'Corta los viales, evita los vencidos (bomba).'},
+ {id:'caza',   rk:'acc_caza',   ic:'⚡', t:'Caza Arrugas', d:'Toca las arrugas antes de que se marquen. 30s.'},
+ {id:'jeringa',rk:'acc_jeringa',ic:'💉', t:'Inyección Perfecta', d:'Detén el émbolo en la zona verde. Precisión.'},
+ {id:'tono',   rk:'acc_tono',   ic:'🎨', t:'Tono de Piel', d:'Iguala el tono objetivo con el deslizador.'},
+ {id:'diana',  rk:'acc_diana',  ic:'🎯', t:'Diana de Puntos', d:'Da en los puntos de inyección. Se achican.'}
+];
+function renderMenu(){
+ menuEl.innerHTML='<h1>Juegos <em>nuevos</em></h1><p>Primera tanda jugable para probar. Cada uno guarda tu récord. Toca para jugar.</p><div class="grid">'+
+  GAMES.map(g=>`<button class="card" onclick="start('${g.id}')"><div class="ic">${g.ic}</div><div class="t">${g.t}</div><div class="d">${g.d}</div><div class="rec">Récord: ${fmt(bestOf(g.rk))}</div></button>`).join('')+'</div>';
+}
+renderMenu();
+
+function start(id){
+ const g=GAMES.find(x=>x.id===id);if(!g)return;
+ menuEl.classList.add('hidden');menuBtn.classList.remove('hidden');hideOverlay();
+ location.hash=id;
+ ({corta:gCorta,caza:gCaza,jeringa:gJeringa,tono:gTono,diana:gDiana})[id](g);
+}
+function gameOver(g,score){
+ const best=saveBest(g.rk,score);
+ const rec=score>=best&&score>0;
+ showOverlay(`<h2>${rec?'¡Nuevo récord!':'Fin'}</h2><div class="big">${fmt(score)}</div><p>Récord: ${fmt(best)} puntos</p><button class="btn" onclick="start('${g.id}')">Jugar de nuevo</button><button class="btn ghost" onclick="toMenu()">Otro juego</button>`);
+}
+
+// ═════════ 1 · CORTA TOXINAS (canvas, slice) ═════════
+function gCorta(g){
+ cv.classList.remove('hidden');resize();
+ let score=0,lives=3,objs=[],spawnT=0,last=performance.now(),trail=[],over=false;
+ function lifeHud(){setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="lives">${[0,1,2].map(i=>`<i class="${i<lives?'':'off'}"></i>`).join('')}</div>`);}
+ lifeHud();
+ function spawn(){const bomb=Math.random()<0.18;const x=40+Math.random()*(W-80);objs.push({x,y:H+30,vx:(W/2-x)*0.004+(Math.random()-.5)*2,vy:-(9+Math.random()*3),r:24,bomb,rot:Math.random()*6,vr:(Math.random()-.5)*.2,sliced:false});}
+ let down=false;
+ function pos(e){const r=cv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
+ function dn(e){down=true;trail=[];}
+ function mv(e){if(!down)return;e.preventDefault();const p=pos(e);trail.push(p);if(trail.length>10)trail.shift();
+   objs.forEach(o=>{if(o.sliced)return;const d=Math.hypot(o.x-p.x,o.y-p.y);if(d<o.r+8){o.sliced=true;if(o.bomb){lives--;lifeHud();if(lives<=0)end();}else{score+=10;lifeHud();}}});}
+ function up(){down=false;trail=[];}
+ cv.ontouchstart=dn;cv.ontouchmove=mv;cv.ontouchend=up;cv.onmousedown=dn;cv.onmousemove=mv;cv.onmouseup=up;
+ function end(){if(over)return;over=true;stopRAF();gameOver(g,score);}
+ function loop(now){const dt=Math.min(40,now-last);last=now;
+  ctx.clearRect(0,0,W,H);
+  spawnT-=dt;if(spawnT<=0){spawn();spawnT=620-Math.min(300,score*1.2);}
+  objs.forEach(o=>{o.x+=o.vx;o.y+=o.vy;o.vy+=0.28;o.rot+=o.vr;});
+  // dibujar
+  objs.forEach(o=>{ctx.save();ctx.translate(o.x,o.y);ctx.rotate(o.rot);
+    if(o.sliced){ctx.globalAlpha=.35;}
+    ctx.fillStyle=o.bomb?'#3a3a3a':'#cdd6da';ctx.strokeStyle=o.bomb?'#c0563f':'#54707F';ctx.lineWidth=3;
+    ctx.beginPath();ctx.roundRect(-o.r*.55,-o.r,o.r*1.1,o.r*2,6);ctx.fill();ctx.stroke();
+    ctx.fillStyle=o.bomb?'#c0563f':'#54707F';ctx.fillRect(-o.r*.3,-o.r-6,o.r*.6,7);
+    if(o.bomb){ctx.fillStyle='#fff';ctx.font='bold 16px Jost';ctx.textAlign='center';ctx.fillText('✕',0,6);}
+    ctx.restore();});
+  objs=objs.filter(o=>{if(o.y>H+60){if(!o.bomb&&!o.sliced){lives--;lifeHud();if(lives<=0)end();}return false;}return true;});
+  // trail
+  if(trail.length>1){ctx.strokeStyle='rgba(84,112,127,.55)';ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(trail[0].x,trail[0].y);trail.forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();}
+  if(!over)raf=requestAnimationFrame(loop);}
+ over=false;raf=requestAnimationFrame(loop);
+}
+
+// ═════════ 2 · CAZA ARRUGAS (DOM grid, whack) ═════════
+function gCaza(g){
+ dom.classList.remove('hidden');
+ let score=0,t=30,active=[],tick,spawn;
+ dom.innerHTML='<div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:10px;padding:18px"></div>';
+ const grid=dom.firstChild;const cells=[];
+ for(let i=0;i<9;i++){const c=document.createElement('button');c.style.cssText='border:none;border-radius:16px;background:#ece7dc;cursor:pointer;position:relative;overflow:hidden;transition:transform .1s';cells.push(c);grid.appendChild(c);
+   c.onclick=()=>{if(c.dataset.on==='1'){c.dataset.on='0';c.style.background='#ece7dc';c.innerHTML='';score+=5;hud2();c.style.transform='scale(.9)';setTimeout(()=>c.style.transform='',100);}};}
+ function hud2(){setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Tiempo<b>${t}s</b></div>`);}
+ hud2();
+ function pop(){const free=cells.filter(c=>c.dataset.on!=='1');if(!free.length)return;const c=free[Math.floor(Math.random()*free.length)];c.dataset.on='1';c.style.background='#d8c9b0';c.innerHTML='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px">〰️</div>';
+   setTimeout(()=>{if(c.dataset.on==='1'){c.dataset.on='0';c.style.background='#ece7dc';c.innerHTML='';}},Math.max(550,1100-score*6));}
+ spawn=setInterval(pop,Math.max(420,820));
+ tick=setInterval(()=>{t--;hud2();if(t<=0){clearInterval(tick);clearInterval(spawn);gameOver(g,score);}},1000);
+ ov._clean=()=>{clearInterval(tick);clearInterval(spawn);};
+}
+
+// ═════════ 3 · INYECCIÓN PERFECTA (DOM, timing bar) ═════════
+function gJeringa(g){
+ dom.classList.remove('hidden');
+ let score=0,round=1,zone=34,pos=0,dir=1,speed=1.1,running=true,raf2;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:22px">
+   <div style="font-family:Marcellus;font-size:22px" id="jr">Ronda 1</div>
+   <div id="bar" style="position:relative;width:88%;max-width:420px;height:30px;background:#ece7dc;border-radius:999px;overflow:hidden">
+     <div id="zn" style="position:absolute;top:0;bottom:0;background:rgba(78,138,114,.4);border-left:2px solid #4E8A72;border-right:2px solid #4E8A72"></div>
+     <div id="mk" style="position:absolute;top:-6px;bottom:-6px;width:5px;background:#1A1A14;border-radius:3px"></div>
+   </div>
+   <button id="stopB" style="font-family:Jost;font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:#54707F;color:#fff;border:none;border-radius:999px;padding:15px 34px;font-size:13px;cursor:pointer">Inyectar</button>
+   <div style="font-size:12px;color:#5C5A50" id="jmsg">Detén el émbolo en la zona verde</div></div>`;
+ const bar=$('#bar'),zn=$('#zn'),mk=$('#mk'),msg=$('#jmsg'),jr=$('#jr');
+ function place(){const zw=zone;const zx=8+Math.random()*(100-zw-16);zn.style.left=zx+'%';zn.style.width=zw+'%';zn._x=zx;zn._w=zw;}
+ place();
+ function loop(){if(!running)return;pos+=dir*speed;if(pos>=100){pos=100;dir=-1;}if(pos<=0){pos=0;dir=1;}mk.style.left='calc('+pos+'% - 2px)';raf2=requestAnimationFrame(loop);}
+ raf2=requestAnimationFrame(loop);
+ $('#stopB').onclick=()=>{
+   const center=zn._x+zn._w/2;const dist=Math.abs(pos-center);const half=zn._w/2;
+   if(pos>=zn._x&&pos<=zn._x+zn._w){const acc=1-dist/half;const pts=Math.round(20+acc*60);score+=pts;msg.textContent=acc>.7?'¡Perfecto! +'+pts:'¡Bien! +'+pts;round++;zone=Math.max(12,zone-3);speed+=0.25;jr.textContent='Ronda '+round;place();setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Ronda<b>${round}</b></div>`);}
+   else{running=false;cancelAnimationFrame(raf2);msg.textContent='Fuera de zona';gameOver(g,score);}
+ };
+ setHud(`<div class="s">Puntos<b>0</b></div><div class="s">Ronda<b>1</b></div>`);
+ ov._clean=()=>{running=false;cancelAnimationFrame(raf2);};
+}
+
+// ═════════ 4 · TONO DE PIEL (DOM, color match) ═════════
+function gTono(g){
+ dom.classList.remove('hidden');
+ let score=0,round=1,target=0,guess=50;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px;gap:18px">
+   <div style="font-family:Marcellus;font-size:20px" id="tr">Ronda 1 · iguala el tono</div>
+   <div style="display:flex;gap:16px;align-items:center">
+     <div style="text-align:center"><div id="tsw" style="width:96px;height:96px;border-radius:18px;border:1px solid rgba(0,0,0,.1)"></div><div style="font-size:10px;color:#5C5A50;margin-top:6px;letter-spacing:.1em;text-transform:uppercase">Objetivo</div></div>
+     <div style="text-align:center"><div id="gsw" style="width:96px;height:96px;border-radius:18px;border:1px solid rgba(0,0,0,.1)"></div><div style="font-size:10px;color:#5C5A50;margin-top:6px;letter-spacing:.1em;text-transform:uppercase">El tuyo</div></div>
+   </div>
+   <input id="sl" type="range" min="0" max="100" value="50" style="width:86%;max-width:420px;accent-color:#54707F">
+   <button id="okB" style="font-family:Jost;font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:#54707F;color:#fff;border:none;border-radius:999px;padding:14px 30px;font-size:13px;cursor:pointer">Confirmar</button>
+   <div style="font-size:12px;color:#5C5A50" id="tmsg">Mueve el deslizador hasta igualar</div></div>`;
+ const tsw=$('#tsw'),gsw=$('#gsw'),sl=$('#sl'),tmsg=$('#tmsg'),tr=$('#tr');
+ function tone(v){const l=88-v*0.42;const h=28;const s=34;return `hsl(${h} ${s}% ${l}%)`;} // piel: claro→oscuro
+ function newRound(){target=Math.round(10+Math.random()*80);guess=50;sl.value=50;tsw.style.background=tone(target);gsw.style.background=tone(guess);tr.textContent='Ronda '+round+' · iguala el tono';}
+ newRound();
+ sl.oninput=()=>{guess=+sl.value;gsw.style.background=tone(guess);};
+ $('#okB').onclick=()=>{const dist=Math.abs(guess-target);const pts=Math.max(0,Math.round(50-dist*2));score+=pts;
+   if(dist<=4)tmsg.textContent='¡Casi exacto! +'+pts;else if(dist<=12)tmsg.textContent='Cerca +'+pts;else tmsg.textContent='+'+pts;
+   round++;setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Ronda<b>${round}</b></div>`);
+   if(round>6){gameOver(g,score);}else newRound();};
+ setHud(`<div class="s">Puntos<b>0</b></div><div class="s">Ronda<b>1</b></div>`);
+}
+
+// ═════════ 5 · DIANA DE PUNTOS (canvas, aim) ═════════
+function gDiana(g){
+ cv.classList.remove('hidden');resize();
+ let score=0,t=24,target=null,over=false,last=performance.now(),tAcc=0;
+ function newT(){const r=Math.max(20,46-score*0.4);target={x:r+Math.random()*(W-2*r),y:r+30+Math.random()*(H-2*r-40),r,born:performance.now()};}
+ newT();
+ function hud2(){setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Tiempo<b>${Math.ceil(t)}s</b></div>`);}
+ hud2();
+ function pos(e){const r=cv.getBoundingClientRect();const c=e.touches?e.touches[0]:e;return{x:c.clientX-r.left,y:c.clientY-r.top};}
+ function hit(e){e.preventDefault();if(over||!target)return;const p=pos(e);const d=Math.hypot(p.x-target.x,p.y-target.y);if(d<=target.r){score+=Math.round(10+ (46-target.r));hud2();newT();}else{t=Math.max(0,t-1.5);hud2();}}
+ cv.ontouchstart=hit;cv.onmousedown=hit;
+ function loop(now){const dt=(now-last)/1000;last=now;t-=dt;if(t<=0){t=0;over=true;stopRAF();gameOver(g,score);return;}
+  ctx.clearRect(0,0,W,H);
+  if(target){const o=target;
+   ctx.fillStyle='#cdd6da';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill();
+   ctx.strokeStyle='#54707F';ctx.lineWidth=3;ctx.beginPath();ctx.arc(o.x,o.y,o.r*.66,0,7);ctx.stroke();
+   ctx.fillStyle='#54707F';ctx.beginPath();ctx.arc(o.x,o.y,o.r*.28,0,7);ctx.fill();}
+  if(!over)raf=requestAnimationFrame(loop);}
+ over=false;raf=requestAnimationFrame(loop);
+}
+
+// limpiar timers DOM al salir
+const _hide=hideOverlay;
+window.addEventListener('hashchange',()=>{if(!location.hash&&ov._clean){ov._clean();ov._clean=null;}});
+
+// arranque por hash (?game o #id)
+const qp=new URLSearchParams(location.search).get('game');
+const startId=qp||location.hash.replace('#','');
+if(startId&&GAMES.find(g=>g.id===startId))start(startId);
+</script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JC Medical · Marfil Clínico (Catálogo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F2EC; --bg2:#ECE8DF; --surface:#FFFFFF; --surface2:#F3EFE8;
+  --text:#1A1A14; --mute:#5C5A50; --faint:rgba(26,26,20,.42);
+  --line:rgba(20,20,15,.12); --line-soft:rgba(20,20,15,.06);
+  --accent:#54707F; --accent-deep:#3f5663; --accent-soft:rgba(84,112,127,.12);
+  --gold:#B79A5E; --on-accent:#fff;
+  --serif:'Marcellus',Georgia,serif; --ital:'Cormorant Garamond',Georgia,serif; --sans:'Jost',-apple-system,sans-serif;
+  --ease:cubic-bezier(.22,1,.36,1); --radius:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:var(--sans);background:#DCD7CC;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;display:flex;align-items:center;justify-content:center;min-height:100%}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+.flourish{font-family:var(--ital);font-style:italic;color:var(--accent);font-weight:500}
+input{font-family:inherit}
+
+.stage{width:100%;min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.appframe{position:relative;display:flex;flex-direction:column;overflow:hidden;width:430px;height:min(900px,94vh);border-radius:32px;background:var(--bg);color:var(--text);box-shadow:0 50px 100px -40px rgba(40,38,30,.55),0 0 0 1px rgba(20,20,15,.05)}
+@media(max-width:600px){.stage{padding:0}.appframe{width:100%;height:100dvh;border-radius:0}}
+.progress{position:absolute;top:0;left:0;height:2px;width:0;background:linear-gradient(90deg,var(--accent),var(--gold));z-index:40;transition:width .08s linear}
+
+.topbar{position:absolute;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:rgba(245,242,236,.86);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.tb-back{display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--text);border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px 8px 11px;transition:.25s var(--ease)}
+.tb-back:hover{background:var(--surface2)}
+.tb-back:active{transform:scale(.96)}
+.tb-wm{font-family:var(--serif);font-size:15px;letter-spacing:.22em;color:var(--text);text-transform:uppercase}
+.tb-ic{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);color:var(--text)}
+
+.scroll{position:relative;flex:1;overflow-y:auto;overflow-x:hidden}
+.scroll::-webkit-scrollbar{width:0}
+.head{padding:74px 24px 6px}
+.eyebrow{display:inline-flex;align-items:center;gap:10px}
+.eyebrow span.l{width:24px;height:1px;background:var(--gold)}
+.eyebrow span.t{font-size:9.5px;font-weight:400;letter-spacing:.3em;text-transform:uppercase;color:var(--accent)}
+.head h1{font-family:var(--serif);font-weight:400;font-size:40px;line-height:1;letter-spacing:-.01em;margin-top:12px}
+
+/* reveal */
+[data-reveal]{opacity:0;transform:translateY(24px);transition:opacity .75s var(--ease),transform .75s var(--ease)}
+[data-reveal].in{opacity:1;transform:none}
+
+/* productos certificados */
+.prodsec{padding:30px 24px 4px}
+.prodsec h2{font-family:var(--serif);font-weight:400;font-size:26px;line-height:1.1;margin-top:11px}
+.prodsec .lead{font-size:12.5px;font-weight:300;line-height:1.65;color:var(--mute);margin-top:9px}
+.hscroll{display:flex;gap:12px;padding:16px 24px 6px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.hscroll::-webkit-scrollbar{height:0}
+.prod{flex:0 0 56%;scroll-snap-align:start;text-align:left;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);background:var(--surface);box-shadow:0 10px 30px -20px rgba(40,38,30,.35);transition:transform .4s var(--ease),box-shadow .4s var(--ease)}
+.prod:hover{transform:translateY(-5px);box-shadow:0 22px 44px -22px rgba(40,38,30,.4)}
+.prod .ph{position:relative;aspect-ratio:3/4;overflow:hidden;background:var(--surface2)}
+.prod .ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .8s var(--ease)}
+.prod:hover .ph img{transform:scale(1.05)}
+.prod .ptag{position:absolute;left:10px;top:10px;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#fff;background:rgba(20,20,15,.5);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:6px 10px}
+.prod .pcap{padding:12px 14px}
+.prod .pcap b{display:block;font-size:12px;font-weight:500;letter-spacing:.02em}
+.prod .pcap span{display:block;font-size:9.5px;color:var(--mute);margin-top:3px}
+.imgph{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--faint);font-size:10px;text-align:center;padding:12px;background:var(--surface2)}
+.divider{display:flex;align-items:center;gap:12px;padding:26px 24px 2px}
+.divider span{font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--faint)}
+.divider hr{flex:1;border:none;border-top:1px solid var(--line)}
+
+/* search + chips */
+.tools{padding:14px 24px 4px}
+.search{position:relative}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%)}
+.search input{width:100%;padding:13px 14px 13px 40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-size:13px;outline:none;transition:border-color .25s}
+.search input:focus{border-color:var(--accent)}
+.chips{display:flex;gap:8px;padding:14px 24px 0;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{height:0}
+.chip{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;padding:9px 16px;border-radius:999px;white-space:nowrap;background:var(--surface);color:var(--mute);border:1px solid var(--line);transition:all .25s var(--ease)}
+.chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.chip:active{transform:scale(.96)}
+
+/* procedimientos */
+.list{padding:8px 24px 0;transition:opacity .25s var(--ease)}
+.group{margin-top:22px}
+.glabel{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);padding-bottom:9px;border-bottom:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:13px;width:100%;text-align:left;padding:14px 2px;border-bottom:1px solid var(--line-soft);transition:background .2s,transform .2s var(--ease)}
+.row:hover{background:var(--surface)}
+.row:active{transform:scale(.995)}
+.row .rph{width:58px;height:58px;flex:0 0 auto;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface2)}
+.row .rph img{width:100%;height:100%;object-fit:cover;display:block}
+.row .rmeta{flex:1;min-width:0}
+.row .rname{font-size:14px;font-weight:500;line-height:1.25}
+.row .rsub{font-size:10.5px;letter-spacing:.02em;color:var(--mute);margin-top:4px}
+.row .rright{text-align:right;flex:0 0 auto}
+.row .rprice{font-family:var(--serif);font-size:16px}
+.row .rcta{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-top:3px}
+.promo{background:linear-gradient(180deg,var(--accent-soft),transparent);border:1px solid rgba(84,112,127,.25);border-radius:var(--radius);padding:4px 12px;margin-top:4px}
+.promo .rsave{display:inline-block;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--gold);border-radius:999px;padding:3px 9px;margin-top:5px}
+.empty{padding:40px 0;text-align:center;color:var(--faint);font-size:12px}
+
+/* bottom nav + fab */
+.bnav{position:absolute;left:0;right:0;bottom:0;z-index:25;padding:0 14px;padding-bottom:calc(11px + env(safe-area-inset-bottom));pointer-events:none}
+.bnav .bar{pointer-events:auto;position:relative;display:flex;align-items:center;justify-content:space-around;background:rgba(255,255,255,.62);backdrop-filter:blur(22px) saturate(1.3);border:1px solid var(--line);border-radius:26px;padding:7px;box-shadow:0 14px 34px -14px rgba(40,38,30,.4)}
+.bnav .ind{position:absolute;top:7px;bottom:7px;width:62px;border-radius:18px;background:var(--accent-soft);transition:transform .4s var(--ease);z-index:0}
+.bnav button{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-content:center;padding:10px 0;color:var(--faint);transition:color .3s var(--ease)}
+.bnav button.on{color:var(--accent)}
+.bnav button:active{transform:scale(.9)}
+.fab{position:absolute;right:16px;bottom:90px;z-index:35;width:52px;height:52px;border-radius:50%;background:#1F8A5B;display:grid;place-items:center;box-shadow:0 10px 24px -6px rgba(31,138,91,.5),0 0 0 1px rgba(255,255,255,.25);transition:transform .25s var(--ease)}
+.fab:active{transform:scale(.9)}
+.fab::before{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(31,138,91,.5);animation:pulse 2.4s var(--ease) infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.5);opacity:0}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important}[data-reveal]{opacity:1!important;transform:none!important}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="appframe" id="frame">
+    <div class="progress" id="progress"></div>
+    <header class="topbar">
+      <button class="tb-back" onclick="location.href='marfil-home.html'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"/></svg>Volver</button>
+      <span class="tb-wm">Catálogo</span>
+      <button class="tb-ic" title="Instagram" onclick="window.open('https://instagram.com/jcmedical.cl','_blank')"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg></button>
+    </header>
+
+    <main class="scroll" id="scroll">
+      <div class="head">
+        <div class="eyebrow" data-reveal><span class="l"></span><span class="t">Catálogo completo · 22 procedimientos</span></div>
+        <h1 data-reveal style="transition-delay:.06s">Procedimientos</h1>
+      </div>
+
+      <!-- PRODUCTOS CERTIFICADOS (antes de los procedimientos) -->
+      <div class="prodsec">
+        <div class="eyebrow" data-reveal><span class="l"></span><span class="t">Con qué trabajamos</span></div>
+        <h2 data-reveal style="transition-delay:.05s">Productos <em class="flourish">certificados.</em></h2>
+        <p class="lead" data-reveal style="transition-delay:.1s">Estos son los insumos con los que se realizan los tratamientos. Cada uno se muestra y registra antes de aplicarlo: trazabilidad real, sin intermediarios.</p>
+      </div>
+      <div class="hscroll" id="prodScroll"></div>
+
+      <div class="divider" data-reveal><span>Procedimientos</span><hr></div>
+
+      <!-- buscador + secciones -->
+      <div class="tools" data-reveal>
+        <div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="q" placeholder="Buscar tratamiento…"></div>
+      </div>
+      <div class="chips" id="chips" data-reveal></div>
+
+      <div class="list" id="list"></div>
+      <div style="height:120px"></div>
+    </main>
+
+    <button class="fab" title="Agenda por WhatsApp" onclick="window.open('https://wa.me/56997880877','_blank')"><svg width="24" height="24" viewBox="0 0 24 24" fill="rgba(255,255,255,.95)"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z"/></svg></button>
+    <nav class="bnav"><div class="bar" id="navbar"><div class="ind" id="navInd"></div></div></nav>
+  </div>
+</div>
+
+<script>
+const ICON={home:'<path d="M3 11l9-8 9 8M5 10v10h14V10"/>',cat:'<path d="M4 6h16M4 12h16M4 18h10"/>',feed:'<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="12" r="3.4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>',chat:'<path d="M21 11.5a8.4 8.4 0 0 1-11.9 7.6L3 21l1.9-6A8.4 8.4 0 1 1 21 11.5z"/>',game:'<rect x="2" y="6" width="20" height="12" rx="4"/><path d="M7 10v4M5 12h4"/><circle cx="16" cy="11" r="1" fill="currentColor"/><circle cx="18.5" cy="14" r="1" fill="currentColor"/>'};
+const svg=(d,sz=22)=>`<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const fmt=n=>"$"+n.toLocaleString("es-CL");
+const phFB="this.style.display='none';this.nextElementSibling.style.display='flex'";
+
+const PROD=[
+ {brand:"Botox® · AbbVie",tipo:"Toxina botulínica tipo A",img:"assets/trust-botox.jpg",tag:"EE.UU."},
+ {brand:"Sculptra® · Galderma",tipo:"Bioestimulador de colágeno",img:"assets/trust-sculptra.jpg",tag:"Francia"},
+ {brand:"Ácido hialurónico",tipo:"Relleno dérmico · grado médico",img:"assets/trust-vial.jpg",tag:"Europa"}
+];
+/* foto por procedimiento (mapa portado del original) */
+function catPhoto(name,cat){const s=((name||"")+" "+(cat||"")).toLowerCase(),P=n=>"assets/cat/page"+n+".jpg";
+ if(s.includes("código de barras")||s.includes("codigo de barras"))return P(24);
+ if(s.includes("bruxismo"))return P(12);
+ if(s.includes("hiperhidrosis"))return P(13);
+ if(s.includes("sonrisa gingival"))return P(20);
+ if(s.includes("empedrado"))return P(21);
+ if(s.includes("nefertiti")||s.includes("rejuvenecimiento de cuello"))return P(19);
+ if(s.includes("arco mandibular"))return P(17);
+ if(s.includes("pómulos")||s.includes("pomulos"))return P(18);
+ if(s.includes("surcos")||s.includes("marioneta"))return P(23);
+ if(s.includes("proyección de mentón")||s.includes("proyeccion de menton")||s.includes("mentón")||s.includes("menton"))return P(22);
+ if(s.includes("rinomodel"))return P(9);
+ if(s.includes("nctf"))return P(6);
+ if(s.includes("salmón")||s.includes("salmon")||s.includes("rejuran"))return P(7);
+ if(s.includes("quemador")||s.includes("grasa")||s.includes("lipolít"))return P(8);
+ if(s.includes("manos"))return P(5);
+ if(s.includes("bioestim")||s.includes("sculptra")||s.includes("colágeno")||s.includes("colageno"))return P(5);
+ if(s.includes("mesoterap"))return P(4);
+ if(s.includes("botox")||s.includes("toxina")||s.includes("zonas")||s.includes("full face"))return P(3);
+ if(s.includes("armoniz")||s.includes("ácido hialurónico")||s.includes("acido hialuronico"))return P(9);
+ return P(3);}
+
+const CATALOG=[
+ {sec:"Facial",groups:[
+  {cat:"Toxina botulínica",items:[
+   {n:"Botox 3 zonas",t:"Tercio superior",d:"3–6 meses",price:150000},
+   {n:"Botox tercio superior (4 zonas)",t:"4 zonas",d:"3–6 meses",price:170000},
+   {n:"Botox Full Face (8 zonas)",t:"8 zonas",d:"3–6 meses",price:350000},
+   {n:"Tratamiento de bruxismo con toxina botulínica",t:"Funcional · masetero",d:"3–6 meses",price:200000},
+   {n:"Hiperhidrosis facial",t:"Sudoración",d:"3–6 meses",price:200000},
+   {n:"Tratamiento sonrisa gingival",t:"Sonrisa",d:"6–12 meses",price:150000},
+   {n:"Mentón empedrado",t:"Mentón",d:"6–12 meses",price:150000},
+   {n:"Rejuvenecimiento de cuello · Nefertiti",t:"Cuello",d:"~6 meses",price:250000},
+   {n:"Código de barras, tratamiento de arrugas",t:"Labio superior",d:"3–6 meses",price:120000}
+  ]},
+  {cat:"Bioestimulación de colágeno con Sculptra",items:[
+   {n:"Bioestimulación de colágeno facial",t:"Full face",d:"~24 meses",price:450000},
+   {n:"Bioestimulación de surcos nasogenianos y marionetas",t:"Localizado",d:"~24 meses",price:450000},
+   {n:"Bioestimulación de cuello",t:"Cuello",d:"~24 meses",price:500000}
+  ]},
+  {cat:"Armonización facial",items:[
+   {n:"Rinomodelación",t:"Ácido hialurónico",d:"10–12 meses",price:170000},
+   {n:"Proyección de mentón",t:"Ácido hialurónico",d:"10–12 meses",price:150000},
+   {n:"Definición de arco mandibular",t:"Ácido hialurónico",d:"10–12 meses",price:200000},
+   {n:"Realce de pómulos",t:"Ácido hialurónico",d:"10–12 meses",price:180000},
+   {n:"Código de barras con ácido hialurónico",t:"Ácido hialurónico",d:"10–12 meses",price:150000}
+  ]},
+  {cat:"Mesoterapia · vitaminas faciales",items:[
+   {n:"NCTF 135 HA",t:"Biorevitalización",d:"6–12 meses",price:150000},
+   {n:"ADN de salmón · Rejuran",t:"Regeneración",d:"6–12 meses",price:180000}
+  ]}
+ ]},
+ {sec:"Corporal",groups:[
+  {cat:"Quemadores de grasa",items:[{n:"Quemadores de grasa localizada",t:"Lipolíticos",d:"Permanente",price:300000}]},
+  {cat:"Toxina botulínica",items:[{n:"Hiperhidrosis axilar y palmar",t:"Sudoración",d:"3–6 meses",price:200000}]},
+  {cat:"Bioestimulación",items:[{n:"Bioestimulación de manos",t:"Corporal",d:"~24 meses",price:450000}]}
+ ]},
+ {sec:"Promociones",groups:[
+  {cat:"Packs de temporada · por tiempo limitado",items:[
+   {n:"Botox Tercio Superior · 2 personas",t:"4 zonas cada una",d:"Ahorra $40.000",price:300000,promo:true,save:"Ahorra $40.000"},
+   {n:"Sculptra · 2 sesiones para compartir",t:"Para ti y alguien más",d:"Ahorra $100.000",price:800000,promo:true,save:"Ahorra $100.000"}
+  ]}
+ ]}
+];
+
+/* productos carrusel */
+document.getElementById('prodScroll').innerHTML=PROD.map((p,i)=>`
+ <button class="prod" data-reveal style="transition-delay:${i*.08}s">
+   <div class="ph"><img src="${p.img}" alt="${p.brand}" loading="lazy" onerror="${phFB}"><div class="imgph"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg>${p.brand}</div><span class="ptag">${p.tag}</span></div>
+   <div class="pcap"><b>${p.brand}</b><span>${p.tipo}</span></div>
+ </button>`).join("");
+
+/* chips */
+let curSec="Facial",q="";
+document.getElementById('chips').innerHTML=CATALOG.map(s=>`<button class="chip ${s.sec===curSec?'on':''}" data-sec="${s.sec}">${s.sec}</button>`).join("");
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{curSec=c.dataset.sec;document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
+document.getElementById('q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();renderList();});
+
+/* lista de procedimientos */
+const listEl=document.getElementById('list');
+function renderList(){
+ const block=CATALOG.find(s=>s.sec===curSec);
+ let html="",any=false;
+ block.groups.forEach(g=>{
+  const items=g.items.filter(it=>!q||it.n.toLowerCase().includes(q)||it.t.toLowerCase().includes(q));
+  if(!items.length)return; any=true;
+  html+=`<div class="group"><div class="glabel">${g.cat}</div>`+items.map(it=>{
+   const ph=catPhoto(it.n,g.cat);
+   if(it.promo)return `<div class="promo"><div class="row" style="border:none"><div class="rph"><img src="${ph}" alt="" loading="lazy"></div><div class="rmeta"><div class="rname">${it.n}</div><div class="rsub">${it.t}</div><span class="rsave">${it.save}</span></div><div class="rright"><div class="rprice">${fmt(it.price)}</div><div class="rcta">Ver ficha →</div></div></div></div>`;
+   return `<button class="row"><div class="rph"><img src="${ph}" alt="" loading="lazy"></div><div class="rmeta"><div class="rname">${it.n}</div><div class="rsub">${it.t} · ${it.d}</div></div><div class="rright"><div class="rprice">${fmt(it.price)}</div><div class="rcta">Ver ficha →</div></div></button>`;
+  }).join("")+`</div>`;
+ });
+ listEl.style.opacity=0;
+ setTimeout(()=>{listEl.innerHTML=any?html:`<div class="empty">Sin resultados para "${q}".</div>`;listEl.style.opacity=1;},150);
+}
+renderList();
+
+/* bottom nav (Catálogo activo) */
+const TABS=[["Inicio","home"],["Catálogo","cat"],["Feed","feed"],["Asistente","chat"],["Juegos","game"]];
+document.getElementById('navbar').insertAdjacentHTML('beforeend',TABS.map((t,i)=>`<button class="${i===1?'on':''}" title="${t[0]}" ${t[0]==='Inicio'?"onclick=\"location.href='marfil-home.html'\"":""}>${svg(ICON[t[1]])}</button>`).join(""));
+function placeInd(){const on=document.querySelector('.bnav button.on'),ind=document.getElementById('navInd'),bar=document.getElementById('navbar');if(!on)return;const r=on.getBoundingClientRect(),br=bar.getBoundingClientRect();ind.style.width=r.width+'px';ind.style.transform='translateX('+(r.left-br.left)+'px)';}
+window.addEventListener('load',placeInd);window.addEventListener('resize',placeInd);setTimeout(placeInd,300);
+
+/* reveal + progress */
+const scroll=document.getElementById('scroll'),progress=document.getElementById('progress');
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{root:scroll,threshold:.15});
+document.querySelectorAll('[data-reveal]').forEach(el=>io.observe(el));
+scroll.addEventListener('scroll',()=>{const y=scroll.scrollTop,max=scroll.scrollHeight-scroll.clientHeight;progress.style.width=(max>0?y/max*100:0)+'%';},{passive:true});
+</script>
+</body>
+</html>

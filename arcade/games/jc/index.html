@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>JC Medical · Juegos</title>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F5F2EC;--surface:#fff;--ink:#1A1A14;--mute:#5C5A50;--line:rgba(20,20,15,.12);--accent:#54707F;--silver:#8A929B;--good:#4E8A72;--bad:#c0563f;--warn:#caa86a;--vio:#9C8AB5}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}html{background:#DCD7CC}
+body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);overflow:hidden;display:flex;flex-direction:column;height:100dvh;max-width:440px;margin:0 auto;box-shadow:0 24px 70px -28px rgba(0,0,0,.55)}
+.top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+.top .nm{font-family:'Marcellus';font-size:16px}.top .nm span{color:var(--accent)}
+.top button{font-family:'Jost';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);background:none;border:none;cursor:pointer}
+.hud{display:flex;gap:14px;align-items:center}.hud .s{font-size:11px;color:var(--mute)}.hud .s b{font-family:'Marcellus';font-size:17px;color:var(--ink);display:block;line-height:1}
+.stage{flex:1;position:relative;overflow:hidden}
+.menu{position:absolute;inset:0;overflow-y:auto;padding:20px 16px 28px}
+.menu h1{font-family:'Marcellus';font-weight:400;font-size:28px}.menu h1 em{font-style:italic;color:var(--accent)}
+.menu p{color:var(--mute);font-size:12.5px;font-weight:300;margin-top:6px;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px}
+.card{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:15px;cursor:pointer;transition:transform .25s,box-shadow .25s;display:flex;flex-direction:column;gap:5px}
+.card:active{transform:scale(.97)}.card:hover{transform:translateY(-3px);box-shadow:0 16px 32px -22px rgba(40,38,30,.5)}
+.card .ic{font-size:26px}.card .t{font-family:'Marcellus';font-size:16px;line-height:1.1}.card .d{font-size:11px;color:var(--mute);font-weight:300;line-height:1.4}
+.card .rec{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:2px}
+.ov{position:absolute;inset:0;background:rgba(245,242,236,.95);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px;z-index:6}
+.ov h2{font-family:'Marcellus';font-size:27px;font-weight:400;line-height:1.1}.ov h2 em{font-style:italic;color:var(--accent)}
+.ov p{color:var(--mute);font-size:13px;font-weight:300;margin-top:10px;line-height:1.6;max-width:300px}
+.ov .big{font-family:'Marcellus';font-size:50px;color:var(--accent);line-height:1;margin:10px 0}
+.ov .ic{font-size:38px;margin-bottom:6px}
+.btn{margin-top:18px;font-family:'Jost';font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:14px 28px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:10px}
+.hidden{display:none!important}
+#play{position:absolute;inset:0;display:flex;flex-direction:column}
+.q{font-family:'Marcellus';font-size:21px;line-height:1.25;color:var(--ink)}
+.opt{width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 16px;font-family:'Jost';font-size:14px;cursor:pointer;color:var(--ink);transition:.15s;margin-top:10px}
+.opt:active{transform:scale(.98)}
+.opt.ok{background:#dcefe4;border-color:var(--good);color:var(--good)}
+.opt.no{background:#f3dcd5;border-color:var(--bad);color:var(--bad)}
+.bar{height:5px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .25s linear}
+</style>
+</head>
+<body>
+<div class="top"><div class="nm">JC <span>Medical</span> · Juegos</div><div class="hud" id="hud"></div><button id="menuBtn" class="hidden" onclick="toMenu()">☰ Menú</button></div>
+<div class="stage"><div id="play" class="hidden"></div><div class="menu" id="menu"></div><div class="ov hidden" id="ov"></div></div>
+<script>
+const REC_KEY='jcm_records';
+function getRecs(){try{return JSON.parse(localStorage.getItem(REC_KEY)||'{}')}catch(e){return{}}}
+function bestOf(rk){return getRecs()[rk]||0;}
+function saveBest(rk,s){const r=getRecs();if(s>(r[rk]||0)){r[rk]=s;try{localStorage.setItem(REC_KEY,JSON.stringify(r))}catch(e){}}return r[rk]||0;}
+function fmt(n){return (n||0).toLocaleString('es-CL');}
+const $=s=>document.querySelector(s);
+const play=$('#play'),ov=$('#ov'),hud=$('#hud'),menuEl=$('#menu'),menuBtn=$('#menuBtn');
+let timers=[];
+function setHud(h){hud.innerHTML=h;}
+function clearTimers(){timers.forEach(t=>clearTimeout(t)||clearInterval(t));timers=[];}
+function toMenu(){clearTimers();if(ov._clean){ov._clean();ov._clean=null;}play.classList.add('hidden');play.innerHTML='';ov.classList.add('hidden');menuEl.classList.remove('hidden');menuBtn.classList.add('hidden');setHud('');location.hash='';}
+
+const GAMES=[
+ {id:'trivia',  rk:'trivia_best', ic:'🧠', t:'Consultorio Trivia', d:'Preguntas de tratamientos.', inst:'Responde 5 preguntas por ronda. Son 5 rondas y la dificultad sube. Aciertos rápidos dan más puntos. Solo temas de tratamientos estéticos.'},
+ {id:'millonario',rk:'mill_best', ic:'💰', t:'¿Quién quiere ser…?', d:'Escala de premios estética.', inst:'Sube por la escala de premios respondiendo bien. Tienes un comodín 50:50. Un error termina el juego, pero conservas el último premio asegurado.'},
+ {id:'reflejo', rk:'acc_reflex', ic:'⚡', t:'Reflejo Glow', d:'Mide tu tiempo de reacción.', inst:'Espera a que el círculo se ponga VERDE y toca lo más rápido que puedas. No toques antes. Son 5 rondas; mientras más rápido, más puntos.'},
+ {id:'mito',    rk:'acc_mv', ic:'⚖️', t:'Mito o Verdad', d:'¿Cierto o falso?', inst:'Te mostramos afirmaciones sobre estética. Decide si son VERDAD o MITO. 10 afirmaciones; cada acierto suma.'},
+ {id:'glowlab', rk:'glowlab_best', ic:'🧪', t:'Glow Lab', d:'Combina insumos.', inst:'Toca dos fichas vecinas para intercambiarlas y alinear 3 o más insumos iguales. Cada combinación suma puntos. Tienes movimientos limitados.'},
+ {id:'snake',   rk:'glowsnake_best', ic:'🐍', t:'Glow Snake', d:'Recolecta insumos.', inst:'Desliza para girar y recolecta los insumos para crecer. No choques con los bordes ni contigo misma.'},
+ {id:'mina',    rk:'acc_mina', ic:'🧭', t:'Mapa de Punción', d:'Evita los nervios faciales.', inst:'Estás sobre un rostro en reposo. Marca todas las zonas seguras de punción sin tocar un nervio facial. Cada número indica cuántos nervios hay alrededor de esa zona. Cambia a modo bandera para señalar los nervios.'}
+];
+function renderMenu(){menuEl.innerHTML='<h1>Juegos <em>JC</em></h1><p>Juega y suma Glow Points. Toca un juego para ver cómo se juega.</p><div class="grid">'+GAMES.map(g=>`<button class="card" onclick="prep('${g.id}')"><div class="ic">${g.ic}</div><div class="t">${g.t}</div><div class="d">${g.d}</div><div class="rec">Récord: ${fmt(bestOf(g.rk))}</div></button>`).join('')+'</div>';}
+renderMenu();
+// Pop-up de instrucciones ANTES de jugar
+function prep(id){const g=GAMES.find(x=>x.id===id);if(!g)return;menuEl.classList.add('hidden');menuBtn.classList.remove('hidden');location.hash=id;
+ ov.innerHTML=`<div class="ic">${g.ic}</div><h2>${g.t}</h2><p>${g.inst}</p><button class="btn" id="goB">Jugar</button><button class="btn ghost" onclick="toMenu()">Volver al menú</button>`;
+ ov.classList.remove('hidden');$('#goB').onclick=()=>{ov.classList.add('hidden');run(id);};}
+function run(id){({trivia:gTrivia,millonario:gMillonario,reflejo:gReflejo,mito:gMito,glowlab:gGlowlab,snake:gSnake,mina:gMina})[id]();}
+function gameOver(g,score,extra){const best=saveBest(g.rk,score);const rec=score>=best&&score>0;ov.innerHTML=`<h2>${rec?'¡Nuevo récord!':'Fin'}</h2><div class="big">${fmt(score)}</div><p>${extra||''}Récord: ${fmt(best)} puntos</p><button class="btn" onclick="prep('${g.id}')">Jugar de nuevo</button><button class="btn ghost" onclick="toMenu()">Otro juego</button>`;ov.classList.remove('hidden');}
+const G=id=>GAMES.find(x=>x.id===id);
+
+// ─── Banco de preguntas (SOLO tratamientos) ───
+const QBANK=[
+ {d:1,q:'¿Para qué se usa principalmente la toxina botulínica (Botox)?',o:['Relajar músculos que marcan arrugas de expresión','Dar volumen a los labios','Eliminar manchas','Quemar grasa'],a:0},
+ {d:1,q:'El ácido hialurónico como relleno sirve para…',o:['Aportar volumen e hidratar','Relajar el músculo','Broncear la piel','Bajar de peso'],a:0},
+ {d:1,q:'Sculptra es un…',o:['Bioestimulador de colágeno','Antibiótico','Bloqueador solar','Exfoliante'],a:0},
+ {d:1,q:'¿Cuánto dura aproximadamente el efecto del Botox?',o:['3 a 6 meses','1 semana','10 años','24 horas'],a:0},
+ {d:1,q:'La rinomodelación con ácido hialurónico es…',o:['Sin cirugía','Una operación con anestesia general','Un láser','Una crema'],a:0},
+ {d:2,q:'¿Cuántas sesiones suele requerir Sculptra según la flacidez?',o:['Entre 1 y 3','Siempre 10','Ninguna','20 o más'],a:0},
+ {d:2,q:'El NCTF / mesoterapia mejora sobre todo…',o:['Luminosidad e hidratación','El tamaño del mentón','La sudoración axilar','El color del cabello'],a:0},
+ {d:2,q:'¿El relleno de ácido hialurónico es reversible?',o:['Sí, con hialuronidasa','No, es permanente','Solo con cirugía','Solo con láser'],a:0},
+ {d:2,q:'¿Cuándo se empieza a notar el efecto del Botox?',o:['Alrededor de los 10 días','Al instante','Al año','Nunca'],a:0},
+ {d:2,q:'El tratamiento "Nefertiti" trabaja principalmente…',o:['Cuello y línea mandibular','La frente','Los labios','Las manos'],a:0},
+ {d:3,q:'Sculptra está compuesto por…',o:['Ácido poli-L-láctico (PLLA)','Colágeno bovino','Silicona','Grasa propia'],a:0},
+ {d:3,q:'El ADN de salmón (Rejuran) aporta principalmente…',o:['Polinucleótidos para regenerar','Toxina botulínica','Ácido glicólico','Vitamina C tópica'],a:0},
+ {d:3,q:'El bruxismo con toxina actúa sobre el músculo…',o:['Masetero','Frontal','Orbicular','Deltoides'],a:0},
+ {d:3,q:'Duración aproximada del relleno de ácido hialurónico:',o:['6 a 18 meses','1 día','5 años fijos','2 semanas'],a:0},
+ {d:3,q:'El "código de barras" trata…',o:['Líneas verticales del labio superior','El doble mentón','Las ojeras','El cuello'],a:0}
+];
+function pick(diff,n,used){const pool=QBANK.filter(q=>q.d===diff&&!used.has(q));const out=[];while(out.length<n&&pool.length){const i=Math.floor(Math.random()*pool.length);out.push(pool[i]);used.add(pool[i]);pool.splice(i,1);}
+ // completa si faltan
+ if(out.length<n){const rest=QBANK.filter(q=>!used.has(q));while(out.length<n&&rest.length){const i=Math.floor(Math.random()*rest.length);out.push(rest[i]);used.add(rest[i]);rest.splice(i,1);}}return out;}
+
+// ─── 1 · CONSULTORIO TRIVIA (5 rondas × 5 preguntas, dificultad sube) ───
+function gTrivia(){const g=G('trivia');let round=1,score=0,used=new Set(),qs=[],qi=0,tLeft=0,tMax=0,tick;
+ function loadRound(){const diff=Math.min(3,Math.ceil(round/2)); // r1-2 fácil, r3-4 medio, r5 difícil
+  qs=pick(diff,5,used);qi=0;showQ();}
+ function showQ(){clearTimers();tMax=Math.max(6,12-round);tLeft=tMax;
+  const q=qs[qi];
+  play.classList.remove('hidden');
+  play.innerHTML=`<div style="padding:16px 18px;display:flex;flex-direction:column;height:100%">
+    <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)">Ronda ${round}/5 · Pregunta ${qi+1}/5</div>
+    <div class="bar" style="margin:8px 0 14px"><i id="tb" style="width:100%"></i></div>
+    <div class="q">${q.q}</div>
+    <div id="opts" style="margin-top:6px"></div></div>`;
+  const opts=$('#opts');const order=q.o.map((t,i)=>[t,i]).sort(()=>Math.random()-.5);
+  order.forEach(([t,i])=>{const b=document.createElement('button');b.className='opt';b.textContent=t;b.onclick=()=>answer(i,b,opts);opts.appendChild(b);});
+  setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Ronda<b>${round}/5</b></div>`);
+  const t0=Date.now();tick=setInterval(()=>{tLeft=tMax-(Date.now()-t0)/1000;const tb=$('#tb');if(tb)tb.style.width=Math.max(0,tLeft/tMax*100)+'%';if(tLeft<=0){clearInterval(tick);answer(-1,null,opts);}},80);timers.push(tick);}
+ function answer(i,btn,opts){clearTimers();const q=qs[qi];[...opts.children].forEach((b,bi)=>{b.onclick=null;if(b.textContent===q.o[q.a])b.classList.add('ok');});
+  if(i>=0&&q.o[i]===q.o[q.a]){const bonus=Math.round(Math.max(0,tLeft)*4);score+=20+bonus;}else if(btn){btn.classList.add('no');}
+  setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Ronda<b>${round}/5</b></div>`);
+  timers.push(setTimeout(()=>{qi++;if(qi<qs.length)showQ();else{round++;if(round<=5)loadRound();else gameOver(g,score);}},900));}
+ loadRound();
+ ov._clean=()=>clearTimers();
+}
+
+// ─── 2 · MILLONARIO ESTÉTICA ───
+function gMillonario(){const g=G('millonario');const LADDER=[10000,30000,60000,100000,200000,400000,800000,1500000,3000000,7000000];const SAFE=[100000,800000];
+ let used=new Set(),lvl=0,fifty=true;
+ function showQ(){clearTimers();const diff=lvl<4?1:lvl<7?2:3;const q=pick(diff,1,used)[0];if(!q){return win();}
+  play.classList.remove('hidden');
+  const order=q.o.map((t,i)=>[t,i]).sort(()=>Math.random()-.5);
+  play.innerHTML=`<div style="padding:16px 18px;display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)">Premio: $${fmt(LADDER[lvl])}</div>
+      <button id="ff" style="font-family:Jost;font-size:11px;font-weight:600;border:1px solid var(--line);background:${fifty?'var(--surface)':'#eee'};border-radius:999px;padding:6px 12px;cursor:pointer;color:${fifty?'var(--accent)':'#bbb'}">50:50</button>
+    </div>
+    <div class="q" style="margin-top:14px">${q.q}</div>
+    <div id="opts" style="margin-top:6px"></div>
+    <div style="margin-top:auto;font-size:11px;color:var(--mute);text-align:center">Asegurado: $${fmt(safeAmt())}</div></div>`;
+  const opts=$('#opts');const btns=[];
+  order.forEach(([t,i])=>{const b=document.createElement('button');b.className='opt';b.textContent=t;b._i=i;b.onclick=()=>answer(i,b,opts,q);opts.appendChild(b);btns.push(b);});
+  $('#ff').onclick=()=>{if(!fifty)return;fifty=false;$('#ff').style.opacity=.4;const wrong=btns.filter(b=>b._i!==q.a);wrong.sort(()=>Math.random()-.5).slice(0,2).forEach(b=>{b.style.visibility='hidden';b.onclick=null;});};
+  setHud(`<div class="s">Nivel<b>${lvl+1}/10</b></div>`);}
+ function safeAmt(){let s=0;SAFE.forEach(v=>{const idx=LADDER.indexOf(v);if(lvl>idx)s=v;});return s;}
+ function answer(i,btn,opts,q){[...opts.children].forEach(b=>{b.onclick=null;if(b._i===q.a)b.classList.add('ok');});
+  if(i===q.a){lvl++;timers.push(setTimeout(()=>{if(lvl>=LADDER.length)win();else showQ();},850));}
+  else{btn.classList.add('no');timers.push(setTimeout(()=>gameOver(g,safeAmt(),'Te llevas el premio asegurado. '),850));}}
+ function win(){gameOver(g,LADDER[LADDER.length-1],'¡Ganaste el premio mayor! ');}
+ showQ();ov._clean=()=>clearTimers();
+}
+
+// ─── 3 · REFLEJO GLOW (claro) ───
+function gReflejo(){const g=G('reflejo');let round=0,total=0,waiting=false,t0=0,to;
+ play.classList.remove('hidden');
+ function next(){round++;if(round>5){const avg=Math.round(total/5);const score=Math.max(50,1200-avg);return gameOver(g,score,'Reacción promedio: '+avg+' ms. ');}
+  setHud(`<div class="s">Ronda<b>${round}/5</b></div>`);
+  render('#e7e0d2','Espera el verde…','wait',false);waiting=false;
+  to=setTimeout(()=>{waiting=true;t0=Date.now();render('#cfe3d8','¡TOCA!','go',true);},900+Math.random()*2200);timers.push(to);}
+ function render(bg,txt,st,go){play.innerHTML=`<button id="pad" style="position:absolute;inset:0;border:none;background:${bg};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer"><div style="font-family:Marcellus;font-size:34px;color:${go?'var(--good)':'var(--ink)'}">${txt}</div><div style="font-size:12px;color:var(--mute)">${go?'¡Ahora!':'no toques aún'}</div></button>`;
+  $('#pad').onclick=()=>{if(!waiting){clearTimeout(to);render('#f3dcd5','¡Muy pronto!','early',false);timers.push(setTimeout(next,800));}else{const ms=Date.now()-t0;total+=ms;waiting=false;render('#e7e0d2',ms+' ms','res',false);timers.push(setTimeout(next,800));}};}
+ next();ov._clean=()=>clearTimers();
+}
+
+// ─── 4 · MITO O VERDAD ───
+const MV=[
+ ['El Botox congela permanentemente la cara.',false],
+ ['El ácido hialurónico se puede disolver si no te gusta.',true],
+ ['La rinomodelación con ácido hialurónico no requiere cirugía.',true],
+ ['Sculptra estimula tu propio colágeno.',true],
+ ['El Botox da resultado al instante el mismo día.',false],
+ ['Una evaluación previa es necesaria antes de cualquier procedimiento.',true],
+ ['El bótox bien aplicado mantiene tu expresión natural.',true],
+ ['Los rellenos de ácido hialurónico duran para siempre.',false],
+ ['El NCTF mejora luminosidad e hidratación de la piel.',true],
+ ['Más producto siempre es mejor en armonización facial.',false]
+];
+function gMito(){const g=G('mito');let i=0,score=0,list=MV.slice().sort(()=>Math.random()-.5);
+ function show(){if(i>=list.length)return gameOver(g,score);const[txt,truth]=list[i];
+  play.classList.remove('hidden');
+  play.innerHTML=`<div style="padding:18px;display:flex;flex-direction:column;height:100%;justify-content:center;gap:20px;text-align:center">
+    <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)">${i+1}/${list.length}</div>
+    <div class="q" style="font-size:23px">${txt}</div>
+    <div style="display:flex;gap:12px;margin-top:6px"><button id="v" style="flex:1;padding:18px 0;border:none;border-radius:14px;background:var(--good);color:#fff;font-family:Jost;font-weight:600;font-size:15px;cursor:pointer">VERDAD</button><button id="m" style="flex:1;padding:18px 0;border:none;border-radius:14px;background:var(--bad);color:#fff;font-family:Jost;font-weight:600;font-size:15px;cursor:pointer">MITO</button></div>
+    <div id="fb" style="min-height:18px;font-size:13px;color:var(--mute)"></div></div>`;
+  setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div>`);
+  function ans(val){$('#v').onclick=$('#m').onclick=null;const ok=val===truth;if(ok)score+=15;$('#fb').textContent=ok?'¡Correcto!':'Era '+(truth?'VERDAD':'MITO');$('#fb').style.color=ok?'var(--good)':'var(--bad)';setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div>`);timers.push(setTimeout(()=>{i++;show();},800));}
+  $('#v').onclick=()=>ans(true);$('#m').onclick=()=>ans(false);}
+ show();ov._clean=()=>clearTimers();
+}
+
+// ─── 5 · GLOW LAB (match-3, claro) ───
+function gGlowlab(){const g=G('glowlab');const COLS=6,ROWS=8,EMO=['💧','💉','🧴','✨','🧪'];let grid=[],sel=null,score=0,moves=20;
+ play.classList.remove('hidden');
+ const rnd=()=>Math.floor(Math.random()*EMO.length);
+ function findMatches(){const m=new Set();
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-2;c++){const v=grid[r][c];if(v!=null&&v===grid[r][c+1]&&v===grid[r][c+2]){m.add(r+','+c);m.add(r+','+(c+1));m.add(r+','+(c+2));}}
+  for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-2;r++){const v=grid[r][c];if(v!=null&&v===grid[r+1][c]&&v===grid[r+2][c]){m.add(r+','+c);m.add((r+1)+','+c);m.add((r+2)+','+c);}}
+  return m;}
+ function collapse(){const m=findMatches();if(!m.size)return false;score+=m.size*10;m.forEach(k=>{const[r,c]=k.split(',').map(Number);grid[r][c]=null;});
+  for(let c=0;c<COLS;c++){const col=[];for(let r=ROWS-1;r>=0;r--)if(grid[r][c]!=null)col.push(grid[r][c]);while(col.length<ROWS)col.push(rnd());for(let r=ROWS-1,i=0;r>=0;r--,i++)grid[r][c]=col[i];}return true;}
+ function settle(){let l=0;while(collapse()&&l++<40){}render();}
+ function init(){grid=[];for(let r=0;r<ROWS;r++){grid.push([]);for(let c=0;c<COLS;c++)grid[r].push(rnd());}
+  let l=0;while(findMatches().size&&l++<60){findMatches().forEach(k=>{const[r,c]=k.split(',').map(Number);grid[r][c]=rnd();});}render();}
+ function swap(a,b){const t=grid[a[0]][a[1]];grid[a[0]][a[1]]=grid[b[0]][b[1]];grid[b[0]][b[1]]=t;}
+ function tap(r,c){if(!sel){sel=[r,c];return render();}
+  if(Math.abs(sel[0]-r)+Math.abs(sel[1]-c)===1){const s=sel;swap(s,[r,c]);if(findMatches().size){moves--;sel=null;settle();if(moves<=0)gameOver(g,score);}else{swap(s,[r,c]);sel=null;render();}}
+  else{sel=[r,c];render();}}
+ function render(){setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Mov.<b>${moves}</b></div>`);
+  let h='<div style="padding:12px;display:flex;flex-direction:column;height:100%"><div style="flex:1;display:grid;grid-template-columns:repeat('+COLS+',1fr);gap:5px;align-content:stretch">';
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const s=sel&&sel[0]===r&&sel[1]===c;h+=`<button data-r="${r}" data-c="${c}" style="aspect-ratio:1;border:1px solid ${s?'var(--accent)':'var(--line)'};background:${s?'rgba(84,112,127,.14)':'var(--surface)'};border-radius:10px;font-size:min(6vw,22px);cursor:pointer">${EMO[grid[r][c]]}</button>`;}
+  h+='</div></div>';play.innerHTML=h;play.querySelectorAll('button[data-r]').forEach(b=>b.onclick=()=>tap(+b.dataset.r,+b.dataset.c));}
+ init();ov._clean=()=>clearTimers();
+}
+
+// ─── 6 · GLOW SNAKE (canvas, claro) ───
+function gSnake(){const g=G('snake');play.classList.remove('hidden');
+ play.innerHTML='<canvas id="cv" style="width:100%;height:100%;display:block;background:#EFEAE0"></canvas>';
+ const cv=$('#cv'),ctx=cv.getContext('2d'),N=17;let cell=10,W=0,H=0;
+ function fit(){W=play.clientWidth;H=play.clientHeight;cv.width=W;cv.height=H;cell=Math.floor(Math.min(W,H)/N);}fit();
+ let snake=[{x:8,y:8}],dir={x:1,y:0},nd={x:1,y:0},score=0,iv;
+ function spawn(){let p;do{p={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)};}while(snake.some(s=>s.x===p.x&&s.y===p.y));return p;}
+ let food=spawn();
+ function draw(){const ox=(W-N*cell)/2,oy=(H-N*cell)/2;ctx.clearRect(0,0,W,H);ctx.fillStyle='#E3DDD0';ctx.fillRect(ox,oy,N*cell,N*cell);
+  snake.forEach((s,i)=>{ctx.fillStyle=i===0?'#3d5360':'#6f8794';ctx.fillRect(ox+s.x*cell+1,oy+s.y*cell+1,cell-2,cell-2);});
+  ctx.font=(cell*0.8)+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('💧',ox+food.x*cell+cell/2,oy+food.y*cell+cell/2);
+  setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div>`);}
+ function step(){dir=nd;const hd={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(hd.x<0||hd.y<0||hd.x>=N||hd.y>=N||snake.some(s=>s.x===hd.x&&s.y===hd.y)){clearInterval(iv);return gameOver(g,score);}
+  snake.unshift(hd);if(hd.x===food.x&&hd.y===food.y){score+=10;food=spawn();}else snake.pop();draw();}
+ function setDir(x,y){if(x===-dir.x&&y===-dir.y)return;nd={x,y};}
+ let sx,sy;cv.ontouchstart=e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;};
+ cv.ontouchend=e=>{const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;if(Math.abs(dx)>Math.abs(dy))setDir(dx>0?1:-1,0);else setDir(0,dy>0?1:-1);};
+ window.onkeydown=e=>{({ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key]||[]).length&&(d=>setDir(d[0],d[1]))({ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key]);};
+ draw();iv=setInterval(step,140);timers.push(iv);ov._clean=()=>{clearTimers();window.onkeydown=null;};
+}
+
+// ─── 7 · MAPA DE PUNCIÓN (estética, claro) ───
+function gMina(){const g=G('mina');const R=9,C=7,NERV=11;let grid,rev,flag,over,won,started,flagMode=false,revealed=0;
+ play.classList.remove('hidden');
+ const NUMCOL=['','#4E8A72','#54707F','#caa86a','#9C8AB5','#c0563f','#c0563f','#c0563f','#c0563f'];
+ const SAFE=R*C-NERV;
+ function reset(){grid=[];rev=[];flag=[];over=false;won=false;started=false;revealed=0;
+  for(let r=0;r<R;r++){grid.push(Array(C).fill(0));rev.push(Array(C).fill(false));flag.push(Array(C).fill(false));}}
+ function place(sr,sc){let n=0;while(n<NERV){const r=Math.floor(Math.random()*R),c=Math.floor(Math.random()*C);
+   if(grid[r][c]===-1||(Math.abs(r-sr)<=1&&Math.abs(c-sc)<=1))continue;grid[r][c]=-1;n++;}
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){if(grid[r][c]===-1)continue;let k=0;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const nr=r+dr,nc=c+dc;if(nr>=0&&nr<R&&nc>=0&&nc<C&&grid[nr][nc]===-1)k++;}grid[r][c]=k;}}
+ function flood(r,c){if(r<0||r>=R||c<0||c>=C||rev[r][c]||flag[r][c])return;rev[r][c]=true;revealed++;if(grid[r][c]===0)for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)flood(r+dr,c+dc);}
+ function revealNerves(){for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(grid[r][c]===-1&&rev[r][c]!=='boom')rev[r][c]='nerve';}
+ function tap(r,c){if(over||won)return;
+  if(flagMode){if(rev[r][c]===true)return;flag[r][c]=!flag[r][c];return render();}
+  if(flag[r][c])return;
+  if(!started){place(r,c);started=true;}
+  if(grid[r][c]===-1){over=true;rev[r][c]='boom';revealNerves();render();return gameOver(g,revealed*10,'Tocaste un nervio facial. ');}
+  flood(r,c);
+  if(revealed===SAFE){won=true;render();return gameOver(g,revealed*10+200,'¡Mapa despejado sin tocar ningún nervio! ');}
+  render();}
+ function render(){const left=NERV-flag.flat().filter(Boolean).length;
+  setHud(`<div class="s">Nervios<b>${left}</b></div><div class="s">Zonas<b>${revealed}/${SAFE}</b></div>`);
+  let h='<div style="padding:8px 12px;display:flex;flex-direction:column;height:100%">';
+  h+=`<button id="fm" style="align-self:center;margin-bottom:8px;font-family:Jost;font-size:12px;font-weight:600;border:1px solid var(--line);background:${flagMode?'var(--accent)':'var(--surface)'};color:${flagMode?'#fff':'var(--accent)'};border-radius:999px;padding:8px 18px;cursor:pointer">${flagMode?'🚩 Modo: marcar nervio':'💉 Modo: puncionar'}</button>`;
+  h+='<div style="flex:1;display:grid;grid-template-columns:repeat('+C+',1fr);gap:4px;align-content:center;max-width:100%">';
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){let bg='var(--surface)',bd='var(--line)',ct='';
+   if(flag[r][c]&&rev[r][c]!==true){ct='🚩';bg='#fbf3e6';bd='var(--warn)';}
+   else if(rev[r][c]==='boom'){bg='#f3dcd5';bd='var(--bad)';ct='⚡';}
+   else if(rev[r][c]==='nerve'){bg='#efe7df';ct='⚡';}
+   else if(rev[r][c]===true){bg='#e9f1ec';bd='rgba(78,138,114,.35)';if(grid[r][c]>0)ct='<b style="color:'+NUMCOL[grid[r][c]]+'">'+grid[r][c]+'</b>';}
+   h+=`<button data-r="${r}" data-c="${c}" style="aspect-ratio:1;border:1px solid ${bd};background:${bg};border-radius:8px;font-size:min(4.4vw,17px);display:flex;align-items:center;justify-content:center;cursor:pointer">${ct}</button>`;}
+  h+='</div></div>';play.innerHTML=h;
+  $('#fm').onclick=()=>{flagMode=!flagMode;render();};
+  play.querySelectorAll('button[data-r]').forEach(b=>b.onclick=()=>tap(+b.dataset.r,+b.dataset.c));}
+ reset();render();ov._clean=()=>clearTimers();
+}
+
+const startId=new URLSearchParams(location.search).get('game')||location.hash.replace('#','');
+// En iframe (dentro de la app) las instrucciones ya se mostraron → ir directo al juego.
+if(startId&&G(startId)){let embedded=false;try{embedded=window.self!==window.top;}catch(e){embedded=true;}if(embedded){menuEl.classList.add('hidden');menuBtn.classList.remove('hidden');run(startId);}else prep(startId);}
+</script>
+</body>
+</html>

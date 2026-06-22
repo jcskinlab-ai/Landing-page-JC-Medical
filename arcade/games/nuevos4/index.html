@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>JC Medical · Juegos (tanda 4)</title>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F5F2EC;--surface:#fff;--ink:#1A1A14;--mute:#5C5A50;--line:rgba(20,20,15,.12);--accent:#54707F;--silver:#8A929B;--good:#4E8A72;--bad:#c0563f;--warn:#caa86a;--vio:#9C8AB5}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}html{background:#DCD7CC}
+body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);overflow:hidden;display:flex;flex-direction:column;height:100dvh;max-width:440px;margin:0 auto;box-shadow:0 24px 70px -28px rgba(0,0,0,.55)}
+.top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+.top .nm{font-family:'Marcellus';font-size:16px}.top .nm span{color:var(--accent)}
+.top button{font-family:'Jost';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);background:none;border:none;cursor:pointer}
+.hud{display:flex;gap:16px;align-items:center}.hud .s{font-size:11px;color:var(--mute)}.hud .s b{font-family:'Marcellus';font-size:17px;color:var(--ink);display:block;line-height:1}
+.stage{flex:1;position:relative;overflow:hidden}
+.menu{position:absolute;inset:0;overflow-y:auto;padding:20px 16px 28px}
+.menu h1{font-family:'Marcellus';font-weight:400;font-size:27px}.menu h1 em{font-style:italic;color:var(--accent)}
+.menu p{color:var(--mute);font-size:12.5px;font-weight:300;margin-top:6px;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px}
+.card{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px;cursor:pointer;transition:transform .25s,box-shadow .25s;display:flex;flex-direction:column;gap:5px}
+.card:active{transform:scale(.97)}.card:hover{transform:translateY(-3px);box-shadow:0 16px 32px -22px rgba(40,38,30,.5)}
+.card .ic{font-size:24px}.card .t{font-family:'Marcellus';font-size:16px;line-height:1.1}.card .d{font-size:11px;color:var(--mute);font-weight:300;line-height:1.4}
+.card .rec{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:2px}
+.ov{position:absolute;inset:0;background:rgba(245,242,236,.94);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:5}
+.ov h2{font-family:'Marcellus';font-size:28px;font-weight:400}.ov p{color:var(--mute);font-size:13px;font-weight:300;margin-top:8px;line-height:1.55}
+.ov .big{font-family:'Marcellus';font-size:50px;color:var(--accent);line-height:1;margin:10px 0}
+.btn{margin-top:16px;font-family:'Jost';font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:13px 24px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:9px}
+.hidden{display:none!important}
+#dom{position:absolute;inset:0}
+.ctrls{display:flex;gap:8px;padding:10px 14px}
+.ctrls button{flex:1;padding:14px 0;border:1px solid var(--line);background:var(--surface);border-radius:12px;font-size:18px;cursor:pointer;color:var(--accent)}
+.ctrls button:active{transform:scale(.94)}
+</style>
+</head>
+<body>
+<div class="top"><div class="nm">JC <span>Medical</span> · Juegos</div><div class="hud" id="hud"></div><button id="menuBtn" class="hidden" onclick="toMenu()">☰ Menú</button></div>
+<div class="stage"><div id="dom" class="hidden"></div><div class="menu" id="menu"></div><div class="ov hidden" id="ov"></div></div>
+<script>
+const REC_KEY='jcm_records';
+function getRecs(){try{return JSON.parse(localStorage.getItem(REC_KEY)||'{}')}catch(e){return{}}}
+function bestOf(rk){return getRecs()[rk]||0;}
+function saveBest(rk,s){const r=getRecs();if(s>(r[rk]||0)){r[rk]=s;try{localStorage.setItem(REC_KEY,JSON.stringify(r))}catch(e){}}return r[rk]||0;}
+function fmt(n){return (n||0).toLocaleString('es-CL');}
+const $=s=>document.querySelector(s);
+const dom=$('#dom'),ov=$('#ov'),hud=$('#hud'),menuEl=$('#menu'),menuBtn=$('#menuBtn');
+let raf=0;
+function setHud(h){hud.innerHTML=h;}function showOverlay(h){ov.innerHTML=h;ov.classList.remove('hidden');}function hideOverlay(){ov.classList.add('hidden');}
+function stopRAF(){if(raf)cancelAnimationFrame(raf);raf=0;}
+function toMenu(){stopRAF();if(ov._clean){ov._clean();ov._clean=null;}dom.classList.add('hidden');dom.innerHTML='';hideOverlay();menuEl.classList.remove('hidden');menuBtn.classList.add('hidden');setHud('');location.hash='';}
+const GAMES=[
+ {id:'tetris',rk:'acc_tetris',ic:'🧱',t:'Apila Viales (Tetris)',d:'Completa líneas con las piezas.'},
+ {id:'mina',  rk:'acc_mina',  ic:'🧭',t:'Mapa de Punción',d:'Despeja zonas sin tocar nervios.'},
+ {id:'flow',  rk:'acc_flow',  ic:'🔗',t:'Conecta Zonas',d:'Une cada par sin cruzar líneas.'}
+];
+function renderMenu(){menuEl.innerHTML='<h1>Juegos <em>nuevos · tanda 4</em></h1><p>Clásicos en marco móvil. Cada uno guarda tu récord.</p><div class="grid">'+GAMES.map(g=>`<button class="card" onclick="start('${g.id}')"><div class="ic">${g.ic}</div><div class="t">${g.t}</div><div class="d">${g.d}</div><div class="rec">Récord: ${fmt(bestOf(g.rk))}</div></button>`).join('')+'</div>';}
+renderMenu();
+function start(id){const g=GAMES.find(x=>x.id===id);if(!g)return;menuEl.classList.add('hidden');menuBtn.classList.remove('hidden');hideOverlay();if(ov._clean){ov._clean();ov._clean=null;}location.hash=id;
+ ({tetris:gTetris,mina:gMina,flow:gFlow})[id](g);}
+function gameOver(g,score){const best=saveBest(g.rk,score);const rec=score>=best&&score>0;showOverlay(`<h2>${rec?'¡Nuevo récord!':'Fin'}</h2><div class="big">${fmt(score)}</div><p>Récord: ${fmt(best)} puntos</p><button class="btn" onclick="start('${g.id}')">Jugar de nuevo</button><button class="btn ghost" onclick="toMenu()">Otro juego</button>`);}
+
+// ═══ 1 · TETRIS (Apila Viales) ═══
+function gTetris(g){
+ dom.classList.remove('hidden');
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column">
+   <canvas id="tcv" style="flex:1;width:100%;display:block;touch-action:none"></canvas>
+   <div class="ctrls"><button id="bl">◀</button><button id="br">▶</button><button id="brot">⟳</button><button id="bd">▼</button></div></div>`;
+ const cvT=$('#tcv'),cx=cvT.getContext('2d');
+ const COLS=10,ROWS=18;let cell=24,ox=0;
+ function rsz(){const r=cvT.getBoundingClientRect(),d=window.devicePixelRatio||1;cvT.width=r.width*d;cvT.height=r.height*d;cx.setTransform(d,0,0,d,0,0);cell=Math.floor(Math.min(r.width/COLS,r.height/ROWS));ox=(r.width-cell*COLS)/2;cvT._h=r.height;}
+ rsz();
+ const COLORS=['#54707F','#4E8A72','#caa86a','#9C8AB5','#5E7A99','#7d93a0','#b08a6a'];
+ const SHAPES=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[0,1,1],[1,1,0]],[[1,1,0],[0,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]]];
+ let board=Array.from({length:ROWS},()=>Array(COLS).fill(0)),piece,px,py,score=0,lines=0,over=false,dropT=0,last=performance.now();
+ function newPiece(){const i=Math.floor(Math.random()*7);piece={m:SHAPES[i].map(r=>r.slice()),c:i+1};px=Math.floor((COLS-piece.m[0].length)/2);py=0;if(coll(piece.m,px,py)){over=true;stopRAF();gameOver(g,score);}}
+ function coll(m,x,y){for(let r=0;r<m.length;r++)for(let c=0;c<m[r].length;c++){if(m[r][c]){const nx=x+c,ny=y+r;if(nx<0||nx>=COLS||ny>=ROWS||(ny>=0&&board[ny][nx]))return true;}}return false;}
+ function merge(){piece.m.forEach((row,r)=>row.forEach((v,c)=>{if(v&&py+r>=0)board[py+r][px+c]=piece.c;}));}
+ function clear(){let n=0;for(let r=ROWS-1;r>=0;r--){if(board[r].every(v=>v)){board.splice(r,1);board.unshift(Array(COLS).fill(0));n++;r++;}}if(n){lines+=n;score+=[0,100,300,500,800][n];setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Líneas<b>${lines}</b></div>`);}}
+ function lock(){merge();clear();newPiece();}
+ function rot(){const m=piece.m,nm=m[0].map((_,i)=>m.map(r=>r[i]).reverse());if(!coll(nm,px,py))piece.m=nm;else if(!coll(nm,px-1,py)){px--;piece.m=nm;}else if(!coll(nm,px+1,py)){px++;piece.m=nm;}}
+ function move(d){if(!coll(piece.m,px+d,py))px+=d;}
+ function soft(){if(!coll(piece.m,px,py+1))py++;else lock();}
+ $('#bl').onclick=()=>{if(!over)move(-1);};$('#br').onclick=()=>{if(!over)move(1);};$('#brot').onclick=()=>{if(!over)rot();};$('#bd').onclick=()=>{if(!over)soft();};
+ newPiece();setHud(`<div class="s">Puntos<b>0</b></div><div class="s">Líneas<b>0</b></div>`);
+ function draw(){cx.clearRect(0,0,cvT.width,cvT.height);
+  cx.fillStyle='#efe9dd';cx.fillRect(ox,0,cell*COLS,cell*ROWS);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(board[r][c]){cx.fillStyle=COLORS[board[r][c]-1];cx.fillRect(ox+c*cell+1,r*cell+1,cell-2,cell-2);}
+  if(piece)piece.m.forEach((row,r)=>row.forEach((v,c)=>{if(v&&py+r>=0){cx.fillStyle=COLORS[piece.c-1];cx.fillRect(ox+(px+c)*cell+1,(py+r)*cell+1,cell-2,cell-2);}}));}
+ function loop(now){const dt=now-last;last=now;dropT+=dt;const spd=Math.max(180,520-lines*20);if(dropT>spd){dropT=0;soft();}draw();if(!over)raf=requestAnimationFrame(loop);}
+ raf=requestAnimationFrame(loop);
+ ov._clean=()=>{over=true;stopRAF();};
+}
+
+// ═══ 2 · MAPA DE PUNCIÓN (minesweeper) ═══
+function gMina(g){
+ dom.classList.remove('hidden');
+ const N=9,MINES=12;let grid=[],rev=[],flag=[],over=false,flagMode=false,t=0,tick,started=false,safe=0;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding:12px 10px;gap:10px">
+   <button id="fm" style="font-family:Jost;font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 18px;cursor:pointer">🚩 Modo bandera: OFF</button>
+   <div id="mg" style="display:grid;grid-template-columns:repeat(${N},1fr);gap:3px;width:100%;max-width:360px"></div>
+   <div id="mmsg" style="font-size:12px;color:var(--mute)">Despeja sin tocar un nervio</div></div>`;
+ const mg=$('#mg'),mmsg=$('#mmsg'),fmb=$('#fm'),cells=[];
+ for(let i=0;i<N*N;i++){grid[i]=0;rev[i]=false;flag[i]=false;const c=document.createElement('button');c.style.cssText='aspect-ratio:1;border:1px solid var(--line);border-radius:6px;background:#e7e0d2;font-family:Jost;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent)';c.onclick=()=>tap(i);cells.push(c);mg.appendChild(c);}
+ // colocar minas
+ let placed=0;while(placed<MINES){const k=Math.floor(Math.random()*N*N);if(grid[k]!==-1){grid[k]=-1;placed++;}}
+ for(let i=0;i<N*N;i++){if(grid[i]===-1)continue;let n=0;nb(i).forEach(j=>{if(grid[j]===-1)n++;});grid[i]=n;}
+ function nb(i){const r=Math.floor(i/N),c=i%N,out=[];for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const rr=r+dr,cc=c+dc;if(rr>=0&&rr<N&&cc>=0&&cc<N)out.push(rr*N+cc);}return out;}
+ fmb.onclick=()=>{flagMode=!flagMode;fmb.textContent='🚩 Modo bandera: '+(flagMode?'ON':'OFF');fmb.style.background=flagMode?'#dce4e8':'var(--surface)';};
+ function reveal(i){if(rev[i]||flag[i])return;rev[i]=true;safe++;const c=cells[i];c.style.background='#fff';c.style.borderColor='var(--line)';
+  if(grid[i]>0){c.textContent=grid[i];c.style.color=['','#4E8A72','#54707F','#caa86a','#9C8AB5','#c0563f','#c0563f','#c0563f','#c0563f'][grid[i]];}
+  else{c.textContent='';nb(i).forEach(reveal);}}
+ function tap(i){if(over)return;if(!started){started=true;tick=setInterval(()=>{t++;},1000);}
+  if(flagMode){if(rev[i])return;flag[i]=!flag[i];cells[i].textContent=flag[i]?'🚩':'';return;}
+  if(flag[i])return;
+  if(grid[i]===-1){over=true;clearInterval(tick);cells[i].textContent='✖';cells[i].style.background='#c0563f';cells[i].style.color='#fff';mmsg.textContent='Tocaste un nervio';for(let k=0;k<N*N;k++)if(grid[k]===-1&&!flag[k]){cells[k].textContent='✖';cells[k].style.color='#c0563f';}setTimeout(()=>gameOver(g,Math.max(0,safe*10)),700);return;}
+  reveal(i);
+  if(safe===N*N-MINES){over=true;clearInterval(tick);const score=Math.max(100,800-t*6);mmsg.textContent='¡Mapa despejado!';setTimeout(()=>gameOver(g,score),500);}}
+ setHud(`<div class="s">Zonas<b>${N*N-MINES}</b></div><div class="s">Nervios<b>${MINES}</b></div>`);
+ ov._clean=()=>{clearInterval(tick);};
+}
+
+// ═══ 3 · CONECTA ZONAS (Flow) ═══
+function gFlow(g){
+ dom.classList.remove('hidden');
+ const LEVELS=[
+  {n:5,pairs:[['#54707F',[0,0],[4,1]],['#4E8A72',[0,4],[3,3]],['#caa86a',[4,0],[2,2]],['#9C8AB5',[4,4],[1,3]]]},
+  {n:5,pairs:[['#54707F',[0,0],[2,2]],['#4E8A72',[1,0],[4,2]],['#caa86a',[0,4],[4,4]],['#9C8AB5',[2,0],[4,0]],['#5E7A99',[1,4],[3,3]]]}
+ ];
+ let lvl=0,N,pairs,grid,paths,drawing=null,solved=0,total;
+ function load(){const L=LEVELS[lvl];N=L.n;pairs=L.pairs;total=pairs.length;solved=0;grid=Array.from({length:N},()=>Array(N).fill(-1));paths={};
+  pairs.forEach((p,i)=>{grid[p[1][0]][p[1][1]]=i;grid[p[2][0]][p[2][1]]=i;paths[i]=[];});render();setHud(`<div class="s">Nivel<b>${lvl+1}/${LEVELS.length}</b></div><div class="s">Pares<b>${solved}/${total}</b></div>`);}
+ function isEnd(r,c){return pairs.some(p=>(p[1][0]===r&&p[1][1]===c)||(p[2][0]===r&&p[2][1]===c));}
+ function colorOf(i){return pairs[i][0];}
+ function render(){
+  dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px">
+   <div style="font-size:12px;color:var(--mute)">Arrastra desde un punto hasta su par. Sin cruzar.</div>
+   <div id="fg" style="display:grid;grid-template-columns:repeat(${N},44px);grid-template-rows:repeat(${N},44px);gap:4px;touch-action:none"></div>
+   <button id="freset" style="font-family:Jost;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);background:none;border:1px solid var(--line);border-radius:999px;padding:8px 16px;cursor:pointer">↻ Reiniciar nivel</button></div>`;
+  const fg=$('#fg');
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){const cell=document.createElement('div');cell.dataset.r=r;cell.dataset.c=c;cell.style.cssText='width:44px;height:44px;border-radius:9px;background:#efe9dd;display:flex;align-items:center;justify-content:center;position:relative';
+   const id=grid[r][c];const inPath=Object.keys(paths).find(k=>paths[k].some(p=>p[0]===r&&p[1]===c));
+   if(isEnd(r,c)){const d=document.createElement('div');d.style.cssText='width:26px;height:26px;border-radius:50%;background:'+colorOf(id);cell.appendChild(d);}
+   else if(inPath!=null){cell.style.background=colorOf(+inPath);cell.style.opacity='.85';}
+   fg.appendChild(cell);}
+  fg.onpointerdown=e=>{const t=e.target.closest('[data-r]');if(!t)return;const r=+t.dataset.r,c=+t.dataset.c;const id=grid[r][c];if(id<0&&!cellPathOwner(r,c))return;
+   // empezar desde un extremo o desde una celda de path
+   let pid=isEnd(r,c)?id:cellPathOwner(r,c);if(pid==null||pid<0)return;paths[pid]=[[r,c]];drawing=pid;render();};
+  fg.onpointermove=e=>{if(drawing==null)return;e.preventDefault();const el=document.elementFromPoint(e.clientX,e.clientY);const t=el&&el.closest&&el.closest('[data-r]');if(!t)return;const r=+t.dataset.r,c=+t.dataset.c;extend(r,c);};
+  fg.onpointerup=()=>{checkSolved();drawing=null;render();};
+ }
+ function cellPathOwner(r,c){for(const k in paths)if(paths[k].some(p=>p[0]===r&&p[1]===c))return +k;return null;}
+ function extend(r,c){const path=paths[drawing];const last=path[path.length-1];if(r===last[0]&&c===last[1])return;
+  if(Math.abs(r-last[0])+Math.abs(c-last[1])!==1)return; // solo ortogonal contiguo
+  // retroceso
+  if(path.length>1&&path[path.length-2][0]===r&&path[path.length-2][1]===c){path.pop();render();return;}
+  const occ=cellPathOwner(r,c);if(occ!=null&&occ!==drawing)return; // celda de otro color
+  const id=grid[r][c];if(id>=0&&id!==drawing)return; // extremo de otro
+  if(path.some(p=>p[0]===r&&p[1]===c))return;
+  path.push([r,c]);render();
+  if(grid[r][c]===drawing&&!(r===pairs[drawing][1][0]&&c===pairs[drawing][1][1])){drawing=null;} }
+ function checkSolved(){solved=0;pairs.forEach((p,i)=>{const path=paths[i];if(path.length>=2){const a=path[0],b=path[path.length-1];const ends=[[p[1][0],p[1][1]],[p[2][0],p[2][1]]];const ok=ends.some(e=>e[0]===a[0]&&e[1]===a[1])&&ends.some(e=>e[0]===b[0]&&e[1]===b[1]);if(ok)solved++;}});
+  setHud(`<div class="s">Nivel<b>${lvl+1}/${LEVELS.length}</b></div><div class="s">Pares<b>${solved}/${total}</b></div>`);
+  if(solved===total){if(lvl<LEVELS.length-1){lvl++;setTimeout(load,500);}else{setTimeout(()=>gameOver(g,500+lvl*200),500);}}}
+ // delegación del botón reiniciar (se recrea en cada render)
+ dom.addEventListener('click',e=>{if(e.target&&e.target.id==='freset'){pairs.forEach((p,i)=>paths[i]=[]);render();checkSolved();}});
+ load();
+}
+
+const startId=new URLSearchParams(location.search).get('game')||location.hash.replace('#','');
+if(startId&&GAMES.find(g=>g.id===startId))start(startId);
+</script>
+</body>
+</html>

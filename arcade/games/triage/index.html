@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triage — Glow Clinic by JC Medical</title>
+<!-- Tema y sonido compartidos del hub (rutas relativas para file://) -->
+<link rel="stylesheet" href="../../shared/theme.css?v=16">
+<style>
+  /* ===== Estilos propios de Triage (ficha + retrato) ===== */
+
+  /* HUD superior con métricas de la partida */
+  .hud{display:flex;flex-wrap:wrap;gap:10px;width:100%}
+  .hud .chip{flex:1 1 120px;background:var(--white);border:1px solid var(--light);
+    border-radius:14px;padding:10px 12px;box-shadow:var(--shadow);text-align:center;min-width:0}
+  .hud .chip b{display:block;font-size:11px;color:#7a869a;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .hud .chip span{display:block;font-size:19px;color:var(--blue);font-weight:800;margin-top:2px}
+  .hud .chip.gold span{color:var(--gold)}
+  .hud .chip .stars{font-size:18px;letter-spacing:1px;color:var(--gold)}
+
+  /* Barra de tiempo del paciente */
+  .timerbar{height:8px;width:100%;background:var(--light);border-radius:6px;overflow:hidden}
+  .timerbar > i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--gold));transition:width .1s linear}
+  .timerbar.low > i{background:linear-gradient(90deg,var(--yellow),var(--red))}
+
+  /* Layout principal: protocolo a la izquierda, paciente a la derecha */
+  .board{display:grid;grid-template-columns:280px 1fr;gap:14px;align-items:start}
+  @media(max-width:760px){ .board{grid-template-columns:1fr} }
+
+  /* Panel de protocolo (reglas visibles) */
+  .protocol h3{font-size:14px;color:var(--blue);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+  .protocol ol{padding-left:18px;display:flex;flex-direction:column;gap:8px}
+  .protocol li{font-size:12.5px;color:#41506a;line-height:1.4}
+  .protocol li b{color:var(--blue)}
+
+  /* Tarjeta del paciente */
+  .patient{display:flex;flex-direction:column;gap:14px}
+  .pat-top{display:flex;gap:14px;align-items:center}
+
+  /* Retrato dibujado con formas (sin imágenes) */
+  .portrait{width:96px;height:96px;min-width:96px;border-radius:18px;position:relative;overflow:hidden;
+    background:var(--floor);border:1px solid var(--light);box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+  .portrait .hair{position:absolute;left:50%;top:14px;transform:translateX(-50%);width:64px;height:50px;border-radius:32px 32px 0 0}
+  .portrait .face{position:absolute;left:50%;top:26px;transform:translateX(-50%);width:54px;height:60px;border-radius:50% 50% 45% 45%}
+  .portrait .eyes{position:absolute;left:50%;top:48px;transform:translateX(-50%);font-size:13px;letter-spacing:8px;color:#33405a}
+  .portrait .mouth{position:absolute;left:50%;top:64px;transform:translateX(-50%);font-size:14px}
+  .portrait .acc{position:absolute;right:6px;bottom:6px;font-size:20px}
+
+  .pat-id strong{font-size:18px;color:var(--blue);display:block}
+  .pat-id small{font-size:12px;color:#7a869a}
+
+  /* Burbuja de solicitud */
+  .request{background:var(--bg);border:1px solid var(--light);border-radius:14px;
+    padding:12px 14px;font-size:15px;color:var(--blue);font-weight:600;position:relative}
+  .request:before{content:"“";color:var(--gold);font-size:22px;font-weight:800;margin-right:2px}
+
+  /* Ficha con atributos */
+  .chart{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .chart .field{background:var(--white);border:1px solid var(--light);border-radius:12px;padding:8px 10px}
+  .chart .field b{display:block;font-size:10px;color:#7a869a;text-transform:uppercase;letter-spacing:.5px}
+  .chart .field span{font-size:14px;color:var(--blue);font-weight:700}
+  .chart .field.warn{border-color:var(--red);background:#fcf0f0}
+  .chart .field.warn span{color:var(--red)}
+
+  /* Botones de decisión */
+  .decide{display:flex;gap:10px;flex-wrap:wrap}
+  .decide .btn{flex:1 1 130px}
+
+  /* Línea de feedback de la última decisión */
+  .feedback{font-size:14px;font-weight:700;min-height:40px;line-height:1.4;text-align:center;
+    padding:6px;border-radius:12px;transition:.15s}
+  .feedback.ok{color:var(--green);background:#eef8f2}
+  .feedback.err{color:var(--red);background:#fcf0f0}
+
+  /* Botón mute dentro de la topbar */
+  #muteBtn{background:var(--white);border:1px solid var(--light);border-radius:12px;
+    font-size:18px;width:42px;height:42px;cursor:pointer;line-height:1}
+
+  .modal .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .modal ul{text-align:left;color:#41506a;font-size:13px;line-height:1.6;margin:10px 0 4px;padding-left:18px}
+  .modal .big{font-size:30px;color:var(--gold);font-weight:800;margin:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== Cabecera común del hub ===== -->
+  <header class="topbar">
+    <span class="logo">◆</span>
+    <div class="brand">
+      <strong>Glow Clinic</strong>
+      <small>by JC Medical · Triage</small>
+    </div>
+    <span class="spacer"></span>
+    <button id="muteBtn" title="Silenciar">🔊</button>
+    <a class="back-btn" href="../../index.html">← Menú</a>
+  </header>
+
+  <!-- ===== HUD: reputación, dinero, progreso ===== -->
+  <div class="hud">
+    <div class="chip"><b>Reputación</b><span class="stars" id="hudRep">★★★★★</span></div>
+    <div class="chip gold"><b>Caja</b><span id="hudMoney">$0</span></div>
+    <div class="chip"><b>Aciertos</b><span id="hudHits">0</span></div>
+    <div class="chip"><b>Paciente</b><span id="hudProg">0 / 0</span></div>
+  </div>
+
+  <!-- Barra de tiempo del paciente actual -->
+  <div class="timerbar" id="timerbar"><i id="timerfill"></i></div>
+
+  <!-- ===== Tablero principal ===== -->
+  <main class="board">
+
+    <!-- Panel de protocolo (siempre visible) -->
+    <aside class="panel protocol">
+      <h3>📋 Protocolo</h3>
+      <ol>
+        <li><b>Alergia a lidocaína</b> + inyectable (rellenos, bótox, Sculptra, rinomodelación) → <b>Rechazar</b>.</li>
+        <li><b>Expectativa irreal</b> → <b>Rechazar</b> (no operar).</li>
+        <li><b>Sculptra / Rinomodelación</b> solo si edad <b>≥ 30</b>; si no, <b>Rechazar</b>.</li>
+        <li>Si el <b>presupuesto no alcanza</b> → <b>Sugerir alternativa</b> más económica.</li>
+        <li>Sin banderas → <b>Aprobar</b> lo solicitado.</li>
+      </ol>
+    </aside>
+
+    <!-- Tarjeta del paciente -->
+    <section class="panel patient">
+      <div class="pat-top">
+        <div class="portrait" id="portrait">
+          <div class="hair"></div>
+          <div class="face"></div>
+          <div class="eyes">• •</div>
+          <div class="mouth">‿</div>
+          <div class="acc"></div>
+        </div>
+        <div class="pat-id">
+          <strong id="patName">—</strong>
+          <small id="patSub">Esperando apertura…</small>
+        </div>
+      </div>
+
+      <div class="request" id="patRequest">Presiona “Empezar” para abrir la clínica.</div>
+
+      <div class="chart" id="patChart"><!-- campos inyectados --></div>
+
+      <div class="feedback" id="feedback"></div>
+
+      <div class="decide">
+        <button class="btn btn-gold" id="btnApprove" disabled>✅ Aprobar</button>
+        <button class="btn btn-blue" id="btnAlt" disabled>🔄 Sugerir alternativa</button>
+        <button class="btn btn-ghost" id="btnReject" disabled>⛔ Rechazar</button>
+      </div>
+
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" id="restartBtn">↺ Reiniciar día</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== Overlay de inicio / fin ===== -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"><!-- contenido inyectado por game.js --></div>
+</div>
+
+<!-- Toast simple -->
+<div class="toast" id="toast"></div>
+
+<!-- Sonido compartido + lógica del juego -->
+<script src="../../shared/sound.js?v=16"></script>
+<script src="game.js"></script>
+</body>
+</html>

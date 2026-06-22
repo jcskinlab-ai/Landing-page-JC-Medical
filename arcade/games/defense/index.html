@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skin Defense — Glow Clinic</title>
+<!-- Tema y sonido compartidos del hub (rutas relativas, funcionan con file://) -->
+<link rel="stylesheet" href="../../shared/theme.css?v=16">
+<style>
+  .game-wrap{display:flex;flex-direction:column;gap:12px}
+  .hud{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .stat{background:var(--white);border:1px solid var(--light);border-radius:12px;padding:8px 12px;font-size:13px;display:flex;flex-direction:column;line-height:1.2;min-width:84px}
+  .stat b{font-size:16px;color:var(--blue)}
+  .stat small{color:#7a869a;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+  .stat.glow b{color:var(--gold)}
+  .towers{display:flex;flex-wrap:wrap;gap:8px}
+  .tower-btn{flex:1;min-width:108px;text-align:left;display:flex;flex-direction:column;gap:1px;border:2px solid var(--light);padding:7px 9px}
+  .tower-btn.sel{border-color:var(--gold);box-shadow:0 0 0 3px rgba(196,169,106,.25)}
+  .tower-btn.rm{border-color:var(--red);box-shadow:0 0 0 3px rgba(224,91,91,.2)}
+  .tower-btn .t-name{font-size:13px;font-weight:800}
+  .tower-btn .t-cost{font-size:12px;font-weight:700;color:var(--gold)}
+  .tower-btn .t-desc{font-size:9.5px;color:#7a869a;font-weight:600}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  canvas{margin:0 auto;cursor:pointer;max-width:100%;height:auto}
+  #muteBtn{cursor:pointer;border:1px solid var(--light);background:var(--white);border-radius:12px;padding:9px 12px;font-size:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <span class="logo">◆</span>
+    <span class="brand">
+      <strong>Glow Clinic</strong>
+      <small>by JC Medical · Skin Defense</small>
+    </span>
+    <span class="spacer"></span>
+    <button id="muteBtn" title="Silenciar">🔊</button>
+    <a class="back-btn" href="../../index.html">← Menú</a>
+  </header>
+
+  <main class="game-wrap">
+
+    <!-- HUD -->
+    <section class="hud panel">
+      <div class="stat"><small>Oleada</small><b id="hudWave">0 / 10</b></div>
+      <div class="stat glow"><small>Glow</small><b id="hudCash">✦ 0</b></div>
+      <div class="stat"><small>Carriles</small><b id="hudLife">5</b></div>
+      <div class="stat" style="flex:1"><small>Planta</small><b id="hudTower">Sérum</b></div>
+    </section>
+
+    <!-- Selección de plantas -->
+    <section class="towers panel">
+      <button class="btn btn-ghost tower-btn" data-tower="0">
+        <span class="t-name">✿ Sérum</span>
+        <span class="t-cost" data-cost></span>
+        <span class="t-desc">Genera glow</span>
+      </button>
+      <button class="btn btn-ghost tower-btn" data-tower="1">
+        <span class="t-name">✦ Limpieza</span>
+        <span class="t-cost" data-cost></span>
+        <span class="t-desc">Dispara rápido</span>
+      </button>
+      <button class="btn btn-ghost tower-btn" data-tower="2">
+        <span class="t-name">⊹ Botox</span>
+        <span class="t-cost" data-cost></span>
+        <span class="t-desc">Daño alto</span>
+      </button>
+      <button class="btn btn-ghost tower-btn" data-tower="3">
+        <span class="t-name">✷ Sculptra</span>
+        <span class="t-cost" data-cost></span>
+        <span class="t-desc">Daño en área</span>
+      </button>
+      <button class="btn btn-ghost tower-btn" data-tower="4">
+        <span class="t-name">▦ Mascarilla</span>
+        <span class="t-cost" data-cost></span>
+        <span class="t-desc">Muro · mucha vida</span>
+      </button>
+      <button class="btn btn-ghost tower-btn" data-tower="-1" id="shovelBtn">
+        <span class="t-name">⌫ Quitar</span>
+        <span class="t-cost">50% reembolso</span>
+        <span class="t-desc">Retira una planta</span>
+      </button>
+    </section>
+
+    <!-- Tablero -->
+    <canvas id="game" width="900" height="600"></canvas>
+
+    <!-- Controles -->
+    <section class="controls panel">
+      <button id="startWaveBtn" class="btn btn-gold">▶ Iniciar oleada</button>
+      <button id="restartBtn" class="btn btn-ghost">↺ Reiniciar</button>
+      <span class="spacer" style="margin-left:auto"></span>
+      <span style="font-size:12px;color:#7a869a">Mejor oleada: <b id="bestWave">0</b></span>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h1 id="ovTitle">Skin Defense</h1>
+    <p id="ovText"></p>
+    <button id="ovBtn" class="btn btn-blue" style="margin-top:8px">Empezar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="../../shared/sound.js?v=16"></script>
+<script src="game.js"></script>
+</body>
+</html>

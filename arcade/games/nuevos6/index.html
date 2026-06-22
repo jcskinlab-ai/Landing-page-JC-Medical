@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>JC Medical · Juegos (tanda 6)</title>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F5F2EC;--surface:#fff;--ink:#1A1A14;--mute:#5C5A50;--line:rgba(20,20,15,.12);--accent:#54707F;--silver:#8A929B;--good:#4E8A72;--bad:#c0563f;--warn:#caa86a;--vio:#9C8AB5}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}html{background:#DCD7CC}
+body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);overflow:hidden;display:flex;flex-direction:column;height:100dvh;max-width:440px;margin:0 auto;box-shadow:0 24px 70px -28px rgba(0,0,0,.55)}
+.top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+.top .nm{font-family:'Marcellus';font-size:16px}.top .nm span{color:var(--accent)}
+.top button{font-family:'Jost';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);background:none;border:none;cursor:pointer}
+.hud{display:flex;gap:16px;align-items:center}.hud .s{font-size:11px;color:var(--mute)}.hud .s b{font-family:'Marcellus';font-size:17px;color:var(--ink);display:block;line-height:1}
+.stage{flex:1;position:relative;overflow:hidden}
+.menu{position:absolute;inset:0;overflow-y:auto;padding:20px 16px 28px}
+.menu h1{font-family:'Marcellus';font-weight:400;font-size:27px}.menu h1 em{font-style:italic;color:var(--accent)}
+.menu p{color:var(--mute);font-size:12.5px;font-weight:300;margin-top:6px;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px}
+.card{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px;cursor:pointer;transition:transform .25s,box-shadow .25s;display:flex;flex-direction:column;gap:5px}
+.card:active{transform:scale(.97)}.card:hover{transform:translateY(-3px);box-shadow:0 16px 32px -22px rgba(40,38,30,.5)}
+.card .ic{font-size:24px}.card .t{font-family:'Marcellus';font-size:16px;line-height:1.1}.card .d{font-size:11px;color:var(--mute);font-weight:300;line-height:1.4}
+.card .rec{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:2px}
+.ov{position:absolute;inset:0;background:rgba(245,242,236,.94);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:5}
+.ov h2{font-family:'Marcellus';font-size:28px;font-weight:400}.ov p{color:var(--mute);font-size:13px;font-weight:300;margin-top:8px;line-height:1.55}
+.ov .big{font-family:'Marcellus';font-size:50px;color:var(--accent);line-height:1;margin:10px 0}
+.btn{margin-top:16px;font-family:'Jost';font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:13px 24px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:9px}
+.hidden{display:none!important}
+#dom{position:absolute;inset:0}
+</style>
+</head>
+<body>
+<div class="top"><div class="nm">JC <span>Medical</span> · Juegos</div><div class="hud" id="hud"></div><button id="menuBtn" class="hidden" onclick="toMenu()">☰ Menú</button></div>
+<div class="stage"><div id="dom" class="hidden"></div><div class="menu" id="menu"></div><div class="ov hidden" id="ov"></div></div>
+<script>
+const REC_KEY='jcm_records';
+function getRecs(){try{return JSON.parse(localStorage.getItem(REC_KEY)||'{}')}catch(e){return{}}}
+function bestOf(rk){return getRecs()[rk]||0;}
+function saveBest(rk,s){const r=getRecs();if(s>(r[rk]||0)){r[rk]=s;try{localStorage.setItem(REC_KEY,JSON.stringify(r))}catch(e){}}return r[rk]||0;}
+function fmt(n){return (n||0).toLocaleString('es-CL');}
+const $=s=>document.querySelector(s);
+const dom=$('#dom'),ov=$('#ov'),hud=$('#hud'),menuEl=$('#menu'),menuBtn=$('#menuBtn');
+function setHud(h){hud.innerHTML=h;}function showOverlay(h){ov.innerHTML=h;ov.classList.remove('hidden');}function hideOverlay(){ov.classList.add('hidden');}
+function toMenu(){if(ov._clean){ov._clean();ov._clean=null;}dom.classList.add('hidden');dom.innerHTML='';hideOverlay();menuEl.classList.remove('hidden');menuBtn.classList.add('hidden');setHud('');location.hash='';}
+const GAMES=[
+ {id:'lights',rk:'acc_lights',ic:'💡',t:'Apaga las Luces',d:'Apaga toda la grilla. Cada toque cambia vecinas.'},
+ {id:'quince',rk:'acc_quince',ic:'🧩',t:'Rompecabezas',d:'Ordena del 1 al 15 deslizando.'},
+ {id:'cuatro',rk:'acc_cuatro',ic:'🔵',t:'4 en Línea',d:'Conecta 4 antes que la clínica.'},
+ {id:'sudoku',rk:'acc_sudoku',ic:'🔢',t:'Dosis (Sudoku 4×4)',d:'Sin repetir en fila, columna y caja.'},
+ {id:'schulte',rk:'acc_schulte',ic:'🔎',t:'Encuentra el Número',d:'Toca del 1 al 25 lo más rápido.'}
+];
+function renderMenu(){menuEl.innerHTML='<h1>Juegos <em>nuevos · tanda 6</em></h1><p>Puzzle y lógica en móvil. Cada uno guarda tu récord.</p><div class="grid">'+GAMES.map(g=>`<button class="card" onclick="start('${g.id}')"><div class="ic">${g.ic}</div><div class="t">${g.t}</div><div class="d">${g.d}</div><div class="rec">Récord: ${fmt(bestOf(g.rk))}</div></button>`).join('')+'</div>';}
+renderMenu();
+function start(id){const g=GAMES.find(x=>x.id===id);if(!g)return;menuEl.classList.add('hidden');menuBtn.classList.remove('hidden');hideOverlay();if(ov._clean){ov._clean();ov._clean=null;}location.hash=id;
+ ({lights:gLights,quince:gQuince,cuatro:gCuatro,sudoku:gSudoku,schulte:gSchulte})[id](g);}
+function gameOver(g,score){const best=saveBest(g.rk,score);const rec=score>=best&&score>0;showOverlay(`<h2>${rec?'¡Nuevo récord!':'Fin'}</h2><div class="big">${fmt(score)}</div><p>Récord: ${fmt(best)} puntos</p><button class="btn" onclick="start('${g.id}')">Jugar de nuevo</button><button class="btn ghost" onclick="toMenu()">Otro juego</button>`);}
+
+// 1 · APAGA LAS LUCES (5x5)
+function gLights(g){
+ dom.classList.remove('hidden');const N=5;let st=Array(N*N).fill(false),moves=0;
+ function toggle(i){const r=Math.floor(i/N),c=i%N;[[0,0],[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{const rr=r+dr,cc=c+dc;if(rr>=0&&rr<N&&cc>=0&&cc<N)st[rr*N+cc]=!st[rr*N+cc];});}
+ for(let k=0;k<8;k++)toggle(Math.floor(Math.random()*N*N)); // estado resoluble
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px"><div style="font-size:12px;color:var(--mute)">Deja toda la grilla apagada</div><div id="lg" style="display:grid;grid-template-columns:repeat(${N},54px);grid-template-rows:repeat(${N},54px);gap:6px"></div></div>`;
+ const lg=$('#lg'),cells=[];
+ for(let i=0;i<N*N;i++){const b=document.createElement('button');b.style.cssText='border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:background .15s';b.onclick=()=>{toggle(i);moves++;draw();setHud(`<div class="s">Movimientos<b>${moves}</b></div>`);if(st.every(x=>!x)){const sc=Math.max(50,400-moves*15);setTimeout(()=>gameOver(g,sc),300);}};lg.appendChild(b);cells.push(b);}
+ function draw(){cells.forEach((b,i)=>b.style.background=st[i]?'#caa86a':'#e7e0d2');}
+ draw();setHud(`<div class="s">Movimientos<b>0</b></div>`);
+}
+// 2 · ROMPECABEZAS (15-puzzle)
+function gQuince(g){
+ dom.classList.remove('hidden');const N=4;let bd=[...Array(15).keys()].map(x=>x+1).concat(0),moves=0;
+ function adj(i){const r=Math.floor(i/N),c=i%N,z=bd.indexOf(0),zr=Math.floor(z/N),zc=z%N;return Math.abs(r-zr)+Math.abs(c-zc)===1;}
+ function slide(i){if(!adj(i))return false;const z=bd.indexOf(0);[bd[i],bd[z]]=[bd[z],bd[i]];return true;}
+ for(let k=0;k<200;k++){const opts=[...Array(16).keys()].filter(adj);slide(opts[Math.floor(Math.random()*opts.length)]);}
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px"><div style="font-size:12px;color:var(--mute)">Ordena del 1 al 15</div><div id="qg" style="display:grid;grid-template-columns:repeat(${N},62px);grid-template-rows:repeat(${N},62px);gap:5px"></div></div>`;
+ const qg=$('#qg');
+ function solved(){for(let i=0;i<15;i++)if(bd[i]!==i+1)return false;return true;}
+ function draw(){qg.innerHTML='';bd.forEach((v,i)=>{const b=document.createElement('button');if(v===0){b.style.cssText='background:transparent;border:none';}else{b.style.cssText='border:1px solid var(--line);border-radius:12px;background:#fff;font-family:Marcellus;font-size:24px;cursor:pointer;color:var(--accent)';b.textContent=v;b.onclick=()=>{if(slide(i)){moves++;draw();setHud(`<div class="s">Movimientos<b>${moves}</b></div>`);if(solved()){const sc=Math.max(80,900-moves*8);setTimeout(()=>gameOver(g,sc),300);}}};}qg.appendChild(b);});}
+ draw();setHud(`<div class="s">Movimientos<b>0</b></div>`);
+}
+// 3 · 4 EN LÍNEA
+function gCuatro(g){
+ dom.classList.remove('hidden');const COLS=7,ROWS=6;let bd=Array(COLS*ROWS).fill(0),done=false;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:14px"><div style="font-family:Marcellus;font-size:18px" id="cmsg">Tú eres azul · tu turno</div><div id="cb" style="background:#e7e0d2;border-radius:14px;padding:8px;display:grid;grid-template-columns:repeat(${COLS},1fr);gap:5px;width:100%;max-width:360px"></div></div>`;
+ const cb=$('#cb'),cmsg=$('#cmsg'),cells=[];
+ function idx(r,c){return r*COLS+c;}
+ for(let i=0;i<COLS*ROWS;i++){const d=document.createElement('div');d.style.cssText='aspect-ratio:1;border-radius:50%;background:#fff;cursor:pointer';d.onclick=()=>drop(i%COLS);cb.appendChild(d);cells.push(d);}
+ function colHeight(c){let h=0;for(let r=ROWS-1;r>=0;r--)if(bd[idx(r,c)])h++;return h;}
+ function place(c,p){const h=colHeight(c);if(h>=ROWS)return -1;const r=ROWS-1-h;bd[idx(r,c)]=p;return idx(r,c);}
+ function win(p){const dirs=[[0,1],[1,0],[1,1],[1,-1]];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(bd[idx(r,c)]!==p)continue;for(const[dr,dc]of dirs){let n=1;for(let k=1;k<4;k++){const rr=r+dr*k,cc=c+dc*k;if(rr<0||rr>=ROWS||cc<0||cc>=COLS||bd[idx(rr,cc)]!==p)break;n++;}if(n>=4)return true;}}return false;}
+ function draw(){cells.forEach((d,i)=>{d.style.background=bd[i]===1?'#54707F':bd[i]===2?'#c0563f':'#fff';});}
+ function ai(){ // gana / bloquea / random
+  for(let c=0;c<COLS;c++){if(colHeight(c)>=ROWS)continue;const i=place(c,2);if(win(2)){return;}bd[i]=0;}
+  for(let c=0;c<COLS;c++){if(colHeight(c)>=ROWS)continue;const i=place(c,1);const b=win(1);bd[i]=0;if(b){place(c,2);return;}}
+  const opts=[];for(let c=0;c<COLS;c++)if(colHeight(c)<ROWS)opts.push(c);place(opts[Math.floor(Math.random()*opts.length)],2);}
+ function drop(c){if(done||colHeight(c)>=ROWS)return;place(c,1);draw();if(win(1)){done=true;cmsg.textContent='¡Ganaste! 🎉';return setTimeout(()=>gameOver(g,100),700);}
+  if(bd.every(x=>x)){done=true;cmsg.textContent='Empate';return setTimeout(()=>gameOver(g,40),700);}
+  ai();draw();if(win(2)){done=true;cmsg.textContent='Ganó la clínica';return setTimeout(()=>gameOver(g,0),700);}}
+ setHud(`<div class="s">4 en línea<b>vs IA</b></div>`);
+}
+// 4 · DOSIS (Sudoku 4x4)
+function gSudoku(g){
+ dom.classList.remove('hidden');
+ // genera solución 4x4 válida
+ function gen(){const base=[[1,2,3,4],[3,4,1,2],[2,1,4,3],[4,3,2,1]];let rows=[0,1,2,3];
+  // permuta dígitos
+  const perm=[1,2,3,4].sort(()=>Math.random()-.5);let s=base.map(r=>r.map(v=>perm[v-1]));
+  if(Math.random()<.5)s=s[0].map((_,c)=>s.map(r=>r[c])); // transpone
+  return s;}
+ const sol=gen();let given=sol.map(r=>r.map(v=>Math.random()<.5?v:0));
+ // asegura al menos 8 dados
+ let cur=given.flat();let cells=[];
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px"><div style="font-size:12px;color:var(--mute)">Toca para cambiar el número (1–4)</div><div id="sg" style="display:grid;grid-template-columns:repeat(4,58px);grid-template-rows:repeat(4,58px);gap:3px;background:var(--ink);padding:3px;border-radius:10px"></div><div id="smsg" style="font-size:12px;color:var(--mute);min-height:16px"></div></div>`;
+ const sg=$('#sg'),smsg=$('#smsg');
+ for(let i=0;i<16;i++){const r=Math.floor(i/4),c=i%4;const fixed=given[r][c]!==0;const b=document.createElement('button');
+  b.style.cssText='border:none;background:'+(fixed?'#ece7dc':'#fff')+';font-family:Marcellus;font-size:24px;cursor:'+(fixed?'default':'pointer')+';color:'+(fixed?'var(--ink)':'var(--accent)')+';border-radius:4px;'+((c===1)?'margin-right:2px;':'')+((r===1)?'margin-bottom:2px;':'');
+  b.textContent=cur[i]||'';
+  if(!fixed)b.onclick=()=>{cur[i]=(cur[i]%4)+1;b.textContent=cur[i];check();};
+  sg.appendChild(b);cells.push(b);}
+ function check(){if(cur.includes(0))return;const ok=sol.flat().every((v,i)=>v===cur[i]);if(ok){smsg.textContent='¡Correcto! 🎉';setTimeout(()=>gameOver(g,300),400);}else smsg.textContent='Aún hay errores…';}
+ setHud(`<div class="s">Sudoku<b>4×4</b></div>`);
+}
+// 5 · ENCUENTRA EL NÚMERO (Schulte)
+function gSchulte(g){
+ dom.classList.remove('hidden');const N=5;let nums=[...Array(N*N).keys()].map(x=>x+1).sort(()=>Math.random()-.5),next=1,t=0,tick,started=false;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:14px"><div style="font-family:Marcellus;font-size:20px" id="smsg">Busca el 1</div><div id="sg" style="display:grid;grid-template-columns:repeat(${N},1fr);gap:5px;width:100%;max-width:360px"></div></div>`;
+ const sg=$('#sg'),smsg=$('#smsg'),cells=[];
+ nums.forEach((n,i)=>{const b=document.createElement('button');b.style.cssText='aspect-ratio:1;border:1px solid var(--line);border-radius:10px;background:#fff;font-family:Marcellus;font-size:20px;cursor:pointer;color:var(--ink)';b.textContent=n;b.onclick=()=>{if(!started){started=true;tick=setInterval(()=>{t++;},1000);}
+  if(n===next){b.style.background='#cfe3d8';b.style.color='var(--good)';next++;smsg.textContent=next<=N*N?'Busca el '+next:'¡Listo!';if(next>N*N){clearInterval(tick);const sc=Math.max(50,600-t*8);setTimeout(()=>gameOver(g,sc),300);}}else{b.style.background='#f0d4cc';setTimeout(()=>{if(b.style.color!=='var(--good)')b.style.background='#fff';},200);}};sg.appendChild(b);cells.push(b);});
+ setHud(`<div class="s">Hasta<b>${N*N}</b></div>`);
+ ov._clean=()=>{clearInterval(tick);};
+}
+const startId=new URLSearchParams(location.search).get('game')||location.hash.replace('#','');
+if(startId&&GAMES.find(g=>g.id===startId))start(startId);
+</script>
+</body>
+</html>

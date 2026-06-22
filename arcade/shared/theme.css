@@ -1,0 +1,56 @@
+/* ============================================================================
+ * shared/theme.css — Estilo común "Glow Clinic — by JC Medical"
+ * Paleta premium clínica. Lo enlazan todos los mini-juegos del hub.
+ * ==========================================================================*/
+:root{
+  --white:#fff; --bg:#eef1f5; --light:#d9dee6; --floor:#e7ecf2;
+  --blue:#2a3b52; --blue-soft:#3c5174; --gold:#B9C2CB; --gold-soft:#d8c290;
+  --green:#4caf7d; --yellow:#e8b84b; --red:#e05b5b; --purple:#9c6ade;
+  --text:#2a3b52; --shadow:0 8px 28px rgba(42,59,82,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  height:100%;
+  background:radial-gradient(1200px 600px at 50% -10%, #f7f9fc 0%, var(--bg) 60%) fixed;
+  color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1100px;margin:0 auto;padding:16px clamp(10px,2.5vw,24px);display:flex;flex-direction:column;gap:14px;min-height:100%}
+
+/* Cabecera común */
+.topbar{display:flex;align-items:center;gap:14px;background:var(--white);border:1px solid var(--light);border-radius:16px;padding:10px 16px;box-shadow:var(--shadow)}
+.topbar .logo{font-size:24px;width:42px;height:42px;display:grid;place-items:center;background:var(--blue);border-radius:12px;box-shadow:inset 0 0 0 2px var(--gold)}
+.topbar .brand{display:flex;flex-direction:column;line-height:1.15}
+.topbar .brand strong{font-size:16px;color:var(--blue)}
+.topbar .brand small{font-size:11px;color:#7a869a}
+.topbar .spacer{margin-left:auto}
+.back-btn{text-decoration:none;color:var(--blue);font-weight:700;font-size:14px;border:1px solid var(--light);background:var(--white);border-radius:12px;padding:9px 14px;transition:background .2s,transform .1s;display:inline-flex;align-items:center;gap:6px}
+.back-btn:hover{background:var(--bg);transform:translateY(-1px)}
+/* Embebido en la app: el "atrás" lo maneja la app (vuelve a la grilla de Juegos). */
+.jcm-embedded .back-btn{display:none !important;}
+
+/* Botones */
+.btn{border:none;border-radius:12px;padding:11px 16px;font-size:14px;font-weight:800;cursor:pointer;transition:transform .1s,filter .2s,opacity .2s}
+.btn:active{transform:translateY(1px)}
+.btn-gold{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:#4a3a17;box-shadow:0 4px 12px rgba(196,169,106,.4)}
+.btn-blue{background:linear-gradient(180deg,var(--blue-soft),var(--blue));color:#fff;box-shadow:0 4px 14px rgba(42,59,82,.3)}
+.btn-ghost{background:var(--white);border:1px solid var(--light);color:var(--blue)}
+.btn:hover:not(:disabled){filter:brightness(1.05);transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Tarjetas / paneles */
+.panel{background:var(--white);border:1px solid var(--light);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+canvas{display:block;background:var(--floor);border:1px solid var(--light);border-radius:16px;box-shadow:var(--shadow);max-width:100%;touch-action:manipulation}
+
+/* Toast simple */
+.toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,20px);background:var(--blue);color:#fff;padding:11px 20px;border-radius:12px;font-weight:600;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:90%;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* Overlay modal (resultado / inicio) */
+.overlay{position:fixed;inset:0;background:rgba(42,59,82,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--white);border-radius:20px;padding:26px 30px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);border-top:5px solid var(--gold);text-align:center;animation:pop .25s ease}
+.modal h1{font-size:23px;color:var(--blue);margin-bottom:6px}
+.modal p{color:#41506a;font-size:14px;line-height:1.5;margin-bottom:8px}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}

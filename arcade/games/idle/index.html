@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Glow Empire — Glow Clinic by JC Medical</title>
+  <!-- Tema y sonido compartidos del hub (rutas relativas, funcionan con file://) -->
+  <link rel="stylesheet" href="../../shared/theme.css?v=16" />
+  <style>
+    /* ---- Estilos propios de Glow Empire (sobre el tema compartido) ---- */
+    .grid{display:grid;grid-template-columns:1.1fr 1.4fr;gap:14px}
+    @media(max-width:780px){.grid{grid-template-columns:1fr}}
+
+    /* Columna izquierda: dinero + botón de clic */
+    .bank{text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+    .bank .money{font-size:clamp(30px,7vw,46px);font-weight:900;color:var(--blue);letter-spacing:.5px;line-height:1}
+    .bank .rate{font-size:15px;color:var(--green);font-weight:800}
+    .bank .meta{font-size:12px;color:#7a869a;font-weight:600}
+
+    .tap-zone{position:relative;margin:8px auto 4px;width:100%;display:grid;place-items:center}
+    .tap-btn{
+      width:min(230px,72vw);height:min(230px,72vw);border-radius:50%;
+      border:none;cursor:pointer;color:#4a3a17;font-weight:900;
+      background:radial-gradient(circle at 35% 30%,var(--gold-soft),var(--gold));
+      box-shadow:0 12px 30px rgba(196,169,106,.5),inset 0 0 0 4px rgba(255,255,255,.35);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+      transition:transform .08s ease,filter .2s;user-select:none;
+    }
+    .tap-btn:active{transform:scale(.95)}
+    .tap-btn:hover{filter:brightness(1.04)}
+    .tap-btn .face{font-size:54px;line-height:1}
+    .tap-btn .lbl{font-size:16px;letter-spacing:.5px}
+    .tap-btn .pwr{font-size:13px;opacity:.8;font-weight:700}
+
+    /* "+$" flotantes */
+    .float{position:absolute;pointer-events:none;font-weight:900;color:var(--green);
+      font-size:20px;text-shadow:0 1px 3px rgba(0,0,0,.18);animation:floatUp 1s ease-out forwards;z-index:5}
+    @keyframes floatUp{0%{opacity:0;transform:translateY(0) scale(.7)}
+      15%{opacity:1}100%{opacity:0;transform:translateY(-90px) scale(1.1)}}
+
+    /* Prestige */
+    .prestige{display:flex;flex-direction:column;gap:8px;text-align:center}
+    .prestige .pstat{font-size:13px;color:#41506a;font-weight:700}
+    .prestige .pstat b{color:var(--purple)}
+
+    /* Lista de generadores */
+    .gens{display:flex;flex-direction:column;gap:10px}
+    .gen{
+      display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
+      background:var(--white);border:1px solid var(--light);border-radius:14px;padding:10px 12px;
+      transition:border-color .2s,box-shadow .2s;
+    }
+    .gen.afford{border-color:var(--gold-soft);box-shadow:0 4px 14px rgba(196,169,106,.18)}
+    .gen .icon{font-size:30px;width:50px;height:50px;display:grid;place-items:center;
+      background:var(--floor);border-radius:12px;border:1px solid var(--light)}
+    .gen .info{display:flex;flex-direction:column;gap:2px;min-width:0}
+    .gen .name{font-weight:800;color:var(--blue);font-size:15px}
+    .gen .desc{font-size:12px;color:#7a869a;font-weight:600}
+    .gen .own{font-size:12px;color:var(--blue-soft);font-weight:800}
+    .gen .buy{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+    .gen .buy .cost{font-size:12px;color:#7a869a;font-weight:700;white-space:nowrap}
+    .gen .buy .btn{padding:8px 14px;font-size:13px;min-width:90px}
+
+    .section-title{font-size:13px;font-weight:800;color:var(--blue);text-transform:uppercase;
+      letter-spacing:.6px;margin:2px 0 6px;display:flex;align-items:center;gap:8px}
+    .section-title .spacer{margin-left:auto;font-size:12px;color:#7a869a;text-transform:none;letter-spacing:0}
+
+    .footer-actions{display:flex;justify-content:center;margin-top:4px}
+    .reset-link{background:none;border:none;color:#a7b0bf;font-size:12px;font-weight:700;
+      cursor:pointer;text-decoration:underline;padding:6px}
+    .reset-link:hover{color:var(--red)}
+
+    .modal ol{text-align:left;margin:10px 0 14px;padding-left:20px;color:#41506a;font-size:13.5px;line-height:1.6}
+    .modal ol li{margin-bottom:4px}
+    .icon-btn{background:var(--white);border:1px solid var(--light);border-radius:12px;
+      width:42px;height:42px;font-size:18px;cursor:pointer;color:var(--blue)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Cabecera compartida -->
+    <header class="topbar">
+      <span class="logo">◆</span>
+      <div class="brand">
+        <strong>Glow Clinic</strong>
+        <small>by JC Medical · Glow Empire</small>
+      </div>
+      <span class="spacer"></span>
+      <button id="muteBtn" class="icon-btn" title="Silenciar / activar sonido">🔊</button>
+      <a class="back-btn" href="../../index.html">← Menú</a>
+    </header>
+
+    <!-- Tablero principal -->
+    <main class="grid">
+
+      <!-- Columna izquierda: banca + clic + prestige -->
+      <section class="panel bank-panel">
+        <div class="bank">
+          <span class="meta">Caja de la clínica</span>
+          <span class="money" id="money">$0</span>
+          <span class="rate" id="rate">$0/seg</span>
+        </div>
+
+        <div class="tap-zone" id="tapZone">
+          <button class="tap-btn" id="tapBtn">
+            <span class="face">◆</span>
+            <span class="lbl">Atender paciente</span>
+            <span class="pwr" id="tapPwr">+$0</span>
+          </button>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--light);margin:12px 0" />
+
+        <div class="prestige">
+          <div class="section-title">Renovar marca</div>
+          <div class="pstat">Tokens Glow: <b id="tokens">0</b> · Multiplicador: <b id="mult">+0%</b></div>
+          <div class="pstat" id="prestigeHint" style="color:#7a869a">Reúne dinero para renovar la marca.</div>
+          <button class="btn btn-blue" id="prestigeBtn" disabled>Renovar marca ✦</button>
+        </div>
+      </section>
+
+      <!-- Columna derecha: generadores -->
+      <section class="panel">
+        <div class="section-title">Generadores
+          <span class="spacer" id="genHelp">Producen $ automáticamente</span>
+        </div>
+        <div class="gens" id="gens"></div>
+
+        <div class="footer-actions">
+          <button class="reset-link" id="resetBtn">Reiniciar progreso</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Overlay de inicio -->
+  <div class="overlay" id="startOverlay">
+    <div class="modal">
+      <h1>Glow Empire</h1>
+      <p>Construye tu imperio de medicina estética premium en Talca.</p>
+      <ol>
+        <li>Pulsa <b>Atender paciente</b> para ganar dinero a mano.</li>
+        <li>Compra <b>generadores</b> que producen $ por segundo solos.</li>
+        <li>Cuando tengas suficiente, <b>Renueva la marca</b> para ganar tokens Glow y un multiplicador permanente.</li>
+        <li>Tu clínica sigue ganando dinero <b>mientras no estás</b>.</li>
+      </ol>
+      <button class="btn btn-gold" id="startBtn">Empezar</button>
+    </div>
+  </div>
+
+  <!-- Toast compartido -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Scripts: sonido compartido + lógica del juego -->
+  <script src="../../shared/sound.js?v=16"></script>
+  <script src="game.js"></script>
+</body>
+</html>

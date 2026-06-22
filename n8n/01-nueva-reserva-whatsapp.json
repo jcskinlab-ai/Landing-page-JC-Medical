@@ -1,0 +1,88 @@
+{
+  "name": "JC Medical · Nueva reserva → WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jcm-reserva",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-reserva",
+      "name": "Webhook reserva",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "clinicMsg", "value": "=🗓️ *Nueva reserva*\\nPaciente: {{$json.body.nombre}}\\nProcedimiento: {{$json.body.proc}}\\nFecha: {{$json.body.fecha}} {{$json.body.hora}}\\nTel: {{$json.body.telefono}}" },
+            { "name": "patientMsg", "value": "=Hola {{$json.body.nombre}} 👋 Tu cita en JC Medical quedó registrada para el {{$json.body.fecha}} a las {{$json.body.hora}}. Te confirmamos a la brevedad. 🌿" },
+            { "name": "patientPhone", "value": "={{$json.body.telefono}}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-mensajes",
+      "name": "Construir mensajes",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/PHONE_NUMBER_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"56997880877\",\"type\":\"text\",\"text\":{\"body\":\"{{$json.clinicMsg}}\"}}",
+        "options": {}
+      },
+      "id": "wa-clinica",
+      "name": "WhatsApp a la clínica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/PHONE_NUMBER_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$json.patientPhone}}\",\"type\":\"text\",\"text\":{\"body\":\"{{$json.patientMsg}}\"}}",
+        "options": {}
+      },
+      "id": "wa-paciente",
+      "name": "WhatsApp al paciente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 380]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":true}",
+        "options": {}
+      },
+      "id": "responder",
+      "name": "Responder al sitio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Webhook reserva": { "main": [[{ "node": "Construir mensajes", "type": "main", "index": 0 }]] },
+    "Construir mensajes": { "main": [[{ "node": "WhatsApp a la clínica", "type": "main", "index": 0 }, { "node": "WhatsApp al paciente", "type": "main", "index": 0 }]] },
+    "WhatsApp a la clínica": { "main": [[{ "node": "Responder al sitio", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

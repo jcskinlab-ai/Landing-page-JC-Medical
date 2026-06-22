@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Precision Clinic — Glow Clinic by JC Medical</title>
+<!-- Tema y sonido compartidos del hub (rutas relativas para file://) -->
+<link rel="stylesheet" href="../../shared/theme.css?v=16">
+<style>
+  /* Estilos propios mínimos específicos de Precision Clinic */
+  .stage{display:flex;flex-direction:column;gap:12px;align-items:center}
+  /* HUD superior con las métricas de la partida */
+  .hud{display:flex;flex-wrap:wrap;gap:10px;width:100%;max-width:760px}
+  .hud .chip{flex:1 1 110px;background:var(--white);border:1px solid var(--light);
+    border-radius:14px;padding:10px 12px;box-shadow:var(--shadow);text-align:center;min-width:0}
+  .hud .chip b{display:block;font-size:11px;color:#7a869a;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .hud .chip span{display:block;font-size:19px;color:var(--blue);font-weight:800;margin-top:2px}
+  .hud .chip.gold span{color:var(--gold)}
+  .hud .chip .hearts{font-size:18px;letter-spacing:2px}
+  /* Línea de feedback del último intento */
+  .feedback{font-size:15px;font-weight:800;min-height:22px;text-align:center;transition:color .15s}
+  .feedback.perfect{color:var(--gold)}
+  .feedback.good{color:var(--green)}
+  .feedback.miss{color:var(--red)}
+  .hint{font-size:12px;color:#7a869a;text-align:center}
+  .canvas-wrap{position:relative;width:100%;max-width:760px}
+  /* Botón mute dentro de la topbar */
+  #muteBtn{background:var(--white);border:1px solid var(--light);border-radius:12px;
+    font-size:18px;width:42px;height:42px;cursor:pointer;line-height:1}
+  .modal .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .modal ul{text-align:left;color:#41506a;font-size:13.5px;line-height:1.7;margin:10px 0 4px;padding-left:18px}
+  .modal .big{font-size:30px;color:var(--gold);font-weight:800;margin:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== Cabecera común del hub ===== -->
+  <header class="topbar">
+    <span class="logo">◆</span>
+    <div class="brand">
+      <strong>Glow Clinic</strong>
+      <small>by JC Medical · Precision Clinic</small>
+    </div>
+    <span class="spacer"></span>
+    <button id="muteBtn" title="Silenciar">🔊</button>
+    <a class="back-btn" href="../../index.html">← Menú</a>
+  </header>
+
+  <!-- ===== Escenario de juego ===== -->
+  <main class="stage panel" style="width:100%">
+
+    <!-- HUD: dinero, combo, vidas, procedimiento -->
+    <div class="hud">
+      <div class="chip gold"><b>Caja</b><span id="hudMoney">$0</span></div>
+      <div class="chip"><b>Combo</b><span id="hudCombo">x1</span></div>
+      <div class="chip"><b>Vidas</b><span class="hearts" id="hudLives">●●●</span></div>
+      <div class="chip"><b>Procedimiento</b><span id="hudProc" style="font-size:15px">—</span></div>
+    </div>
+
+    <!-- Feedback del último intento -->
+    <div class="feedback" id="feedback">Presiona “Empezar” para abrir la clínica</div>
+
+    <!-- Canvas: barra, marcador y zona objetivo -->
+    <div class="canvas-wrap">
+      <canvas id="game" width="760" height="420"></canvas>
+    </div>
+
+    <div class="hint">ESPACIO o clic/tap para detener el marcador en el punto exacto</div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" id="restartBtn">↺ Reiniciar</button>
+    </div>
+  </main>
+</div>
+
+<!-- ===== Overlay de inicio / fin ===== -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal">
+    <!-- contenido inyectado por game.js -->
+  </div>
+</div>
+
+<!-- Toast simple -->
+<div class="toast" id="toast"></div>
+
+<!-- Sonido compartido + lógica del juego -->
+<script src="../../shared/sound.js?v=16"></script>
+<script src="game.js"></script>
+</body>
+</html>

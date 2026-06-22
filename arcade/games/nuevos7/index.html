@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>JC Medical · Juegos (tanda 7)</title>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F5F2EC;--surface:#fff;--ink:#1A1A14;--mute:#5C5A50;--line:rgba(20,20,15,.12);--accent:#54707F;--silver:#8A929B;--good:#4E8A72;--bad:#c0563f;--warn:#caa86a;--vio:#9C8AB5}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}html{background:#DCD7CC}
+body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);overflow:hidden;display:flex;flex-direction:column;height:100dvh;max-width:440px;margin:0 auto;box-shadow:0 24px 70px -28px rgba(0,0,0,.55)}
+.top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+.top .nm{font-family:'Marcellus';font-size:16px}.top .nm span{color:var(--accent)}
+.top button{font-family:'Jost';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);background:none;border:none;cursor:pointer}
+.hud{display:flex;gap:16px;align-items:center}.hud .s{font-size:11px;color:var(--mute)}.hud .s b{font-family:'Marcellus';font-size:17px;color:var(--ink);display:block;line-height:1}
+.stage{flex:1;position:relative;overflow:hidden}
+.menu{position:absolute;inset:0;overflow-y:auto;padding:20px 16px 28px}
+.menu h1{font-family:'Marcellus';font-weight:400;font-size:27px}.menu h1 em{font-style:italic;color:var(--accent)}
+.menu p{color:var(--mute);font-size:12.5px;font-weight:300;margin-top:6px;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px}
+.card{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px;cursor:pointer;transition:transform .25s,box-shadow .25s;display:flex;flex-direction:column;gap:5px}
+.card:active{transform:scale(.97)}.card:hover{transform:translateY(-3px);box-shadow:0 16px 32px -22px rgba(40,38,30,.5)}
+.card .ic{font-size:24px}.card .t{font-family:'Marcellus';font-size:16px;line-height:1.1}.card .d{font-size:11px;color:var(--mute);font-weight:300;line-height:1.4}
+.card .rec{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:2px}
+.ov{position:absolute;inset:0;background:rgba(245,242,236,.94);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:5}
+.ov h2{font-family:'Marcellus';font-size:28px;font-weight:400}.ov p{color:var(--mute);font-size:13px;font-weight:300;margin-top:8px;line-height:1.55}
+.ov .big{font-family:'Marcellus';font-size:50px;color:var(--accent);line-height:1;margin:10px 0}
+.btn{margin-top:16px;font-family:'Jost';font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:13px 24px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:9px}
+.hidden{display:none!important}
+#dom{position:absolute;inset:0}
+.dpad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(2,52px);gap:6px;justify-content:center}
+.dpad button{border:1px solid var(--line);background:var(--surface);border-radius:12px;font-size:20px;cursor:pointer;color:var(--accent)}
+.dpad button:active{transform:scale(.94)}
+</style>
+</head>
+<body>
+<div class="top"><div class="nm">JC <span>Medical</span> · Juegos</div><div class="hud" id="hud"></div><button id="menuBtn" class="hidden" onclick="toMenu()">☰ Menú</button></div>
+<div class="stage"><div id="dom" class="hidden"></div><div class="menu" id="menu"></div><div class="ov hidden" id="ov"></div></div>
+<script>
+const REC_KEY='jcm_records';
+function getRecs(){try{return JSON.parse(localStorage.getItem(REC_KEY)||'{}')}catch(e){return{}}}
+function bestOf(rk){return getRecs()[rk]||0;}
+function saveBest(rk,s){const r=getRecs();if(s>(r[rk]||0)){r[rk]=s;try{localStorage.setItem(REC_KEY,JSON.stringify(r))}catch(e){}}return r[rk]||0;}
+function fmt(n){return (n||0).toLocaleString('es-CL');}
+const $=s=>document.querySelector(s);
+const dom=$('#dom'),ov=$('#ov'),hud=$('#hud'),menuEl=$('#menu'),menuBtn=$('#menuBtn');
+function setHud(h){hud.innerHTML=h;}function showOverlay(h){ov.innerHTML=h;ov.classList.remove('hidden');}function hideOverlay(){ov.classList.add('hidden');}
+function toMenu(){if(ov._clean){ov._clean();ov._clean=null;}dom.classList.add('hidden');dom.innerHTML='';hideOverlay();menuEl.classList.remove('hidden');menuBtn.classList.add('hidden');setHud('');location.hash='';}
+const GAMES=[
+ {id:'burbujas',rk:'acc_burbujas',ic:'🫧',t:'Burbujas HA',d:'Revienta grupos de 2+ del mismo color.'},
+ {id:'laberinto',rk:'acc_laberinto',ic:'🌀',t:'Laberinto',d:'Llega a la salida. Usa las flechas.'},
+ {id:'patron',rk:'acc_patron',ic:'🧠',t:'Patrón Glow',d:'Repite la secuencia que se ilumina.'},
+ {id:'dosis',rk:'acc_dosisr',ic:'➗',t:'Dosis Rápida',d:'Resuelve cálculos contra el reloj.'},
+ {id:'stroop',rk:'acc_stroop',ic:'🎨',t:'Color Trampa',d:'Toca el COLOR de la tinta, no la palabra.'}
+];
+function renderMenu(){menuEl.innerHTML='<h1>Juegos <em>nuevos · tanda 7</em></h1><p>Mente y reflejos en móvil. Cada uno guarda tu récord.</p><div class="grid">'+GAMES.map(g=>`<button class="card" onclick="start('${g.id}')"><div class="ic">${g.ic}</div><div class="t">${g.t}</div><div class="d">${g.d}</div><div class="rec">Récord: ${fmt(bestOf(g.rk))}</div></button>`).join('')+'</div>';}
+renderMenu();
+function start(id){const g=GAMES.find(x=>x.id===id);if(!g)return;menuEl.classList.add('hidden');menuBtn.classList.remove('hidden');hideOverlay();if(ov._clean){ov._clean();ov._clean=null;}location.hash=id;
+ ({burbujas:gBurbujas,laberinto:gLab,patron:gPatron,dosis:gDosis,stroop:gStroop})[id](g);}
+function gameOver(g,score){const best=saveBest(g.rk,score);const rec=score>=best&&score>0;showOverlay(`<h2>${rec?'¡Nuevo récord!':'Fin'}</h2><div class="big">${fmt(score)}</div><p>Récord: ${fmt(best)} puntos</p><button class="btn" onclick="start('${g.id}')">Jugar de nuevo</button><button class="btn ghost" onclick="toMenu()">Otro juego</button>`);}
+
+// 1 · BURBUJAS (SameGame)
+function gBurbujas(g){
+ dom.classList.remove('hidden');const COLS=8,ROWS=11,NC=4;const PAL=['#54707F','#4E8A72','#caa86a','#9C8AB5'];
+ let bd=[];for(let i=0;i<COLS*ROWS;i++)bd[i]=Math.floor(Math.random()*NC);let score=0,over=false;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;padding:12px"><div style="font-size:12px;color:var(--mute)">Toca grupos de 2+ del mismo color</div><div id="bg" style="display:grid;grid-template-columns:repeat(${COLS},1fr);gap:2px;width:100%;max-width:340px"></div></div>`;
+ const bg=$('#bg'),cells=[];
+ for(let i=0;i<COLS*ROWS;i++){const b=document.createElement('button');b.style.cssText='aspect-ratio:1;border:none;border-radius:50%;cursor:pointer;transition:transform .1s';b.onclick=()=>tap(i);bg.appendChild(b);cells.push(b);}
+ function group(i){const col=bd[i];if(col<0)return[];const seen=new Set(),st=[i],out=[];while(st.length){const k=st.pop();if(seen.has(k)||bd[k]!==col)continue;seen.add(k);out.push(k);const r=Math.floor(k/COLS),c=k%COLS;if(c>0)st.push(k-1);if(c<COLS-1)st.push(k+1);if(r>0)st.push(k-COLS);if(r<ROWS-1)st.push(k+COLS);}return out;}
+ function collapse(){
+  for(let c=0;c<COLS;c++){let col=[];for(let r=ROWS-1;r>=0;r--){const v=bd[r*COLS+c];if(v>=0)col.push(v);}for(let r=ROWS-1;r>=0;r--){bd[r*COLS+c]=col.length?col.shift():-1;}}
+  // shift empty columns left
+  let cols=[];for(let c=0;c<COLS;c++){let empty=true;for(let r=0;r<ROWS;r++)if(bd[r*COLS+c]>=0){empty=false;break;}if(!empty)cols.push(c);}
+  let nb=Array(COLS*ROWS).fill(-1);cols.forEach((c,nc)=>{for(let r=0;r<ROWS;r++)nb[r*COLS+nc]=bd[r*COLS+c];});bd=nb;}
+ function anyMove(){for(let i=0;i<bd.length;i++)if(bd[i]>=0&&group(i).length>=2)return true;return false;}
+ function draw(){cells.forEach((b,i)=>{if(bd[i]<0){b.style.background='transparent';}else b.style.background=PAL[bd[i]];});}
+ function tap(i){if(over||bd[i]<0)return;const grp=group(i);if(grp.length<2)return;score+=grp.length*(grp.length-1)*2;grp.forEach(k=>bd[k]=-1);collapse();draw();setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div>`);
+  if(bd.every(v=>v<0)){over=true;score+=500;setTimeout(()=>gameOver(g,score),350);}else if(!anyMove()){over=true;setTimeout(()=>gameOver(g,score),350);}}
+ draw();setHud(`<div class="s">Puntos<b>0</b></div>`);
+}
+
+// 2 · LABERINTO
+function gLab(g){
+ dom.classList.remove('hidden');const N=9;
+ let cells=Array.from({length:N*N},()=>({w:[true,true,true,true],v:false})); // w: top,right,bottom,left
+ (function gen(){const st=[0];cells[0].v=true;while(st.length){const cur=st[st.length-1];const r=Math.floor(cur/N),c=cur%N;const nb=[];
+   if(r>0&&!cells[cur-N].v)nb.push([cur-N,0,2]);if(c<N-1&&!cells[cur+1].v)nb.push([cur+1,1,3]);if(r<N-1&&!cells[cur+N].v)nb.push([cur+N,2,0]);if(c>0&&!cells[cur-1].v)nb.push([cur-1,3,1]);
+   if(nb.length){const[nx,wa,wb]=nb[Math.floor(Math.random()*nb.length)];cells[cur].w[wa]=false;cells[nx].w[wb]=false;cells[nx].v=true;st.push(nx);}else st.pop();}})();
+ let pos=0,t=0,tick,started=false;const exit=N*N-1;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:14px"><div id="lg" style="display:grid;grid-template-columns:repeat(${N},1fr);width:100%;max-width:340px;aspect-ratio:1;background:#fff;border:2px solid var(--ink)"></div><div class="dpad"><span></span><button onclick="window._lm(0)">▲</button><span></span><button onclick="window._lm(3)">◀</button><span></span><button onclick="window._lm(1)">▶</button><span></span><button onclick="window._lm(2)">▼</button><span></span></div></div>`;
+ const lg=$('#lg'),cellEls=[];
+ for(let i=0;i<N*N;i++){const d=document.createElement('div');const w=cells[i].w;d.style.cssText='position:relative;border-top:'+(w[0]?'2px solid var(--ink)':'none')+';border-right:'+(w[1]?'2px solid var(--ink)':'none')+';border-bottom:'+(w[2]?'2px solid var(--ink)':'none')+';border-left:'+(w[3]?'2px solid var(--ink)':'none');lg.appendChild(d);cellEls.push(d);}
+ cellEls[exit].style.background='rgba(78,138,114,.35)';
+ function draw(){cellEls.forEach(d=>{const dot=d.querySelector('.p');if(dot)dot.remove();});const d=cellEls[pos];const p=document.createElement('div');p.className='p';p.style.cssText='position:absolute;inset:18%;border-radius:50%;background:var(--accent)';d.appendChild(p);}
+ window._lm=(dir)=>{if(!started){started=true;tick=setInterval(()=>{t++;},1000);}if(cells[pos].w[dir])return;pos+= [-N,1,N,-1][dir];draw();if(pos===exit){clearInterval(tick);const sc=Math.max(80,700-t*8);setTimeout(()=>gameOver(g,sc),250);}};
+ draw();setHud(`<div class="s">Salida<b>↘</b></div>`);
+ ov._clean=()=>{clearInterval(tick);window._lm=null;};
+}
+
+// 3 · PATRÓN GLOW
+function gPatron(g){
+ dom.classList.remove('hidden');let seq=[],idx=0,playing=false,score=0;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px"><div style="font-family:Marcellus;font-size:20px" id="pm">Observa…</div><div id="pg" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:84%;max-width:320px"></div></div>`;
+ const pg=$('#pg'),pm=$('#pm'),pads=[];
+ for(let i=0;i<9;i++){const b=document.createElement('button');b.style.cssText='aspect-ratio:1;border:1px solid var(--line);border-radius:14px;background:#ece7dc;cursor:pointer;transition:background .12s,transform .1s';b.onclick=()=>tap(i);pg.appendChild(b);pads.push(b);}
+ function flash(i,ms){return new Promise(r=>{pads[i].style.background='#54707F';pads[i].style.transform='scale(1.05)';setTimeout(()=>{pads[i].style.background='#ece7dc';pads[i].style.transform='';setTimeout(r,130);},ms);});}
+ async function next(){playing=false;seq.push(Math.floor(Math.random()*9));pm.textContent='Observa…';await new Promise(r=>setTimeout(r,450));for(const s of seq)await flash(s,400);idx=0;playing=true;pm.textContent='Tu turno · '+seq.length;setHud(`<div class="s">Secuencia<b>${seq.length}</b></div>`);}
+ function tap(i){if(!playing)return;flash(i,150);if(i===seq[idx]){idx++;if(idx===seq.length){score=seq.length*15;next();}}else{playing=false;pm.textContent='¡Fallaste!';setTimeout(()=>gameOver(g,Math.max(0,(seq.length-1)*15)),500);}}
+ setHud(`<div class="s">Secuencia<b>0</b></div>`);next();
+ ov._clean=()=>{playing=false;};
+}
+
+// 4 · DOSIS RÁPIDA (math)
+function gDosis(g){
+ dom.classList.remove('hidden');let score=0,t=30,combo=0,tick,answer=0;
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px"><div style="font-family:Marcellus;font-size:40px" id="q">…</div><div id="opts" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:88%;max-width:360px"></div><div id="m" style="font-size:12px;color:var(--mute);min-height:16px"></div></div>`;
+ const q=$('#q'),opts=$('#opts'),m=$('#m');
+ function hud2(){setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Combo<b>${combo}x</b></div><div class="s">Tiempo<b>${t}s</b></div>`);}
+ function round(){const op=Math.random()<.5?'+':'×';const a=2+Math.floor(Math.random()*9),b=2+Math.floor(Math.random()*9);answer=op==='+'?a+b:a*b;q.textContent=`${a} ${op} ${b}`;
+  const set=new Set([answer]);while(set.size<4){const d=answer+Math.floor(Math.random()*9)-4;if(d>0)set.add(d);}const arr=[...set].sort(()=>Math.random()-.5);
+  opts.innerHTML='';arr.forEach(v=>{const b=document.createElement('button');b.textContent=v;b.style.cssText='padding:18px 0;border:1px solid var(--line);background:#fff;border-radius:14px;font-family:Marcellus;font-size:22px;cursor:pointer;color:var(--ink)';b.onclick=()=>{if(v===answer){combo++;score+=10*(1+Math.floor(combo/3));m.textContent='¡Correcto!';}else{combo=0;t=Math.max(0,t-3);m.textContent='Ups, −3s';}hud2();round();};opts.appendChild(b);});}
+ hud2();round();tick=setInterval(()=>{t--;hud2();if(t<=0){clearInterval(tick);gameOver(g,score);}},1000);
+ ov._clean=()=>{clearInterval(tick);};
+}
+
+// 5 · COLOR TRAMPA (Stroop)
+function gStroop(g){
+ dom.classList.remove('hidden');let score=0,t=25,combo=0,tick;
+ const COLS=[['Azul','#54707F'],['Verde','#4E8A72'],['Oro','#caa86a'],['Violeta','#9C8AB5'],['Rojo','#c0563f']];
+ dom.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px"><div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute)">Toca el COLOR de la tinta</div><div id="word" style="font-family:Marcellus;font-size:52px">…</div><div id="opts" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:88%;max-width:360px"></div></div>`;
+ const word=$('#word'),opts=$('#opts');
+ function hud2(){setHud(`<div class="s">Puntos<b>${fmt(score)}</b></div><div class="s">Combo<b>${combo}x</b></div><div class="s">Tiempo<b>${t}s</b></div>`);}
+ function round(){const textC=COLS[Math.floor(Math.random()*COLS.length)];let inkC=COLS[Math.floor(Math.random()*COLS.length)];word.textContent=textC[0].toUpperCase();word.style.color=inkC[1];
+  const set=new Set([inkC]);while(set.size<4)set.add(COLS[Math.floor(Math.random()*COLS.length)]);const arr=[...set].sort(()=>Math.random()-.5);
+  opts.innerHTML='';arr.forEach(c=>{const b=document.createElement('button');b.textContent=c[0];b.style.cssText='padding:16px 0;border:1px solid var(--line);background:#fff;border-radius:14px;font-family:Jost;font-weight:600;font-size:16px;cursor:pointer;color:var(--ink)';b.onclick=()=>{if(c===inkC){combo++;score+=12*(1+Math.floor(combo/3));}else{combo=0;t=Math.max(0,t-3);}hud2();round();};opts.appendChild(b);});}
+ hud2();round();tick=setInterval(()=>{t--;hud2();if(t<=0){clearInterval(tick);gameOver(g,score);}},1000);
+ ov._clean=()=>{clearInterval(tick);};
+}
+const startId=new URLSearchParams(location.search).get('game')||location.hash.replace('#','');
+if(startId&&GAMES.find(g=>g.id===startId))start(startId);
+</script>
+</body>
+</html>

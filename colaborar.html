@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solicitud de Colaboración — JC Medical</title>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F5F2EC;--surface:#fff;--surface2:#FBF9F5;--ink:#1A1A14;--mute:#5C5A50;--faint:#8A8674;--line:rgba(20,20,15,.12);--accent:#54707F;--danger:#C0285A;--ok:#1F8A5B}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);min-height:100dvh;padding:36px 22px 72px}
+  .wrap{width:100%;max-width:740px;margin:0 auto}
+  .badge{width:54px;height:54px;border-radius:14px;background:rgba(84,112,127,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+  h1{font-family:'Marcellus';font-weight:400;font-size:30px;line-height:1.15;text-align:center}
+  h1 em{font-family:'Cormorant Garamond';font-style:italic;color:var(--accent)}
+  .sub{color:var(--mute);font-size:14px;font-weight:300;margin-top:12px;line-height:1.6;text-align:center}
+  .nota{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:13px 15px;margin-top:16px;font-size:12.5px;color:var(--mute);line-height:1.6}
+  .req-hint{font-size:12px;color:var(--danger);margin-top:14px;text-align:center}
+  form{margin-top:22px}
+  .sech{font-family:'Marcellus';font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);background:rgba(84,112,127,.10);border-radius:10px;padding:12px 16px;margin-bottom:6px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px 26px 28px;margin-top:12px;box-shadow:0 18px 50px -32px rgba(40,38,30,.45)}
+  .q{margin-top:4px}
+  .q+.q{margin-top:26px}
+  .lbl{display:block;font-size:15.5px;font-weight:500;color:var(--ink);line-height:1.45;margin-bottom:11px}
+  .lbl .star{color:var(--danger);margin-left:3px}
+  input[type=text],input[type=email],textarea{width:100%;font-family:'Jost';font-size:15px;padding:14px 15px;border:1px solid var(--line);border-radius:11px;background:var(--surface2);color:var(--ink);outline:none}
+  input:focus,textarea:focus{border-color:var(--accent);background:#fff}
+  textarea{resize:vertical;min-height:104px}
+  .opt{display:flex;align-items:center;gap:13px;padding:14px 15px;border:1px solid var(--line);border-radius:11px;background:var(--surface2);cursor:pointer;margin-top:9px;transition:border-color .15s,background .15s}
+  .opt:hover{border-color:var(--accent)}
+  .opt input{position:absolute;opacity:0;pointer-events:none}
+  .dot{width:18px;height:18px;border-radius:50%;border:1.6px solid var(--faint);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:border-color .15s}
+  .dot::after{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent);transform:scale(0);transition:transform .15s}
+  .opt:has(input:checked){border-color:var(--accent);background:rgba(84,112,127,.07)}
+  .opt:has(input:checked) .dot{border-color:var(--accent)}
+  .opt:has(input:checked) .dot::after{transform:scale(1)}
+  .opt .sq{border-radius:5px}
+  .opt:has(input:checked) .sq::after{transform:scale(1);border-radius:1px}
+  .opt .txt{font-size:15px;color:var(--ink)}
+  .err{border-color:var(--danger)!important}
+  .errmsg{font-size:11.5px;color:var(--danger);margin-top:6px;display:none}
+  .errmsg.show{display:block}
+  .footer{display:flex;align-items:center;gap:12px;margin-top:24px;flex-wrap:wrap}
+  button.nav{font-family:'Jost';font-size:14px;font-weight:600;letter-spacing:.04em;border-radius:11px;padding:15px 22px;cursor:pointer;transition:transform .15s,opacity .15s}
+  button.nav:active{transform:scale(.98)}
+  .btn-prim{background:var(--ink);color:var(--bg);border:none}
+  .btn-ghost{background:transparent;color:var(--mute);border:1px solid var(--line)}
+  .btn-prim:disabled{opacity:.45;cursor:not-allowed}
+  .prog{flex:1;display:flex;align-items:center;gap:10px;justify-content:flex-end;font-size:11.5px;color:var(--faint)}
+  .bar{flex:1;max-width:160px;height:5px;border-radius:999px;background:var(--line);overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);transition:width .3s ease}
+  .step{display:none}
+  .step.active{display:block;animation:fade .35s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .ok{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:46px 28px;margin-top:24px;text-align:center;box-shadow:0 18px 50px -32px rgba(40,38,30,.45)}
+  .ok .ic{width:60px;height:60px;border-radius:50%;background:rgba(31,138,91,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+  .ok h2{font-family:'Marcellus';font-weight:400;font-size:25px}
+  .ok p{color:var(--mute);font-size:13.5px;margin-top:10px;line-height:1.6}
+  .hide{display:none}
+  /* Móvil — la mayoría llena el formulario desde el celular: campos amplios, texto 16px (sin zoom iOS) y botones grandes */
+  @media(max-width:600px){
+    body{padding:20px 12px 64px}
+    h1{font-size:27px}
+    .sub{font-size:14.5px}
+    .card{padding:18px 16px 20px;border-radius:15px}
+    .q+.q{margin-top:24px}
+    input[type=text],input[type=email],textarea{font-size:16px;padding:15px 15px}
+    textarea{min-height:120px}
+    .lbl{font-size:16px}
+    .opt{padding:16px 15px;gap:14px}
+    .opt .txt{font-size:16px}
+    .dot{width:21px;height:21px}
+    .dot::after{width:11px;height:11px}
+    .footer{gap:10px}
+    button.nav{font-size:16px;padding:16px 18px;flex:1}
+    .footer .prog{order:3;flex-basis:100%;justify-content:center;margin-top:6px;max-width:none}
+    .bar{max-width:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#54707F" stroke-width="1.5"><path d="M16 4h2a2 2 0 0 1 2 2v14l-4-3H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 4h6v4H9z"/></svg></div>
+  <h1>Solicitud de <em>Colaboración</em></h1>
+  <p class="sub">Gracias por tu interés en colaborar con JC Medical. Evaluamos cada solicitud de forma personalizada según el perfil, la audiencia y la propuesta.</p>
+  <div class="nota"><b>Importante:</b> los procedimientos de medicina estética son actos médicos y toda colaboración queda sujeta a una valoración clínica previa. Completar este formulario no garantiza la aprobación del canje.</div>
+  <div class="req-hint">* Indica que la pregunta es obligatoria</div>
+
+  <form id="f" novalidate>
+
+    <!-- PÁGINA 1 · Tus datos -->
+    <div class="step active" data-step="0">
+      <div class="card">
+        <div class="q">
+          <label class="lbl">Nombre completo<span class="star">*</span></label>
+          <input type="text" id="name" data-req placeholder="Tu respuesta">
+          <div class="errmsg">Completa este campo.</div>
+        </div>
+        <div class="q">
+          <label class="lbl">Correo electrónico<span class="star">*</span></label>
+          <input type="email" id="email" data-req data-email placeholder="tucorreo@ejemplo.com">
+          <div class="errmsg">Ingresa un correo válido.</div>
+        </div>
+        <div class="q">
+          <label class="lbl">Teléfono / WhatsApp<span class="star">*</span></label>
+          <input type="text" id="phone" data-req data-phone value="+56 9 " inputmode="tel" placeholder="+56 9 XXXX XXXX">
+          <div class="errmsg">Ingresa un teléfono válido con código de país (ej. +56 9 1234 5678).</div>
+        </div>
+        <div class="q">
+          <label class="lbl">Ciudad o comuna donde vives<span class="star">*</span></label>
+          <input type="text" id="ciudad" data-req placeholder="Tu respuesta">
+          <div class="errmsg">Completa este campo.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÁGINA 2 · Tus redes y métricas -->
+    <div class="step" data-step="1">
+      <div class="sech">Tus redes y métricas</div>
+      <div class="card">
+        <div class="q">
+          <label class="lbl">Instagram (tu @usuario)<span class="star">*</span></label>
+          <input type="text" id="ig" data-req placeholder="@tucuenta">
+          <div class="errmsg">Completa este campo.</div>
+        </div>
+        <div class="q">
+          <label class="lbl">TikTok (tu @usuario, o escribe "No tengo")<span class="star">*</span></label>
+          <input type="text" id="tiktok" data-req placeholder="@tucuenta o «No tengo»">
+          <div class="errmsg">Completa este campo.</div>
+        </div>
+        <div class="q" data-radio="red">
+          <label class="lbl">¿Cuál es tu red principal?<span class="star">*</span></label>
+          <label class="opt"><input type="radio" name="red" value="Instagram"><span class="dot"></span><span class="txt">Instagram</span></label>
+          <label class="opt"><input type="radio" name="red" value="TikTok"><span class="dot"></span><span class="txt">TikTok</span></label>
+          <label class="opt"><input type="radio" name="red" value="YouTube"><span class="dot"></span><span class="txt">YouTube</span></label>
+          <label class="opt"><input type="radio" name="red" value="Otra"><span class="dot"></span><span class="txt">Otra</span></label>
+          <div class="errmsg">Selecciona una opción.</div>
+        </div>
+        <div class="q" data-radio="seg">
+          <label class="lbl">¿Cuántos seguidores tienes en tu red principal?<span class="star">*</span></label>
+          <label class="opt"><input type="radio" name="seg" value="Menos de 2.000"><span class="dot"></span><span class="txt">Menos de 2.000</span></label>
+          <label class="opt"><input type="radio" name="seg" value="2.000 – 5.000"><span class="dot"></span><span class="txt">2.000 – 5.000</span></label>
+          <label class="opt"><input type="radio" name="seg" value="5.000 – 10.000"><span class="dot"></span><span class="txt">5.000 – 10.000</span></label>
+          <label class="opt"><input type="radio" name="seg" value="10.000 – 30.000"><span class="dot"></span><span class="txt">10.000 – 30.000</span></label>
+          <label class="opt"><input type="radio" name="seg" value="30.000 – 100.000"><span class="dot"></span><span class="txt">30.000 – 100.000</span></label>
+          <label class="opt"><input type="radio" name="seg" value="Más de 100.000"><span class="dot"></span><span class="txt">Más de 100.000</span></label>
+          <div class="errmsg">Selecciona una opción.</div>
+        </div>
+        <div class="q">
+          <label class="lbl">Visualizaciones promedio de tus reels y de tus stories (últimos 30 días)<span class="star">*</span></label>
+          <input type="text" id="views" data-req placeholder="Ej: 8.000 reels · 1.200 stories">
+          <div class="errmsg">Completa este campo.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÁGINA 3 · Tu audiencia y la colaboración -->
+    <div class="step" data-step="2">
+      <div class="sech">Tu audiencia y la colaboración</div>
+      <div class="card">
+        <div class="q">
+          <label class="lbl">¿Dónde se ubica la mayor parte de tu audiencia? (ciudad o región)<span class="star">*</span></label>
+          <input type="text" id="audiencia" data-req placeholder="Tu respuesta">
+          <div class="errmsg">Completa este campo.</div>
+        </div>
+        <div class="q">
+          <label class="lbl">¿Qué ofreces a cambio? Sé específico: cuántas stories, reels, posts o menciones<span class="star">*</span></label>
+          <textarea id="ofrece" data-req placeholder="Tu respuesta"></textarea>
+          <div class="errmsg">Completa este campo.</div>
+        </div>
+        <div class="q" data-radio="proc">
+          <label class="lbl">¿Qué procedimiento o servicio te interesa?<span class="star">*</span></label>
+          <label class="opt"><input type="radio" name="proc" value="Toxina botulínica (bótox)"><span class="dot"></span><span class="txt">Toxina botulínica (bótox)</span></label>
+          <label class="opt"><input type="radio" name="proc" value="Rinomodelación"><span class="dot"></span><span class="txt">Rinomodelación</span></label>
+          <label class="opt"><input type="radio" name="proc" value="Bioestimulación de colágeno (Sculptra)"><span class="dot"></span><span class="txt">Bioestimulación de colágeno (Sculptra)</span></label>
+          <label class="opt"><input type="radio" name="proc" value="Aún no lo sé / quiero asesoría"><span class="dot"></span><span class="txt">Aún no lo sé / quiero asesoría</span></label>
+          <label class="opt"><input type="radio" name="proc" value="Otro"><span class="dot"></span><span class="txt">Otro</span></label>
+          <div class="errmsg">Selecciona una opción.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÁGINA 4 · Antes de enviar -->
+    <div class="step" data-step="3">
+      <div class="sech">Antes de enviar</div>
+      <div class="card">
+        <div class="q" data-check="acepta">
+          <label class="lbl" style="font-weight:400;color:var(--mute)">Confirmo que entiendo que los procedimientos de medicina estética son actos médicos que requieren una valoración clínica previa, que no todas las personas son candidatas y que existen contraindicaciones. Entiendo que enviar este formulario no garantiza la aprobación del canje.<span class="star">*</span></label>
+          <label class="opt"><input type="checkbox" id="acepta"><span class="dot sq"></span><span class="txt">Sí, lo entiendo y acepto</span></label>
+          <div class="errmsg">Debes aceptar para continuar.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button type="button" class="nav btn-ghost" id="back" style="display:none">Atrás</button>
+      <button type="button" class="nav btn-prim" id="next">Siguiente</button>
+      <button type="submit" class="nav btn-prim" id="send" style="display:none">Enviar postulación</button>
+      <div class="prog"><div class="bar"><i id="barfill" style="width:25%"></i></div><span id="pagelbl">Página 1 de 4</span></div>
+    </div>
+  </form>
+
+  <div id="done" class="ok hide">
+    <div class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></div>
+    <h2>¡Gracias por postular!</h2>
+    <p>Tu solicitud fue enviada a JC Medical. Revisamos cada propuesta según el perfil, la audiencia y la disponibilidad. Si avanzamos, te contactaremos por el correo o la red que indicaste.</p>
+  </div>
+</div>
+
+<script>
+  var STEPS = 4, cur = 0;
+  var steps = [].slice.call(document.querySelectorAll('.step'));
+  var backBtn = document.getElementById('back'), nextBtn = document.getElementById('next'), sendBtn = document.getElementById('send');
+
+  function show(n){
+    cur = n;
+    steps.forEach(function(s,i){ s.classList.toggle('active', i===n); });
+    backBtn.style.display = n===0 ? 'none' : 'inline-block';
+    nextBtn.style.display = n===STEPS-1 ? 'none' : 'inline-block';
+    sendBtn.style.display = n===STEPS-1 ? 'inline-block' : 'none';
+    document.getElementById('barfill').style.width = ((n+1)/STEPS*100)+'%';
+    document.getElementById('pagelbl').textContent = 'Página '+(n+1)+' de '+STEPS;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function clearErr(step){ step.querySelectorAll('.errmsg').forEach(function(e){e.classList.remove('show');}); step.querySelectorAll('.err').forEach(function(e){e.classList.remove('err');}); }
+
+  function validate(n){
+    var step = steps[n], ok = true, firstBad = null;
+    clearErr(step);
+    // inputs / textarea requeridos
+    step.querySelectorAll('[data-req]').forEach(function(el){
+      var v = (el.value||'').trim();
+      var bad = !v || (el.hasAttribute('data-email') && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) || (el.hasAttribute('data-phone') && v.replace(/\D/g,'').length < 8);
+      if(bad){ ok=false; el.classList.add('err'); var m=el.parentElement.querySelector('.errmsg'); if(m) m.classList.add('show'); if(!firstBad) firstBad=el; }
+    });
+    // grupos de radio requeridos
+    step.querySelectorAll('[data-radio]').forEach(function(q){
+      var name = q.getAttribute('data-radio');
+      if(!q.querySelector('input[name="'+name+'"]:checked')){ ok=false; var m=q.querySelector('.errmsg'); if(m) m.classList.add('show'); if(!firstBad) firstBad=q; }
+    });
+    // checkbox de consentimiento
+    step.querySelectorAll('[data-check]').forEach(function(q){
+      var cb = q.querySelector('input[type=checkbox]');
+      if(cb && !cb.checked){ ok=false; var m=q.querySelector('.errmsg'); if(m) m.classList.add('show'); if(!firstBad) firstBad=q; }
+    });
+    if(firstBad){ firstBad.scrollIntoView({block:'center',behavior:'smooth'}); }
+    return ok;
+  }
+
+  nextBtn.addEventListener('click', function(){ if(validate(cur)) show(Math.min(cur+1, STEPS-1)); });
+  backBtn.addEventListener('click', function(){ show(Math.max(cur-1, 0)); });
+  // limpiar error al elegir opción
+  document.querySelectorAll('.opt input').forEach(function(i){ i.addEventListener('change', function(){ var q=i.closest('[data-radio],[data-check]'); if(q){ var m=q.querySelector('.errmsg'); if(m) m.classList.remove('show'); } }); });
+
+  function val(id){ var el=document.getElementById(id); return el ? (el.value||'').trim() : ''; }
+  function radio(name){ var el=document.querySelector('input[name="'+name+'"]:checked'); return el ? el.value : ''; }
+  function k(x){ return 'jcm_'+x; }
+  function getCollabs(){ try{ return JSON.parse(localStorage.getItem(k('collabs')))||[]; }catch(e){ return []; } }
+
+  document.getElementById('f').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!validate(STEPS-1)) return;
+    // por si llegan con pasos previos incompletos (navegación directa)
+    for(var i=0;i<STEPS;i++){ if(!validate(i)){ show(i); return; } }
+
+    var name=val('name'), email=val('email'), ciudad=val('ciudad'), phone=val('phone');
+    var ig=val('ig'), tiktok=val('tiktok'), views=val('views');
+    var red=radio('red'), seg=radio('seg'), proc=radio('proc');
+    var audiencia=val('audiencia'), ofrece=val('ofrece');
+
+    var message = [
+      'Procedimiento de interés: ' + proc,
+      'Qué ofrece a cambio: ' + ofrece,
+      'Red principal: ' + red + '  ·  Seguidores: ' + seg,
+      'Instagram: ' + ig + '  ·  TikTok: ' + tiktok,
+      'Visualizaciones reels/stories (30 días): ' + views,
+      'Ciudad: ' + ciudad + '  ·  Audiencia: ' + audiencia
+    ].join('\n');
+
+    var item = {
+      id: 'c' + Date.now(),
+      name: name, email: email, phone: phone,
+      kind: red || 'Colaboración',
+      ig: ig, tiktok: tiktok, ciudad: ciudad,
+      redPrincipal: red, reach: seg, views: views,
+      audiencia: audiencia, ofrece: ofrece, proc: proc,
+      acepta: true,
+      message: message,
+      status: 'nueva',
+      ts: new Date().toISOString()
+    };
+    var list = getCollabs(); list.unshift(item);
+    try{ localStorage.setItem(k('collabs'), JSON.stringify(list)); }catch(err){}
+
+    document.getElementById('f').classList.add('hide');
+    document.querySelector('.req-hint').classList.add('hide');
+    document.querySelector('.nota').classList.add('hide');
+    document.getElementById('done').classList.remove('hide');
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#121A26">
+<title>JC Medical · Minijuegos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--white:#F5F6F7;--g50:#ECEEF0;--g100:#DFE2E5;--g200:#CDD1D5;--g300:#B2B7BD;--g400:#8B9197;
+    --g500:#646A72;--g600:#474D56;--g700:#31363E;--g800:#20242B;--g900:#14171C;--ink:#121A26;--ink2:#1C2838;
+    --accent:#6E8CA6;--accent-soft:#A4B6C6;--accent-bright:#8AA4BC;--accent-deep:#5A748C;--platinum:#C8CDD2;
+    --hair:rgba(20,23,28,.16);--hair-d:rgba(245,246,247,.18);
+    --serif:'Cormorant Garamond',Georgia,serif;--sans:'Jost',system-ui,sans-serif;--tw:.34em;--tm:.18em;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:var(--sans);background:var(--g500);color:var(--g900);display:flex;justify-content:center;min-height:100vh;}
+  #app{width:100%;max-width:430px;min-height:100vh;background:var(--g100);position:relative;padding-bottom:30px;}
+  .bar{position:sticky;top:0;z-index:30;background:var(--ink);color:var(--white);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hair-d);}
+  .mark{font-weight:600;letter-spacing:var(--tm);text-transform:uppercase;font-size:13px;display:flex;align-items:center;gap:9px;}
+  .mark .dot{width:26px;height:26px;border:1px solid var(--accent-soft);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:13px;color:var(--accent-soft);}
+  .pts{display:flex;gap:6px;align-items:center;border:1px solid var(--hair-d);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--accent-soft);}
+  .pts b{color:var(--white);font-weight:500;}
+  .pad{padding:20px 18px;}
+  .eyebrow{text-transform:uppercase;letter-spacing:var(--tw);font-size:10.5px;color:var(--accent-deep);}
+  h1.disp{font-family:var(--serif);font-weight:500;font-size:32px;line-height:1;margin:10px 0 6px;}
+  .it{font-family:var(--serif);font-style:italic;color:var(--accent-deep);}
+  .body{font-weight:300;line-height:1.55;color:var(--g700);font-size:14px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;}
+  .gcard{background:var(--ink);color:var(--white);border-radius:8px;padding:15px;min-height:130px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;border:1px solid var(--hair-d);position:relative;overflow:hidden;transition:transform .12s;}
+  .gcard:active{transform:scale(.98);}
+  .gcard .gd{font-size:9px;letter-spacing:.16em;text-transform:uppercase;}
+  .gcard .gd.f{color:#9FE1CB;}.gcard .gd.m{color:var(--accent-soft);}.gcard .gd.h{color:#E9B98A;}
+  .gcard .gn{font-family:var(--serif);font-size:19px;line-height:1.04;font-weight:600;margin-top:6px;}
+  .gcard .gt{font-size:10.5px;color:var(--g300);margin-top:4px;line-height:1.3;font-weight:300;}
+  .gcard .gi{position:absolute;right:-4px;bottom:-10px;font-size:50px;opacity:.12;}
+  #stage{display:none;}
+  #stage.on{display:block;}
+  .ghead{background:var(--ink);color:var(--white);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:53px;z-index:20;}
+  .ghead .back{background:none;border:none;color:var(--accent-soft);font-family:var(--sans);font-size:13px;cursor:pointer;display:flex;gap:5px;align-items:center;}
+  .ghead .gs{font-size:12px;color:var(--accent-soft);letter-spacing:.05em;}
+  .ghead .gs b{color:var(--white);}
+  #play{padding:18px;min-height:60vh;}
+  .gtitle{font-family:var(--serif);font-size:24px;font-weight:500;}
+  .ginstr{font-weight:300;color:var(--g600);font-size:13px;margin:4px 0 16px;line-height:1.5;}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;font-family:var(--sans);font-weight:500;font-size:13px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:14px 20px;width:100%;transition:transform .1s;}
+  .btn:active{transform:scale(.98);}
+  .btn-p{background:var(--accent-bright);color:var(--ink);}
+  .btn-d{background:var(--ink);color:var(--white);}
+  .btn-g{background:transparent;border:1px solid var(--accent);color:var(--ink2);}
+  .opt{background:var(--g50);border:1px solid var(--hair);border-radius:8px;padding:14px;margin-bottom:10px;cursor:pointer;font-size:14px;text-align:left;width:100%;font-family:var(--sans);transition:background .15s;}
+  .opt:active{background:var(--g100);}
+  .opt.ok{background:#DCEFE7;border-color:#1D9E75;color:#0F6E56;}
+  .opt.no{background:#F3DEDE;border-color:#C0504E;color:#7a2422;}
+  .timerbar{height:6px;background:var(--g300);border-radius:3px;overflow:hidden;margin-bottom:14px;}
+  .timerbar i{display:block;height:100%;background:var(--accent);width:100%;}
+  .cta{margin-top:20px;background:var(--accent-bright);color:var(--ink);border-radius:8px;padding:14px 16px;cursor:pointer;display:flex;gap:10px;align-items:center;}
+  .cta .t{flex:1;font-size:12.5px;font-weight:500;line-height:1.3;}
+  .cta .t small{display:block;font-weight:300;font-size:11px;opacity:.8;}
+  .big{font-family:var(--serif);font-size:48px;font-weight:500;color:var(--ink);line-height:1;}
+  .overlay{position:fixed;inset:0;background:rgba(18,26,38,.65);display:none;align-items:center;justify-content:center;z-index:60;padding:24px;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--g100);border-radius:12px;padding:26px;text-align:center;width:100%;max-width:360px;}
+  .modal h3{font-family:var(--serif);font-weight:500;font-size:24px;margin-bottom:4px;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--g900);color:#fff;padding:11px 18px;border-radius:999px;font-size:12.5px;opacity:0;transition:opacity .25s;z-index:80;pointer-events:none;}
+  .toast.show{opacity:1;}
+  .stat{display:flex;gap:10px;margin-bottom:14px;}
+  .stat>div{flex:1;background:var(--g50);border:1px solid var(--hair);border-radius:8px;padding:9px;text-align:center;}
+  .stat .l{font-size:10px;color:var(--g400);text-transform:uppercase;letter-spacing:.1em;}
+  .stat .v{font-size:20px;font-weight:500;font-family:var(--serif);}
+  .pads{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .pad-b{aspect-ratio:1.4;border-radius:8px;background:var(--ink2);cursor:pointer;transition:background .15s,transform .1s;border:1px solid var(--hair-d);}
+  .pad-b.lit{background:var(--accent-bright);transform:scale(.97);}
+  .mgrid{display:grid;gap:8px;}
+  .mc{aspect-ratio:.8;border-radius:8px;background:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:26px;color:transparent;border:1px solid var(--hair-d);transition:background .2s;}
+  .mc.up{background:var(--g50);color:var(--ink);}
+  .mc.done{background:#DCEFE7;color:#0F6E56;border-color:#1D9E75;}
+  .track{position:relative;height:46px;background:var(--g50);border:1px solid var(--hair);border-radius:8px;overflow:hidden;margin-bottom:14px;}
+  .zone{position:absolute;top:0;bottom:0;background:#D2EDDF;}
+  .marker{position:absolute;top:0;bottom:0;width:5px;background:var(--ink);}
+  .field{position:relative;height:320px;background:var(--ink);border-radius:10px;overflow:hidden;border:1px solid var(--hair-d);margin-bottom:12px;touch-action:none;}
+  .basket{position:absolute;bottom:8px;width:48px;height:16px;background:var(--accent-bright);border-radius:6px;}
+  .drop{position:absolute;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .letters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:6px 0 16px;}
+  .lt{width:42px;height:48px;border-radius:6px;background:var(--ink);color:#fff;font-family:var(--serif);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .lt.used{opacity:.3;pointer-events:none;}
+  .slots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;min-height:50px;}
+  .slot{width:38px;height:46px;border-radius:6px;border:1.5px dashed var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:22px;color:var(--ink);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bar"><div class="mark"><span class="dot serif">JC</span> Glow Games</div>
+    <div class="pts" style="cursor:pointer" onclick="openCanje()">&#9826; <b id="pts">0</b> pts</div></div>
+
+  <section id="hub">
+    <div class="pad">
+      <div class="eyebrow">8 minijuegos &middot; para probar</div>
+      <h1 class="disp">Juega, gana y<br><span class="it">ac&eacute;rcate</span> a tu sesi&oacute;n.</h1>
+      <p class="body">Temas y dificultades distintas. Cada juego suma Glow Points para canjear por tratamientos.</p>
+      <div class="grid" id="hubGrid"></div>
+    </div>
+  </section>
+
+  <section id="stage">
+    <div class="ghead"><button class="back" onclick="Hub()">&#8592; Juegos</button>
+      <div class="gs">Puntaje&nbsp; <b id="gScore">0</b></div></div>
+    <div id="play"></div>
+  </section>
+
+  <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+<script>
+let points=0, gScore=0, played=false, cleanup=null;
+const el=id=>document.getElementById(id);
+const HEART='&#9829;';
+function hearts(n){return n>0?HEART.repeat(n):'&mdash;';}
+function setPts(n){points=n;el('pts').textContent=points.toLocaleString('es-CL');}
+function setScore(n){gScore=n;el('gScore').textContent=n;}
+function toast(m){const t=el('toast');t.innerHTML=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
+function modal(h){el('modal').innerHTML=h;el('overlay').classList.add('show');}
+function closeModal(){el('overlay').classList.remove('show');}
+function ctaHTML(){return '<div class="cta" onclick="claimDiscount()"><div class="t">Agenda tu evaluaci&oacute;n ahora<small>Juega y desbloquea 10% OFF en tu primera sesi&oacute;n</small></div><div>&#8594;</div></div>';}
+function claimDiscount(){if(!played){toast('Juega una partida para desbloquear tu 10%');return;}
+  modal('<div class="eyebrow">Beneficio</div><h3>10% OFF</h3><p class="body" style="margin:6px 0 10px">C&oacute;digo para tu primera sesi&oacute;n:</p>'+
+  '<div style="font-family:var(--serif);font-size:30px;letter-spacing:3px;border:1.5px dashed var(--accent);border-radius:6px;padding:12px;margin-bottom:14px">GLOW10</div>'+
+  '<button class="btn btn-d" onclick="toast(\'Conecta con tu agenda / WhatsApp\')">Agendar evaluaci&oacute;n</button>'+
+  '<button class="btn btn-g" style="margin-top:8px" onclick="closeModal()">Seguir jugando</button>'+
+  '<p class="body" style="font-size:10.5px;margin-top:12px;color:var(--g500)">Sujeto a evaluaci&oacute;n m&eacute;dica previa. +18. No acumulable.</p>');}
+const REWARDS=[['Pink Glow',20000],['ADN de salm&oacute;n',40000],['Exosomas',60000]];
+function openCanje(){let rows=REWARDS.map(r=>'<div style="display:flex;align-items:center;gap:12px;background:var(--g50);border:1px solid var(--hair);border-radius:8px;padding:13px;margin-bottom:10px;text-align:left"><div style="flex:1"><div style="font-family:var(--serif);font-size:16px;font-weight:600">Sesi&oacute;n de '+r[0]+'</div><div style="font-size:11px;color:var(--accent-deep);letter-spacing:.05em;margin-top:2px">'+r[1].toLocaleString('es-CL')+' PTS &middot; SUJETO A EVALUACI&Oacute;N</div></div><button class="btn btn-g" style="width:auto;padding:9px 14px;font-size:11px" onclick="redeem('+r[1]+',\''+r[0]+'\')">Canjear</button></div>').join('');
+  modal('<div class="eyebrow">Canjea tus puntos</div><h3>Tienes '+points.toLocaleString('es-CL')+' pts</h3><p class="body" style="margin:6px 0 14px;font-size:13px">Canjea por tratamiento, sujeto a evaluaci&oacute;n m&eacute;dica previa.</p>'+rows+'<p class="body" style="font-size:11px;color:var(--g500);margin-top:6px">Ganas ~100 pts por minuto jugando o viendo contenido; as&iacute;, ~10 horas equivalen a una sesi&oacute;n de Exosomas. Programa de fidelizaci&oacute;n, no es sorteo. +18.</p><button class="btn btn-g" style="margin-top:10px" onclick="closeModal()">Cerrar</button>');}
+function redeem(cost,name){if(points<cost){toast('Te faltan '+(cost-points).toLocaleString('es-CL')+' pts');return;}
+  setPts(points-cost);modal('<div class="eyebrow">Canje confirmado</div><h3>'+name+'</h3><p class="body" style="margin:8px 0 14px">Agenda tu evaluaci&oacute;n m&eacute;dica para coordinar tu sesi&oacute;n. Sujeto a aptitud cl&iacute;nica.</p><button class="btn btn-d" onclick="toast(\'Conecta con tu agenda / WhatsApp\')">Agendar ahora</button><button class="btn btn-g" style="margin-top:8px" onclick="closeModal()">Cerrar</button>');}
+function endGame(gain,msg){played=true;setPts(points+gain);
+  modal('<div class="eyebrow">Fin del juego</div><h3>'+msg+'</h3><div class="big" style="margin:8px 0">+'+gain+'</div>'+
+  '<p class="body" style="margin-bottom:14px">Glow Points sumados a tu cuenta.</p>'+
+  '<button class="btn btn-p" onclick="closeModal();G.replay()">Jugar otra vez</button>'+
+  '<button class="btn btn-g" style="margin-top:8px" onclick="closeModal();Hub()">Elegir otro juego</button>');}
+function clearGame(){if(cleanup){try{cleanup();}catch(e){}cleanup=null;}}
+function Hub(){clearGame();el('stage').classList.remove('on');el('hub').style.display='block';window.scrollTo(0,0);}
+let G=null;
+function openGame(key){clearGame();G=GAMES[key];el('hub').style.display='none';el('stage').classList.add('on');setScore(0);window.scrollTo(0,0);G.mount();}
+
+/* 1 · GLOW QUIZ (sin vidas) */
+const QUIZ=[
+ {q:'&iquest;Cu&aacute;nto dura aprox. el efecto del b&oacute;tox?',o:['Para siempre','3 a 6 meses','1 semana'],a:1},
+ {q:'El ADN de salm&oacute;n se usa principalmente para&hellip;',o:['Regenerar y mejorar la piel','Blanquear dientes','Bajar de peso'],a:0},
+ {q:'La bioestimulaci&oacute;n con Sculptra estimula&hellip;',o:['Melanina','Col&aacute;geno propio','Grasa'],a:1},
+ {q:'&iquest;Qu&eacute; describe un buen resultado de b&oacute;tox?',o:['Cara sin expresi&oacute;n','Natural, casi imperceptible','Piel m&aacute;s oscura'],a:1},
+ {q:'Pink Glow aporta sobre todo&hellip;',o:['Luminosidad e hidrataci&oacute;n','Aumento de volumen','Depilaci&oacute;n'],a:0}
+];
+function quizGame(){let i=0,sc=0;
+  function render(){const Q=QUIZ[i];
+    el('play').innerHTML='<div class="eyebrow">F&aacute;cil &middot; trivia</div><div class="gtitle">Glow Quiz</div>'+
+      '<p class="ginstr">Pregunta '+(i+1)+' de '+QUIZ.length+'</p>'+
+      '<p class="body" style="font-size:15px;margin-bottom:14px">'+Q.q+'</p><div id="qo"></div>'+ctaHTML();
+    Q.o.forEach((t,k)=>{const b=document.createElement('button');b.className='opt';b.innerHTML=t;b.onclick=()=>pick(k,b);el('qo').appendChild(b);});}
+  function pick(k,b){[...el('qo').children].forEach(x=>x.style.pointerEvents='none');
+    const Q=QUIZ[i];if(k===Q.a){b.classList.add('ok');sc++;}else{b.classList.add('no');el('qo').children[Q.a].classList.add('ok');}
+    setScore(sc*20);setTimeout(()=>{i++;if(i<QUIZ.length)render();else endGame(sc*20,'&iexcl;'+sc+'/'+QUIZ.length+' correctas!');},750);}
+  G.replay=()=>openGame('quiz');render();}
+
+/* 2 · REFLEJO GLOW (solo puntos si promedio < 350 ms) */
+function reflexGame(){let round=0,times=[],state='idle',t0=0,to=null;
+  function render(){el('play').innerHTML='<div class="eyebrow">F&aacute;cil &middot; reflejos</div><div class="gtitle">Reflejo Glow</div>'+
+    '<p class="ginstr">Toca apenas se ilumine. 5 rondas. Solo ganas puntos si tu promedio es <b>menor a 350 ms</b>.</p>'+
+    '<div id="rf" style="height:220px;border-radius:10px;background:var(--ink);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--serif);font-size:22px;cursor:pointer">Toca para empezar</div>'+ctaHTML();
+    el('rf').onclick=tap;}
+  function arm(){state='wait';el('rf').style.background='var(--ink)';el('rf').innerHTML='Espera&hellip;';
+    to=setTimeout(()=>{state='go';t0=performance.now();el('rf').style.background='var(--accent-bright)';el('rf').style.color='var(--ink)';el('rf').innerHTML='&iexcl;TOCA!';},800+Math.random()*2200);}
+  function tap(){
+    if(state==='idle'){el('rf').style.color='#fff';arm();return;}
+    if(state==='wait'){clearTimeout(to);state='idle';el('rf').style.background='#7a2422';el('rf').innerHTML='Muy pronto &mdash; toca para reintentar';return;}
+    if(state==='go'){const ms=Math.round(performance.now()-t0);times.push(ms);round++;
+      el('rf').style.background='var(--ink)';el('rf').style.color='#fff';
+      const avg=Math.round(times.reduce((a,b)=>a+b,0)/times.length);setScore(avg<350?Math.max(0,500-avg):0);
+      if(round<5){el('rf').innerHTML=ms+' ms &middot; toca para seguir';state='idle';}
+      else{const gain=avg<350?Math.max(60,Math.round((350-avg)*4)):0;
+        endGame(gain,avg+' ms prom.'+(avg<350?'':' &mdash; necesitas <350 ms'));}}}
+  G.replay=()=>openGame('reflex');cleanup=()=>clearTimeout(to);render();}
+
+/* 3 · DOSIS JUSTA (2 vidas) */
+function doseGame(){let lives=2,lvl=1,raf=null,pos=0,dir=1,zoneL=35,zoneW=30,running=false;
+  function render(){el('play').innerHTML='<div class="eyebrow">Media &middot; precisi&oacute;n</div><div class="gtitle">Dosis Justa</div>'+
+    '<p class="ginstr">Det&eacute;n el marcador dentro de la zona clara. Se achica con cada acierto. 2 vidas.</p>'+
+    '<div class="stat"><div><div class="l">Nivel</div><div class="v" id="dl">1</div></div><div><div class="l">Vidas</div><div class="v" id="dv">'+hearts(lives)+'</div></div></div>'+
+    '<div class="track" id="trk"><div class="zone" id="zone"></div><div class="marker" id="mk"></div></div>'+
+    '<button class="btn btn-p" id="stopBtn">Detener</button>'+ctaHTML();
+    el('stopBtn').onclick=stop;newRound();}
+  function newRound(){zoneL=8+Math.random()*(92-zoneW);el('zone').style.left=zoneL+'%';el('zone').style.width=zoneW+'%';pos=0;dir=1;running=true;loop();}
+  function loop(){pos+=dir*(1.1+lvl*0.25);if(pos>=100){pos=100;dir=-1;}if(pos<=0){pos=0;dir=1;}el('mk').style.left=pos+'%';if(running)raf=requestAnimationFrame(loop);}
+  function stop(){if(!running)return;running=false;cancelAnimationFrame(raf);
+    if(pos>=zoneL&&pos<=zoneL+zoneW){lvl++;el('dl').textContent=lvl;setScore(gScore+30);zoneW=Math.max(8,zoneW-3);toast('&iexcl;Dosis perfecta!');setTimeout(newRound,500);}
+    else{lives--;el('dv').innerHTML=hearts(lives);if(lives<=0)endGame(gScore,'Llegaste al nivel '+lvl);else setTimeout(newRound,500);}}
+  G.replay=()=>openGame('dose');cleanup=()=>cancelAnimationFrame(raf);render();}
+
+/* (Secuencia Glow eliminado) */
+
+/* 5 · PARES ESTÉTICOS (preview + 30s + 2 vidas + bonus de tiempo) */
+function pairsGame(){const set=['&#10022;','&#9826;','&#9830;','&#128137;','&#9863;','&#9728;','&#10052;','&#9678;'];
+  let deck=[],first=null,lock=true,matched=0,lives=2,time=30,timer=null;
+  function render(){deck=[...set,...set].map((v,i)=>({v,i})).sort(()=>Math.random()-.5);first=null;lock=true;matched=0;lives=2;time=30;
+    el('play').innerHTML='<div class="eyebrow">Media &middot; memoria</div><div class="gtitle">Pares Est&eacute;ticos</div>'+
+      '<p class="ginstr">Memor&iacute;zalas: parten dadas vuelta. Tienes 30s y 2 vidas. Cada pareja te suma +2s.</p>'+
+      '<div class="stat"><div><div class="l">Tiempo</div><div class="v" id="ptm">30</div></div><div><div class="l">Vidas</div><div class="v" id="plv">'+hearts(lives)+'</div></div><div><div class="l">Pares</div><div class="v" id="pm">0/8</div></div></div>'+
+      '<div class="mgrid" id="pg" style="grid-template-columns:repeat(4,1fr)"></div>'+ctaHTML();
+    const g=el('pg');deck.forEach((c,idx)=>{const d=document.createElement('div');d.className='mc up';d.dataset.idx=idx;d.innerHTML=c.v;d.onclick=()=>flip(idx,d);g.appendChild(d);});
+    setTimeout(()=>{[...g.children].forEach(d=>d.classList.remove('up'));lock=false;startTimer();},2600);}
+  function startTimer(){timer=setInterval(()=>{time--;el('ptm').textContent=time;if(time<=0)stop('Se acab&oacute; el tiempo');},1000);}
+  function stop(msg){clearInterval(timer);lock=true;endGame(matched*25,msg);}
+  function flip(idx,d){if(lock||d.classList.contains('up')||d.classList.contains('done'))return;
+    d.classList.add('up');if(first===null){first={idx,d};return;}
+    if(deck[first.idx].v===deck[idx].v){first.d.classList.add('done');d.classList.add('done');matched++;el('pm').textContent=matched+'/8';
+      time+=2;el('ptm').textContent=time;setScore(matched*25);first=null;
+      if(matched===8)stop('&iexcl;Completado! Quedaban '+time+'s');}
+    else{lock=true;const f=first;first=null;
+      setTimeout(()=>{f.d.classList.remove('up');d.classList.remove('up');lives--;el('plv').innerHTML=hearts(lives);
+        if(lives<=0)stop('Sin vidas');else lock=false;},650);}}
+  G.replay=()=>openGame('pairs');cleanup=()=>clearInterval(timer);render();}
+
+/* 6 · MITO O VERDAD (2 vidas, menos tiempo) */
+const MV=[
+ {t:'El b&oacute;tox bien aplicado puede verse natural.',v:true},
+ {t:'Los rellenos de &aacute;cido hialur&oacute;nico son permanentes.',v:false},
+ {t:'El ADN de salm&oacute;n mejora la calidad de la piel.',v:true},
+ {t:'Tomar sol no afecta el resultado de tus tratamientos.',v:false},
+ {t:'La bioestimulaci&oacute;n da resultados progresivos.',v:true},
+ {t:'Un solo Pink Glow reemplaza tu rutina de skincare.',v:false},
+ {t:'Toda intervenci&oacute;n debe partir por una evaluaci&oacute;n.',v:true}
+];
+function mvGame(){let i=0,sc=0,lives=2,raf=null,t0=0,dur=2800,order=[...MV.keys()].sort(()=>Math.random()-.5);
+  function render(){el('play').innerHTML='<div class="eyebrow">Media &middot; contrarreloj</div><div class="gtitle">Mito o Verdad</div>'+
+    '<p class="ginstr">Responde r&aacute;pido, antes de que se acabe la barra. 2 vidas.</p>'+
+    '<div class="stat"><div><div class="l">Aciertos</div><div class="v" id="ms">0</div></div><div><div class="l">Vidas</div><div class="v" id="mvl">'+hearts(lives)+'</div></div></div>'+
+    '<div class="timerbar"><i id="tb"></i></div><p class="body" id="mvt" style="font-size:16px;min-height:54px;margin-bottom:14px"></p>'+
+    '<div style="display:flex;gap:10px"><button class="btn btn-d" onclick="window._mv(true)">Verdad</button><button class="btn btn-g" onclick="window._mv(false)">Mito</button></div>'+ctaHTML();
+    show();}
+  function show(){const Q=MV[order[i]];el('mvt').innerHTML=Q.t;t0=performance.now();anim();}
+  function anim(){const p=Math.max(0,1-(performance.now()-t0)/dur);el('tb').style.width=(p*100)+'%';if(p<=0){answer(null);return;}raf=requestAnimationFrame(anim);}
+  function answer(ans){cancelAnimationFrame(raf);const Q=MV[order[i]];
+    if(ans===Q.v){sc++;el('ms').textContent=sc;setScore(sc*20);}else{lives--;el('mvl').innerHTML=hearts(lives);}
+    i++;if(lives<=0||i>=order.length)return endGame(sc*20,sc+' respuestas correctas');setTimeout(show,250);}
+  window._mv=answer;G.replay=()=>openGame('mv');cleanup=()=>cancelAnimationFrame(raf);render();}
+
+/* 7 · ATRAPA EL GLOW (3 vidas, más difícil, +2 por glow, atrapar malo = pierdes vida) */
+function catchGame(){let raf=null,sc=0,glow=0,bx=0,drops=[],fieldW=0,running=true,spawn=null,lives=3,bw=48;
+  function render(){el('play').innerHTML='<div class="eyebrow">Media &middot; arcade</div><div class="gtitle">Atrapa el Glow</div>'+
+    '<p class="ginstr">Atrapa los &#10022; (suman +2). Si atrapas un &#9763; pierdes una vida. Caen r&aacute;pido. 3 vidas.</p>'+
+    '<div class="stat"><div><div class="l">Vidas</div><div class="v" id="cv">'+hearts(lives)+'</div></div><div><div class="l">Glow</div><div class="v" id="cs">0</div></div></div>'+
+    '<div class="field" id="fld"><div class="basket" id="bk"></div></div>'+ctaHTML();
+    const f=el('fld');fieldW=f.clientWidth;bx=fieldW/2-bw/2;el('bk').style.left=bx+'px';el('bk').style.width=bw+'px';
+    f.addEventListener('mousemove',mv);f.addEventListener('touchmove',e=>{mv(e.touches[0]);},{passive:true});
+    spawn=setInterval(makeDrop,560);loop();}
+  function mv(e){const f=el('fld');if(!f)return;const r=f.getBoundingClientRect();bx=Math.max(0,Math.min(fieldW-bw,e.clientX-r.left-bw/2));const b=el('bk');if(b)b.style.left=bx+'px';}
+  function makeDrop(){const bad=Math.random()<0.45;const d=document.createElement('div');d.className='drop';
+    d.style.background=bad?'#5a2a2a':'var(--accent-bright)';d.style.color=bad?'#fff':'var(--ink)';d.innerHTML=bad?'&#9763;':'&#10022;';
+    const x=Math.random()*(fieldW-24);d.style.left=x+'px';d.style.top='-24px';d._y=-24;d._x=x;d._bad=bad;el('fld').appendChild(d);drops.push(d);}
+  function loop(){const fH=320;drops.forEach(d=>{d._y+=5.2;d.style.top=d._y+'px';
+    if(d._y>=fH-28&&d._y<=fH-2&&d._x>bx-16&&d._x<bx+bw){
+      if(d._bad){lives--;el('cv').innerHTML=hearts(lives);if(lives<=0){d.remove();return stop();}}
+      else{glow++;sc+=2;el('cs').textContent=sc;setScore(sc);}
+      d.remove();drops=drops.filter(x=>x!==d);}
+    else if(d._y>fH){d.remove();drops=drops.filter(x=>x!==d);}});
+    if(running)raf=requestAnimationFrame(loop);}
+  function stop(){if(!running)return;running=false;cancelAnimationFrame(raf);clearInterval(spawn);endGame(sc,'Atrapaste '+glow+' glow');}
+  G.replay=()=>openGame('catch');cleanup=()=>{running=false;cancelAnimationFrame(raf);clearInterval(spawn);};render();}
+
+/* 8 · ANAGRAMA (contrarreloj, difícil; al fallar revela la palabra bajo el bot&oacute;n) */
+const WORDS=['BOTOX','EXOSOMAS','COLAGENO','SCULPTRA','SALMON','RELLENO','HIALURONICO'];
+function anagramGame(){let word='',picked=[],round=0,sc=0,lives=2,raf=null,t0=0,dur=12000,queue=[...WORDS].sort(()=>Math.random()-.5);
+  function render(){word=queue[round];picked=[];const letters=word.split('').sort(()=>Math.random()-.5);
+    el('play').innerHTML='<div class="eyebrow">Dif&iacute;cil &middot; contrarreloj</div><div class="gtitle">Anagrama Est&eacute;tico</div>'+
+      '<p class="ginstr">Forma el tratamiento antes de que baje la barra. Ronda '+(round+1)+' de 5. 2 vidas.</p>'+
+      '<div class="stat"><div><div class="l">Ronda</div><div class="v" id="ar">'+(round+1)+'/5</div></div><div><div class="l">Vidas</div><div class="v" id="al">'+hearts(lives)+'</div></div></div>'+
+      '<div class="timerbar"><i id="atb"></i></div><div class="slots" id="slots"></div><div class="letters" id="lts"></div>'+
+      '<button class="btn btn-g" id="clr">Borrar</button>'+ctaHTML()+
+      '<div id="areveal" style="text-align:center;margin-top:14px;color:var(--accent-deep);font-family:var(--serif);font-size:18px"></div>';
+    drawSlots();const L=el('lts');letters.forEach(c=>{const b=document.createElement('div');b.className='lt';b.innerHTML=c;
+      b.onclick=()=>{if(b.classList.contains('used'))return;b.classList.add('used');picked.push({c,b});drawSlots();check();};L.appendChild(b);});
+    el('clr').onclick=()=>{picked.forEach(p=>p.b.classList.remove('used'));picked=[];drawSlots();};
+    t0=performance.now();anim();}
+  function anim(){const p=Math.max(0,1-(performance.now()-t0)/dur);const bar=el('atb');if(!bar)return;bar.style.width=(p*100)+'%';if(p<=0){timeUp();return;}raf=requestAnimationFrame(anim);}
+  function drawSlots(){const s=el('slots');if(!s)return;s.innerHTML='';for(let k=0;k<word.length;k++){const d=document.createElement('div');d.className='slot';d.innerHTML=picked[k]?picked[k].c:'';s.appendChild(d);}}
+  function timeUp(){cancelAnimationFrame(raf);lives--;round++;el('areveal').innerHTML='La palabra era: <b>'+word+'</b>';
+    if(lives<=0||round>=5)setTimeout(()=>endGame(sc*40,sc+'/5 palabras'),1600);else setTimeout(render,1700);}
+  function check(){if(picked.length===word.length){const g=picked.map(p=>p.c).join('');
+    if(g===word){cancelAnimationFrame(raf);sc++;setScore(sc*40);round++;toast('&iexcl;Correcto!');
+      if(round<5)setTimeout(render,650);else setTimeout(()=>endGame(sc*40,sc+'/5 palabras'),650);}
+    else{toast('No es&hellip;');setTimeout(()=>{picked.forEach(p=>p.b.classList.remove('used'));picked=[];drawSlots();},500);}}}
+  G.replay=()=>openGame('anagram');cleanup=()=>cancelAnimationFrame(raf);render();}
+
+/* 9 · CLASIFICA (más difícil: menos tiempo, 2 vidas) */
+const ITEMS=[
+ {n:'B&oacute;tox',c:'I'},{n:'Pink Glow',c:'I'},{n:'Protector solar',c:'T'},{n:'Sculptra',c:'I'},{n:'Crema retinol',c:'T'},
+ {n:'ADN de salm&oacute;n',c:'I'},{n:'S&eacute;rum vitamina C',c:'T'},{n:'Exosomas',c:'I'},{n:'Limpiador facial',c:'T'},{n:'&Aacute;cido hialur&oacute;nico',c:'I'}
+];
+function sortGame(){let i=0,sc=0,lives=2,raf=null,t0=0,dur=1700,order=[...ITEMS.keys()].sort(()=>Math.random()-.5);
+  function render(){el('play').innerHTML='<div class="eyebrow">Dif&iacute;cil &middot; rapidez</div><div class="gtitle">Clasifica</div>'+
+    '<p class="ginstr">&iquest;Inyectable o t&oacute;pico? R&aacute;pido: poco tiempo y 2 vidas.</p>'+
+    '<div class="stat"><div><div class="l">Aciertos</div><div class="v" id="ss">0</div></div><div><div class="l">Vidas</div><div class="v" id="sl">'+hearts(lives)+'</div></div></div>'+
+    '<div class="timerbar"><i id="stb"></i></div>'+
+    '<div style="background:var(--ink);color:#fff;border-radius:10px;padding:26px;text-align:center;font-family:var(--serif);font-size:24px;margin-bottom:14px" id="sit"></div>'+
+    '<div style="display:flex;gap:10px"><button class="btn btn-d" onclick="window._st(\'I\')">Inyectable</button><button class="btn btn-g" onclick="window._st(\'T\')">T&oacute;pico</button></div>'+ctaHTML();
+    show();}
+  function show(){el('sit').innerHTML=ITEMS[order[i]].n;t0=performance.now();anim();}
+  function anim(){const p=Math.max(0,1-(performance.now()-t0)/dur);el('stb').style.width=(p*100)+'%';if(p<=0){ans(null);return;}raf=requestAnimationFrame(anim);}
+  function ans(c){cancelAnimationFrame(raf);if(c===ITEMS[order[i]].c){sc++;el('ss').textContent=sc;setScore(sc*25);}else{lives--;el('sl').innerHTML=hearts(lives);}
+    i++;if(lives<=0||i>=order.length)return endGame(sc*25,sc+' clasificaciones correctas');setTimeout(show,180);}
+  window._st=ans;G.replay=()=>openGame('sort');cleanup=()=>cancelAnimationFrame(raf);render();}
+
+/* registro (9 juegos) */
+const GAMES={
+  quiz:{nm:'Glow Quiz',d:'F&aacute;cil',cl:'f',t:'Trivia de tus tratamientos',ic:'?',mount:quizGame},
+  reflex:{nm:'Reflejo Glow',d:'F&aacute;cil',cl:'f',t:'Reacci&oacute;n &lt; 350 ms',ic:'&#9889;',mount:reflexGame},
+  dose:{nm:'Dosis Justa',d:'Media',cl:'m',t:'Precisi&oacute;n y timing',ic:'&#128137;',mount:doseGame},
+  pairs:{nm:'Pares Est&eacute;ticos',d:'Media',cl:'m',t:'Memoria contrarreloj',ic:'&#9632;',mount:pairsGame},
+  mv:{nm:'Mito o Verdad',d:'Media',cl:'m',t:'Contrarreloj, 2 vidas',ic:'&#10003;',mount:mvGame},
+  catch:{nm:'Atrapa el Glow',d:'Dif&iacute;cil',cl:'h',t:'Arcade, 3 vidas',ic:'&#9759;',mount:catchGame},
+  anagram:{nm:'Anagrama',d:'Dif&iacute;cil',cl:'h',t:'Palabras contrarreloj',ic:'&#9398;',mount:anagramGame},
+  sort:{nm:'Clasifica',d:'Dif&iacute;cil',cl:'h',t:'Inyectable o t&oacute;pico',ic:'&#9783;',mount:sortGame}
+};
+function buildHub(){const g=el('hubGrid');g.innerHTML='';
+  Object.keys(GAMES).forEach(k=>{const x=GAMES[k];const d=document.createElement('div');d.className='gcard';
+    d.innerHTML='<div><span class="gd '+x.cl+'">'+x.d+'</span><div class="gn">'+x.nm+'</div><div class="gt">'+x.t+'</div></div><div class="gi serif">'+x.ic+'</div>';
+    d.onclick=()=>openGame(k);g.appendChild(d);});}
+el('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
+buildHub();setPts(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#121A26">
+<title>JC Medical · App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="jcm_shared.js?v=5"></script>
+<style>
+  :root{--white:#F2EDE6;--g50:#ECEEF0;--g100:#DFE2E5;--g200:#CDD1D5;--g300:#B2B7BD;--g400:#8B9197;
+    --g500:#646A72;--g600:#474D56;--g700:#31363E;--g800:#20242B;--g900:#14171C;--ink:#0D0D0D;--ink2:#161A1F;
+    --accent:#6E8CA6;--accent-soft:#8B9EB0;--accent-bright:#8AA4BC;--accent-deep:#5A748C;--platinum:#C8CDD2;
+    --glow:#C9AC73;--glow-soft:#E3CF9F;--glow-deep:#A8884F;
+    --stage:#070707;
+    --hair:rgba(20,23,28,.14);--hd:rgba(242,237,230,.16);
+    --serif:'Cormorant Garamond',Georgia,serif;--sans:'Jost',system-ui,-apple-system,sans-serif;--tw:.34em;--tm:.18em;--rsm:4px;--rmd:8px;--rpill:999px;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:var(--sans);background:var(--stage);color:var(--g900);display:flex;justify-content:center;min-height:100vh;}
+  #app{width:100%;max-width:430px;min-height:100vh;background:var(--g100);position:relative;padding-bottom:74px;overflow-x:hidden;}
+  @media(min-width:600px){
+    #app{border-radius:28px 28px 0 0;box-shadow:0 24px 70px rgba(0,0,0,.55);}
+  }
+  .eyebrow{text-transform:uppercase;letter-spacing:var(--tw);font-size:10.5px;color:var(--accent-deep);}
+  .label{font-weight:500;text-transform:uppercase;letter-spacing:var(--tm);font-size:10px;}
+  .serif{font-family:var(--serif);}
+  .bar{position:sticky;top:0;z-index:30;background:var(--ink);color:var(--white);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hd);}
+  .mark{display:flex;align-items:baseline;gap:8px;}
+  .mark .jc{font-family:var(--serif);font-style:italic;font-weight:500;font-size:24px;color:var(--white);line-height:1;text-transform:none;letter-spacing:0;}
+  .mark .wm{font-weight:400;letter-spacing:.32em;text-transform:uppercase;font-size:10.5px;color:var(--accent-soft);}
+  .barR{display:flex;gap:8px;align-items:center;}
+  .pts{display:flex;align-items:center;gap:6px;border:1px solid var(--hd);border-radius:var(--rpill);padding:5px 12px;font-size:12px;color:var(--accent-soft);cursor:pointer;background:none;font-family:var(--sans);}
+  .pts b{color:var(--white);font-weight:500;}
+  .screen{display:none;}
+  .screen.active{display:block;animation:fade .3s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+  .pad{padding:22px 16px;}
+  .sec-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .sec-eyebrow::after{content:"";flex:1;height:1px;background:var(--hair);}
+  h1.disp{font-family:var(--serif);font-weight:500;font-size:34px;line-height:1;}
+  h2.disp{font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.04;}
+  .it{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--accent-deep);}
+  .body{font-weight:300;line-height:1.55;color:var(--g700);font-size:14px;}
+  .hero{background:var(--ink);color:var(--white);padding:30px 16px 26px;position:relative;overflow:hidden;}
+  .hero .eyebrow{color:var(--accent-soft);}
+  .hero h1{font-family:var(--serif);font-weight:500;font-size:38px;line-height:.98;margin:10px 0 8px;}
+  .hero p{font-weight:300;color:var(--g200);font-size:14px;line-height:1.5;max-width:90%;}
+  .hero .ring{position:absolute;right:-60px;top:-40px;width:200px;height:200px;border:1px solid var(--hd);border-radius:50%;}
+  .hero .ring2{position:absolute;right:-20px;top:30px;width:120px;height:120px;border:1px solid var(--hd);border-radius:50%;}
+  .card{background:var(--g50);border:1px solid var(--hair);border-radius:var(--rmd);overflow:hidden;margin-bottom:16px;}
+  .card .media{height:148px;background:var(--ink2);position:relative;display:flex;align-items:flex-end;}
+  .card .media .tag{position:absolute;top:12px;left:12px;background:rgba(18,26,38,.6);color:var(--accent-soft);border:1px solid var(--hd);border-radius:var(--rpill);padding:4px 11px;}
+  .card .media .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ink2),#0f1620);color:var(--glow-deep);font-family:var(--serif);font-style:italic;font-size:30px;}
+  .card .media .ph::after{content:'jc';}
+  .card .c-body{padding:14px 15px 16px;}
+  .card h3{font-family:var(--serif);font-weight:600;font-size:19px;line-height:1.1;margin-bottom:6px;}
+  .card .meta{font-size:11px;color:var(--g400);letter-spacing:.04em;margin-top:10px;}
+  .svc{display:flex;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid var(--hair);cursor:pointer;}
+  .svc:last-child{border-bottom:none;}
+  .svc .n{width:30px;font-family:var(--serif);font-size:18px;color:var(--accent-deep);flex:0 0 auto;}
+  .svc .info{flex:1;}
+  .svc .info h3{font-family:var(--serif);font-weight:600;font-size:19px;line-height:1.05;}
+  .svc .info .from{font-size:12px;color:var(--g500);margin-top:3px;letter-spacing:.03em;}
+  .svc .chev{color:var(--accent);font-size:20px;}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;font-family:var(--sans);font-weight:500;font-size:13px;letter-spacing:.06em;text-transform:uppercase;border-radius:var(--rpill);padding:14px 20px;width:100%;transition:transform .12s,background .2s;}
+  .btn:active{transform:scale(.985);}
+  .btn-primary{background:var(--accent-bright);color:var(--ink);}
+  .btn-dark{background:var(--ink);color:var(--white);}
+  .btn-ghost{background:transparent;border:1px solid var(--accent);color:var(--ink2);}
+  .btn.sm{width:auto;padding:9px 16px;font-size:11px;}
+  .btn.disabled{opacity:.4;pointer-events:none;}
+  .chatchips{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px}
+  .chatchips .cc{flex:0 0 auto;border:1px solid var(--hair);border-radius:999px;padding:7px 12px;font-size:12px;color:var(--ink2);background:var(--g50);cursor:pointer;white-space:nowrap}
+  .chatbox{background:var(--g50);border:1px solid var(--hair);border-radius:var(--rmd);padding:12px;min-height:230px;max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+  .msg{max-width:86%;padding:10px 12px;border-radius:14px;font-size:13.5px;line-height:1.5}
+  .msg.bot{background:#fff;border:1px solid var(--hair);align-self:flex-start;border-bottom-left-radius:4px;color:var(--ink)}
+  .msg.me{background:var(--ink);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .msg i{color:var(--g500);font-size:11.5px}
+  .chatinput{display:flex;gap:8px;margin-top:10px}
+  .chatinput input{flex:1;padding:12px;border:1px solid var(--hair);border-radius:999px;background:#fff;font-family:var(--sans);font-size:14px;color:var(--ink)}
+  .chatinput button{width:46px;border:none;border-radius:50%;background:var(--accent-bright);color:var(--ink);font-size:16px;cursor:pointer}
+  .chatnote{margin-top:12px;background:var(--ink);color:var(--g200);border-radius:var(--rmd);padding:13px 14px;font-size:12px;line-height:1.5}
+  .chatnote-btns{display:flex;gap:8px;margin-top:10px}.chatnote-btns .btn{width:auto;flex:1}
+  .sugs{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .sug{text-align:left;background:var(--g100);border:1px solid var(--hair);border-radius:10px;padding:8px 11px;font-size:12.5px;color:var(--ink2);cursor:pointer;font-family:var(--sans)}
+  .sug:active{background:var(--g100);transform:scale(.99)}
+  .topgame{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .topgame button{background:none;border:none;color:var(--accent-deep);font-family:var(--sans);font-size:14px;cursor:pointer}
+  .topgame .gs{font-size:12px;color:var(--g500)} .topgame .gs b{color:var(--ink)}
+  .ginstr{font-weight:300;color:var(--g600);font-size:13px;margin:0 0 14px;line-height:1.5}
+  .gbig{font-family:var(--serif);font-size:44px;font-weight:500;line-height:1}
+  .opt{background:var(--g50);border:1px solid var(--hair);border-radius:8px;padding:14px;margin-bottom:10px;cursor:pointer;font-size:14px;text-align:left;width:100%;font-family:var(--sans)}
+  .opt.ok{background:#DCEFE7;border-color:#1D9E75;color:#0F6E56}.opt.no{background:#F3DEDE;border-color:#C0504E;color:#7a2422}
+  .gstat{display:flex;gap:10px;margin-bottom:14px}.gstat>div{flex:1;background:var(--g50);border:1px solid var(--hair);border-radius:8px;padding:9px;text-align:center}
+  .gstat .l{font-size:10px;color:var(--g400);text-transform:uppercase;letter-spacing:.1em}.gstat .v{font-size:20px;font-weight:500;font-family:var(--serif)}
+  .timerbar{height:6px;background:var(--g300);border-radius:3px;overflow:hidden;margin-bottom:14px}.timerbar i{display:block;height:100%;background:var(--accent);width:100%}
+  .mgrid{display:grid;gap:6px}
+  .smtile{aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ink2);cursor:pointer;transition:opacity .18s,transform .12s}
+  .smtile.sel{outline:3px solid var(--accent);outline-offset:-3px;transform:scale(1.08)}.smtile.clear{opacity:0;transform:scale(.3)}
+  .mc{aspect-ratio:.8;border-radius:8px;background:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;color:transparent;border:1px solid var(--hd);transition:background .2s}
+  .mc.up{background:var(--g50);color:var(--ink)}.mc.tgt{background:var(--accent-soft);color:var(--ink)}.mc.done{background:#DCEFE7;color:#0F6E56;border-color:#1D9E75}
+  .track{position:relative;height:46px;background:var(--g50);border:1px solid var(--hair);border-radius:8px;overflow:hidden;margin-bottom:14px}.zone{position:absolute;top:0;bottom:0;background:#D2EDDF}.marker{position:absolute;top:0;bottom:0;width:5px;background:var(--ink)}
+  .field{position:relative;height:300px;background:var(--ink);border-radius:10px;overflow:hidden;border:1px solid var(--hd);margin-bottom:12px;touch-action:none}.basket{position:absolute;bottom:8px;width:48px;height:16px;background:var(--accent-bright);border-radius:6px}.drop{position:absolute;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .letters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:6px 0 16px}.lt{width:42px;height:48px;border-radius:6px;background:var(--ink);color:#fff;font-family:var(--serif);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer}.lt.used{opacity:.3;pointer-events:none}
+  .slots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;min-height:50px}.slot{width:38px;height:46px;border-radius:6px;border:1.5px dashed var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:22px;color:var(--ink)}
+  .cmp{background:var(--g50);border:1px solid var(--hair);border-radius:var(--rmd);padding:12px;margin-bottom:14px}
+  .cmp textarea{width:100%;border:1px solid var(--hair);border-radius:8px;background:#fff;padding:10px;font-family:var(--sans);font-size:13px;resize:vertical;color:var(--ink)}
+  .ia-preview{width:100%;border-radius:var(--rmd);display:block;max-height:200px;object-fit:cover}
+  .ia-res{position:relative;border-radius:var(--rmd);overflow:hidden}.ia-res .lab{position:absolute;bottom:8px;left:8px;background:rgba(18,26,38,.72);color:#fff;font-size:9.5px;padding:4px 8px;border-radius:999px;letter-spacing:.05em}
+  .ia-tool{background:var(--g50);border:1px solid var(--hair);border-radius:var(--rmd);padding:18px;margin-bottom:16px;}
+  .ia-drop{border:1.5px dashed var(--accent);border-radius:var(--rmd);padding:26px 14px;text-align:center;color:var(--g500);margin:12px 0;background:var(--g100);cursor:pointer;}
+  .ia-drop .ic{font-size:30px;color:var(--accent);}
+  .disclaim{background:#EAEDF0;border:1px solid var(--hair);border-left:3px solid var(--accent);border-radius:0 var(--rsm) var(--rsm) 0;padding:10px 12px;font-size:11.5px;color:var(--g600);line-height:1.5;margin-top:12px;}
+  .ggrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .gtile{background:var(--ink);color:var(--white);border-radius:var(--rmd);padding:14px;min-height:120px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;border:1px solid var(--hd);position:relative;overflow:hidden;}
+  .gtile .gname{font-family:var(--serif);font-size:18px;line-height:1.05;font-weight:600;}
+  .gtile .gdiff{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-soft);}
+  .gtile .gico{position:absolute;right:-6px;bottom:-8px;font-size:54px;opacity:.13;}
+  .post{background:var(--g50);border:1px solid var(--hair);border-radius:var(--rmd);padding:14px;margin-bottom:12px;}
+  .post .head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .post .av{width:34px;height:34px;border-radius:50%;background:var(--ink2);color:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .post .nm{font-size:13px;font-weight:500;}
+  .post .tm{font-size:10.5px;color:var(--g400);}
+  .post .actions{display:flex;gap:18px;margin-top:10px;font-size:12px;color:var(--g500);}
+  .balance{background:var(--ink);color:var(--white);border-radius:var(--rmd);padding:22px;text-align:center;margin-bottom:18px;position:relative;overflow:hidden;}
+  .balance .num{font-family:var(--serif);font-size:46px;font-weight:500;line-height:1;}
+  .reward{display:flex;gap:12px;align-items:center;background:var(--g50);border:1px solid var(--hair);border-radius:var(--rmd);padding:13px;margin-bottom:10px;}
+  .reward .ico{width:42px;height:42px;border-radius:var(--rsm);background:var(--g100);border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:var(--accent-deep);font-family:var(--serif);font-size:17px;flex:0 0 auto;}
+  .reward h4{font-family:var(--serif);font-weight:600;font-size:16px;}
+  .reward .cost{font-size:11px;color:var(--accent-deep);letter-spacing:.05em;margin-top:2px;}
+  .flink{display:block;width:100%;text-align:left;background:none;border:none;border-top:1px solid var(--hair);padding:13px 0;font-family:var(--sans);font-size:12.5px;color:var(--g600);cursor:pointer;letter-spacing:.04em;}
+  .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--ink);border-top:1px solid var(--hd);display:flex;z-index:40;}
+  .nav button{flex:1;background:none;border:none;color:var(--g400);padding:10px 4px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .nav button.on{color:var(--accent-soft);}
+  .nav .nic{width:21px;height:21px;}
+  .nav .nlbl{font-size:9px;letter-spacing:.1em;text-transform:uppercase;}
+  .fab-wrap{position:fixed;left:50%;transform:translateX(-50%);width:100%;max-width:430px;bottom:0;height:0;pointer-events:none;z-index:45;}
+  .fab{position:absolute;right:16px;bottom:88px;width:56px;height:56px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.3);pointer-events:auto;text-decoration:none;transition:transform .12s;border:none;cursor:pointer;}
+  .fab:active{transform:scale(.94);}
+  .cta{margin:18px 0 4px;background:var(--accent-bright);color:var(--ink);border-radius:var(--rmd);padding:15px 16px;cursor:pointer;display:flex;gap:10px;align-items:center;}
+  .cta .t{flex:1;font-size:13px;font-weight:500;line-height:1.3;}
+  .cta .t small{display:block;font-weight:300;font-size:11px;opacity:.8;margin-top:2px;}
+  /* GLASS sheets/modals: degradado negro, flotante, translúcido */
+  .overlay{position:fixed;inset:0;background:rgba(18,26,38,.30);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center;z-index:60;}
+  .overlay.show{display:flex;}
+  .overlay.cen{align-items:center;}
+  .sheet{width:100%;max-width:430px;border-radius:18px 18px 0 0;padding:22px 18px 28px;animation:up .32s cubic-bezier(.2,.8,.2,1);max-height:88vh;overflow:auto;
+    background:linear-gradient(165deg,rgba(38,52,70,.78),rgba(14,20,30,.92));
+    backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2);
+    color:var(--white);border:1px solid rgba(245,246,247,.16);box-shadow:0 -16px 60px rgba(0,0,0,.45);}
+  .overlay.cen .sheet{border-radius:18px;margin:0 16px;max-width:360px;}
+  @keyframes up{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+  .sheet .grab{width:42px;height:4px;border-radius:2px;background:rgba(245,246,247,.4);margin:0 auto 16px;}
+  .sheet .eyebrow{color:var(--accent-soft);}
+  .sheet h2.disp,.sheet h3{color:var(--white);}
+  .sheet h3{font-family:var(--serif);font-weight:500;font-size:24px;}
+  .sheet .body{color:var(--platinum);}
+  .sheet .inp{background:rgba(245,246,247,.08);border:1px solid rgba(245,246,247,.2);color:var(--white);}
+  .sheet .inp::placeholder{color:#9aa4ad;}
+  .sheet .btn-ghost{border-color:rgba(245,246,247,.4);color:var(--white);}
+  .grow{display:flex;align-items:center;gap:12px;background:rgba(245,246,247,.07);border:1px solid rgba(245,246,247,.14);border-radius:10px;padding:13px;margin-bottom:10px;text-align:left;}
+  .grow .nm{flex:1;}
+  .grow .nm h4{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--white);}
+  .grow .nm .c{font-size:10.5px;color:var(--accent-soft);letter-spacing:.05em;margin-top:2px;}
+  .glink{background:none;border:none;color:var(--accent-soft);font-family:var(--sans);font-size:11.5px;text-decoration:underline;cursor:pointer;margin-top:6px;letter-spacing:.03em;}
+  .inp{width:100%;padding:13px;border:1px solid var(--hair);border-radius:var(--rmd);background:var(--g50);font-family:var(--sans);font-size:14px;margin-bottom:10px;color:var(--ink);}
+  .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--g900);color:#fff;padding:11px 18px;border-radius:var(--rpill);font-size:12.5px;opacity:0;transition:opacity .25s;z-index:80;pointer-events:none;letter-spacing:.03em;}
+  .toast.show{opacity:1;}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;}
+  .chip{flex:0 0 auto;border:1px solid var(--hair);border-radius:var(--rpill);padding:7px 14px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--g600);background:var(--g50);cursor:pointer;}
+  .chip.on{background:var(--ink);color:var(--white);border-color:var(--ink);}
+  .chip.vid.on{background:var(--accent-bright);color:var(--ink);border-color:var(--accent-bright);}
+  /* VIDEOS TikTok */
+  #videoFeed{display:none;}
+  #videoFeed.show{display:block;height:calc(100vh - 232px);overflow-y:auto;scroll-snap-type:y mandatory;border-radius:var(--rmd);-webkit-overflow-scrolling:touch;}
+  .vcard{scroll-snap-align:start;height:calc(100vh - 232px);min-height:420px;background:var(--ink2);border-radius:var(--rmd);position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:16px;margin-bottom:8px;overflow:hidden;border:1px solid var(--hd);}
+  .vcard .play{position:absolute;top:46%;left:50%;transform:translate(-50%,-50%);width:62px;height:62px;border-radius:50%;border:1.5px solid var(--accent-soft);color:var(--white);display:flex;align-items:center;justify-content:center;font-size:24px;}
+  .vcard .src{position:absolute;top:14px;left:14px;color:var(--accent-soft);}
+  .vcard .vside{position:absolute;right:14px;bottom:96px;display:flex;flex-direction:column;gap:16px;color:var(--white);text-align:center;font-size:11px;}
+  .vcard .vside .ic{font-size:22px;}
+  .vcard .vcap{color:var(--white);position:relative;z-index:2;max-width:78%;}
+  .vcard .vcap h4{font-family:var(--serif);font-size:19px;font-weight:600;}
+  .vcard .vcap p{font-size:12px;color:var(--g200);font-weight:300;margin-top:3px;}
+  .vcard .vcta{margin-top:12px;background:var(--accent-bright);color:var(--ink);border:none;border-radius:var(--rpill);padding:9px 16px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;align-self:flex-start;position:relative;z-index:2;}
+  .terms p{font-size:13px;color:var(--g700);font-weight:300;line-height:1.6;margin-bottom:12px;}
+  .terms h3{font-family:var(--serif);font-size:18px;font-weight:600;margin:16px 0 6px;}
+  /* AUTH */
+  .auth-bonus{background:rgba(138,164,188,.14);border:1px solid rgba(138,164,188,.3);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;}
+  .auth-bonus .n{font-family:var(--serif);font-size:30px;color:var(--white);}
+  .auth-bonus .l{font-size:9.5px;color:var(--accent-soft);letter-spacing:.14em;text-transform:uppercase;margin-top:2px;}
+  .inp-err{border-color:#C0504E!important;}
+  .err-msg{color:#f87171;font-size:12px;min-height:16px;margin-bottom:8px;}
+  .skip-btn{display:block;width:100%;background:none;border:none;color:var(--g400);font-family:var(--sans);font-size:12px;margin-top:12px;cursor:pointer;padding:8px;text-align:center;}
+  /* NEWS con link */
+  .card.linked{cursor:pointer;text-decoration:none;color:inherit;}
+  .card.linked:active{opacity:.88;}
+  /* VIDEOS YouTube */
+  .vcard{position:relative;}
+  .vcard iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
+  /* ── 3D JUEGOS ─────────────────────────────────────────── */
+  /* Rueda 3D */
+  .wheel3d-wrap{perspective:260px;display:flex;justify-content:center;margin:10px 0 4px;}
+  .wheel3d{width:190px;height:190px;border-radius:50%;position:relative;transform:rotateX(22deg);}
+  .wheel3d-ptr{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:22px solid var(--white);z-index:10;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
+  /* Skin Match — burst de insumo al romper bloque */
+  @keyframes skinpop{0%{transform:scale(.7);opacity:0}45%{transform:scale(1.7) rotate(10deg);opacity:1}100%{transform:scale(2.1) rotate(22deg);opacity:0}}
+  .skin-reveal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;animation:skinpop .28s ease-out forwards;pointer-events:none;z-index:5;}
+
+  /* ───────── PASO DE DISEÑO: identidad "lujo clínico" ───────── */
+  /* SIGNATURE — la moneda Glow vive en champagne; todo lo demás permanece en slate frío */
+  .mark .dot{border-color:var(--glow-deep);color:var(--glow);}
+  .pts{border-color:rgba(228,196,154,.34);color:var(--glow-soft);}
+  .pts b{color:var(--glow);font-variant-numeric:tabular-nums;}
+  #ptsWrap:active{transform:scale(.96);}
+  @keyframes ptsBump{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
+  .pts.bump b{animation:ptsBump .42s cubic-bezier(.2,.8,.2,1);display:inline-block;}
+  .balance{border:1px solid rgba(228,196,154,.18);}
+  .balance .num{color:var(--glow);font-variant-numeric:tabular-nums;letter-spacing:.01em;}
+  .balance .eyebrow{color:var(--glow-soft)!important;}
+  .auth-bonus{background:rgba(228,196,154,.10);border-color:rgba(228,196,154,.32);}
+  .auth-bonus .n{color:var(--glow);}
+  .auth-bonus .l{color:var(--glow-soft);}
+  .reward .ico{color:var(--glow-deep);}
+  .reward .cost{color:var(--glow-deep);}
+
+  /* MOTION — revelado escalonado del hero al cargar (orquestado, no disperso) */
+  @keyframes heroRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .hero .eyebrow{animation:heroRise .55s .04s both;}
+  .hero h1{animation:heroRise .62s .15s both;}
+  .hero p{animation:heroRise .62s .27s both;}
+  .hero .ring{animation:heroRise 1s .1s both;}
+  .hero .ring2{animation:heroRise 1.1s .2s both;}
+
+  /* PISO DE CALIDAD — foco visible accesible y nav con indicador activo */
+  :focus-visible{outline:2px solid var(--accent-bright);outline-offset:2px;border-radius:var(--rsm);}
+  button:focus:not(:focus-visible),a:focus:not(:focus-visible){outline:none;}
+  .nav button{position:relative;transition:color .2s;}
+  .nav button.on::after{content:"";position:absolute;top:4px;left:50%;width:4px;height:4px;border-radius:50%;background:var(--glow);transform:translateX(-50%);}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bar"><div class="mark"><span class="jc">jc</span><span class="wm">medical</span></div>
+    <div class="barR">
+      <button class="pts" id="ptsWrap" onclick="openCanje()">&#9826; <b id="pts">0</b></button>
+      <button class="pts" id="loginBtn" style="color:var(--white)" onclick="loginPrompt()">Ingresar</button>
+    </div>
+  </div>
+
+  <!-- INICIO -->
+  <section id="inicio" class="screen active">
+    <div class="hero"><div class="ring"></div><div class="ring2"></div>
+      <div class="eyebrow">Medicina est&eacute;tica &middot; con criterio cl&iacute;nico</div>
+      <h1>Tu piel,<br><span class="it">bien informada.</span></h1>
+      <p>Noticias, ciencia y novedades de est&eacute;tica facial, sin humo.</p>
+    </div>
+    <div class="pad">
+      <div class="chips" id="chips"></div>
+      <div id="videoFeed"></div>
+      <div id="articleFeed"></div>
+    </div>
+  </section>
+
+  <!-- SERVICIOS -->
+  <section id="servicios" class="screen">
+    <div class="pad">
+      <div class="sec-eyebrow"><span class="eyebrow">Servicios &middot; agenda o compra</span></div>
+      <h1 class="disp">El tratamiento<br><span class="it">correcto</span> para ti.</h1>
+      <p class="body" style="margin:12px 0 8px">Cada procedimiento parte por una evaluaci&oacute;n. Toca para ver detalle, agendar o comprar.</p>
+      <div id="svcList"></div>
+      <button class="btn btn-ghost" style="margin-top:18px" onclick="toast('Cat&aacute;logo completo &mdash; pr&oacute;ximamente')">Ver cat&aacute;logo completo</button>
+    </div>
+  </section>
+
+  <!-- IA -->
+    <section id="ia" class="screen">
+    <div class="pad">
+      <div class="sec-eyebrow"><span class="eyebrow">Asistente JC &middot; dudas frecuentes</span></div>
+      <h1 class="disp">Pregúntame<br><span class="it">lo que quieras.</span></h1>
+      <p class="body" style="margin:10px 0 12px">Resuelve tus primeras dudas sobre tratamientos, precios y para qué sirven. Soy un asistente informativo.</p>
+      <div class="chatchips" id="chatChips"></div>
+      <div class="chatbox" id="chatBox"></div>
+      <div class="chatinput">
+        <input id="chatInput" placeholder="Escribe tu pregunta&hellip;" onkeydown="if(event.key==='Enter')sendChat()">
+        <button onclick="sendChat()" aria-label="Enviar">&#10148;</button>
+      </div>
+      <div class="chatnote">Para informaci&oacute;n 100% fidedigna y un plan personalizado, contacta al especialista por v&iacute;a privada.
+        <div class="chatnote-btns">
+          <button class="btn btn-primary sm" onclick="waChat()">WhatsApp</button>
+          <button class="btn btn-ghost sm" onclick="openAgenda()">Agendar evaluaci&oacute;n</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- JUEGOS -->
+  <section id="juegos" class="screen">
+    <div class="pad" id="gamesHubWrap">
+      <div class="sec-eyebrow"><span class="eyebrow">Juega &middot; gana Glow Points</span></div>
+      <h1 class="disp">Diviértete y<br><span class="it">ac&eacute;rcate</span> a tu sesi&oacute;n.</h1>
+      <p class="body" style="margin:12px 0 18px">Acumula puntos jugando y c&aacute;njealos por tratamientos.</p>
+      <div class="ggrid" id="gamesGrid"></div>
+      <div class="sec-eyebrow" style="margin-top:26px"><span class="eyebrow">Arcade Glow Clinic &middot; juegos completos</span></div>
+      <p class="body" style="margin:0 0 14px;font-size:13px">Diez juegos desarrollados de la cl&iacute;nica: defiende el rostro estilo Plants vs Zombies, construye tu imperio est&eacute;tico, fusiona tratamientos, ordena viales y m&aacute;s.</p>
+      <div class="ggrid" id="arcadeGrid"></div>
+      <div class="cta" style="margin-top:18px" onclick="claimDiscount()"><div class="t">&iquest;Ya jugaste? Reclama tu 10% OFF<small>Y agenda tu evaluaci&oacute;n con criterio cl&iacute;nico</small></div><div>&#8594;</div></div>
+    </div>
+    <div class="pad" id="gameStage" style="display:none">
+      <div class="topgame"><button onclick="gamesHub()">&#8592; Juegos</button><span class="gs"><span id="gameName"></span> &middot; <b id="gameScore">0</b> pts</span></div>
+      <div id="gamePlay"></div>
+    </div>
+  </section>
+
+  <!-- PERFIL -->
+  <section id="perfil" class="screen">
+    <div class="pad">
+      <div class="sec-eyebrow"><span class="eyebrow">Mi cuenta</span></div>
+      <div class="balance"><div class="ring2" style="right:-30px;top:-20px"></div>
+        <div class="eyebrow" style="color:var(--accent-soft)">Glow Points</div><div class="num" id="pts3">0</div>
+        <div class="body" style="color:var(--g300);font-size:12px;margin-top:4px" id="acctState">Modo invitado &middot; inicia sesi&oacute;n para guardar tus puntos</div></div>
+      <div class="sec-eyebrow"><span class="eyebrow">Canjea por tratamiento</span></div>
+      <div id="rewardList"></div>
+      <div class="sec-eyebrow" style="margin-top:22px"><span class="eyebrow">Comunidad</span></div>
+      <div class="cmp"><textarea id="cmpText" rows="2" placeholder="Comparte una pregunta o experiencia&hellip;"></textarea><button class="btn btn-dark sm" style="margin-top:8px" onclick="publishPost()">Publicar</button></div>
+      <div id="communityFeed"></div>
+      <div class="sec-eyebrow" style="margin-top:22px"><span class="eyebrow">Colaboraciones</span></div>
+      <p class="body" style="font-size:13px;margin-bottom:12px">&iquest;Eres creador/a o marca? Solicita una colaboraci&oacute;n con JC Medical.</p>
+      <button class="btn btn-dark" onclick="openCollab()">Solicitar colaboraci&oacute;n</button>
+      <div style="margin-top:24px">
+        <button class="flink" onclick="go('terminos')">Concurso &middot; T&eacute;rminos y condiciones de uso &#8250;</button>
+        <button class="flink" onclick="toast('Pol&iacute;tica de privacidad &mdash; demo')">Pol&iacute;tica de privacidad y datos &#8250;</button>
+        <button class="flink" id="sessionLink" onclick="loginPrompt()">Iniciar sesi&oacute;n / crear cuenta &#8250;</button>
+        <button class="flink" onclick="window.open('JC_Admin.html','_blank')">Administraci&oacute;n (acceso interno) &#8250;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TERMINOS / CONCURSO -->
+  <section id="terminos" class="screen">
+    <div class="pad terms">
+      <button class="flink" style="border:none;padding:0 0 14px;color:var(--accent-deep)" onclick="go('perfil')">&#8592; Volver</button>
+      <div class="eyebrow">Concurso</div>
+      <h1 class="disp" style="margin:6px 0 14px">T&eacute;rminos y condiciones de uso</h1>
+      <h3>Programa de puntos (fidelizaci&oacute;n)</h3>
+      <p>El uso de la aplicaci&oacute;n permite acumular &laquo;Glow Points&raquo; jugando o viendo contenido. A modo referencial, puedes acumular un m&aacute;ximo de 2.000 Glow Points por d&iacute;a jugando, y cada sesi&oacute;n canjeable equivale a 60.000 puntos (alrededor de 30 d&iacute;as de juego). Los puntos no tienen valor monetario, no son transferibles ni canjeables por dinero, y se otorgan seg&uacute;n disponibilidad.</p>
+      <h3>Canje de tratamientos</h3>
+      <p>Todo canje queda <b>sujeto a evaluaci&oacute;n m&eacute;dica previa</b> y se realiza solo si la persona es apta cl&iacute;nicamente. M&aacute;ximo 1 canje por persona al mes. V&aacute;lido solo para mayores de 18 a&ntilde;os. Es un programa de fidelizaci&oacute;n por puntos, no un sorteo al azar.</p>
+      <h3>Herramientas de IA</h3>
+      <p>Las simulaciones son ilustrativas y generadas por inteligencia artificial; no constituyen un resultado garantizado ni reemplazan una evaluaci&oacute;n m&eacute;dica. El tratamiento de im&aacute;genes requiere tu consentimiento y puedes solicitar su eliminaci&oacute;n.</p>
+      <h3>Datos personales</h3>
+      <p>Tus datos se tratan conforme a la legislaci&oacute;n vigente de protecci&oacute;n de datos (Chile). Puedes acceder, rectificar y eliminar tu informaci&oacute;n cuando quieras.</p>
+      <p style="font-size:11px;color:var(--g400)">Prototipo &mdash; el texto legal final debe ser revisado por un abogado antes de publicar.</p>
+    </div>
+  </section>
+
+  <nav class="nav" id="nav"></nav>
+  <div class="fab-wrap"><button class="fab" onclick="openAgenda()" aria-label="Agendar evaluaci&oacute;n">
+    <svg viewBox="0 0 32 32" width="28" height="28" fill="#fff" aria-hidden="true"><path d="M16 3C9 3 3.5 8.5 3.5 15.5c0 2.4.7 4.6 1.9 6.5L4 29l7.2-1.9c1.8 1 3.8 1.5 5.8 1.5 7 0 12.5-5.5 12.5-12.5S23 3 16 3zm0 22.8c-1.8 0-3.5-.5-5-1.4l-.4-.2-4.3 1.1 1.1-4.2-.2-.4c-1-1.6-1.5-3.4-1.5-5.3C5.7 9.7 10.3 5.2 16 5.2c2.7 0 5.3 1.1 7.2 3 1.9 1.9 3 4.5 3 7.2 0 5.7-4.6 10.4-10.2 10.4zm6-7.8c-.3-.2-1.9-.9-2.2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-2-1.8-2.3-.2-.3 0-.5.1-.7.1-.1.3-.4.5-.6.1-.2.2-.3.3-.5.1-.2 0-.4 0-.6 0-.2-.7-1.7-1-2.3-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.3 5.1 4.6.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.9-.8 2.1-1.5.3-.7.3-1.4.2-1.5-.1-.2-.3-.2-.6-.4z"/></svg>
+  </button></div>
+  <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+<script>
+// ── ESTADO ────────────────────────────────────────────────────────────────
+let SESSION   = jcmGetSession();   // sesión activa (de shared.js)
+let points    = SESSION ? (SESSION.points || 0) : (DB.cfg().pts_start || 500);
+let played    = false;
+let logged    = !!SESSION;
+let curChip   = 'Todo';
+const REWARD_COST = DB.cfg().reward_cost || 60000;
+
+// ── PUNTOS (sinc. con usuario en DB) ─────────────────────────────────────
+function setPts(n) {
+  const prev = points;
+  points = Math.max(0, n);
+  ['pts','pts3'].forEach(id => { const e = el(id); if (e) e.textContent = points.toLocaleString('es-CL'); });
+  if (points !== prev) { const w = el('ptsWrap'); if (w) { w.classList.remove('bump'); void w.offsetWidth; w.classList.add('bump'); } }
+  if (SESSION) jcmUpdatePoints(SESSION.id, points);
+}
+
+// ── AUTH UI ───────────────────────────────────────────────────────────────
+function updateAuthUI() {
+  const btn = el('loginBtn');
+  if (!btn) return;
+  if (SESSION) {
+    btn.textContent = SESSION.name.split(' ')[0];
+    btn.onclick = () => go('perfil');
+    const st = el('acctState');
+    if (st) st.textContent = 'Sesión iniciada · puntos guardados en tu cuenta';
+    const sl = el('sessionLink');
+    if (sl) { sl.textContent = 'Cerrar sesión ›'; sl.onclick = doLogout; }
+  } else {
+    btn.textContent = 'Ingresar';
+    btn.onclick = loginPrompt;
+  }
+  setPts(points);
+}
+
+function loginPrompt() {
+  sheet(`<div class="eyebrow">JC Medical</div>
+    <h3>¿Cómo quieres ingresar?</h3>
+    <p class="body" style="margin:6px 0 16px;font-size:13px">Elige tu perfil para continuar.</p>
+    <button class="btn btn-primary" onclick="showPatientAuth()" style="font-size:14px;padding:16px">
+      &#9824; &nbsp;Soy Paciente
+    </button>
+    <button class="btn btn-ghost" style="margin-top:10px;font-size:14px;padding:16px" onclick="showClinicAuth()">
+      &#9827; &nbsp;Soy Clínica (Admin)
+    </button>
+    <button class="skip-btn" onclick="closeSheet()">Continuar como invitado</button>`);
+}
+
+function showPatientAuth() {
+  el('sheet').innerHTML = `<div class="grab"></div>
+    <div class="eyebrow">Tu cuenta JC Medical</div>
+    <h3>Accede o regístrate</h3>
+    <p class="body" style="margin:6px 0 14px;font-size:13px">Guarda tus puntos, canjea tratamientos y accede a beneficios exclusivos.</p>
+    <div class="auth-bonus"><div class="n">500</div><div class="l">Glow Points de regalo al registrarte</div></div>
+    <button class="btn btn-primary" onclick="showRegister()">Crear cuenta — 500 pts gratis</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="showLogin()">Ya tengo cuenta</button>
+    <button class="skip-btn" onclick="loginPrompt()">&#8592; Volver</button>`;
+}
+
+function showClinicAuth() {
+  el('sheet').innerHTML = `<div class="grab"></div>
+    <div class="eyebrow">Panel de administración · Clínica</div>
+    <h3>Acceso clínica</h3>
+    <p class="body" style="margin:6px 0 14px;font-size:13px">Ingresa con tus credenciales de administrador para gestionar contenido, videos, canjes y configuración.</p>
+    <input class="inp" id="admU" placeholder="Usuario" autocomplete="username">
+    <input class="inp" id="admP" placeholder="Contraseña" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitClinicLogin()">
+    <div class="err-msg" id="admErr"></div>
+    <button class="btn btn-primary" onclick="submitClinicLogin()">Ingresar como clínica</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="window.open('JC_Admin.html','_blank');closeSheet()">Abrir panel en nueva pestaña</button>
+    <button class="skip-btn" onclick="loginPrompt()">&#8592; Volver</button>`;
+}
+
+function submitClinicLogin() {
+  var u=(el('admU')?.value||'').trim();
+  var p=el('admP')?.value||'';
+  var creds=DB.get('admin_creds')||{user:'admin',pass:'jc2026'};
+  if(u===creds.user&&p===creds.pass){
+    closeSheet();
+    window.open('JC_Admin.html','_blank');
+    toast('Acceso correcto · panel abierto');
+  } else {
+    el('admErr').textContent='Usuario o contraseña incorrectos.';
+  }
+}
+
+function showRegister() {
+  el('sheet').innerHTML = `<div class="grab"></div>
+    <div class="eyebrow">Nueva cuenta</div><h3>Regístrate</h3>
+    <p class="body" style="margin:6px 0 14px;font-size:13px">Crea tu cuenta y recibe 500 Glow Points de regalo.</p>
+    <input class="inp" id="rN" placeholder="Nombre y apellido" autocomplete="name">
+    <input class="inp" id="rE" placeholder="Correo electrónico" type="email" autocomplete="email" inputmode="email">
+    <input class="inp" id="rP" placeholder="Contraseña (mín. 6 caracteres)" type="password" autocomplete="new-password">
+    <label class="body" style="display:flex;gap:8px;align-items:flex-start;font-size:11.5px;margin-bottom:12px">
+      <input type="checkbox" id="rT" style="margin-top:3px">
+      Acepto los <button onclick="closeSheet();go('terminos')" style="background:none;border:none;color:var(--accent-soft);cursor:pointer;font-size:11.5px;padding:0;margin:0 0 0 3px">términos de uso</button> y soy mayor de 18 años.
+    </label>
+    <div class="err-msg" id="rErr"></div>
+    <button class="btn btn-primary" onclick="submitRegister()">Crear cuenta · +500 pts</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="showLogin()">Ya tengo cuenta</button>`;
+}
+
+async function submitRegister() {
+  const name = (el('rN')?.value||'').trim();
+  const email = (el('rE')?.value||'').trim();
+  const pwd   = el('rP')?.value||'';
+  const terms = el('rT')?.checked;
+  const errEl = el('rErr');
+  if (!terms) { errEl.textContent = 'Debes aceptar los términos de uso.'; return; }
+  errEl.textContent = 'Procesando…';
+  const res = await jcmRegister(name, email, pwd);
+  if (!res.ok) { errEl.textContent = res.msg; return; }
+  SESSION = jcmSaveSession(res.user);
+  logged  = true;
+  setPts(res.user.points);
+  closeSheet();
+  toast('¡Bienvenido/a ' + res.user.name.split(' ')[0] + '! +' + res.user.points.toLocaleString('es-CL') + ' Glow Points');
+  updateAuthUI();
+}
+
+function showLogin() {
+  el('sheet').innerHTML = `<div class="grab"></div>
+    <div class="eyebrow">Tu cuenta</div><h3>Iniciar sesión</h3>
+    <p class="body" style="margin:6px 0 14px;font-size:13px">Ingresa para recuperar tus puntos y beneficios.</p>
+    <input class="inp" id="lE" placeholder="Correo electrónico" type="email" autocomplete="email" inputmode="email">
+    <input class="inp" id="lP" placeholder="Contraseña" type="password" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')submitLogin()">
+    <div class="err-msg" id="lErr"></div>
+    <button class="btn btn-primary" onclick="submitLogin()">Ingresar</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="showRegister()">Crear cuenta gratis</button>`;
+}
+
+async function submitLogin() {
+  const email = (el('lE')?.value||'').trim();
+  const pwd   = el('lP')?.value||'';
+  const errEl = el('lErr');
+  errEl.textContent = 'Verificando…';
+  const res = await jcmLogin(email, pwd);
+  if (!res.ok) { errEl.textContent = res.msg; return; }
+  SESSION = jcmSaveSession(res.user);
+  logged  = true;
+  setPts(res.user.points || 0);
+  closeSheet();
+  toast('¡Bienvenido/a de vuelta, ' + res.user.name.split(' ')[0] + '!');
+  updateAuthUI();
+}
+
+function doLogout() {
+  jcmEndSession();
+  SESSION = null;
+  logged  = false;
+  points  = DB.cfg().pts_start || 500;
+  updateAuthUI();
+  go('inicio');
+  toast('Sesión cerrada');
+}
+
+// ── NOTICIAS DESDE DB + RSS ───────────────────────────────────────────────
+async function loadArticles() {
+  const admin = DB.get('articles');
+  if (admin && admin.length) return admin;
+  const rss = await jcmFetchNews();
+  if (rss && rss.length) return rss;
+  return JCM_DEFAULT_ARTICLES;
+}
+
+// ── VIDEOS YOUTUBE ────────────────────────────────────────────────────────
+function fmtCount(n){ n=+n||0; if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace('.0','')+'M'; if(n>=1e3) return (n/1e3).toFixed(n>=1e4?0:1).replace('.0','')+'k'; return ''+n; }
+function vStats(v){
+  const likes = fmtCount(v.likes||0), views = fmtCount(v.views||0);
+  return `<div><div class="ic">&#9825;</div>${likes}</div><div><div class="ic">&#9654;</div>${views}</div>`;
+}
+function buildVideoCard(v) {
+  const ytId  = jcmYtId(v.url || v.u || '');
+  const title = jcmSanitize(v.title || v.t || 'Video JC Medical');
+  const src   = jcmSanitize(v.src || '@jcmedical.cl');
+  const sub   = jcmSanitize(v.p || v.sub || '');
+  if (ytId) {
+    const thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    return `<img src="${thumb}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.85" loading="lazy">
+      <div class="play" style="z-index:2;position:relative" onclick="playYT(this,'${ytId}')">&#9658;</div>
+      <div class="vside" style="z-index:2;position:relative">${vStats(v)}</div>
+      <div class="vcap" style="z-index:2;position:relative"><h4>${title}</h4>${sub?`<p>${sub}</p>`:''}</div>
+      <button class="vcta" style="z-index:2;position:relative" onclick="claimDiscount()">Agendar evaluación</button>`;
+  }
+  return `<span class="src label">${src}</span>
+    <div class="play">&#9658;</div>
+    <div class="vside">${vStats(v)}</div>
+    <div class="vcap"><h4>${title}</h4>${sub?`<p style="font-size:12px;color:var(--g200);font-weight:300;margin-top:3px">${sub}</p>`:''}</div>
+    <button class="vcta" onclick="claimDiscount()">Agendar evaluación</button>`;
+}
+
+function playYT(btn, id) {
+  const card = btn.closest('.vcard');
+  card.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1"
+    allow="autoplay;fullscreen;picture-in-picture" allowfullscreen></iframe>`;
+}
+
+// ── SYNC EN TIEMPO REAL DESDE ADMIN ──────────────────────────────────────
+window.addEventListener('storage', e => {
+  if (!e.key?.startsWith('jcm_')) return;
+  const k = e.key.replace('jcm_','');
+  if (k==='articles') renderFeed();
+  if (k==='videos')   buildVideos();
+  if (k==='services') buildSvc();
+  if (k==='config')   { const c=DB.cfg(); /* actualiza REWARD_COST si cambia */ }
+});
+
+
+const el=id=>document.getElementById(id);
+function toast(m){const t=el('toast');t.innerHTML=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2400);}
+function sheet(html,centered){const o=el('overlay');o.classList.toggle('cen',!!centered);el('sheet').innerHTML=(centered?'':'<div class="grab"></div>')+html;o.classList.add('show');}
+function closeSheet(){el('overlay').classList.remove('show');}
+el('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeSheet();});
+
+/* nav */
+const TABS=[
+  {id:'inicio',lbl:'Inicio',ic:'M3 11l9-8 9 8M5 10v10h14V10'},
+  {id:'servicios',lbl:'Servicios',ic:'M4 7h16M4 12h16M4 17h10'},
+  {id:'ia',lbl:'Asistente',ic:'M4 5h15a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z'},
+  {id:'juegos',lbl:'Juegos',ic:'M7 8h10a4 4 0 0 1 0 8H7a4 4 0 0 1 0-8zM9 11v2M8 12h2M15.5 11.5h.01M17 13h.01'},
+  {id:'perfil',lbl:'Perfil',ic:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6'}
+];
+function buildNav(){const n=el('nav');n.innerHTML='';
+  TABS.forEach(t=>{const b=document.createElement('button');b.type='button';b.dataset.id=t.id;
+    b.innerHTML='<svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="'+t.ic+'"/></svg><span class="nlbl">'+t.lbl+'</span>';
+    b.addEventListener('click',()=>go(t.id));n.appendChild(b);});}
+function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const t=el(id);if(t)t.classList.add('active');
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.id===id));window.scrollTo(0,0);}
+
+/* chips + feed por categoría — fuente dinámica */
+const CHIPS=['Todo','Videos','Botox','Colágeno','Skincare','Novedades'];
+let _ARTICLES = [];
+
+function buildChips(){const c=el('chips');c.innerHTML='';
+  CHIPS.forEach(name=>{const d=document.createElement('div');
+    d.className='chip'+(name==='Videos'?' vid':'')+(name===curChip?' on':'');
+    d.textContent=name;
+    d.addEventListener('click',()=>{curChip=name;buildChips();renderFeed();});
+    c.appendChild(d);});}
+
+function articleCard(a){
+  const wrap = a.link && a.link!=='#' ? `onclick="window.open('${a.link}','_blank')" style="cursor:pointer"` : '';
+  return `<article class="card" ${wrap}>
+    <div class="media"><span class="tag label" style="z-index:2">${jcmSanitize(a.tag||'')}</span>
+      <span class="ph" style="${a.img?'display:none':''}"></span>
+      ${a.img?`<img src="${a.img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1" loading="lazy" onerror="this.style.display='none';this.parentNode.querySelector('.ph').style.display='flex'">`:''}</div>
+    <div class="c-body"><div class="eyebrow">${jcmSanitize(a.eyb||'')}</div>
+      <h3>${jcmSanitize(a.h||'')}</h3><p class="body">${jcmSanitize(a.sub||'')}</p>
+      <div class="meta">${jcmSanitize(a.meta||'')}${a.link&&a.link!=='#'?' · Leer más ›':''}</div></div></article>`;}
+
+function ctaInline(){return '<div class="cta" onclick="claimDiscount()"><div class="t">Agenda tu evaluación ahora<small>Desbloquea 10% OFF en tu primera sesión</small></div><div>→</div></div>';}
+
+function renderFeed(){
+  const vf=el('videoFeed'), af=el('articleFeed');
+  if(curChip==='Videos'){vf.classList.add('show');af.style.display='none';return;}
+  vf.classList.remove('show'); af.style.display='block';
+  const list = curChip==='Todo' ? _ARTICLES : _ARTICLES.filter(a=>(a.cat||'').toLowerCase()===curChip.toLowerCase());
+  if(!list.length){ af.innerHTML='<p class="body" style="padding:8px 0">Pronto más contenido de esta categoría.</p>'+ctaInline(); return; }
+  const cards = curChip==='Todo' ? list.slice(0,6) : list;
+  af.innerHTML = cards.map(articleCard).join('') + ctaInline() +
+    '<button class="btn btn-dark" style="margin-top:4px" onclick="buyDiscount()">Comprar Pink Glow · −20% esta semana</button>';
+}
+
+async function initFeed(){
+  _ARTICLES = await loadArticles();
+  buildChips(); renderFeed();
+}
+/* videos – fuente dinámica (admin o defaults) */
+let vIndex=0, VSOURCE=[];
+function addVideo(){
+  if(!VSOURCE.length) return;
+  const v=VSOURCE[vIndex%VSOURCE.length]; vIndex++;
+  const d=document.createElement('div'); d.className='vcard';
+  d.innerHTML=buildVideoCard(v);
+  el('videoFeed').appendChild(d);
+}
+async function buildVideos(){
+  const vf=el('videoFeed'); vf.innerHTML=''; vIndex=0;
+  let src = (DB.get('videos') && DB.get('videos').length) ? DB.get('videos') : JCM_DEFAULT_VIDEOS;
+  // Estadísticas REALES de YouTube si hay API key configurada (admin).
+  const key = DB.cfg().yt_api_key;
+  if(key){
+    try{
+      const ids = src.map(v=>jcmYtId(v.url||v.u||'')).filter(Boolean);
+      const stats = await jcmYTStats(ids, key);
+      if(stats){ src = src.map(v=>{ const id=jcmYtId(v.url||v.u||''); const s=id&&stats[id]; return s?Object.assign({},v,{likes:s.likes,views:s.views,_real:true}):v; }); }
+    }catch(e){}
+  }
+  // Solo "videos de interés": más de 10 mil me gusta y 10 mil reproducciones.
+  const hot = v => (+v.likes||0) > 10000 && (+v.views||0) > 10000;
+  let pool = src.filter(hot);
+  if(!pool.length) pool = JCM_DEFAULT_VIDEOS.filter(hot);   // respaldo si aún no hay métricas
+  // ordena por reproducciones (los más vistos primero)
+  pool.sort((a,b)=>(+b.views||0)-(+a.views||0));
+  VSOURCE = pool;
+  if(!VSOURCE.length){ vf.innerHTML='<div class="vcard" style="display:flex;align-items:center;justify-content:center;color:var(--g300);font-family:var(--serif);font-style:italic">Pronto, videos destacados</div>'; return; }
+  const n=Math.min(5,VSOURCE.length); for(let i=0;i<n;i++) addVideo();
+  vf.onscroll=()=>{if(vf.scrollTop+vf.clientHeight>=vf.scrollHeight-300)addVideo();};
+}
+
+/* servicios */
+const CATALOGO=[{"n": "Evaluación general", "c": "Evaluación", "v": [{"l": "", "p": "$10.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4758&code=794dbecae66b205b49200816403d1b1fe745b6bd6d8ed8c655a2d33103032720&isQr=0"}]}, {"n": "Evaluación · tratamiento para arrugas", "c": "Evaluación", "v": [{"l": "", "p": "$10.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4758&code=794dbecae66b205b49200816403d1b1fe745b6bd6d8ed8c655a2d33103032720&isQr=0"}]}, {"n": "Evaluación · tratamiento para la flacidez", "c": "Evaluación", "v": [{"l": "", "p": "$10.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4758&code=794dbecae66b205b49200816403d1b1fe745b6bd6d8ed8c655a2d33103032720&isQr=0"}]}, {"n": "Botox 3 zonas", "c": "Toxina botulínica", "v": [{"l": "", "p": "$150.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4716&code=5b0a3bf988aed3aeebb196ae0e968f558396b9913ec349afbf75203bebe09c70&isQr=0"}]}, {"n": "Botox tercio superior (4 zonas)", "c": "Toxina botulínica", "v": [{"l": "", "p": "$170.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4717&code=a483ce9b34deb681fefb04c00f45e13e207d3f2817444b48b221afbf9dde8b10&isQr=0"}]}, {"n": "Botox Full Face (8 zonas)", "c": "Toxina botulínica", "v": [{"l": "", "p": "$350.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4718&code=88de453e07ab2e6691381e9d99a594cc1e2a6c093f0d6b5daf92c50f942a9089&isQr=0"}]}, {"n": "Tratamiento de bruxismo con toxina botulínica", "c": "Toxina botulínica", "v": [{"l": "", "p": "$200.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4719&code=870af6a734d26aa26a14ca209dfabd6389eadcb3415c60a533681fd81b8b7f10&isQr=0"}]}, {"n": "Hiperhidrosis axilar y palmar", "c": "Toxina botulínica", "v": [{"l": "", "p": "$200.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4721&code=ac651a972070d58b9883c7b7cfe36be987f921cd441abbafb534caaa660d1396&isQr=0"}]}, {"n": "Hiperhidrosis facial", "c": "Toxina botulínica", "v": [{"l": "", "p": "$200.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4722&code=4eb04d60fed2f3c4fd42e63e492ecd135417967f152479526511d8626e54e297&isQr=0"}]}, {"n": "Tratamiento sonrisa gingival", "c": "Toxina botulínica", "v": [{"l": "", "p": "$150.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4725&code=12c80046649b721dc214ddb191bac99e5d03e02423847c5f2a20a6e0b7fe366f&isQr=0"}]}, {"n": "Mentón empedrado", "c": "Toxina botulínica", "v": [{"l": "", "p": "$150.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4726&code=49e780701c7ac4fa09dae600140bb493181adce20c08ff1c38643a1f270d7d1e&isQr=0"}]}, {"n": "Rejuvenecimiento de cuello · Nefertiti", "c": "Toxina botulínica", "v": [{"l": "", "p": "$250.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4727&code=ca7f658b01f57a97366c933592c4b59d9b6d59efd42734fb2e37fa653844be2c&isQr=0"}]}, {"n": "Código de barras, tratamiento de arrugas", "c": "Toxina botulínica", "v": [{"l": "", "p": "$120.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4728&code=e612e7228fdb1afdeca668f1afc6b3575418e442dde0d4d2863282aca66161cd&isQr=0"}]}, {"n": "Rinomodelación", "c": "Ácido hialurónico", "v": [{"l": "", "p": "$170.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4732&code=b60600e3e763935d472b9fbf109f256a773fc750682325b111748b68f5a175c4&isQr=0"}]}, {"n": "Proyección de mentón", "c": "Ácido hialurónico", "v": [{"l": "", "p": "$150.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4733&code=550dd8b68b8e8a2536488710c7f7b3c0970a32f486c2dbaa7e471fadfe54f1c6&isQr=0"}]}, {"n": "Definición de arco mandibular", "c": "Ácido hialurónico", "v": [{"l": "", "p": "$200.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4734&code=47d8ae86bd0b7aaf6520353dea9898313cf5864b34b1eda63e1dacf651fda801&isQr=0"}]}, {"n": "Realce de pómulos", "c": "Ácido hialurónico", "v": [{"l": "", "p": "$180.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4735&code=bd5810f9a453b4a85caa168ff9f0a671dc66b7907bac6ab23b5a5aaf4f4dd03e&isQr=0"}]}, {"n": "Código de barras con ácido hialurónico", "c": "Ácido hialurónico", "v": [{"l": "", "p": "$150.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4736&code=29da93b5c7d0e665c35609a5b3d1a42d242e472f2473a17acb82915969fb0b46&isQr=0"}]}, {"n": "Bioestimulación de colágeno facial", "c": "Bioestimulación de colágeno", "v": [{"l": "1 sesión — full face", "p": "$450.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4729&code=f4181b98698ab711e70d388b511ccc4ac536bc4edb005e4cb85405472e1764e3&isQr=0"}, {"l": "Pack 3 sesiones", "p": "$1.200.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4752&code=dcb4fbb3e925674e7ffe25d965be1e3573b8f53f8673c126e77754ba371a0be7&isQr=0"}]}, {"n": "Bioestimulación de manos", "c": "Bioestimulación de colágeno", "v": [{"l": "1 sesión", "p": "$450.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4731&code=4c96a75fb0e541fe26b8baacc4835d62eaa93b0f7b6aad5aae284d61c5c6622a&isQr=0"}, {"l": "Pack 3 sesiones", "p": "$1.200.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4750&code=049051967db336a83f63ca83b4ca84ca66b2614b8fda6044368ca7b01008b66e&isQr=0"}]}, {"n": "Bioestimulación de surcos nasogenianos y marionetas", "c": "Bioestimulación de colágeno", "v": [{"l": "1 sesión", "p": "$450.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4746&code=346308b826290e552d7b1324bd3dd523743a7bcff9a07e115c0929efd9f03de3&isQr=0"}, {"l": "Pack 3 sesiones", "p": "$1.200.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4751&code=ed6ed085b24902b92d08bb27538a741e465d952c7da47fcd3fc70fe16fd875c1&isQr=0"}]}, {"n": "Bioestimulación de cuello", "c": "Bioestimulación de colágeno", "v": [{"l": "1 sesión", "p": "$500.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4748&code=e7c102c3c4b5927048ac7173dc1e1d8321b1fe2f62d3e7452df69ff8a97e5551&isQr=0"}, {"l": "Pack 3 sesiones", "p": "$1.450.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4749&code=fd1552504db6007c177b004323b9cc9a4a6c5f35a4015a70e373e7ab4a924b81&isQr=0"}]}, {"n": "NCTF 135 HA", "c": "Regeneración", "v": [{"l": "1 sesión", "p": "$150.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4737&code=abecb2b7ec484cee260bc735723bc1852a7ef523c07fbf53c21ed30a2d5c5b27&isQr=0"}, {"l": "Pack 3 sesiones", "p": "$420.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4738&code=9659e8e529d8d63fdfe5f39d9371d100d9725c65e4847124d79039bc9b01f063&isQr=0"}]}, {"n": "ADN de salmón · Rejuran", "c": "Regeneración", "v": [{"l": "1 sesión", "p": "$180.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4739&code=2e7b1f52991f03343e365152921d2189f2472f089578f019880800ae52744033&isQr=0"}, {"l": "Pack 3 sesiones", "p": "$500.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4740&code=b19bb6f7cf70846320e420c6599adaf33f8795c08c67199bdee13c5d207efdf2&isQr=0"}]}, {"n": "Quemadores de grasa localizada", "c": "Corporal", "v": [{"l": "Pack 3 sesiones", "p": "$300.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4741&code=6d5ae5e5044fe0928a1144dd52e018140e61fcb94b86171043fe96bc7d70e5b9&isQr=0"}, {"l": "Pack 6 sesiones", "p": "$550.000", "u": "https://micrositios.banchilepagos.cl/link/show?genid=4742&code=5d4f06c08609c3ef1fa8f2f9a66fbf265f0b60afd417d7c772d6964c9241c9f2&isQr=0"}]}];
+
+function buildSvc(){
+  var src=DB.get('services')||CATALOGO;
+  var l=el('svcList');l.innerHTML='';
+  var cats=[];src.forEach(function(it){if(cats.indexOf(it.c)<0)cats.push(it.c);});
+  cats.forEach(function(c){
+    var h=document.createElement('div');h.className='sec-eyebrow';h.style.marginTop='18px';
+    h.innerHTML='<span class="eyebrow">'+jcmSanitize(c)+'</span>';l.appendChild(h);
+    src.filter(function(it){return it.c===c;}).forEach(function(it){
+      var prices=it.v.map(function(x){return parseInt((x.p||'0').replace(/[^0-9]/g,''),10)||0;}).sort(function(a,b){return a-b;});
+      var label=it.v.length>1?('desde $'+prices[0].toLocaleString('es-CL')):it.v[0].p;
+      var d=document.createElement('div');d.className='svc';
+      d.innerHTML='<div class="info"><h3>'+jcmSanitize(it.n)+'</h3><div class="from">'+jcmSanitize(label)+'</div></div><div class="chev">›</div>';
+      d.addEventListener('click',function(){openSvc(it);});l.appendChild(d);});
+  });}
+function openSvc(it){window.__sv=it.v;
+  var rows=it.v.map(function(x,i){var nm=jcmSanitize(x.l?x.l:'1 sesión');
+    return '<div class="grow"><div class="nm"><h4>'+nm+'</h4><div class="c">'+jcmSanitize(x.p||'')+'</div></div><button class="btn btn-ghost sm" onclick="buySvc('+i+')">Comprar</button></div>';}).join('');
+  sheet('<div class="eyebrow">Servicio</div><h2 class="disp" style="margin:6px 0 6px">'+jcmSanitize(it.n)+'</h2>'+
+    '<p class="body" style="margin-bottom:14px;font-size:13px">Pago en línea seguro con Banco de Chile. Toda intervención parte por una evaluación con criterio clínico.</p>'+
+    rows);}
+function buySvc(i){var v=(window.__sv||[])[i];if(v&&v.u)window.open(v.u,'_blank');}
+
+/* juegos */
+/* ===== JUEGOS INTEGRADOS (10) ===== */
+var gScore=0,G=null,HEART='&#9829;';
+function hearts(n){return n>0?HEART.repeat(n):'&mdash;';}
+function setScore(n){gScore=n;var e=el('gameScore');if(e)e.textContent=n;}
+function ctaG(){return '<div class="cta" style="margin-top:18px" onclick="claimDiscount()"><div class="t">Agenda tu evaluaci&oacute;n ahora<small>Desbloquea 10% OFF en tu primera sesi&oacute;n</small></div><div>&#8594;</div></div>';}
+function gClean(){if(window.__gc){try{window.__gc();}catch(e){}window.__gc=null;}}
+var DAILY_CAP=DB.cfg().pts_daily_cap||2000,todayPts=0,todayDate=new Date().toDateString();
+function addGamePoints(g){var d=new Date().toDateString();if(d!==todayDate){todayDate=d;todayPts=0;}var gain=Math.max(0,Math.round(g*0.5));var allow=Math.max(0,DAILY_CAP-todayPts);var act=Math.min(gain,allow);todayPts+=act;setPts(points+act);return{act:act,capped:gain>act,today:todayPts};}
+function gEnd(gain,msg){played=true;var res=addGamePoints(gain);var extra=res.capped?'<br><br>Llegaste al máximo de 2.000 Glow Points de hoy. ¡Vuelve mañana para seguir sumando!':'';sheet('<div class="eyebrow">Fin del juego</div><h3>'+msg+'</h3><div class="gbig" style="color:#fff;margin:8px 0">+'+res.act+'</div><p class="body" style="margin-bottom:14px">Glow Points sumados ('+res.today+'/2.000 hoy).'+extra+'</p><button class="btn btn-primary" onclick="closeSheet();G.replay()">Jugar otra vez</button><button class="btn btn-ghost" style="margin-top:8px" onclick="closeSheet();gamesHub()">Elegir otro juego</button>');}
+function gamesHub(){gClean();el('gameStage').style.display='none';el('gamesHubWrap').style.display='block';window.scrollTo(0,0);}
+function openGame(k){gClean();G=GAMES[k];el('gamesHubWrap').style.display='none';el('gameStage').style.display='block';el('gameName').textContent=G.nm;setScore(0);window.scrollTo(0,0);G.mount();}
+function buildGames(){var g=el('gamesGrid');g.innerHTML='';
+  Object.keys(GAMES).forEach(function(k){var x=GAMES[k];var d=document.createElement('div');d.className='gtile';
+    d.innerHTML='<div><div class="gdiff">'+x.d+'</div><div class="gname">'+x.nm+'</div></div><div class="gico serif">'+x.ic+'</div>';
+    d.addEventListener('click',function(){openGame(k);});g.appendChild(d);});
+  var ag=el('arcadeGrid');if(ag){ag.innerHTML='';ARCADE.forEach(function(x){var d=document.createElement('div');d.className='gtile';
+    d.innerHTML='<div><div class="gdiff">'+x.d+'</div><div class="gname">'+x.nm+'</div></div><div class="gico serif">'+x.ic+'</div>';
+    d.addEventListener('click',function(){window.open(x.url,'_blank');});ag.appendChild(d);});}}
+
+/* 1 Skin Match 3D (match-3 con perspectiva CSS y animación de elevación) */
+/* 2 Reflejo Glow — toca apenas se ilumine */
+function reflexGame(){var round=0,times=[],state='idle',t0=0,to=null;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca apenas se ilumine. 5 rondas. Solo ganas puntos si tu promedio es <b>menor a 350&nbsp;ms</b>.</p><div id="rf" style="height:240px;border-radius:14px;background:var(--ink);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--serif);font-size:22px;cursor:pointer;transition:background .12s">Toca para empezar</div>'+ctaG();
+  el('rf').onclick=tap;window.__gc=function(){clearTimeout(to);};
+  function arm(){state='wait';el('rf').style.background='var(--ink)';el('rf').innerHTML='Espera&hellip;';to=setTimeout(function(){state='go';t0=performance.now();el('rf').style.background='var(--accent-bright)';el('rf').style.color='var(--ink)';el('rf').innerHTML='&iexcl;TOCA!';},800+Math.random()*2200);}
+  function tap(){if(state==='idle'){el('rf').style.color='#fff';arm();return;}if(state==='wait'){clearTimeout(to);state='idle';el('rf').style.background='#7a2422';el('rf').innerHTML='Muy pronto &mdash; reintenta';return;}if(state==='go'){var ms=Math.round(performance.now()-t0);times.push(ms);round++;el('rf').style.background='var(--ink)';el('rf').style.color='#fff';var avg=Math.round(times.reduce(function(a,b){return a+b;},0)/times.length);setScore(avg<350?Math.max(0,500-avg):0);if(round<5){el('rf').innerHTML=ms+'&nbsp;ms &middot; sigue';state='idle';}else{var gain=avg<350?Math.max(60,Math.round((350-avg)*4)):0;gEnd(gain,avg+'&nbsp;ms prom.'+(avg<350?'':' &mdash; bajo 350&nbsp;ms para ganar'));}}}
+  G.replay=function(){openGame('reflex');};}
+
+/* 3 Glow Quiz */
+var QUIZ=[{q:'&iquest;Cu&aacute;nto dura aprox. el b&oacute;tox?',o:['Para siempre','3 a 6 meses','1 semana'],a:1},{q:'El ADN de salm&oacute;n sirve para&hellip;',o:['Regenerar la piel','Blanquear dientes','Bajar de peso'],a:0},{q:'La bioestimulaci&oacute;n con Sculptra estimula&hellip;',o:['Melanina','Col&aacute;geno propio','Grasa'],a:1},{q:'Un buen b&oacute;tox se ve&hellip;',o:['Sin expresi&oacute;n','Natural','M&aacute;s oscuro'],a:1},{q:'La rinomodelaci&oacute;n usa&hellip;',o:['&Aacute;cido hialur&oacute;nico','Cirug&iacute;a','L&aacute;ser'],a:0}];
+function quizGame(){var i=0,sc=0;
+  function r(){var Q=QUIZ[i];el('gamePlay').innerHTML='<p class="ginstr">Pregunta '+(i+1)+' de '+QUIZ.length+'</p><p class="body" style="font-size:15px;margin-bottom:14px">'+Q.q+'</p><div id="qo"></div>'+ctaG();Q.o.forEach(function(t,k){var b=document.createElement('button');b.className='opt';b.innerHTML=t;b.onclick=function(){pick(k,b);};el('qo').appendChild(b);});}
+  function pick(k,b){[].forEach.call(el('qo').children,function(x){x.style.pointerEvents='none';});var Q=QUIZ[i];if(k===Q.a){b.classList.add('ok');sc++;}else{b.classList.add('no');el('qo').children[Q.a].classList.add('ok');}setScore(sc*20);setTimeout(function(){i++;if(i<QUIZ.length)r();else gEnd(sc*20,sc+'/'+QUIZ.length+' correctas');},700);}
+  G.replay=function(){openGame('quiz');};r();}
+
+/* 5 Dosis Justa */
+function doseGame(){var lives=2,lvl=1,raf=null,pos=0,dir=1,zL=35,zW=30,run=false;
+  el('gamePlay').innerHTML='<p class="ginstr">Det&eacute;n el marcador en la zona clara. Se achica con cada acierto. 2 vidas.</p><div class="gstat"><div><div class="l">Nivel</div><div class="v" id="dL">1</div></div><div><div class="l">Vidas</div><div class="v" id="dV">'+hearts(lives)+'</div></div></div><div class="track" id="trk"><div class="zone" id="zn"></div><div class="marker" id="mk"></div></div><button class="btn btn-primary" id="stp">Detener</button>'+ctaG();
+  el('stp').onclick=stop;window.__gc=function(){cancelAnimationFrame(raf);};nr();
+  function nr(){zL=8+Math.random()*(92-zW);el('zn').style.left=zL+'%';el('zn').style.width=zW+'%';pos=0;dir=1;run=true;loop();}
+  function loop(){pos+=dir*(1.1+lvl*0.25);if(pos>=100){pos=100;dir=-1;}if(pos<=0){pos=0;dir=1;}el('mk').style.left=pos+'%';if(run)raf=requestAnimationFrame(loop);}
+  function stop(){if(!run)return;run=false;cancelAnimationFrame(raf);if(pos>=zL&&pos<=zL+zW){lvl++;el('dL').textContent=lvl;setScore(gScore+30);zW=Math.max(8,zW-3);toast('&iexcl;Dosis perfecta!');setTimeout(nr,450);}else{lives--;el('dV').innerHTML=hearts(lives);if(lives<=0)gEnd(gScore,'Nivel '+lvl);else setTimeout(nr,450);}}
+  G.replay=function(){openGame('dose');};}
+
+/* 7 Mito o Verdad */
+var MV=[{t:'Un buen b&oacute;tox puede verse natural.',v:true},{t:'El relleno de &aacute;cido hialur&oacute;nico es permanente.',v:false},{t:'El ADN de salm&oacute;n mejora la piel.',v:true},{t:'El sol no afecta tus tratamientos.',v:false},{t:'La bioestimulaci&oacute;n da resultados progresivos.',v:true},{t:'Toda intervenci&oacute;n parte por evaluaci&oacute;n.',v:true}];
+function mvGame(){var i=0,sc=0,lives=2,raf=null,t0=0,dur=6000,order=MV.map(function(_,k){return k;}).sort(function(){return Math.random()-0.5;});
+  el('gamePlay').innerHTML='<p class="ginstr">Responde antes de que baje la barra. 2 vidas.</p><div class="gstat"><div><div class="l">Aciertos</div><div class="v" id="mS">0</div></div><div><div class="l">Vidas</div><div class="v" id="mV">'+hearts(lives)+'</div></div></div><div class="timerbar"><i id="tb"></i></div><p class="body" id="mt" style="font-size:16px;min-height:50px;margin-bottom:14px"></p><div style="display:flex;gap:10px"><button class="btn btn-dark" onclick="window._mv(true)">Verdad</button><button class="btn btn-ghost" onclick="window._mv(false)">Mito</button></div>'+ctaG();
+  window.__gc=function(){cancelAnimationFrame(raf);};
+  function show(){el('mt').innerHTML=MV[order[i]].t;t0=performance.now();anim();}
+  function anim(){var p=Math.max(0,1-(performance.now()-t0)/dur);el('tb').style.width=(p*100)+'%';if(p<=0){ans(null);return;}raf=requestAnimationFrame(anim);}
+  function ans(a){cancelAnimationFrame(raf);if(a===MV[order[i]].v){sc++;el('mS').textContent=sc;setScore(sc*20);}else{lives--;el('mV').innerHTML=hearts(lives);}i++;if(lives<=0||i>=order.length)return gEnd(sc*20,sc+' correctas');setTimeout(show,250);}
+  window._mv=ans;G.replay=function(){openGame('mv');};show();}
+
+/* 9 Anagrama */
+var WORDS=['BOTOX','EXOSOMAS','COLAGENO','SCULPTRA','SALMON','RELLENO','HIALURONICO'];
+function anagramGame(){var word='',picked=[],round=0,sc=0,lives=2,raf=null,t0=0,dur=12000,queue=WORDS.slice().sort(function(){return Math.random()-0.5;});
+  window.__gc=function(){cancelAnimationFrame(raf);};
+  function r(){word=queue[round];picked=[];var letters=word.split('').sort(function(){return Math.random()-0.5;});
+    el('gamePlay').innerHTML='<p class="ginstr">Forma el tratamiento antes de que baje la barra. Ronda '+(round+1)+' de 5. 2 vidas.</p><div class="gstat"><div><div class="l">Ronda</div><div class="v" id="aR">'+(round+1)+'/5</div></div><div><div class="l">Vidas</div><div class="v" id="aV">'+hearts(lives)+'</div></div></div><div class="timerbar"><i id="atb"></i></div><div class="slots" id="slots"></div><div class="letters" id="lts"></div>'+ctaG()+'<div id="arev" style="text-align:center;margin-top:12px;color:var(--accent-deep);font-family:var(--serif);font-size:18px"></div>';
+    slots();var L=el('lts');letters.forEach(function(ch){var b=document.createElement('div');b.className='lt';b.innerHTML=ch;b.onclick=function(){if(b.classList.contains('used'))return;b.classList.add('used');picked.push({c:ch,b:b});slots();check();};L.appendChild(b);});t0=performance.now();anim();}
+  function anim(){var bar=el('atb');if(!bar)return;var p=Math.max(0,1-(performance.now()-t0)/dur);bar.style.width=(p*100)+'%';if(p<=0){up();return;}raf=requestAnimationFrame(anim);}
+  function slots(){var s=el('slots');if(!s)return;s.innerHTML='';for(var k=0;k<word.length;k++){var d=document.createElement('div');d.className='slot';d.innerHTML=picked[k]?picked[k].c:'';s.appendChild(d);}}
+  function up(){cancelAnimationFrame(raf);lives--;round++;el('arev').innerHTML='La palabra era: <b>'+word+'</b>';if(lives<=0||round>=5)setTimeout(function(){gEnd(sc*40,sc+'/5 palabras');},1500);else setTimeout(r,1600);}
+  function check(){if(picked.length===word.length){var g=picked.map(function(p){return p.c;}).join('');if(g===word){cancelAnimationFrame(raf);sc++;setScore(sc*40);round++;toast('&iexcl;Correcto!');if(round<5)setTimeout(r,600);else setTimeout(function(){gEnd(sc*40,sc+'/5 palabras');},600);}else{toast('No es&hellip;');setTimeout(function(){picked.forEach(function(p){p.b.classList.remove('used');});picked=[];slots();},500);}}}
+  G.replay=function(){openGame('anagram');};r();}
+
+
+/* ===== JUEGOS DE ACCIÓN (canvas) — "Doctor Injector" ===== */
+function _rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function _gCanvas(h){
+  var wrap=el('gamePlay');
+  var W=Math.min(wrap.clientWidth||390,430), H=h||360;
+  var host=document.createElement('div');
+  host.style.cssText='position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--hd);background:#0D0D0D;touch-action:none;margin-bottom:4px;';
+  var cv=document.createElement('canvas');
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';cv.style.display='block';
+  var ctx=cv.getContext('2d');ctx.scale(dpr,dpr);
+  host.appendChild(cv);
+  return {host:host,cv:cv,ctx:ctx,W:W,H:H};
+}
+function _drawDoc(ctx,x,y,pw,ph){
+  ctx.fillStyle='#F2EDE6';_rr(ctx,x,y+10,pw,ph-10,6);ctx.fill();              // bata
+  ctx.fillStyle='#E8C2A0';ctx.beginPath();ctx.arc(x+pw/2,y+8,9,0,7);ctx.fill();// cabeza
+  ctx.fillStyle='#5E7A99';ctx.fillRect(x+pw/2-9,y-1,18,5);                      // gorro
+  ctx.fillStyle='#C9AC73';ctx.fillRect(x+pw-4,y+18,13,4);                       // jeringa
+}
+
+/* === Inyector Run — endless runner estilo Mario === */
+function runnerGame(){
+  var c=_gCanvas(360),ctx=c.ctx,W=c.W,H=c.H,ground=H-46;
+  var px=52,pw=30,ph=44,py=ground-ph,vy=0,jumps=0,GRAV=0.9,JV=14;
+  var obs=[],items=[],t=0,speed=4.2,dist=0,score=0,lives=3,inv=0,alive=true,raf=null,spawnT=60,itemT=45;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca la pista para <b>saltar</b> (doble salto disponible). Junta ✦ glow y esquiva los microbios. 3 vidas.</p>'+
+    '<div class="gstat"><div><div class="l">Vidas</div><div class="v" id="rnV"></div></div><div><div class="l">Glow</div><div class="v" id="rnS">0</div></div><div><div class="l">Metros</div><div class="v" id="rnM">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());
+  el('rnV').innerHTML=hearts(lives);
+  function jump(){if(!alive)return;if(jumps<2){vy=-JV;jumps++;}}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();jump();});
+  function key(e){if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();jump();}}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);var m=Math.round(dist/12);gEnd(score+m,'Corriste '+m+' m · '+score+' glow');}
+  function loop(){
+    if(!alive)return;t++;dist+=speed;speed=Math.min(9,4.2+dist/2600);
+    vy+=GRAV;py+=vy;if(py>=ground-ph){py=ground-ph;vy=0;jumps=0;}
+    if(--spawnT<=0){var hh=22+Math.random()*16;obs.push({x:W+20,y:ground-hh,w:18+Math.random()*10,h:hh});spawnT=Math.max(42,86-dist/320);}
+    if(--itemT<=0){items.push({x:W+20,y:ground-58-Math.random()*92,r:11,got:false});itemT=64+Math.random()*60;}
+    obs.forEach(function(o){o.x-=speed;});items.forEach(function(it){it.x-=speed;});
+    obs=obs.filter(function(o){return o.x+o.w>-12;});items=items.filter(function(it){return it.x+it.r>-12;});
+    if(inv>0)inv--;
+    var pb={x:px,y:py,w:pw,h:ph};
+    obs.forEach(function(o){if(inv<=0&&hit(pb,o)){lives--;inv=64;el('rnV').innerHTML=hearts(lives);o.x=-999;if(lives<=0)return end();}});
+    items.forEach(function(it){if(!it.got){var ib={x:it.x-it.r,y:it.y-it.r,w:it.r*2,h:it.r*2};if(hit(pb,ib)){it.got=true;score+=50;el('rnS').textContent=score;}}});
+    el('rnM').textContent=Math.round(dist/12);
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(139,158,176,.18)';for(var i=0;i<6;i++){var x=W-((t*speed*0.5)+i*92)%(W+92);ctx.fillRect(x,ground+12,32,2);}
+    ctx.strokeStyle='rgba(201,172,115,.55)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,ground);ctx.lineTo(W,ground);ctx.stroke();
+    items.forEach(function(it){if(it.got)return;ctx.save();ctx.translate(it.x,it.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#C9AC73';_rr(ctx,-it.r*0.7,-it.r*0.7,it.r*1.4,it.r*1.4,3);ctx.fill();ctx.restore();});
+    obs.forEach(function(o){ctx.fillStyle='#B4453C';ctx.beginPath();ctx.arc(o.x+o.w/2,o.y+o.h/2,o.w/2+2,0,7);ctx.fill();ctx.fillStyle='#0D0D0D';ctx.beginPath();ctx.arc(o.x+o.w/2-3,o.y+o.h/2-2,2,0,7);ctx.arc(o.x+o.w/2+3,o.y+o.h/2-2,2,0,7);ctx.fill();});
+    if(!(inv>0&&Math.floor(t/4)%2))_drawDoc(ctx,px,py,pw,ph);
+    raf=requestAnimationFrame(loop);
+  }
+  G.replay=function(){openGame('run');};loop();
+}
+
+/* === Salto Glow — vertical, estilo Doodle Jump === */
+function jumpGame(){
+  var c=_gCanvas(400),ctx=c.ctx,W=c.W,H=c.H,PW=64,PH=12,pw=28,ph=30;
+  var px=W/2-pw/2,py=H-90,vx=0,vy=-10,GRAV=0.42,BOUNCE=-11.6,dir=0,climb=0,score=0,alive=true,raf=null;
+  var plats=[];
+  function mkPlat(y){return {x:Math.random()*(W-PW),y:y,wrinkle:Math.random()<0.34,hit:false};}
+  var yy=H-30;for(var i=0;i<9;i++){plats.push(mkPlat(yy));yy-=Math.random()*28+56;}
+  plats[0].x=Math.max(0,Math.min(W-PW,px-18));plats[0].wrinkle=false;
+  el('gamePlay').innerHTML='<p class="ginstr">Mantén tocado el lado <b>izquierdo o derecho</b> para moverte. Rebotas solo: inyecta las arrugas (azules) y sube lo más alto. No caigas.</p>'+
+    '<div class="gstat"><div><div class="l">Altura</div><div class="v" id="jpH">0</div></div><div><div class="l">Glow</div><div class="v" id="jpS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());
+  function setDir(e){var r=c.cv.getBoundingClientRect();var x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;dir=x<c.W/2?-1:1;}
+  function down(e){e.preventDefault();setDir(e);}
+  function move(e){if(dir!==0){e.preventDefault();setDir(e);}}
+  function up(){dir=0;}
+  c.cv.addEventListener('pointerdown',down);c.cv.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
+  function key(e){if(e.code==='ArrowLeft')dir=-1;else if(e.code==='ArrowRight')dir=1;}
+  function keyup(){dir=0;}
+  window.addEventListener('keydown',key);window.addEventListener('keyup',keyup);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('pointerup',up);window.removeEventListener('keydown',key);window.removeEventListener('keyup',keyup);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('pointerup',up);window.removeEventListener('keydown',key);window.removeEventListener('keyup',keyup);var m=Math.round(climb/10);gEnd(score+m,'Subiste '+m+' m · '+score+' glow');}
+  function loop(){
+    if(!alive)return;
+    vx=dir*5.2;px+=vx;if(px<-pw)px=W;if(px>W)px=-pw;
+    vy+=GRAV;py+=vy;
+    if(vy>0)plats.forEach(function(p){if(px+pw>p.x&&px<p.x+PW&&py+ph>p.y&&py+ph<p.y+PH+14){vy=BOUNCE;if(p.wrinkle&&!p.hit){p.hit=true;score+=40;el('jpS').textContent=score;}}});
+    if(py<H*0.42){var d=H*0.42-py;py=H*0.42;plats.forEach(function(p){p.y+=d;});climb+=d;el('jpH').textContent=Math.round(climb/10);}
+    plats=plats.filter(function(p){return p.y<H+24;});
+    while(plats.length<9){var top=Math.min.apply(null,plats.map(function(p){return p.y;}));plats.push(mkPlat(top-(Math.random()*28+56)));}
+    if(py>H+12)return end();
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    plats.forEach(function(p){
+      ctx.fillStyle=p.wrinkle?(p.hit?'rgba(94,122,153,.4)':'#5E7A99'):'rgba(242,237,230,.9)';
+      _rr(ctx,p.x,p.y,PW,PH,6);ctx.fill();
+      if(p.wrinkle&&!p.hit){ctx.strokeStyle='#0D0D0D';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x+14,p.y+6);ctx.lineTo(p.x+PW-14,p.y+6);ctx.stroke();}
+    });
+    _drawDoc(ctx,px,py,pw,ph);
+    raf=requestAnimationFrame(loop);
+  }
+  G.replay=function(){openGame('jump');};loop();
+}
+
+
+/* ===== 5 JUEGOS DE ACCIÓN ADICIONALES (canvas) ===== */
+
+/* A) Inyección Precisa — detén el marcador en la zona dorada */
+function precisionGame(){
+  var c=_gCanvas(340),ctx=c.ctx,W=c.W,H=c.H;
+  var lives=3,score=0,hits=0,alive=true,raf=null,pos=0,dir=1,speed=0.9,zoneC=0.5,zoneW=0.26,barX=30,barW=W-60,barY=H*0.56;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca cuando el marcador entre en la <b>zona dorada</b> para inyectar con precisión. 3 vidas; la zona se achica con cada acierto.</p><div class="gstat"><div><div class="l">Vidas</div><div class="v" id="prV"></div></div><div><div class="l">Aciertos</div><div class="v" id="prS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());el('prV').innerHTML=hearts(lives);
+  function newZone(){zoneW=Math.max(0.08,0.26-hits*0.012);zoneC=zoneW/2+Math.random()*(1-zoneW);speed=0.9+hits*0.05;}
+  newZone();
+  function tap(){if(!alive)return;if(pos>=zoneC-zoneW/2&&pos<=zoneC+zoneW/2){hits++;score+=Math.round(100*(0.26/zoneW));el('prS').textContent=hits;toast('&#10003; Preciso');newZone();}else{lives--;el('prV').innerHTML=hearts(lives);if(lives<=0)return end();toast('&#10007; Falló');}}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();tap();});
+  function key(e){if(e.code==='Space'){e.preventDefault();tap();}}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);gEnd(score,hits+' inyecciones precisas');}
+  function loop(){if(!alive)return;pos+=dir*speed*0.016;if(pos>1){pos=1;dir=-1;}if(pos<0){pos=0;dir=1;}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    _drawDoc(ctx,W/2-15,barY-104,30,44);
+    ctx.fillStyle='rgba(255,255,255,.10)';_rr(ctx,barX,barY-10,barW,20,10);ctx.fill();
+    ctx.fillStyle='rgba(201,172,115,.9)';_rr(ctx,barX+(zoneC-zoneW/2)*barW,barY-10,zoneW*barW,20,10);ctx.fill();
+    var mx=barX+pos*barW;ctx.fillStyle='#F2EDE6';_rr(ctx,mx-3,barY-20,6,40,3);ctx.fill();
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('precise');};loop();
+}
+
+/* B) Glow Catcher — arrastra la bandeja, atrapa ✦ y evita microbios */
+function catchGame2(){
+  var c=_gCanvas(360),ctx=c.ctx,W=c.W,H=c.H,trayW=72,trayX=W/2-trayW/2,trayY=H-28;
+  var items=[],score=0,lives=3,alive=true,raf=null,spawn=40,speed=120;
+  el('gamePlay').innerHTML='<p class="ginstr">Arrastra para mover la bandeja. Atrapa &#10022; glow y evita los microbios. 3 vidas.</p><div class="gstat"><div><div class="l">Vidas</div><div class="v" id="caV"></div></div><div><div class="l">Glow</div><div class="v" id="caS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());el('caV').innerHTML=hearts(lives);
+  function setX(e){var r=c.cv.getBoundingClientRect();var x=((e.touches?e.touches[0].clientX:e.clientX)-r.left)*(W/r.width);trayX=Math.max(0,Math.min(W-trayW,x-trayW/2));}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();setX(e);});
+  c.cv.addEventListener('pointermove',function(e){if(e.buttons){e.preventDefault();setX(e);}});
+  c.cv.addEventListener('touchmove',function(e){e.preventDefault();setX(e);},{passive:false});
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);};
+  function end(){alive=false;cancelAnimationFrame(raf);gEnd(score,score+' glow recolectado');}
+  function loop(){if(!alive)return;speed=120+score*1.1;
+    if(--spawn<=0){items.push({x:20+Math.random()*(W-40),y:-12,bad:Math.random()<0.32,r:13});spawn=Math.max(16,38-score*0.12);}
+    for(var i=items.length-1;i>=0;i--){var o=items[i];o.y+=speed*0.016;
+      if(o.y>=trayY-10&&o.y<=trayY+16&&o.x>=trayX-6&&o.x<=trayX+trayW+6){if(o.bad){lives--;el('caV').innerHTML=hearts(lives);toast('&#10007; microbio');if(lives<=0){items.splice(i,1);return end();}}else{score+=10;el('caS').textContent=score;}items.splice(i,1);continue;}
+      if(o.y>H+14)items.splice(i,1);}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    items.forEach(function(o){if(o.bad){ctx.fillStyle='#B4453C';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill();ctx.fillStyle='#0D0D0D';ctx.beginPath();ctx.arc(o.x-3,o.y-2,2,0,7);ctx.arc(o.x+3,o.y-2,2,0,7);ctx.fill();}else{ctx.save();ctx.translate(o.x,o.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#C9AC73';_rr(ctx,-9,-9,18,18,3);ctx.fill();ctx.restore();}});
+    ctx.fillStyle='#F2EDE6';_rr(ctx,trayX,trayY,trayW,12,6);ctx.fill();ctx.fillStyle='#C9AC73';_rr(ctx,trayX,trayY,trayW,4,2);ctx.fill();
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('catch');};loop();
+}
+
+/* C) Esquiva Glow — 3 carriles: muévete al carril seguro */
+function dodgeGame(){
+  var c=_gCanvas(380),ctx=c.ctx,W=c.W,H=c.H,L=3,lane=1,docY=H-54;
+  function laneX(i){return W*(i+0.5)/L;}
+  var items=[],score=0,lives=3,alive=true,raf=null,spawn=46,speed=150;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca <b>izquierda/derecha</b> para cambiar de carril. Esquiva los microbios y recoge &#10022;. 3 vidas; acelera.</p><div class="gstat"><div><div class="l">Vidas</div><div class="v" id="doV"></div></div><div><div class="l">Glow</div><div class="v" id="doS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());el('doV').innerHTML=hearts(lives);
+  function tap(e){var r=c.cv.getBoundingClientRect();var x=((e.touches?e.touches[0].clientX:e.clientX)-r.left)*(W/r.width);if(x<W/2)lane=Math.max(0,lane-1);else lane=Math.min(L-1,lane+1);}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();tap(e);});
+  function key(e){if(e.code==='ArrowLeft')lane=Math.max(0,lane-1);else if(e.code==='ArrowRight')lane=Math.min(L-1,lane+1);}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);gEnd(score,score+' glow · buen reflejo');}
+  function loop(){if(!alive)return;speed=150+score*1.4;
+    if(--spawn<=0){items.push({lane:Math.floor(Math.random()*L),y:-12,bad:Math.random()<0.55,r:14});spawn=Math.max(20,46-score*0.18);}
+    for(var i=items.length-1;i>=0;i--){var o=items[i];o.y+=speed*0.016;
+      if(o.y>=docY-16&&o.y<=docY+16&&o.lane===lane){if(o.bad){lives--;el('doV').innerHTML=hearts(lives);toast('&#10007;');if(lives<=0){items.splice(i,1);return end();}}else{score+=12;el('doS').textContent=score;}items.splice(i,1);continue;}
+      if(o.y>H+14)items.splice(i,1);}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    for(var k=1;k<L;k++){ctx.strokeStyle='rgba(139,158,176,.12)';ctx.beginPath();ctx.moveTo(W*k/L,0);ctx.lineTo(W*k/L,H);ctx.stroke();}
+    items.forEach(function(o){var x=laneX(o.lane);if(o.bad){ctx.fillStyle='#B4453C';ctx.beginPath();ctx.arc(x,o.y,o.r,0,7);ctx.fill();}else{ctx.save();ctx.translate(x,o.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#C9AC73';_rr(ctx,-9,-9,18,18,3);ctx.fill();ctx.restore();}});
+    _drawDoc(ctx,laneX(lane)-15,docY-22,30,44);
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('dodge');};loop();
+}
+
+/* D) Pulso Estable — flappy: toca para elevar y pasa los huecos */
+function flappyGame(){
+  var c=_gCanvas(400),ctx=c.ctx,W=c.W,H=c.H,y=H/2,vy=0,GRAV=0.5,FLAP=-7.6,x=70,r=12,gap=132;
+  var pipes=[],score=0,alive=true,raf=null,spawn=0,speed=130;
+  el('gamePlay').innerHTML='<p class="ginstr">Toca para <b>elevar</b> la jeringa y pasa por los huecos entre capas de piel. Un choque y termina.</p><div class="gstat"><div><div class="l">Capas pasadas</div><div class="v" id="flS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());
+  function flap(){if(!alive)return;vy=FLAP;}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();flap();});
+  function key(e){if(e.code==='Space'){e.preventDefault();flap();}}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);gEnd(score*15,score+' capas pasadas');}
+  function loop(){if(!alive)return;vy+=GRAV;y+=vy;
+    if(--spawn<=0){pipes.push({x:W+20,gy:46+Math.random()*(H-92-gap),passed:false});spawn=Math.round(112-Math.min(46,score*2));}
+    speed=130+score*4;
+    for(var i=pipes.length-1;i>=0;i--){var p=pipes[i];p.x-=speed*0.016;
+      if(!p.passed&&p.x+44<x){p.passed=true;score++;el('flS').textContent=score;}
+      if(x+r>p.x&&x-r<p.x+44&&(y-r<p.gy||y+r>p.gy+gap))return end();
+      if(p.x<-50)pipes.splice(i,1);}
+    if(y+r>H||y-r<0)return end();
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    pipes.forEach(function(p){ctx.fillStyle='#5E7A99';_rr(ctx,p.x,0,44,p.gy,4);ctx.fill();_rr(ctx,p.x,p.gy+gap,44,H-(p.gy+gap),4);ctx.fill();});
+    ctx.fillStyle='#C9AC73';ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.fillStyle='#F2EDE6';ctx.fillRect(x+r-2,y-3,10,6);
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('flappy');};loop();
+}
+
+/* E) Glow Stack — apila capas de sérum lo más alto posible */
+function stackGame(){
+  var c=_gCanvas(400),ctx=c.ctx,W=c.W,H=c.H,bh=22,baseW=160;
+  var blocks=[],cur=null,dir=1,speed=2.6,score=0,alive=true,raf=null;
+  function topY(n){return H-30-n*bh;}
+  function spawnBlock(){var prev=blocks[blocks.length-1];cur={w:prev.w,x:0};var fromLeft=Math.random()<0.5;cur.x=fromLeft?0:W-cur.w;dir=fromLeft?1:-1;speed=2.6+blocks.length*0.12;}
+  function reset(){blocks=[{x:W/2-baseW/2,w:baseW}];spawnBlock();}
+  el('gamePlay').innerHTML='<p class="ginstr">Toca para <b>soltar</b> la capa de sérum sobre la anterior. Lo que sobresale se cae; apila lo más alto posible.</p><div class="gstat"><div><div class="l">Capas</div><div class="v" id="stS">0</div></div></div>';
+  el('gamePlay').appendChild(c.host);el('gamePlay').insertAdjacentHTML('beforeend',ctaG());
+  function drop(){if(!alive||!cur)return;var prev=blocks[blocks.length-1];var left=Math.max(cur.x,prev.x),right=Math.min(cur.x+cur.w,prev.x+prev.w),ov=right-left;
+    if(ov<=2)return end();blocks.push({x:left,w:ov});score++;el('stS').textContent=score;if(ov>baseW*0.86)toast('&#10003; Perfecto');spawnBlock();}
+  c.cv.addEventListener('pointerdown',function(e){e.preventDefault();drop();});
+  function key(e){if(e.code==='Space'){e.preventDefault();drop();}}
+  window.addEventListener('keydown',key);
+  window.__gc=function(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);};
+  function end(){alive=false;cancelAnimationFrame(raf);window.removeEventListener('keydown',key);gEnd(score*20,score+' capas apiladas');}
+  reset();
+  function loop(){if(!alive)return;
+    if(cur){cur.x+=dir*speed;if(cur.x<0){cur.x=0;dir=1;}if(cur.x+cur.w>W){cur.x=W-cur.w;dir=-1;}}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0D0D0D';ctx.fillRect(0,0,W,H);
+    var camShift=Math.max(0,(blocks.length-6)*bh);
+    blocks.forEach(function(b,n){var yy=topY(n)+camShift;if(yy>-bh&&yy<H){ctx.fillStyle=n%2?'#C9AC73':'#8B9EB0';_rr(ctx,b.x,yy,b.w,bh-2,4);ctx.fill();}});
+    if(cur){var cyy=topY(blocks.length)+camShift;ctx.fillStyle='#F2EDE6';_rr(ctx,cur.x,cyy,cur.w,bh-2,4);ctx.fill();}
+    raf=requestAnimationFrame(loop);}
+  G.replay=function(){openGame('stack');};loop();
+}
+
+var GAMES={
+  run:    {nm:'Inyector Run',   d:'Acción',  ic:'🏃', mount:runnerGame},
+  jump:   {nm:'Salto Glow',     d:'Acción',  ic:'⬆',  mount:jumpGame},
+  flappy: {nm:'Pulso Estable',  d:'Acción',  ic:'💉', mount:flappyGame},
+  stack:  {nm:'Glow Stack',     d:'Acción',  ic:'▦',  mount:stackGame},
+  catch:  {nm:'Glow Catcher',   d:'Acción',  ic:'✦',  mount:catchGame2},
+  dodge:  {nm:'Esquiva Glow',   d:'Acción',  ic:'⇄',  mount:dodgeGame},
+  precise:{nm:'Inyección Precisa',d:'Acción',ic:'🎯', mount:precisionGame},
+  reflex: {nm:'Reflejo Glow',   d:'Fácil',   ic:'⚡',  mount:reflexGame},
+  quiz:   {nm:'Glow Quiz',      d:'Fácil',   ic:'?',  mount:quizGame},
+  dose:   {nm:'Dosis Justa',    d:'Media',   ic:'⬒',  mount:doseGame},
+  mv:     {nm:'Mito o Verdad',  d:'Media',   ic:'✓',  mount:mvGame},
+  anagram:{nm:'Anagrama',       d:'Difícil', ic:'A',  mount:anagramGame}
+};
+/* Arcade Glow Clinic — juegos desarrollados (carpeta /arcade) */
+var ARCADE=[
+  {nm:'Skin Defense', d:'Plants vs Zombies', ic:'🛡️', url:'arcade/games/defense/index.html'},
+  {nm:'Glow Empire',  d:'Idle',          ic:'📈', url:'arcade/games/idle/index.html'},
+  {nm:'Glow Clinic Tycoon', d:'Gestión', ic:'🏥', url:'arcade/games/tycoon/index.html'},
+  {nm:'Glow 2048',    d:'Fusión',        ic:'🔢', url:'arcade/games/glow2048/index.html'},
+  {nm:'Vial Sort',    d:'Orden',         ic:'🧫', url:'arcade/games/vialsort/index.html'},
+  {nm:'Glow Lab',     d:'Match-3',       ic:'🧪', url:'arcade/games/glowlab/index.html'},
+  {nm:'Consultorio Trivia', d:'Trivia',  ic:'🧠', url:'arcade/games/trivia/index.html'},
+  {nm:'Glow Snake',   d:'Arcade',        ic:'🐍', url:'arcade/games/glowsnake/index.html'},
+  {nm:'Precision Clinic', d:'Habilidad', ic:'🎯', url:'arcade/games/precision/index.html'},
+  {nm:'Triage',       d:'Decisiones',    ic:'🔎', url:'arcade/games/triage/index.html'}
+];
+
+/* recompensas (todas 60.000) */
+const REWARDS=[['PG','Sesi&oacute;n de Pink Glow'],['AS','ADN de salm&oacute;n'],['EX','Sesi&oacute;n de Exosomas']];
+function buildRewards(){const r=el('rewardList');r.innerHTML='';
+  REWARDS.forEach(x=>{const d=document.createElement('div');d.className='reward';
+    d.innerHTML='<div class="ico">'+x[0]+'</div><div style="flex:1"><h4>'+x[1]+'</h4><div class="cost">'+REWARD_COST.toLocaleString('es-CL')+' PTS &middot; SUJETO A EVALUACI&Oacute;N</div></div><button class="btn btn-ghost sm">Canjear</button>';
+    d.querySelector('button').addEventListener('click',()=>redeem(REWARD_COST,x[1]));r.appendChild(d);});}
+
+/* canje (glass) — sin nota de pts/min; link a términos */
+function openCanje(){let rows=REWARDS.map(x=>'<div class="grow"><div class="nm"><h4>'+x[1]+'</h4><div class="c">'+REWARD_COST.toLocaleString('es-CL')+' PTS &middot; SUJETO A EVALUACI&Oacute;N</div></div><button class="btn btn-ghost sm" onclick="closeSheet();redeem('+REWARD_COST+',\''+x[1]+'\')">Canjear</button></div>').join('');
+  sheet('<div class="eyebrow">Canjea tus puntos</div><h3>Tienes '+points.toLocaleString('es-CL')+' pts</h3>'+
+    '<p class="body" style="margin:6px 0 14px;font-size:13px">Canjea por tratamiento, sujeto a evaluaci&oacute;n m&eacute;dica previa.</p>'+rows+
+    '<button class="glink" onclick="closeSheet();go(\'terminos\')">Concurso &middot; t&eacute;rminos y condiciones de uso</button>');}
+function redeem(cost,name){if(points<cost){toast('Te faltan '+(cost-points).toLocaleString('es-CL')+' pts para esta sesión');return;}
+  setPts(points-cost);
+  // Registrar canje en DB para admin
+  var reds=DB.get('redeems')||[];
+  reds.push({user:SESSION?SESSION.name:'Invitado',email:SESSION?SESSION.email:'',reward:name,cost:cost,ts:Date.now(),done:false});
+  DB.set('redeems',reds);
+  sheet('<div class="eyebrow">Canje confirmado</div><h3>'+jcmSanitize(name)+'</h3>'+
+  '<p class="body" style="margin:8px 0 14px">Agenda tu evaluación médica para coordinar tu sesión. Sujeto a aptitud clínica. El administrador revisará tu canje.</p>'+
+  '<button class="btn btn-primary" onclick="closeSheet();claimDiscount()">Agendar ahora</button>');}
+function openAgenda(){
+  var ev=null;for(var i=0;i<CATALOGO.length;i++){if(CATALOGO[i].n==='Evaluación general'){ev=CATALOGO[i];break;}}
+  var price=ev?ev.v[0].p:'$10.000';window.__evalUrl=ev?ev.v[0].u:'';
+  sheet('<div class="eyebrow">Agendar evaluaci&oacute;n</div><h2 class="disp" style="margin:6px 0 6px">Evaluaci&oacute;n con criterio cl&iacute;nico</h2>'+
+   '<p class="body" style="margin-bottom:12px;font-size:13px">An&aacute;lisis presencial para definir el tratamiento correcto para ti. Toda intervenci&oacute;n parte por esta evaluaci&oacute;n.</p>'+'<button class="btn btn-ghost" style="margin-bottom:12px" onclick="closeSheet();go(\'ia\')">Resuelve tus dudas con el chatbot</button>'+
+   '<div class="grow" style="display:block"><div style="display:flex;justify-content:space-between"><span>Valor</span><b>'+price+'</b></div>'+
+   '<div style="display:flex;justify-content:space-between;margin-top:4px"><span>Duraci&oacute;n</span><b>20&ndash;30 min</b></div>'+
+   '<div style="display:flex;justify-content:space-between;margin-top:4px"><span>Lugar</span><b>JC Medical &middot; Talca</b></div></div>'+
+   '<input class="inp" id="agName" placeholder="Nombre y apellido">'+
+   '<input class="inp" id="agPhone" placeholder="Tel&eacute;fono (WhatsApp)" inputmode="tel">'+
+   '<input class="inp" id="agEmail" placeholder="Correo (opcional)" inputmode="email">'+
+   '<div style="display:flex;gap:8px"><input class="inp" id="agDate" type="date" style="flex:1"><input class="inp" id="agTime" type="time" style="flex:1"></div>'+
+   '<button class="btn btn-primary" onclick="payEval()">Pagar evaluaci&oacute;n &middot; '+price+'</button>'+
+   '<button class="btn btn-ghost disabled" id="waBtn" style="margin-top:10px" onclick="waEval()">Coordinar hora por WhatsApp</button>'+
+   '<p class="body" style="font-size:10.5px;color:var(--g500);margin-top:12px">Primero realiza el pago seguro con Banco de Chile; luego se habilita coordinar tu hora por WhatsApp. Confirmamos al verificar el pago. +18.</p>');}
+function payEval(){var u=window.__evalUrl;if(!u){toast('Link de pago no disponible');return;}
+  window.open(u,'_blank');var w=el('waBtn');if(w){w.classList.remove('disabled');w.innerHTML='Ya pagu&eacute; &middot; coordinar hora por WhatsApp';}
+  toast('Al completar el pago, coordina tu hora por WhatsApp');}
+function waEval(){var g=function(id){var e=el(id);return e&&e.value?e.value:'';};
+  var msg='Hola, quiero agendar mi evaluación.';var n=g('agName'),d=g('agDate'),t=g('agTime');
+  if(n)msg+=' Nombre: '+n+'.';if(d)msg+=' Fecha: '+d+(t?' '+t+' hrs.':'.');
+  window.open('https://wa.me/56997880877?text='+encodeURIComponent(msg),'_blank');}
+function claimDiscount(){sheet('<div class="eyebrow">Beneficio</div><h3>10% en tu primera sesi&oacute;n</h3>'+
+  '<p class="body" style="margin-bottom:4px">Usa este c&oacute;digo al agendar tu evaluaci&oacute;n:</p>'+
+  '<div style="font-family:var(--serif);font-size:32px;letter-spacing:3px;color:var(--white);border:1.5px dashed var(--accent-soft);border-radius:8px;padding:14px;text-align:center;margin:12px 0 16px">GLOW10</div>'+
+  '<button class="btn btn-primary" onclick="toast(\'Conecta con tu agenda / WhatsApp\')">Agendar por WhatsApp</button>'+
+  '<button class="glink" style="display:block;margin:12px auto 0" onclick="closeSheet();go(\'terminos\')">Ver t&eacute;rminos del beneficio</button>');}
+function buyDiscount(){sheet('<div class="eyebrow">Oferta de la semana</div><h3>Pink Glow &middot; &minus;20%</h3>'+
+  '<p class="body" style="margin-bottom:14px">1 sesi&oacute;n de Pink Glow con 20% de descuento, pagando online. Cupos limitados.</p>'+
+  '<button class="btn btn-primary" onclick="toast(\'Pago en l&iacute;nea &mdash; demo\')">Comprar ahora</button>'+
+  '<button class="btn btn-ghost" style="margin-top:10px" onclick="closeSheet();claimDiscount()">Prefiero agendar evaluaci&oacute;n</button>');}
+function openCollab(){sheet('<div class="eyebrow">Colaboraciones</div><h3>Trabajemos juntos</h3>'+
+  '<input class="inp" placeholder="Tu nombre o marca"><input class="inp" placeholder="Instagram / contacto">'+
+  '<textarea class="inp" placeholder="Cu&eacute;ntanos tu propuesta" rows="3"></textarea>'+
+  '<button class="btn btn-primary" onclick="closeSheet();toast(\'&iexcl;Solicitud enviada! Te contactaremos.\')">Enviar solicitud</button>');}
+
+/* login delegado al nuevo sistema */
+function doLogin(){} // reemplazado por showLogin()
+
+/* popup de bienvenida invitado / ingresar */
+/* ===== COMUNIDAD ===== */
+var COMMUNITY=[
+ {a:'JC',n:'JC Medical',t:'hace 1 d',x:'Bienvenidas a la comunidad. Pregunten lo que quieran sobre sus tratamientos.',l:30,liked:false,c:4},
+ {a:'C',n:'Camila R.',t:'hace 2 h',x:'&iquest;Cu&aacute;ntos d&iacute;as antes de un evento recomiendan el Pink Glow?',l:12,liked:false,c:5},
+ {a:'M',n:'Mart&iacute;n D.',t:'hace 5 h',x:'Me hice bioestimulaci&oacute;n y los resultados llegaron de a poco, tal cual me explicaron.',l:8,liked:false,c:2}
+];
+function buildCommunity(){var f=el('communityFeed');if(!f)return;f.innerHTML='';
+ COMMUNITY.forEach(function(p,i){var d=document.createElement('div');d.className='post';
+  d.innerHTML='<div class="head"><div class="av serif">'+p.a+'</div><div><div class="nm">'+p.n+'</div><div class="tm">'+p.t+' &middot; comunidad JC</div></div></div><p class="body" style="font-size:13px">'+p.x+'</p><div class="actions"><span style="cursor:pointer" onclick="likePost('+i+')">'+(p.liked?'&#10084;':'&#9825;')+' '+p.l+'</span><span>&#128172; '+(p.c||0)+'</span></div>';
+  f.appendChild(d);});}
+function likePost(i){var p=COMMUNITY[i];p.liked=!p.liked;p.l+=p.liked?1:-1;buildCommunity();}
+function publishPost(){var raw=(el('cmpText').value||'').trim();if(!raw){toast('Escribe algo para publicar');return;}
+ if(raw.length>400){toast('Máximo 400 caracteres');return;}
+ var t=jcmSanitize(raw);
+ var name=SESSION?jcmSanitize(SESSION.name.split(' ')[0]):'Tú';
+ COMMUNITY.unshift({a:name[0]||'T',n:name,t:'ahora',x:t,l:0,liked:false,c:0});
+ el('cmpText').value='';buildCommunity();toast('Publicado en la comunidad');}
+/* ===== IA (flujo con foto + consentimiento + simulación ilustrativa) ===== */
+window.__iaImg={};
+function iaPick(n,inp){var f=inp.files&&inp.files[0];if(!f)return;var u=URL.createObjectURL(f);window.__iaImg[n]=u;el('iaD'+n).innerHTML='<img src="'+u+'" class="ia-preview">';}
+function iaGen(n){if(!window.__iaImg[n]){toast('Primero toma o sube una foto');return;}if(!el('iaC'+n).checked){toast('Autoriza el uso de tu foto (+18)');return;}
+ var u=window.__iaImg[n];var filt=(n===1)?'blur(1.1px) brightness(1.06) contrast(0.95) saturate(1.02)':'blur(0.8px) brightness(1.05) contrast(0.97)';
+ el('iaR'+n).innerHTML='<div style="display:flex;gap:8px;margin-top:12px"><div style="flex:1"><div class="label" style="margin-bottom:6px">Antes</div><img src="'+u+'" class="ia-preview"></div><div style="flex:1"><div class="label" style="margin-bottom:6px">Simulaci&oacute;n IA</div><div class="ia-res"><img src="'+u+'" class="ia-preview" style="filter:'+filt+'"><span class="lab">Simulaci&oacute;n IA &middot; ilustrativa</span></div></div></div><button class="btn btn-dark" style="margin-top:10px" onclick="claimDiscount()">Agendar evaluaci&oacute;n real</button>';
+ toast('Simulaci&oacute;n ilustrativa generada');}
+/* ===== ASISTENTE / CHATBOT (semi-programado, con sugerencias) ===== */
+var WA='https://wa.me/56997880877';
+var LOG='Estamos en <b>1 Poniente 1258, Edificio Plaza Poniente, Talca</b>, a media cuadra de la Plaza de Armas. Atendemos lunes, miércoles y viernes de 10:00 a 19:00 y sábados de 10:30 a 14:30. Aceptamos débito, crédito y efectivo, y también pago en línea con Banco de Chile desde la sección Servicios.';
+var CHAT_CHIPS=['¿Qué es el Bótox?','Precios','¿Cómo se aplica el Bótox?','¿Qué marca usan?','¿Cómo sé si me servirá?','Dirección y horario','¿En qué consiste la evaluación?'];
+var NM={botox:'Bótox',bioestim:'Bioestimulación',salmon:'ADN de salmón',rino:'Rinomodelación',ha:'Ácido hialurónico',hiper:'Hiperhidrosis',meso:'Mesoterapia',lipo:'Lipolítico',exo:'Exosomas',pink:'Pink Glow'};
+var KB={
+ botox:{nm:'Bótox 3 zonas (marca Botox)',pk:'botox',syn:['botox','toxina','arruga','frente','entrecejo','patas de gallo','gesto','ceno'],
+   que:'Relaja los músculos que marcan las arrugas de expresión en frente, entrecejo y patas de gallo, suavizándolas con un resultado natural. Incluye control y retoque.',
+   sesion:'de unos 30 minutos.',
+   efecto:'se nota de forma progresiva desde los 10 días aproximadamente y dura de 3 a 6 meses.',
+   dolor:'muy tolerable: pequeños pinchazos rápidos. Se puede usar frío o anestesia tópica.',
+   cuidados:'no masajear ni presionar la zona, evitar ejercicio intenso por 48 horas, no consumir alcohol en exceso, evitar sauna o calor intenso y no realizar tratamientos faciales. El resultado se nota progresivamente a partir de los 10 días.',
+   sesiones:'normalmente 1 sesión, con mantención cada 4 a 6 meses. Incluye control y retoque.'},
+ bioestim:{nm:'Bioestimulación de colágeno (Sculptra)',pk:'bioestim',syn:['bioestim','sculptra','colageno','flacidez','firmeza'],
+   que:'Bioestimulador de colágeno ideal para mejorar la calidad de la piel de forma progresiva y natural: mejora la flacidez, restaura la firmeza y la textura, estimulando tu propio colágeno.',
+   sesion:'de hasta 60 minutos cuando es completa.',
+   efecto:'es progresivo y de larga duración, hasta 24 meses.',
+   dolor:'tolerable, con anestesia tópica.',
+   cuidados:'realizar masaje facial 5 veces al día, 5 minutos cada vez, durante 5 días; evitar ejercicio intenso el mismo día; evitar calor excesivo por 24 horas; mantener buena hidratación y no consumir antiinflamatorios por 7 días. Es normal una leve inflamación o sensibilidad los primeros 3 días.',
+   sesiones:'suele requerir un plan de 2 a 3 sesiones espaciadas.'},
+ salmon:{nm:'ADN de salmón (polinucleótidos / Rejuran)',pk:'salmon',syn:['adn','salmon','rejuran','polinucleot'],
+   que:'Regenera y mejora la calidad de la piel desde adentro: hidratación, textura y luminosidad.',
+   sesion:'de unos 30 a 45 minutos.',
+   efecto:'progresivo; los resultados se mantienen varios meses (aprox. 6) con mantención.',
+   dolor:'tolerable, con anestesia tópica.',
+   cuidados:'evitar maquillaje y sol directo las primeras 24 horas; mantener buena hidratación.',
+   sesiones:'protocolo típico de 3 a 4 sesiones, cada 3 a 4 semanas.'},
+ rino:{nm:'Rinomodelación',pk:'rinomodel',syn:['rinomodel','rinomodela','nariz','perfil nasal'],
+   que:'Mejora el perfil y la proyección nasal sin cirugía, con resultados seguros y naturales. Incluye control y retoque.',
+   sesion:'de aproximadamente 40 minutos, con anestesia para tu comodidad.',
+   efecto:'es inmediato y dura hasta 12 meses aproximadamente.',
+   dolor:'mínimo: se realiza con anestesia para tu comodidad.',
+   cuidados:'durante las primeras 48 horas evitar presionar o masajear la nariz, dormir boca arriba idealmente, evitar lentes pesados y ejercicio intenso; además, evitar calor excesivo y no realizar tratamientos faciales por 3 días. Puede haber leve inflamación o sensibilidad inicial.',
+   sesiones:'normalmente 1 sesión. Incluye control y retoque.'},
+ ha:{nm:'Ácido hialurónico / armonización',pk:'acido hialur',syn:['hialur','relleno','labio','pomulo','armoniz','ojera','mandibul','menton','volumen'],
+   que:'Da volumen y define contornos (labios, pómulos, mentón, mandíbula) de forma natural y reversible.',
+   sesion:'de hasta 60 minutos cuando es una armonización completa.',
+   efecto:'dura aproximadamente 6 a 18 meses según la zona y el producto.',
+   dolor:'tolerable; se usa anestesia tópica y muchos productos incluyen lidocaína.',
+   cuidados:'durante las primeras 48 horas evitar presionar o masajear la zona, evitar ejercicio intenso y calor excesivo, y no realizar tratamientos faciales por 3 días. Puede haber leve inflamación o sensibilidad inicial; puedes aplicar frío.',
+   sesiones:'normalmente 1 sesión, con retoque opcional.'},
+ hiper:{nm:'Hiperhidrosis (sudoración)',pk:'hiperhidrosis',syn:['hiperhidrosis','sudor','transpir'],
+   que:'Reduce la sudoración excesiva (axilas, palmas o frente) con toxina botulínica.',
+   sesion:'de unos 30 a 45 minutos.',
+   efecto:'dura aproximadamente 4 a 9 meses.',
+   dolor:'tolerable; se puede usar frío o anestesia tópica.',
+   cuidados:'evitar ejercicio intenso y calor las primeras 24 horas.',
+   sesiones:'normalmente 1 sesión, repetible por temporada.'},
+ meso:{nm:'Mesoterapia facial',pk:'mesoterapia',syn:['mesoterapia','vitamina','biorevital','revitaliz'],
+   que:'Aplicación de vitaminas y activos que mejoran hidratación, textura y luminosidad de la piel de forma progresiva.',
+   sesion:'de unos 30 minutos.',
+   efecto:'progresivo: la piel mejora durante los días siguientes.',
+   dolor:'muy tolerable.',
+   cuidados:'evitar maquillaje por 12 horas, ejercicio intenso el mismo día y sauna o calor por 24 horas; mantener buena hidratación. Puede haber leve enrojecimiento o pequeños puntos temporales tras la aplicación.',
+   sesiones:'suele indicarse en un plan de varias sesiones.'},
+ lipo:{nm:'Lipolítico inyectable',pk:'quemador',syn:['lipolitico','grasa localizada','quemador','papada','reduccion de grasa','grasa'],
+   que:'Reduce la grasa localizada; los resultados son progresivos y se potencian con deporte y dieta.',
+   sesion:'de unos 30 a 45 minutos.',
+   efecto:'progresivo, potenciado con buenos hábitos.',
+   dolor:'puede haber leve ardor o sensibilidad temporal en la zona.',
+   cuidados:'mantener buena hidratación, evitar ejercicio intenso el mismo día, evitar alcohol por 24 horas y aplicar calor local en la zona. Es normal inflamación, sensibilidad o leve ardor temporal.',
+   sesiones:'se realiza en un plan de varias sesiones.'},
+ exo:{nm:'Exosomas',pk:'exosoma',syn:['exosoma'],
+   que:'Terapia regenerativa avanzada para calidad y luminosidad de la piel.',
+   sesion:'de unos 30 minutos.',
+   efecto:'progresivo; se potencia en protocolo de sesiones.',
+   dolor:'tolerable, con anestesia tópica.',
+   cuidados:'evitar sol y maquillaje las primeras horas.',
+   sesiones:'suele indicarse en un plan de varias sesiones.'},
+ pink:{nm:'Pink Glow',pk:'pink glow',syn:['pink glow'],
+   que:'Aporta luminosidad e hidratación profunda a la piel.',
+   sesion:'de unos 30 minutos.',
+   efecto:'luminosidad inmediata/progresiva; ideal 5 a 7 días antes de un evento.',
+   dolor:'muy tolerable.',
+   cuidados:'evitar sol directo y maquillaje las primeras horas.',
+   sesiones:'puede hacerse puntual o en plan de mantención.'}
+};
+
+/* ===== 100 PREGUNTAS FRECUENTES DE PACIENTES (FAQ base de conocimiento) ===== */
+/* Cada entrada: k = palabras clave (sin tildes, minúsculas), a = respuesta, s = sugerencias. */
+var JCM_FAQ=[
+ // — Seguridad y generalidades —
+ {k:['es seguro','son seguros','riesgo','riesgoso','peligroso','peligro'],a:'Sí. Trabajamos con productos certificados, técnica estéril y criterio clínico. Todo parte por una <b>evaluación</b> donde revisamos tu historia para confirmar que el tratamiento es seguro para ti.'},
+ {k:['efectos secundarios','efectos adversos','reacciones','contraindicaciones','contraindicado'],a:'Los efectos suelen ser leves y temporales: enrojecimiento, leve hinchazón o pequeños moretones que desaparecen en pocos días. Las complicaciones serias son muy poco frecuentes cuando lo realiza un profesional con técnica adecuada.'},
+ {k:['se puede revertir','reversible','se puede sacar','quitar el relleno','disolver'],a:'El ácido hialurónico es <b>reversible</b>: si fuese necesario, se puede disolver con una enzima (hialuronidasa). El bótox no se revierte, pero es temporal y desaparece solo en unos meses.'},
+ {k:['es permanente','para siempre','dura para siempre','queda para siempre'],a:'No. La gran mayoría de los tratamientos estéticos inyectables son <b>temporales</b>: el bótox dura 3 a 6 meses y los rellenos de ácido hialurónico de 6 a 18 meses. Esto permite ajustar resultados con el tiempo.'},
+ {k:['se nota','se ve falso','se ve raro','queda natural','natural','exagerado','artificial'],a:'Nuestra filosofía es el resultado <b>natural</b>: buscamos realzar tus rasgos y mantener tu expresión, no cambiar tu cara. Un buen trabajo es el que no se nota.'},
+ {k:['reposo','tiempo de recuperacion','recuperacion','puedo trabajar','volver al trabajo','downtime','dias de reposo'],a:'La mayoría de los procedimientos <b>no requieren reposo</b>: puedes retomar tu día casi de inmediato. Solo se recomienda evitar ejercicio intenso, calor y masajes por 24 a 48 horas.'},
+ {k:['hacer ejercicio','gimnasio','deporte','entrenar'],a:'Recomendamos evitar el ejercicio intenso las primeras 24 a 48 horas, porque el calor y el aumento de circulación pueden favorecer hinchazón o moretones.'},
+ {k:['tomar alcohol','alcohol','carrete','copas'],a:'Mejor evitar el alcohol 24 horas antes y después: aumenta el riesgo de moretones e hinchazón. Después de ese periodo no hay problema.'},
+ {k:['tomar sol','sol','playa','solarium','broncear'],a:'Evita el sol directo y el solarium las primeras 24 a 48 horas. Después, usa siempre protector solar: es el mejor aliado para mantener tus resultados.'},
+ {k:['maquillarme','maquillaje','base','puedo maquillar'],a:'En general se recomienda no maquillar la zona tratada por unas 12 a 24 horas para cuidar los puntos de aplicación. Al día siguiente ya puedes maquillarte con normalidad.'},
+ {k:['moreton','moretones','hematoma','morados','cardenal'],a:'Pueden aparecer pequeños moretones en el punto de punción; son temporales y se cubren con maquillaje. Para reducir el riesgo, evita alcohol, aspirina y ejercicio intenso antes del procedimiento.'},
+ {k:['se hincha','hinchazon','inflamacion','inflamado','hinchada'],a:'Una leve hinchazón los primeros 1 a 3 días es normal, sobre todo en labios y ojeras. Baja sola; puedes aplicar frío local suave.'},
+ {k:['antes de un evento','antes de mi matrimonio','antes de una fiesta','cuanto antes','evento importante','para un evento'],a:'Lo ideal es hacerlo con anticipación: <b>bótox</b> 2 a 3 semanas antes, <b>rellenos</b> al menos 2 semanas antes y un <b>Pink Glow</b> 5 a 7 días antes. Así llegas con todo asentado y luminoso.'},
+ {k:['que edad','edad minima','desde que edad','soy muy joven','muy joven','tengo 18','tengo 19','tengo 20','tengo 21','a los 20','anos puedo','soy menor','menor de edad','edad para'],a:'Los tratamientos estéticos inyectables son para mayores de 18 años. La edad ideal depende de cada caso y objetivo; en la evaluación definimos qué tiene sentido para ti, incluyendo enfoques preventivos.'},
+ {k:['hombres','para hombres','soy hombre','masculino'],a:'Por supuesto. Cada vez más hombres se tratan bótox, definición de mandíbula, ojeras o hiperhidrosis. El enfoque cuida los rasgos masculinos y un resultado natural.'},
+ {k:['primera vez','primeriza','nunca me he hecho','primer tratamiento','soy nueva'],a:'¡Bienvenida! Para una primera vez lo mejor es partir por la <b>evaluación</b>: resolvemos tus dudas sin compromiso y te proponemos algo gradual y natural. Nada se hace sin que tú lo entiendas y lo decidas.'},
+ {k:['miedo a las agujas','miedo a la aguja','me da miedo','panico','aguja me asusta','nerviosa'],a:'Es muy común. Usamos agujas muy finas, anestesia tópica o frío, y vamos a tu ritmo. La mayoría se sorprende de lo tolerable que resulta.'},
+ {k:['acompanante','ir sola','puedo ir sola','necesito que me acompanen'],a:'No necesitas acompañante: son procedimientos ambulatorios y puedes irte sola sin problema. Si te deja más tranquila venir acompañada, también está perfecto.'},
+ {k:['puedo manejar','conducir despues','manejar despues'],a:'Sí, puedes manejar después sin problema: no usamos sedación, solo anestesia local o tópica en la zona.'},
+ {k:['anestesia','con anestesia','duele con anestesia','me duermen'],a:'Usamos <b>anestesia tópica</b> (crema) o frío local para tu comodidad, y muchos rellenos ya incluyen anestesia en su fórmula. No se usa anestesia general.'},
+
+ // — Embarazo, lactancia y salud —
+ {k:['embarazo','embarazada','estoy esperando','gestacion'],a:'Durante el <b>embarazo</b> no realizamos tratamientos inyectables por precaución. Podemos orientarte en skincare seguro y dejar tu plan listo para después.'},
+ {k:['lactancia','amamantando','dando pecho','periodo de lactancia'],a:'En <b>lactancia</b> también recomendamos esperar con los inyectables. Conversémoslo en tu evaluación para planificar el mejor momento.'},
+ {k:['enfermedad autoinmune','lupus','autoinmune','artritis','tiroides'],a:'Algunas condiciones autoinmunes requieren precaución. No es una contraindicación absoluta en todos los casos: lo evaluamos con tu historia clínica para decidir con seguridad.'},
+ {k:['tengo diabetes','soy diabetica','con diabetes me','tengo hipertension','con hipertension','soy hipertenso','me puedo tratar si tengo'],a:'Tener diabetes o hipertensión controladas no impide la mayoría de los tratamientos estéticos, pero lo revisamos en tu evaluación para cuidar cada detalle.'},
+ {k:['anticoagulante','aspirina','tomo aspirina','sintrom','medicamento para la sangre'],a:'Si tomas anticoagulantes o aspirina, avísanos: aumentan el riesgo de moretones. No siempre se suspenden; lo coordinamos con criterio clínico (y con tu médico tratante si corresponde).'},
+ {k:['tomo medicamentos','medicamentos','pastillas','remedios'],a:'Cuéntanos qué medicamentos tomas en la evaluación. La mayoría son compatibles; solo algunos requieren precauciones que revisamos contigo.'},
+ {k:['herpes','herpes labial','fuego labial'],a:'Si tienes herpes labial frecuente y vas a tratarte los labios, podemos indicar un antiviral preventivo para evitar un brote. Cuéntanoslo antes.'},
+ {k:['con la regla','menstruacion','periodo','estoy con la regla'],a:'Puedes tratarte durante tu periodo sin problema. Algunas personas están un poco más sensibles esos días, nada más.'},
+ {k:['fumar','fumo','cigarro','tabaco'],a:'Fumar no impide el tratamiento, pero afecta la calidad y regeneración de la piel, por lo que los resultados pueden durar menos. Reducirlo siempre suma.'},
+
+ // — Combinaciones y plan —
+ {k:['combinar','combinar tratamientos','botox y acido','varios tratamientos','mas de uno','juntos'],a:'Sí, muchos tratamientos se <b>combinan</b> (por ejemplo bótox + ácido hialurónico, o bioestimulador + skinbooster). En la evaluación armamos un plan ordenado y seguro según tus prioridades.'},
+ {k:['cual me conviene','que me recomiendas','que es mejor para mi','que necesito','por donde empiezo','que me sirve mas'],a:'Eso lo definimos en tu <b>evaluación</b>: según tu piel, tus rasgos y tu objetivo te recomendamos lo que realmente te conviene, priorizando un resultado natural y tu presupuesto.'},
+ {k:['cada cuanto','frecuencia','mantencion','cuando me retoco','cada cuanto tiempo'],a:'Depende del tratamiento: bótox cada 4 a 6 meses, rellenos cada 6 a 18 meses y bioestimulación en planes con mantención anual. Te dejamos un calendario claro.'},
+ {k:['si dejo de hacerme','dejar el botox','se cae la cara','se pone peor','que pasa si no sigo','quedo peor'],a:'Mito frecuente: si dejas de hacerte bótox, tu cara <b>no empeora</b> ni se "cae". Simplemente vuelve poco a poco a como estaba antes; no genera dependencia ni deterioro.'},
+ {k:['se acumula','tolerancia','resistencia al botox','deja de hacer efecto'],a:'El bótox no se "acumula". En algunos casos, con los años, puede generarse cierta resistencia; lo manejamos ajustando dosis y producto cuando corresponde.'},
+ {k:['diferencia botox','botox o acido','botox vs','diferencia entre botox y','botox versus'],a:'<b>Bótox</b> relaja músculos para suavizar arrugas de expresión (frente, entrecejo, patas de gallo). El <b>ácido hialurónico</b> da volumen y define contornos (labios, pómulos, mentón). Suelen complementarse.'},
+ {k:['relleno o bioestimulador','diferencia relleno','bioestimulador vs','relleno vs'],a:'El <b>relleno</b> da volumen inmediato en una zona. El <b>bioestimulador</b> (como Sculptra) no rellena: estimula tu propio colágeno para mejorar firmeza y calidad de piel de forma progresiva.'},
+ {k:['armonizacion','armonizacion facial','armonizar','armonia facial'],a:'La <b>armonización facial</b> es un plan integral que equilibra los rasgos del rostro (mentón, mandíbula, pómulos, labios, nariz) con ácido hialurónico, buscando proporción y naturalidad, no cambiar tu identidad.'},
+ {k:['skinbooster','skin booster','hidratacion profunda','piel hidratada'],a:'Los <b>skinboosters</b> son microinyecciones de ácido hialurónico que hidratan en profundidad y mejoran textura y luminosidad, sin dar volumen. Ideales para piel apagada o deshidratada.'},
+ {k:['full face','cara completa','todo el rostro'],a:'"Full face" se refiere a tratar varias zonas del rostro en un plan completo (por ejemplo bótox de 8 zonas o una armonización integral). Lo diseñamos por etapas según tus prioridades.'},
+
+ // — Zonas y motivos de consulta —
+ {k:['labios','aumento de labios','rellenar labios','labios mas grandes','perfilado de labios'],a:'El <b>aumento de labios</b> con ácido hialurónico hidrata, define el borde y da volumen <b>natural y proporcionado</b>. Es reversible y la cantidad se gradúa contigo. Dura aproximadamente 8 a 12 meses.'},
+ {k:['ojeras','ojera','surco lagrimal','ojos hundidos','mirada cansada'],a:'Las <b>ojeras</b> con surco marcado se tratan con ácido hialurónico para rellenar el hueco y descansar la mirada. Requiere técnica cuidadosa; lo evaluamos para ver si eres buena candidata.'},
+ {k:['papada','doble menton','grasa en el cuello','papada inyectable'],a:'La <b>papada</b> se puede tratar con lipolítico inyectable (reduce grasa localizada de forma progresiva) y/o bioestimulación para firmeza. Definimos el plan según tu caso.'},
+ {k:['surcos nasogenianos','bigote chino','lineas de la nariz a la boca','surco nasogeniano'],a:'Los <b>surcos nasogenianos</b> ("bigote chino") se suavizan con ácido hialurónico o bioestimulación, según su profundidad y la causa (volumen vs. flacidez).'},
+ {k:['arrugas de la frente','lineas de la frente','frente arrugada','arrugas frente'],a:'Las <b>arrugas de la frente</b> son de expresión y responden muy bien al bótox, que relaja el músculo y las suaviza manteniendo un gesto natural.'},
+ {k:['patas de gallo','arrugas de los ojos','arrugas al reir'],a:'Las <b>patas de gallo</b> (arrugas al sonreír) se tratan con bótox en dosis suaves, conservando una sonrisa natural.'},
+ {k:['entrecejo','ceno','arruga del entrecejo','linea del enojo','gesto de enojo'],a:'La arruga del <b>entrecejo</b> es de las que mejor responde al bótox: suaviza el gesto de "enojo" y descansa la mirada.'},
+ {k:['cuello','escote','arrugas del cuello','rejuvenecer cuello'],a:'El <b>cuello y escote</b> se pueden trabajar con bótox (técnica Nefertiti), bioestimulación y skinboosters para mejorar firmeza, líneas y textura.'},
+ {k:['manos','rejuvenecer manos','manos envejecidas','venas de las manos'],a:'Las <b>manos</b> se rejuvenecen con bioestimulación de colágeno, que mejora volumen y calidad de piel, disimulando venas y tendones marcados.'},
+ {k:['acne','espinillas','granos','piel con acne','cicatrices de acne','marcas de acne'],a:'Para <b>acné activo</b> priorizamos control médico y skincare; para <b>cicatrices y marcas</b> ayudan la regeneración (ADN de salmón, exosomas, NCTF) y bioestimulación. Lo definimos según tu piel.'},
+ {k:['poros abiertos','poros dilatados','los poros','textura de la piel'],a:'Los <b>poros y la textura</b> mejoran con tratamientos de calidad de piel: mesoterapia, NCTF, ADN de salmón y skinboosters, junto a una buena rutina de skincare.'},
+ {k:['manchas','melasma','pano','manchas en la cara','hiperpigmentacion'],a:'Las <b>manchas y melasma</b> se manejan con un plan que combina protección solar estricta, despigmentantes y tratamientos de piel. La evaluación define el más adecuado para tu tipo de mancha.'},
+ {k:['rosacea','rojez','piel enrojecida','rojeces'],a:'La <b>rosácea</b> y las rojeces requieren un enfoque cuidadoso de calmar y fortalecer la piel. Te orientamos en rutina y tratamientos suaves; algunos casos requieren manejo dermatológico.'},
+ {k:['flacidez','piel flacida','firmeza','piel caida','tono de la piel'],a:'La <b>flacidez</b> leve a moderada responde muy bien a la <b>bioestimulación de colágeno</b> (Sculptra), que mejora firmeza y estructura de forma progresiva y natural.'},
+ {k:['parpado caido','parpados','ojo caido','ceja caida','levantar la ceja','mirada caida'],a:'Una <b>ceja o mirada caída</b> leve se puede mejorar con bótox bien dosificado para elevar sutilmente la cola de la ceja. Si la caída es marcada, lo evaluamos para ver qué es realista.'},
+ {k:['menton','barbilla','proyeccion de menton','menton pequeno'],a:'El <b>mentón</b> se proyecta y armoniza con ácido hialurónico para equilibrar el perfil. También tratamos el "mentón empedrado" con bótox.'},
+ {k:['pomulos','realce de pomulos','volumen en los pomulos','cachetes'],a:'El <b>realce de pómulos</b> con ácido hialurónico aporta soporte y definición al tercio medio del rostro, con un efecto lifting natural.'},
+
+ // — Logística, pagos y agenda —
+ {k:['cuanto dura la cita','cuanto demora la cita','tiempo de la consulta','cuanto me demoro'],a:'La evaluación dura unos 20 a 30 minutos; los procedimientos, entre 30 y 60 minutos según el tratamiento.'},
+ {k:['cuotas','pagar en cuotas','financiamiento','en partes'],a:'Puedes pagar con débito, crédito y efectivo, y online con Banco de Chile. Para opciones de cuotas, pregúntanos por WhatsApp y te confirmamos las alternativas vigentes.'},
+ {k:['boleta','factura','comprobante'],a:'Sí, emitimos comprobante de tus pagos. Si necesitas un detalle especial, indícalo al momento de pagar.'},
+ {k:['isapre','fonasa','bono','reembolso','prevision','seguro de salud'],a:'Los tratamientos estéticos no se cubren por Isapre/Fonasa al ser de carácter estético. Te entregamos comprobante por si tu seguro complementario lo considera.'},
+ {k:['agendar online','reservar online','reserva por internet','agendar por internet'],a:'Puedes coordinar tu hora por WhatsApp con el botón verde, o pagar tu evaluación online desde la sección <b>Servicios</b> y luego agendamos tu horario.'},
+ {k:['domicilio','a domicilio','van a mi casa','atienden en casa'],a:'Por seguridad y esterilidad, atendemos solo en la clínica en Talca, no a domicilio.'},
+ {k:['evaluacion obligatoria','tengo que evaluarme','es obligatorio evaluar','sin evaluacion'],a:'Sí: toda intervención parte por una <b>evaluación</b>. Es lo que nos permite recomendarte con seguridad y lograr un resultado natural y a tu medida.'},
+ {k:['evaluacion se descuenta','descuento evaluacion','la evaluacion se paga','cuesta la evaluacion','vale la evaluacion'],a:'La evaluación cuesta $10.000 y se <b>descuenta del tratamiento</b> si decides realizarlo. Es una inversión que evita gastos innecesarios.'},
+ {k:['solo preguntar','solo consultar','ir a preguntar','sin compromiso','cotizar'],a:'¡Claro! Puedes escribirnos todas tus dudas por aquí o por WhatsApp sin compromiso. Cuando quieras algo personalizado y seguro, agendas tu evaluación.'},
+ {k:['estacionamiento','donde estaciono','parking'],a:'Estamos en pleno centro de Talca (1 Poniente 1258, Edificio Plaza Poniente), con estacionamientos públicos cercanos a pocos metros.'},
+
+ // — Resultados y expectativas —
+ {k:['si no me gusta','no me gusta el resultado','no quedo conforme','y si no funciona','garantia'],a:'Trabajamos de forma gradual y conversada para que te sientas cómoda. Con ácido hialurónico, además, el resultado es ajustable e incluso reversible. Tu evaluación incluye expectativas realistas.'},
+ {k:['cuanto dura el resultado','cuanto me dura','duracion del resultado','cuanto tiempo dura'],a:'Aproximado: bótox 3 a 6 meses, ácido hialurónico 6 a 18 meses, bioestimulación hasta 24 meses, ADN de salmón ~6 meses con mantención. Varía según tu metabolismo y la zona.'},
+ {k:['rejuvenecer','verme mas joven','antiedad','envejecimiento','verme mejor'],a:'El antienvejecimiento se aborda en capas: prevención con bótox, soporte con bioestimulación y rellenos, y calidad de piel con regeneración y skincare. En la evaluación armamos tu plan según tu edad y objetivo.'},
+ {k:['exosomas','exosoma'],a:'Los <b>exosomas</b> son terapia regenerativa avanzada que mejora calidad, luminosidad y reparación de la piel. Suelen indicarse en protocolo de varias sesiones y combinan muy bien con otros tratamientos.'},
+ {k:['que es la bioestimulacion','bioestimulacion','sculptra','colageno propio'],a:'La <b>bioestimulación</b> (Sculptra, ácido poli-L-láctico) no rellena: estimula tu propio colágeno para mejorar firmeza, textura y flacidez de forma progresiva y natural, con resultados de larga duración.'}
+];
+
+function _faqScore(q){
+  var best=null,bs=0;
+  for(var i=0;i<JCM_FAQ.length;i++){var f=JCM_FAQ[i],sc=0;
+    for(var j=0;j<f.k.length;j++){if(q.indexOf(f.k[j])>=0){sc+=f.k[j].split(' ').length;}}
+    if(sc>bs){bs=sc;best=f;}}
+  return bs>0?best:null;
+}
+
+
+/* ===== BASE DE CONOCIMIENTO: 100 enfermedades más prevalentes en Chile =====
+   Información educativa con cita a fuente reputada. NO reemplaza consulta médica.
+   Fuentes: MedlinePlus en español (NIH), MINSAL Chile, OPS/OMS. */
+var JCM_DX_SRC={
+  mp:{n:'MedlinePlus en español (NIH)',u:'https://medlineplus.gov/spanish/'},
+  ms:{n:'MINSAL — Ministerio de Salud de Chile',u:'https://www.minsal.cl/'},
+  ops:{n:'OPS/OMS',u:'https://www.paho.org/es/chile'}
+};
+var JCM_DISEASES=[
+ // Cardiometabólicas
+ {k:['hipertension','presion alta','presion arterial alta'],n:'Hipertensión arterial',a:'Presión arterial persistentemente elevada. Suele no dar síntomas, por lo que se le llama "asesino silencioso"; aumenta el riesgo de infarto y ACV. Se controla con estilo de vida y, si corresponde, medicamentos.',s:'mp'},
+ {k:['diabetes tipo 2','diabetes 2','azucar alta','diabetes mellitus','diabetes','que es la diabetes'],n:'Diabetes tipo 2',a:'Enfermedad crónica en que el cuerpo no usa bien la insulina y sube la glucosa en sangre. Muy prevalente en Chile; se maneja con alimentación, actividad física y fármacos.',s:'mp'},
+ {k:['diabetes tipo 1','diabetes juvenil'],n:'Diabetes tipo 1',a:'El páncreas produce poca o nada de insulina; requiere insulina de por vida. Suele aparecer en niños y jóvenes.',s:'mp'},
+ {k:['colesterol alto','dislipidemia','trigliceridos','colesterol'],n:'Dislipidemia (colesterol alto)',a:'Niveles elevados de colesterol o triglicéridos que favorecen la formación de placas en las arterias. Se mejora con dieta, ejercicio y a veces estatinas.',s:'mp'},
+ {k:['obesidad','sobrepeso','exceso de peso','bajar de peso'],n:'Obesidad y sobrepeso',a:'Exceso de grasa corporal que aumenta el riesgo de diabetes, hipertensión y problemas articulares. Chile tiene una de las prevalencias más altas de la región.',s:'ms'},
+ {k:['sindrome metabolico'],n:'Síndrome metabólico',a:'Conjunto de factores (obesidad abdominal, presión alta, azúcar y lípidos elevados) que juntos elevan mucho el riesgo cardiovascular.',s:'mp'},
+ {k:['infarto','enfermedad coronaria','ataque al corazon','angina'],n:'Enfermedad coronaria / infarto',a:'Obstrucción de las arterias del corazón. El infarto es una urgencia: dolor opresivo en el pecho, sudoración y falta de aire. Llama a emergencias de inmediato.',s:'mp'},
+ {k:['acv','ataque cerebral','derrame','accidente cerebrovascular','trombosis cerebral'],n:'Accidente cerebrovascular (ACV)',a:'Interrupción del flujo de sangre al cerebro. Señales: cara caída, debilidad en un brazo, dificultad para hablar. Es una urgencia: actúa rápido.',s:'mp'},
+ {k:['insuficiencia cardiaca'],n:'Insuficiencia cardíaca',a:'El corazón no bombea con suficiente fuerza; causa cansancio, hinchazón de piernas y falta de aire. Requiere control médico continuo.',s:'mp'},
+ {k:['arritmia','fibrilacion auricular','palpitaciones'],n:'Arritmia / fibrilación auricular',a:'Latido irregular del corazón. La fibrilación auricular aumenta el riesgo de ACV y suele requerir tratamiento.',s:'mp'},
+ {k:['anemia','falta de hierro','hemoglobina baja'],n:'Anemia',a:'Disminución de glóbulos rojos o hemoglobina; causa cansancio y palidez. La más común es por falta de hierro.',s:'mp'},
+ // Respiratorias
+ {k:['resfrio','resfriado','rinovirus'],n:'Resfrío común',a:'Infección viral leve de las vías respiratorias altas: congestión, estornudos y dolor de garganta. Mejora solo en una semana.',s:'mp'},
+ {k:['influenza','gripe'],n:'Influenza (gripe)',a:'Infección viral respiratoria con fiebre, dolores musculares y tos. La vacuna anual es la mejor prevención, sobre todo en grupos de riesgo.',s:'ms'},
+ {k:['neumonia','pulmonia'],n:'Neumonía',a:'Infección del pulmón con fiebre, tos y dificultad para respirar. Puede ser grave en adultos mayores y niños; requiere evaluación médica.',s:'mp'},
+ {k:['asma'],n:'Asma',a:'Enfermedad crónica que inflama y estrecha las vías respiratorias, causando ahogo, tos y silbidos. Se controla con inhaladores.',s:'mp'},
+ {k:['epoc','enfermedad pulmonar obstructiva'],n:'EPOC',a:'Daño pulmonar progresivo, principalmente por tabaquismo, que dificulta respirar. Dejar de fumar es clave.',s:'mp'},
+ {k:['bronquitis'],n:'Bronquitis',a:'Inflamación de los bronquios con tos y flema. La aguda suele ser viral; la crónica se asocia al tabaco.',s:'mp'},
+ {k:['covid','coronavirus','covid-19'],n:'COVID-19',a:'Enfermedad respiratoria por el virus SARS-CoV-2. Síntomas variables; la vacunación y medidas reducen casos graves.',s:'ms'},
+ {k:['rinitis alergica','alergia nasal','rinitis'],n:'Rinitis alérgica',a:'Inflamación nasal por alérgenos (polen, ácaros): estornudos, congestión y picazón. Se maneja con antihistamínicos y evitando el alérgeno.',s:'mp'},
+ {k:['sinusitis'],n:'Sinusitis',a:'Inflamación de los senos paranasales con congestión, dolor facial y secreción. Puede ser viral o bacteriana.',s:'mp'},
+ {k:['tuberculosis','tbc'],n:'Tuberculosis',a:'Infección bacteriana que afecta sobre todo los pulmones: tos prolongada, baja de peso y sudoración nocturna. Tiene tratamiento gratuito en Chile.',s:'ms'},
+ // Salud mental
+ {k:['depresion','deprimido','tristeza profunda'],n:'Depresión',a:'Trastorno del ánimo con tristeza persistente, pérdida de interés y fatiga. Es tratable con apoyo psicológico y/o médico. Si tienes pensamientos de hacerte daño, busca ayuda ya (Salud Responde 600 360 7777).',s:'ms'},
+ {k:['ansiedad','crisis de panico','angustia','ataque de panico'],n:'Trastornos de ansiedad',a:'Preocupación o miedo intensos y persistentes que afectan la vida diaria. Responden bien a psicoterapia y, a veces, medicación.',s:'mp'},
+ {k:['trastorno bipolar','bipolaridad'],n:'Trastorno bipolar',a:'Alterna episodios de ánimo elevado (manía) y depresivo. Requiere tratamiento y seguimiento especializado.',s:'mp'},
+ {k:['esquizofrenia'],n:'Esquizofrenia',a:'Trastorno mental grave que altera el pensamiento y la percepción. Con tratamiento adecuado muchas personas llevan una vida funcional.',s:'mp'},
+ {k:['demencia','alzheimer','perdida de memoria'],n:'Demencia / Alzheimer',a:'Deterioro progresivo de memoria y funciones mentales. El Alzheimer es la causa más frecuente; el diagnóstico temprano ayuda.',s:'mp'},
+ {k:['insomnio','no puedo dormir','problemas para dormir'],n:'Insomnio',a:'Dificultad para conciliar o mantener el sueño. Mejora con higiene del sueño; si persiste, consulta.',s:'mp'},
+ {k:['estres','estresado'],n:'Estrés',a:'Respuesta del cuerpo a demandas excesivas. Mantenido en el tiempo afecta la salud física y mental.',s:'mp'},
+ {k:['alcoholismo','consumo de alcohol','dependencia alcohol'],n:'Trastorno por consumo de alcohol',a:'Consumo problemático que daña la salud y la vida diaria. Existe tratamiento y apoyo disponible.',s:'ms'},
+ {k:['tabaquismo','adiccion al cigarro','dejar de fumar','fumador'],n:'Tabaquismo',a:'Dependencia a la nicotina; principal causa evitable de enfermedad. Dejar de fumar mejora la salud a cualquier edad.',s:'ms'},
+ {k:['tdah','deficit atencional','hiperactividad'],n:'TDAH',a:'Trastorno del neurodesarrollo con inatención e impulsividad. Se maneja con apoyo conductual y, si corresponde, fármacos.',s:'mp'},
+ // Cáncer
+ {k:['cancer gastrico','cancer de estomago','cancer al estomago'],n:'Cáncer gástrico (estómago)',a:'Uno de los cánceres más frecuentes y mortales en Chile. La detección temprana (endoscopía ante síntomas de alarma) mejora el pronóstico.',s:'ms'},
+ {k:['cancer de mama','cancer mamario','tumor en la mama'],n:'Cáncer de mama',a:'El cáncer más frecuente en mujeres. La mamografía periódica permite detectarlo temprano. Está cubierto por GES.',s:'ms'},
+ {k:['cancer de prostata'],n:'Cáncer de próstata',a:'Cáncer frecuente en hombres mayores. El control con APE y examen permite detección oportuna.',s:'mp'},
+ {k:['cancer colorrectal','cancer de colon','cancer al colon'],n:'Cáncer colorrectal',a:'Cáncer de colon o recto. El tamizaje (test de sangre oculta, colonoscopía) lo detecta temprano y es muy tratable.',s:'mp'},
+ {k:['cancer de pulmon','cancer al pulmon'],n:'Cáncer de pulmón',a:'Fuertemente asociado al tabaco. Tos persistente o sangre al toser deben evaluarse.',s:'mp'},
+ {k:['cancer cervicouterino','cancer de cuello uterino','cancer al utero'],n:'Cáncer cervicouterino',a:'Causado por el VPH. Prevenible con vacuna y detectable con el PAP. Cubierto por GES.',s:'ms'},
+ {k:['cancer de vesicula','cancer vesicula biliar'],n:'Cáncer de vesícula biliar',a:'Chile tiene una de las tasas más altas del mundo, ligado a cálculos biliares. La cirugía de vesícula en casos indicados previene.',s:'ms'},
+ {k:['cancer de piel','melanoma','lunar maligno'],n:'Cáncer de piel / melanoma',a:'Relacionado con la exposición solar. Vigila lunares que cambian de tamaño, color o forma. La protección solar es clave en prevención.',s:'mp'},
+ {k:['leucemia','cancer a la sangre'],n:'Leucemia',a:'Cáncer de las células sanguíneas. Puede causar cansancio, moretones e infecciones frecuentes.',s:'mp'},
+ {k:['linfoma'],n:'Linfoma',a:'Cáncer del sistema linfático; suele manifestarse con ganglios aumentados, fiebre y baja de peso.',s:'mp'},
+ // Digestivas
+ {k:['gastritis'],n:'Gastritis',a:'Inflamación del revestimiento del estómago con ardor y malestar. Se asocia a H. pylori, antiinflamatorios y estrés.',s:'mp'},
+ {k:['ulcera','ulcera peptica','ulcera gastrica'],n:'Úlcera péptica',a:'Lesión en el estómago o duodeno, frecuentemente por H. pylori. Causa dolor que mejora o empeora con las comidas.',s:'mp'},
+ {k:['reflujo','erge','acidez','agrieras'],n:'Reflujo gastroesofágico (ERGE)',a:'El contenido del estómago sube al esófago causando acidez y ardor. Mejora con cambios de hábito y fármacos.',s:'mp'},
+ {k:['calculos en la vesicula','colelitiasis','calculos biliares','piedras vesicula'],n:'Cálculos biliares (colelitiasis)',a:'Muy frecuentes en Chile. Pueden no dar síntomas o causar cólicos; aumentan el riesgo de cáncer de vesícula.',s:'mp'},
+ {k:['higado graso','esteatosis'],n:'Hígado graso',a:'Acumulación de grasa en el hígado, ligada a obesidad y diabetes. Mejora con baja de peso y actividad física.',s:'mp'},
+ {k:['cirrosis'],n:'Cirrosis',a:'Daño hepático crónico e irreversible, por alcohol, hígado graso o hepatitis. Requiere manejo especializado.',s:'mp'},
+ {k:['hepatitis'],n:'Hepatitis viral',a:'Inflamación del hígado por virus (A, B, C). Las hepatitis B y C pueden cronificarse; existen vacunas (A y B) y tratamiento.',s:'mp'},
+ {k:['colon irritable','intestino irritable','sii'],n:'Síndrome de intestino irritable',a:'Trastorno funcional con dolor abdominal, distensión y cambios en el tránsito. Se maneja con dieta y manejo del estrés.',s:'mp'},
+ {k:['estrenimiento','constipacion'],n:'Estreñimiento',a:'Evacuaciones poco frecuentes o difíciles. Mejora con fibra, agua y actividad física.',s:'mp'},
+ {k:['hemorroides'],n:'Hemorroides',a:'Venas dilatadas en el ano/recto que causan dolor o sangrado. Se alivian con fibra, higiene y, si es necesario, tratamiento.',s:'mp'},
+ {k:['enfermedad celiaca','celiaco','intolerancia al gluten'],n:'Enfermedad celíaca',a:'Reacción inmune al gluten que daña el intestino. El tratamiento es una dieta sin gluten de por vida.',s:'mp'},
+ {k:['diverticulos','diverticulosis','diverticulitis'],n:'Enfermedad diverticular',a:'Pequeñas bolsas en el colon; si se inflaman (diverticulitis) causan dolor y fiebre. La fibra ayuda a prevenir.',s:'mp'},
+ // Musculoesqueléticas
+ {k:['artrosis','osteoartritis','desgaste articular'],n:'Artrosis (osteoartritis)',a:'Desgaste del cartílago articular con dolor y rigidez, frecuente en rodillas y manos. El ejercicio y el control de peso ayudan.',s:'mp'},
+ {k:['artritis reumatoide'],n:'Artritis reumatoide',a:'Enfermedad autoinmune que inflama las articulaciones. El tratamiento temprano evita daño articular.',s:'mp'},
+ {k:['osteoporosis','huesos debiles'],n:'Osteoporosis',a:'Disminución de la densidad ósea que aumenta el riesgo de fracturas, sobre todo tras la menopausia. Calcio, vitamina D y ejercicio ayudan.',s:'mp'},
+ {k:['lumbago','dolor lumbar','dolor de espalda baja','dolor de espalda'],n:'Lumbago (dolor lumbar)',a:'Dolor en la zona baja de la espalda, muy común. La mayoría mejora con movimiento y manejo del dolor.',s:'mp'},
+ {k:['cervicalgia','dolor de cuello'],n:'Cervicalgia (dolor de cuello)',a:'Dolor y rigidez del cuello, a menudo por mala postura o tensión. Mejora con ejercicios y ergonomía.',s:'mp'},
+ {k:['gota','acido urico'],n:'Gota',a:'Artritis por acumulación de ácido úrico; causa ataques de dolor intenso, típicamente en el dedo gordo del pie. Se controla con dieta y fármacos.',s:'mp'},
+ {k:['fibromialgia'],n:'Fibromialgia',a:'Dolor muscular generalizado, fatiga y trastornos del sueño. Mejora con ejercicio suave y manejo multidisciplinario.',s:'mp'},
+ {k:['tendinitis'],n:'Tendinitis',a:'Inflamación de un tendón por sobreuso. Reposo relativo, frío y fortalecimiento ayudan a recuperarse.',s:'mp'},
+ {k:['escoliosis'],n:'Escoliosis',a:'Curvatura lateral de la columna. Las leves se observan; las mayores pueden requerir corsé o cirugía.',s:'mp'},
+ // Renales / urinarias
+ {k:['infeccion urinaria','itu','cistitis','infeccion a la orina'],n:'Infección urinaria (ITU)',a:'Infección de la vejiga o vías urinarias con ardor al orinar y urgencia. Frecuente en mujeres; se trata con antibióticos.',s:'mp'},
+ {k:['calculos renales','calculos al rinon','litiasis renal','piedras en el rinon'],n:'Cálculos renales',a:'Piedras en el riñón o vías urinarias que causan dolor intenso (cólico renal). Beber agua y evaluación médica son clave.',s:'mp'},
+ {k:['enfermedad renal cronica','insuficiencia renal','falla renal'],n:'Enfermedad renal crónica',a:'Pérdida progresiva de la función renal, a menudo por diabetes e hipertensión. El control temprano enlentece su avance.',s:'mp'},
+ {k:['prostata grande','hiperplasia prostatica','hpb','agrandamiento de prostata'],n:'Hiperplasia prostática benigna',a:'Aumento no canceroso de la próstata en hombres mayores; dificulta orinar. Tiene tratamiento eficaz.',s:'mp'},
+ {k:['incontinencia urinaria','perdida de orina','se me escapa la orina'],n:'Incontinencia urinaria',a:'Pérdida involuntaria de orina. Hay tratamientos según el tipo (ejercicios, fármacos, cirugía).',s:'mp'},
+ {k:['prostatitis'],n:'Prostatitis',a:'Inflamación de la próstata con dolor pélvico y molestias al orinar. Puede ser infecciosa.',s:'mp'},
+ // Endocrinas
+ {k:['hipotiroidismo','tiroides lenta'],n:'Hipotiroidismo',a:'La tiroides produce poca hormona: cansancio, aumento de peso y frío. Se trata con hormona tiroidea.',s:'mp'},
+ {k:['hipertiroidismo','tiroides acelerada'],n:'Hipertiroidismo',a:'Exceso de hormona tiroidea: nerviosismo, baja de peso y palpitaciones. Requiere tratamiento médico.',s:'mp'},
+ {k:['bocio'],n:'Bocio',a:'Aumento de tamaño de la tiroides. Puede asociarse a déficit de yodo o a enfermedad tiroidea.',s:'mp'},
+ {k:['nodulo tiroideo','nodulo en la tiroides'],n:'Nódulo tiroideo',a:'Bulto en la tiroides, generalmente benigno. Se evalúa con ecografía y, si es necesario, punción.',s:'mp'},
+ {k:['ovario poliquistico','sop','sindrome de ovario poliquistico'],n:'Síndrome de ovario poliquístico (SOP)',a:'Desequilibrio hormonal con ciclos irregulares, acné y vello. Se maneja con estilo de vida y tratamiento médico.',s:'mp'},
+ // Neurológicas
+ {k:['migrana','jaqueca','cefalea','dolor de cabeza'],n:'Migraña / cefalea',a:'Dolor de cabeza intenso, a veces con náuseas y sensibilidad a la luz. Hay tratamientos para la crisis y para prevenir.',s:'mp'},
+ {k:['epilepsia','convulsiones'],n:'Epilepsia',a:'Trastorno con crisis convulsivas recurrentes. La mayoría se controla bien con medicación.',s:'mp'},
+ {k:['parkinson'],n:'Enfermedad de Parkinson',a:'Trastorno neurodegenerativo con temblor, rigidez y lentitud de movimientos. El tratamiento mejora los síntomas.',s:'mp'},
+ {k:['neuropatia','hormigueo','adormecimiento'],n:'Neuropatía periférica',a:'Daño a los nervios con hormigueo, dolor o adormecimiento, frecuente en diabetes. El control de la causa ayuda.',s:'mp'},
+ {k:['vertigo','mareos','mareo'],n:'Vértigo / mareo',a:'Sensación de giro o inestabilidad, a menudo de origen del oído interno. Suele ser benigno y tratable.',s:'mp'},
+ {k:['esclerosis multiple'],n:'Esclerosis múltiple',a:'Enfermedad autoinmune que afecta el sistema nervioso central. El tratamiento moderno reduce las recaídas.',s:'mp'},
+ // Infecciosas / ITS
+ {k:['vih','sida'],n:'VIH / SIDA',a:'Virus que afecta el sistema inmune. Con tratamiento antirretroviral la persona vive sana y no transmite. El test es gratuito y confidencial.',s:'ms'},
+ {k:['sifilis'],n:'Sífilis',a:'Infección de transmisión sexual bacteriana, curable con antibióticos. La detección temprana evita complicaciones.',s:'mp'},
+ {k:['gonorrea'],n:'Gonorrea',a:'ITS bacteriana con secreción y ardor al orinar. Se trata con antibióticos; usa preservativo para prevenir.',s:'mp'},
+ {k:['vph','virus del papiloma','papiloma','verrugas genitales'],n:'Virus del papiloma humano (VPH)',a:'ITS muy frecuente; algunos tipos causan verrugas y otros cáncer cervicouterino. La vacuna previene.',s:'ms'},
+ {k:['herpes','herpes labial','herpes genital'],n:'Herpes',a:'Infección viral que causa ampollas (labiales o genitales). No tiene cura, pero los antivirales controlan los brotes.',s:'mp'},
+ {k:['hantavirus','hanta'],n:'Hantavirus',a:'Enfermedad grave transmitida por ratones silvestres, presente en zonas rurales de Chile. Ventilar y evitar contacto con roedores previene.',s:'ms'},
+ {k:['parasitos','parasitosis','lombrices','giardia'],n:'Parasitosis intestinal',a:'Infección por parásitos con dolor abdominal y diarrea. Buena higiene y agua segura previenen; tiene tratamiento.',s:'mp'},
+ // Oftalmológicas
+ {k:['miopia','no veo de lejos'],n:'Miopía',a:'Defecto visual en que se ve borroso de lejos. Se corrige con lentes, lentillas o cirugía.',s:'mp'},
+ {k:['cataratas'],n:'Cataratas',a:'Opacidad del cristalino que nubla la visión, frecuente con la edad. La cirugía la resuelve eficazmente.',s:'mp'},
+ {k:['glaucoma'],n:'Glaucoma',a:'Daño del nervio óptico, a menudo por presión ocular alta; puede causar ceguera si no se trata. El control oftalmológico es clave.',s:'mp'},
+ {k:['conjuntivitis','ojo rojo'],n:'Conjuntivitis',a:'Inflamación de la conjuntiva con ojo rojo y secreción. Puede ser viral, bacteriana o alérgica.',s:'mp'},
+ // Dermatológicas
+ {k:['acne','espinillas','granos'],n:'Acné',a:'Obstrucción e inflamación de los folículos con granos y espinillas. Tiene tratamiento médico y dermocosmético eficaz.',s:'mp'},
+ {k:['dermatitis atopica','eczema','eccema'],n:'Dermatitis atópica (eczema)',a:'Piel seca, roja y con picazón, frecuente en niños. Se controla con hidratación y tratamiento de los brotes.',s:'mp'},
+ {k:['psoriasis'],n:'Psoriasis',a:'Enfermedad inflamatoria crónica con placas escamosas. No es contagiosa y tiene varios tratamientos.',s:'mp'},
+ {k:['rosacea'],n:'Rosácea',a:'Enrojecimiento facial persistente con granitos, frecuente en piel clara. Se controla con cuidados y tratamiento médico.',s:'mp'},
+ {k:['melasma','manchas en la cara','pano','hiperpigmentacion'],n:'Melasma (manchas)',a:'Manchas oscuras en el rostro, ligadas a sol y hormonas. La protección solar estricta es esencial en el manejo.',s:'mp'},
+ {k:['vitiligo','manchas blancas'],n:'Vitíligo',a:'Pérdida de pigmento que deja manchas blancas en la piel. Existen tratamientos para estimular la repigmentación.',s:'mp'},
+ {k:['urticaria','ronchas','alergia en la piel'],n:'Urticaria',a:'Ronchas que pican, por reacción alérgica o de otra causa. Suele ceder con antihistamínicos.',s:'mp'},
+ {k:['dermatitis seborreica','caspa'],n:'Dermatitis seborreica',a:'Descamación y enrojecimiento en cuero cabelludo y cara (caspa). Es crónica pero se controla bien.',s:'mp'},
+ // Ginecológica / etapa vital
+ {k:['menopausia','climaterio','bochornos'],n:'Menopausia',a:'Fin de los ciclos menstruales con cambios hormonales (bochornos, cambios de ánimo). Hay medidas y tratamientos para los síntomas.',s:'mp'},
+ {k:['varices','venas varicosas','venas en las piernas','aranitas'],n:'Várices',a:'Venas dilatadas y tortuosas, sobre todo en las piernas, por falla de las válvulas venosas. Muy frecuentes; mejoran con medidas y, si es necesario, tratamiento.',s:'mp'}
+];
+function _dxScore(q){
+  var best=null,bs=0;
+  for(var i=0;i<JCM_DISEASES.length;i++){var d=JCM_DISEASES[i],sc=0;
+    for(var j=0;j<d.k.length;j++){if(q.indexOf(d.k[j])>=0){sc+=d.k[j].split(' ').length;}}
+    if(sc>bs){bs=sc;best=d;}}
+  return bs>0?best:null;
+}
+function _dxAnswer(d){
+  var s=JCM_DX_SRC[d.s];
+  pushMsg('<b>'+d.n+'</b><br>'+d.a+
+    '<br><br><span style="font-size:11.5px;color:var(--g500);line-height:1.5">Fuente: <a href="'+s.u+'" target="_blank" rel="noopener" style="color:var(--accent-deep)">'+s.n+'</a><br>Información educativa; <b>no reemplaza el diagnóstico de un profesional</b>. En JC Medical somos medicina estética facial: para tu salud general, consulta a tu médico o llama a Salud Responde 600 360 7777.</span>',
+    'bot',['¿Qué es el Bótox?','¿En qué consiste la evaluación?','Precios']);
+}
+
+/* ===== CRUCE: condición de salud × tratamiento estético =====
+   Responde "si tengo <enfermedad>, ¿puedo hacerme <tratamiento>?" en
+   lenguaje simple o formal. Detecta condición + intención estética. */
+var JCM_COND=[
+ {c:'sangrado',   k:['anticoagulante','warfarina','sintrom','acenocumarol','aspirina','heparina','clopidogrel','hemofilia','trombocitopenia','plaquetas bajas','sangro mucho','me salen moretones']},
+ {c:'neuromuscular',k:['miastenia','miastenia gravis','eaton lambert','esclerosis lateral','enfermedad neuromuscular']},
+ {c:'autoinmune', k:['lupus','artritis reumatoide','esclerosis multiple','sjogren','esclerodermia','enfermedad autoinmune','autoinmune','crohn','colitis ulcerosa','enfermedad celiaca','celiaca','hashimoto','psoriasis','vitiligo','sarcoidosis']},
+ {c:'embarazo',   k:['embarazo','embarazada','estoy esperando','espero un bebe','espero guagua','lactancia','amamantando','dando pecho','doy pecho']},
+ {c:'cancer',     k:['cancer','quimioterapia','quimio','radioterapia','tumor','oncolog','leucemia','linfoma','melanoma']},
+ {c:'infeccion',  k:['herpes','herpes labial','fuego labial','infeccion en la piel','piel infectada','acne infectado','absceso','tengo covid','tengo influenza','tengo gripe','tengo fiebre','rosacea','dermatitis','brote en la piel','herida abierta']},
+ {c:'alergia',    k:['alergia a la toxina','alergia al acido','alergia al relleno','alergia a la anestesia','soy alergic']},
+ {c:'cronica',    k:['diabetes','diabetica','diabetico','azucar alta','hipertension','presion alta','hipotiroidismo','hipertiroidismo','tiroides','colesterol','dislipidemia','asma','epoc','rinitis','migraña','jaqueca','gastritis','reflujo','colon irritable','artrosis','artritis','osteoporosis','anemia','higado graso','epilepsia','depresion','ansiedad','vih','hepatitis','enfermedad renal','insuficiencia renal','enfermo del corazon','cardiaco','arritmia','marcapaso']},
+];
+var _CT_NOTE={
+ sangrado:'puede aumentar el riesgo de <b>moretones o sangrado</b>. No siempre se suspende el medicamento; lo coordinamos con criterio clínico y, si corresponde, con tu médico tratante.',
+ neuromuscular:'el <b>bótox</b> puede estar <b>contraindicado</b> o requerir mucha precaución en enfermedades neuromusculares. Es indispensable evaluarlo junto a tu neurólogo antes de aplicar cualquier toxina.',
+ autoinmune:'requiere <b>precaución</b>: a veces se evitan ciertos rellenos o bioestimuladores, sobre todo en un brote activo. Lo evaluamos caso a caso, idealmente con tu especialista tratante.',
+ embarazo:'durante el <b>embarazo y la lactancia no realizamos inyectables</b> por precaución. Te orientamos en cuidado de la piel seguro y dejamos tu plan listo para después.',
+ cancer:'durante un <b>tratamiento oncológico activo posponemos</b> los procedimientos; necesitamos el visto bueno de tu oncólogo. Lo conversamos con calma en tu evaluación.',
+ infeccion:'si hay una <b>infección o brote activo</b> en la zona, esperamos a que se resuelva. Para herpes labial frecuente y tratamiento de labios, indicamos un antiviral preventivo.',
+ alergia:'las alergias a estos productos son <b>muy poco frecuentes</b>, pero si tuviste una reacción previa es clave avisarlo: lo revisamos a fondo en tu evaluación antes de aplicar nada.',
+ cronica:'tenerla <b>bien controlada no impide</b> la mayoría de los tratamientos. Solo necesitamos revisarla en tu evaluación, junto a tu historia y tus medicamentos, para hacerlo con total seguridad.',
+};
+function _treatLabel(q){
+  if(/(botox|toxina|botulinic|congelar|entrecejo|frente|patas de gallo)/.test(q)) return 'el bótox';
+  if(/(labio|relleno|acido hialuron|hialuron|surco|ojera|menton|pomulo|armonizacion)/.test(q)) return 'el ácido hialurónico / rellenos';
+  if(/(sculptra|bioestim|colageno|hilos|hilo tensor|flacidez)/.test(q)) return 'la bioestimulación o los hilos';
+  if(/(salmon|exosoma|polinucleot|mesoterap|skinbooster|pink glow|hidrafacial)/.test(q)) return 'los tratamientos regenerativos';
+  if(/(rino|nariz)/.test(q)) return 'la rinomodelación';
+  if(/(peeling|laser|depilacion)/.test(q)) return 'ese procedimiento';
+  return 'los tratamientos estéticos';
+}
+function _cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+function _condTreat(q){
+  var hasTreat=/(botox|toxina|botulinic|acido hialuron|hialuron|relleno|labio|ojera|surco|sculptra|bioestim|colageno|hilos|rino|nariz|mesoterap|skinbooster|salmon|exosoma|polinucleot|peeling|laser|depilacion|pink glow|hidrafacial|tratamiento estetic|procedimiento estetic|armonizacion)/.test(q);
+  var estCtx=/(cara|rostro|arruga|estetic|piel|me veo|verme|lucir|facial)/.test(q);
+  var hasVerb=/(puedo|podria|me puedo|me hago|hacerme|colocar|colocarme|ponerme|me pongo|poner|aplicar|me aplico|me pueden|es seguro|contraindic|hace mal|hace dano|me afecta|igual me|me lo puedo|sirve para mi|me dejan)/.test(q);
+  if(!(hasTreat || (hasVerb && estCtx))) return null;
+  for(var i=0;i<JCM_COND.length;i++){ for(var j=0;j<JCM_COND[i].k.length;j++){ if(q.indexOf(JCM_COND[i].k[j])>=0) return {cond:JCM_COND[i].k[j],cat:JCM_COND[i].c}; } }
+  var dx=_dxScore(q);
+  if(dx) return {cond:dx.n,cat:'cronica',dxName:dx.n};
+  return null;
+}
+
+function buildChat(){var c=el('chatChips');if(!c)return;c.innerHTML='';
+  CHAT_CHIPS.forEach(function(q){var d=document.createElement('button');d.className='cc';d.textContent=q;d.onclick=function(){askChip(q);};c.appendChild(d);});
+  el('chatBox').innerHTML='';
+  pushMsg('Hola, soy el asistente de JC Medical. Estoy para orientarte con seguridad sobre tratamientos, precios, cuánto demora cada procedimiento, dolor y cuidados. Elige una de estas opciones o escríbeme tu duda; si necesitas algo más específico, te acompañamos por WhatsApp.','bot',['¿Qué es el Bótox?','Precios','¿En qué consiste la evaluación?']);}
+function pushMsg(t,who,sugs){var b=el('chatBox');if(!b)return;var d=document.createElement('div');d.className='msg '+who;
+  var sh='';if(sugs&&sugs.length){sh='<div class="sugs">'+sugs.slice(0,3).map(function(q){return '<button class="sug" data-q="'+q.replace(/"/g,'&quot;')+'" onclick="askChip(this.dataset.q)">'+q+'</button>';}).join('')+'</div>';}
+  d.innerHTML=t+sh;b.appendChild(d);b.scrollTop=b.scrollHeight;}
+function askChip(q){pushMsg(q,'me');setTimeout(function(){botAnswer(q);},220);}
+function sendChat(){var i=el('chatInput');var raw=(i.value||'').trim();if(!raw)return;var t=jcmSanitize(raw);pushMsg(t,'me');i.value='';setTimeout(function(){botAnswer(raw);},220);}
+function waChat(){window.open(WA+'?text='+encodeURIComponent('Hola, tengo una consulta sobre un tratamiento.'),'_blank');}
+function _norm(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+function _clean(s){return s.replace(/&oacute;/g,'o').replace(/&aacute;/g,'a').replace(/&eacute;/g,'e').replace(/&iacute;/g,'i').replace(/&uacute;/g,'u').replace(/&ntilde;/g,'n').replace(/&[a-z]+;/g,' ').toLowerCase();}
+function _price(kw){var out=[];CATALOGO.forEach(function(it){if(_clean(it.n).indexOf(kw)>=0){var ps=it.v.map(function(x){return (x.l?x.l+': ':'')+x.p;}).join(' · ');out.push('• '+it.n+' — '+ps);}});return out;}
+function sugT(tk,ans){var c=[['sesion','Tiempo del procedimiento'],['efecto','Duración del efecto'],['dolor','¿Duele?'],['precio','Precio'],['cuidados','Cuidados']];var out=[];for(var i=0;i<c.length&&out.length<3;i++){if(c[i][0]!==ans)out.push(c[i][1]+' · '+NM[tk]);}return out;}
+function botAnswer(qRaw){var q=_norm(qRaw);
+  function has(){for(var i=0;i<arguments.length;i++)if(q.indexOf(arguments[i])>=0)return true;return false;}
+  function done(txt,sugs){pushMsg(txt+'<br><br><i>Orientación general. Para información 100% fidedigna y tu plan personalizado, agenda tu evaluación o escríbeme por WhatsApp.</i>','bot',sugs||['¿Qué es el Bótox?','Precios','¿En qué consiste la evaluación?']);}
+  if(has('direccion','donde','ubicacion','llegar','plaza','horario','hora atienden','atienden','abren','que dias','dias atienden','pago','pagar','tarjeta','debito','credito','efectivo','transferencia','medios de pago'))
+    return done(LOG,['Precios','¿En qué consiste la evaluación?','¿Qué es el Bótox?']);
+  if(has('jc medical','empresa','proyecto','quien eres','quien es','quienes','enfermero','juan claudio','sobre ti','clinica','de que se trata'))
+    return done('En <b>JC Medical</b> trabajamos la medicina estética con criterio clínico, resultados naturales y seguridad, de la mano de <b>Juan Claudio Parra</b>, Enfermero Universitario. '+LOG,['Precios','¿En qué consiste la evaluación?','¿Qué es el Bótox?']);
+  if(has('evaluacion') && has('consiste','incluye','como es','de que','en que','que es','para que sirve','en que se'))
+    return done('La <b>evaluación</b> es una consulta presencial con criterio clínico: analizamos tu piel y tus objetivos, revisamos tu historia y definimos el tratamiento más adecuado y un plan personalizado para ti. Dura unos 20 a 30 minutos y cuesta $10.000, que se descuenta al realizar el procedimiento.',['Precios','Agendar evaluación','¿Qué es el Bótox?']);
+  // Cruce condición de salud × tratamiento ("si tengo X, ¿puedo Y?")
+  var _ct=_condTreat(q);
+  if(_ct){
+    var _tl=_treatLabel(q), _nt=_CT_NOTE[_ct.cat];
+    var _title=_ct.cat==='embarazo'?'Embarazo y lactancia · '+_tl:_cap(_ct.dxName||_ct.cond)+' · '+_tl;
+    return done('<b>'+_title+'</b><br>Sobre '+_tl+': '+_nt+'<br><br>Regla de oro en JC Medical: <b>nada se aplica sin una evaluación previa</b> donde revisamos tu historia, tus condiciones y tus medicamentos para confirmar que es seguro para ti. Si tienes informes de tu médico, tráelos.',['¿En qué consiste la evaluación?','Agendar evaluación','¿Qué es el Bótox?']);
+  }
+  var t=null,k;for(k in KB){if(KB[k].syn.some(function(w){return q.indexOf(w)>=0;})){t=k;break;}}
+  var a=null;
+  if(has('precio','cuesta','vale','valor','costo'))a='precio';
+  else if(has('cuantas sesiones','numero de sesiones','sesiones necesit','plan de sesiones','cuantas veces'))a='sesiones';
+  else if(has('efecto','dura el efecto','cuanto dura el efecto'))a='efecto';
+  else if(has('demora','tarda','rapido','tiempo','procedimiento','cuanto se demora','cuanto toma','la sesion'))a='sesion';
+  else if(has('duele','dolor','anestesia','molesta'))a='dolor';
+  else if(has('cuidado','despues','recuperacion','post','reposo','contraindic'))a='cuidados';
+  else if(has('dura','duracion','meses'))a='efecto';
+  else if(has('que es','para que','sirve','que hace','beneficio'))a='que';
+  if(has('agendar','reserva','cita'))
+    return done('Puedes agendar con el botón verde de WhatsApp o &laquo;Agendar evaluación&raquo;. La evaluación cuesta $10.000 y se descuenta del tratamiento.',['¿En qué consiste la evaluación?','Precios','¿Qué es el Bótox?']);
+  if(!t && has('hola','buenas','buenos dias','gracias','que tal'))
+    return done('Hola, cuéntame qué tratamiento te interesa o usa una de estas opciones.',['¿Qué es el Bótox?','Precios','¿En qué consiste la evaluación?']);
+  if(has('alergi'))
+    return done('Las reacciones alérgicas a estos tratamientos son muy poco frecuentes. La forma segura de saberlo es en tu <b>evaluación</b>, donde revisamos tu historia clínica, alergias y antecedentes para confirmar que el tratamiento es seguro para ti. Si has tenido reacciones a tratamientos previos, cuéntamelo y lo vemos con criterio clínico.',['¿En qué consiste la evaluación?','¿Qué es el Bótox?','Precios']);
+  if(has('me servira','me sirve','sirve para mi','soy candidat','candidata','candidato','me conviene','funcionara','me funciona','sirve en mi caso','es para mi','me ayudaria'))
+    return done('Eso lo definimos en tu <b>evaluación</b>: analizamos tu piel, tus objetivos y tus rasgos para recomendarte el tratamiento que realmente te conviene y los resultados esperables en tu caso. Así evitamos gastos innecesarios y logramos un resultado natural y seguro.',['¿En qué consiste la evaluación?','Precios','¿Qué es el Bótox?']);
+  if(has('marca','que producto','que usan','que utilizan','que ocupan','que toxina','original'))
+    return done('Trabajamos con marcas certificadas y de primer nivel. En toxina botulínica usamos <b>Botox</b> (marca original); en bioestimulación, <b>Sculptra</b>; y en relleno, ácido hialurónico de alta calidad. En tu evaluación te confirmo la marca exacta según tu tratamiento.',['¿Cómo se aplica el Bótox?','¿En qué consiste la evaluación?','Precios']);
+  if(has('como se aplica','como aplica','aplicacion','como inyect','como se pone','como se hace','como lo hacen')){
+    if(t==='botox'||has('botox'))return done('<b>Bótox</b><br>Se aplica con una <b>microaguja mediante punción directa</b> en los puntos precisos del músculo. Es un procedimiento rápido (unos 30 minutos) y <b>prácticamente indoloro</b>: solo se sienten pequeños pinchazos muy breves. No requiere reposo.',sugT('botox','dolor'));
+    if(t)return done('<b>'+KB[t].nm+'</b><br>Se aplica de forma precisa con microaguja o cánula según el tratamiento, usando anestesia tópica o frío para tu comodidad. Te explico el paso a paso en tu evaluación.',sugT(t,'dolor'));
+    return done('Cada tratamiento se aplica de forma precisa y segura, con microaguja o cánula según corresponda y anestesia tópica para tu comodidad. ¿Sobre cuál quieres saber?',['¿Cómo se aplica el Bótox?','¿Qué es el Bótox?','Precios']);
+  }
+  if(has('ver resultado','ver los resultado','cuando se ve','cuando se nota','cuando notare','aparecen los resultado','cuanto demora en ver','tarda en hacer efecto','hace efecto','en cuanto se ve','cuando hace efecto','cuando veo')){
+    var on={botox:'desde los 10 días aproximadamente (máximo a las 2 a 3 semanas)',bioestim:'de forma progresiva durante las semanas siguientes',salmon:'de forma progresiva en las semanas siguientes',rino:'de inmediato',ha:'de inmediato',hiper:'a los 3 a 7 días aproximadamente',meso:'de forma progresiva en los días siguientes',lipo:'de forma progresiva en las semanas siguientes',exo:'de forma progresiva',pink:'de inmediato y mejora en los días siguientes'};
+    if(t)return done('<b>'+KB[t].nm+'</b><br>Los resultados se ven '+(on[t]||'según el tratamiento')+'.',sugT(t,'efecto'));
+    return done('Cuándo se ven los resultados:<br>• Bótox: desde ~10 días<br>• Bioestimulación: progresivo (semanas)<br>• ADN de salmón: progresivo (semanas)<br>• Rinomodelación y ácido hialurónico: inmediato<br>• Hiperhidrosis: 3 a 7 días',['¿Qué es el Bótox?','Precios','¿En qué consiste la evaluación?']);
+  }
+  var lead={que:'',sesion:'La sesión es ',efecto:'El efecto ',dolor:'Es ',cuidados:'Cuidados: ',sesiones:'Sesiones: '};
+  if(t){var e=KB[t];
+    if(a==='precio'){var p=_price(e.pk);return done('<b>'+e.nm+'</b><br>'+(p.length?p.join('<br>'):'Te confirmo el valor exacto en tu evaluación.')+'<br><br>La evaluación cuesta $10.000 y se descuenta del tratamiento.',sugT(t,'precio'));}
+    if(a&&e[a])return done('<b>'+e.nm+'</b><br>'+lead[a]+e[a],sugT(t,a));
+    var fqt=_faqScore(q);  // sin dimensión: una FAQ específica (embarazo, combinar, zona) gana al "qué es" genérico
+    if(fqt)return done(fqt.a, fqt.s||['¿En qué consiste la evaluación?','Precios','¿Qué es el Bótox?']);
+    return done('<b>'+e.nm+'</b><br>'+e.que+'<br><br>La sesión es '+e.sesion+'<br>El efecto '+e.efecto,sugT(t,null));
+  }
+  var faq=_faqScore(q);
+  if(faq)return done(faq.a, faq.s||['¿En qué consiste la evaluación?','Precios','¿Qué es el Bótox?']);
+  var dx=_dxScore(q);
+  if(dx)return _dxAnswer(dx);
+  if(a==='precio'){var lines=[];['botox','bioestim','salmon','rinomodel','acido hialur','hiperhidrosis'].forEach(function(kw){_price(kw).forEach(function(p){if(lines.indexOf(p)<0)lines.push(p);});});return done('Algunos valores referenciales:<br>'+(lines.length?lines.join('<br>'):'Dime qué tratamiento te interesa.')+'<br><br>La evaluación cuesta $10.000 y se descuenta del procedimiento.',['¿Qué es el Bótox?','¿En qué consiste la evaluación?','Agendar evaluación']);}
+  if(a==='sesion'){var L=[];['botox','bioestim','salmon','rino','ha','hiper'].forEach(function(kk){L.push('• '+KB[kk].nm+': '+KB[kk].sesion);});return done('Todos los procedimientos demoran entre 30 y 60 minutos. En detalle:<br>'+L.join('<br>'),['Tiempo del procedimiento · Bótox','¿Qué es la bioestimulación?','¿En qué consiste la evaluación?']);}
+  if(a==='efecto'){return done('Duración aproximada del efecto:<br>• Bótox: 3 a 6 meses<br>• Bioestimulación: progresivo, hasta 24 meses<br>• ADN de salmón: ~6 meses con mantención<br>• Rinomodelación: hasta 12 meses<br>• Ácido hialurónico: 6 a 18 meses<br>• Hiperhidrosis: 4 a 9 meses',['¿Qué es el Bótox?','Precios','¿En qué consiste la evaluación?']);}
+  return done('Puedo orientarte sobre <b>bótox, bioestimulación, ADN de salmón, rinomodelación, ácido hialurónico, hiperhidrosis, mesoterapia y lipolítico</b>, además de precios, dirección, seguridad, embarazo, edad y la evaluación. También puedo darte información educativa sobre enfermedades frecuentes en Chile (con su fuente). Escríbeme tu duda.',['¿Qué es el Bótox?','Precios','Dirección y horario']);}
+
+function welcome(){
+  if(SESSION) return; // no mostrar si ya hay sesión
+  sheet('<div class="eyebrow" style="text-align:center">Bienvenido a JC Medical</div>'+
+    '<h3 style="text-align:center;margin:6px 0 6px">Tu piel, bien informada</h3>'+
+    '<p class="body" style="text-align:center;margin-bottom:14px;font-size:13px">Explora noticias, juegos y agenda tu evaluación.</p>'+
+    '<div class="auth-bonus"><div class="n">500</div><div class="l">Glow Points de regalo al registrarte</div></div>'+
+    '<button class="btn btn-primary" onclick="closeSheet();showRegister()">Crear cuenta — 500 pts gratis</button>'+
+    '<button class="btn btn-ghost" style="margin-top:8px" onclick="closeSheet();showLogin()">Ya tengo cuenta</button>'+
+    '<button class="skip-btn" onclick="closeSheet()">Continuar como invitado</button>',true);}
+
+// ── INIT ─────────────────────────────────────────────────────────────────
+jcmSeedIfEmpty();
+buildNav(); buildVideos(); buildSvc(); buildGames(); buildRewards(); buildCommunity(); buildChat(); setPts(points); go('inicio');
+initFeed(); // carga artículos desde DB o RSS (async)
+updateAuthUI();
+setTimeout(welcome, 500);
+</script>
+</body>
+</html>
