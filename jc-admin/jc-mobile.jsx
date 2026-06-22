@@ -379,7 +379,12 @@ function NuevaTab({ T, D, appts, addAppt }) {
 
 /* ─── Entry point ─── */
 function MobileAdmin() {
-  const T = window.JCTheme ? window.JCTheme() : {};
+  const TK = window.JCTHEME;
+  const T = (TK && (TK.marfil || TK.cielo || TK.editorial)) || {
+    bg:"#F5F2EC", surface:"#fff", text:"#1A1A14", textMute:"#5C5A50", textFaint:"#8A8674",
+    line:"rgba(20,20,15,.12)", lineSoft:"rgba(20,20,15,.08)", accent:"#54707F", onAccent:"#fff",
+    sans:"'Jost',sans-serif", serif:"'Marcellus',serif", navBg:"rgba(245,242,236,.96)"
+  };
   const D = window.JCDATA;
   const authed0 = !!(window.jcmAdminHasPass&&window.jcmAdminHasPass()&&window.jcmAdminHasSession&&window.jcmAdminHasSession());
   const [authed, setAuthed] = useState(authed0);

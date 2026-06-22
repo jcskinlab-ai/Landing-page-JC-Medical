@@ -167,8 +167,8 @@ const GLOW = {
 };
 const SORTEO_PREMIOS = [
   { ic: "PG", n: "Sesión de Pink Glow", d: "Hidratación y luminosidad" },
-  { ic: "AS", n: "Sesión de ADN de salmón", d: "Regeneración profunda" },
-  { ic: "TB", n: "Toxina botulínica · 3 zonas", d: "Expresión natural" }
+  { ic: "EX", n: "Sesión de Exosomas o Botox", d: "Regeneración y expresión natural" },
+  { ic: "TB", n: "Toxina botulínica · 1 zona", d: "Expresión natural" }
 ];
 
 const JC_GAMES = [
@@ -182,10 +182,6 @@ const JC_GAMES = [
   { id: "reflex",    nm: "Reflejo Glow", d: "Tiempo de reacción", ic: "⚡", url: "arcade/games/jc/index.html?game=reflejo", c: "#5E7A99", rk: "acc_reflex", base: 360,
     inst: "Espera a que el círculo se ponga verde y toca lo más rápido que puedas. No toques antes. Son 5 rondas; mientras más rápido, más puntos." },
   // ── Habilidad y palabras ──
-  { id: "jeringa", nm: "Inyección Perfecta", d: "Precisión · timing", ic: "💉", url: "arcade/games/nuevos/index.html?game=jeringa", c: "#4E8A72", rk: "acc_jeringa", base: 200,
-    inst: "Detén la aguja justo en la zona marcada para lograr una inyección perfecta. Mientras más al centro, más puntos." },
-  { id: "sopa",    nm: "Sopa Estética", d: "Palabras ocultas", ic: "🔎", url: "arcade/games/nuevos3/index.html?game=sopa", c: "#5E7A99", rk: "acc_sopa", base: 150,
-    inst: "Encuentra las palabras de estética escondidas en la sopa de letras. Arrastra de la primera a la última letra para marcarlas." },
   { id: "mina",    nm: "Mapa de Punción", d: "Evita los nervios faciales", ic: "🧭", url: "arcade/games/jc/index.html?game=mina", c: "#54707F", rk: "acc_mina", base: 300,
     inst: "Estás sobre un rostro en reposo: marca todas las zonas seguras de punción sin tocar un nervio facial. Cada número indica cuántos nervios hay alrededor. Cambia a modo bandera para señalar los nervios." },
   { id: "glowlab",  nm: "Glow Lab", d: "Combina insumos (Match-3)", ic: "🧪", url: "arcade/games/jc/index.html?game=glowlab", c: "#9C8AB5", rk: "glowlab_best", base: 1500,
@@ -195,16 +191,12 @@ const JC_GAMES = [
 ];
 const JC_TOP_IDS = ["trivia", "millonario", "mv", "reflex"];
 
-// Récord a superar de cada juego (máximo entre la semilla y el mejor real guardado).
+// Récord a superar de cada juego (todos los juegos guardan en jcm_records).
 function gameRecord(g) {
   let v = g.base || 0;
   try {
-    if (g.rk && g.rk.indexOf("acc_") === 0) {
-      const R = JSON.parse(localStorage.getItem("jcm_records") || "{}");
-      v = Math.max(v, parseInt(R[g.rk] || 0, 10) || 0);
-    } else if (g.rk) {
-      v = Math.max(v, parseInt(localStorage.getItem(g.rk) || 0, 10) || 0);
-    }
+    const R = JSON.parse(localStorage.getItem("jcm_records") || "{}");
+    v = Math.max(v, parseInt(R[g.rk] || 0, 10) || 0);
   } catch (e) {}
   return v;
 }
@@ -240,7 +232,14 @@ function GamesScreen({ T, go, onBack }) {
   const secHead = { display: "flex", alignItems: "center", gap: 10, padding: "0 20px 8px", fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent };
   const grid2 = { padding: "0 20px 8px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
   const session = (window.jcmGetSession ? window.jcmGetSession() : null);
-  function closeGame() { setOpen(null); setGlow(GLOW.add(40)); } // recompensa de juego (con tope diario)
+  const glowAwarded = React.useRef(false); // evita doble conteo en el mismo juego
+  function closeGame() { if (!glowAwarded.current) setGlow(GLOW.add(40)); glowAwarded.current = false; setOpen(null); }
+  // Recibe puntos por postMessage desde el iframe (millonario + otros juegos arcade)
+  React.useEffect(() => {
+    const h = e => { if (e.data && e.data.type === "jcm_glow" && e.data.pts > 0) { glowAwarded.current = true; setGlow(GLOW.add(e.data.pts)); } };
+    window.addEventListener("message", h);
+    return () => window.removeEventListener("message", h);
+  }, []);
   function dismissPromo() { setPromo(false); try { sessionStorage.setItem("jcm_games_promo", "1"); } catch (e) {} }
   if (sorteo) return <SorteoView T={T} onBack={() => setSorteo(false)} go={go} />;
   return (

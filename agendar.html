@@ -163,13 +163,40 @@
       </div>
     </div>
 
-    <!-- PASO 4: Confirmar -->
+    <!-- PASO 4: Confirmar + datos bancarios -->
     <div class="step" id="s3">
       <div class="sech">Confirma tu reserva</div>
       <div class="summ-card" id="summ"></div>
-      <label class="consent" id="consent-wrap">
+
+      <!-- Datos bancarios para transferencia -->
+      <div style="background:#fff;border:1px solid rgba(84,112,127,.25);border-left:3px solid #54707F;border-radius:14px;padding:18px 18px 14px;margin-top:14px">
+        <div style="font-family:'Marcellus';font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:#54707F;margin-bottom:12px">Pago por transferencia</div>
+        <div style="display:grid;gap:7px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">Banco</span><span style="font-weight:600;color:#1A1A14">Banco de Chile</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">Titular</span><span style="font-weight:600;color:#1A1A14">Juan Claudio Parra</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">RUT</span><span style="font-weight:600;color:#1A1A14">17.415.131-3</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">Tipo de cuenta</span><span style="font-weight:600;color:#1A1A14">Cuenta corriente</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">N° de cuenta</span><span style="font-weight:600;color:#1A1A14">00-60498-01-7</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0">
+            <span style="color:#5C5A50">Correo</span><span style="font-weight:600;color:#1A1A14">jc.skinlab@gmail.com</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:11.5px;color:#8A8674;line-height:1.6">Realiza la transferencia por el valor del tratamiento e incluye tu nombre como referencia. Luego toca el botón de abajo para enviarnos el comprobante.</div>
+      </div>
+
+      <label class="consent" id="consent-wrap" style="margin-top:14px">
         <input type="checkbox" id="fconsentimiento">
-        <span class="ctxt">Confirmo que los datos ingresados son correctos.</span>
+        <span class="ctxt">Confirmo que los datos ingresados son correctos y entiendo que mi hora quedará reservada una vez que se verifique el comprobante.</span>
       </label>
       <div class="errmsg" id="consent-err">Debes aceptar para continuar.</div>
     </div>
@@ -182,13 +209,18 @@
       <div class="ok-ic">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
       </div>
-      <h2>¡Cita agendada!</h2>
-      <p class="ok-sub">Tu hora quedó reservada. Toca el botón para enviarnos tu reserva por WhatsApp y te confirmamos.</p>
+      <h2>¡Casi listo!</h2>
+      <p class="ok-sub">Toca el botón para enviarnos tu comprobante de transferencia por WhatsApp. Revisaremos el pago y <strong>confirmaremos tu hora en máximo 15 minutos</strong>.</p>
       <div class="ok-data" id="ok-data"></div>
       <a id="wa-link" href="#" target="_blank" rel="noopener" class="wa-btn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        Enviar mi reserva por WhatsApp
+        Enviar comprobante por WhatsApp
       </a>
+      <!-- Después de tocar WA: mostrar mensaje de espera -->
+      <div id="espera-msg" class="hide" style="margin-top:14px;background:rgba(31,138,91,.07);border:1px solid rgba(31,138,91,.25);border-radius:12px;padding:14px 16px;text-align:left">
+        <div style="font-size:13px;font-weight:600;color:#1F8A5B;margin-bottom:4px">✓ Comprobante enviado</div>
+        <div style="font-size:12.5px;color:#5C5A50;line-height:1.6">Estamos revisando tu transferencia. <strong>Te confirmaremos por WhatsApp en máximo 15 minutos.</strong></div>
+      </div>
       <button class="link-btn" onclick="reinit()">Agendar otra cita</button>
     </div>
   </div>
@@ -230,7 +262,7 @@
     var out = [], end = wd===6 ? 14 : 19;
     for(var h=10;h<end;h++){
       out.push((h<10?"0":"")+h+":00");
-      if(h < end-1) out.push((h<10?"0":"")+h+":45");
+      out.push((h<10?"0":"")+h+":30");
     }
     return out;
   }
@@ -438,27 +470,32 @@
     var phone = document.getElementById('fphone').value.trim();
     var email = document.getElementById('femail').value.trim();
 
-    // Guardar en jcm_bookings (misma clave que usa JC App)
+    // Guardar como pendiente_pago — el slot NO se bloquea hasta que tú confirmes en el panel
     try{
       var list = JSON.parse(localStorage.getItem('jcm_bookings')||'[]');
       list.push({
         id:'b'+Date.now(), name:name, age:age, phone:phone, email:email,
         proc:selProc.name, price:selProc.price,
-        date:selDate.date, wd:selDate.wd, dd:selDate.dd, mm:selDate.mm,
-        time:selTime, origen:'Web · agendar.html', status:'pendiente',
+        fecha:selDate.date, date:selDate.date, wd:selDate.wd, dd:selDate.dd, mm:selDate.mm,
+        time:selTime, origen:'Web · agendar.html', status:'pendiente_pago',
         ts:new Date().toISOString()
       });
       localStorage.setItem('jcm_bookings', JSON.stringify(list));
+      // También en jcm_appts para que aparezca en el panel móvil y en la agenda
+      var appts = JSON.parse(localStorage.getItem('jcm_appts')||'[]');
+      appts.push({
+        id:'a'+Date.now(), name:name, phone:phone, email:email,
+        proc:selProc.name, price:selProc.price, dur:'60',
+        fecha:selDate.date, time:selTime, status:'pendiente_pago',
+        day:Math.round((new Date(selDate.date+'T00:00:00')-new Date().setHours(0,0,0,0))/86400000),
+        origen:'Web · agendar.html', ts:new Date().toISOString()
+      });
+      localStorage.setItem('jcm_appts', JSON.stringify(appts));
     }catch(e){}
 
-    // Bloquear slot: remover de jcm_horarios_dates
-    try{
-      var map = JSON.parse(localStorage.getItem('jcm_horarios_dates')||'{}');
-      map[selDate.date] = getSlotsForDate(selDate.date).filter(function(s){ return s!==selTime; });
-      localStorage.setItem('jcm_horarios_dates', JSON.stringify(map));
-    }catch(e){}
+    // El slot NO se bloquea aquí — se bloquea cuando confirmes la transferencia en el panel
 
-    // CAMINO 1 (hoy, sin API): el paciente envía su reserva por WhatsApp a la clínica.
+    // Construir mensaje WhatsApp con mención al comprobante
     var clinicPhone = '56997880877';
     var msg = 'Hola JC Medical 👋 Quiero confirmar mi reserva:\n\n'
       +'👤 '+name+'\n'
@@ -466,18 +503,9 @@
       +'🕐 '+selTime+' hrs\n'
       +'💉 '+selProc.name
       +(selProc.price>0 ? '\n💵 '+fmt(selProc.price) : '')
-      +'\n📞 '+phone;
+      +'\n\nAdjunto comprobante de transferencia.';
     document.getElementById('wa-link').href =
       'https://api.whatsapp.com/send?phone='+clinicPhone+'&text='+encodeURIComponent(msg);
-
-    // CAMINO 3 (automático): avisar al backend → n8n → WhatsApp Cloud API.
-    // Inofensivo si el backend aún no está desplegado: falla en silencio y la reserva sigue igual.
-    try{
-      fetch('/api/reserva', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ nombre:name, telefono:phone, proc:selProc.name, fecha:selDate.date, hora:selTime })
-      }).catch(function(){});
-    }catch(e){}
 
     // Datos en pantalla de éxito
     var rows = [
@@ -509,6 +537,16 @@
     document.getElementById('done').classList.add('hide');
     show(0);
   };
+
+  /* ─── Mostrar espera al tocar WA ─── */
+  document.getElementById('wa-link').addEventListener('click', function(){
+    var waBtn = document.getElementById('wa-link');
+    setTimeout(function(){
+      document.getElementById('espera-msg').classList.remove('hide');
+      waBtn.style.opacity = '0.55';
+      waBtn.style.pointerEvents = 'none';
+    }, 800);
+  });
 
   /* ─── Iniciar ─── */
   buildServices();

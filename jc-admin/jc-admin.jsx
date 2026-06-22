@@ -349,11 +349,21 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 function AdminApp() {
   // Modo día automático 08:00–18:00; modo noche 18:00–08:00.
   const autoTheme = () => { const h = new Date().getHours(); return (h >= 8 && h < 18) ? "cielo" : "azul"; };
-  const [themeKey, setThemeKey] = useState(autoTheme);
-  // Re-evalúa el tema según la hora mientras el panel está abierto (cada 5 min), salvo que el usuario lo haya forzado.
-  const themeForced = useRef(false);
+  const autoPeriod = () => { const h = new Date().getHours(); return h >= 8 && h < 18 ? "day" : "night"; };
+  // Carga desde localStorage si el usuario forzó el tema en el mismo período del día
+  const loadTheme = () => {
+    try { const s = JSON.parse(localStorage.getItem("jcm_theme_pref") || "null"); if (s && s.key && s.period === autoPeriod()) return s.key; } catch (e) {}
+    return autoTheme();
+  };
+  const [themeKey, setThemeKey] = useState(loadTheme);
+  const themeForced = useRef(loadTheme() !== autoTheme());
+  // Re-evalúa el tema cada 5 min; si cambió el período, borra el forzado y aplica auto.
   useEffect(() => {
-    const id = setInterval(() => { if (!themeForced.current) setThemeKey(autoTheme()); }, 300000);
+    const id = setInterval(() => {
+      const curr = autoPeriod();
+      try { const s = JSON.parse(localStorage.getItem("jcm_theme_pref") || "null"); if (s && s.period !== curr) { localStorage.removeItem("jcm_theme_pref"); themeForced.current = false; } } catch (e) {}
+      if (!themeForced.current) setThemeKey(autoTheme());
+    }, 300000);
     return () => clearInterval(id);
   }, []);
   const T = JCTHEME[themeKey];
@@ -498,7 +508,7 @@ function AdminApp() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
               {pendCount > 0 && <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: "#C0285A", color: "#fff", fontFamily: T.sans, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>{pendCount}</span>}
             </button>
-            <button onClick={() => { themeForced.current = true; setThemeKey(T.dark ? "cielo" : "azul"); }} title={T.dark ? "Modo día" : "Modo noche"} style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
+            <button onClick={() => { const nk = T.dark ? "cielo" : "azul"; themeForced.current = true; setThemeKey(nk); try { localStorage.setItem("jcm_theme_pref", JSON.stringify({ key: nk, period: autoPeriod() })); } catch (e) {} }} title={T.dark ? "Modo día" : "Modo noche"} style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">{T.dark ? <><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" /></> : <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />}</svg>
             </button>
           </div>
@@ -775,6 +785,21 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   const D = window.JCDATA;
   const list = appts.filter(a => a.day === day);
+  // Apila citas solapadas en la vista lista
+  const listStacked = (() => {
+    const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
+    let cur = -1;
+    return sorted.map(a => {
+      const dur = parseInt(a.dur) || 60;
+      const fullH = Math.max(28, dur * HPX / 60);
+      const nat = (mins(a.time) - OPEN) * HPX / 60;
+      const pushed = cur >= 0 && nat < cur;
+      const top = pushed ? cur + 2 : nat;
+      const h = pushed ? Math.max(28, Math.min(fullH, 36)) : fullH;
+      cur = top + h;
+      return { ...a, _top: top, _h: h };
+    });
+  })();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNow = day === 0 && nowMin >= OPEN && nowMin <= CLOSE;
   const hours = []; for (let h = OPEN / 60; h < CLOSE / 60; h++) hours.push(h);
@@ -835,14 +860,11 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                 <div style={{ position: "absolute", left: 0, top: -8, fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42 }}>{h}:00</div>
               </div>
             ))}
-            {list.map(a => {
-              const durMin = parseInt(a.dur) || 60;
-              return (
-                <div key={a.id} style={{ position: "absolute", left: 48, right: 4, top: (mins(a.time) - OPEN) * HPX / 60, height: Math.max(28, durMin * HPX / 60) }}>
-                  <ApptBlock T={T} a={a} onClick={setEdit} />
-                </div>
-              );
-            })}
+            {listStacked.map(a => (
+              <div key={a.id} style={{ position: "absolute", left: 48, right: 4, top: a._top, height: a._h }}>
+                <ApptBlock T={T} a={a} onClick={setEdit} />
+              </div>
+            ))}
             {showNow && (
               <div style={{ position: "absolute", left: 42, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" }}>
                 <span style={{ position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" }} />
@@ -889,6 +911,23 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const wkHours = []; for (let h = WK_OPEN; h < WK_CLOSE; h++) wkHours.push(h);
   const wkGridH = (WK_CLOSE - WK_OPEN) * WPX;
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
+
+  // Apila citas solapadas verticalmente (ancho completo, empuja las siguientes hacia abajo)
+  const stackAppts = list => {
+    if (!list.length) return [];
+    const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
+    let cursor = -1;
+    return sorted.map(a => {
+      const dur = parseInt(a.dur) || 60;
+      const fullH = Math.max(20, dur * WPX / 60);
+      const natural = topW(a.time);
+      const pushed = cursor >= 0 && natural < cursor;
+      const top = pushed ? cursor + 2 : natural;
+      const h = pushed ? Math.max(20, Math.min(fullH, 26)) : fullH;
+      cursor = top + h;
+      return { ...a, _top: top, _h: h };
+    });
+  };
 
   return (
     <div>
@@ -946,22 +985,20 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                       </div>
                     );
                   })}
-                  {/* Bloques de citas con altura proporcional a la duración */}
-                  {da.map(a => {
-                    const durMin = parseInt(a.dur) || 60;
-                    const blockH = Math.max(28, durMin * WPX / 60);
+                  {/* Bloques de citas apilados verticalmente */}
+                  {stackAppts(da).map(a => {
                     const isPendPago = a.status === "pendiente_pago";
                     const accentColor = a.attended ? "#1F8A5B" : (isPendPago ? "#B8860B" : T.accent);
                     return (
-                      <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 2, right: 2, top: topW(a.time), height: blockH, zIndex: 2 }}
+                      <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
                         onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
                         <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
                             <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                           </div>
-                          {blockH > 42 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {isPendPago ? "⏳ Pago pendiente" : a.proc}</div>}
-                          {blockH > 58 && <div style={{ fontFamily: T.sans, fontSize: 9, color: T.textFaint, marginTop: 1 }}>{durMin} min</div>}
+                          {a._h > 36 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {isPendPago ? "⏳ Pago pendiente" : a.proc}</div>}
+                          {a._h > 52 && <div style={{ fontFamily: T.sans, fontSize: 9, color: T.textFaint, marginTop: 1 }}>{parseInt(a.dur) || 60} min</div>}
                         </div>
                       </div>
                     );
@@ -1168,6 +1205,25 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         </div>}>
         <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid rgba(31,138,91,.3)", borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>
           Cita seleccionada · <b>{wk.wd} {wk.dd} {wk.mm}</b> a las <b>{pick.time}</b> · {prof}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+          <div>
+            <span style={lbl}>Tratamiento</span>
+            <select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}>
+              <option value="Evaluación general">Evaluación general</option>
+              {PROC_LIST().map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <span style={lbl}>Duración</span>
+            <select value={dur} onChange={e => setDur(e.target.value)} style={selStyle}>
+              <option>15 minutos</option>
+              <option>30 minutos</option>
+              <option>45 minutos</option>
+              <option>60 minutos</option>
+              <option>90 minutos</option>
+            </select>
+          </div>
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           {[["existente", "Paciente existente"], ["nuevo", "Paciente nuevo"]].map(([k, l]) => (

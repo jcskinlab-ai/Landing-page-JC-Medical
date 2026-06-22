@@ -73,7 +73,7 @@ function prep(id){const g=GAMES.find(x=>x.id===id);if(!g)return;menuEl.classList
  ov.innerHTML=`<div class="ic">${g.ic}</div><h2>${g.t}</h2><p>${g.inst}</p><button class="btn" id="goB">Jugar</button><button class="btn ghost" onclick="toMenu()">Volver al menú</button>`;
  ov.classList.remove('hidden');$('#goB').onclick=()=>{ov.classList.add('hidden');run(id);};}
 function run(id){({trivia:gTrivia,millonario:gMillonario,reflejo:gReflejo,mito:gMito,glowlab:gGlowlab,snake:gSnake,mina:gMina})[id]();}
-function gameOver(g,score,extra){const best=saveBest(g.rk,score);const rec=score>=best&&score>0;ov.innerHTML=`<h2>${rec?'¡Nuevo récord!':'Fin'}</h2><div class="big">${fmt(score)}</div><p>${extra||''}Récord: ${fmt(best)} puntos</p><button class="btn" onclick="prep('${g.id}')">Jugar de nuevo</button><button class="btn ghost" onclick="toMenu()">Otro juego</button>`;ov.classList.remove('hidden');}
+function gameOver(g,score,extra){const best=saveBest(g.rk,score);const rec=score>=best&&score>0;ov.innerHTML=`<h2>${rec?'¡Nuevo récord!':'Fin'}</h2><div class="big">${fmt(score)}</div><p>${extra||''}Récord: ${fmt(best)} puntos</p><button class="btn" onclick="prep('${g.id}')">Jugar de nuevo</button><button class="btn ghost" onclick="toMenu()">Otro juego</button>`;ov.classList.remove('hidden');try{if(window.parent!==window){const MILL_LADDER=[10000,30000,60000,100000,200000,400000,800000,1500000,3000000,7000000];const lvl=g.id==='millonario'?Math.max(0,MILL_LADDER.indexOf(score)+1):0;const pts=g.id==='millonario'?Math.max(10,(lvl||1)*18):Math.min(60,Math.max(10,Math.round(score/20)));window.parent.postMessage({type:'jcm_glow',pts,game:g.id},'*');}}catch(e){}}
 const G=id=>GAMES.find(x=>x.id===id);
 
 // ─── Banco de preguntas (SOLO tratamientos) ───
