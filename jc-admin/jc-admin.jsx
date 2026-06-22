@@ -390,6 +390,15 @@ function AdminApp() {
   const [navOpen, setNavOpen] = useState(false);
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profilePic, setProfilePic] = useState(() => { try { return localStorage.getItem("jcm_admin_photo") || null; } catch (e) { return null; } });
+  const profileRef = useRef(null);
+  const profilePhotoInput = useRef(null);
+  useEffect(() => {
+    const h = e => { if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
 
   function updatePatient(id, patch) { setPatients(ps => ps.map(p => p.id === id ? { ...p, ...patch } : p)); }
   function addPatient(p) { const np = { ...p, id: "p" + Date.now(), tags: [], consent: false, points: [], history: [] }; setPatients(ps => [np, ...ps]); return np; }
@@ -498,11 +507,47 @@ function AdminApp() {
             {/* Izquierda: solo el buscador de pacientes (nombre, RUT, teléfono o correo) */}
             <PatientSearch T={T} patients={patients} onOpen={(id) => { setOpenPatient(id); setSection("pacientes"); }} />
             <div style={{ flex: 1 }} />
-            {/* Derecha: perfil + nombre, notificaciones y modo oscuro */}
-            <Avatar T={T} name="Juan Claudio" src={A.pro} size={34} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, lineHeight: 1.1, whiteSpace: "nowrap" }}>Juan Claudio Parra</div>
-              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, lineHeight: 1.1 }}>Mi perfil</div>
+            {/* Derecha: dropdown de perfil */}
+            <div ref={profileRef} style={{ position: "relative" }}>
+              <button onClick={() => setProfileOpen(o => !o)} style={{ display: "flex", alignItems: "center", gap: 9, background: profileOpen ? (T.chipBg || "rgba(0,0,0,.06)") : "none", border: "1px solid " + (profileOpen ? T.chipBorder : "transparent"), cursor: "pointer", padding: "5px 10px 5px 6px", borderRadius: 10, transition: "all .15s" }}>
+                <Avatar T={T} name="Juan Claudio" src={profilePic || A.pro} size={32} />
+                <div style={{ minWidth: 0, textAlign: "left" }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, lineHeight: 1.1, whiteSpace: "nowrap" }}>Juan Claudio Parra</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, lineHeight: 1.1 }}>Mi perfil</div>
+                </div>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="2.2" style={{ flexShrink: 0, transform: profileOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              {profileOpen && (
+                <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 230, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 12px 40px -10px rgba(0,0,0,.4)", zIndex: 200, overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 18px 14px", borderBottom: "1px solid " + T.line }}>
+                    <Avatar T={T} name="Juan Claudio" src={profilePic || A.pro} size={42} />
+                    <div>
+                      <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text, lineHeight: 1.2 }}>Juan Claudio Parra</div>
+                      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>Administrador</div>
+                    </div>
+                  </div>
+                  {[
+                    { label: "Cambiar foto", action: "photo", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> },
+                    { label: "Configuración", action: "config", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
+                    { label: "Cerrar sesión", action: "logout", danger: true, icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg> }
+                  ].map(item => (
+                    <button key={item.action} onClick={() => {
+                      if (item.action === "photo") { profilePhotoInput.current && profilePhotoInput.current.click(); }
+                      else if (item.action === "config") { nav("equipo"); setProfileOpen(false); }
+                      else if (item.action === "logout") { if (window.jcmAdminEndSession) window.jcmAdminEndSession(); location.reload(); }
+                    }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 18px", background: "none", border: "none", borderTop: "1px solid " + T.lineSoft, cursor: "pointer", color: item.danger ? "#C0285A" : T.text, fontFamily: T.sans, fontSize: 13, textAlign: "left" }}>
+                      <span style={{ color: item.danger ? "#C0285A" : T.textMute, display: "flex" }}>{item.icon}</span>
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <input ref={profilePhotoInput} type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                const f = e.target.files && e.target.files[0]; if (!f) return;
+                const r = new FileReader();
+                r.onload = ev => { try { localStorage.setItem("jcm_admin_photo", ev.target.result); setProfilePic(ev.target.result); } catch (e) {} setProfileOpen(false); };
+                r.readAsDataURL(f);
+              }} />
             </div>
             <button onClick={() => setNotifOpen(true)} title="Notificaciones" style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
