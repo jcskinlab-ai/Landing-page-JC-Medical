@@ -1137,7 +1137,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             {/* Etiquetas de hora */}
             <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
               {wkHours.map((h, i) => (
-                <div key={h} style={{ position: "absolute", top: Math.max(2, i * WPX - 8), right: 6, fontFamily: T.sans, fontSize: 10, color: T.textFaint, pointerEvents: "none", userSelect: "none" }}>
+                <div key={h} style={{ position: "absolute", top: i * WPX + 2, right: 6, fontFamily: T.sans, fontSize: 10, color: T.textFaint, pointerEvents: "none", userSelect: "none" }}>
                   {(h < 10 ? "0" : "") + h}:00
                 </div>
               ))}
@@ -1258,6 +1258,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [recurso, setRecurso] = useState("No especificado");
   const [camilla, setCamilla] = useState("Box 1");
   const [dur, setDur] = useState("30 minutos");
+  const [durTouched, setDurTouched] = useState(false); // true si el usuario cambió la duración a mano
   // selección
   const [pick, setPick] = useState(pf.time ? { dayOff: pf.day || 0, time: pf.time } : null); // {dayOff, time}
   // paciente
@@ -1276,9 +1277,13 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [origen, setOrigen] = useState("");
 
   // Autocompleta la duración según el procedimiento (fuente de verdad en jc-data) — evita el "evaluación 60".
-  useEffect(() => { try { if (window.JCDATA && window.JCDATA.procMin) setDur(window.JCDATA.procMin(proc) + " minutos"); } catch (e) {} }, [proc]);
+  useEffect(() => { try { if (window.JCDATA && window.JCDATA.procMin) { setDur(window.JCDATA.procMin(proc) + " minutos"); setDurTouched(false); } } catch (e) {} }, [proc]);
 
   const procsByEsp = esp === "Todas" ? PROC_LIST() : (D.catalog.find(s => s.sec === esp) || { groups: [] }).groups.reduce((a, g) => a.concat(g.items.map(i => i.n)), []);
+  // Procedimientos agrupados por categoría (optgroups, como en Servicios)
+  const procOptgroups = D.catalog.filter(s => s.sec !== "Promociones" && (esp === "Todas" || s.sec === esp)).map(sec => sec.groups.map(g => (
+    <optgroup key={sec.sec + "·" + g.cat} label={g.cat}>{g.items.map(it => <option key={it.n} value={it.n}>{it.n}</option>)}</optgroup>
+  )));
   const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const b0 = new Date();
   const week = []; for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), mm: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][dt.getMonth()], wd: wdN[dt.getDay()], wday: dt.getDay() }); }
@@ -1301,7 +1306,8 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           if (np && np.id) resolvedPatId = np.id;
         } catch (e) {}
       }
-      onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, recurso, camilla, dur, origen, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
+      const finalDur = (!durTouched && window.JCDATA && window.JCDATA.procMin) ? (window.JCDATA.procMin(proc) + " minutos") : dur;
+    onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, recurso, camilla, dur: finalDur, origen, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
       // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente
       try {
         const dt = new Date(apptFecha + "T00:00:00");
@@ -1448,12 +1454,12 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
             <span style={lbl}>Tratamiento</span>
             <select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}>
               <option value="Evaluación general">Evaluación general</option>
-              {PROC_LIST().map(p => <option key={p} value={p}>{p}</option>)}
+              {procOptgroups}
             </select>
           </div>
           <div>
             <span style={lbl}>Duración</span>
-            <select value={dur} onChange={e => setDur(e.target.value)} style={selStyle}>
+            <select value={dur} onChange={e => { setDur(e.target.value); setDurTouched(true); }} style={selStyle}>
               <option>15 minutos</option>
               <option>30 minutos</option>
               <option>45 minutos</option>
@@ -1519,11 +1525,11 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 18, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           <div><span style={lbl}>Especialidad</span><select value={esp} onChange={e => { setEsp(e.target.value); }} style={selStyle}><option>Todas</option>{especialidades.map(s => <option key={s}>{s}</option>)}</select></div>
-          <div><span style={lbl}>Procedimiento</span><select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}><option value="Evaluación general">Evaluación general</option>{procsByEsp.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+          <div><span style={lbl}>Procedimiento</span><select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}><option value="Evaluación general">Evaluación general</option>{procOptgroups}</select></div>
           <div><span style={lbl}>Profesional</span><select value={prof} onChange={e => setProf(e.target.value)} style={selStyle}>{team.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
           <div><span style={lbl}>Recurso</span><select value={recurso} onChange={e => setRecurso(e.target.value)} style={selStyle}><option>No especificado</option><option>Sala de procedimientos</option><option>Sala de evaluación</option></select></div>
           <div><span style={lbl}>Box / Camilla</span><select value={camilla} onChange={e => setCamilla(e.target.value)} style={selStyle}><option>Box 1</option><option>Box 2</option><option>Camilla 1</option></select></div>
-          <div><span style={lbl}>Duración</span><select value={dur} onChange={e => setDur(e.target.value)} style={selStyle}><option>15 minutos</option><option>30 minutos</option><option>45 minutos</option><option>60 minutos</option></select></div>
+          <div><span style={lbl}>Duración</span><select value={dur} onChange={e => { setDur(e.target.value); setDurTouched(true); }} style={selStyle}><option>15 minutos</option><option>30 minutos</option><option>45 minutos</option><option>60 minutos</option></select></div>
         </div>
         <div style={{ overflowX: "auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(80px,1fr))", gap: 6, minWidth: 620 }}>
