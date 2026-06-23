@@ -278,7 +278,8 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
     const p = { id: "pt" + Date.now() + Math.random().toString(36).slice(2, 5), view, x, y, product: product.id, units: def || defFor(product), label: label || "", note: "" };
     onChange([...points, p]); setSel(p.id);
   }
-  function defFor(pr) { return pr.unit === "U" ? "5U" : pr.unit === "ml" ? "0.5ml" : "1 vial"; }
+  // Toxina: 2U base por punción (dilución 100U en 2,5 ml SF = 40 U/ml → 2U = 0,05 ml).
+  function defFor(pr) { return pr.unit === "U" ? "2U" : pr.unit === "ml" ? "0.5ml" : "1 vial"; }
   // Suma/resta al número de la dosis manteniendo la unidad (ej. "5U" → "6U").
   function stepUnits(id, delta) {
     onChange(points.map(p => {

@@ -480,7 +480,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: v })} placeholder="Ej. AB1234" />
               <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => setF({ ...f, venc: v })} placeholder="2027-03" />
-              <AdField T={T} label="Temperatura conserv." value={f.temp} onChange={v => setF({ ...f, temp: v })} placeholder="2–8 °C" />
+              <AdField T={T} label="Temperatura conserv." value={f.temp} onChange={v => { const base = v.replace(/\s*°.*$/, "").replace(/\s+$/, ""); setF({ ...f, temp: base ? base + " °C" : "" }); }} placeholder="2–8 °C" />
               <AdField T={T} label="Dilución / reconstitución" value={f.dilucion} onChange={v => setF({ ...f, dilucion: v })} placeholder="100U en 2,5 ml SF" />
             </div>
           </div>
