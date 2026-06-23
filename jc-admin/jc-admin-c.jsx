@@ -524,9 +524,29 @@ function ColaboracionView({ T }) {
   const D = window.JCDATA;
   const [reqs, setReqs] = useState(() => { try { return (window.DB && DB.get("collabs")) || []; } catch (e) { return []; } });
   const [openId, setOpenId] = useState(null);
+  const [verRech, setVerRech] = useState(false);
   function setStatus(id, st) { const nx = reqs.map(r => r.id === id ? { ...r, status: st } : r); setReqs(nx); try { if (window.DB) DB.set("collabs", nx); } catch (e) {} }
   const openR = reqs.find(r => r.id === openId);
   const pend = reqs.filter(r => (r.status || "nueva") === "nueva");
+  const rech = reqs.filter(r => r.status === "rechazada");        // registro histórico
+  const activas = reqs.filter(r => r.status !== "rechazada");      // nuevas + aprobadas
+  const reqRow = r => (
+    <div key={r.id} style={{ background: T.surface, border: "1px solid " + ((r.status || "nueva") === "nueva" ? T.accent : T.line), borderRadius: 10, padding: "13px 15px", opacity: r.status === "rechazada" ? 0.78 : 1 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{r.name}</span>
+            <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, background: T.chipBg, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "2px 8px" }}>{r.kind || "Influencer"}</span>
+            {(r.status || "nueva") === "nueva" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#C0285A" }} />}
+            {r.status === "aprobada" && <AdTag T={T} tone="ok">Aprobada</AdTag>}
+            {r.status === "rechazada" && <AdTag T={T} tone="danger">Rechazada</AdTag>}
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 3 }}>{[r.ig && ("IG " + r.ig), r.reach && (r.reach + " seguidores"), r.phone].filter(Boolean).join("  ·  ")}</div>
+        </div>
+        <button onClick={() => setOpenId(r.id)} style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 13px", cursor: "pointer", fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Ver</button>
+      </div>
+    </div>
+  );
   return (
     <div>
       <SecHead T={T} title="Colaboraciones" sub="Postulaciones de gente que quiere colaborar con la clínica, recibidas desde el formulario público." />
@@ -544,10 +564,11 @@ function ColaboracionView({ T }) {
           </div>
         );
       })()}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
         <AdStat T={T} n={reqs.length} l="Solicitudes" />
         <AdStat T={T} n={pend.length} l="Sin revisar" accent={pend.length > 0} />
         <AdStat T={T} n={reqs.filter(r => r.status === "aprobada").length} l="Aprobadas" />
+        <AdStat T={T} n={rech.length} l="Rechazadas" />
       </div>
       {reqs.length === 0 && (
         <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 10, padding: "40px 24px", textAlign: "center" }}>
@@ -555,24 +576,22 @@ function ColaboracionView({ T }) {
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {reqs.map(r => (
-          <div key={r.id} style={{ background: T.surface, border: "1px solid " + ((r.status || "nueva") === "nueva" ? T.accent : T.line), borderRadius: 10, padding: "13px 15px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{r.name}</span>
-                  <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, background: T.chipBg, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "2px 8px" }}>{r.kind || "Influencer"}</span>
-                  {(r.status || "nueva") === "nueva" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#C0285A" }} />}
-                  {r.status === "aprobada" && <AdTag T={T} tone="ok">Aprobada</AdTag>}
-                  {r.status === "rechazada" && <AdTag T={T} tone="danger">Rechazada</AdTag>}
-                </div>
-                <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 3 }}>{[r.ig && ("IG " + r.ig), r.reach && (r.reach + " seguidores"), r.phone].filter(Boolean).join("  ·  ")}</div>
-              </div>
-              <button onClick={() => setOpenId(r.id)} style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 13px", cursor: "pointer", fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Ver</button>
-            </div>
-          </div>
-        ))}
+        {activas.map(reqRow)}
       </div>
+      {/* Registro histórico de rechazadas (por si se necesita el contacto en el futuro) */}
+      {rech.length > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <button onClick={() => setVerRech(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "none", border: "none", cursor: "pointer", padding: "4px 0", textAlign: "left" }}>
+            <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute }}>Rechazadas · registro ({rech.length})</span>
+            <span style={{ flex: 1, height: 1, background: T.line }} />
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ transform: verRech ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+          {verRech && <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 2 }}>Solicitudes no concretadas, guardadas para contactarlas en futuras campañas.</div>
+            {rech.map(reqRow)}
+          </div>}
+        </div>
+      )}
       {openR && <CollabModal T={T} D={D} r={openR} onClose={() => setOpenId(null)} onStatus={st => setStatus(openR.id, st)} />}
     </div>
   );
@@ -582,7 +601,7 @@ function ColaboracionView({ T }) {
 function CollabModal({ T, D, r, onClose, onStatus }) {
   const clinic = (D && D.brand) || "JC Medical";
   const saludo = "Hola " + (r.name || "") + ", ¡gracias por tu interés en colaborar con " + clinic + "!";
-  const msgOk = saludo + " Revisamos tu perfil y nos encantaría avanzar contigo. Como los procedimientos de medicina estética son actos médicos, el siguiente paso es una evaluación clínica previa para definir el tratamiento y la fecha. ¿Qué día te acomoda para coordinarla?";
+  const msgOk = saludo + " Revisamos tu perfil y nos encantaría avanzar contigo. Como los procedimientos de medicina estética son actos médicos, el siguiente paso es una evaluación clínica previa para definir el tratamiento y la fecha. ¿Qué día te acomoda para ver disponibilidad?";
   const msgNo = saludo + " Agradecemos mucho tu propuesta y el tiempo que dedicaste. Por ahora no podremos concretar esta colaboración, pero guardamos tus datos para futuras campañas. ¡Te deseamos mucho éxito!";
   function wa(text) { const p = (r.phone || "").replace(/\D/g, ""); window.open("https://wa.me/" + p + "?text=" + encodeURIComponent(text), "_blank", "noopener"); }
   const igUrl = r.ig ? ("https://instagram.com/" + (r.ig || "").replace(/^@/, "")) : null;
