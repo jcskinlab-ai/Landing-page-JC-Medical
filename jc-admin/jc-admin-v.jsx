@@ -1085,7 +1085,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const atCell = (off, h) => appts.filter(a => a.day === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
   const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20;
-  const wkHours = []; for (let h = WK_OPEN; h < WK_CLOSE; h++) wkHours.push(h);
+  const wkHours = []; for (let h = WK_OPEN; h <= WK_CLOSE; h++) wkHours.push(h); // incluye 20:00 (cierre)
   const wkGridH = (WK_CLOSE - WK_OPEN) * WPX;
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
 
@@ -1118,7 +1118,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         <button onClick={() => setWkOff(wkOff + 1)} title="Semana siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
       </div>
 
-      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "74vh", border: "1px solid " + T.line, borderRadius: 12 }}>
+      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "80vh", border: "1px solid " + T.line, borderRadius: 12, paddingBottom: 8 }}>
         <div style={{ minWidth: 900 }}>
           {/* Encabezado días */}
           <div style={{ display: "grid", gridTemplateColumns: "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
@@ -1135,7 +1135,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           {/* Timeline continuo por columna */}
           <div style={{ display: "flex", position: "relative" }}>
             {/* Etiquetas de hora */}
-            <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
+            <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH + 18, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
               {wkHours.map((h, i) => (
                 <div key={h} style={{ position: "absolute", top: i * WPX + 2, right: 6, fontFamily: T.sans, fontSize: 10, color: T.textFaint, pointerEvents: "none", userSelect: "none" }}>
                   {(h < 10 ? "0" : "") + h}:00
