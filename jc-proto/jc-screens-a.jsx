@@ -14,7 +14,7 @@ function Chip({ T, children, active, onClick }) {
   return (
     <button onClick={onClick} style={{
       fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 500,
-      padding: "9px 15px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap",
+      padding: "9px 15px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", minHeight: 44,
       background: active ? T.text : T.chipBg, color: active ? T.bg : T.textMute,
       border: "1px solid " + (active ? T.text : T.chipBorder), transition: "all .25s " + T.ease
     }}>{children}</button>
@@ -28,7 +28,7 @@ function PrimaryBtn({ T, children, onClick, full, icon }) {
       style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, width: full ? "100%" : "auto",
         fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".18em", textTransform: "uppercase",
-        padding: "15px 26px", borderRadius: 3, cursor: "pointer",
+        padding: "15px 26px", borderRadius: 3, cursor: "pointer", minHeight: 44,
         background: h ? "transparent" : T.primaryBg, color: h ? T.text : T.primaryText,
         border: "1px solid " + (T.dark ? T.primaryBg : T.primaryBg), transition: "all .28s " + T.ease
       }}>{icon}{children}</button>
@@ -42,7 +42,7 @@ function GhostBtn({ T, children, onClick, full }) {
       style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: full ? "100%" : "auto",
         fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".18em", textTransform: "uppercase",
-        padding: "15px 26px", borderRadius: 3, cursor: "pointer", background: "transparent",
+        padding: "15px 26px", borderRadius: 3, cursor: "pointer", minHeight: 44, background: "transparent",
         color: h ? T.text : T.textMute, border: "1px solid " + (h ? T.text : T.chipBorder), transition: "all .28s " + T.ease
       }}>{children}</button>
   );
@@ -68,7 +68,7 @@ function ScreenTop({ T, title, eyebrow, onBack }) {
   return (
     <div style={{ padding: "22px 20px 14px" }}>
       {onBack && (
-        <button onClick={onBack} style={{ display: "flex", width: "fit-content", alignItems: "center", gap: 6, background: T.dark ? "rgba(255,255,255,.08)" : "rgba(20,20,15,.05)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", border: "1px solid " + T.line, cursor: "pointer", color: T.text, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 16, padding: "7px 13px 7px 10px", borderRadius: 999 }}>
+        <button onClick={onBack} style={{ display: "flex", width: "fit-content", alignItems: "center", gap: 6, background: T.dark ? "rgba(255,255,255,.08)" : "rgba(20,20,15,.05)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", border: "1px solid " + T.line, cursor: "pointer", color: T.text, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 16, padding: "12px 14px 12px 12px", minHeight: 44, borderRadius: 999 }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M15 18l-6-6 6-6" /></svg>
           Volver
         </button>
@@ -83,7 +83,7 @@ function ScreenTop({ T, title, eyebrow, onBack }) {
 function StickyBack({ T, onBack, label }) {
   return (
     <div style={{ position: "sticky", top: 8, zIndex: 14, padding: "8px 16px 4px", pointerEvents: "none" }}>
-      <button onClick={onBack} style={{ pointerEvents: "auto", display: "inline-flex", width: "fit-content", alignItems: "center", gap: 6, background: T.dark ? "rgba(16,19,26,.62)" : "rgba(255,255,255,.62)", backdropFilter: "blur(16px) saturate(1.3)", WebkitBackdropFilter: "blur(16px) saturate(1.3)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.12)" : "rgba(20,20,15,.1)"), cursor: "pointer", color: T.text, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", padding: "8px 14px 8px 11px", borderRadius: 999, boxShadow: "0 6px 18px -8px rgba(0,0,0,.4)" }}>
+      <button onClick={onBack} style={{ pointerEvents: "auto", display: "inline-flex", width: "fit-content", alignItems: "center", gap: 6, background: T.dark ? "rgba(16,19,26,.62)" : "rgba(255,255,255,.62)", backdropFilter: "blur(16px) saturate(1.3)", WebkitBackdropFilter: "blur(16px) saturate(1.3)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.12)" : "rgba(20,20,15,.1)"), cursor: "pointer", color: T.text, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", padding: "12px 15px 12px 13px", minHeight: 44, borderRadius: 999, boxShadow: "0 6px 18px -8px rgba(0,0,0,.4)" }}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M15 18l-6-6 6-6" /></svg>{label || "Volver"}
       </button>
     </div>
@@ -124,6 +124,7 @@ function HomeScreen({ T, D, go, openBooking, tone }) {
             <PrimaryBtn T={heroT} onClick={() => openBooking(null)}>Agendar evaluación</PrimaryBtn>
             <GhostBtn T={heroT} onClick={() => go("catalogo")}>Ver tratamientos</GhostBtn>
           </div>
+          <div style={{ fontFamily: heroT.sans, fontSize: 10, color: "rgba(245,242,236,.5)", marginTop: 6, textAlign: "center" }}>Reserva con abono de $15.000 · resto se paga en clínica</div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginTop: 26, color: "rgba(245,242,236,.6)", animation: "jcBounce 1.8s infinite" }}>
             <span style={{ fontFamily: heroT.sans, fontSize: 9, letterSpacing: ".24em", textTransform: "uppercase" }}>Desliza</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 9l6 6 6-6" /></svg>
@@ -147,8 +148,7 @@ function HomeScreen({ T, D, go, openBooking, tone }) {
 
       {/* Antes/después preview */}
       <div style={{ padding: "48px 20px 14px" }}>
-        <Eyebrow T={T}>Antes y después</Eyebrow>
-        <h2 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, marginTop: 12 }}>
+        <h2 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text }}>
           Casos reales, <em style={{ fontFamily: T.ital, fontStyle: "italic", color: T.accent }}>sin retoque.</em>
         </h2>
       </div>
@@ -178,7 +178,10 @@ function HomeScreen({ T, D, go, openBooking, tone }) {
         <p style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 300, color: T.textMute, marginTop: 14, lineHeight: 1.7 }}>
           {ctaText}
         </p>
-        <div style={{ marginTop: 22 }}><PrimaryBtn T={T} full icon={cardIcon} onClick={() => openBooking(null)}>Agendar evaluación</PrimaryBtn></div>
+        <div style={{ marginTop: 22 }}>
+          <PrimaryBtn T={T} full icon={cardIcon} onClick={() => openBooking(null)}>Agendar evaluación</PrimaryBtn>
+          <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 6, textAlign: "center" }}>Reserva con abono de $15.000 · resto se paga en clínica</div>
+        </div>
 
         {/* Ubicación + contacto */}
         <div style={{ marginTop: 26, borderRadius: 10, overflow: "hidden", border: "1px solid " + T.line, textAlign: "left" }}>
@@ -455,7 +458,7 @@ function CatRow({ T, it, onClick, D, photo, onAdd }) {
           <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginTop: 2 }}>Ver ficha →</div>
         </div>
         <span role="button" title="Agregar al carrito" aria-label="Agregar al carrito" onClick={e => { e.stopPropagation(); onAdd && onAdd(); }}
-          style={{ width: 36, height: 36, borderRadius: 11, flexShrink: 0, background: T.accentSoft || T.chipBg, border: "1px solid " + T.chipBorder, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          style={{ width: 44, height: 44, borderRadius: 13, flexShrink: 0, background: T.accentSoft || T.chipBg, border: "1px solid " + T.chipBorder, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="9" cy="21" r="1" /><circle cx="18" cy="21" r="1" /><path d="M3 4h2l2.4 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6" /><path d="M16 5v4M14 7h4" /></svg>
         </span>
       </div>
@@ -497,12 +500,13 @@ function FichaScreen({ T, D, proc, go, openBooking }) {
   return (
     <div>
       <div style={{ padding: "18px 20px 0" }}>
-        <button onClick={() => go("back")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", color: T.textMute, fontFamily: T.sans, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", padding: 0 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M15 18l-6-6 6-6" /></svg>Volver
+        <button onClick={() => go("back")} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: T.dark ? "rgba(255,255,255,.08)" : "rgba(20,20,15,.05)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", border: "1px solid " + T.line, cursor: "pointer", color: T.text, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", padding: "12px 14px 12px 12px", minHeight: 44, borderRadius: 999 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M15 18l-6-6 6-6" /></svg>
+          Volver
         </button>
       </div>
       <div style={{ padding: "20px 20px 0" }}>
-        <Eyebrow T={T}>{data.sub}</Eyebrow>
+        <span style={{ fontFamily: T.sans, fontSize: 9.5, fontWeight: 400, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent }}>{data.sub}</span>
         <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 42, letterSpacing: "-.02em", color: T.text, marginTop: 10, lineHeight: 1 }}>{data.name}</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
           <div style={{ fontFamily: T.serif, fontSize: 24, color: T.text }}>{data.priceLabel}</div>

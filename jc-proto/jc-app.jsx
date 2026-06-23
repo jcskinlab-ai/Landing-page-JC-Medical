@@ -26,7 +26,7 @@ function navIcon(name, stroke) {
     juegos: <><rect x="2" y="6" width="20" height="12" rx="4" /><path d="M7 10v4M5 12h4" /><circle cx="16" cy="11" r="1" fill={stroke} /><circle cx="18.5" cy="14" r="1" fill={stroke} /></>,
     perfil: <><circle cx="12" cy="8" r="3.6" /><path d="M5 20a7 7 0 0 1 14 0" /></>
   }[name];
-  return <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{p}</svg>;
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{p}</svg>;
 }
 
 const TABS = [
@@ -38,10 +38,8 @@ const TABS = [
 ];
 
 function App() {
-  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const base = JCTHEME[t.theme] || JCTHEME.editorial;
-  const accent = ACCENTS[t.accent];
-  const T = accent ? { ...base, accent: accent, accentDeep: accent } : base;
+  const t = { theme: "clinico", bookingFlow: "guiado", copyTone: "calido", animations: true };
+  const T = JCTHEME[t.theme] || JCTHEME.editorial;
   const D = window.JCDATA;
   const anim = t.animations;
 
@@ -59,7 +57,7 @@ function App() {
   function saveScroll() { if (scrollRef.current) scrollMem.current[curKey.current] = scrollRef.current.scrollTop; }
   function onScroll(e) {
     const el = e.currentTarget, max = el.scrollHeight - el.clientHeight;
-    if (progRef.current) progRef.current.style.width = (max > 0 ? (el.scrollTop / max * 100) : 0) + "%";
+    if (progRef.current) progRef.current.style.transform = "scaleX(" + (max > 0 ? el.scrollTop / max : 0) + ")";
     const sc = el.scrollTop > el.clientHeight * 0.62;
     setScrolled(prev => prev === sc ? prev : sc);
   }
@@ -100,7 +98,7 @@ function App() {
 
   const screenKey = sub ? sub.type + (sub.proc ? sub.proc.id || sub.proc.name : "") : (tab === "feed" ? "feed" + feedNonce : tab);
   // Restaura el scroll de la pantalla a la que se entra (al volver, regresa donde estabas).
-  useEffect(() => { const el = scrollRef.current; if (!el) return; el.scrollTop = (scrollMem.current[screenKey] != null ? scrollMem.current[screenKey] : 0); curKey.current = screenKey; if (progRef.current) { const max = el.scrollHeight - el.clientHeight; progRef.current.style.width = (max > 0 ? (el.scrollTop / max * 100) : 0) + "%"; } setScrolled(el.scrollTop > el.clientHeight * 0.62); }, [screenKey]);
+  useEffect(() => { const el = scrollRef.current; if (!el) return; el.scrollTop = (scrollMem.current[screenKey] != null ? scrollMem.current[screenKey] : 0); curKey.current = screenKey; if (progRef.current) { const max = el.scrollHeight - el.clientHeight; progRef.current.style.transform = "scaleX(" + (max > 0 ? el.scrollTop / max : 0) + ")"; } setScrolled(el.scrollTop > el.clientHeight * 0.62); }, [screenKey]);
 
   const onHome = tab === "home" && !sub;
   const heroMode = onHome && !scrolled;        // hero oscuro visible → barra/dashboard oscuros
@@ -111,15 +109,15 @@ function App() {
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
       <div className="jc-app-frame" style={{ background: T.bg, boxShadow: T.shadow, color: T.text }}>
         {/* barra de progreso de lectura (acento → oro) */}
-        <div ref={progRef} style={{ position: "absolute", top: 0, left: 0, height: 2, width: 0, zIndex: 40, background: "linear-gradient(90deg," + T.accent + "," + T.gold + ")", transition: "width .08s linear", pointerEvents: "none" }} />
+        <div ref={progRef} style={{ position: "absolute", top: 0, left: 0, height: 2, width: "100%", transform: "scaleX(0)", transformOrigin: "left", zIndex: 40, background: "linear-gradient(90deg," + T.accent + "," + T.gold + ")", transition: "transform .08s linear", pointerEvents: "none" }} />
         {/* top bar fino (overlay con fade) */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 8, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "calc(11px + env(safe-area-inset-top)) 16px 11px",
           background: heroMode ? "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,0))" : T.navBg,
           borderBottom: heroMode ? "1px solid transparent" : "1px solid " + T.line, backdropFilter: heroMode ? "none" : "blur(14px)", WebkitBackdropFilter: heroMode ? "none" : "blur(14px)", transition: "background .35s " + T.ease + ", border-color .35s " + T.ease }}>
-          <a href={"https://instagram.com/jcmedical.cl"} target="_blank" rel="noopener" title="Instagram" aria-label="Instagram de JC Medical" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 999, border: "1px solid " + (heroMode ? "rgba(242,237,230,.4)" : T.chipBorder), color: heroMode ? "#F2EDE6" : T.text, textDecoration: "none", transition: "color .35s " + T.ease + ", border-color .35s " + T.ease }}>
+          <a href={"https://instagram.com/jcmedical.cl"} target="_blank" rel="noopener" title="Instagram" aria-label="Instagram de JC Medical" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 999, border: "1px solid " + (heroMode ? "rgba(242,237,230,.4)" : T.chipBorder), color: heroMode ? "#F2EDE6" : T.text, textDecoration: "none", transition: "color .35s " + T.ease + ", border-color .35s " + T.ease }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="3.6" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" /></svg>
           </a>
-          <button onClick={() => goTab("perfil")} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 10, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase", color: heroMode ? "#F2EDE6" : T.text, background: heroMode ? "rgba(0,0,0,.3)" : T.chipBg, border: "1px solid " + (heroMode ? "rgba(242,237,230,.35)" : T.chipBorder), borderRadius: 999, padding: "8px 14px", cursor: "pointer", transition: "color .35s " + T.ease + ", background .35s " + T.ease + ", border-color .35s " + T.ease }}>
+          <button onClick={() => goTab("perfil")} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 10, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase", color: heroMode ? "#F2EDE6" : T.text, background: heroMode ? "rgba(0,0,0,.3)" : T.chipBg, border: "1px solid " + (heroMode ? "rgba(242,237,230,.35)" : T.chipBorder), borderRadius: 999, padding: "10px 14px", minHeight: 44, cursor: "pointer", transition: "color .35s " + T.ease + ", background .35s " + T.ease + ", border-color .35s " + T.ease }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="8" r="3.4" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
             {tab === "perfil" ? "Mi cuenta" : "Ingresar a mi cuenta"}
           </button>
@@ -140,7 +138,7 @@ function App() {
         {!booking && !evalForm && tab !== "asistente" && (
           <button onClick={() => openBooking(null)} title="Agendar — carrito y formulario" aria-label="Agendar"
             style={{ position: "absolute", right: 16, bottom: 90, zIndex: 30, width: 52, height: 52, borderRadius: "50%", background: "rgba(31,138,91,.16)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,.35)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,.22)", cursor: "pointer" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="rgba(255,255,255,.92)"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
           </button>
         )}
 
@@ -154,8 +152,9 @@ function App() {
               const isJuegos = tb.k === "juegos";
               const iconColor = active ? (navDark ? "#F2EDE6" : T.text) : (isJuegos ? T.gold : (navDark ? "rgba(242,237,230,.5)" : T.textFaint));
               return (
-                <button key={tb.k} onClick={() => goTab(tb.k)} title={tb.l} aria-label={tb.l} aria-current={active ? "page" : undefined} style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "12px 0", borderRadius: 20, border: "none", cursor: "pointer", background: "transparent", transition: "transform .15s " + T.ease }}>
+                <button key={tb.k} onClick={() => goTab(tb.k)} title={tb.l} aria-label={tb.l} aria-current={active ? "page" : undefined} style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: "9px 0 7px", borderRadius: 20, border: "none", cursor: "pointer", background: "transparent", transition: "transform .15s " + T.ease }}>
                   {navIcon(tb.icon, iconColor)}
+                  <span style={{ fontFamily: T.sans, fontSize: 8, letterSpacing: ".05em", textTransform: "uppercase", color: iconColor, lineHeight: 1, transition: "color .35s " + T.ease, pointerEvents: "none" }}>{tb.l}</span>
                 </button>
               );
             })}
@@ -168,20 +167,6 @@ function App() {
         {booking && <BookingFlow T={T} D={D} initialProc={booking.proc} mode={t.bookingFlow} onClose={() => setBooking(null)} onAskAssistant={() => { setBooking(null); goTab("asistente"); }} />}
       </div>
 
-      {/* TWEAKS */}
-      <TweaksPanel>
-        <TweakSection label="Dirección visual" />
-        <TweakRadio label="Tema" value={t.theme} options={[{ value: "editorial", label: "Editorial" }, { value: "clinico", label: "Clínico" }]} onChange={v => setTweak("theme", v)} />
-        <TweakColor label="Acento" value={accent || "#8B9EB0"} options={["#8B9EB0", "#B9C2CB", "#C0285A", "#6A8296"]} onChange={v => {
-          const key = Object.keys(ACCENTS).find(k => ACCENTS[k] && ACCENTS[k].toLowerCase() === v.toLowerCase());
-          setTweak("accent", key || "default");
-        }} />
-        <TweakToggle label="Animaciones" value={t.animations} onChange={v => setTweak("animations", v)} />
-        <TweakSection label="Flujo de agenda" />
-        <TweakRadio label="Estructura" value={t.bookingFlow} options={[{ value: "guiado", label: "Guiado" }, { value: "rapido", label: "Rápido" }]} onChange={v => setTweak("bookingFlow", v)} />
-        <TweakSection label="Copy" />
-        <TweakRadio label="Tono" value={t.copyTone} options={[{ value: "calido", label: "Cálido" }, { value: "clinico", label: "Clínico" }]} onChange={v => setTweak("copyTone", v)} />
-      </TweaksPanel>
     </div>
   );
 }
