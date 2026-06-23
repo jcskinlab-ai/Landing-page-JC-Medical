@@ -24,7 +24,9 @@ function LoginScreen({ T, onAuth }) {
     if (!pass.trim()) return;
     setBusy(true); setErr("");
     try {
-      const r = setup ? await window.jcmAdminSetPass(pass, user||"admin") : await window.jcmAdminCheck(user, pass);
+      // Mismo acceso que el panel admin: en login basta la contraseña (usa el usuario ya registrado).
+      const storedUser = (window.jcmAdminUser && window.jcmAdminUser()) || user || "admin";
+      const r = setup ? await window.jcmAdminSetPass(pass, user||"admin") : await window.jcmAdminCheck(storedUser, pass);
       if (!r.ok) { setErr(r.msg); setBusy(false); return; }
       window.jcmAdminStartSession && window.jcmAdminStartSession();
       onAuth();
@@ -37,8 +39,7 @@ function LoginScreen({ T, onAuth }) {
       <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:T.textMute, marginBottom:44 }}>Panel móvil · Acceso privado</div>
       <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
         {setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} style={inp} />}
-        {!setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} style={inp} />}
-        <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp} />
+        <input type="password" placeholder="Contraseña del panel" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp} />
         {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#C0285A", textAlign:"center" }}>{err}</div>}
         <button onClick={submit} disabled={busy}
           style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"16px", cursor:"pointer", opacity:busy?.6:1, marginTop:4 }}>
