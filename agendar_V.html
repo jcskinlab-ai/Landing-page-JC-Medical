@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agenda tu cita — JC Medical · V (prueba)</title>
+<meta name="description" content="Reserva tu evaluación o tratamiento de medicina estética en Talca: elige procedimiento, fecha y hora. Confirmación inmediata por WhatsApp. JC Medical · SKINLAB.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F5F2EC">
+<link rel="canonical" href="https://jcmedical.cl/agendar.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="es_CL">
+<meta property="og:site_name" content="JC Medical · SKINLAB">
+<meta property="og:title" content="Agenda tu cita — JC Medical, Talca">
+<meta property="og:description" content="Elige procedimiento, fecha y hora. Confirmación inmediata por WhatsApp.">
+<meta property="og:url" content="https://jcmedical.cl/agendar.html">
+<meta property="og:image" content="https://jcmedical.cl/assets/jc-hero-v2.png">
+<meta name="twitter:card" content="summary_large_image">
+<!-- optimize: preconnect a las fuentes para que carguen antes -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F5F2EC;--surface:#fff;--surface2:#FBF9F5;--ink:#1A1A14;--mute:#5C5A50;--faint:#8A8674;--line:rgba(20,20,15,.12);--accent:#54707F;--ok:#1F8A5B;--danger:#C0285A}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);min-height:100dvh;padding:32px 20px 80px}
+  .wrap{width:100%;max-width:680px;margin:0 auto}
+  .badge{width:52px;height:52px;border-radius:14px;background:rgba(84,112,127,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+  h1{font-family:'Marcellus';font-weight:400;font-size:30px;text-align:center;line-height:1.15}
+  h1 em{font-family:'Cormorant Garamond';font-style:italic;color:var(--accent)}
+  .sub{color:var(--mute);font-size:14px;font-weight:300;margin-top:10px;line-height:1.6;text-align:center}
+  .nota{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:12.5px;color:var(--mute);line-height:1.6}
+  .step{display:none}
+  .step.active{display:block;animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .sech{font-family:'Marcellus';font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);background:rgba(84,112,127,.10);border-radius:10px;padding:11px 15px;margin:20px 0 10px}
+  .cat-label{font-family:'Jost';font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:12px 4px 6px}
+  .svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .svc-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;cursor:pointer;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent}
+  .svc-card:hover{border-color:var(--accent)}
+  .svc-card.sel{border-color:var(--accent);background:rgba(84,112,127,.08)}
+  .svc-card .svc-name{font-size:13.5px;font-weight:500;color:var(--ink);line-height:1.35;margin-bottom:5px}
+  .svc-card .svc-price{font-family:'Marcellus';font-size:14px;color:var(--accent)}
+  .svc-card .svc-note{font-size:11px;color:var(--faint);margin-top:3px;line-height:1.4}
+  .date-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none}
+  .date-scroll::-webkit-scrollbar{display:none}
+  .date-btn{flex-shrink:0;min-width:64px;padding:12px 8px;border-radius:12px;cursor:pointer;text-align:center;background:var(--surface);border:1px solid var(--line);transition:all .15s;-webkit-tap-highlight-color:transparent}
+  .date-btn:hover{border-color:var(--accent)}
+  .date-btn.sel{background:var(--accent);border-color:var(--accent)}
+  .date-btn .dwd{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .date-btn.sel .dwd{color:rgba(255,255,255,.7)}
+  .date-btn .ddd{font-family:'Marcellus';font-size:22px;color:var(--ink);margin:2px 0}
+  .date-btn.sel .ddd{color:#fff}
+  .date-btn .dmm{font-size:10px;color:var(--mute)}
+  .date-btn.sel .dmm{color:rgba(255,255,255,.7)}
+  .time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:6px}
+  @media(min-width:400px){.time-grid{grid-template-columns:repeat(5,1fr)}}
+  .time-btn{padding:10px 4px;border-radius:8px;cursor:pointer;text-align:center;background:var(--surface);border:1px solid var(--line);font-size:13px;color:var(--ink);font-family:'Jost';transition:all .15s;-webkit-tap-highlight-color:transparent}
+  .time-btn:hover{border-color:var(--accent)}
+  .time-btn.sel{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .time-empty{font-family:'Jost';font-size:13px;color:var(--faint);padding:14px 0;text-align:center}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px 22px;margin-top:10px;box-shadow:0 16px 46px -28px rgba(40,38,30,.35)}
+  .q+.q{margin-top:22px}
+  .lbl{display:block;font-size:15px;font-weight:500;color:var(--ink);margin-bottom:10px}
+  .lbl .star{color:var(--danger);margin-left:3px}
+  input[type=text],input[type=email],input[type=number]{width:100%;font-family:'Jost';font-size:15px;padding:14px 15px;border:1px solid var(--line);border-radius:11px;background:var(--surface2);color:var(--ink);outline:none;transition:border-color .15s}
+  input:focus{border-color:var(--accent);background:#fff}
+  input.err{border-color:var(--danger)}
+  .errmsg{font-size:11.5px;color:var(--danger);margin-top:6px;display:none}
+  .errmsg.show{display:block}
+  .summ-card{background:var(--surface);border:1px solid rgba(84,112,127,.3);border-radius:14px;padding:18px 18px;margin-top:10px}
+  .summ-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+  .summ-row:last-child{border-bottom:none}
+  .summ-k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+  .summ-v{font-size:13.5px;font-weight:500;color:var(--ink);text-align:right}
+  .price-highlight{font-family:'Marcellus';font-size:18px;color:var(--accent)}
+  .consent{display:flex;align-items:flex-start;gap:13px;padding:14px 15px;border:1px solid var(--line);border-radius:11px;background:var(--surface2);cursor:pointer;margin-top:14px;transition:border-color .15s}
+  .consent:hover{border-color:var(--accent)}
+  .consent input{margin-top:3px;flex-shrink:0;width:17px;height:17px;accent-color:var(--accent);cursor:pointer}
+  .consent .ctxt{font-size:13.5px;color:var(--mute);line-height:1.5}
+  .consent.err-consent{border-color:var(--danger)}
+  .footer{position:fixed;bottom:0;left:0;right:0;background:rgba(245,242,236,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:12px 20px env(safe-area-inset-bottom,0);display:flex;align-items:center;gap:10px;z-index:50}
+  button.nav{font-family:'Jost';font-size:14px;font-weight:600;letter-spacing:.04em;border-radius:11px;padding:14px 20px;cursor:pointer;transition:opacity .15s,transform .15s;border:none}
+  button.nav:active{transform:scale(.97)}
+  .btn-prim{background:var(--ink);color:var(--bg)}
+  .btn-ghost{background:transparent;color:var(--mute);border:1px solid var(--line)!important}
+  .btn-prim:disabled{opacity:.4;cursor:not-allowed}
+  .prog{flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-end;font-size:11px;color:var(--faint)}
+  .bar{flex:1;max-width:140px;height:4px;border-radius:999px;background:var(--line);overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);transition:width .35s ease}
+  .ok-box{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:40px 24px;text-align:center;box-shadow:0 16px 46px -28px rgba(40,38,30,.35)}
+  .ok-ic{width:60px;height:60px;border-radius:50%;background:rgba(31,138,91,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+  .ok-box h2{font-family:'Marcellus';font-weight:400;font-size:25px;color:var(--ink)}
+  .ok-sub{color:var(--mute);font-size:13px;margin-top:8px;line-height:1.6}
+  .ok-data{background:rgba(31,138,91,.07);border:1px solid rgba(31,138,91,.25);border-radius:12px;padding:14px 16px;margin-top:18px;text-align:left}
+  .ok-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(31,138,91,.15);font-size:13px}
+  .ok-row:last-child{border-bottom:none}
+  .ok-row .k{color:var(--mute);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+  .ok-row .v{font-weight:500;color:var(--ink)}
+  .wa-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:16px;padding:16px;background:#1F8A5B;color:#fff;border:none;border-radius:13px;font-family:'Jost';font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;transition:opacity .15s}
+  .wa-btn:active{opacity:.85}
+  .link-btn{margin-top:12px;width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;background:transparent;font-family:'Jost';font-size:13px;color:var(--mute);cursor:pointer}
+  .hide{display:none!important}
+  @media(max-width:600px){
+    body{padding:20px 14px 80px}
+    h1{font-size:26px}
+    .svc-grid{grid-template-columns:1fr}
+    .card{padding:18px 16px;border-radius:14px}
+    input[type=text],input[type=email],input[type=number]{font-size:16px;padding:15px}
+    button.nav{font-size:15px}
+  }
+  /* delight: marca de verificación en el tratamiento elegido */
+  .svc-card{position:relative}
+  .svc-card.sel::after{content:"";position:absolute;top:10px;right:11px;width:18px;height:18px;border-radius:50%;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/11px no-repeat;animation:pop .25s cubic-bezier(.22,1,.36,1)}
+  @keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+  /* clarify: aviso suave (reemplaza los alert nativos) */
+  .toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,12px);z-index:60;background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;padding:12px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .3s cubic-bezier(.22,1,.36,1),transform .3s cubic-bezier(.22,1,.36,1);box-shadow:0 12px 30px -10px rgba(0,0,0,.4);max-width:90%;text-align:center}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  @media (prefers-reduced-motion: reduce){.svc-card.sel::after{animation:none}.toast{transition:opacity .2s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#54707F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>
+    </svg>
+  </div>
+  <h1>Agenda tu <em>cita</em></h1>
+  <p class="sub">Selecciona el tratamiento, elige tu hora y completa tus datos.<br>Te confirmamos de inmediato por WhatsApp.</p>
+
+  <!-- Steps wrapper — hidden on success -->
+  <div id="app-steps">
+
+    <!-- PASO 1: Servicio -->
+    <div class="step active" id="s0">
+      <div class="sech">¿Qué tratamiento te interesa?</div>
+      <div id="svc-list"></div>
+    </div>
+
+    <!-- PASO 2: Fecha y hora -->
+    <div class="step" id="s1">
+      <div class="sech">Elige tu fecha y hora</div>
+      <div class="date-scroll" id="date-list"></div>
+      <div id="time-area">
+        <div class="time-empty">Selecciona una fecha para ver los horarios disponibles</div>
+      </div>
+    </div>
+
+    <!-- PASO 3: Datos de contacto -->
+    <div class="step" id="s2">
+      <div class="sech">Tus datos de contacto</div>
+      <div class="card">
+        <div class="q">
+          <label class="lbl">Nombre completo<span class="star">*</span></label>
+          <input type="text" id="fname" placeholder="Tu respuesta" autocomplete="name">
+          <div class="errmsg">Ingresa tu nombre completo (mín. 3 caracteres).</div>
+        </div>
+        <div class="q">
+          <label class="lbl">Edad<span class="star">*</span></label>
+          <input type="number" id="fage" placeholder="Tu edad" min="14" max="99" inputmode="numeric">
+          <div class="errmsg">Ingresa una edad válida (14–99 años).</div>
+        </div>
+        <div class="q">
+          <label class="lbl">Teléfono / WhatsApp<span class="star">*</span></label>
+          <input type="text" id="fphone" value="+56 9 " inputmode="tel" placeholder="+56 9 XXXX XXXX" autocomplete="tel">
+          <div class="errmsg">Ingresa un teléfono válido con código de país (ej. +56 9 1234 5678).</div>
+        </div>
+        <div class="q">
+          <label class="lbl">Correo electrónico<span class="star">*</span></label>
+          <input type="email" id="femail" placeholder="tucorreo@ejemplo.com" inputmode="email" autocomplete="email">
+          <div class="errmsg">Ingresa un correo electrónico válido.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 4: Confirmar + datos bancarios -->
+    <div class="step" id="s3">
+      <div class="sech">Confirma tu reserva</div>
+      <div class="summ-card" id="summ"></div>
+
+      <!-- Datos bancarios para transferencia -->
+      <div style="background:rgba(84,112,127,.05);border:1px solid rgba(84,112,127,.3);border-radius:14px;padding:18px 18px 14px;margin-top:14px">
+        <div style="font-family:'Marcellus';font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:#54707F;margin-bottom:12px">Pago por transferencia</div>
+        <div style="display:grid;gap:7px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">Banco</span><span style="font-weight:600;color:#1A1A14">Banco de Chile</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">Titular</span><span style="font-weight:600;color:#1A1A14">Juan Claudio Parra</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">RUT</span><span style="font-weight:600;color:#1A1A14">17.415.131-3</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">Tipo de cuenta</span><span style="font-weight:600;color:#1A1A14">Cuenta corriente</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
+            <span style="color:#5C5A50">N° de cuenta</span><span style="font-weight:600;color:#1A1A14">00-60498-01-7</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0">
+            <span style="color:#5C5A50">Correo</span><span style="font-weight:600;color:#1A1A14">jc.skinlab@gmail.com</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:11.5px;color:#8A8674;line-height:1.6">Realiza la transferencia por el valor del tratamiento e incluye tu nombre como referencia. Luego toca el botón de abajo para enviarnos el comprobante.</div>
+      </div>
+
+      <label class="consent" id="consent-wrap" style="margin-top:14px">
+        <input type="checkbox" id="fconsentimiento">
+        <span class="ctxt">Confirmo que los datos ingresados son correctos y entiendo que mi hora quedará reservada una vez que se verifique el comprobante.</span>
+      </label>
+      <div class="errmsg" id="consent-err">Debes aceptar para continuar.</div>
+    </div>
+
+  </div><!-- /app-steps -->
+
+  <!-- Pantalla de éxito -->
+  <div id="done" class="hide">
+    <div class="ok-box">
+      <div class="ok-ic">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <h2>¡Casi listo!</h2>
+      <p class="ok-sub">Toca el botón para enviarnos tu comprobante de transferencia por WhatsApp. Revisaremos el pago y <strong>confirmaremos tu hora en máximo 15 minutos</strong>.</p>
+      <div class="ok-data" id="ok-data"></div>
+      <a id="wa-link" href="#" target="_blank" rel="noopener" class="wa-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Enviar comprobante por WhatsApp
+      </a>
+      <!-- Después de tocar WA: mostrar mensaje de espera -->
+      <div id="espera-msg" class="hide" style="margin-top:14px;background:rgba(31,138,91,.07);border:1px solid rgba(31,138,91,.25);border-radius:12px;padding:14px 16px;text-align:left">
+        <div style="font-size:13px;font-weight:600;color:#1F8A5B;margin-bottom:4px">✓ Comprobante enviado</div>
+        <div style="font-size:12.5px;color:#5C5A50;line-height:1.6">Estamos revisando tu transferencia. <strong>Te confirmaremos por WhatsApp en máximo 15 minutos.</strong></div>
+      </div>
+      <button class="link-btn" onclick="reinit()">Agendar otra cita</button>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<!-- Barra de navegación fija -->
+<div class="footer" id="footer-nav">
+  <button class="nav btn-ghost" id="back-btn" style="display:none" onclick="navBack()">Atrás</button>
+  <button class="nav btn-prim" id="next-btn" onclick="navNext()">Siguiente</button>
+  <div class="prog">
+    <div class="bar"><i id="bar-fill" style="width:25%"></i></div>
+    <span id="page-lbl">1 de 4</span>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="jc-proto/jc-data.js?v=73"></script>
+<script>
+(function(){
+  var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  var MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  var STEPS = 4, cur = 0;
+  var selProc = null;   // { name, price }
+  var selDate = null;   // { date, wd, dd, mm }
+  var selTime = null;   // "HH:MM"
+
+  var steps   = [].slice.call(document.querySelectorAll('.step'));
+  var nextBtn = document.getElementById('next-btn');
+  var backBtn = document.getElementById('back-btn');
+  var barFill = document.getElementById('bar-fill');
+  var pageLbl = document.getElementById('page-lbl');
+
+  /* ─── Helpers ─── */
+  function fmt(n){ return n > 0 ? "$" + n.toLocaleString("es-CL") : "A convenir"; }
+  function dKey(d){ return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+  function esc(s){ var d=document.createElement('div'); d.appendChild(document.createTextNode(s||'')); return d.innerHTML; }
+  var _toastT;
+  function showToast(msg){
+    var t=document.getElementById('toast'); if(!t) return;
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(_toastT); _toastT=setTimeout(function(){ t.classList.remove('show'); }, 2400);
+  }
+
+  function defaultSlots(wd){
+    var out = [], end = wd===6 ? 14 : 19;
+    for(var h=10;h<end;h++){
+      out.push((h<10?"0":"")+h+":00");
+      out.push((h<10?"0":"")+h+":30");
+    }
+    return out;
+  }
+
+  function getSlotsForDate(dateStr){
+    try{
+      var dates = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
+      if(dates[dateStr]) return dates[dateStr];
+      var d = new Date(dateStr+"T00:00:00"), wd = d.getDay();
+      if(wd === 0) return [];
+      var hor = JSON.parse(localStorage.getItem("jcm_horarios_v1")||"{}");
+      var h = hor[wd];
+      if(h){ if(h.open===false) return []; return h.slots || defaultSlots(wd); }
+      return defaultSlots(wd);
+    }catch(e){ return []; }
+  }
+
+  /* ─── Paso 1: Servicios ─── */
+  function buildServices(){
+    var el = document.getElementById('svc-list');
+    var D  = window.JCDATA;
+    if(!D || !D.catalog){
+      el.innerHTML='<p style="color:var(--faint);font-size:13px;padding:14px 0">Cargando servicios...</p>';
+      return;
+    }
+    var html = '<div class="cat-label">Para empezar</div><div class="svc-grid">'
+      +'<div class="svc-card" data-name="Evaluación general" data-price="15000" onclick="pickSvc(this)">'
+      +'<div class="svc-name">Evaluación general</div><div class="svc-price">$15.000</div>'
+      +'<div class="svc-note">Diagnóstico y plan personalizado</div></div></div>';
+
+    D.catalog.filter(function(s){ return s.sec !== "Promociones"; }).forEach(function(sec){
+      html += '<div class="cat-label">'+esc(sec.sec)+'</div>';
+      sec.groups.forEach(function(g){
+        if(sec.groups.length > 1)
+          html += '<div style="font-size:10px;color:var(--accent);font-weight:600;letter-spacing:.08em;padding:5px 2px 3px;text-transform:uppercase">'+esc(g.cat)+'</div>';
+        html += '<div class="svc-grid">';
+        g.items.slice(0,6).forEach(function(it){
+          var price = it.opts ? it.opts[0][1] : it.price;
+          html += '<div class="svc-card" data-name="'+esc(it.n)+'" data-price="'+price+'" onclick="pickSvc(this)">'
+            +'<div class="svc-name">'+esc(it.n)+'</div>'
+            +'<div class="svc-price">'+fmt(price)+'</div>'
+            +(it.t ? '<div class="svc-note">'+esc(it.t)+'</div>' : '')
+            +'</div>';
+        });
+        html += '</div>';
+      });
+    });
+    el.innerHTML = html;
+  }
+
+  window.pickSvc = function(el){
+    [].forEach.call(document.querySelectorAll('.svc-card'), function(c){ c.classList.remove('sel'); });
+    el.classList.add('sel');
+    selProc = { name: el.dataset.name, price: parseInt(el.dataset.price,10)||0 };
+  };
+
+  /* ─── Paso 2: Fechas ─── */
+  function buildDates(){
+    var el = document.getElementById('date-list');
+    el.innerHTML = '';
+    var base = new Date(), found = 0;
+    for(var i=1; i<=28 && found<14; i++){
+      var d = new Date(base);
+      d.setDate(base.getDate()+i);
+      var ds = dKey(d);
+      if(!getSlotsForDate(ds).length) continue;
+      found++;
+      var wd = d.getDay();
+      var btn = document.createElement('div');
+      btn.className = 'date-btn';
+      btn.innerHTML = '<div class="dwd">'+DAYS[wd]+'</div>'
+        +'<div class="ddd">'+d.getDate()+'</div>'
+        +'<div class="dmm">'+MONTHS[d.getMonth()]+'</div>';
+      btn.dataset.date = ds;
+      btn.dataset.wd   = String(wd);
+      btn.dataset.dd   = String(d.getDate());
+      btn.dataset.mm   = MONTHS[d.getMonth()];
+      btn.addEventListener('click', function(){ pickDate(this); });
+      el.appendChild(btn);
+    }
+    if(!found)
+      el.innerHTML = '<p style="color:var(--faint);font-size:13px;padding:8px 0">Sin fechas disponibles en los próximos días. Contáctanos por WhatsApp.</p>';
+  }
+
+  window.pickDate = function(el){
+    [].forEach.call(document.querySelectorAll('.date-btn'), function(b){ b.classList.remove('sel'); });
+    el.classList.add('sel');
+    selDate = { date:el.dataset.date, wd:el.dataset.wd, dd:el.dataset.dd, mm:el.dataset.mm };
+    selTime = null;
+    buildTimes(el.dataset.date);
+  };
+
+  function buildTimes(dateStr){
+    var area = document.getElementById('time-area');
+    var slots = getSlotsForDate(dateStr);
+    if(!slots.length){
+      area.innerHTML = '<div class="time-empty">Sin horarios disponibles para esta fecha</div>';
+      return;
+    }
+    var html = '<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-bottom:8px">Selecciona una hora</div>'
+      +'<div class="time-grid">';
+    slots.forEach(function(s){
+      html += '<div class="time-btn" data-time="'+s+'" onclick="pickTime(this)">'+s+'</div>';
+    });
+    html += '</div>';
+    area.innerHTML = html;
+  }
+
+  window.pickTime = function(el){
+    [].forEach.call(document.querySelectorAll('.time-btn'), function(b){ b.classList.remove('sel'); });
+    el.classList.add('sel');
+    selTime = el.dataset.time;
+  };
+
+  /* ─── Navegación ─── */
+  function show(n){
+    cur = n;
+    steps.forEach(function(s,i){ s.className = 'step'+(i===n?' active':''); });
+    backBtn.style.display = n===0 ? 'none' : 'inline-block';
+    nextBtn.textContent   = n===STEPS-1 ? 'Confirmar cita' : 'Siguiente';
+    barFill.style.width   = ((n+1)/STEPS*100)+'%';
+    pageLbl.textContent   = (n+1)+' de '+STEPS;
+    if(n===1) buildDates();
+    if(n===3) buildSummary();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  window.navBack = function(){ if(cur>0) show(cur-1); };
+  window.navNext = function(){
+    if(!validate(cur)) return;
+    if(cur === STEPS-1){ submit(); return; }
+    show(cur+1);
+  };
+
+  /* ─── Validación ─── */
+  function validate(n){
+    if(n===0){
+      if(!selProc){ showToast('Elige un tratamiento para continuar.'); return false; }
+      return true;
+    }
+    if(n===1){
+      if(!selDate){ showToast('Elige una fecha.'); return false; }
+      if(!selTime){ showToast('Elige una hora.'); return false; }
+      return true;
+    }
+    if(n===2){
+      var ok = true;
+      var nm = document.getElementById('fname'),
+          ag = document.getElementById('fage'),
+          ph = document.getElementById('fphone'),
+          em = document.getElementById('femail');
+      [nm,ag,ph,em].forEach(function(el){
+        el.classList.remove('err');
+        el.nextElementSibling.classList.remove('show');
+      });
+      if(!nm.value.trim() || nm.value.trim().length<3){
+        nm.classList.add('err'); nm.nextElementSibling.classList.add('show'); ok=false;
+      }
+      var age = parseInt(ag.value,10);
+      if(!ag.value || isNaN(age) || age<14 || age>99){
+        ag.classList.add('err'); ag.nextElementSibling.classList.add('show'); ok=false;
+      }
+      if((ph.value||'').replace(/\D/g,'').length < 11){
+        ph.classList.add('err'); ph.nextElementSibling.classList.add('show'); ok=false;
+      }
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value||'')){
+        em.classList.add('err'); em.nextElementSibling.classList.add('show'); ok=false;
+      }
+      if(!ok){
+        var first = [nm,ag,ph,em].filter(function(e){ return e.classList.contains('err'); })[0];
+        if(first) first.scrollIntoView({block:'center', behavior:'smooth'});
+      }
+      return ok;
+    }
+    if(n===3){
+      var cb = document.getElementById('fconsentimiento');
+      var cw = document.getElementById('consent-wrap'), ce = document.getElementById('consent-err');
+      if(!cb.checked){ cw.classList.add('err-consent'); ce.classList.add('show'); return false; }
+      cw.classList.remove('err-consent'); ce.classList.remove('show');
+      return true;
+    }
+    return true;
+  }
+
+  /* ─── Resumen (paso 4) ─── */
+  function buildSummary(){
+    var el = document.getElementById('summ');
+    if(!selProc||!selDate||!selTime){ el.innerHTML=''; return; }
+    var rows = [
+      ['Servicio', selProc.name],
+      ['Fecha',    DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm],
+      ['Hora',     selTime+' hrs'],
+      ['Valor',    selProc.price>0 ? fmt(selProc.price) : 'A convenir en consulta']
+    ];
+    el.innerHTML = rows.map(function(r){
+      return '<div class="summ-row"><span class="summ-k">'+r[0]+'</span>'
+        +'<span class="summ-v'+(r[0]==='Valor'?' price-highlight':'')+'">'+esc(r[1])+'</span></div>';
+    }).join('');
+  }
+
+  /* ─── Envío ─── */
+  function submit(){
+    var name  = document.getElementById('fname').value.trim();
+    var age   = document.getElementById('fage').value.trim();
+    var phone = document.getElementById('fphone').value.trim();
+    var email = document.getElementById('femail').value.trim();
+
+    // Guardar como pendiente_pago — el slot NO se bloquea hasta que tú confirmes en el panel
+    try{
+      var list = JSON.parse(localStorage.getItem('jcm_bookings')||'[]');
+      list.push({
+        id:'b'+Date.now(), name:name, age:age, phone:phone, email:email,
+        proc:selProc.name, price:selProc.price,
+        fecha:selDate.date, date:selDate.date, wd:selDate.wd, dd:selDate.dd, mm:selDate.mm,
+        time:selTime, origen:'Web · agendar.html', status:'pendiente_pago',
+        ts:new Date().toISOString()
+      });
+      localStorage.setItem('jcm_bookings', JSON.stringify(list));
+      // También en jcm_appts para que aparezca en el panel móvil y en la agenda
+      var appts = JSON.parse(localStorage.getItem('jcm_appts')||'[]');
+      appts.push({
+        id:'a'+Date.now(), name:name, phone:phone, email:email,
+        proc:selProc.name, price:selProc.price, dur:'60',
+        fecha:selDate.date, time:selTime, status:'pendiente_pago',
+        day:Math.round((new Date(selDate.date+'T00:00:00')-new Date().setHours(0,0,0,0))/86400000),
+        origen:'Web · agendar.html', ts:new Date().toISOString()
+      });
+      localStorage.setItem('jcm_appts', JSON.stringify(appts));
+    }catch(e){}
+
+    // El slot NO se bloquea aquí — se bloquea cuando confirmes la transferencia en el panel
+
+    // Construir mensaje WhatsApp con mención al comprobante
+    var clinicPhone = '56997880877';
+    var msg = 'Hola JC Medical 👋 Quiero confirmar mi reserva:\n\n'
+      +'👤 '+name+'\n'
+      +'📅 '+DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm+'\n'
+      +'🕐 '+selTime+' hrs\n'
+      +'💉 '+selProc.name
+      +(selProc.price>0 ? '\n💵 '+fmt(selProc.price) : '')
+      +'\n\nAdjunto comprobante de transferencia.';
+    document.getElementById('wa-link').href =
+      'https://api.whatsapp.com/send?phone='+clinicPhone+'&text='+encodeURIComponent(msg);
+
+    // Datos en pantalla de éxito
+    var rows = [
+      ['Tratamiento', selProc.name],
+      ['Fecha',  DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm],
+      ['Hora',   selTime+' hrs'],
+      ['Nombre', name],
+      ['Teléfono', phone]
+    ];
+    document.getElementById('ok-data').innerHTML = rows.map(function(r){
+      return '<div class="ok-row"><span class="k">'+r[0]+'</span><span class="v">'+esc(r[1])+'</span></div>';
+    }).join('');
+
+    // Mostrar éxito
+    document.getElementById('app-steps').classList.add('hide');
+    document.getElementById('footer-nav').classList.add('hide');
+    document.getElementById('done').classList.remove('hide');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  /* ─── Reiniciar ─── */
+  window.reinit = function(){
+    selProc=null; selDate=null; selTime=null; cur=0;
+    document.getElementById('fconsentimiento').checked = false;
+    ['fname','fage','femail'].forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('fphone').value = '+56 9 ';
+    document.getElementById('app-steps').classList.remove('hide');
+    document.getElementById('footer-nav').classList.remove('hide');
+    document.getElementById('done').classList.add('hide');
+    show(0);
+  };
+
+  /* ─── Mostrar espera al tocar WA ─── */
+  document.getElementById('wa-link').addEventListener('click', function(){
+    var waBtn = document.getElementById('wa-link');
+    setTimeout(function(){
+      document.getElementById('espera-msg').classList.remove('hide');
+      waBtn.style.opacity = '0.55';
+      waBtn.style.pointerEvents = 'none';
+    }, 800);
+  });
+
+  /* ─── Iniciar ─── */
+  buildServices();
+  show(0);
+})();
+</script>
+</body>
+</html>

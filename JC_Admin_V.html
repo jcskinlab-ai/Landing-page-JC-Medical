@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JC Medical · Panel Clínico · V (prueba)</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:'Jost',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#070707;-webkit-font-smoothing:antialiased}
+  #root{height:100%}
+  .jc-stage{width:100%;min-height:100%;display:flex;align-items:center;justify-content:center}
+  .jc-admin-frame{position:relative;display:flex;flex-direction:column;overflow:hidden;width:100%;height:100dvh}
+  @media(min-width:680px){
+    .jc-stage{padding:0}
+    .jc-admin-frame{width:100%;max-width:100%;height:100dvh;border-radius:0}
+  }
+  .jc-scroll{-webkit-overflow-scrolling:touch}
+  .jc-scroll::-webkit-scrollbar{width:8px}
+  .jc-scroll::-webkit-scrollbar-thumb{background:rgba(140,140,140,.3);border-radius:8px}
+  button{font-family:inherit}input,select,textarea{font-family:inherit}
+  @keyframes jcFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes jcSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  /* Agenda: celda libre con "+" que aparece animado al pasar el mouse (estilo Medique) */
+  .jc-slot{transition:background .15s ease}
+  .jc-slot:hover{background:rgba(78,138,114,.16)!important}
+  .jc-slot-add{opacity:0;transform:scale(.55);transition:opacity .15s ease,transform .15s ease;box-shadow:0 4px 12px -4px rgba(20,20,15,.22)}
+  .jc-slot:hover .jc-slot-add{opacity:1;transform:scale(1)}
+  @media(hover:none){.jc-slot-add{opacity:.85;transform:scale(1)}}
+  /* Calendario semanal de reservas (estilo Medique): "+" tenue que crece al pasar el mouse + tarjeta que se eleva */
+  .jc-cell{transition:background .2s ease,backdrop-filter .2s ease}
+  .jc-cell:hover{background:rgba(30,34,40,.10);backdrop-filter:blur(2.5px);-webkit-backdrop-filter:blur(2.5px)}
+  .jc-cell-add{opacity:.28;transform:scale(.82);transition:opacity .2s ease,transform .2s ease}
+  .jc-cell:hover .jc-cell-add{opacity:1;transform:scale(1.12)}
+  @media(hover:none){.jc-cell-add{opacity:.5;transform:scale(1)}}
+  .jc-appt{transition:transform .16s ease,box-shadow .16s ease}
+  .jc-appt:hover{transform:translateY(-2px);box-shadow:0 12px 26px -12px rgba(40,38,30,.5)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- optimize: builds de producción de React (panel más rápido) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<script>
+  window.useState = React.useState; window.useEffect = React.useEffect;
+  window.useRef = React.useRef; window.useMemo = React.useMemo;
+</script>
+
+<!-- Reglas globales de entrada: 1ª letra mayúscula (también tras Enter) + validación numérica/letras por campo.
+     Se ejecuta en fase de captura y muta el value nativo ANTES de que React lea el evento, para que el estado controlado quede sincronizado. -->
+<script>
+(function () {
+  function nativeSet(el, value) {
+    var proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+    var setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+    setter.call(el, value);
+  }
+  // Mayúscula al inicio del texto y después de cada salto de línea o punto.
+  function capFirst(v) {
+    return v.replace(/(^|[\n.]\s*)([a-zà-öø-ÿñ])/g, function (_, pre, ch) { return pre + ch.toUpperCase(); });
+  }
+  document.addEventListener('input', function (e) {
+    var el = e.target;
+    if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+    var type = (el.getAttribute('type') || 'text').toLowerCase();
+    if (['email', 'password', 'url', 'number', 'date', 'time', 'color', 'range', 'file', 'checkbox', 'radio'].indexOf(type) >= 0) return;
+    var v = el.value, nv = v, pos = el.selectionStart;
+    var only = el.getAttribute('data-only'); // "num" | "alpha"
+    if (only === 'num') nv = nv.replace(/[^0-9]/g, '');
+    else if (only === 'alpha') nv = nv.replace(/[0-9]/g, '');
+    // Mayúscula inicial (salvo correos/teléfonos/búsquedas y campos marcados data-nocap)
+    if (el.getAttribute('data-nocap') == null && type !== 'tel' && type !== 'search') nv = capFirst(nv);
+    if (nv !== v) {
+      var delta = nv.length - v.length;
+      nativeSet(el, nv);
+      try { el.setSelectionRange(pos + delta, pos + delta); } catch (_) {}
+    }
+  }, true);
+})();
+</script>
+
+<script src="jc-proto/jc-theme.js?v=71"></script>
+<script src="jc-proto/jc-data.js?v=73"></script>
+<script src="jc-admin/jc-admin-data.js?v=71"></script>
+<script src="jcm_shared.js?v=71"></script>
+<script src="jcm_cloud.js?v=71"></script>
+
+<script type="text/babel" src="jc-admin/jc-sign.jsx?v=71"></script>
+<script type="text/babel" src="jc-admin/jc-face.jsx?v=85"></script>
+<script type="text/babel" src="jc-admin/jc-admin-b.jsx?v=93"></script>
+<script type="text/babel" src="jc-admin/jc-admin-c.jsx?v=93"></script>
+<script type="text/babel" src="jc-admin/jc-copilot.jsx?v=71"></script>
+<script type="text/babel" src="jc-admin/jc-jcm.jsx?v=71"></script>
+<script type="text/babel" src="jc-admin/jc-admin.jsx?v=84"></script>
+</body>
+</html>
