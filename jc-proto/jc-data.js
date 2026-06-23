@@ -116,7 +116,8 @@
 
   function defaultSlots(wd) {
     var out = [], end = wd === 6 ? 14 : 20; // sáb hasta 14:00 · resto 08:00–20:00
-    for (var h = 8; h < end; h++) { ["00", "45"].forEach(function (m) { out.push((h < 10 ? "0" + h : h) + ":" + m); }); }
+    // Bloques cada 30 min (reservas de 30 o 60 min, nunca 45).
+    for (var h = 8; h < end; h++) { ["00", "30"].forEach(function (m) { out.push((h < 10 ? "0" + h : h) + ":" + m); }); }
     return out;
   }
   function loadHorarios() { try { return JSON.parse(localStorage.getItem("jcm_horarios_v1") || "{}"); } catch (e) { return {}; } }
