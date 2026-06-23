@@ -699,7 +699,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
         <div style={{ marginTop: 14 }}>
           <span style={lbl}>Cuidados de la piel en casa</span>
           {chips("skincare", ["Bloqueador", "Sérum", "Crema", "Contorno de ojos", "Vitamina C"])}
-          {text("skincare", "Otros productos…")}
+          <div style={{ marginTop: 10 }}>{text("skincare", "Otros productos…")}</div>
         </div>
       </div>
 

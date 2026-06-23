@@ -826,6 +826,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [nueva, setNueva] = useState(null);
   const [edit, setEdit] = useState(null);
   const [toast, setToast] = useState(null);
+  const [hoverA, setHoverA] = useState(null); // { a, x, y } · vista previa al pasar el cursor (vista día/lista)
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   const D = window.JCDATA;
@@ -906,8 +907,10 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
               </div>
             ))}
             {listStacked.map(a => (
-              <div key={a.id} style={{ position: "absolute", left: 48, right: 4, top: a._top, height: a._h }}>
-                <ApptBlock T={T} a={a} onClick={setEdit} />
+              <div key={a.id} style={{ position: "absolute", left: 48, right: 4, top: a._top, height: a._h }}
+                onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHoverA({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
+                onMouseLeave={() => setHoverA(null)}>
+                <ApptBlock T={T} a={a} onClick={(x) => { setHoverA(null); setEdit(x); }} />
               </div>
             ))}
             {showNow && (
@@ -924,6 +927,23 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} />}
       {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
       {toast && <Toast T={T} data={toast} onClose={() => setToast(null)} />}
+      {/* Vista previa momentánea al pasar el cursor sobre una cita (vista día/lista) */}
+      {hoverA && hoverA.a && !edit && (() => {
+        const a = hoverA.a, isPP = a.status === "pendiente_pago";
+        const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
+        const estado = a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
+        return (
+          <div style={{ position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
+            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
+            {[["Hora", a.time], ["Duración", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "—"], ["Estado", estado]].map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 }}>
+                <span style={{ color: T.textMute }}>{k}</span>
+                <span style={{ color: T.text, fontWeight: 500, textAlign: "right" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
