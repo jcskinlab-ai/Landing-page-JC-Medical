@@ -110,6 +110,110 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 
   const TABS = [["general", "Visión General"], ["citas", "Próximas Citas"], ["notif", "Notificaciones"]];
 
+  /* ── Embudo de marketing con ROAS real (vista principal) ── */
+  const [metaEdit, setMetaEdit] = useState(false);
+  const [, bumpRev] = useState(0);
+  const spendRef = useRef(null), leadsRef = useRef(null);
+  function saveMeta() {
+    try {
+      const cfg = (window.DB && DB.get("config")) || {};
+      cfg.meta_spend_mes = +(spendRef.current && spendRef.current.value) || 0;
+      const lv = leadsRef.current && leadsRef.current.value;
+      if (lv !== "" && lv != null) cfg.meta_leads_mes = +lv || 0;
+      window.DB && DB.set("config", cfg);
+    } catch (e) {}
+    setMetaEdit(false); bumpRev(r => r + 1);
+  }
+  const funnel = (function () {
+    const mes = new Date().toISOString().slice(0, 7);
+    const inMonth = ts => (ts || "").slice(0, 7) === mes;
+    let cash = []; try { cash = (typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || []); } catch (e) {}
+    let ingresos = cash.filter(m => m.kind !== "egreso" && inMonth(m.ts)).reduce((s, m) => s + (m.amount || 0), 0);
+    let compras = cash.filter(m => m.kind === "atencion" && inMonth(m.ts)).length;
+    let allAppts = []; try { allAppts = (window.DB && DB.get("appts")) || appts || []; } catch (e) { allAppts = appts || []; }
+    let reservas = allAppts.length;
+    let asistieron = allAppts.filter(a => a.attended || a.status === "atendida" || a.status === "confirmada").length;
+    let spend = 0, leads = 0;
+    try { const cfg = (window.DB && DB.get("config")) || {}; spend = +cfg.meta_spend_mes || 0; leads = +cfg.meta_leads_mes || 0; } catch (e) {}
+    const demo = !spend;
+    if (demo) { spend = 500000; leads = 120; reservas = 35; asistieron = 22; compras = 18; ingresos = 6800000; }
+    else if (!leads) { leads = Math.max(reservas, 1); }
+    const roas = spend > 0 ? (ingresos / spend) : 0;
+    return { spend, leads, reservas, asistieron, compras, ingresos, roas, demo };
+  })();
+
+  function FunnelBlock() {
+    const stages = [
+      { k: "Leads", n: funnel.leads, c: T.accent },
+      { k: "Reservaron", n: funnel.reservas, c: T.accent },
+      { k: "Asistieron", n: funnel.asistieron, c: T.accent },
+      { k: "Compraron", n: funnel.compras, c: green }
+    ];
+    const top = stages[0].n || 1;
+    const inp = { width: 120, fontFamily: T.sans, fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" };
+    return (
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px 18px", marginBottom: 16, boxShadow: "0 14px 40px -30px rgba(0,0,0,.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>Embudo de marketing · este mes</div>
+          <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}>{funnel.demo ? "Datos de ejemplo — carga tu gasto de Meta para verlo real" : "Datos reales de tu mes"}</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18, alignItems: "start" }}>
+          {/* Embudo */}
+          <div>
+            {metaEdit ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12, paddingBottom: 11, borderBottom: "1px solid " + T.lineSoft }}>
+                <input ref={spendRef} type="number" defaultValue={funnel.demo ? "" : funnel.spend} placeholder="Gasto Meta $" style={inp} />
+                <input ref={leadsRef} type="number" defaultValue={funnel.demo ? "" : funnel.leads} placeholder="Leads" style={{ ...inp, width: 80 }} />
+                <button onClick={saveMeta} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "9px 14px", cursor: "pointer" }}>Guardar</button>
+                <button onClick={() => setMetaEdit(false)} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 8, padding: "9px 12px", cursor: "pointer" }}>Cancelar</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 11, borderBottom: "1px solid " + T.lineSoft }}>
+                <span style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute }}>Gasto en Meta</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>{fmt(funnel.spend)}</span>
+                  <button onClick={() => setMetaEdit(true)} title="Editar gasto de Meta del mes" style={{ display: "inline-flex", width: 28, height: 28, alignItems: "center", justifyContent: "center", background: T.chipBg, border: "1px solid " + T.chipBorder, borderRadius: 8, color: T.textMute, cursor: "pointer" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+                  </button>
+                </span>
+              </div>
+            )}
+            {stages.map((st, i) => {
+              const pct = Math.max(6, Math.round(st.n / top * 100));
+              const conv = i > 0 && stages[i - 1].n ? Math.round(st.n / stages[i - 1].n * 100) : null;
+              return (
+                <div key={st.k} style={{ marginBottom: 11 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                    <span style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{st.k}</span>
+                    <span style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{st.n}{conv != null && <span style={{ fontSize: 10.5, fontWeight: 400, color: T.textMute, marginLeft: 7 }}>{conv}%</span>}</span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: pct + "%", background: st.c, borderRadius: 999, transition: "width .6s " + T.ease }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Resultado + ROAS */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+            <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 15px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute }}>Facturaste este mes</div>
+              <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1.1, marginTop: 4 }}>{fmt(funnel.ingresos)}</div>
+            </div>
+            <div style={{ background: green + "12", border: "1px solid " + green + "44", borderRadius: 12, padding: "16px 16px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: green }}>ROAS real</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontFamily: T.serif, fontSize: 40, color: green, lineHeight: 1.05 }}>{funnel.roas.toFixed(1)}x</span>
+                <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>por cada $1 en Meta</span>
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6, lineHeight: 1.5 }}>Invertiste {fmt(funnel.spend)} y facturaste {fmt(funnel.ingresos)}.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   /* ── KPI popup overlay ── */
   const KpiPopup = () => {
     if (!kpiPopup) return null;
@@ -275,6 +379,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 
       {tab === "general" && (
         <div>
+          {/* Embudo de marketing con ROAS — vista principal */}
+          <FunnelBlock />
           {/* Indicadores Principales */}
           <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 9 }}>Indicadores Principales</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px,1fr))", gap: 11, marginBottom: 14 }}>
