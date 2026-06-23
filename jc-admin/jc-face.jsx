@@ -310,6 +310,11 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
   const carried = points.filter(p => p.view !== view && p.label && zoneByLabel[baseLabel(p.label)]).map(p => ({ ...p, _z: zoneByLabel[baseLabel(p.label)] }));
   const totals = {};
   points.forEach(p => { const pr = prodOf(p.product); const n = parseFloat(p.units) || 0; totals[pr.label] = (totals[pr.label] || 0) + n; });
+  // Desglose por producto (suma + nº de punciones + unidad) para el resumen automático en Notas/Resultados.
+  const summaryByProd = {};
+  points.forEach(p => { const pr = prodOf(p.product); const n = parseFloat(p.units) || 0; const s = summaryByProd[pr.label] || (summaryByProd[pr.label] = { unit: pr.unit, sum: 0, count: 0 }); s.sum += n; s.count++; });
+  const unitWord = u => u === "U" ? "U" : u === "ml" ? "ml" : u === "vial" ? "viales" : (u || "");
+  const rnd = n => Math.round(n * 100) / 100;
 
   const viewTabs = (
     <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
@@ -396,6 +401,18 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
           {/* Notas / Resultados */}
           <div style={{ marginTop: 14 }}>
             <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Notas / Resultados</div>
+            {/* Resumen automático: suma las unidades de cada punción en tiempo real */}
+            {Object.keys(summaryByProd).length > 0 && (
+              <div style={{ marginBottom: 10, padding: "11px 13px", borderRadius: 8, background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + (T.accent + "44") }}>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, marginBottom: 6 }}>Σ Total aplicado · automático</div>
+                {Object.keys(summaryByProd).map(k => { const s = summaryByProd[k]; return (
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 12.5 }}>
+                    <span style={{ color: T.textMute }}>{k} <span style={{ color: T.textFaint }}>· {s.count} punción{s.count === 1 ? "" : "es"}</span></span>
+                    <span style={{ color: T.text, fontWeight: 600 }}>{rnd(s.sum)} {unitWord(s.unit)}</span>
+                  </div>
+                ); })}
+              </div>
+            )}
             <textarea value={(patient && patient.faceNotes) || ""} onChange={e => { if (updatePatient && patient) updatePatient(patient.id, { faceNotes: e.target.value }); }}
               placeholder="Plan de tratamiento, dosis totales, observaciones de la sesión, resultados y controles…"
               style={{ width: "100%", minHeight: 80, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, lineHeight: 1.5, outline: "none", boxSizing: "border-box", resize: "vertical" }} />
