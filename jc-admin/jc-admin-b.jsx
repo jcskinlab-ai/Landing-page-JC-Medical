@@ -273,7 +273,7 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
 
       {/* tarjetas de datos — Teléfono y Email son clickeables para editar */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, margin: "16px 0 4px" }}>
-        {[["Edad", (patient.age ? patient.age + " años" : "—"), false], ["Teléfono", patient.phone || "—", true], ["Email", patient.email || "—", true], ["Estado", estado, false]].map(([l, v, editable]) => (
+        {[["Edad", (patient.age ? patient.age + " años" : "—"), true], ["Teléfono", patient.phone || "—", true], ["Email", patient.email || "—", true], ["Estado", estado, false]].map(([l, v, editable]) => (
           <div key={l} onClick={editable ? () => setEditD(true) : undefined} title={editable ? "Haz clic para editar" : undefined}
             style={{ background: T.surface, border: "1px solid " + (editable ? T.line : T.line), borderRadius: 10, padding: "12px 14px", minWidth: 0, cursor: editable ? "pointer" : "default", transition: "border-color .15s" }}
             onMouseEnter={editable ? e => e.currentTarget.style.borderColor = T.accent : undefined}
@@ -859,8 +859,10 @@ function ImagenesTab({ T, patient, updatePatient }) {
 function FacturacionTab({ T, patient, updatePatient }) {
   const D = window.JCDATA;
   const [verAt, setVerAt] = useState(null);
+  // Nombre del procedimiento: último de su historial → tag → genérico (para saber qué se realizó).
+  const procName = (patient.history && patient.history[0] && patient.history[0].proc) || (patient.tags && patient.tags[0]) || "Procedimiento";
   const items = patient.billing || [
-    { id: "b1", concept: (patient.tags && patient.tags[0]) || "Procedimiento", date: patient.lastVisit || "—", amount: 150000, paid: true, metodo: "Transferencia" },
+    { id: "b1", concept: procName, date: patient.lastVisit || "—", amount: 150000, paid: true, metodo: "Transferencia" },
     { id: "b2", concept: "Evaluación general", date: "—", amount: 10000, paid: true, metodo: "Efectivo" }
   ];
   const total = items.reduce((s, i) => s + i.amount, 0);
