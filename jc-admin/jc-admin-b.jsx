@@ -253,7 +253,10 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
       <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
         <Avatar T={T} name={patient.name} size={52} />
         <div style={{ flex: 1, minWidth: 160 }}>
-          <div style={{ fontFamily: T.serif, fontSize: 26, fontWeight: 300, color: T.text, lineHeight: 1 }}>{patient.name}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: T.serif, fontSize: 26, fontWeight: 300, color: T.text, lineHeight: 1 }}>{patient.name}</span>
+            <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: patient.age ? T.accent : T.textFaint, background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + (T.accent + "44"), borderRadius: 999, padding: "3px 11px", whiteSpace: "nowrap" }}>{patient.age ? patient.age + " años" : "Edad —"}</span>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
             <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>CI {patient.rut}</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 11.5, color: activo ? "#1F8A5B" : T.textMute }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: activo ? "#1F8A5B" : T.textFaint }} />{estado}</span>

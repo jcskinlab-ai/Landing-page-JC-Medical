@@ -621,6 +621,15 @@ function CollabModal({ T, D, r, onClose, onStatus }) {
 // Valor combinado (chips seleccionados + texto libre) para impresión / resumen / auditoría.
 function clinVal(c, key) { if (!c) return ""; const sel = c[key + "Sel"] || []; const txt = c[key] || ""; return [sel.join(", "), txt].filter(Boolean).join(sel.length && txt ? " · " : ""); }
 
+// Suma las unidades escritas en el texto (ej: "20u frontal, 10u procerus" → 30).
+// Ignora lo que venga tras "Total U:" para no contar el propio total.
+function sumUnits(txt) {
+  if (!txt) return 0;
+  const body = String(txt).replace(/total\s*u\s*:?.*$/is, "");
+  let sum = 0, m; const re = /(\d+)\s*u\b/gi;
+  while ((m = re.exec(body))) sum += parseInt(m[1], 10);
+  return sum;
+}
 function FichaClinicaForm({ T, patient, updatePatient }) {
   const [f, setF] = useState(patient.clinica || {});
   const [saved, setSaved] = useState(false);
@@ -706,12 +715,22 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       {/* Evaluación y plan */}
       <div style={card}>
         <div style={head}>Evaluación y plan</div>
-        {[["evaluacion", "Evaluación facial"], ["plan", "Tratamientos recomendados"]].map(([k, label]) => (
-          <label key={k} style={{ display: "block", marginBottom: 12 }}>
-            <span style={lbl}>{label}</span>
-            <textarea value={f[k] || ""} onChange={e => setVal(k, e.target.value)} rows={3} placeholder="—" style={inp({ resize: "vertical" })} />
-          </label>
-        ))}
+        {[["evaluacion", "Evaluación facial"], ["plan", "Tratamientos recomendados"]].map(([k, label]) => {
+          const isPlan = k === "plan";
+          const totalU = isPlan ? sumUnits(f.plan) : 0;
+          // En "Tratamientos recomendados", al escribir "Total U:" el número se completa solo
+          // con la suma de las unidades escritas antes (ej: 20u + 10u + 5u → Total U: 35).
+          const onCh = isPlan
+            ? e => { let v = e.target.value; v = v.replace(/(total\s*u\s*:?[ \t]*)(\d*)([ \t]*)$/i, (_m, pre) => pre + sumUnits(v)); setVal(k, v); }
+            : e => setVal(k, e.target.value);
+          return (
+            <label key={k} style={{ display: "block", marginBottom: 12 }}>
+              <span style={lbl}>{label}</span>
+              <textarea value={f[k] || ""} onChange={onCh} rows={3} placeholder={isPlan ? 'Ej: 20u frontal, 10u procerus… escribe "Total U:" y se suma solo' : "—"} style={inp({ resize: "vertical" })} />
+              {isPlan && totalU > 0 && <span style={{ display: "inline-block", marginTop: 7, fontFamily: T.sans, fontSize: 11, fontWeight: 500, color: T.accent, background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + (T.accent + "44"), borderRadius: 999, padding: "4px 11px" }}>Σ Total detectado: {totalU} U</span>}
+            </label>
+          );
+        })}
       </div>
     </div>
   );
