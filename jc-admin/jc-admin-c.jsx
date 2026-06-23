@@ -1190,7 +1190,7 @@ function InvKpiModal({ T, title, items, onClose }) {
             <div key={i.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: "1px solid " + T.lineSoft }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{i.name}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{i.cat} · mín {i.min} {i.unit}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{i.cat} · mín {i.min} {i.unit}{i.venc ? " · vence " + new Date(i.venc).toLocaleDateString("es-CL") : ""}</div>
               </div>
               <div style={{ fontFamily: T.serif, fontSize: 20, color: out ? "#C0285A" : lo ? "#C9A227" : T.text }}>{i.stock}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute }}>{i.unit}</div>
@@ -1414,7 +1414,7 @@ function InvScanModal({ T, onClose, onApply }) {
   );
 }
 function NewInvModal({ T, onClose, onSave, initial }) {
-  const [f, setF] = useState(initial ? { name: initial.name, cat: initial.cat, stock: "" + initial.stock, min: "" + initial.min, unit: initial.unit, price: "" + (initial.price || ""), boxSize: initial.boxSize ? "" + initial.boxSize : "" } : { name: "", cat: "Insumo clínico", stock: "", min: "", unit: "unidades", price: "", boxSize: "" });
+  const [f, setF] = useState(initial ? { name: initial.name, cat: initial.cat, stock: "" + initial.stock, min: "" + initial.min, unit: initial.unit, price: "" + (initial.price || ""), boxSize: initial.boxSize ? "" + initial.boxSize : "", venc: initial.venc || "" } : { name: "", cat: "Insumo clínico", stock: "", min: "", unit: "unidades", price: "", boxSize: "", venc: "" });
   const [modo, setModo] = useState("unidad"); // unidad | caja
   const ok = f.name.trim();
   const bs = parseInt(f.boxSize, 10) || 0;
@@ -1423,7 +1423,7 @@ function NewInvModal({ T, onClose, onSave, initial }) {
   const stockTotal = (modo === "caja" && bs) ? entered * bs : entered;
   const sel = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
   return (
-    <AdModal T={T} title={initial ? "Editar producto" : "Nuevo producto"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ name: f.name, cat: f.cat, stock: stockTotal, min: parseInt(f.min, 10) || 0, unit: f.unit, price: parseInt(f.price, 10) || 0, boxSize: bs || undefined })}>{initial ? "Guardar cambios" : "Guardar producto"}</AdBtn>}>
+    <AdModal T={T} title={initial ? "Editar producto" : "Nuevo producto"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ name: f.name, cat: f.cat, stock: stockTotal, min: parseInt(f.min, 10) || 0, unit: f.unit, price: parseInt(f.price, 10) || 0, boxSize: bs || undefined, venc: f.venc || undefined })}>{initial ? "Guardar cambios" : "Guardar producto"}</AdBtn>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <AdField T={T} label="Nombre" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Ácido hialurónico" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -1446,7 +1446,12 @@ function NewInvModal({ T, onClose, onSave, initial }) {
           <AdField T={T} label="Stock mínimo (unidades)" value={f.min} onChange={v => setF({ ...f, min: v.replace(/\D/g, "") })} inputMode="numeric" />
         </div>
         {modo === "caja" && bs > 0 && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.accent }}>Total a registrar: <b>{stockTotal} unidades</b> ({entered} caja(s) × {bs}).</div>}
-        <AdField T={T} label="Costo por unidad (CLP)" value={f.price} onChange={v => setF({ ...f, price: v.replace(/\D/g, "") })} inputMode="numeric" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <AdField T={T} label="Costo por unidad (CLP)" value={f.price} onChange={v => setF({ ...f, price: v.replace(/\D/g, "") })} inputMode="numeric" />
+          <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Fecha de vencimiento</span>
+            <input type="date" value={f.venc} onChange={e => setF({ ...f, venc: e.target.value })} style={sel} /></label>
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>El insumo aparecerá en "Por vencer" cuando falten 60 días o menos para su vencimiento.</div>
       </div>
     </AdModal>
   );
