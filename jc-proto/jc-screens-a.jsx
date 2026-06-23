@@ -94,8 +94,22 @@ const cardIcon = (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
 );
 
+/* clarify: cuenta real de procedimientos del catálogo (sin "22" escrito a mano).
+   Excluye Promociones (son combos, no procedimientos nuevos) y deduplica por nombre. */
+function totalProcs(D) {
+  try {
+    const seen = new Set();
+    (D.catalog || []).forEach(s => {
+      if (s.sec === "Promociones") return;
+      (s.groups || []).forEach(g => (g.items || []).forEach(it => { if (!it.promo && it.n) seen.add(it.n); }));
+    });
+    return seen.size || 22;
+  } catch (e) { return 22; }
+}
+
 /* ─────────── HOME ─────────── */
 function HomeScreen({ T, D, go, openBooking, tone }) {
+  const nProcs = totalProcs(D);
   const [prodSheet, setProdSheet] = useState(null);
   const [baLight, setBaLight] = useState(null); // lightbox de caso real (foto completa al click)
   const lead = tone === "clinico"
@@ -142,7 +156,7 @@ function HomeScreen({ T, D, go, openBooking, tone }) {
       </div>
       <div style={{ padding: "22px 20px 0" }}>
         <div style={{ borderRadius: 4, animation: "jcAttn 2.2s " + T.ease + " infinite" }}>
-          <GhostBtn T={T} full onClick={() => go("catalogo")}>Ver catálogo completo — 22 procedimientos →</GhostBtn>
+          <GhostBtn T={T} full onClick={() => go("catalogo")}>{"Ver catálogo completo — " + nProcs + " procedimientos →"}</GhostBtn>
         </div>
       </div>
 
@@ -376,11 +390,24 @@ function CatalogScreen({ T, D, go, openBooking, onBack }) {
   const [prodSheet, setProdSheet] = useState(null);
   const block = D.catalog.find(s => s.sec === sec);
   const ql = q.trim().toLowerCase();
+  const nProcs = totalProcs(D);
   const openFicha = (it, cat, ph) => go("ficha", { id: it.n, name: it.n, sub: it.t, priceLabel: D.fmt(it.price), price: it.price, desc: it.x, dur: it.d, img: ph, catalog: true });
+
+  // clarify: con búsqueda activa, busca en TODO el catálogo (no solo la categoría visible).
+  // Agrupa los resultados por categoría y marca de qué sección viene cada uno.
+  const searchGroups = ql ? (() => {
+    const out = [];
+    D.catalog.forEach(s => (s.groups || []).forEach(g => {
+      const items = (g.items || []).filter(it => it.n.toLowerCase().includes(ql) || (it.t || "").toLowerCase().includes(ql));
+      if (items.length) out.push({ cat: s.sec === "Promociones" ? g.cat : g.cat + " · " + s.sec, g, items });
+    }));
+    return out;
+  })() : [];
+  const noResults = ql && searchGroups.length === 0;
 
   return (
     <div>
-      <ScreenTop T={T} eyebrow="Catálogo completo · 22 procedimientos" title="Procedimientos" onBack={onBack} />
+      <ScreenTop T={T} eyebrow={"Catálogo completo · " + nProcs + " procedimientos"} title="Procedimientos" onBack={onBack} />
 
       {/* Búsqueda + chips (los procedimientos tienen el protagonismo; "Productos" es un chip más) */}
       <div style={{ padding: "0 20px" }}>
@@ -397,7 +424,35 @@ function CatalogScreen({ T, D, go, openBooking, onBack }) {
         </div>
       </div>
 
-      {sec === "Productos" ? (
+      {ql ? (
+        noResults ? (
+          /* clarify: estado vacío de búsqueda — explica qué pasó y ofrece la salida */
+          <div style={{ padding: "56px 30px 40px", textAlign: "center", animation: "jcFade .4s " + T.ease }}>
+            <div style={{ width: 54, height: 54, margin: "0 auto", borderRadius: "50%", background: T.surface2, border: "1px solid " + T.line, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.5"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+            </div>
+            <h3 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: 23, color: T.text, marginTop: 18, lineHeight: 1.15 }}>Sin resultados</h3>
+            <p style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 300, color: T.textMute, marginTop: 8, lineHeight: 1.6 }}>
+              No encontramos “{q.trim()}”. Prueba con otro nombre o agenda una evaluación y lo vemos en consulta.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 22 }}>
+              <GhostBtn T={T} full onClick={() => setQ("")}>Limpiar búsqueda</GhostBtn>
+              <PrimaryBtn T={T} full onClick={() => openBooking && openBooking(null)}>Agendar evaluación</PrimaryBtn>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: "8px 20px 20px" }}>
+            {searchGroups.map(({ cat, g, items }) => (
+              <Reveal key={cat} style={{ marginTop: 22 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, paddingBottom: 8, borderBottom: "1px solid " + T.line }}>{cat}</div>
+                {items.map(it => { const ph = catPhoto(it.n, g.cat); return it.promo
+                  ? <PromoRow key={it.n} T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} />
+                  : <CatRow key={it.n} T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} onAdd={() => openBooking && openBooking({ name: it.n, price: it.price })} />; })}
+              </Reveal>
+            ))}
+          </div>
+        )
+      ) : sec === "Productos" ? (
         <div style={{ padding: "14px 20px 20px" }}>
           <Reveal>
             <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, paddingBottom: 8, borderBottom: "1px solid " + T.line }}>Insumos certificados</div>
@@ -442,6 +497,17 @@ function CatalogScreen({ T, D, go, openBooking, onBack }) {
 
 function CatRow({ T, it, onClick, D, photo, onAdd }) {
   const [h, setH] = useState(false);
+  // delight: confirmación visual al agregar (check + rebote breve), luego vuelve al carrito.
+  const [added, setAdded] = useState(false);
+  const tRef = useRef(null);
+  useEffect(() => () => { if (tRef.current) clearTimeout(tRef.current); }, []);
+  function handleAdd(e) {
+    e.stopPropagation();
+    setAdded(true);
+    if (tRef.current) clearTimeout(tRef.current);
+    tRef.current = setTimeout(() => setAdded(false), 700);
+    onAdd && onAdd();
+  }
   return (
     <button onClick={onClick} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
       style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", padding: "14px 4px", cursor: "pointer", background: h ? T.surface : "transparent", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: "background .2s" }}>
@@ -457,9 +523,17 @@ function CatRow({ T, it, onClick, D, photo, onAdd }) {
           <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>{D.fmt(it.price)}</div>
           <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginTop: 2 }}>Ver ficha →</div>
         </div>
-        <span role="button" title="Agregar al carrito" aria-label="Agregar al carrito" onClick={e => { e.stopPropagation(); onAdd && onAdd(); }}
-          style={{ width: 44, height: 44, borderRadius: 13, flexShrink: 0, background: T.accentSoft || T.chipBg, border: "1px solid " + T.chipBorder, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="9" cy="21" r="1" /><circle cx="18" cy="21" r="1" /><path d="M3 4h2l2.4 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6" /><path d="M16 5v4M14 7h4" /></svg>
+        <span role="button" title={added ? "Agregado" : "Agregar al carrito"} aria-label={added ? "Agregado al carrito" : "Agregar al carrito"} onClick={handleAdd}
+          style={{ width: 44, height: 44, borderRadius: 13, flexShrink: 0,
+            background: added ? T.gold : (T.accentSoft || T.chipBg),
+            border: "1px solid " + (added ? T.gold : T.chipBorder),
+            color: added ? (T.onAccent || "#fff") : T.accent,
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            transform: added ? "scale(1.12)" : "scale(1)",
+            transition: "transform .35s cubic-bezier(.22,1,.36,1), background .25s, color .25s, border-color .25s" }}>
+          {added
+            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M20 6 9 17l-5-5" /></svg>
+            : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="9" cy="21" r="1" /><circle cx="18" cy="21" r="1" /><path d="M3 4h2l2.4 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6" /><path d="M16 5v4M14 7h4" /></svg>}
         </span>
       </div>
     </button>

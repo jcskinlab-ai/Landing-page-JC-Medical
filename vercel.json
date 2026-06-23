@@ -2,6 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/app", "destination": "/JC_App.html" },
+    { "source": "/panel", "destination": "/JC_Admin.html" },
+    { "source": "/reservar", "destination": "/agendar.html" },
+    { "source": "/movil", "destination": "/JC_Mobile.html" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",
