@@ -937,9 +937,10 @@ function SalaEsperaView({ T, appts, patients }) {
 const AUTO_SEED = [
   { id: "r24", t: "Recordatorio de cita (24 h antes)", d: "Envía un mensaje a los pacientes 24 horas antes de su cita para confirmar asistencia.", on: true, ch: "WhatsApp", ic: "clock" },
   { id: "rmorning", t: "Recordatorio la mañana del día (08:30)", d: "Mensaje a las 08:30 del día de la cita para recordar la hora.", on: true, ch: "WhatsApp", ic: "sun" },
+  { id: "rind", t: "Indicaciones post tratamiento", d: "Al finalizar la atención, envía por WhatsApp las indicaciones y cuidados del procedimiento realizado.", on: true, ch: "WhatsApp", ic: "chat" },
   { id: "rpost", t: "Seguimiento de tratamiento (14 días)", d: "Mensaje automático a los 14 días para control de resultados.", on: false, ch: "WhatsApp", ic: "chat" },
   { id: "rbday", t: "Saludo de cumpleaños", d: "Envía un mensaje felicitando al paciente en su cumpleaños.", on: false, ch: "Email", ic: "gift" },
-  { id: "rreview", t: "Solicitud de reseña", d: "Mensaje después de la cita solicitando una reseña o retroalimentación.", on: false, ch: "SMS", ic: "star" },
+  { id: "rreview", t: "Solicitud de reseña", d: "Se envía por WhatsApp junto con las indicaciones post tratamiento: al final del mensaje se incluye tu enlace de Google para dejar reseña.", on: false, ch: "WhatsApp", ic: "star", bundle: "indicaciones" },
   { id: "rreact", t: "Reactivación (90 días sin venir)", d: "Invitación a reagendar para pacientes inactivos.", on: false, ch: "WhatsApp", ic: "refresh" }
 ];
 const AUTO_IC = {
@@ -952,13 +953,33 @@ const AUTO_IC = {
 };
 const AUTO_CH_COLOR = { WhatsApp: "#1F8A5B", Email: "#caa86a", SMS: "#9C8AB5" };
 function AutomatizacionesView({ T }) {
-  const [rules, setRules] = useState(() => { try { const s = DB.get("automations"); return (s && s.length && s[0].ch) ? s : AUTO_SEED; } catch (e) { return AUTO_SEED; } });
+  // Fusiona el estado guardado (solo on/off) con los metadatos del código, para que
+  // textos/canales nuevos siempre se reflejen aunque haya reglas guardadas antes.
+  const [rules, setRules] = useState(() => {
+    let saved = {};
+    try { const s = DB.get("automations"); if (s && s.length) s.forEach(r => { saved[r.id] = r.on; }); } catch (e) {}
+    return AUTO_SEED.map(r => ({ ...r, on: r.id in saved ? saved[r.id] : r.on }));
+  });
   function toggle(id) { const n = rules.map(r => r.id === id ? { ...r, on: !r.on } : r); setRules(n); try { DB.set("automations", n); } catch (e) {} }
+  const [reviewLink, setReviewLink] = useState(() => { try { return DB.cfg().review_link || ""; } catch (e) { return ""; } });
+  const [savedLink, setSavedLink] = useState(false);
+  function guardarLink() { try { DB.set("config", Object.assign({}, DB.cfg(), { review_link: reviewLink.trim() })); setSavedLink(true); setTimeout(() => setSavedLink(false), 2200); } catch (e) {} }
   return (
     <div>
       <SecHead T={T} title="Automatizaciones" sub="Configura recordatorios y mensajes automáticos para tus pacientes." />
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
         Demo local: el envío real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aquí configuras y visualizas las reglas.
+      </div>
+      {/* Enlace de reseña de Google: se agrega al final del mensaje de indicaciones post tratamiento. */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Enlace de reseña (Google)</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input value={reviewLink} onChange={e => setReviewLink(e.target.value)} data-nocap placeholder="https://g.page/r/…/review" style={{ flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }} />
+          <AdBtn T={T} primary onClick={guardarLink}>{savedLink ? "✓ Guardado" : "Guardar enlace"}</AdBtn>
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 8, lineHeight: 1.5 }}>
+          Se obtiene en tu Perfil de Empresa de Google → "Pedir reseñas" → copiar enlace. Cuando "Solicitud de reseña" está activa, este enlace se añade al final del mensaje de indicaciones post tratamiento.
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {rules.map(r => {
