@@ -10,6 +10,10 @@
   ],
   "headers": [
     {
+      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index)(.html)?",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
