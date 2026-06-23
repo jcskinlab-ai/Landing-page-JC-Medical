@@ -1045,6 +1045,7 @@ function RecetaTab({ T, patient, updatePatient }) {
   const [diag, setDiag] = useState("");
   const [rp, setRp] = useState("");
   const [ind, setInd] = useState("");
+  const [preview, setPreview] = useState(null); // documento abierto en popup
   const recetas = patient.recetas || [];
   const titleOf = t => t === "indicaciones" ? "Indicaciones post tratamiento" : "Receta médica";
   const rpLabelOf = t => t === "indicaciones" ? "Indicaciones / cuidados" : "Rp. (medicamentos)";
@@ -1109,8 +1110,8 @@ function RecetaTab({ T, patient, updatePatient }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {recetas.map(r => (
           <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{titleOf(r.tipo)}{r.diag ? " · " + r.diag : ""}</div>
+            <div onClick={() => setPreview(r)} title="Ver indicaciones" style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.accent }}>{titleOf(r.tipo)}{r.diag ? " · " + r.diag : ""}</div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.fecha} · {r.rp.split("\n")[0]}</div>
             </div>
             <AdBtn T={T} small onClick={() => imprimir(r)}>Imprimir</AdBtn>
@@ -1119,6 +1120,28 @@ function RecetaTab({ T, patient, updatePatient }) {
           </div>
         ))}
       </div>
+      {/* Popup de visualización del documento (sin imprimir) */}
+      {preview && (
+        <AdModal T={T} title={titleOf(preview.tipo)} onClose={() => setPreview(null)} footer={
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <AdBtn T={T} onClick={() => imprimir(preview)}>Imprimir</AdBtn>
+            <AdBtn T={T} primary onClick={() => enviarWa(preview)}>WhatsApp</AdBtn>
+          </div>}>
+          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 }}>{preview.fecha} · {patient.name}{patient.age ? " · " + patient.age + " años" : ""}</div>
+          {preview.diag && <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>Diagnóstico</div>
+            <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{preview.diag}</div>
+          </div>}
+          <div style={{ marginBottom: preview.ind ? 14 : 0 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>{preview.tipo === "indicaciones" ? "Indicaciones / cuidados" : "Rp. (medicamentos)"}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 14, color: T.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{preview.rp}</div>
+          </div>
+          {preview.ind && <div>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>Notas adicionales</div>
+            <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{preview.ind}</div>
+          </div>}
+        </AdModal>
+      )}
     </div>
   );
 }
