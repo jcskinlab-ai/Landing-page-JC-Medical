@@ -1218,18 +1218,34 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           <Summ T={T} k="Fecha" v={wk.wd + " " + wk.dd + " " + wk.mm} />
           <Summ T={T} k="Hora" v={pick.time} />
         </div>
-        {daySlots.length > 0 && (
+        {daySlots.length > 0 && (() => {
+          // Horarios ocupados por OTRAS citas del mismo día (no el recién agendado).
+          const takenByOthers = new Set(
+            (appts || [])
+              .filter(a => (a.fecha === apptFecha || a.day === pick.dayOff) && a.time && a.time !== pick.time)
+              .map(a => a.time)
+          );
+          return (
           <div style={{ marginTop: 14 }}>
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Horarios del día</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
               {daySlots.map(s => {
-                const sel = s === pick.time;
-                return <span key={s} style={{ fontFamily: T.sans, fontSize: 11, padding: "5px 9px", borderRadius: 6, background: sel ? T.accent : T.surface, color: sel ? (T.onAccent || "#fff") : T.textFaint, border: "1px solid " + (sel ? T.accent : T.lineSoft), fontWeight: sel ? 600 : 400, textDecoration: sel ? "none" : "line-through" }}>{s}</span>;
+                const sel = s === pick.time;          // recién agendado → bloqueado
+                const taken = takenByOthers.has(s);   // ocupado por otra cita
+                return <span key={s} style={{
+                  fontFamily: T.sans, fontSize: 11, padding: "5px 9px", borderRadius: 6,
+                  background: sel ? T.accent : (taken ? T.surface : T.chipBg),
+                  color: sel ? (T.onAccent || "#fff") : (taken ? T.textFaint : T.text),
+                  border: "1px solid " + (sel ? T.accent : (taken ? T.lineSoft : T.chipBorder)),
+                  fontWeight: sel ? 600 : 400,
+                  textDecoration: taken ? "line-through" : "none"
+                }}>{s}</span>;
               })}
             </div>
-            <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>El horario seleccionado quedó bloqueado · los demás siguen disponibles</p>
+            <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>Solo el horario agendado quedó bloqueado · los demás siguen disponibles</p>
           </div>
-        )}
+          );
+        })()}
       </AdModal>
     );
   }
