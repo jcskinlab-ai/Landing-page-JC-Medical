@@ -243,6 +243,27 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
     if (w) { w.document.write(html); w.document.close(); }
   }
 
+  // Imprime UNA sesión/procedimiento (para adjuntar a la ficha física).
+  function imprimirProc(h) {
+    const proName = h.proName || (D.contact && D.contact.pro) || "Juan Claudio Parra";
+    const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const field = (l, v) => v ? "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + esc(v) + "</div></div>" : "";
+    const meta = [h.lote && ("Lote " + h.lote), h.venc && ("Vence " + h.venc), h.temp && ("Temp. " + h.temp), h.dilucion && ("Dilución " + h.dilucion)].filter(Boolean).join("  ·  ");
+    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Procedimiento · " + esc(patient.name) + "</title>" +
+      "<style>@page{size:letter;margin:2.2cm 2cm}body{font-family:Georgia,serif;color:#1a1a14;margin:0;line-height:1.55}h1{font-size:21px;margin:0;font-weight:400}h2{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#888;margin:24px 0 8px;border-bottom:1px solid #ddd;padding-bottom:5px}.muted{color:#666;font-size:12px}.row{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1a14;padding-bottom:10px}.tt{font-size:15px;letter-spacing:.06em;text-transform:uppercase;text-align:center;margin:22px 0 4px;font-family:Helvetica,Arial,sans-serif}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}.fld{padding:4px 0}.fl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#999}.fv{font-size:14px}.box{font-size:14px;line-height:1.8;margin-top:6px;white-space:pre-wrap}.firma{margin-top:90px}.firmaBox{max-width:320px}.line{border-top:1px solid #1a1a14;padding-top:6px;font-size:12px}</style></head><body>" +
+      "<div class='row'><div><h1>" + esc(D.brand || "JC Medical") + "</h1><div class='muted'>" + esc(proName) + " · Medicina estética" + ((D.contact && D.contact.address) ? " · " + esc(D.contact.address) : "") + "</div></div><div class='muted' style='text-align:right'>" + esc(h.date || hoy) + "</div></div>" +
+      "<div class='tt'>Procedimiento realizado</div>" +
+      "<h2>Paciente</h2><div class='grid'>" + field("Nombre", patient.name) + field("CI / RUT", patient.rut) + field("Edad", patient.age ? patient.age + " años" : "") + "</div>" +
+      "<h2>Procedimiento</h2><div class='grid'>" + field("Tratamiento", h.proc) + field("Unidades / dosis", h.units) + field("Insumo", meta) + "</div>" +
+      (h.resumen ? "<h2>Resumen de la aplicación</h2><div class='box'>" + esc(h.resumen) + "</div>" : "") +
+      (h.note ? "<h2>Notas / resultados</h2><div class='box'>" + esc(h.note) + "</div>" : "") +
+      "<div class='firma'><div class='firmaBox'><div class='line'>Firma del profesional</div><div class='muted' style='margin-top:4px'>" + esc(proName) + "</div></div></div>" +
+      "<script>window.onload=function(){window.print();}<\/script></body></html>";
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
   return (
     <div style={{ padding: "4px 0 24px" }}>
       <button onClick={onBack} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", color: T.textMute, fontFamily: T.sans, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 14, padding: 0 }}>
@@ -345,9 +366,14 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
                   {h.note && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 4, lineHeight: 1.5 }}>{h.note}</div>}
                   {h.proName && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, fontStyle: "italic", marginTop: 5 }}>Realizado por {h.proName}</div>}
                 </div>
-                <button onClick={() => { setEditIdx(i); setViewMode(false); setNewEntry(true); }} title="Editar sesión" style={{ flexShrink: 0, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>Editar
-                </button>
+                <div style={{ flexShrink: 0, alignSelf: "flex-start", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button onClick={() => { setEditIdx(i); setViewMode(false); setNewEntry(true); }} title="Editar sesión" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>Editar
+                  </button>
+                  <button onClick={() => imprimirProc(h)} title="Imprimir procedimiento" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></svg>Imprimir
+                  </button>
+                </div>
               </div>
             ); })}
             {(!patient.history || patient.history.length === 0) && <div style={{ padding: "20px 0", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin sesiones registradas.</div>}
@@ -708,8 +734,18 @@ function ConsentTab({ T, patient, updatePatient }) {
   const A = window.JCADMIN;
   // Lista de consentimientos (compatibilidad con el modelo antiguo de uno solo).
   const consents = patient.consents || (patient.consentDoc ? [patient.consentDoc] : []);
+  const printRef = useRef(null);
   function start(t) { setTpl0(t); setSigning(true); }
   const fmtHora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  // Imprime el consentimiento reutilizando el contenido ya renderizado en el popup (texto legal + firmas).
+  function imprimirConsent() {
+    const node = printRef.current; if (!node) return;
+    const w = window.open("", "_blank"); if (!w) return;
+    w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + (patient.name || "") + "</title>" +
+      "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}img{max-height:70px}</style></head><body>" +
+      node.outerHTML + "<script>window.onload=function(){window.print();}<\/script></body></html>");
+    w.document.close();
+  }
 
   return (
     <div>
@@ -738,8 +774,8 @@ function ConsentTab({ T, patient, updatePatient }) {
 
       {/* Popup con el consentimiento completo */}
       {openDoc && (
-        <AdModal T={T} title={openDoc.title || "Consentimiento"} onClose={() => setOpenDoc(null)} wide footer={<AdBtn T={T} primary full onClick={() => setOpenDoc(null)}>Cerrar</AdBtn>}>
-          <div style={{ background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px" }}>
+        <AdModal T={T} title={openDoc.title || "Consentimiento"} onClose={() => setOpenDoc(null)} wide footer={<div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}><AdBtn T={T} onClick={() => setOpenDoc(null)}>Cerrar</AdBtn><AdBtn T={T} primary onClick={imprimirConsent}>Imprimir</AdBtn></div>}>
+          <div ref={printRef} style={{ background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px" }}>
             <div style={{ textAlign: "right", fontFamily: T.sans, fontSize: 11, color: "#444" }}>Fecha: {openDoc.fecha}</div>
             <h2 style={{ textAlign: "center", fontFamily: T.serif, fontWeight: 400, fontSize: 20, color: "#111", margin: "2px 0 14px" }}>Consentimiento informado</h2>
             <div style={{ fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 }}>Yo <b>{openDoc.nombre}</b></div>
