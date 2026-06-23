@@ -117,6 +117,7 @@ function ServiciosView({ T }) {
   const [over, setOver] = useState({});
   const [editing, setEditing] = useState(null);
   const [hover, setHover] = useState(null);
+  const [q, setQ] = useState("");
   function val(it) {
     const o = over[it.n] || {};
     const price = o.price != null ? o.price : it.price;
@@ -125,20 +126,34 @@ function ServiciosView({ T }) {
   }
   const sections = (D.catalog || []).filter(s => s.sec !== "Promociones");
   const totalItems = sections.reduce((s, sec) => s + sec.groups.reduce((s2, g) => s2 + g.items.length, 0), 0);
+  const ql = q.trim().toLowerCase();
+  const matchItem = it => { if (!ql) return true; const v = val(it); return v.name.toLowerCase().includes(ql) || (v.desc || "").toLowerCase().includes(ql); };
+  const hits = ql ? sections.reduce((s, sec) => s + sec.groups.reduce((s2, g) => s2 + g.items.filter(matchItem).length, 0), 0) : totalItems;
   return (
     <div>
       <SecHead T={T} title="Servicios" sub={totalItems + " procedimientos · haz clic en cualquier fila para editar"} />
-      {sections.map(section => (
+      <div style={{ position: "relative", marginBottom: 22 }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar procedimiento por nombre…" style={{ width: "100%", padding: "12px 14px 12px 38px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        {ql && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6 }}>{hits} resultado{hits === 1 ? "" : "s"}</div>}
+      </div>
+      {ql && hits === 0 && <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textFaint, padding: "12px 2px" }}>Sin procedimientos que coincidan con "{q}".</div>}
+      {sections.map(section => {
+        const vg = section.groups.filter(g => g.items.some(matchItem));
+        if (!vg.length) return null;
+        return (
         <div key={section.sec} style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>{section.sec}</div>
             <div style={{ flex: 1, height: 1, background: T.line }} />
           </div>
-          {section.groups.map(group => (
+          {vg.map(group => {
+            const gi = group.items.filter(matchItem);
+            return (
             <div key={group.cat} style={{ marginBottom: 16 }}>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 7, paddingLeft: 2 }}>{SVC_CAT_LABEL[group.cat] || group.cat}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                {group.items.map((it, i) => {
+                {gi.map((it, i) => {
                   const on = active[it.n] !== false;
                   const v = val(it);
                   const hk = section.sec + group.cat + i;
@@ -163,9 +178,10 @@ function ServiciosView({ T }) {
                 })}
               </div>
             </div>
-          ))}
+          );})}
         </div>
-      ))}
+        );
+      })}
       {editing && (
         <AdModal T={T} title="Editar servicio" onClose={() => setEditing(null)} footer={
           <AdBtn T={T} primary full onClick={() => { setOver({ ...over, [editing.key]: { name: editing.name.trim() || editing.key, desc: editing.desc, price: parseInt((editing.price + "").replace(/\D/g, ""), 10) || 0, dur: parseInt((editing.dur + "").replace(/\D/g, ""), 10) || 60, pts: parseInt((editing.pts + "").replace(/\D/g, ""), 10) || 0 } }); setEditing(null); }}>Guardar cambios</AdBtn>
@@ -1220,6 +1236,9 @@ function InventarioView({ T }) {
   const setProcs = v => { const nv = typeof v === "function" ? v(procs) : v; setProcsR(nv); procSave(nv); };
   const low = items.filter(i => i.stock > 0 && i.stock <= i.min);
   const out = items.filter(i => i.stock <= 0);
+  // Por vencer: insumos con fecha de vencimiento dentro de los próximos 60 días.
+  const _hoy0 = new Date(); _hoy0.setHours(0, 0, 0, 0);
+  const porVencer = items.filter(i => { if (!i.venc) return false; const d = new Date(i.venc); if (isNaN(d)) return false; const dias = (d - _hoy0) / 86400000; return dias >= 0 && dias <= 60; });
   const cats = Array.from(new Set(items.map(i => i.cat || "Sin categoría"))).sort();
   const ql = q.trim().toLowerCase();
   const list = items
@@ -1242,13 +1261,14 @@ function InventarioView({ T }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginBottom: 16 }}>
         <div onClick={() => setInvKpi("all")} style={{ cursor: "pointer" }}><AdStat T={T} n={items.length} l="Productos" /></div>
         <div onClick={() => low.length && setInvKpi("low")} style={{ cursor: low.length ? "pointer" : "default" }}><AdStat T={T} n={low.length} l="Stock bajo" accent={low.length > 0} /></div>
-        <div onClick={() => out.length && setInvKpi("out")} style={{ cursor: out.length ? "pointer" : "default" }}><AdStat T={T} n={out.length} l="Agotados" accent={out.length > 0} /></div>
-        <div style={{ cursor: "default" }}><AdStat T={T} n={0} l="Por vencer" /></div>
+        <div onClick={() => setInvKpi("out")} style={{ cursor: "pointer" }}><AdStat T={T} n={out.length} l="Agotados" accent={out.length > 0} /></div>
+        <div onClick={() => setInvKpi("vencer")} style={{ cursor: "pointer" }}><AdStat T={T} n={porVencer.length} l="Por vencer" accent={porVencer.length > 0} /></div>
         <div style={{ cursor: "default" }}><AdStat T={T} n={D.fmt(valor)} l="Valor inventario" /></div>
       </div>
       {invKpi === "all" && <InvKpiModal T={T} title="Todos los productos" items={items} onClose={() => setInvKpi(null)} />}
       {invKpi === "low" && <InvKpiModal T={T} title="Stock bajo" items={low} onClose={() => setInvKpi(null)} />}
       {invKpi === "out" && <InvKpiModal T={T} title="Agotados" items={out} onClose={() => setInvKpi(null)} />}
+      {invKpi === "vencer" && <InvKpiModal T={T} title="Por vencer" items={porVencer} onClose={() => setInvKpi(null)} />}
       {low.length > 0 && (
         <div style={{ background: "rgba(192,40,90,.08)", border: "1px solid rgba(192,40,90,.35)", borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
           <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#C0285A", marginBottom: 4 }}>⚠ Reponer pronto</div>
