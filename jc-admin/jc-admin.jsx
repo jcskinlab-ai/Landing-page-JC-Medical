@@ -1091,6 +1091,12 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                 <span style={{ color: T.text, fontWeight: 500, textAlign: "right" }}>{v}</span>
               </div>
             ))}
+            {a.comentario && (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid " + T.lineSoft }}>
+                <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 3 }}>Comentario</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.comentario}</div>
+              </div>
+            )}
           </div>
         );
       })()}
