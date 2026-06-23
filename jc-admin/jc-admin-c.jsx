@@ -419,9 +419,33 @@ function IntegracionesView({ T }) {
 function ReportesView({ T }) {
   const D = window.JCDATA;
   const rev = [{ m: "Ene", v: 1.8 }, { m: "Feb", v: 2.2 }, { m: "Mar", v: 2.0 }, { m: "Abr", v: 2.9 }, { m: "May", v: 3.4 }, { m: "Jun", v: 3.9 }];
-  const max = Math.max(...rev.map(r => r.v));
+  const serie = rev.map(r => r.v);
+  const totalAnual = serie.reduce((a, b) => a + b, 0);
+  const growth = Math.round((serie[serie.length - 1] / serie[0] - 1) * 100);
   const pop = [["Toxina botulínica", 0.46], ["Rinomodelación", 0.24], ["Sculptra", 0.18], ["Mesoterapia", 0.12]];
   let cashToday2 = 0; try { const mv = (window.DB && window.DB.get("cash_moves")) || []; const t = new Date().toISOString().slice(0, 10); cashToday2 = mv.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 10) === t).reduce((s, m) => s + (m.amount || 0), 0); } catch (e) {}
+  const green = "#1F8A5B";
+  // Gráfico de área con curva suave (mismo estilo que el dashboard).
+  function RevChart() {
+    const W = 720, H = 210, padL = 8, padR = 8, padT = 14, padB = 26;
+    const innerW = W - padL - padR, innerH = H - padT - padB;
+    const maxY = Math.max.apply(null, serie) * 1.18, n = serie.length;
+    const X = i => padL + i * innerW / (n - 1);
+    const Y = v => padT + (1 - v / maxY) * innerH;
+    const line = "M " + serie.map((v, i) => X(i).toFixed(1) + " " + Y(v).toFixed(1)).join(" L ");
+    const area = line + " L " + X(n - 1).toFixed(1) + " " + (padT + innerH) + " L " + padL + " " + (padT + innerH) + " Z";
+    const grid = [0, 1, 2, 3].map(g => padT + g * innerH / 3);
+    return (
+      <svg viewBox={"0 0 " + W + " " + H} style={{ width: "100%", height: "auto", display: "block" }} preserveAspectRatio="xMidYMid meet">
+        <defs><linearGradient id="repGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={T.accent} stopOpacity="0.22" /><stop offset="100%" stopColor={T.accent} stopOpacity="0" /></linearGradient></defs>
+        {grid.map((y, i) => <line key={i} x1={padL} y1={y} x2={padL + innerW} y2={y} stroke={T.line} strokeWidth="1" />)}
+        <path d={area} fill="url(#repGrad)" />
+        <path d={line} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+        {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.6" fill={T.surface} stroke={T.accent} strokeWidth="2" />)}
+        {rev.map((r, i) => <text key={r.m} x={X(i)} y={H - 7} textAnchor="middle" fontSize="11" fontFamily={T.sans} fill={T.textMute}>{r.m}</text>)}
+      </svg>
+    );
+  }
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -430,29 +454,35 @@ function ReportesView({ T }) {
           <option value="anio">Este año</option><option value="mes">Este mes</option><option value="sem">Esta semana</option>
         </select>
       </div>
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "18px 16px", marginBottom: 16 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 16 }}>Evolución de ingresos (MM CLP)</div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 140 }}>
-          {rev.map(r => (
-            <div key={r.m} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-              <div style={{ width: "100%", height: (r.v / max * 110) + "px", background: "linear-gradient(180deg," + T.accent + "," + T.accentDeep + ")", borderRadius: "4px 4px 0 0" }} />
-              <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute }}>{r.m}</div>
-            </div>
-          ))}
+      {/* Evolución de ingresos — tarjeta moderna con curva de área */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", marginBottom: 14, boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" /></svg></div>
+            <div><div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Evolución de ingresos</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Acumulado del año · MM CLP</div></div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text, lineHeight: 1 }}>${totalAnual.toFixed(1)}MM</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: green, marginTop: 3 }}>↗ +{growth}% vs. inicio de año</div>
+          </div>
         </div>
+        <RevChart />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 }}>
         <AdStat T={T} n={D.fmt(238000)} l="Ticket promedio" />
         <AdStat T={T} n="96%" l="Retención pacientes" />
         <AdStat T={T} n="4%" l="No-show rate" />
         <AdStat T={T} n={D.fmt(cashToday2)} l="Ingresos hoy" />
       </div>
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "18px 16px" }}>
-        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 14 }}>Servicios más populares</div>
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg></div>
+          <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Servicios más populares</div>
+        </div>
         {pop.map(([n, p]) => (
           <div key={n} style={{ marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: T.sans, fontSize: 12, color: T.text, marginBottom: 5 }}><span>{n}</span><span style={{ color: T.textMute }}>{Math.round(p * 100)}%</span></div>
-            <div style={{ height: 6, background: T.surface2, borderRadius: 999 }}><div style={{ height: "100%", width: (p * 100) + "%", background: T.accent, borderRadius: 999 }} /></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 5 }}><span>{n}</span><span style={{ color: T.accent, fontWeight: 600 }}>{Math.round(p * 100)}%</span></div>
+            <div style={{ height: 7, background: T.surface2, borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: (p * 100) + "%", background: "linear-gradient(90deg," + T.accent + "," + T.accentDeep + ")", borderRadius: 999 }} /></div>
           </div>
         ))}
       </div>
@@ -525,6 +555,7 @@ function ColaboracionView({ T }) {
   const [reqs, setReqs] = useState(() => { try { return (window.DB && DB.get("collabs")) || []; } catch (e) { return []; } });
   const [openId, setOpenId] = useState(null);
   const [verRech, setVerRech] = useState(false);
+  const [statList, setStatList] = useState(null); // "all" | "nueva" | "aprobada" | "rechazada"
   function setStatus(id, st) { const nx = reqs.map(r => r.id === id ? { ...r, status: st } : r); setReqs(nx); try { if (window.DB) DB.set("collabs", nx); } catch (e) {} }
   const openR = reqs.find(r => r.id === openId);
   const pend = reqs.filter(r => (r.status || "nueva") === "nueva");
@@ -565,10 +596,10 @@ function ColaboracionView({ T }) {
         );
       })()}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
-        <AdStat T={T} n={reqs.length} l="Solicitudes" />
-        <AdStat T={T} n={pend.length} l="Sin revisar" accent={pend.length > 0} />
-        <AdStat T={T} n={reqs.filter(r => r.status === "aprobada").length} l="Aprobadas" />
-        <AdStat T={T} n={rech.length} l="Rechazadas" />
+        <div onClick={() => reqs.length && setStatList("all")} style={{ cursor: reqs.length ? "pointer" : "default" }}><AdStat T={T} n={reqs.length} l="Solicitudes" /></div>
+        <div onClick={() => pend.length && setStatList("nueva")} style={{ cursor: pend.length ? "pointer" : "default" }}><AdStat T={T} n={pend.length} l="Sin revisar" accent={pend.length > 0} /></div>
+        <div onClick={() => reqs.some(r => r.status === "aprobada") && setStatList("aprobada")} style={{ cursor: reqs.some(r => r.status === "aprobada") ? "pointer" : "default" }}><AdStat T={T} n={reqs.filter(r => r.status === "aprobada").length} l="Aprobadas" /></div>
+        <div onClick={() => rech.length && setStatList("rechazada")} style={{ cursor: rech.length ? "pointer" : "default" }}><AdStat T={T} n={rech.length} l="Rechazadas" /></div>
       </div>
       {reqs.length === 0 && (
         <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 10, padding: "40px 24px", textAlign: "center" }}>
@@ -592,6 +623,18 @@ function ColaboracionView({ T }) {
           </div>}
         </div>
       )}
+      {statList && (() => {
+        const titulos = { all: "Todas las solicitudes", nueva: "Sin revisar", aprobada: "Aprobadas", rechazada: "Rechazadas" };
+        const lista = statList === "all" ? reqs : statList === "nueva" ? pend : statList === "aprobada" ? reqs.filter(r => r.status === "aprobada") : rech;
+        return (
+          <AdModal T={T} title={titulos[statList] + " (" + lista.length + ")"} onClose={() => setStatList(null)}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {lista.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "10px 0" }}>Sin solicitudes en esta categoría.</div>}
+              {lista.map(reqRow)}
+            </div>
+          </AdModal>
+        );
+      })()}
       {openR && <CollabModal T={T} D={D} r={openR} onClose={() => setOpenId(null)} onStatus={st => setStatus(openR.id, st)} />}
     </div>
   );
