@@ -16,32 +16,58 @@
 <meta property="og:url" content="https://jcmedical.cl/agendar.html">
 <meta property="og:image" content="https://jcmedical.cl/assets/jc-hero-v2.png">
 <meta name="twitter:card" content="summary_large_image">
+<!-- optimize: preconnect a las fuentes -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#F5F2EC;--surface:#fff;--surface2:#FBF9F5;--ink:#1A1A14;--mute:#5C5A50;--faint:#8A8674;--line:rgba(20,20,15,.12);--accent:#54707F;--ok:#1F8A5B;--danger:#C0285A}
+  :root{--bg:#F5F2EC;--surface:#fff;--surface2:#FBF9F5;--ink:#1A1A14;--mute:#5C5A50;--faint:#8A8674;--line:rgba(20,20,15,.12);--accent:#54707F;--accent-deep:#3f5663;--ok:#1F8A5B;--danger:#C0285A;--ease:cubic-bezier(.22,1,.36,1)}
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);min-height:100dvh;padding:32px 20px 80px}
+  body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);min-height:100dvh;padding:32px 20px 96px;-webkit-tap-highlight-color:transparent}
   .wrap{width:100%;max-width:680px;margin:0 auto}
   .badge{width:52px;height:52px;border-radius:14px;background:rgba(84,112,127,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
-  h1{font-family:'Marcellus';font-weight:400;font-size:30px;text-align:center;line-height:1.15}
+  h1{font-family:'Marcellus';font-weight:400;font-size:clamp(28px,8vw,34px);text-align:center;line-height:1.12;letter-spacing:-.01em}
   h1 em{font-family:'Cormorant Garamond';font-style:italic;color:var(--accent)}
   .sub{color:var(--mute);font-size:14px;font-weight:300;margin-top:10px;line-height:1.6;text-align:center}
-  .nota{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:12.5px;color:var(--mute);line-height:1.6}
   .step{display:none}
-  .step.active{display:block;animation:fade .3s ease}
+  .step.active{display:block;animation:fade .3s var(--ease)}
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
   .sech{font-family:'Marcellus';font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);background:rgba(84,112,127,.10);border-radius:10px;padding:11px 15px;margin:20px 0 10px}
   .cat-label{font-family:'Jost';font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:12px 4px 6px}
   .svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .svc-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;cursor:pointer;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent}
+  .svc-card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;cursor:pointer;transition:border-color .15s,background .15s,transform .12s}
   .svc-card:hover{border-color:var(--accent)}
-  .svc-card.sel{border-color:var(--accent);background:rgba(84,112,127,.08)}
-  .svc-card .svc-name{font-size:13.5px;font-weight:500;color:var(--ink);line-height:1.35;margin-bottom:5px}
+  .svc-card:active{transform:scale(.985)}
+  .svc-card.incart{border-color:var(--accent);background:rgba(84,112,127,.07)}
+  .svc-card .svc-name{font-size:13.5px;font-weight:500;color:var(--ink);line-height:1.35;margin-bottom:5px;padding-right:26px}
   .svc-card .svc-price{font-family:'Marcellus';font-size:14px;color:var(--accent)}
-  .svc-card .svc-note{font-size:11px;color:var(--faint);margin-top:3px;line-height:1.4}
+  .svc-card .svc-meta{font-size:11px;color:var(--faint);margin-top:3px;line-height:1.4}
+  .svc-card .svc-dur{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--mute);margin-top:7px;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+  .svc-add{position:absolute;top:11px;right:11px;width:26px;height:26px;border-radius:8px;background:var(--surface2);border:1px solid var(--line);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;transition:.15s var(--ease)}
+  .svc-card.incart .svc-add{background:var(--accent);border-color:var(--accent);color:#fff;animation:pop .25s var(--ease)}
+  /* Carrito "Tu selección" */
+  .cart{background:var(--surface);border:1px solid rgba(84,112,127,.3);border-radius:16px;padding:16px 16px 14px;margin-bottom:6px;box-shadow:0 14px 40px -28px rgba(40,38,30,.4)}
+  .cart-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .cart-head .ct{font-family:'Jost';font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .cart-head .cm{font-size:11px;color:var(--mute)}
+  .cart-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .cart-item:last-of-type{border-bottom:none}
+  .ci-info{flex:1;min-width:0}
+  .ci-name{font-size:13.5px;font-weight:500;color:var(--ink);line-height:1.3}
+  .ci-meta{font-size:11px;color:var(--faint);margin-top:2px}
+  .qty{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-shrink:0}
+  .qty button{width:32px;height:32px;background:var(--surface2);border:none;color:var(--accent);font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .qty button:active{background:rgba(84,112,127,.16)}
+  .qty .qn{min-width:26px;text-align:center;font-size:14px;font-weight:600;color:var(--ink)}
+  .cart-tot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+  .cart-tot .tl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+  .cart-tot .tv{font-family:'Marcellus';font-size:19px;color:var(--accent)}
+  .cart-time{font-size:11.5px;color:var(--mute);margin-top:6px;text-align:right}
+  .cart-empty{font-size:12.5px;color:var(--faint);text-align:center;padding:4px 0 2px}
   .date-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none}
   .date-scroll::-webkit-scrollbar{display:none}
-  .date-btn{flex-shrink:0;min-width:64px;padding:12px 8px;border-radius:12px;cursor:pointer;text-align:center;background:var(--surface);border:1px solid var(--line);transition:all .15s;-webkit-tap-highlight-color:transparent}
+  .date-btn{flex-shrink:0;min-width:64px;padding:12px 8px;border-radius:12px;cursor:pointer;text-align:center;background:var(--surface);border:1px solid var(--line);transition:all .15s}
   .date-btn:hover{border-color:var(--accent)}
   .date-btn.sel{background:var(--accent);border-color:var(--accent)}
   .date-btn .dwd{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
@@ -52,24 +78,26 @@
   .date-btn.sel .dmm{color:rgba(255,255,255,.7)}
   .time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:6px}
   @media(min-width:400px){.time-grid{grid-template-columns:repeat(5,1fr)}}
-  .time-btn{padding:10px 4px;border-radius:8px;cursor:pointer;text-align:center;background:var(--surface);border:1px solid var(--line);font-size:13px;color:var(--ink);font-family:'Jost';transition:all .15s;-webkit-tap-highlight-color:transparent}
+  .time-btn{padding:10px 4px;border-radius:8px;cursor:pointer;text-align:center;background:var(--surface);border:1px solid var(--line);font-size:13px;color:var(--ink);font-family:'Jost';transition:all .15s}
   .time-btn:hover{border-color:var(--accent)}
   .time-btn.sel{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   .time-empty{font-family:'Jost';font-size:13px;color:var(--faint);padding:14px 0;text-align:center}
+  .time-note{font-size:11.5px;color:var(--mute);margin-top:12px;text-align:center}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px 22px;margin-top:10px;box-shadow:0 16px 46px -28px rgba(40,38,30,.35)}
   .q+.q{margin-top:22px}
   .lbl{display:block;font-size:15px;font-weight:500;color:var(--ink);margin-bottom:10px}
   .lbl .star{color:var(--danger);margin-left:3px}
+  .lbl .opt{color:var(--faint);font-weight:400;font-size:12px;margin-left:6px}
   input[type=text],input[type=email],input[type=number]{width:100%;font-family:'Jost';font-size:15px;padding:14px 15px;border:1px solid var(--line);border-radius:11px;background:var(--surface2);color:var(--ink);outline:none;transition:border-color .15s}
   input:focus{border-color:var(--accent);background:#fff}
   input.err{border-color:var(--danger)}
   .errmsg{font-size:11.5px;color:var(--danger);margin-top:6px;display:none}
   .errmsg.show{display:block}
   .summ-card{background:var(--surface);border:1px solid rgba(84,112,127,.3);border-radius:14px;padding:18px 18px;margin-top:10px}
-  .summ-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+  .summ-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:8px 0;border-bottom:1px solid var(--line)}
   .summ-row:last-child{border-bottom:none}
-  .summ-k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
-  .summ-v{font-size:13.5px;font-weight:500;color:var(--ink);text-align:right}
+  .summ-k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);flex-shrink:0;padding-top:2px}
+  .summ-v{font-size:13.5px;font-weight:500;color:var(--ink);text-align:right;line-height:1.5}
   .price-highlight{font-family:'Marcellus';font-size:18px;color:var(--accent)}
   .consent{display:flex;align-items:flex-start;gap:13px;padding:14px 15px;border:1px solid var(--line);border-radius:11px;background:var(--surface2);cursor:pointer;margin-top:14px;transition:border-color .15s}
   .consent:hover{border-color:var(--accent)}
@@ -84,28 +112,31 @@
   .btn-prim:disabled{opacity:.4;cursor:not-allowed}
   .prog{flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-end;font-size:11px;color:var(--faint)}
   .bar{flex:1;max-width:140px;height:4px;border-radius:999px;background:var(--line);overflow:hidden}
-  .bar i{display:block;height:100%;background:var(--accent);transition:width .35s ease}
+  .bar i{display:block;height:100%;background:var(--accent);transition:width .35s var(--ease)}
   .ok-box{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:40px 24px;text-align:center;box-shadow:0 16px 46px -28px rgba(40,38,30,.35)}
   .ok-ic{width:60px;height:60px;border-radius:50%;background:rgba(31,138,91,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
   .ok-box h2{font-family:'Marcellus';font-weight:400;font-size:25px;color:var(--ink)}
   .ok-sub{color:var(--mute);font-size:13px;margin-top:8px;line-height:1.6}
   .ok-data{background:rgba(31,138,91,.07);border:1px solid rgba(31,138,91,.25);border-radius:12px;padding:14px 16px;margin-top:18px;text-align:left}
-  .ok-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(31,138,91,.15);font-size:13px}
+  .ok-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:6px 0;border-bottom:1px solid rgba(31,138,91,.15);font-size:13px}
   .ok-row:last-child{border-bottom:none}
-  .ok-row .k{color:var(--mute);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
-  .ok-row .v{font-weight:500;color:var(--ink)}
+  .ok-row .k{color:var(--mute);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;padding-top:2px}
+  .ok-row .v{font-weight:500;color:var(--ink);text-align:right;line-height:1.5}
   .wa-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:16px;padding:16px;background:#1F8A5B;color:#fff;border:none;border-radius:13px;font-family:'Jost';font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;transition:opacity .15s}
   .wa-btn:active{opacity:.85}
   .link-btn{margin-top:12px;width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;background:transparent;font-family:'Jost';font-size:13px;color:var(--mute);cursor:pointer}
   .hide{display:none!important}
+  /* clarify: aviso suave (en vez de alert nativo) */
+  .toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,12px);z-index:60;background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;padding:12px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .3s var(--ease),transform .3s var(--ease);box-shadow:0 12px 30px -10px rgba(0,0,0,.4);max-width:90%;text-align:center}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
   @media(max-width:600px){
-    body{padding:20px 14px 80px}
-    h1{font-size:26px}
+    body{padding:20px 14px 92px}
     .svc-grid{grid-template-columns:1fr}
     .card{padding:18px 16px;border-radius:14px}
     input[type=text],input[type=email],input[type=number]{font-size:16px;padding:15px}
     button.nav{font-size:15px}
   }
+  @media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important}.toast{transition:opacity .2s}}
 </style>
 </head>
 <body>
@@ -116,14 +147,15 @@
     </svg>
   </div>
   <h1>Agenda tu <em>cita</em></h1>
-  <p class="sub">Selecciona el tratamiento, elige tu hora y completa tus datos.<br>Te confirmamos de inmediato por WhatsApp.</p>
+  <p class="sub">Elige uno o más tratamientos, tu hora y completa tus datos.<br>Te confirmamos de inmediato por WhatsApp.</p>
 
   <!-- Steps wrapper — hidden on success -->
   <div id="app-steps">
 
-    <!-- PASO 1: Servicio -->
+    <!-- PASO 1: Servicios (carrito) -->
     <div class="step active" id="s0">
-      <div class="sech">¿Qué tratamiento te interesa?</div>
+      <div class="sech">¿Qué tratamientos te interesan?</div>
+      <div id="cart-box"></div>
       <div id="svc-list"></div>
     </div>
 
@@ -153,12 +185,12 @@
         <div class="q">
           <label class="lbl">Teléfono / WhatsApp<span class="star">*</span></label>
           <input type="text" id="fphone" value="+56 9 " inputmode="tel" placeholder="+56 9 XXXX XXXX" autocomplete="tel">
-          <div class="errmsg">Ingresa un teléfono válido con código de país (ej. +56 9 1234 5678).</div>
+          <div class="errmsg">Ingresa tu número después del +56 9 (8 dígitos).</div>
         </div>
         <div class="q">
-          <label class="lbl">Correo electrónico<span class="star">*</span></label>
+          <label class="lbl">Correo electrónico<span class="opt">(opcional)</span></label>
           <input type="email" id="femail" placeholder="tucorreo@ejemplo.com" inputmode="email" autocomplete="email">
-          <div class="errmsg">Ingresa un correo electrónico válido.</div>
+          <div class="errmsg">Revisa el formato del correo (o déjalo en blanco).</div>
         </div>
       </div>
     </div>
@@ -169,7 +201,7 @@
       <div class="summ-card" id="summ"></div>
 
       <!-- Datos bancarios para transferencia -->
-      <div style="background:#fff;border:1px solid rgba(84,112,127,.25);border-left:3px solid #54707F;border-radius:14px;padding:18px 18px 14px;margin-top:14px">
+      <div style="background:rgba(84,112,127,.05);border:1px solid rgba(84,112,127,.3);border-radius:14px;padding:18px 18px 14px;margin-top:14px">
         <div style="font-family:'Marcellus';font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:#54707F;margin-bottom:12px">Pago por transferencia</div>
         <div style="display:grid;gap:7px">
           <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
@@ -236,14 +268,15 @@
     <span id="page-lbl">1 de 4</span>
   </div>
 </div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="jc-proto/jc-data.js?v=73"></script>
+<script src="jc-proto/jc-data.js?v=74"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
   var MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
   var STEPS = 4, cur = 0;
-  var selProc = null;   // { name, price }
+  var cart = [];        // [{ name, price }]  (cada unidad es un elemento; 2 Botox = 2 elementos)
   var selDate = null;   // { date, wd, dd, mm }
   var selTime = null;   // "HH:MM"
 
@@ -252,11 +285,22 @@
   var backBtn = document.getElementById('back-btn');
   var barFill = document.getElementById('bar-fill');
   var pageLbl = document.getElementById('page-lbl');
+  var toastEl = document.getElementById('toast');
 
   /* ─── Helpers ─── */
   function fmt(n){ return n > 0 ? "$" + n.toLocaleString("es-CL") : "A convenir"; }
   function dKey(d){ return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
   function esc(s){ var d=document.createElement('div'); d.appendChild(document.createTextNode(s||'')); return d.innerHTML; }
+  // Duración (minutos) según el panel admin — fuente de verdad en jc-data.js
+  function procMin(name){ try{ return window.JCDATA.procMin(name); }catch(e){ return 30; } }
+  function fmtDur(min){ if(min<60) return min+" min"; var h=Math.floor(min/60), m=min%60; return m? h+" h "+m+" min" : h+" h"; }
+
+  var _toastT;
+  function showToast(msg){
+    if(!toastEl) return;
+    toastEl.textContent = msg; toastEl.classList.add('show');
+    clearTimeout(_toastT); _toastT = setTimeout(function(){ toastEl.classList.remove('show'); }, 2400);
+  }
 
   function defaultSlots(wd){
     var out = [], end = wd===6 ? 14 : 19;
@@ -266,7 +310,6 @@
     }
     return out;
   }
-
   function getSlotsForDate(dateStr){
     try{
       var dates = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
@@ -280,6 +323,62 @@
     }catch(e){ return []; }
   }
 
+  /* ─── Carrito ─── */
+  function cartTotalPrice(){ return cart.reduce(function(s,i){ return s + (i.price||0); }, 0); }
+  function cartTotalMin(){ return cart.reduce(function(s,i){ return s + procMin(i.name); }, 0); }
+  // Agrupado por nombre (para mostrar cantidades)
+  function cartGroups(){
+    var map = {}, order = [];
+    cart.forEach(function(i){
+      if(!map[i.name]){ map[i.name] = { name:i.name, price:i.price, qty:0 }; order.push(i.name); }
+      map[i.name].qty++;
+    });
+    return order.map(function(n){ return map[n]; });
+  }
+  window.addProc = function(name, price){
+    cart.push({ name:name, price:price });
+    renderCart(); markCards();
+    showToast(name + " agregado");
+  };
+  window.incProc = function(name, price){ cart.push({ name:name, price:price }); renderCart(); markCards(); };
+  window.decProc = function(name){
+    for(var i=cart.length-1;i>=0;i--){ if(cart[i].name===name){ cart.splice(i,1); break; } }
+    renderCart(); markCards();
+  };
+
+  function renderCart(){
+    var box = document.getElementById('cart-box');
+    var groups = cartGroups();
+    if(!groups.length){ box.innerHTML=''; return; }
+    var rows = groups.map(function(g){
+      return '<div class="cart-item">'
+        + '<div class="ci-info"><div class="ci-name">'+esc(g.name)+'</div>'
+        + '<div class="ci-meta">'+fmt(g.price)+' · '+procMin(g.name)+' min c/u</div></div>'
+        + '<div class="qty">'
+        +   '<button type="button" aria-label="Quitar uno" onclick="decProc(\''+g.name.replace(/'/g,"\\'")+'\')">−</button>'
+        +   '<span class="qn">'+g.qty+'</span>'
+        +   '<button type="button" aria-label="Agregar uno" onclick="incProc(\''+g.name.replace(/'/g,"\\'")+'\','+g.price+')">+</button>'
+        + '</div></div>';
+    }).join('');
+    box.innerHTML = '<div class="cart">'
+      + '<div class="cart-head"><span class="ct">Tu selección</span><span class="cm">'+cart.length+' procedimiento'+(cart.length>1?'s':'')+'</span></div>'
+      + rows
+      + '<div class="cart-tot"><span class="tl">Total</span><span class="tv">'+fmt(cartTotalPrice())+'</span></div>'
+      + '<div class="cart-time">⏱ Tiempo estimado en clínica · '+fmtDur(cartTotalMin())+'</div>'
+      + '</div>';
+  }
+
+  function markCards(){
+    var counts = {};
+    cart.forEach(function(i){ counts[i.name]=(counts[i.name]||0)+1; });
+    [].forEach.call(document.querySelectorAll('.svc-card'), function(c){
+      var n = c.dataset.name, q = counts[n]||0;
+      c.classList.toggle('incart', q>0);
+      var add = c.querySelector('.svc-add');
+      if(add) add.textContent = q>0 ? q : '+';
+    });
+  }
+
   /* ─── Paso 1: Servicios ─── */
   function buildServices(){
     var el = document.getElementById('svc-list');
@@ -288,10 +387,17 @@
       el.innerHTML='<p style="color:var(--faint);font-size:13px;padding:14px 0">Cargando servicios...</p>';
       return;
     }
+    function card(name, price, meta){
+      return '<div class="svc-card" data-name="'+esc(name)+'" data-price="'+price+'" onclick="addProc(this.dataset.name, parseInt(this.dataset.price,10)||0)">'
+        + '<span class="svc-add">+</span>'
+        + '<div class="svc-name">'+esc(name)+'</div>'
+        + '<div class="svc-price">'+fmt(price)+'</div>'
+        + (meta ? '<div class="svc-meta">'+esc(meta)+'</div>' : '')
+        + '<span class="svc-dur">⏱ '+procMin(name)+' min</span>'
+        + '</div>';
+    }
     var html = '<div class="cat-label">Para empezar</div><div class="svc-grid">'
-      +'<div class="svc-card" data-name="Evaluación general" data-price="15000" onclick="pickSvc(this)">'
-      +'<div class="svc-name">Evaluación general</div><div class="svc-price">$15.000</div>'
-      +'<div class="svc-note">Diagnóstico y plan personalizado</div></div></div>';
+      + card("Evaluación general", 15000, "Diagnóstico y plan personalizado") + '</div>';
 
     D.catalog.filter(function(s){ return s.sec !== "Promociones"; }).forEach(function(sec){
       html += '<div class="cat-label">'+esc(sec.sec)+'</div>';
@@ -301,23 +407,14 @@
         html += '<div class="svc-grid">';
         g.items.slice(0,6).forEach(function(it){
           var price = it.opts ? it.opts[0][1] : it.price;
-          html += '<div class="svc-card" data-name="'+esc(it.n)+'" data-price="'+price+'" onclick="pickSvc(this)">'
-            +'<div class="svc-name">'+esc(it.n)+'</div>'
-            +'<div class="svc-price">'+fmt(price)+'</div>'
-            +(it.t ? '<div class="svc-note">'+esc(it.t)+'</div>' : '')
-            +'</div>';
+          html += card(it.n, price, it.t || "");
         });
         html += '</div>';
       });
     });
     el.innerHTML = html;
+    markCards();
   }
-
-  window.pickSvc = function(el){
-    [].forEach.call(document.querySelectorAll('.svc-card'), function(c){ c.classList.remove('sel'); });
-    el.classList.add('sel');
-    selProc = { name: el.dataset.name, price: parseInt(el.dataset.price,10)||0 };
-  };
 
   /* ─── Paso 2: Fechas ─── */
   function buildDates(){
@@ -332,7 +429,7 @@
       found++;
       var wd = d.getDay();
       var btn = document.createElement('div');
-      btn.className = 'date-btn';
+      btn.className = 'date-btn' + (selDate && selDate.date===ds ? ' sel' : '');
       btn.innerHTML = '<div class="dwd">'+DAYS[wd]+'</div>'
         +'<div class="ddd">'+d.getDate()+'</div>'
         +'<div class="dmm">'+MONTHS[d.getMonth()]+'</div>';
@@ -345,6 +442,7 @@
     }
     if(!found)
       el.innerHTML = '<p style="color:var(--faint);font-size:13px;padding:8px 0">Sin fechas disponibles en los próximos días. Contáctanos por WhatsApp.</p>';
+    if(selDate && selTime) buildTimes(selDate.date);
   }
 
   window.pickDate = function(el){
@@ -362,12 +460,14 @@
       area.innerHTML = '<div class="time-empty">Sin horarios disponibles para esta fecha</div>';
       return;
     }
-    var html = '<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-bottom:8px">Selecciona una hora</div>'
+    var html = '<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-bottom:8px">Selecciona la hora de inicio</div>'
       +'<div class="time-grid">';
     slots.forEach(function(s){
-      html += '<div class="time-btn" data-time="'+s+'" onclick="pickTime(this)">'+s+'</div>';
+      html += '<div class="time-btn'+(selTime===s?' sel':'')+'" data-time="'+s+'" onclick="pickTime(this)">'+s+'</div>';
     });
     html += '</div>';
+    var min = cartTotalMin();
+    if(min) html += '<div class="time-note">Reserva una hora de inicio. Tu cita dura aprox. <strong>'+fmtDur(min)+'</strong>.</div>';
     area.innerHTML = html;
   }
 
@@ -376,6 +476,28 @@
     el.classList.add('sel');
     selTime = el.dataset.time;
   };
+
+  /* ─── Teléfono: prefijo +56 9 fijo (no se puede borrar) ─── */
+  var PREFIX = "+56 9 ";
+  var phoneEl = document.getElementById('fphone');
+  function enforcePrefix(){
+    var v = phoneEl.value;
+    if(v.indexOf(PREFIX) !== 0){
+      // conservar solo los dígitos que el usuario escribió tras el prefijo
+      var digits = v.replace(/\D/g,'').replace(/^569?/, '');
+      phoneEl.value = PREFIX + digits;
+    }
+    // no permitir que el cursor entre en el prefijo
+    if(phoneEl.selectionStart < PREFIX.length){
+      try{ phoneEl.setSelectionRange(PREFIX.length, PREFIX.length); }catch(e){}
+    }
+  }
+  phoneEl.addEventListener('input', enforcePrefix);
+  phoneEl.addEventListener('focus', function(){ if(phoneEl.value.indexOf(PREFIX)!==0) phoneEl.value=PREFIX; setTimeout(function(){ if(phoneEl.selectionStart<PREFIX.length){ try{phoneEl.setSelectionRange(phoneEl.value.length,phoneEl.value.length);}catch(e){} } },0); });
+  phoneEl.addEventListener('keydown', function(e){
+    var atPrefix = phoneEl.selectionStart <= PREFIX.length && phoneEl.selectionEnd <= PREFIX.length;
+    if((e.key==='Backspace' || e.key==='Delete') && atPrefix){ e.preventDefault(); }
+  });
 
   /* ─── Navegación ─── */
   function show(n){
@@ -389,7 +511,6 @@
     if(n===3) buildSummary();
     window.scrollTo({top:0, behavior:'smooth'});
   }
-
   window.navBack = function(){ if(cur>0) show(cur-1); };
   window.navNext = function(){
     if(!validate(cur)) return;
@@ -400,12 +521,12 @@
   /* ─── Validación ─── */
   function validate(n){
     if(n===0){
-      if(!selProc){ alert('Selecciona un servicio para continuar.'); return false; }
+      if(!cart.length){ showToast('Agrega al menos un tratamiento.'); return false; }
       return true;
     }
     if(n===1){
-      if(!selDate){ alert('Selecciona una fecha.'); return false; }
-      if(!selTime){ alert('Selecciona una hora.'); return false; }
+      if(!selDate){ showToast('Elige una fecha.'); return false; }
+      if(!selTime){ showToast('Elige una hora.'); return false; }
       return true;
     }
     if(n===2){
@@ -414,27 +535,14 @@
           ag = document.getElementById('fage'),
           ph = document.getElementById('fphone'),
           em = document.getElementById('femail');
-      [nm,ag,ph,em].forEach(function(el){
-        el.classList.remove('err');
-        el.nextElementSibling.classList.remove('show');
-      });
-      if(!nm.value.trim() || nm.value.trim().length<3){
-        nm.classList.add('err'); nm.nextElementSibling.classList.add('show'); ok=false;
-      }
+      [nm,ag,ph,em].forEach(function(el){ el.classList.remove('err'); el.nextElementSibling.classList.remove('show'); });
+      if(!nm.value.trim() || nm.value.trim().length<3){ nm.classList.add('err'); nm.nextElementSibling.classList.add('show'); ok=false; }
       var age = parseInt(ag.value,10);
-      if(!ag.value || isNaN(age) || age<14 || age>99){
-        ag.classList.add('err'); ag.nextElementSibling.classList.add('show'); ok=false;
-      }
-      if((ph.value||'').replace(/\D/g,'').length < 11){
-        ph.classList.add('err'); ph.nextElementSibling.classList.add('show'); ok=false;
-      }
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value||'')){
-        em.classList.add('err'); em.nextElementSibling.classList.add('show'); ok=false;
-      }
-      if(!ok){
-        var first = [nm,ag,ph,em].filter(function(e){ return e.classList.contains('err'); })[0];
-        if(first) first.scrollIntoView({block:'center', behavior:'smooth'});
-      }
+      if(!ag.value || isNaN(age) || age<14 || age>99){ ag.classList.add('err'); ag.nextElementSibling.classList.add('show'); ok=false; }
+      if((ph.value||'').replace(/\D/g,'').length < 11){ ph.classList.add('err'); ph.nextElementSibling.classList.add('show'); ok=false; }
+      // Correo OPCIONAL: solo valida formato si escribieron algo
+      if(em.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim())){ em.classList.add('err'); em.nextElementSibling.classList.add('show'); ok=false; }
+      if(!ok){ var first = [nm,ag,ph,em].filter(function(e){ return e.classList.contains('err'); })[0]; if(first) first.scrollIntoView({block:'center', behavior:'smooth'}); }
       return ok;
     }
     if(n===3){
@@ -448,19 +556,34 @@
   }
 
   /* ─── Resumen (paso 4) ─── */
+  function procLines(){
+    return cartGroups().map(function(g){
+      return (g.qty>1 ? g.qty+'× ' : '') + g.name + ' · ' + procMin(g.name) + ' min';
+    });
+  }
   function buildSummary(){
     var el = document.getElementById('summ');
-    if(!selProc||!selDate||!selTime){ el.innerHTML=''; return; }
+    if(!cart.length||!selDate||!selTime){ el.innerHTML=''; return; }
     var rows = [
-      ['Servicio', selProc.name],
+      ['Tratamientos', procLines().join('<br>')],
       ['Fecha',    DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm],
       ['Hora',     selTime+' hrs'],
-      ['Valor',    selProc.price>0 ? fmt(selProc.price) : 'A convenir en consulta']
+      ['Duración', fmtDur(cartTotalMin())],
+      ['Total',    cartTotalPrice()>0 ? fmt(cartTotalPrice()) : 'A convenir en consulta']
     ];
     el.innerHTML = rows.map(function(r){
+      var isProc = r[0]==='Tratamientos';
       return '<div class="summ-row"><span class="summ-k">'+r[0]+'</span>'
-        +'<span class="summ-v'+(r[0]==='Valor'?' price-highlight':'')+'">'+esc(r[1])+'</span></div>';
+        +'<span class="summ-v'+(r[0]==='Total'?' price-highlight':'')+'">'+(isProc?r[1]:esc(r[1]))+'</span></div>';
     }).join('');
+  }
+
+  /* ─── Reset del botón WhatsApp (fix: quedaba bloqueado entre reservas) ─── */
+  function resetWaButton(){
+    var wa = document.getElementById('wa-link');
+    wa.style.opacity = '';
+    wa.style.pointerEvents = '';
+    document.getElementById('espera-msg').classList.add('hide');
   }
 
   /* ─── Envío ─── */
@@ -470,22 +593,26 @@
     var phone = document.getElementById('fphone').value.trim();
     var email = document.getElementById('femail').value.trim();
 
-    // Guardar como pendiente_pago — el slot NO se bloquea hasta que tú confirmes en el panel
+    var groups   = cartGroups();
+    var procLabel = groups.map(function(g){ return (g.qty>1?g.qty+'× ':'')+g.name; }).join(' + ');
+    var totalMin = cartTotalMin();
+    var totalPrice = cartTotalPrice();
+    var procsArr = groups.map(function(g){ return { name:g.name, qty:g.qty, price:g.price, min:procMin(g.name) }; });
+
     try{
       var list = JSON.parse(localStorage.getItem('jcm_bookings')||'[]');
       list.push({
         id:'b'+Date.now(), name:name, age:age, phone:phone, email:email,
-        proc:selProc.name, price:selProc.price,
+        proc:procLabel, procs:procsArr, price:totalPrice, dur:totalMin+' min', durMin:totalMin,
         fecha:selDate.date, date:selDate.date, wd:selDate.wd, dd:selDate.dd, mm:selDate.mm,
         time:selTime, origen:'Web · agendar.html', status:'pendiente_pago',
         ts:new Date().toISOString()
       });
       localStorage.setItem('jcm_bookings', JSON.stringify(list));
-      // También en jcm_appts para que aparezca en el panel móvil y en la agenda
       var appts = JSON.parse(localStorage.getItem('jcm_appts')||'[]');
       appts.push({
         id:'a'+Date.now(), name:name, phone:phone, email:email,
-        proc:selProc.name, price:selProc.price, dur:'60',
+        proc:procLabel, procs:procsArr, price:totalPrice, dur:totalMin+' min', durMin:totalMin,
         fecha:selDate.date, time:selTime, status:'pendiente_pago',
         day:Math.round((new Date(selDate.date+'T00:00:00')-new Date().setHours(0,0,0,0))/86400000),
         origen:'Web · agendar.html', ts:new Date().toISOString()
@@ -493,33 +620,33 @@
       localStorage.setItem('jcm_appts', JSON.stringify(appts));
     }catch(e){}
 
-    // El slot NO se bloquea aquí — se bloquea cuando confirmes la transferencia en el panel
-
-    // Construir mensaje WhatsApp con mención al comprobante
+    // Mensaje WhatsApp con todos los procedimientos + duración total
     var clinicPhone = '56997880877';
     var msg = 'Hola JC Medical 👋 Quiero confirmar mi reserva:\n\n'
       +'👤 '+name+'\n'
       +'📅 '+DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm+'\n'
       +'🕐 '+selTime+' hrs\n'
-      +'💉 '+selProc.name
-      +(selProc.price>0 ? '\n💵 '+fmt(selProc.price) : '')
+      +'💉 '+procLabel+'\n'
+      +'⏱ Duración aprox. '+fmtDur(totalMin)
+      +(totalPrice>0 ? '\n💵 '+fmt(totalPrice) : '')
       +'\n\nAdjunto comprobante de transferencia.';
     document.getElementById('wa-link').href =
       'https://api.whatsapp.com/send?phone='+clinicPhone+'&text='+encodeURIComponent(msg);
 
-    // Datos en pantalla de éxito
     var rows = [
-      ['Tratamiento', selProc.name],
+      ['Tratamientos', procLines().join('<br>')],
       ['Fecha',  DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm],
       ['Hora',   selTime+' hrs'],
+      ['Duración', fmtDur(totalMin)],
       ['Nombre', name],
       ['Teléfono', phone]
     ];
     document.getElementById('ok-data').innerHTML = rows.map(function(r){
-      return '<div class="ok-row"><span class="k">'+r[0]+'</span><span class="v">'+esc(r[1])+'</span></div>';
+      var isProc = r[0]==='Tratamientos';
+      return '<div class="ok-row"><span class="k">'+r[0]+'</span><span class="v">'+(isProc?r[1]:esc(r[1]))+'</span></div>';
     }).join('');
 
-    // Mostrar éxito
+    resetWaButton(); // asegura que el botón esté activo para esta reserva
     document.getElementById('app-steps').classList.add('hide');
     document.getElementById('footer-nav').classList.add('hide');
     document.getElementById('done').classList.remove('hide');
@@ -528,17 +655,19 @@
 
   /* ─── Reiniciar ─── */
   window.reinit = function(){
-    selProc=null; selDate=null; selTime=null; cur=0;
+    cart = []; selDate=null; selTime=null; cur=0;
     document.getElementById('fconsentimiento').checked = false;
     ['fname','fage','femail'].forEach(function(id){ document.getElementById(id).value=''; });
-    document.getElementById('fphone').value = '+56 9 ';
+    document.getElementById('fphone').value = PREFIX;
+    renderCart(); buildServices();
+    resetWaButton();   // ← fix: reactiva "Enviar comprobante por WhatsApp"
     document.getElementById('app-steps').classList.remove('hide');
     document.getElementById('footer-nav').classList.remove('hide');
     document.getElementById('done').classList.add('hide');
     show(0);
   };
 
-  /* ─── Mostrar espera al tocar WA ─── */
+  /* ─── Mostrar espera al tocar WA (solo deshabilita para ESTA reserva) ─── */
   document.getElementById('wa-link').addEventListener('click', function(){
     var waBtn = document.getElementById('wa-link');
     setTimeout(function(){

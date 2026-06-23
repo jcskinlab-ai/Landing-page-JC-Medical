@@ -231,6 +231,19 @@
     appointments: APPOINTMENTS,
     reminders: REMINDERS,
     fmt: function (n) { return "$" + n.toLocaleString("es-CL"); },
+    // ── Duración de la cita en minutos (fuente de verdad para reservas, panel y mensajes) ──
+    // Por categoría: evaluación/toxina/meso 30 min · ácido hialurónico/bioestimulación/corporal 45 min. Editable aquí.
+    procMin: function (name) {
+      var n = (name || "").trim().toLowerCase();
+      if (!n) return 30;
+      if (n.indexOf("evaluaci") >= 0) return 30;
+      var cat = "";
+      try { CATALOG.forEach(function (sec) { (sec.groups || []).forEach(function (g) { (g.items || []).forEach(function (it) { if ((it.n || "").trim().toLowerCase() === n) cat = (g.cat || "").toLowerCase(); }); }); }); } catch (e) {}
+      if (/armoniz|hialur|sculptra|bioestim|col[aá]geno/.test(cat)) return 45;
+      if (/corporal|lipol/.test(cat)) return 45;
+      return 30; // toxina, mesoterapia, regeneración, evaluación, por defecto
+    },
+    procMinLabel: function (name) { return this.procMin(name) + " min"; },
     DAYS_ES: DAYS_ES, MONTHS_ES: MONTHS_ES,
     defaultSlots: defaultSlots,
     availability: getAvail,
