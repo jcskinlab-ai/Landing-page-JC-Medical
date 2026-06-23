@@ -127,14 +127,21 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       </button>
       {openCamp && (
         <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 16 }}>
-          {recitas.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, padding: "10px 2px" }}>Sin pacientes con re-cita programable.</div>}
-          {recitas.sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 9, background: T.surface, border: "1px solid " + (r.vence ? "rgba(31,138,91,.4)" : T.line) }}>
+          {/* Solo pacientes que YA cumplieron su plazo de re-aplicación (toxina 3 m · Sculptra 2 m).
+              No se muestran proyecciones de fechas futuras: la campaña se activa cuando llega el momento. */}
+          {recitasDue.length === 0 && (
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, padding: "12px 13px", background: T.surface, border: "1px dashed " + T.line, borderRadius: 9, lineHeight: 1.5 }}>
+              Ningún paciente cumple hoy su plazo de re-aplicación. Cuando un paciente alcance su ventana
+              (toxina a los 3 meses · Sculptra a los 2 meses desde su última sesión), aparecerá aquí listo para contactar.
+            </div>
+          )}
+          {recitasDue.sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 9, background: "rgba(31,138,91,.06)", border: "1px solid rgba(31,138,91,.4)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{p.name}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{r.motivo} · {r.vence ? "contactar ahora" : "re-cita el " + fmtD(r.due)}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{r.motivo} · cumplió su plazo el {fmtD(r.due)}</div>
               </div>
-              {r.vence ? <AdTag T={T} tone="ok">Ahora</AdTag> : <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}>{fmtD(r.due)}</span>}
+              <AdTag T={T} tone="ok">Contactar</AdTag>
               <a href={waLink(p, r)} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px" }}>WhatsApp</a>
             </div>
           ))}
