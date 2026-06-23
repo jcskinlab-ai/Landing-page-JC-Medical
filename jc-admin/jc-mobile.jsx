@@ -324,7 +324,9 @@ function HorariosTab({ T, appts }) {
 function NuevaTab({ T, D, appts, addAppt }) {
   const procs = procList();
   const [name,  setName]  = useState("");
+  const [rut,   setRut]   = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [fecha, setFecha] = useState(todayISO());
   const [time,  setTime]  = useState("10:00");
   const [dur,   setDur]   = useState("30 minutos");
@@ -336,12 +338,13 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const occupied = new Set(appts.filter(a=>a.fecha===fecha).map(a=>a.time));
   const freeSlots = avail.filter(s=>!occupied.has(s));
 
+  const valid = name.trim() && phone.trim();
   function save() {
-    if (!name.trim()) return;
-    addAppt({ id:Date.now().toString(36), name:name.trim(), phone:phone.trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"confirmada", source:"movil", createdAt:new Date().toISOString() });
+    if (!valid) return;
+    addAppt({ id:Date.now().toString(36), name:name.trim(), rut:rut.trim(), phone:phone.trim(), email:email.trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"confirmada", source:"movil", createdAt:new Date().toISOString() });
     setSaved(true);
     setTimeout(()=>setSaved(false),2000);
-    setName(""); setPhone(""); setTime(freeSlots[0]||"10:00");
+    setName(""); setRut(""); setPhone(""); setEmail(""); setTime(freeSlots[0]||"10:00");
   }
 
   const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"13px 15px", borderRadius:8, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none", boxSizing:"border-box" };
@@ -351,7 +354,9 @@ function NuevaTab({ T, D, appts, addAppt }) {
     <div style={{ padding:"20px 16px 50px", display:"flex", flexDirection:"column", gap:16 }}>
       <div style={{ fontFamily:T.serif, fontSize:26, fontWeight:300, color:T.text }}>Nueva cita</div>
       <div><label style={lbl}>Paciente</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre completo" style={inp} /></div>
-      <div><label style={lbl}>Teléfono (opcional)</label><input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+56 9 ···" style={inp} /></div>
+      <div><label style={lbl}>RUT</label><input value={rut} onChange={e=>setRut(e.target.value)} placeholder="12.345.678-9" style={inp} /></div>
+      <div><label style={lbl}>Teléfono</label><input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+56 9 ···" style={{...inp, borderColor: phone.trim()?T.line:"#C0285A55"}} /></div>
+      <div><label style={lbl}>Correo (opcional)</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="correo@ejemplo.com" style={inp} /></div>
       <div><label style={lbl}>Procedimiento</label>
         <select value={proc} onChange={e=>setProc(e.target.value)} style={{...inp,appearance:"none"}}>
           <option>Evaluación general</option>
@@ -370,8 +375,9 @@ function NuevaTab({ T, D, appts, addAppt }) {
           {["15 minutos","30 minutos","45 minutos","60 minutos","90 minutos"].map(d=><option key={d}>{d}</option>)}
         </select>
       </div>
-      <button onClick={save} disabled={!name.trim()}
-        style={{ background:saved?"#1F8A5B":T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".12em", textTransform:"uppercase", border:"none", borderRadius:8, padding:"17px", cursor:name.trim()?"pointer":"not-allowed", opacity:name.trim()?1:.5, marginTop:4, transition:"background .3s" }}>
+      {!valid && (name.trim() && !phone.trim()) && <div style={{ fontFamily:T.sans, fontSize:11.5, color:"#C0285A", marginTop:-4 }}>El teléfono es obligatorio.</div>}
+      <button onClick={save} disabled={!valid}
+        style={{ background:saved?"#1F8A5B":T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".12em", textTransform:"uppercase", border:"none", borderRadius:8, padding:"17px", cursor:valid?"pointer":"not-allowed", opacity:valid?1:.5, marginTop:4, transition:"background .3s" }}>
         {saved?"✓ Cita guardada":"Confirmar cita"}
       </button>
     </div>
