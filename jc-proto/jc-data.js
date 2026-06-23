@@ -115,8 +115,8 @@
   var MONTHS_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
   function defaultSlots(wd) {
-    var out = [], end = wd === 6 ? 14 : 19;
-    for (var h = 10; h < end; h++) { ["00", "45"].forEach(function (m) { if (h === end - 1 && m === "45") return; out.push((h < 10 ? "0" + h : h) + ":" + m); }); }
+    var out = [], end = wd === 6 ? 14 : 20; // sáb hasta 14:00 · resto 08:00–20:00
+    for (var h = 8; h < end; h++) { ["00", "45"].forEach(function (m) { out.push((h < 10 ? "0" + h : h) + ":" + m); }); }
     return out;
   }
   function loadHorarios() { try { return JSON.parse(localStorage.getItem("jcm_horarios_v1") || "{}"); } catch (e) { return {}; } }
@@ -128,8 +128,8 @@
   function saveHorariosDates(map) { try { localStorage.setItem("jcm_horarios_dates", JSON.stringify(map)); } catch (e) {} }
   // Grilla completa de horas seleccionables para un día (10:00–19:30; sábado hasta 14:30).
   function slotGrid(wd) {
-    var out = [], end = wd === 6 ? 15 : 20; // 14:30 sáb / 19:30 resto (último slot a y media)
-    for (var h = 10; h < end; h++) { ["00", "30"].forEach(function (m) { if (h === end - 1 && m === "30") { out.push((h < 10 ? "0" + h : h) + ":30"); return; } out.push((h < 10 ? "0" + h : h) + ":" + m); }); }
+    var out = [], end = wd === 6 ? 14 : 20; // sáb hasta 14:00 · resto 08:00–19:30
+    for (var h = 8; h < end; h++) { ["00", "30"].forEach(function (m) { out.push((h < 10 ? "0" + h : h) + ":" + m); }); }
     return out;
   }
   function availForDate(d) {

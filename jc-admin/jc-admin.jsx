@@ -778,7 +778,7 @@ function AdStat({ T, n, l, accent }) {
 }
 
 /* ─────────── AGENDA (tiempo real) ─────────── */
-const HPX = 70, OPEN = 600, CLOSE = 1170;
+const HPX = 70, OPEN = 480, CLOSE = 1200;
 const OWNER_WA = "56997880877";
 const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
@@ -940,6 +940,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menu, setMenu] = useState(null); // appt id abierto
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
+  const [hover, setHover] = useState(null); // { a, x, y } · vista previa momentánea al pasar el cursor
   const activeAppt = menu ? appts.find(a => a.id === menu) : null;
   const DOWS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
   const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -1036,14 +1037,16 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                     const accentColor = a.attended ? "#1F8A5B" : (isPendPago ? "#B8860B" : T.accent);
                     return (
                       <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
-                        onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
+                        onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
+                        onMouseLeave={() => setHover(null)}
+                        onClick={e => { e.stopPropagation(); setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
                         <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
                             <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                           </div>
-                          {a._h > 36 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {isPendPago ? "⏳ Pago pendiente" : a.proc}</div>}
-                          {a._h > 52 && <div style={{ fontFamily: T.sans, fontSize: 9, color: T.textFaint, marginTop: 1 }}>{parseInt(a.dur) || 60} min</div>}
+                          {a._h > 26 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {(parseInt(a.dur) || 60)} min</div>}
+                          {a._h > 42 && <div style={{ fontFamily: T.sans, fontSize: 9, color: T.textFaint, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{isPendPago ? "⏳ Pago pendiente" : a.proc}</div>}
                         </div>
                       </div>
                     );
@@ -1055,6 +1058,23 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         </div>
       </div>
       <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 }}>Pasa el mouse por un horario libre y toca el <b style={{ color: T.accent }}>+</b> para agendar · toca una cita para ver opciones (atender, reprogramar, anular).</p>
+      {/* Vista previa momentánea al pasar el cursor sobre una cita */}
+      {hover && hover.a && !menu && (() => {
+        const a = hover.a, isPP = a.status === "pendiente_pago";
+        const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
+        const estado = a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
+        return (
+          <div style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
+            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
+            {[["Hora", a.time], ["Duración", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "—"], ["Estado", estado]].map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 }}>
+                <span style={{ color: T.textMute }}>{k}</span>
+                <span style={{ color: T.text, fontWeight: 500, textAlign: "right" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       {menu && activeAppt && (
         <>
           <div onClick={() => setMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 79 }} />
@@ -1187,15 +1207,32 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           "BEGIN:VALARM", "TRIGGER:-PT24H", "ACTION:DISPLAY", "DESCRIPTION:" + esc("Recordatorio: cita en JC Medical mañana"), "END:VALARM",
           "END:VEVENT", "END:VCALENDAR"
         ].join("\r\n");
-        const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "cita-jcmedical-" + apptFecha + ".ics";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        const ua = navigator.userAgent || "";
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+        if (isMobile) {
+          // Móvil: abrir el .ics directamente → iOS/Android abren el calendario nativo
+          // con la hoja "Agregar evento", sin pasar por el gestor de descargas.
+          window.location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+          return;
+        }
+        // Escritorio: abrir Google Calendar prellenado en pestaña nueva (sin descarga).
+        // Si el navegador lo bloquea, caemos al .ics descargable.
+        const gFmt = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "T" + pad(d.getHours()) + pad(d.getMinutes()) + "00";
+        const gcal = "https://calendar.google.com/calendar/render?action=TEMPLATE"
+          + "&text=" + encodeURIComponent("Cita JC Medical · " + proc)
+          + "&dates=" + gFmt(start) + "/" + gFmt(end)
+          + "&details=" + encodeURIComponent("Paciente: " + (finalName || "—") + "\nProfesional: " + prof + "\nProcedimiento: " + proc)
+          + "&location=" + encodeURIComponent("JC Medical · SKINLAB Talca")
+          + "&ctz=America/Santiago";
+        const win = window.open(gcal, "_blank");
+        if (!win) {
+          const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = "cita-jcmedical-" + apptFecha + ".ics";
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }
       } catch (e) { console.error("Error al crear evento de calendario:", e); }
     }
     return (
