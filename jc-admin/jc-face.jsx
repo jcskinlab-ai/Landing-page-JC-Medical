@@ -3,11 +3,9 @@
    IA 100% nativa en el navegador (MediaPipe Face Mesh, 468 puntos) — sin API key ni costo. */
 
 // Modelos 3D reales de musculatura craneofacial (sin pelo, unisex) — giran 360°.
+// Único modelo 3D: músculos faciales con etiquetas, para educar al paciente.
 const MODELS_3D = [
-  { id: "c19e033758f24fef87aa29eeff3191a0", label: "Realista · cráneo + músculos" },
-  { id: "8c1bcc3685cd40b3bd6b42e0445522a5", label: "Mapa muscular de cabeza (a color)" },
-  { id: "1beb6143ca84481f871c19a4648caa4c", label: "Músculos faciales (con etiquetas)" },
-  { id: "c23ad54a770244a6a0067fe86c9c410b", label: "Écorché facial" }
+  { id: "1beb6143ca84481f871c19a4648caa4c", label: "Músculos faciales (con etiquetas)" }
 ];
 function sketchfabUrl(id) { return "https://sketchfab.com/models/" + id + "/embed?ui_theme=dark&ui_infos=0&ui_hint=0&ui_watermark=0&autospin=0.2&ui_ar=0"; }
 // El mapeo de punción solo aplica a estos 3 tratamientos.
@@ -347,9 +345,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, flexShrink: 0 }}>Modelo</span>
-            <select value={model3d} onChange={e => setModel3d(e.target.value)} style={{ flex: 1, padding: "8px 10px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }}>
-              {MODELS_3D.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select>
+            <span style={{ flex: 1, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>Músculos faciales con etiquetas · educación al paciente</span>
           </div>
           <div style={{ aspectRatio: "4/3", borderRadius: 8, overflow: "hidden", border: "1px solid " + T.line, background: "#0b0f14" }}>
             <iframe key={model3d} title="Modelo 3D de musculatura facial" src={sketchfabUrl(model3d)} allow="autoplay; fullscreen; xr-spatial-tracking" allowFullScreen style={{ width: "100%", height: "100%", border: 0 }} />
