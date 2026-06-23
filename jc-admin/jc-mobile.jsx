@@ -51,7 +51,7 @@ function LoginScreen({ T, onAuth }) {
 }
 
 /* ─── Shell principal ─── */
-function MobileShell({ T, D }) {
+function MobileShell({ T, D, onLogout }) {
   const [tab, setTab] = useState("citas");
   const [appts, setAppts] = useState(() => (window.DB&&window.DB.get("appts"))||[]);
 
@@ -113,11 +113,18 @@ function MobileShell({ T, D }) {
           <span style={{ fontFamily:T.serif, fontSize:20, fontWeight:300, color:T.text }}>JC Medical</span>
           <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".12em", textTransform:"uppercase", color:T.textMute, display:"block" }}>Panel móvil</span>
         </div>
-        {pendPago.length>0 && (
-          <button onClick={()=>setTab("citas")} style={{ background:"#B8860B", color:"#fff", fontFamily:T.sans, fontSize:11, fontWeight:600, border:"none", borderRadius:999, padding:"5px 12px", cursor:"pointer" }}>
-            {pendPago.length} pendiente{pendPago.length>1?"s":""}
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {pendPago.length>0 && (
+            <button onClick={()=>setTab("citas")} style={{ background:"#B8860B", color:"#fff", fontFamily:T.sans, fontSize:11, fontWeight:600, border:"none", borderRadius:999, padding:"5px 12px", cursor:"pointer" }}>
+              {pendPago.length} pendiente{pendPago.length>1?"s":""}
+            </button>
+          )}
+          <button onClick={onLogout} title="Cerrar sesión" aria-label="Cerrar sesión"
+            style={{ display:"inline-flex", alignItems:"center", gap:6, background:T.surface, color:T.text, fontFamily:T.sans, fontSize:10.5, fontWeight:500, letterSpacing:".06em", border:"1px solid "+T.line, borderRadius:999, padding:"7px 12px", minHeight:36, cursor:"pointer" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+            Salir
           </button>
-        )}
+        </div>
       </div>
 
       {/* Content */}
@@ -196,10 +203,13 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt }) {
   const waPhone = rawPhone.length>=8 ? rawPhone : "";
 
   return (
-    <div style={{ margin:"0 12px 8px", borderRadius:10, border:"1px solid "+(isPend?"#B8860B44":T.line), borderLeft:"3px solid "+ac, background:T.surface, overflow:"hidden" }}>
+    <div style={{ margin:"0 12px 8px", borderRadius:10, border:"1px solid "+(isPend?"#B8860B44":T.line), background:T.surface, overflow:"hidden" }}>
       <button onClick={()=>setOpen(v=>!v)} style={{ width:"100%", display:"flex", alignItems:"center", gap:12, padding:"13px 14px", background:"none", border:"none", cursor:"pointer", textAlign:"left" }}>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.name}</div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ width:8, height:8, borderRadius:"50%", background:ac, flexShrink:0 }} aria-hidden="true" />
+            <span style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.name}</span>
+          </div>
           <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, marginTop:2 }}>{a.time} · {a.proc||"—"} · {a.dur||"60 min"}</div>
         </div>
         <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
@@ -219,7 +229,7 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt }) {
           )}
           <div style={{ display:"flex", gap:8 }}>
             {waPhone && (
-              <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+a.name+", confirmamos tu cita en JC Medical:\n📅 "+( a.fecha||"" )+" · "+a.time+" hrs\n💉 "+(a.proc||"")+" ("+( a.dur||"60 min")+")")}
+              <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+a.name+", confirmamos tu cita en JC Medical:\n📅 "+(a.fecha||"")+" · "+a.time+" hrs\n📍 Dirección 1 poniente 1258, edificio plaza poniente, oficina 101. A media cuadra de la plaza de armas de Talca.\n💉 "+(a.proc||"")+" ("+(a.dur||((window.JCDATA&&window.JCDATA.procMin&&window.JCDATA.procMin(a.proc)+" min")||"30 min"))+")\n⏰ La espera máxima para su atención es de 15 minutos, para no retrasar las atenciones siguientes")}
                 target="_blank" rel="noopener"
                 style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"#1F8A5B22", border:"1px solid #1F8A5B55", borderRadius:8, padding:"12px", textDecoration:"none", color:"#1F8A5B", fontFamily:T.sans, fontSize:12, fontWeight:500 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="#1F8A5B"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z"/></svg>
@@ -396,7 +406,7 @@ function MobileAdmin() {
   const authed0 = !!(window.jcmAdminHasPass&&window.jcmAdminHasPass()&&window.jcmAdminHasSession&&window.jcmAdminHasSession());
   const [authed, setAuthed] = useState(authed0);
   if (!authed) return <LoginScreen T={T} onAuth={()=>setAuthed(true)} />;
-  return <MobileShell T={T} D={D} />;
+  return <MobileShell T={T} D={D} onLogout={()=>{ try { window.jcmAdminEndSession && window.jcmAdminEndSession(); } catch(e){} setAuthed(false); }} />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<MobileAdmin />);
