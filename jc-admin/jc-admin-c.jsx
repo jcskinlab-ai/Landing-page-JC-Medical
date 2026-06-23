@@ -491,6 +491,49 @@ function ReportesView({ T }) {
   );
 }
 
+/* ─────────── INDICACIONES POST TRATAMIENTO · plantillas ─────────── */
+const IND_TPL_SEED = [
+  { id: "tpl_tox", name: "Neuromodulación con Toxina botulínica", body: "• No tocar ni masajear la zona tratada por 6 horas.\n• Mantente en posición vertical las primeras 4 horas (no agacharte ni acostarte).\n• Gesticula suavemente la zona tratada durante la primera hora.\n• Evita ejercicio intenso, sauna, sol directo y alcohol por 24 h.\n• No realices masajes faciales ni otros tratamientos en la zona por 2 semanas.\n• El efecto se evidencia entre el día 4 y 14. Control a los 21 días." },
+  { id: "tpl_bio", name: "Bioestimulación de colágeno", body: "• Realiza masajes en la zona 5 minutos, 5 veces al día, por 5 días (regla del 5).\n• Aplica frío local las primeras 24 h si hay inflamación.\n• Evita sol directo, sauna y ejercicio intenso por 48 h.\n• Puede haber leve inflamación o pequeños hematomas que ceden en pocos días.\n• Los resultados son progresivos durante las semanas siguientes.\n• Asiste a tus sesiones de control según el plan indicado." },
+  { id: "tpl_arm", name: "Armonización facial", body: "• Aplica frío local 10 min cada 2 h durante las primeras 24 h.\n• No manipules ni masajees la zona salvo indicación.\n• Evita ejercicio intenso, sauna, calor y alcohol por 24–48 h.\n• Duerme boca arriba las primeras noches.\n• Pueden aparecer inflamación o hematomas leves que ceden en días.\n• Ante dolor intenso, palidez o cambio de color de la piel, contáctanos de inmediato." }
+];
+function getIndTemplates() {
+  try { const c = (window.DB && DB.cfg().ind_templates); if (c && c.length) return c; } catch (e) {}
+  return IND_TPL_SEED;
+}
+// Diagnósticos sugeridos (desplegable en Receta / Indicaciones).
+const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"];
+function IndTemplatesEditor({ T }) {
+  const [tpls, setTpls] = useState(getIndTemplates);
+  const [saved, setSaved] = useState(false);
+  function save(n) { setTpls(n); try { DB.set("config", Object.assign({}, DB.cfg(), { ind_templates: n })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {} }
+  function upd(i, patch) { save(tpls.map((t, j) => j === i ? { ...t, ...patch } : t)); }
+  function add() { save([...tpls, { id: "tpl_" + Date.now(), name: "Nueva plantilla", body: "" }]); }
+  function del(i) { save(tpls.filter((_, j) => j !== i)); }
+  const inp = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+      <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
+        Indicaciones post tratamiento
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px" }}>Plantillas que podrás seleccionar al registrar indicaciones, sin tipear a mano. {saved && <span style={{ color: "#1F8A5B" }}>✓ Guardado</span>}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {tpls.map((t, i) => (
+          <div key={t.id} style={{ border: "1px solid " + T.line, borderRadius: 10, padding: "12px 13px" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+              <input value={t.name} onChange={e => upd(i, { name: e.target.value })} style={{ ...inp, fontWeight: 600 }} placeholder="Nombre de la plantilla" />
+              <button onClick={() => del(i)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+            </div>
+            <textarea value={t.body} onChange={e => upd(i, { body: e.target.value })} rows={5} placeholder="Indicaciones / cuidados…" style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 12 }}><AdBtn T={T} onClick={add}>+ Añadir plantilla</AdBtn></div>
+    </div>
+  );
+}
+
 /* ─────────── CONFIGURACIÓN ─────────── */
 function ConfigView({ T }) {
   const D = window.JCDATA;
@@ -533,8 +576,10 @@ function ConfigView({ T }) {
         <Row T={T} k="WhatsApp" v={"+" + D.wa} />
       </ClinCard>
       <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>
+      <IndTemplatesEditor T={T} />
       <ClinCard T={T} title="Notificaciones">
         <ToggleRow T={T} label="Recordatorio 24 h antes (WhatsApp)" def={true} />
+        <ToggleRow T={T} label="Recordatorio el día del tratamiento · 08:30 (WhatsApp)" def={true} />
         <ToggleRow T={T} label="Confirmación por correo (Gmail)" def={true} />
         <ToggleRow T={T} label="Resumen diario con Gemini" def={false} />
       </ClinCard>
@@ -998,7 +1043,7 @@ function SalaEsperaView({ T, appts, patients }) {
 /* ─────────── AUTOMATIZACIONES ─────────── */
 const AUTO_SEED = [
   { id: "r24", t: "Recordatorio de cita (24 h antes)", d: "Envía un mensaje a los pacientes 24 horas antes de su cita para confirmar asistencia.", on: true, ch: "WhatsApp", ic: "clock" },
-  { id: "rmorning", t: "Recordatorio la mañana del día (08:30)", d: "Mensaje a las 08:30 del día de la cita para recordar la hora.", on: true, ch: "WhatsApp", ic: "sun" },
+  { id: "rmorning", t: "Recordatorio el día del tratamiento (08:30)", d: "Mensaje por WhatsApp a las 08:30 del día del tratamiento para recordar la hora.", on: true, ch: "WhatsApp", ic: "sun" },
   { id: "rind", t: "Indicaciones post tratamiento", d: "Al finalizar la atención, envía por WhatsApp las indicaciones y cuidados del procedimiento realizado.", on: true, ch: "WhatsApp", ic: "chat" },
   { id: "rpost", t: "Seguimiento de tratamiento (14 días)", d: "Mensaje automático a los 14 días para control de resultados.", on: false, ch: "WhatsApp", ic: "chat" },
   { id: "rbday", t: "Saludo de cumpleaños", d: "Envía un mensaje felicitando al paciente en su cumpleaños.", on: false, ch: "Email", ic: "gift" },
@@ -1815,4 +1860,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashToday });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashToday });

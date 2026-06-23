@@ -1136,9 +1136,17 @@ function RecetaTab({ T, patient, updatePatient }) {
       </div>
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, marginBottom: 18 }}>
         <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Diagnóstico (opcional)</span>
-          <input style={inp} value={diag} onChange={e => setDiag(e.target.value)} placeholder="Ej. Evaluación estética facial" /></label>
-        <label style={{ display: "block", marginTop: 13 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{rpLabelOf(tipo)}</span>
-          <textarea style={{ ...inp, minHeight: 120, resize: "vertical" }} value={rp} onChange={e => setRp(e.target.value)} placeholder={tipo === "indicaciones" ? "Ej.\nFrío local 10 min cada 2 h las primeras 24 h\nEvitar sol directo y ejercicio 48 h\nNo manipular la zona tratada" : "Ej.\nParacetamol 500 mg — 1 comprimido cada 8 h por 3 días\nÁrnica tópica — aplicar 2 veces al día"} /></label>
+          <input style={inp} list="jc-diag-opts" value={diag} onChange={e => setDiag(e.target.value)} placeholder="Ej. Neuromodulación con Toxina botulínica" />
+          <datalist id="jc-diag-opts">{["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"].map(o => <option key={o} value={o} />)}</datalist></label>
+        <label style={{ display: "block", marginTop: 13 }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{rpLabelOf(tipo)}</span>
+          {tipo === "indicaciones" && (() => { const tpls = (window.getIndTemplates ? window.getIndTemplates() : []); return tpls.length ? (
+            <select value="" onChange={e => { const t = tpls.find(x => x.id === e.target.value); if (t) setRp(rp ? rp + "\n" + t.body : t.body); e.target.value = ""; }} style={{ ...inp, marginBottom: 8, cursor: "pointer" }}>
+              <option value="">+ Insertar plantilla de indicaciones…</option>
+              {tpls.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          ) : null; })()}
+          <textarea style={{ ...inp, minHeight: 120, resize: "vertical" }} value={rp} onChange={e => setRp(e.target.value)} placeholder={tipo === "indicaciones" ? "Elige una plantilla arriba o escribe aquí…" : "Ej.\nParacetamol 500 mg — 1 comprimido cada 8 h por 3 días\nÁrnica tópica — aplicar 2 veces al día"} /></label>
         <label style={{ display: "block", marginTop: 13 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Notas adicionales (opcional)</span>
           <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={ind} onChange={e => setInd(e.target.value)} placeholder="Reposo relativo, control en 7 días…" /></label>
         <div style={{ marginTop: 16, textAlign: "right" }}><AdBtn T={T} primary onClick={guardar}>Guardar {tipo === "indicaciones" ? "indicaciones" : "receta"}</AdBtn></div>
