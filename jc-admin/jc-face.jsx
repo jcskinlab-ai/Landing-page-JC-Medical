@@ -15,7 +15,7 @@ const PUNCION_PRODUCTS = [
   { id: "sculptra", label: "Bioestimulación de colágeno", unit: "vial", color: "#C0285A" }
 ];
 function prodOf(id) { return PUNCION_PRODUCTS.find(p => p.id === id) || PUNCION_PRODUCTS[0]; }
-const ANAT_IMG = { front: "assets/anat-front.jpg", sideL: "assets/anat-side-left.png", sideR: "assets/anat-side-right.jpg" };
+const ANAT_IMG = { front: "/assets/anat-front.jpg", sideL: "/assets/anat-side-left.png", sideR: "/assets/anat-side-right.jpg" };
 
 /* ── utilidades de imagen ── */
 function fileToDataURL(file, maxDim, cb) {

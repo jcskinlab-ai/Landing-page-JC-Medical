@@ -60,5 +60,5 @@
     { id: "c-extra", title: "Consentimiento extraordinario", kind: "extra", proc: "", cat: "Extraordinario", body: "" }
   ];
 
-  window.JCADMIN = { patients: PATIENTS, products: PRODUCTS, zonesFront: ZONES_FRONT, zonesSide: ZONES_SIDE, consents: CONSENTS, pro: "assets/jc-pro.jpg" };
+  window.JCADMIN = { patients: PATIENTS, products: PRODUCTS, zonesFront: ZONES_FRONT, zonesSide: ZONES_SIDE, consents: CONSENTS, pro: "/assets/jc-pro.jpg" };
 })();

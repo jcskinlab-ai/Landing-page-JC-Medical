@@ -136,6 +136,25 @@ function importAllWeb() {
   return p;
 }
 
+/* ─────────── ENRUTAMIENTO DEL PANEL (URLs por sección y por paciente) ─────────── */
+// Cada apartado tiene su URL: /panel/inventario, /panel/agenda, etc.; y cada paciente /panel/pacientes/<id>.
+const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, marketing: 1, agenteia: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, config: 1, appjcm: 1 };
+function panelParseRoute() {
+  try {
+    var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/");
+    if (parts[0] !== "panel") return { section: "dashboard", pid: null };
+    var sec = parts[1] || "dashboard";
+    if (!PANEL_SECTIONS[sec]) sec = "dashboard";
+    var pid = (sec === "pacientes" && parts[2]) ? decodeURIComponent(parts[2]) : null;
+    return { section: sec, pid: pid };
+  } catch (e) { return { section: "dashboard", pid: null }; }
+}
+function panelRoutePath(sec, pid) {
+  if (sec === "pacientes" && pid) return "/panel/pacientes/" + encodeURIComponent(pid);
+  if (!sec || sec === "dashboard") return "/panel";
+  return "/panel/" + sec;
+}
+
 /* ─────────── DASHBOARD (estilo Medique: indicadores + evolución + accesos) ─────────── */
 const DASH_IC = {
   pacientes: <><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 8a3 3 0 0 1 0 6" /><path d="M21 20a6 6 0 0 0-4-5.5" /></>,
@@ -588,7 +607,8 @@ function AdminApp() {
   const T = JCTHEME[themeKey];
   const D = window.JCDATA, A = window.JCADMIN;
 
-  const [section, setSection] = useState("dashboard");
+  const _initRoute = panelParseRoute(); // sección/paciente inicial según la URL (/panel/<seccion>[/<id>])
+  const [section, setSection] = useState(_initRoute.section);
   // Tour de bienvenida: se muestra una vez por clínica al entrar al panel (se marca tour_done_v1).
   const [showTour, setShowTour] = useState(() => { try { return !(window.DB && window.DB.get("tour_done_v1")); } catch (e) { return false; } });
   function closeTour() { try { window.DB && window.DB.set("tour_done_v1", true); } catch (e) {} setShowTour(false); }
@@ -597,7 +617,7 @@ function AdminApp() {
     var saved = (window.DB && window.DB.get("patients"));
     return (Array.isArray(saved) ? saved : A.patients).map(p => ({ ...p, points: p.points || [] }));
   });
-  const [openPatient, setOpenPatient] = useState(null);
+  const [openPatient, setOpenPatient] = useState(_initRoute.pid);
   const [appts, setAppts] = useState(() => {
     // Citas por clínica desde la BD (Firebase). Las reservas web ya entran aquí vía importWebBookings.
     var saved = (window.DB && window.DB.get("appointments"));
@@ -672,6 +692,17 @@ function AdminApp() {
   }
   function nav(k) { setSection(k); setOpenPatient(null); setNavOpen(false); }
 
+  // Mantiene la URL sincronizada con la sección/paciente (deep-linking): /panel/inventario, /panel/pacientes/<id>…
+  useEffect(() => {
+    try { var target = panelRoutePath(section, openPatient); if (location.pathname !== target) window.history.pushState({ s: section, p: openPatient }, "", target); } catch (e) {}
+  }, [section, openPatient]);
+  // Botón atrás/adelante del navegador → vuelve a la sección/paciente correspondiente.
+  useEffect(() => {
+    function onPop() { var r = panelParseRoute(); setSection(r.section); setOpenPatient(r.pid); setNavOpen(false); }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   const current = patients.find(p => p.id === openPatient);
   const pendCount = patients.filter(p => !p.consent).length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
 
@@ -707,7 +738,7 @@ function AdminApp() {
     SIDE_MUTE = T.dark ? "rgba(239,234,224,.55)" : "#5C5A50",
     SIDE_LINE = T.dark ? "rgba(239,234,224,.10)" : "rgba(20,20,15,.10)",
     SIDE_ACT = T.dark ? "rgba(239,234,224,.10)" : (T.accentSoft || "rgba(84,112,127,.12)");
-  const SIDE_LOGO = "assets/medique-logo.png";
+  const SIDE_LOGO = "/assets/medique-logo.png";
   return (
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
       <div className="jc-admin-frame" style={{ background: T.bg, boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" }}>
@@ -1925,7 +1956,7 @@ function WelcomeTour({ T, go, onClose }) {
         {/* Encabezado */}
         <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 18 }}>
           <span style={{ width: 38, height: 38, borderRadius: 10, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 10px -3px rgba(0,0,0,.5)" }}>
-            <img src="assets/medique-logo.png" alt="Medique" style={{ width: 33, height: 33, objectFit: "contain" }} />
+            <img src="/assets/medique-logo.png" alt="Medique" style={{ width: 33, height: 33, objectFit: "contain" }} />
           </span>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>{i === 0 ? "¡Bienvenido a Medique!" : "Cómo usar tu panel"}</div>
@@ -2062,7 +2093,7 @@ function OnboardingWizard({ T, onDone }) {
         {/* Encabezado */}
         <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
           <span style={{ width: 42, height: 42, borderRadius: 11, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 10px -3px rgba(0,0,0,.5)" }}>
-            <img src="assets/medique-logo.png" alt="Medique" style={{ width: 37, height: 37, objectFit: "contain" }} />
+            <img src="/assets/medique-logo.png" alt="Medique" style={{ width: 37, height: 37, objectFit: "contain" }} />
           </span>
           <div>
             <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text, lineHeight: 1 }}>Bienvenido a Medique</div>
