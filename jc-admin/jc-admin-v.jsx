@@ -1063,7 +1063,7 @@ const PROC_LIST = () => { const D = window.JCDATA; const p = []; D.catalog.forEa
 const selS = T => ({ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" });
 const lblS = T => ({ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 });
 // Slots de 30 min usados en el panel (8:00–19:30)
-const ADMIN_HALF_HOURS = (() => { const s = []; for (let h = 8; h < 20; h++) { s.push((h<10?"0":"")+h+":00"); s.push((h<10?"0":"")+h+":30"); } return s; })();
+const ADMIN_HALF_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++) { s.push((h<10?"0":"")+h+":00"); s.push((h<10?"0":"")+h+":30"); } return s; })();
 
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha }) {
   const D = window.JCDATA;
@@ -1084,9 +1084,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const hourOf = t => parseInt((t || "0").split(":")[0], 10);
   const atCell = (off, h) => appts.filter(a => a.day === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
-  const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20;
-  const wkHours = []; for (let h = WK_OPEN; h <= WK_CLOSE; h++) wkHours.push(h); // incluye 20:00 (cierre)
-  const wkGridH = (WK_CLOSE - WK_OPEN) * WPX;
+  const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
+  const wkHours = []; for (let h = WK_OPEN; h <= WK_CLOSE; h++) wkHours.push(h); // etiquetas 08:00 … 20:00
+  const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora extra para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
 
   // Apila citas solapadas verticalmente (ancho completo, empuja las siguientes hacia abajo)
@@ -1135,7 +1135,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           {/* Timeline continuo por columna */}
           <div style={{ display: "flex", position: "relative" }}>
             {/* Etiquetas de hora */}
-            <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH + 18, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
+            <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
               {wkHours.map((h, i) => (
                 <div key={h} style={{ position: "absolute", top: i * WPX + 2, right: 6, fontFamily: T.sans, fontSize: 10, color: T.textFaint, pointerEvents: "none", userSelect: "none" }}>
                   {(h < 10 ? "0" : "") + h}:00
@@ -1144,7 +1144,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             </div>
             {/* Columnas de días */}
             {days.map((d, ci) => {
-              const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < WK_CLOSE * 60);
+              const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
                   {/* Una casilla limpia por hora: solo línea sólida en la hora en punto (media hora sin línea, como Google Calendar). Cada media hora queda como zona clicable invisible. */}
