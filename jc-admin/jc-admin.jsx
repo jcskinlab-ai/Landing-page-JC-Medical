@@ -657,6 +657,10 @@ function AdminApp() {
     try { window.jcmToast && window.jcmToast("Paciente \"" + (np.name || "") + "\" guardado.", "ok"); } catch (e) {}
     return np;
   }
+  function removePatient(id) {
+    setPatients(ps => savePatients(ps.filter(p => p.id !== id)));
+    try { window.jcmToast && window.jcmToast("Paciente eliminado.", "info"); } catch (e) {}
+  }
   function addAppt(a) {
     setAppts(as => saveAppts([...as, { ...a, id: (window.jcmUid ? window.jcmUid("a") : "a" + Date.now()) }]));
     try { window.jcmToast && window.jcmToast("Cita agendada.", "ok"); } catch (e) {}
@@ -712,7 +716,7 @@ function AdminApp() {
   else if (section === "resumen") body = <Resumen T={T} D={D} A={A} appts={appts} patients={patients} go={nav} updateAppt={updateAppt} removeAppt={removeAppt} themeKey={themeKey} setThemeKey={setThemeKey} />;
   else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
   else if (section === "pacientes") body = current
-    ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} onBack={() => setOpenPatient(null)} onAgendar={() => nav("agenda")} />
+    ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={removePatient} onBack={() => setOpenPatient(null)} onAgendar={() => nav("agenda")} />
     : <PacientesView T={T} patients={patients} appts={appts} onOpen={setOpenPatient} updatePatient={updatePatient} addPatient={addPatient} />;
   else if (section === "salaespera") body = <SalaEsperaView T={T} appts={appts} patients={patients} />;
   else if (section === "automatizaciones") body = <AutomatizacionesView T={T} />;
