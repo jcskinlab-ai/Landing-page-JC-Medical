@@ -29,6 +29,11 @@
   var cfg = window.JCSAAS_CONFIG || {};
   var CONFIGURED = !!(cfg && cfg.apiKey && cfg.projectId);
   var TRIAL_DAYS = 14;
+  // ?c=clinicId en la URL → modo PÚBLICO (app de pacientes / reserva de una clínica).
+  var urlC = (function () { try { return new URLSearchParams(location.search).get('c'); } catch (e) { return null; } })();
+  // Claves cuyo cambio re-publica el perfil público de la clínica.
+  var PUBLIC_TRIGGER = { config: 1, horarios_v1: 1, services_over: 1 };
+  var pubTimer = null;
 
   // Claves de window.DB que NO se sincronizan (sesión/seguridad local).
   var NO_SYNC = { session: 1, admin_pass: 1, cloud_pulled: 1, saas_ns: 1 };
@@ -42,7 +47,8 @@
     clinicId: null,
     clinic: null,     // doc de la clínica
     bound: false,     // window.DB ya re-namespaceado a esta clínica
-    kvEmpty: false    // true si la clínica no tenía datos en Firestore al entrar
+    kvEmpty: false,   // true si la clínica no tenía datos en Firestore al entrar
+    publicProfile: null // perfil público cargado (modo pacientes/reserva)
   };
   var authCbs = [];
   var settled = false, lastPayload = null; // para "replay" a quien se suscriba tarde
@@ -63,6 +69,7 @@
     window.DB.set = function (k, v) {
       var r = origSet(k, v);
       if (!applyingRemote && !NO_SYNC[k]) pushKey(k, v);
+      if (!applyingRemote && PUBLIC_TRIGGER[k]) { clearTimeout(pubTimer); pubTimer = setTimeout(publishProfile, 900); }
       return r;
     };
     var origDel = window.DB.del.bind(window.DB);
@@ -121,6 +128,40 @@
         applyingRemote = false;
         if (changed) emit('jcsaas:data', {});
       }, noop);
+  }
+
+  // Publica un perfil PÚBLICO y curado de la clínica (lo lee la app de pacientes
+  // y la página de reserva). Solo datos públicos: nombre, marca, dirección,
+  // horarios y precios; nunca pacientes/caja ni llaves/API.
+  function publishProfile() {
+    if (!db || !state.clinicId) return;
+    var c = state.clinic || {};
+    var cf = (window.DB && window.DB.cfg) ? window.DB.cfg() : {};
+    var prof = {
+      clinicId: state.clinicId,
+      name: c.name || cf.clinic_name || 'Clínica',
+      branding: c.branding || { name: c.name || 'Clínica' },
+      addr: cf.clinic_addr || '',
+      hours: cf.clinic_hours || '',
+      wa: cf.wa_number || '',
+      horarios: (window.DB && window.DB.get('horarios_v1')) || null,
+      servicesOver: (window.DB && window.DB.get('services_over')) || null,
+      updatedAt: Date.now()
+    };
+    try {
+      db.collection('tenants').doc(state.clinicId).collection('public').doc('profile').set(prof).catch(noop);
+    } catch (e) { noop(e); }
+  }
+
+  // Modo PÚBLICO: carga el perfil de una clínica por su id (sin login).
+  function loadPublic(clinicId) {
+    return db.collection('tenants').doc(clinicId).collection('public').doc('profile').get()
+      .then(function (snap) {
+        state.publicProfile = snap.exists ? snap.data() : null;
+        state.clinicId = clinicId;
+        emit('jcsaas:public', { clinicId: clinicId, profile: state.publicProfile });
+        return state.publicProfile;
+      }).catch(function (e) { noop(e); return null; });
   }
 
   // ── Carga del SDK de Firebase (compat, vía CDN — sin build) ───────────
@@ -187,6 +228,7 @@
       bindDB();
       pullAll().then(function () {
         liveKv();
+        setTimeout(publishProfile, 1500); // publica/actualiza el perfil público de la clínica
         fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role });
       });
     }).catch(function (e) { noop(e); });
@@ -308,6 +350,11 @@
   var ready;
   if (!CONFIGURED) {
     ready = Promise.resolve(false); // modo local (mono-clínica) como hoy
+  } else if (urlC) {
+    // App de pacientes / reserva de una clínica concreta (solo lectura, sin login).
+    state.mode = 'public';
+    ready = initFirebase().then(function () { return loadPublic(urlC); }).then(function () { return true; })
+      .catch(function (e) { noop(e); state.enabled = false; return false; });
   } else {
     ready = initFirebase().then(function () {
       auth.onAuthStateChanged(onAuthChange);
@@ -329,6 +376,23 @@
     access: access,
     migrateLocal: migrateLocal,
     hasLegacyData: hasLegacyData,
-    isFreshClinic: function () { return state.kvEmpty; }
+    isFreshClinic: function () { return state.kvEmpty; },
+    getPublic: function () { return state.publicProfile || null; },
+    publishProfile: publishProfile,
+    bookingLink: function (cid) { return location.origin + '/reservar?c=' + (cid || state.clinicId || ''); },
+    // La página de reserva (sin login) deja la reserva en la clínica activa (modo público).
+    submitBooking: function (data) {
+      if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });
+      var doc = { name: '', phone: '', email: '', proc: '', fecha: '', time: '', dur: '', procs: [], note: '', source: 'web', createdAt: Date.now() };
+      Object.keys(data || {}).forEach(function (k) { if (k in doc) doc[k] = data[k]; });
+      return db.collection('tenants').doc(state.clinicId).collection('bookings').add(doc);
+    },
+    // La clínica (logueada) lee las reservas que dejaron los pacientes.
+    fetchBookings: function () {
+      if (!db || !state.clinicId) return Promise.resolve([]);
+      return db.collection('tenants').doc(state.clinicId).collection('bookings').orderBy('createdAt', 'desc').limit(100).get()
+        .then(function (s) { var a = []; s.forEach(function (d) { a.push(Object.assign({ _id: d.id }, d.data())); }); return a; })
+        .catch(function (e) { noop(e); return []; });
+    }
   };
 })();

@@ -14,6 +14,12 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId;
     }
 
+    // SUPER-ADMIN (dueño del SaaS): puede ver todas las clínicas y activar planes.
+    // Cambia el correo si usas otro para la consola de administración.
+    function isSuper() {
+      return signedIn() && request.auth.token.email == 'jc.skinlab@gmail.com';
+    }
+
     // Mapeo usuario → clínica (uid, clinicId, rol). Cada quien gestiona el suyo.
     match /users/{uid} {
       allow read:          if signedIn() && request.auth.uid == uid;
@@ -29,15 +35,15 @@ service cloud.firestore {
                     && request.resource.data.ownerUid == request.auth.uid
                     && clinicId == request.resource.data.id;
       // La clínica puede leer y editar su perfil/marca…
-      allow read:   if signedIn()
-                    && (resource.data.ownerUid == request.auth.uid || myClinic() == clinicId);
-      // …pero NO puede tocar su propio plan/prueba/propietario (eso lo controla el super-admin
-      // desde la consola de Firebase). Así nadie se auto-activa el plang gratis para siempre.
-      allow update: if signedIn()
+      allow read:   if isSuper() || (signedIn()
+                    && (resource.data.ownerUid == request.auth.uid || myClinic() == clinicId));
+      // El super-admin puede cambiar el plan/prueba; la clínica puede editar su perfil/marca
+      // pero NO su propio plan/prueba/propietario (así nadie se auto-activa gratis para siempre).
+      allow update: if isSuper() || (signedIn()
                     && (resource.data.ownerUid == request.auth.uid || myClinic() == clinicId)
                     && request.resource.data.plan      == resource.data.plan
                     && request.resource.data.trialEnds == resource.data.trialEnds
-                    && request.resource.data.ownerUid  == resource.data.ownerUid;
+                    && request.resource.data.ownerUid  == resource.data.ownerUid);
       allow delete: if false;
     }
 
@@ -46,10 +52,20 @@ service cloud.firestore {
       allow read, write: if signedIn() && myClinic() == clinicId;
     }
 
-    // (Fase 3) Datos públicos para la app de pacientes / reserva de citas:
-    // match /tenants/{clinicId}/public/{doc} {
-    //   allow read: if true;                                   // catálogo, horarios, marca
-    //   allow write: if signedIn() && myClinic() == clinicId;  // solo la clínica los edita
-    // }
+    // Perfil público de la clínica (marca, dirección, horarios, precios) para la
+    // app de pacientes y la reserva. Lectura libre; solo la clínica lo escribe.
+    match /tenants/{clinicId}/public/{doc} {
+      allow read:  if true;
+      allow write: if signedIn() && myClinic() == clinicId;
+    }
+
+    // Reservas que dejan los pacientes (sin login): pueden CREAR una reserva en su
+    // clínica, pero no leer/editar las de otros. La clínica (logueada) las gestiona.
+    match /tenants/{clinicId}/bookings/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['name','phone','email','proc','fecha','time','dur','procs','note','createdAt','source'])
+                    && request.resource.data.name is string
+                    && request.resource.data.phone is string;
+      allow read, update, delete: if signedIn() && myClinic() == clinicId;
+    }
   }
 }
