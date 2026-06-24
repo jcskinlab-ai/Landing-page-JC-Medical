@@ -2254,22 +2254,54 @@ function OnboardingWizard({ T, onDone }) {
 /* ─────────── ACCESO SaaS (multi-clínica · Firebase) ─────────── */
 function SaasGate() {
   const T = (window.JCTHEME && window.JCTHEME.editorial) || { bg: "#070707", surface: "#141414", line: "rgba(255,255,255,.14)", text: "#F2EDE6", textMute: "rgba(242,237,230,.6)", accent: "#B9C2CB", gold: "#B9C2CB", serif: "Cormorant Garamond, serif", sans: "Jost, sans-serif", primaryBg: "#F2EDE6", primaryText: "#070707" };
-  const [phase, setPhase] = useState("loading"); // loading | auth | blocked | migrate | app
+  const [phase, setPhase] = useState("loading"); // loading | auth | blocked | otp | migrate | onboarding | app
   const [view, setView] = useState("login");      // login | register | recover
   const [clinic, setClinic] = useState("");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState(""); const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  // 2FA por email (solo si JCSAAS_CONFIG.mfa === true): código en dispositivo nuevo.
+  const [otpInfo, setOtpInfo] = useState(null); const [otpCode, setOtpCode] = useState(""); const [otpErr, setOtpErr] = useState("");
+  const MFA_ON = !!(window.JCSAAS_CONFIG && window.JCSAAS_CONFIG.mfa === true);
+  function devKey() { try { return "jcm_2fadev_" + (window.JCSAAS.currentClinicId() || ""); } catch (e) { return "jcm_2fadev_"; } }
+  function proceed() {
+    if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
+    scopeClinicData();
+    if (!window.JCM_BASE && !(window.DB && window.DB.get("onboarded_v1"))) { setPhase("onboarding"); return; }
+    importAllWeb().finally(function () { setPhase("app"); });
+  }
+  function otpSend() {
+    setOtpErr(""); setOtpCode("");
+    window.mediqueOtp("send", {}).then(function (r) {
+      if (r && r.ok) setOtpInfo(r);
+      else setOtpErr((r && r.error) || "No se pudo enviar el código.");
+    });
+  }
+  function otpVerify() {
+    if (!otpInfo) return;
+    setOtpErr("");
+    window.mediqueOtp("verify", { code: otpCode.trim(), exp: otpInfo.exp, sig: otpInfo.sig }).then(function (r) {
+      if (r && r.ok && r.device) { try { localStorage.setItem(devKey(), r.device); } catch (e) {} proceed(); }
+      else setOtpErr((r && r.error) || "Código incorrecto.");
+    });
+  }
 
   useEffect(() => {
     window.JCSAAS.onAuth(payload => {
       if (!payload || payload.incomplete) { setPhase("auth"); return; }
       const a = window.JCSAAS.access();
       if (!a.ok) { setPhase("blocked"); return; }
-      if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
-      scopeClinicData();
-      if (!window.JCM_BASE && !(window.DB && window.DB.get("onboarded_v1"))) { setPhase("onboarding"); return; }
-      importAllWeb().finally(function () { setPhase("app"); });
+      // 2FA: si está activa y este dispositivo no es de confianza, pedir código por email.
+      if (MFA_ON) {
+        let dev = ""; try { dev = localStorage.getItem(devKey()) || ""; } catch (e) {}
+        window.mediqueOtp("check", { device: dev }).then(function (r) {
+          if (r && r.ok && r.trusted) { proceed(); }
+          else if (r && r.ok) { setPhase("otp"); otpSend(); }   // configurado pero dispositivo nuevo
+          else { proceed(); }                                    // endpoint no configurado/falla → no bloquear
+        }).catch(function () { proceed(); });
+        return;
+      }
+      proceed();
     });
     const t = setTimeout(() => setPhase(p => p === "loading" ? "auth" : p), 9000);
     return () => clearTimeout(t);
@@ -2315,6 +2347,21 @@ function SaasGate() {
   );
 
   if (phase === "loading") return wrap("Conectando…", "Verificando tu sesión.", <div style={{ textAlign: "center", color: T.textMute, fontFamily: T.sans, fontSize: 12 }}>Un momento…</div>, null);
+
+  if (phase === "otp") {
+    return wrap("Verifica que eres tú", otpInfo
+      ? ("Es la primera vez que entras desde este dispositivo. Te enviamos un código de 6 dígitos a " + (otpInfo.email || "tu correo") + ".")
+      : "Enviando un código de verificación a tu correo…",
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <input value={otpCode} autoFocus onChange={e => { setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setOtpErr(""); }}
+          onKeyDown={e => { if (e.key === "Enter" && otpCode.length === 6) otpVerify(); }} inputMode="numeric" placeholder="······"
+          data-nocap="" style={{ ...inp, textAlign: "center", letterSpacing: ".5em", fontSize: 22 }} />
+        {otpErr && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#E0607A" }}>{otpErr}</div>}
+        {pBtn("Verificar y entrar", otpVerify, otpCode.length !== 6)}
+        <div style={{ textAlign: "center" }}>{link("Reenviar código", otpSend)}</div>
+      </div>,
+      link("Cerrar sesión", () => window.JCSAAS.logout()));
+  }
 
   if (phase === "migrate") {
     const cn = (window.JCSAAS.currentClinic() || {}).name || "tu clínica";

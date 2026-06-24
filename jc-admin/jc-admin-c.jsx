@@ -2091,6 +2091,27 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
   function expPac() { csvDownload("pacientes.csv", [["Nombre", "RUT", "Teléfono", "Correo", "Estado"], ...(patients || []).map(p => [p.name, p.rut || "", p.phone || "", p.email || "", p.consent ? "Con consentimiento" : "Pendiente"])]); }
   function expCitas() { csvDownload("citas.csv", [["Fecha", "Hora", "Paciente", "Servicio", "Estado", "Precio"], ...(appts || []).map(a => [a.fecha || ("día " + a.day), a.time, a.name, a.proc, a.status || "pendiente", a.price || ""])]); }
   function expCaja() { let mv = []; try { mv = DB.get("cash_moves") || []; } catch (e) {} csvDownload("caja.csv", [["Fecha", "Tipo", "Concepto", "Monto", "Método"], ...mv.map(m => [(m.ts || "").slice(0, 10), m.type, m.concept || m.kind || "", m.amount || 0, m.method || ""])]); }
+  // Respaldo COMPLETO: descarga todos los datos de la clínica (todas las claves de la BD) en un JSON.
+  function expFull() {
+    try {
+      var data = {}, prefix = "";
+      try { var cid = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || ""; prefix = "jcm_" + (cid ? cid + "_" : ""); } catch (e) { prefix = "jcm_"; }
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) {
+          var clave = k.slice(prefix.length);
+          if (clave === "session" || clave === "admin_pass") continue; // no exportar sesión/credenciales
+          try { data[clave] = JSON.parse(localStorage.getItem(k)); } catch (e) { data[clave] = localStorage.getItem(k); }
+        }
+      }
+      var payload = { clinica: (window.clinicName ? window.clinicName() : ""), exportadoEl: new Date().toISOString(), datos: data };
+      var a = document.createElement("a");
+      a.href = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+      a.download = "respaldo-medique-" + new Date().toISOString().slice(0, 10) + ".json";
+      a.click();
+      window.jcmToast && window.jcmToast("Respaldo completo descargado.", "ok");
+    } catch (e) { window.jcmError && window.jcmError("No se pudo generar el respaldo", e); }
+  }
   function onImport(e) {
     const f = e.target.files[0]; if (!f) return;
     const rd = new FileReader();
@@ -2149,6 +2170,12 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
             {expCard("Pacientes", "Nombre, RUT, contacto y estado.", expPac)}
             {expCard("Citas", "Fecha, paciente, servicio, estado y precio.", expCitas)}
             {expCard("Caja", "Movimientos de ingreso y egreso.", expCaja)}
+          </div>
+          {/* Respaldo completo de toda la clínica en un solo archivo */}
+          <div style={{ marginTop: 14, background: T.surface, border: "1px solid " + T.accent + "55", borderRadius: 12, padding: "18px 18px" }}>
+            <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Respaldo completo</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Descarga <b>todos los datos de tu clínica</b> (pacientes, agenda, caja, inventario, servicios, configuración…) en un solo archivo JSON. Guárdalo en un lugar seguro como respaldo periódico.</div>
+            <AdBtn T={T} primary onClick={expFull}>↓ Descargar respaldo completo (JSON)</AdBtn>
           </div>
           {/* Importar base de pacientes */}
           <div style={{ marginTop: 18, background: T.surface, border: "1px dashed " + T.chipBorder, borderRadius: 12, padding: "18px 18px" }}>
