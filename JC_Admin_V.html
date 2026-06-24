@@ -39,6 +39,14 @@
   @media(hover:none){.jc-cell-add{opacity:.5;transform:scale(1)}}
   .jc-appt{transition:transform .16s ease,box-shadow .16s ease}
   .jc-appt:hover{transform:translateY(-2px);box-shadow:0 12px 26px -12px rgba(40,38,30,.5)}
+  /* Pulido transversal del panel: feedback de hover/foco en botones, campos y filas */
+  .jc-adbtn{transition:filter .15s ease,transform .08s ease}
+  .jc-adbtn:hover{filter:brightness(1.07)}
+  .jc-adbtn:active{transform:translateY(1px)}
+  .jc-adfield{transition:border-color .15s ease,box-shadow .15s ease}
+  .jc-adfield:focus{border-color:rgba(127,127,127,.55)!important;box-shadow:0 0 0 3px rgba(127,127,127,.14)}
+  .jc-listrow{transition:background .15s ease}
+  .jc-listrow:hover{background:rgba(127,127,127,.07)}
 </style>
 </head>
 <body>
@@ -95,10 +103,10 @@
 
 <script type="text/babel" src="jc-admin/jc-sign.jsx?v=71"></script>
 <script type="text/babel" src="jc-admin/jc-face.jsx?v=85"></script>
-<script type="text/babel" src="jc-admin/jc-admin-b.jsx?v=93"></script>
-<script type="text/babel" src="jc-admin/jc-admin-c.jsx?v=93"></script>
+<script type="text/babel" src="jc-admin/jc-admin-b-v.jsx?v=2"></script>
+<script type="text/babel" src="jc-admin/jc-admin-c-v.jsx?v=1"></script>
 <script type="text/babel" src="jc-admin/jc-copilot.jsx?v=71"></script>
 <script type="text/babel" src="jc-admin/jc-jcm.jsx?v=71"></script>
-<script type="text/babel" src="jc-admin/jc-admin-v.jsx?v=5"></script>
+<script type="text/babel" src="jc-admin/jc-admin-v.jsx?v=6"></script>
 </body>
 </html>
