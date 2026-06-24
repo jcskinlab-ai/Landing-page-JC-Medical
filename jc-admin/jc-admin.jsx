@@ -636,7 +636,7 @@ function AdminApp() {
     SIDE_MUTE = T.dark ? "rgba(239,234,224,.55)" : "#5C5A50",
     SIDE_LINE = T.dark ? "rgba(239,234,224,.10)" : "rgba(20,20,15,.10)",
     SIDE_ACT = T.dark ? "rgba(239,234,224,.10)" : (T.accentSoft || "rgba(84,112,127,.12)");
-  const SIDE_LOGO = "assets/medique-mark.svg";
+  const SIDE_LOGO = "assets/medique-logo.png";
   return (
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
       <div className="jc-admin-frame" style={{ background: T.bg, boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" }}>
@@ -645,7 +645,9 @@ function AdminApp() {
           style={{ width: RAIL, flexShrink: 0, background: SIDE_BG, position: "relative", zIndex: 20 }}>
           <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" }}>
             <button onClick={() => nav("dashboard")} title="Ir al Dashboard" style={{ display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}>
-              <img src={SIDE_LOGO} alt="Medique" style={{ height: 22, flexShrink: 0 }} />
+              <span style={{ width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" }}>
+                <img src={SIDE_LOGO} alt="Medique" style={{ width: 30, height: 30, objectFit: "contain" }} />
+              </span>
               {navOpen && <span style={{ fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" }}>medique</span>}
             </button>
             <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
@@ -1883,7 +1885,9 @@ function OnboardingWizard({ T, onDone }) {
       <div style={{ width: "100%", maxWidth: 460, animation: "jcSlideUp .5s cubic-bezier(.22,1,.36,1) both" }}>
         {/* Encabezado */}
         <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
-          <img src="assets/medique-mark.svg" alt="Medique" style={{ width: 34, height: 34 }} />
+          <span style={{ width: 42, height: 42, borderRadius: 11, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 10px -3px rgba(0,0,0,.5)" }}>
+            <img src="assets/medique-logo.png" alt="Medique" style={{ width: 37, height: 37, objectFit: "contain" }} />
+          </span>
           <div>
             <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text, lineHeight: 1 }}>Bienvenido a Medique</div>
             <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 3 }}>Configuremos tu clínica en 3 pasos</div>
