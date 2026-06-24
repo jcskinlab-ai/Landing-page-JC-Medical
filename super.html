@@ -121,6 +121,7 @@
           (c.plan === 'pending' ? '<button class="btn" onclick="window._approve(\'' + esc(d.id) + '\')">Aprobar</button>' +
             '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._reject(\'' + esc(d.id) + '\')">Rechazar</button>' : '') +
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'active\')">Activar</button>' +
+          '<button class="btn-ghost" style="' + (c.plan === 'comp' ? 'border-color:var(--ok);color:var(--ok)' : '') + '" onclick="window._setPlan(\'' + esc(d.id) + '\',\'comp\')" title="Plan cortesía: gratis permanente, nunca vence ni se bloquea">Cortesía' + (c.plan === 'comp' ? ' ✓' : '') + '</button>' +
           '<button class="btn-ghost" onclick="window._extend(\'' + esc(d.id) + '\')">+14d prueba</button>' +
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'suspended\')">Suspender</button>' +
           '<button class="btn-ghost" style="' + (c.jcApp ? 'border-color:var(--ok);color:var(--ok)' : '') + '" onclick="window._toggleJcApp(\'' + esc(d.id) + '\',' + (c.jcApp ? 'true' : 'false') + ')">App JC' + (c.jcApp ? ' ✓' : '') + '</button>' +
