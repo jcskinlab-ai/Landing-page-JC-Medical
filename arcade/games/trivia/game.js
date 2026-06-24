@@ -40,7 +40,7 @@
     { cat:'JC Medical', q:'¿En qué región se ubica la clínica?', opts:['Maule','Biobío','Metropolitana','Valparaíso'], a:0 },
     { cat:'JC Medical', q:'El profesional a cargo de JC Medical es…', opts:['Juan Claudio Parra','Juan Pérez','Carlos Soto','Andrés Díaz'], a:0 },
     { cat:'JC Medical', q:'¿Cuál es la profesión del especialista de JC Medical?', opts:['Dermatólogo','Enfermero Universitario','Kinesiólogo','Odontólogo'], a:1 },
-    { cat:'JC Medical', q:'El Instagram oficial de la clínica es…', opts:['@jcmedical.cl','@jc.clinic','@medical.jc','@jcmedicina'], a:0 },
+    { cat:'JC Medical', q:'El Instagram oficial de la clínica es…', opts:['@medique.cl','@jc.clinic','@medical.jc','@jcmedicina'], a:0 },
     { cat:'JC Medical', q:'La dirección de JC Medical es…', opts:['1 Poniente 1258, Talca','Av. Apoquindo 100','2 Sur 500, Talca','Alameda 340'], a:0 },
     { cat:'JC Medical', q:'De lunes a viernes, JC Medical atiende…', opts:['10:00 a 19:00','08:00 a 14:00','12:00 a 20:00','24 horas'], a:0 },
     { cat:'JC Medical', q:'¿Atiende JC Medical los domingos?', opts:['Sí, todo el día','No, está cerrado','Solo con cita','Solo en la mañana'], a:1 },

@@ -44,9 +44,9 @@ function AntesScreen({ T, D, go, openBooking, proc, onBack }) {
 function FeedScreen({ T, D, go, openBooking }) {
   return (
     <div>
-      <ScreenTop T={T} eyebrow="@jcmedical.cl" title="Feed" />
+      <ScreenTop T={T} eyebrow="@medique.cl" title="Feed" />
       <div style={{ padding: "0 20px 10px" }}>
-        <a href="https://instagram.com/jcmedical.cl" target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 9, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: T.text, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "11px 18px", textDecoration: "none" }}>
+        <a href="https://instagram.com/medique.cl" target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 9, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: T.text, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "11px 18px", textDecoration: "none" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="3.6" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" /></svg>
           Ir a Instagram
         </a>
@@ -75,7 +75,7 @@ function FeedCard({ T, p, openBooking }) {
           <img src="assets/logo-jc-mark-white.png" alt="" style={{ height: 16 }} />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>jcmedical.cl</div>
+          <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>medique.cl</div>
           <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute }}>Talca · Medicina estética</div>
         </div>
         <svg width="18" height="18" viewBox="0 0 24 24" fill={T.textMute}><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
@@ -119,7 +119,7 @@ function FeedCard({ T, p, openBooking }) {
       <div style={{ padding: "0 14px 14px" }}>
         <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>{likes.toLocaleString("es-CL")} me gusta</div>
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 4, lineHeight: 1.5 }}>
-          <span style={{ fontWeight: 600, color: T.text }}>jcmedical.cl</span> {p.title}
+          <span style={{ fontWeight: 600, color: T.text }}>medique.cl</span> {p.title}
         </div>
       </div>
     </div>

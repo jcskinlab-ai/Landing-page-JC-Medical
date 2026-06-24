@@ -626,7 +626,7 @@ function FeedHubScreen({ T, D, go, openBooking, onBack }) {
   if (view === "noticias") return <NewsView T={T} onBack={() => setView(null)} />;
   return (
     <div>
-      <ScreenTop T={T} eyebrow="@jcmedical.cl · contenido" title="Videos y noticias" onBack={onBack} />
+      <ScreenTop T={T} eyebrow="@medique.cl · contenido" title="Videos y noticias" onBack={onBack} />
       <div style={{ padding: "4px 20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
         <button onClick={() => setView("noticias")} style={{ textAlign: "left", cursor: "pointer", padding: 0, border: "1px solid " + T.line, borderRadius: 8, overflow: "hidden", background: T.surface }}>
           <div style={{ position: "relative", height: 150 }}>
@@ -750,7 +750,7 @@ function ReelsView({ T, onBack, openBooking, category }) {
                     <div style={{ textAlign: "center" }}><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg><div style={{ fontSize: 11, marginTop: 2 }}>{fmtK(statOf(v).views)}</div></div>
                   </div>
                   <div style={{ position: "absolute", left: 16, right: 70, bottom: 92, color: "#fff", pointerEvents: "none" }}>
-                    <div style={{ fontFamily: T.sans, fontSize: 11, opacity: .85 }}>@jcmedical.cl · {v.src}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 11, opacity: .85 }}>@medique.cl · {v.src}</div>
                     <div style={{ fontFamily: T.serif, fontSize: 22, lineHeight: 1.1, marginTop: 4, textShadow: "0 2px 12px rgba(0,0,0,.7)" }}>{v.t}</div>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); setOpinion(true); }} style={{ position: "absolute", left: 16, bottom: 40, pointerEvents: "auto", fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", ...glass, borderRadius: 999, padding: "10px 16px", cursor: "pointer" }}>Déjanos tu opinión</button>

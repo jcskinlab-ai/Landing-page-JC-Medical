@@ -68,10 +68,21 @@
       '<input id="p" type="password" placeholder="Contraseña" autocomplete="current-password" style="margin-bottom:14px">' +
       (msg ? '<div style="color:#E0607A;font-size:12px;margin-bottom:10px">' + esc(msg) + '</div>' : '') +
       '<button class="btn" style="width:100%" id="go">Entrar</button>' +
+      '<div style="text-align:center;margin-top:14px"><button id="reg" style="background:none;border:none;color:var(--accent);font-family:inherit;font-size:12px;text-decoration:underline;cursor:pointer">Primera vez · crear cuenta de administrador</button></div>' +
       '</div></div>';
+    function vals() { return { em: document.getElementById('e').value.trim().toLowerCase(), pw: document.getElementById('p').value }; }
     document.getElementById('go').onclick = function () {
-      var em = document.getElementById('e').value.trim().toLowerCase(), pw = document.getElementById('p').value;
-      auth.signInWithEmailAndPassword(em, pw).catch(function (err) { loginView('No se pudo entrar: ' + (err.code || err.message)); });
+      var v = vals();
+      auth.signInWithEmailAndPassword(v.em, v.pw).catch(function (err) { loginView('No se pudo entrar: ' + (err.code || err.message)); });
+    };
+    document.getElementById('reg').onclick = function () {
+      var v = vals();
+      if (v.em !== SUPER_EMAIL.toLowerCase()) { loginView('La cuenta de administrador debe ser ' + SUPER_EMAIL + '.'); return; }
+      if ((v.pw || '').length < 6) { loginView('La contraseña debe tener al menos 6 caracteres.'); return; }
+      auth.createUserWithEmailAndPassword(v.em, v.pw).catch(function (err) {
+        if ((err.code || '').indexOf('email-already-in-use') >= 0) { loginView('Esa cuenta ya existe. Solo inicia sesión.'); }
+        else { loginView('No se pudo crear: ' + (err.code || err.message)); }
+      });
     };
     document.getElementById('p').onkeydown = function (ev) { if (ev.key === 'Enter') document.getElementById('go').click(); };
   }

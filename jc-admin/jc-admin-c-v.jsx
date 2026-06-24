@@ -4,7 +4,7 @@
 const CADMIN = {
   team: [
     { id: "t1", name: "Juan Claudio Parra", role: "Enfermero · Medicina estética", email: "jc.skinlab@gmail.com", phone: "+56 9 9788 0877", color: "#6A8296", active: true, access: true, pin: "1234", perms: { Agenda: true, Pacientes: true, Inventario: true, Servicios: true, Reportes: true, Marketing: true, Configuración: true } },
-    { id: "t2", name: "Recepción", role: "Agenda y atención", email: "recepcion@jcmedical.cl", phone: "+56 9 0000 0000", color: "#B9C2CB", active: true, access: true, pin: "0000", perms: { Agenda: true, Pacientes: true } }
+    { id: "t2", name: "Recepción", role: "Agenda y atención", email: "recepcion@medique.cl", phone: "+56 9 0000 0000", color: "#B9C2CB", active: true, access: true, pin: "0000", perms: { Agenda: true, Pacientes: true } }
   ],
   waMessages: [
     { id: "w1", name: "Valentina Pérez", msg: "Hola, ¿tienen hora para botox esta semana?", ago: "hace 12 min" },
@@ -33,7 +33,7 @@ const CADMIN = {
     { id: "gcal", name: "Google Calendar", desc: "Sincroniza tu agenda", letter: "31", color: "#4285F4", connected: false, stat: "Sync bidireccional" },
     { id: "gemini", name: "Gemini IA", desc: "Asistente clínico: resúmenes y notas", letter: "✦", color: "#8B6FE0", connected: true, stat: "Asistente activo" },
     { id: "wa", name: "WhatsApp Business", desc: "Recordatorios y agenda por WhatsApp", letter: "✆", color: "#1F8A5B", connected: true, stat: "+56 9 9788 0877" },
-    { id: "landing", name: "Landing jcmedical.cl", desc: "Reservas online conectadas al sitio", letter: "jc", color: "#0a0f1c", connected: true, stat: "Reservas en vivo" }
+    { id: "landing", name: "Landing medique.cl", desc: "Reservas online conectadas al sitio", letter: "jc", color: "#0a0f1c", connected: true, stat: "Reservas en vivo" }
   ]
 };
 

@@ -231,7 +231,7 @@ function App() {
           borderBottom: heroMode ? "1px solid transparent" : "1px solid " + T.line,
           backdropFilter: heroMode ? "none" : "blur(14px)", WebkitBackdropFilter: heroMode ? "none" : "blur(14px)",
           transition: "background .35s " + T.ease + ", border-color .35s " + T.ease }}>
-          <a href="https://instagram.com/jcmedical.cl" target="_blank" rel="noopener" title="Instagram" aria-label="Instagram de JC Medical"
+          <a href="https://instagram.com/medique.cl" target="_blank" rel="noopener" title="Instagram" aria-label="Instagram de JC Medical"
             style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 999,
               border: "1px solid " + (heroMode ? "rgba(242,237,230,.4)" : T.chipBorder),
               color: heroMode ? "#F2EDE6" : T.text, textDecoration: "none",

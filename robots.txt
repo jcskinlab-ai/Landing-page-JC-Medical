@@ -5,4 +5,4 @@ Disallow: /JC_Admin.html
 Disallow: /JC_Admin_legacy.html
 Disallow: /JC_App_legacy.html
 
-Sitemap: https://jcmedical.cl/sitemap.xml
+Sitemap: https://medique.cl/sitemap.xml

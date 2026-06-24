@@ -22,7 +22,7 @@ Visitante ─▶ index.html / agendar.html  (estático, landing pública)
 3. Variables de entorno:
    - `N8N_WEBHOOK_URL` = URL del webhook `jcm-reserva` de tu n8n.
 4. Deploy. La raíz `/` sirve `index.html` (la web app pública) y `/api/reserva` queda disponible.
-5. Apunta tu dominio (`jcmedical.cl`) en **Settings → Domains**.
+5. Apunta tu dominio (`medique.cl`) en **Settings → Domains**.
 
 > Alternativas: Netlify (mueve `api/` a `netlify/functions/`) o Cloudflare Pages (usa `functions/`).
 
@@ -38,7 +38,7 @@ fetch('/api/reserva', {
 
 ## Pendiente de configurar (claves/datos, no es código)
 - **WhatsApp Cloud API**: token + `PHONE_NUMBER_ID` (Meta for Developers).
-- **Dominio final**: reemplazar `https://jcmedical.cl` en `index.html`, `agendar.html`, `sitemap.xml`, `robots.txt` si fuera otro.
+- **Dominio final**: reemplazar `https://medique.cl` en `index.html`, `agendar.html`, `sitemap.xml`, `robots.txt` si fuera otro.
 - **Google Business**: enlace de reseña para el flujo 03.
 - **Fuente de citas** para recordatorios (Firebase/Sheets/API) → endpoint que devuelva las citas.
 
