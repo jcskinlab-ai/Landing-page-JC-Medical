@@ -185,13 +185,20 @@
   }
   var V = '10.12.2';
   function initFirebase() {
-    return Promise.all([
+    var scripts = [
       loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-app-compat.js'),
       loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-auth-compat.js'),
       loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-firestore-compat.js')
-    ]).then(function () {
+    ];
+    // App Check (anti-abuso): solo se carga/activa si hay site key de reCAPTCHA v3 en la config.
+    // El site key es público (va en el cliente). Mientras no exista, todo sigue igual.
+    if (cfg && cfg.appCheckKey) scripts.push(loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-app-check-compat.js'));
+    return Promise.all(scripts).then(function () {
       fb = window.firebase;
       fb.initializeApp(cfg);
+      if (cfg && cfg.appCheckKey) {
+        try { fb.appCheck().activate(cfg.appCheckKey, true); } catch (e) { noop(e); }
+      }
       auth = fb.auth();
       db = fb.firestore();
       try { auth.setPersistence(fb.auth.Auth.Persistence.LOCAL); } catch (e) {}
