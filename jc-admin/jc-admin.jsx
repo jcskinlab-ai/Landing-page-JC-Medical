@@ -1930,81 +1930,140 @@ function AdminGate() {
 }
 /* ─────────── TOUR DE BIENVENIDA · primer ingreso al panel (slides guiados) ─────────── */
 function WelcomeTour({ T, go, onClose }) {
-  const [i, setI] = useState(0);
-  const TIcon = ({ d }) => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
-  const checklist = [
-    { t: "Nombre de tu clínica", s: "En Configuración", k: "config" },
-    { t: "RUT de la clínica", s: "En Administración", k: "administracion" },
-    { t: "Profesionales", s: "En Equipo", k: "equipo" },
-    { t: "Servicios y precios", s: "En Servicios", k: "servicios" },
-    { t: "Inventario e insumos", s: "En Inventario", k: "inventario" }
-  ];
-  const slides = [
-    { kind: "checklist" },
-    { ic: <><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>, t: "Tu agenda", s: "Crea y gestiona citas en la vista de día o semana. Las reservas que llegan desde tu link entran solas aquí." },
-    { ic: <><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 3.5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.5" /></>, t: "Pacientes y fichas", s: "Crea pacientes con su RUT y teléfono, registra cada sesión e imprime su ficha clínica cuando la necesites." },
-    { ic: <><path d="M20 7H4M20 12H4M20 17H4" /></>, t: "Tus servicios", s: "Crea tus procedimientos con precio y duración. Aparecen automáticamente en la agenda y en tu página de reserva." },
-    { ic: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></>, t: "Caja y retorno", s: "Registra ingresos y egresos del día. El embudo del Dashboard te muestra tu ROAS real de Meta Ads." },
-    { ic: <><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.2l1-5.8L3.5 9.2l5.9-.9z" /></>, t: "Reserva online y Agente IA", s: "Comparte tu link de reserva en redes y conecta WhatsApp para que el asistente responda a tus pacientes." }
-  ];
-  const last = i === slides.length - 1;
-  const cur = slides[i];
-  const jump = k => { try { onClose(); } catch (e) {} if (go) go(k); };
+  const cfg0 = (() => { try { return (window.DB && DB.get("config")) || {}; } catch (e) { return {}; } })();
+  const biz0 = (() => { try { return (window.DB && DB.get("clinic_biz")) || {}; } catch (e) { return {}; } })();
+  const clinicNm = (() => { try { return (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && (window.JCSAAS.currentClinic() || {}).name) || ""; } catch (e) { return ""; } })();
+  const STEPS = ["intro", "clinica", "rut", "equipo", "servicios", "inventario", "listo"];
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState(cfg0.clinic_name || clinicNm || "");
+  const [addr, setAddr] = useState(cfg0.clinic_addr || "");
+  const [wa, setWa] = useState((cfg0.wa_number || "").replace(/^569/, "").replace(/^56/, ""));
+  const [rut, setRut] = useState(biz0.rut || "");
+  const [team, setTeam] = useState(() => { try { return DB.get("team") || []; } catch (e) { return []; } });
+  const [svcs, setSvcs] = useState(() => { try { return DB.get("services_custom") || []; } catch (e) { return []; } });
+  const [inv, setInv] = useState(() => { try { return DB.get("inv_items") || []; } catch (e) { return []; } });
+  const [tN, setTN] = useState(""), [tR, setTR] = useState("");
+  const [sN, setSN] = useState(""), [sP, setSP] = useState(""), [sD, setSD] = useState("30");
+  const [iN, setIN] = useState(""), [iS, setIS] = useState(""), [iU, setIU] = useState("unidades");
+  const uid = pre => (window.jcmUid ? window.jcmUid(pre) : pre + Date.now());
+  function saveClinic() { try { var c = DB.get("config") || {}; c.clinic_name = name.trim(); c.clinic_addr = addr.trim(); c.wa_number = wa ? ("569" + wa) : ""; DB.set("config", c); } catch (e) {} }
+  function saveRut() { try { var b = DB.get("clinic_biz") || { razon: "", rut: "", plan: "" }; b.rut = rut.trim(); DB.set("clinic_biz", b); } catch (e) {} }
+  function addTeam() { if (tN.trim().length < 2) return; var n = team.concat([{ id: uid("t"), name: tN.trim(), role: tR.trim() || "Profesional", active: true, color: "#8B9EB0" }]); setTeam(n); try { DB.set("team", n); } catch (e) {} setTN(""); setTR(""); }
+  function addSvc() { if (sN.trim().length < 2) return; var n = [{ id: uid("svc"), name: sN.trim(), cat: "Otro", price: parseInt((sP + "").replace(/\D/g, ""), 10) || 0, dur: parseInt(sD, 10) || 30, pts: 0, desc: "" }].concat(svcs); setSvcs(n); try { DB.set("services_custom", n); } catch (e) {} setSN(""); setSP(""); setSD("30"); }
+  function addInv() { if (iN.trim().length < 2) return; var n = inv.concat([{ id: uid("i"), name: iN.trim(), cat: "Insumo clínico", stock: parseInt((iS + "").replace(/\D/g, ""), 10) || 0, min: 0, unit: iU || "unidades", price: 0 }]); setInv(n); try { DB.set("inv_items", n); } catch (e) {} setIN(""); setIS(""); }
+  function onWa(v) { var d = (v || "").replace(/\D/g, ""); if (d.indexOf("56") === 0) d = d.slice(2); if (d.charAt(0) === "9") d = d.slice(1); setWa(d.slice(0, 8)); }
+  function rmFrom(list, setList, key, id) { var n = list.filter(x => x.id !== id); setList(n); try { DB.set(key, n); } catch (e) {} }
+  const kind = STEPS[step];
+  function next() { if (kind === "clinica") saveClinic(); if (kind === "rut") saveRut(); setStep(s => Math.min(s + 1, STEPS.length - 1)); }
+  function back() { setStep(s => Math.max(s - 1, 0)); }
+  const inp = { width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid " + T.line, borderRadius: 9, padding: "11px 13px", fontFamily: T.sans, fontSize: 14, color: T.text, outline: "none", boxSizing: "border-box" };
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const titleS = { fontFamily: T.serif, fontSize: 22, color: T.text, marginBottom: 6 };
+  const subS = { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 16 };
+  const field = (label, node) => <label style={{ display: "block", marginBottom: 12 }}><span style={lbl}>{label}</span>{node}</label>;
+  const chip = (txt, onDel) => <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: "5px 6px 5px 11px", fontFamily: T.sans, fontSize: 12, color: T.text, margin: "0 6px 6px 0" }}>{txt}<button onClick={onDel} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 1 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg></button></span>;
+  const addBtn = onClick => <button onClick={onClick} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.primaryText || "#fff", background: T.primaryBg || T.accent, border: "none", borderRadius: 9, padding: "0 16px", cursor: "pointer" }}>Agregar</button>;
+  const delBtn = onClick => <button onClick={onClick} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg></button>;
+  const rowItem = (main, meta, onDel) => <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "8px 11px" }}><span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 13, color: T.text }}>{main}</span>{meta && <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>{meta}</span>}{delBtn(onDel)}</div>;
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(8,12,20,.62)", backdropFilter: "blur(7px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 470, background: T.bg, border: "1px solid " + T.line, borderRadius: 18, padding: "24px 24px 20px", animation: "jcSlideUp .4s cubic-bezier(.22,1,.36,1) both", boxShadow: "0 30px 80px -30px rgba(0,0,0,.6)" }}>
-        {/* Encabezado */}
-        <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 18 }}>
+      <div style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", display: "flex", flexDirection: "column", background: T.bg, border: "1px solid " + T.line, borderRadius: 18, padding: "22px 22px 18px", animation: "jcSlideUp .4s cubic-bezier(.22,1,.36,1) both", boxShadow: "0 30px 80px -30px rgba(0,0,0,.6)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 16 }}>
           <span style={{ width: 38, height: 38, borderRadius: 10, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 10px -3px rgba(0,0,0,.5)" }}>
             <img src="/assets/medique-logo.png" alt="Medique" style={{ width: 33, height: 33, objectFit: "contain" }} />
           </span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>{i === 0 ? "¡Bienvenido a Medique!" : "Cómo usar tu panel"}</div>
-            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>Guía rápida · {i + 1} de {slides.length}</div>
+            <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>Configura tu clínica</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>Paso {step + 1} de {STEPS.length}</div>
           </div>
           <button onClick={onClose} title="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 4 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
         </div>
 
-        {/* Contenido del slide */}
-        <div key={i} style={{ animation: "jcFade .3s ease both", minHeight: 232 }}>
-          {cur.kind === "checklist" ? (
-            <>
-              <div style={{ fontFamily: T.serif, fontSize: 21, color: T.text, marginBottom: 6 }}>Configura lo básico para empezar</div>
-              <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 16 }}>Toca cada punto para ir directo y completarlo. Te toma pocos minutos.</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {checklist.map((c, idx) => (
-                  <button key={c.k} onClick={() => jump(c.k)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: T.surface, border: "1px solid " + T.line, borderRadius: 11, padding: "12px 14px", cursor: "pointer" }}>
-                    <span style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, background: T.accent + "1c", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12, fontWeight: 700 }}>{idx + 1}</span>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{c.t}</span>
-                      <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{c.s}</span>
-                    </span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.8"><path d="M9 18l6-6-6-6" /></svg>
-                  </button>
+        <div key={step} className="jc-scroll" style={{ animation: "jcFade .3s ease both", overflowY: "auto", flex: 1, minHeight: 200, paddingRight: 2 }}>
+          {kind === "intro" && (
+            <div style={{ textAlign: "center", paddingTop: 6 }}>
+              <div style={titleS}>¡Bienvenido a Medique!</div>
+              <div style={{ ...subS, textAlign: "center", maxWidth: 360, margin: "0 auto" }}>Vamos a dejar tu clínica lista en unos pasos. Completa lo básico aquí mismo — toma un par de minutos y puedes saltar lo que quieras.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 18, textAlign: "left" }}>
+                {[["Datos de tu clínica", "Nombre, dirección y WhatsApp"], ["RUT de la clínica", "Para tus documentos"], ["Profesionales", "Quién atiende"], ["Servicios", "Tus procedimientos y precios"], ["Inventario", "Tus insumos"]].map((c, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 11, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "10px 13px" }}>
+                    <span style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, background: T.accent + "1c", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 11, fontWeight: 700 }}>{idx + 1}</span>
+                    <span style={{ flex: 1 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{c[0]}</span><span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{c[1]}</span></span>
+                  </div>
                 ))}
               </div>
-            </>
-          ) : (
-            <div style={{ textAlign: "center", paddingTop: 8 }}>
-              <div style={{ width: 60, height: 60, borderRadius: 16, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><TIcon d={cur.ic} /></div>
-              <div style={{ fontFamily: T.serif, fontSize: 23, color: T.text, marginBottom: 10 }}>{cur.t}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.textMute, lineHeight: 1.6, maxWidth: 360, margin: "0 auto" }}>{cur.s}</div>
+            </div>
+          )}
+          {kind === "clinica" && (<>
+            <div style={titleS}>Datos de tu clínica</div>
+            <div style={subS}>Aparecen en tu página de reserva y en los mensajes a tus pacientes.</div>
+            {field("Nombre de la clínica", <input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Clínica Aurora" style={inp} />)}
+            {field("Dirección", <input value={addr} onChange={e => setAddr(e.target.value)} placeholder="Calle, número, ciudad" style={inp} />)}
+            {field("WhatsApp de contacto", <input value={"+56 9 " + wa} onChange={e => onWa(e.target.value)} inputMode="numeric" style={inp} />)}
+          </>)}
+          {kind === "rut" && (<>
+            <div style={titleS}>RUT de la clínica</div>
+            <div style={subS}>El RUT de tu empresa (o el tuyo), para los documentos y la facturación.</div>
+            {field("RUT", <input value={rut} onChange={e => setRut(window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value)} placeholder="xx.xxx.xxx-x" style={inp} />)}
+            {rut.trim() && window.jcmValidRut && !window.jcmValidRut(rut) && <div style={{ fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: -6 }}>Revisa el dígito verificador.</div>}
+          </>)}
+          {kind === "equipo" && (<>
+            <div style={titleS}>Profesionales</div>
+            <div style={subS}>Quién realiza las atenciones. Agrega al menos uno (puedes sumar más después en Equipo).</div>
+            <div style={{ display: "flex", flexWrap: "wrap", marginBottom: team.length ? 12 : 0 }}>{team.map(m => <span key={m.id}>{chip(m.name, () => rmFrom(team, setTeam, "team", m.id))}</span>)}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <input value={tN} onChange={e => setTN(e.target.value)} placeholder="Nombre" style={inp} />
+              <input value={tR} onChange={e => setTR(e.target.value)} placeholder="Rol (ej. Médico)" style={inp} />
+            </div>
+            <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>{addBtn(addTeam)}</div>
+          </>)}
+          {kind === "servicios" && (<>
+            <div style={titleS}>Servicios</div>
+            <div style={subS}>Tus procedimientos con precio y duración. Aparecen en la agenda y en tu reserva online.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: svcs.length ? 12 : 0 }}>{svcs.map(s => <div key={s.id}>{rowItem(s.name, (s.price ? "$" + s.price.toLocaleString("es-CL") : "") + " · " + s.dur + "min", () => rmFrom(svcs, setSvcs, "services_custom", s.id))}</div>)}</div>
+            <input value={sN} onChange={e => setSN(e.target.value)} placeholder="Nombre del servicio" style={{ ...inp, marginBottom: 8 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={sP} onChange={e => setSP(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Precio $" style={inp} />
+              <select value={sD} onChange={e => setSD(e.target.value)} style={{ ...inp, width: 100 }}>{[15, 30, 45, 60, 90].map(d => <option key={d} value={String(d)}>{d} min</option>)}</select>
+              {addBtn(addSvc)}
+            </div>
+          </>)}
+          {kind === "inventario" && (<>
+            <div style={titleS}>Inventario</div>
+            <div style={subS}>Tus insumos y su stock. Opcional, pero te ayuda a controlar lo que usas.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: inv.length ? 12 : 0 }}>{inv.map(it => <div key={it.id}>{rowItem(it.name, it.stock + " " + it.unit, () => rmFrom(inv, setInv, "inv_items", it.id))}</div>)}</div>
+            <input value={iN} onChange={e => setIN(e.target.value)} placeholder="Nombre del insumo" style={{ ...inp, marginBottom: 8 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={iS} onChange={e => setIS(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Stock" style={inp} />
+              <input value={iU} onChange={e => setIU(e.target.value)} placeholder="Unidad" style={{ ...inp, width: 110 }} />
+              {addBtn(addInv)}
+            </div>
+          </>)}
+          {kind === "listo" && (
+            <div style={{ textAlign: "center", paddingTop: 10 }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(31,138,91,.14)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+              </div>
+              <div style={titleS}>Tu clínica está configurada y puedes usarla</div>
+              <div style={{ ...subS, textAlign: "center", maxWidth: 360, margin: "0 auto" }}>Todo quedó guardado. Puedes ajustar cualquier dato cuando quieras desde cada sección del panel.</div>
             </div>
           )}
         </div>
 
-        {/* Puntos de progreso */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, margin: "18px 0 16px" }}>
-          {slides.map((_, idx) => <span key={idx} onClick={() => setI(idx)} style={{ width: idx === i ? 18 : 7, height: 7, borderRadius: 999, background: idx === i ? T.accent : T.line, cursor: "pointer", transition: "width .25s, background .25s" }} />)}
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, margin: "16px 0 14px" }}>
+          {STEPS.map((_, idx) => <span key={idx} style={{ width: idx === step ? 18 : 7, height: 7, borderRadius: 999, background: idx === step ? T.accent : T.line, transition: "width .25s, background .25s" }} />)}
         </div>
 
-        {/* Acciones */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {i > 0
-            ? <button onClick={() => setI(i - 1)} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 9, padding: "11px 16px", cursor: "pointer" }}>Anterior</button>
-            : <button onClick={onClose} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "none", padding: "11px 6px", cursor: "pointer" }}>Saltar</button>}
-          <div style={{ flex: 1 }} />
-          <button onClick={() => last ? onClose() : setI(i + 1)} style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.primaryText || "#fff", background: T.primaryBg || T.accent, border: "none", borderRadius: 9, padding: "12px 22px", cursor: "pointer" }}>{last ? "Empezar a usar Medique" : "Siguiente"}</button>
+          {kind === "listo" ? (
+            <button onClick={onClose} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.primaryText || "#fff", background: T.primaryBg || T.accent, border: "none", borderRadius: 9, padding: "13px", cursor: "pointer" }}>Empezar a usar Medique</button>
+          ) : (<>
+            {step > 0
+              ? <button onClick={back} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 9, padding: "11px 16px", cursor: "pointer" }}>Anterior</button>
+              : <button onClick={onClose} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "none", padding: "11px 6px", cursor: "pointer" }}>Saltar</button>}
+            <div style={{ flex: 1 }} />
+            <button onClick={next} style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.primaryText || "#fff", background: T.primaryBg || T.accent, border: "none", borderRadius: 9, padding: "12px 22px", cursor: "pointer" }}>{kind === "intro" ? "Comenzar" : "Guardar y seguir"}</button>
+          </>)}
         </div>
       </div>
     </div>
