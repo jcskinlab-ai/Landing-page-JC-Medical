@@ -44,6 +44,7 @@
     bound: false      // window.DB ya re-namespaceado a esta clínica
   };
   var authCbs = [];
+  var settled = false, lastPayload = null; // para "replay" a quien se suscriba tarde
   var pushTimers = {};
   var applyingRemote = false;
   var unsubKv = null;
@@ -153,18 +154,30 @@
     });
   }
 
+  function loadUserClinicRetry(user, tries) {
+    return loadUserClinic(user).then(function (info) {
+      if (!info && tries > 0) {
+        return new Promise(function (res) { setTimeout(res, 700); }).then(function () {
+          return loadUserClinicRetry(user, tries - 1);
+        });
+      }
+      return info;
+    });
+  }
+
   function onAuthChange(user) {
     if (!user) {
       teardown();
       state.user = null; state.clinicId = null; state.clinic = null;
-      authCbs.forEach(function (cb) { try { cb(null); } catch (e) {} });
-      emit('jcsaas:auth', { user: null, clinic: null });
+      fire(null);
       return;
     }
     state.user = user;
-    loadUserClinic(user).then(function (info) {
-      if (!info) { // usuario auth sin clínica (registro incompleto) → cerrar sesión
-        authCbs.forEach(function (cb) { try { cb({ user: user, clinic: null, incomplete: true }); } catch (e) {} });
+    // Reintenta: al registrarse, Auth avisa del usuario ANTES de que se escriban
+    // los docs clinics/{}/users/{}; reintentamos unas veces para no marcar "incompleto".
+    loadUserClinicRetry(user, 5).then(function (info) {
+      if (!info) { // usuario auth sin clínica (registro realmente incompleto)
+        fire({ user: user, clinic: null, incomplete: true });
         return;
       }
       state.clinicId = info.clinicId;
@@ -172,9 +185,7 @@
       bindDB();
       pullAll().then(function () {
         liveKv();
-        var payload = { user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role };
-        authCbs.forEach(function (cb) { try { cb(payload); } catch (e) {} });
-        emit('jcsaas:auth', payload);
+        fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role });
       });
     }).catch(function (e) { noop(e); });
   }
@@ -228,7 +239,16 @@
   function resetPassword(email) {
     return ready.then(function () { return auth.sendPasswordResetEmail((email || '').trim().toLowerCase()); });
   }
-  function onAuth(cb) { if (typeof cb === 'function') { authCbs.push(cb); } }
+  function fire(payload) {
+    settled = true; lastPayload = payload;
+    authCbs.forEach(function (cb) { try { cb(payload); } catch (e) {} });
+    emit('jcsaas:auth', payload || { user: null, clinic: null });
+  }
+  function onAuth(cb) {
+    if (typeof cb !== 'function') return;
+    authCbs.push(cb);
+    if (settled) setTimeout(function () { try { cb(lastPayload); } catch (e) {} }, 0);
+  }
 
   // Estado de acceso (prueba / activo / vencido) — para gatear el panel.
   function access() {
