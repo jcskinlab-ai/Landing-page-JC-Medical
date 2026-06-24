@@ -53,12 +53,12 @@ function LoginScreen({ T, onAuth }) {
 /* ─── Shell principal ─── */
 function MobileShell({ T, D, onLogout }) {
   const [tab, setTab] = useState("citas");
-  const [appts, setAppts] = useState(() => (window.DB&&window.DB.get("appts"))||[]);
+  const [appts, setAppts] = useState(() => (window.DB&&window.DB.get("appointments"))||[]);
 
-  function saveAppts(updated) { window.DB&&window.DB.set("appts", updated); setAppts(updated); }
+  function saveAppts(updated) { window.DB&&window.DB.set("appointments", updated); setAppts(updated); }
 
   function confirmPago(id) {
-    const all = (window.DB&&window.DB.get("appts"))||[];
+    const all = (window.DB&&window.DB.get("appointments"))||[];
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
       try {
@@ -72,7 +72,7 @@ function MobileShell({ T, D, onLogout }) {
   }
 
   function cancelAppt(id) {
-    const all = (window.DB&&window.DB.get("appts"))||[];
+    const all = (window.DB&&window.DB.get("appointments"))||[];
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
       try {
@@ -86,7 +86,7 @@ function MobileShell({ T, D, onLogout }) {
   }
 
   function addAppt(appt) {
-    const all = (window.DB&&window.DB.get("appts"))||[];
+    const all = (window.DB&&window.DB.get("appointments"))||[];
     if (appt.fecha && appt.time) {
       try {
         const map = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
@@ -409,4 +409,61 @@ function MobileAdmin() {
   return <MobileShell T={T} D={D} onLogout={()=>{ try { window.jcmAdminEndSession && window.jcmAdminEndSession(); } catch(e){} setAuthed(false); }} />;
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<MobileAdmin />);
+/* ─── Acceso SaaS (multi-clínica): login de la clínica + citas desde Firebase ─── */
+function MobileSaasGate() {
+  const TK = window.JCTHEME;
+  const T = (TK && (TK.marfil || TK.cielo || TK.editorial)) || {
+    bg:"#F5F2EC", surface:"#fff", text:"#1A1A14", textMute:"#5C5A50", textFaint:"#8A8674",
+    line:"rgba(20,20,15,.12)", lineSoft:"rgba(20,20,15,.08)", accent:"#54707F", onAccent:"#fff",
+    sans:"'Jost',sans-serif", serif:"'Marcellus',serif", navBg:"rgba(245,242,236,.96)"
+  };
+  const D = window.JCDATA;
+  const [phase, setPhase] = useState("loading"); // loading | login | blocked | app
+  const [email, setEmail] = useState(""); const [pass, setPass] = useState("");
+  const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    window.JCSAAS.onAuth(p => {
+      if (!p || p.incomplete) { setPhase("login"); return; }
+      const a = window.JCSAAS.access();
+      setPhase(a.ok ? "app" : "blocked");
+    });
+    const t = setTimeout(() => setPhase(x => x === "loading" ? "login" : x), 9000);
+    return () => clearTimeout(t);
+  }, []);
+
+  async function doLogin() {
+    if (!email.trim() || !pass) return;
+    setErr(""); setBusy(true);
+    try { await window.JCSAAS.login(email, pass); }
+    catch (e) { setErr("Correo o contraseña incorrectos."); setBusy(false); }
+  }
+
+  if (phase === "app") return <MobileShell T={T} D={D} onLogout={() => window.JCSAAS.logout()} />;
+
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none", boxSizing:"border-box" };
+  const center = (kids) => <div style={{ minHeight:"100dvh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", background:T.bg }}>{kids}</div>;
+
+  if (phase === "loading") return center(<div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute }}>Conectando…</div>);
+
+  if (phase === "blocked") return center(<>
+    <div style={{ fontFamily:T.serif, fontSize:26, color:T.text, marginBottom:8 }}>Plan inactivo</div>
+    <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, textAlign:"center", maxWidth:300, marginBottom:18 }}>El acceso de tu clínica no está activo. Escríbenos para reactivarlo.</div>
+    <button onClick={()=>window.JCSAAS.logout()} style={{ background:"none", border:"1px solid "+T.line, color:T.text, fontFamily:T.sans, fontSize:12, borderRadius:6, padding:"12px 18px", cursor:"pointer" }}>Cerrar sesión</button>
+  </>);
+
+  return center(<>
+    <div style={{ fontFamily:T.serif, fontSize:32, fontWeight:300, color:T.text, marginBottom:6 }}>Confirmar citas</div>
+    <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:T.textMute, marginBottom:44 }}>Panel móvil · Acceso de tu clínica</div>
+    <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
+      <input placeholder="Correo de tu clínica" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} style={inp} />
+      <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={inp} />
+      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#C0285A", textAlign:"center" }}>{err}</div>}
+      <button onClick={doLogin} disabled={busy} style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"16px", cursor:"pointer", opacity:busy?.6:1, marginTop:4 }}>{busy?"…":"Entrar"}</button>
+    </div>
+  </>);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  (window.JCSAAS && window.JCSAAS.enabled) ? <MobileSaasGate /> : <MobileAdmin />
+);
