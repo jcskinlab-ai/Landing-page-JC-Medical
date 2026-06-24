@@ -155,7 +155,7 @@ function NewServiceModal({ T, initial, onClose, onSave }) {
   return (
     <AdModal T={T} title={initial ? "Editar servicio" : "Nuevo servicio"} onClose={onClose} footer={
       <AdBtn T={T} primary full onClick={() => ok && onSave({
-        id: (initial && initial.id) || ("svc" + Date.now()),
+        id: (initial && initial.id) || (window.jcmUid ? window.jcmUid("svc") : "svc" + Date.now()),
         name: f.name.trim(), cat: f.cat, desc: (f.desc || "").trim(),
         price: parseInt((f.price + "").replace(/\D/g, ""), 10) || 0,
         dur: parseInt((f.dur + "").replace(/\D/g, ""), 10) || 30,
@@ -197,8 +197,9 @@ function ServiciosView({ T }) {
     const exists = custom.find(x => x.id === s.id);
     const n = exists ? custom.map(x => x.id === s.id ? s : x) : [s, ...custom];
     setCustom(n); saveCustomServices(n); setNewSvc(null);
+    try { window.jcmToast && window.jcmToast("Servicio \"" + s.name + "\" " + (exists ? "actualizado" : "creado") + ".", "ok"); } catch (e) {}
   }
-  function delSvc(id) { const n = custom.filter(x => x.id !== id); setCustom(n); saveCustomServices(n); }
+  function delSvc(id) { const n = custom.filter(x => x.id !== id); setCustom(n); saveCustomServices(n); try { window.jcmToast && window.jcmToast("Servicio eliminado.", "info"); } catch (e) {} }
   const [active, setActive] = useState({});
   const [over, setOver] = useState({});
   const [editing, setEditing] = useState(null);
@@ -1425,6 +1426,7 @@ function AgenteIAView({ T, patients, addAppt }) {
   const [appts, setAppts] = useState(() => { try { return DB.get("appts") || []; } catch (e) { return []; } });
   const [sel, setSel] = useState(convs[0] ? convs[0].id : null);
   const [draft, setDraft] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
   const [darCita, setDarCita] = useState(null); // {name, phone}
   const [citaOk, setCitaOk] = useState(null);   // cita recién creada
   const conv = convs.find(c => c.id === sel);
@@ -1433,8 +1435,27 @@ function AgenteIAView({ T, patients, addAppt }) {
     const n = convs.map(c => c.id === sel ? { ...c, msgs: [...c.msgs, { f: "out", t: draft.trim(), h: "ahora" }] } : c);
     setConvs(n); try { DB.set("wa_conversations", n); } catch (e) {} setDraft("");
   }
+  // Sugerir respuesta con IA (Groq vía /api/ai). La key vive en el servidor; si no está
+  // configurada, avisa sin romper. Rellena el borrador para que el equipo lo revise y envíe.
+  function aiSuggest() {
+    if (!conv || aiBusy || !window.mediqueAI) return;
+    setAiBusy(true);
+    const clinic = {
+      name: (window.clinicName && window.clinicName()) || "",
+      address: (window.clinicAddr && window.clinicAddr()) || "",
+      hours: (() => { try { return DB.cfg().clinic_hours || ""; } catch (e) { return ""; } })(),
+      services: (window.clinicServiceList ? window.clinicServiceList() : []).slice(0, 30)
+    };
+    const msgs = conv.msgs.map(m => ({ role: m.f === "out" ? "assistant" : "user", content: m.t }));
+    window.mediqueAI(msgs, clinic).then(res => {
+      setAiBusy(false);
+      if (res && res.ok && res.reply) { setDraft(res.reply); }
+      else if (res && res.configured === false) { window.jcmToast && window.jcmToast("Conecta tu API Key de Groq (GROQ_API_KEY) en el servidor para activar el agente.", "info"); }
+      else { window.jcmError && window.jcmError("El agente no pudo responder", res && res.error); }
+    });
+  }
   function handleSaveCita(a) {
-    const newA = { ...a, id: "a" + Date.now() };
+    const newA = { ...a, id: (window.jcmUid ? window.jcmUid("a") : "a" + Date.now()) };
     setAppts(prev => [...prev, newA]);
     if (addAppt) addAppt(a);
     setDarCita(null);
@@ -1513,6 +1534,7 @@ function AgenteIAView({ T, patients, addAppt }) {
               ))}
             </div>
             <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid " + T.line }}>
+              <button onClick={aiSuggest} disabled={aiBusy} title="Sugerir respuesta con IA (Groq)" style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: aiBusy ? T.textFaint : "#8B6FE0", background: "transparent", border: "1px solid " + (aiBusy ? T.line : "#8B6FE0"), borderRadius: 8, padding: "0 12px", cursor: aiBusy ? "default" : "pointer", whiteSpace: "nowrap" }}>{aiBusy ? "…" : "✦ IA"}</button>
               <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Escribe una respuesta…" style={{ flex: 1, fontFamily: T.sans, fontSize: 13, padding: "9px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text }} />
               <button onClick={send} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "0 16px", cursor: "pointer" }}>Enviar</button>
             </div>

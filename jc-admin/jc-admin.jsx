@@ -585,8 +585,16 @@ function AdminApp() {
   }, []);
 
   function updatePatient(id, patch) { setPatients(ps => savePatients(ps.map(p => p.id === id ? { ...p, ...patch } : p))); }
-  function addPatient(p) { const np = { ...p, id: "p" + Date.now(), tags: [], consent: false, points: [], history: [] }; setPatients(ps => savePatients([np, ...ps])); return np; }
-  function addAppt(a) { setAppts(as => saveAppts([...as, { ...a, id: "a" + Date.now() }])); }
+  function addPatient(p) {
+    const np = { ...p, id: (window.jcmUid ? window.jcmUid("p") : "p" + Date.now()), tags: [], consent: false, points: [], history: [] };
+    setPatients(ps => savePatients([np, ...ps]));
+    try { window.jcmToast && window.jcmToast("Paciente \"" + (np.name || "") + "\" guardado.", "ok"); } catch (e) {}
+    return np;
+  }
+  function addAppt(a) {
+    setAppts(as => saveAppts([...as, { ...a, id: (window.jcmUid ? window.jcmUid("a") : "a" + Date.now()) }]));
+    try { window.jcmToast && window.jcmToast("Cita agendada.", "ok"); } catch (e) {}
+  }
   function updateAppt(id, patch) {
     setAppts(as => {
       // Si se confirma una cita que estaba pendiente de pago, bloquear el slot ahora

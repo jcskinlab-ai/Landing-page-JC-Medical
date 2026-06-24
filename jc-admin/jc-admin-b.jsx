@@ -396,8 +396,10 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
           </div>
           {newEntry && <NewEntryModal T={T} patient={patient} updatePatient={updatePatient} startView={viewMode} entry={editIdx != null ? (patient.history || [])[editIdx] : null} onClose={() => { setNewEntry(false); setEditIdx(null); setViewMode(false); }} onSave={e => {
             const hist = (patient.history || []).slice();
-            if (editIdx != null) hist[editIdx] = { ...hist[editIdx], ...e }; else hist.unshift({ id: "s" + Date.now(), ...e });
+            const editing = editIdx != null;
+            if (editing) hist[editIdx] = { ...hist[editIdx], ...e }; else hist.unshift({ id: (window.jcmUid ? window.jcmUid("s") : "s" + Date.now()), ...e });
             updatePatient(patient.id, { history: hist }); setNewEntry(false); setEditIdx(null); setViewMode(false);
+            try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : "Sesión registrada.", "ok"); } catch (e2) {}
           }} />}
         </div>
       )}

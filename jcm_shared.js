@@ -108,6 +108,64 @@ function jcmPrintHTML(html) {
 }
 if (typeof window !== 'undefined') window.jcmPrintHTML = jcmPrintHTML;
 
+// ── IDs ÚNICOS (UUID) ────────────────────────────────────────────────────────
+// Identificador único y a prueba de colisiones para cada entidad (paciente, cita,
+// servicio, etc.). Usa crypto.randomUUID cuando está disponible; si no, timestamp + azar.
+function jcmUid(prefix) {
+  var id;
+  try { if (window.crypto && crypto.randomUUID) id = crypto.randomUUID(); } catch (e) {}
+  if (!id) id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+  return (prefix ? prefix + '_' : '') + id;
+}
+if (typeof window !== 'undefined') window.jcmUid = jcmUid;
+
+// ── FEEDBACK GLOBAL (toasts de guardado + errores en modo debug) ─────────────
+// jcmToast(texto, tipo) → 'ok' | 'error' | 'info'. Confirmación visual reutilizable
+// desde cualquier vista. En errores muestra el mensaje/código exacto (fase de pruebas).
+function jcmToast(text, type) {
+  try {
+    if (typeof document === 'undefined') return;
+    var host = document.getElementById('jcm-toast-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'jcm-toast-host';
+      host.setAttribute('aria-live', 'polite');
+      host.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;max-width:92vw';
+      document.body.appendChild(host);
+    }
+    var ok = type === 'error' ? false : true;
+    var bg = type === 'error' ? '#C0285A' : (type === 'info' ? '#324657' : '#1F8A5B');
+    var el = document.createElement('div');
+    el.style.cssText = 'pointer-events:auto;font-family:Jost,system-ui,sans-serif;font-size:13.5px;color:#fff;background:' + bg + ';border-radius:10px;padding:12px 18px;box-shadow:0 8px 28px -8px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;max-width:520px;line-height:1.4';
+    el.textContent = (ok ? '✓ ' : '⚠ ') + text;
+    host.appendChild(el);
+    requestAnimationFrame(function () { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+    setTimeout(function () { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; setTimeout(function () { try { host.removeChild(el); } catch (e) {} }, 300); }, type === 'error' ? 6000 : 2600);
+  } catch (e) {}
+}
+// jcmError(contexto, err) → toast de error con el detalle exacto (código/mensaje).
+function jcmError(context, err) {
+  var detail = '';
+  try { detail = err ? (err.code || err.message || (typeof err === 'string' ? err : JSON.stringify(err))) : ''; } catch (e) { detail = String(err); }
+  try { console.error('[Medique] ' + context, err); } catch (e) {}
+  jcmToast(context + (detail ? ' — ' + detail : ''), 'error');
+}
+if (typeof window !== 'undefined') { window.jcmToast = jcmToast; window.jcmError = jcmError; }
+
+// ── CLIENTE DEL AGENTE IA (Groq vía /api/ai; la key vive en el servidor) ─────
+// Devuelve una promesa con la respuesta sugerida del asistente. Si no está configurado
+// (sin GROQ_API_KEY en el servidor) resuelve { ok:false, configured:false }.
+function mediqueAI(messages, clinic) {
+  try {
+    return fetch('/api/ai', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: messages || [], clinic: clinic || {} })
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
+      .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
+  } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }
+}
+if (typeof window !== 'undefined') window.mediqueAI = mediqueAI;
+
 // ── SESIÓN (8 h de TTL) ────────────────────────────────────────────────────
 const _SESS_KEY = 'jcm_session';
 const _SESS_TTL = 8 * 3600 * 1000;
