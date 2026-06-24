@@ -1147,12 +1147,12 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < WK_CLOSE * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
-                  {/* Líneas de 30 min + zonas clicables; bloqueadas si hay cita que cubre ese slot */}
+                  {/* Una casilla limpia por hora: solo línea sólida en la hora en punto (media hora sin línea, como Google Calendar). Cada media hora queda como zona clicable invisible. */}
                   {ADMIN_HALF_HOURS.map((hhmm, i) => {
-                    const isHour = hhmm.endsWith(":00");
+                    const isHourLine = hhmm.endsWith(":30"); // el borde inferior de la media (:30) cae en la hora siguiente en punto
                     const blocked = appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
                     return (
-                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/2), height: WPX/2, borderBottom: "1px solid " + (isHour ? T.lineSoft : T.lineSoft + "55") }}>
+                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/2), height: WPX/2, borderBottom: isHourLine ? "1px solid " + T.lineSoft : "none" }}>
                         {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
                           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
                           <span className="jc-cell-add" style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
