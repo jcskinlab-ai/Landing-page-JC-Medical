@@ -200,8 +200,10 @@ function ServiciosView({ T }) {
     try { window.jcmToast && window.jcmToast("Servicio \"" + s.name + "\" " + (exists ? "actualizado" : "creado") + ".", "ok"); } catch (e) {}
   }
   function delSvc(id) { const n = custom.filter(x => x.id !== id); setCustom(n); saveCustomServices(n); try { window.jcmToast && window.jcmToast("Servicio eliminado.", "info"); } catch (e) {} }
-  const [active, setActive] = useState({});
-  const [over, setOver] = useState({});
+  const [active, setActive] = useState(() => { try { return (window.DB && window.DB.get("services_active")) || {}; } catch (e) { return {}; } });
+  const [over, setOver] = useState(() => { try { return (window.DB && window.DB.get("services_over")) || {}; } catch (e) { return {}; } });
+  function saveActive(n) { setActive(n); try { window.DB && window.DB.set("services_active", n); } catch (e) {} }
+  function saveOver(n) { setOver(n); try { window.DB && window.DB.set("services_over", n); } catch (e) {} }
   const [editing, setEditing] = useState(null);
   const [hover, setHover] = useState(null);
   const [q, setQ] = useState("");
@@ -252,7 +254,7 @@ function ServiciosView({ T }) {
                     <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 3 }}>{s.dur} min{s.pts ? " · " + s.pts + " pts" : ""}</div>
                   </div>
                   <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 }}>{D.fmt(s.price || 0)}</div>
-                  <button onClick={e => { e.stopPropagation(); if (window.confirm("¿Eliminar el servicio “" + s.name + "”?")) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  <button onClick={async e => { e.stopPropagation(); if (await (window.jcmConfirm || window.confirm)(`¿Eliminar el servicio “${s.name}”?`, {danger: true})) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
                 </div>
               ))}
             </div>
@@ -292,7 +294,7 @@ function ServiciosView({ T }) {
                         </div>
                       </div>
                       <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 }}>{D.fmt(v.price)}</div>
-                      <div onClick={e => { e.stopPropagation(); setActive({ ...active, [it.n]: !on }); }}>
+                      <div onClick={e => { e.stopPropagation(); saveActive({ ...active, [it.n]: !on }); }}>
                         <AdSwitch T={T} on={on} onClick={() => {}} />
                       </div>
                     </div>
@@ -306,7 +308,7 @@ function ServiciosView({ T }) {
       })}
       {editing && (
         <AdModal T={T} title="Editar servicio" onClose={() => setEditing(null)} footer={
-          <AdBtn T={T} primary full onClick={() => { setOver({ ...over, [editing.key]: { name: editing.name.trim() || editing.key, desc: editing.desc, price: parseInt((editing.price + "").replace(/\D/g, ""), 10) || 0, dur: parseInt((editing.dur + "").replace(/\D/g, ""), 10) || 60, pts: parseInt((editing.pts + "").replace(/\D/g, ""), 10) || 0 } }); setEditing(null); }}>Guardar cambios</AdBtn>
+          <AdBtn T={T} primary full onClick={() => { const n = { ...over, [editing.key]: { name: editing.name.trim() || editing.key, desc: editing.desc, price: parseInt((editing.price + "").replace(/\D/g, ""), 10) || 0, dur: parseInt((editing.dur + "").replace(/\D/g, ""), 10) || 60, pts: parseInt((editing.pts + "").replace(/\D/g, ""), 10) || 0 } }; saveOver(n); setEditing(null); }}>Guardar cambios</AdBtn>
         }>
           <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
             <AdField T={T} label="Nombre" value={editing.name} onChange={v => setEditing({ ...editing, name: v })} />
@@ -464,7 +466,11 @@ function FidelidadView({ T }) {
 /* ─────────── MARKETING ─────────── */
 function MarketingView({ T, go }) {
   const D = window.JCDATA;
-  const [camps, setCamps] = useState(() => ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? (CADMIN.campaigns || []) : []);
+  const [camps, setCamps] = useState(() => {
+    try { const saved = window.DB && window.DB.get("campaigns"); if (saved && saved.length) return saved; } catch (e) {}
+    return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? (CADMIN.campaigns || []) : [];
+  });
+  function saveCamps(n) { setCamps(n); try { window.DB && window.DB.set("campaigns", n); } catch (e) {} }
   const totLeads = camps.reduce((a, c) => a + c.leads, 0);
   const totSpend = camps.reduce((a, c) => a + c.spend, 0);
   return (
@@ -482,7 +488,7 @@ function MarketingView({ T, go }) {
       </a>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Campañas</div>
-        <AdBtn T={T} small primary onClick={() => setCamps([{ id: "c" + Date.now(), name: "Nueva campaña", net: "Meta Ads", reach: 0, leads: 0, spend: 0, active: true }, ...camps])}>+ Campaña</AdBtn>
+        <AdBtn T={T} small primary onClick={() => saveCamps([{ id: "c" + Date.now(), name: "Nueva campaña", net: "Meta Ads", reach: 0, leads: 0, spend: 0, active: true }, ...camps])}>+ Campaña</AdBtn>
       </div>
       {/* Campañas activas */}
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
@@ -495,7 +501,7 @@ function MarketingView({ T, go }) {
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{c.name}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <AdTag T={T} tone="ok">Activa</AdTag>
-                <button onClick={() => setCamps(camps.map(x => x.id === c.id ? { ...x, active: false } : x))} style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 6, padding: "4px 9px", cursor: "pointer" }}>Pausar</button>
+                <button onClick={() => saveCamps(camps.map(x => x.id === c.id ? { ...x, active: false } : x))} style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 6, padding: "4px 9px", cursor: "pointer" }}>Pausar</button>
               </div>
             </div>
             <div style={{ display: "flex", gap: 18, marginTop: 10 }}>
@@ -519,7 +525,7 @@ function MarketingView({ T, go }) {
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{c.name}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <AdTag T={T} tone="muted">Pausada</AdTag>
-                <button onClick={() => setCamps(camps.map(x => x.id === c.id ? { ...x, active: true } : x))} style={{ fontFamily: T.sans, fontSize: 10, color: T.accent, background: "none", border: "1px solid " + T.accent, borderRadius: 6, padding: "4px 9px", cursor: "pointer" }}>Activar</button>
+                <button onClick={() => saveCamps(camps.map(x => x.id === c.id ? { ...x, active: true } : x))} style={{ fontFamily: T.sans, fontSize: 10, color: T.accent, background: "none", border: "1px solid " + T.accent, borderRadius: 6, padding: "4px 9px", cursor: "pointer" }}>Activar</button>
               </div>
             </div>
             <div style={{ display: "flex", gap: 18, marginTop: 10 }}>
@@ -630,17 +636,24 @@ function IntegracionesView({ T }) {
 /* ─────────── REPORTES ─────────── */
 function ReportesView({ T, patients, appts }) {
   const D = window.JCDATA;
+  const [period, setPeriod] = useState("anio");
   // ── Reportes con datos REALES de la clínica (caja, pacientes, citas). Sin demo: 0 hasta que haya movimientos. ──
   const moves = (() => { try { return (window.DB && window.DB.get("cash_moves")) || []; } catch (e) { return []; } })();
-  const ingresos = moves.filter(m => m.type === "ingreso");
-  const MES_ABBR = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-  // Últimos 6 meses (incluido el actual), ingresos en MM CLP.
   const now = new Date();
+  // Filtrar ingresos según el período elegido
+  const periodStart = (() => {
+    if (period === "sem") { const d = new Date(now); d.setDate(now.getDate() - now.getDay()); d.setHours(0,0,0,0); return d.toISOString().slice(0,10); }
+    if (period === "mes") return now.getFullYear() + "-" + ("0"+(now.getMonth()+1)).slice(-2) + "-01";
+    return now.getFullYear() + "-01-01";
+  })();
+  const ingresos = moves.filter(m => m.type === "ingreso" && (period === "anio" || (m.ts || "") >= periodStart));
+  const MES_ABBR = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  // Últimos 6 meses (incluido el actual), ingresos en MM CLP — siempre se muestra el gráfico de los 6 meses.
   const rev = [];
   for (let k = 5; k >= 0; k--) {
     const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
     const key = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2);
-    const sum = ingresos.filter(m => (m.ts || "").slice(0, 7) === key).reduce((s, m) => s + (m.amount || 0), 0);
+    const sum = moves.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 7) === key).reduce((s, m) => s + (m.amount || 0), 0);
     rev.push({ m: MES_ABBR[d.getMonth()], v: Math.round(sum / 100000) / 10 }); // MM CLP, 1 decimal
   }
   const serie = rev.map(r => r.v);
@@ -684,7 +697,7 @@ function ReportesView({ T, patients, appts }) {
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <SecHead T={T} title="Reportes y estadísticas" sub="Análisis detallado del rendimiento de tu clínica." />
-        <select defaultValue="anio" style={{ fontFamily: T.sans, fontSize: 12, padding: "8px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" }}>
+        <select value={period} onChange={e => setPeriod(e.target.value)} style={{ fontFamily: T.sans, fontSize: 12, padding: "8px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" }}>
           <option value="anio">Este año</option><option value="mes">Este mes</option><option value="sem">Esta semana</option>
         </select>
       </div>
@@ -745,7 +758,7 @@ function IndTemplatesEditor({ T }) {
   function save(n) { setTpls(n); try { DB.set("config", Object.assign({}, DB.cfg(), { ind_templates: n })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {} }
   function upd(i, patch) { save(tpls.map((t, j) => j === i ? { ...t, ...patch } : t)); }
   function add() { save([...tpls, { id: "tpl_" + Date.now(), name: "Nueva plantilla", body: "" }]); }
-  function del(i) { save(tpls.filter((_, j) => j !== i)); }
+  async function del(i) { if (await (window.jcmConfirm || window.confirm)(`¿Eliminar la plantilla "${tpls[i] && tpls[i].name}"?`, {danger: true})) save(tpls.filter((_, j) => j !== i)); }
   const inp = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
   return (
     <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
@@ -1111,6 +1124,7 @@ function sumUnits(txt) {
 function FichaClinicaForm({ T, patient, updatePatient }) {
   const [f, setF] = useState(patient.clinica || {});
   const [saved, setSaved] = useState(false);
+  useEffect(() => { setF(patient.clinica || {}); setSaved(false); }, [patient.id]);
   const setVal = (k, v) => { setF(prev => ({ ...prev, [k]: v })); setSaved(false); };
   // Al tocar un chip, su texto se escribe (o se quita) en la barra del propio parámetro.
   const tokenToggle = (k, tok) => { setF(prev => { const cur = (prev[k] || "").split(",").map(s => s.trim()).filter(Boolean); const i = cur.indexOf(tok); if (i >= 0) cur.splice(i, 1); else cur.push(tok); return { ...prev, [k]: cur.join(", ") }; }); setSaved(false); };
@@ -1134,7 +1148,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Ficha clínica</div>
-        <AdBtn T={T} small primary onClick={() => { updatePatient(patient.id, { clinica: f }); setSaved(true); }}>{saved ? "✓ Guardada" : "Guardar ficha"}</AdBtn>
+        <AdBtn T={T} small primary onClick={() => { try { updatePatient(patient.id, { clinica: f }); setSaved(true); } catch(e) { if(window.jcmError) window.jcmError("Error al guardar la ficha. Intenta de nuevo."); } }}>{saved ? "✓ Guardada" : "Guardar ficha"}</AdBtn>
       </div>
 
       {/* Antecedentes médicos */}
@@ -1283,7 +1297,7 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
   function saveTasks(n) { setTasks(n); try { DB.set("admin_tasks", n); } catch (e) {} }
   function addTask() { if (!draft.trim()) return; saveTasks([{ id: "t" + Date.now(), text: draft.trim(), done: false }, ...tasks]); setDraft(""); }
   function toggleTask(id) { saveTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t)); }
-  function delTask(id) { saveTasks(tasks.filter(t => t.id !== id)); }
+  async function delTask(id) { if (await (window.jcmConfirm || window.confirm)("¿Eliminar esta tarea?", {danger: true})) saveTasks(tasks.filter(t => t.id !== id)); }
   const tPend = tasks.filter(t => !t.done), tDone = tasks.filter(t => t.done);
   const taskCard = t => (
     <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
@@ -1672,7 +1686,7 @@ function AgenteIAView({ T, patients, addAppt }) {
       </div>
       )}
       {darCita && (
-        <NewCitaModal T={T} patients={patients || []} prefill={{ name: darCita.name, phone: darCita.phone }} onClose={() => setDarCita(null)} onSave={handleSaveCita} />
+        <NewCitaModal T={T} patients={patients || []} prefill={{ patName: darCita.name, phone: darCita.phone }} onClose={() => setDarCita(null)} onSave={handleSaveCita} />
       )}
       {citaOk && <CitaAgendadaOkPopup T={T} cita={citaOk} appts={appts} onClose={() => setCitaOk(null)} />}
     </div>
@@ -2287,7 +2301,7 @@ function NuevoMovModal({ T, onClose, onSave }) {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("Efectivo");
   const [concept, setConcept] = useState("");
-  const ok = (parseInt(amount, 10) || 0) > 0;
+  const ok = (parseInt(amount, 10) || 0) > 0 && (type === "ingreso" || concept.trim().length > 0);
   return (
     <AdModal T={T} title="Nuevo movimiento" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ type, amount: parseInt(amount, 10) || 0, method, concept: concept.trim() })}>Registrar</AdBtn>}>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -2305,8 +2319,20 @@ function NuevoMovModal({ T, onClose, onSave }) {
 }
 function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   const D = window.JCDATA;
+  const [done, setDone] = useState(false);
+  function confirmarCierre() {
+    try {
+      const cierres = (window.DB && window.DB.get("cierres_caja")) || [];
+      cierres.unshift({ fecha, ingresos, egresos, costoIns, neto, ts: new Date().toISOString() });
+      window.DB && window.DB.set("cierres_caja", cierres.slice(0, 90));
+      setDone(true);
+      try { window.jcmToast && window.jcmToast("Cierre del día registrado.", "ok"); } catch (e2) {}
+    } catch (e) {
+      try { window.jcmError && window.jcmError("Error al registrar el cierre."); } catch (e2) {}
+    }
+  }
   return (
-    <AdModal T={T} title="Cierre del día" onClose={onClose} footer={<AdBtn T={T} primary full onClick={onClose}>Cerrar</AdBtn>}>
+    <AdModal T={T} title="Cierre del día" onClose={onClose} footer={done ? <AdBtn T={T} full onClick={onClose}>Cerrar</AdBtn> : <AdBtn T={T} primary full onClick={confirmarCierre}>Confirmar cierre del día</AdBtn>}>
       <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" }}>{fecha}</div>
       {[["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Costo insumos", costoIns, T.gold || "#C9A227", "− "], ["Egresos", egresos, "#C0285A", "− "]].map(([l, v, c, s]) => (
         <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 }}>

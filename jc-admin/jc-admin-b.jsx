@@ -216,7 +216,7 @@ function NewPatientModal({ T, onClose, onSave }) {
 }
 
 /* ─────────── FICHA MÉDICA ─────────── */
-function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
+function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar }) {
   const [tab, setTab] = useState("fichaclinica");
   const [newEntry, setNewEntry] = useState(false);
   const [editIdx, setEditIdx] = useState(null); // índice de la sesión a editar (null = nueva)
@@ -262,6 +262,7 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
 
   // Imprime UNA sesión/procedimiento (para adjuntar a la ficha física).
   function imprimirProc(h) {
+    const D = window.JCDATA || {};
     const proName = h.proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -306,6 +307,7 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
           <FAct T={T} onClick={() => setEditD(true)} icon={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></>}>Editar datos</FAct>
           <FAct T={T} onClick={imprimirFicha} icon={<><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></>}>Imprimir ficha</FAct>
           <FAct T={T} primary onClick={() => onAgendar && onAgendar()} icon={<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>}>Agendar cita</FAct>
+          {removePatient && <FAct T={T} onClick={async () => { if (await (window.jcmConfirm || window.confirm)(`¿Eliminar al paciente "${patient.name}" y todos sus datos? Esta acción no se puede deshacer.`, {danger: true, title: 'Eliminar paciente'})) { removePatient(patient.id); onBack && onBack(); } }} icon={<><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></>}>Eliminar</FAct>}
         </div>
       </div>
 
@@ -420,13 +422,17 @@ function FAct({ T, children, icon, href, onClick, primary }) {
 }
 function EditDatosModal({ T, patient, onClose, onSave }) {
   const [f, setF] = useState({ name: patient.name || "", rut: patient.rut || "", age: patient.age ? "" + patient.age : "", phone: patient.phone || "", email: patient.email || "", estado: patient.estado || "Activo" });
+  const rutOk = !f.rut.trim() || (window.jcmValidRut ? window.jcmValidRut(f.rut) : true);
+  const emailOk = !f.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim());
+  const phoneDigits = f.phone.replace(/\D/g, "");
+  const ok = f.name.trim().length > 2 && phoneDigits.length >= 11 && rutOk && emailOk;
   return (
-    <AdModal T={T} title="Editar datos del paciente" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => f.name.trim() && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: f.phone.trim(), email: f.email.trim(), estado: f.estado })}>Guardar cambios</AdBtn>}>
+    <AdModal T={T} title="Editar datos del paciente" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: f.phone.trim(), email: f.email.trim(), estado: f.estado })}>Guardar cambios</AdBtn>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <AdField T={T} label="CI / RUT" value={f.rut} onChange={v => setF({ ...f, rut: v })} />
-          <AdField T={T} label="Edad" value={f.age} onChange={v => setF({ ...f, age: v.replace(/\D/g, "") })} inputMode="numeric" />
+          <div><AdField T={T} label="CI / RUT" value={f.rut} onChange={v => setF({ ...f, rut: (window.jcmFmtRut ? window.jcmFmtRut(v) : v) })} />{f.rut.trim() && !rutOk && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 5 }}>RUT inválido.</div>}</div>
+          <AdField T={T} label="Edad" value={f.age} onChange={v => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 3) })} inputMode="numeric" />
         </div>
         <AdField T={T} label="Teléfono móvil" value={f.phone} onChange={v => setF({ ...f, phone: v })} inputMode="tel" />
         <AdField T={T} label="Correo" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" />

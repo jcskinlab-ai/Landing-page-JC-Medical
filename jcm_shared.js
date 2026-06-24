@@ -173,6 +173,63 @@ function jcmError(context, err) {
 }
 if (typeof window !== 'undefined') { window.jcmToast = jcmToast; window.jcmError = jcmError; }
 
+// ── DIÁLOGO DE CONFIRMACIÓN PERSONALIZADO ─────────────────────────────────────
+// jcmConfirm(msg, opts?) → Promise<boolean>
+// opts: { title, okText, cancelText, danger }
+function jcmConfirm(msg, opts) {
+  opts = opts || {};
+  return new Promise(function(resolve) {
+    try {
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;background:rgba(7,7,7,.70);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);opacity:1;transition:opacity .18s';
+      var box = document.createElement('div');
+      box.style.cssText = 'background:#17171a;border:1px solid rgba(255,255,255,.09);border-radius:18px;padding:26px 26px 20px;width:min(340px,92vw);font-family:\'Jost\',-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 24px 64px -16px rgba(0,0,0,.75);transform:translateY(0);transition:transform .18s,opacity .18s';
+      if (opts.title) {
+        var h = document.createElement('div');
+        h.style.cssText = 'font-size:15px;font-weight:600;color:#f0ede8;margin-bottom:8px;letter-spacing:.01em';
+        h.textContent = opts.title;
+        box.appendChild(h);
+      }
+      var p = document.createElement('div');
+      p.style.cssText = 'font-size:13.5px;color:rgba(240,237,232,.65);line-height:1.55;margin-bottom:22px';
+      p.textContent = msg;
+      box.appendChild(p);
+      var btns = document.createElement('div');
+      btns.style.cssText = 'display:flex;gap:10px;justify-content:flex-end';
+      var cancel = document.createElement('button');
+      cancel.textContent = opts.cancelText || 'Cancelar';
+      cancel.style.cssText = 'padding:9px 18px;border-radius:10px;border:1px solid rgba(255,255,255,.13);background:transparent;color:rgba(240,237,232,.7);font-family:Jost,inherit;font-size:13px;font-weight:400;cursor:pointer;transition:background .15s';
+      cancel.onmouseover = function(){this.style.background='rgba(255,255,255,.07)'};
+      cancel.onmouseout = function(){this.style.background='transparent'};
+      var ok = document.createElement('button');
+      ok.textContent = opts.okText || (opts.danger ? 'Eliminar' : 'Confirmar');
+      var okBg = opts.danger ? '#9B1C3A' : '#2E6B52';
+      ok.style.cssText = 'padding:9px 22px;border-radius:10px;border:none;background:'+okBg+';color:#fff;font-family:Jost,inherit;font-size:13px;font-weight:500;cursor:pointer;letter-spacing:.02em;transition:filter .15s';
+      ok.onmouseover = function(){this.style.filter='brightness(1.18)'};
+      ok.onmouseout = function(){this.style.filter='none'};
+      function cleanup(result) {
+        try { overlay.style.opacity = '0'; setTimeout(function(){ try { document.body.removeChild(overlay); } catch(e){} }, 200); } catch(e) {}
+        resolve(result);
+      }
+      cancel.onclick = function(){ cleanup(false); };
+      ok.onclick = function(){ cleanup(true); };
+      overlay.onclick = function(e){ if (e.target === overlay) cleanup(false); };
+      function onKey(e) {
+        if (e.key === 'Escape'){ document.removeEventListener('keydown', onKey); cleanup(false); }
+        if (e.key === 'Enter'){ document.removeEventListener('keydown', onKey); cleanup(true); }
+      }
+      document.addEventListener('keydown', onKey);
+      btns.appendChild(cancel);
+      btns.appendChild(ok);
+      box.appendChild(btns);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      setTimeout(function(){ ok.focus(); }, 60);
+    } catch(e) { resolve(window.confirm(msg)); }
+  });
+}
+if (typeof window !== 'undefined') window.jcmConfirm = jcmConfirm;
+
 // ── CLIENTE DEL AGENTE IA (Groq vía /api/ai; la key vive en el servidor) ─────
 // Devuelve una promesa con la respuesta sugerida del asistente. Si no está configurado
 // (sin GROQ_API_KEY en el servidor) resuelve { ok:false, configured:false }.
