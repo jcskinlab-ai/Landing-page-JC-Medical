@@ -17,7 +17,7 @@ service cloud.firestore {
     // SUPER-ADMIN (dueño del SaaS): puede ver todas las clínicas y activar planes.
     // Cambia el correo si usas otro para la consola de administración.
     function isSuper() {
-      return signedIn() && request.auth.token.email == 'jc.skinlab@gmail.com';
+      return signedIn() && request.auth.token.email == 'medique.cl@gmail.com';
     }
 
     // Mapeo usuario → clínica (uid, clinicId, rol). Cada quien gestiona el suyo.
