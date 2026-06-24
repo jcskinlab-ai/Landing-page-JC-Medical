@@ -118,6 +118,8 @@
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'suspended\')">Suspender</button>' +
           '<button class="btn-ghost" style="' + (c.jcApp ? 'border-color:var(--ok);color:var(--ok)' : '') + '" onclick="window._toggleJcApp(\'' + esc(d.id) + '\',' + (c.jcApp ? 'true' : 'false') + ')">App JC' + (c.jcApp ? ' ✓' : '') + '</button>' +
           '<button class="btn-ghost" onclick="window._copyLink(\'' + esc(d.id) + '\')" title="Copiar link de reserva">Link reserva</button>' +
+          ((c.ownerEmail || '').toLowerCase() === 'jc.skinlab@gmail.com' ? '' :
+            '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._deleteClinic(\'' + esc(d.id) + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\',\'' + esc(c.ownerUid || '') + '\')" title="Eliminar clínica">Eliminar</button>') +
           '</div></div>';
       });
       document.getElementById('list').innerHTML = html;
@@ -170,6 +172,14 @@
   window._dash = dash;
   window._toggleJcApp = function (id, cur) {
     db.collection('clinics').doc(id).update({ jcApp: !cur }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
+  };
+  window._deleteClinic = function (id, name, ownerUid) {
+    var c1 = prompt('⚠️ ELIMINAR la clínica "' + name + '".\n\nSe borra su registro y su acceso al panel. Esta acción NO se puede deshacer.\n\nEscribe ELIMINAR (en mayúsculas) para confirmar:');
+    if ((c1 || '').trim().toUpperCase() !== 'ELIMINAR') return;
+    var ops = [db.collection('clinics').doc(id).delete()];
+    if (ownerUid) ops.push(db.collection('users').doc(ownerUid).delete().catch(function () {}));
+    Promise.all(ops).then(function () { alert('Clínica "' + name + '" eliminada.'); dash(); })
+      .catch(function (e) { alert('No se pudo eliminar: ' + (e.code || e.message) + '\n\n(Si dice permisos, publica las reglas de Firestore actualizadas.)'); });
   };
   window._copyLink = function (id) {
     var link = 'https://medique.cl/reservar?c=' + id;
