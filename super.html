@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>JC Medical · Super-admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg:#070707; --surface:#141414; --line:rgba(255,255,255,.14); --line2:rgba(255,255,255,.07); --text:#F2EDE6; --mute:rgba(242,237,230,.6); --faint:rgba(242,237,230,.38); --accent:#7FB0C6; --ok:#1F8A5B; --warn:#C9A227; --danger:#C0285A; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;min-height:100dvh}
+  .serif{font-family:'Marcellus',serif;font-weight:400}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px}
+  .center{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px}
+  input{width:100%;padding:13px 14px;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none}
+  input:focus{border-color:rgba(127,127,127,.6);box-shadow:0 0 0 3px rgba(127,127,127,.12)}
+  button{font-family:inherit;cursor:pointer}
+  .btn{padding:13px 18px;border-radius:7px;border:none;background:var(--text);color:var(--bg);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+  .btn-ghost{padding:8px 12px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:11px}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;border:1px solid}
+  .row{display:grid;grid-template-columns:1.4fr 1fr .8fr auto;gap:14px;align-items:center;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:10px}
+  .muted{color:var(--mute);font-size:12px}
+  .faint{color:var(--faint);font-size:11px}
+  @media(max-width:680px){ .row{grid-template-columns:1fr 1fr;gap:10px} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="jcm_saas_config.js?v=2"></script>
+<script>
+(function () {
+  'use strict';
+  var SUPER_EMAIL = 'jc.skinlab@gmail.com'; // debe coincidir con isSuper() en firestore.rules
+  var app = document.getElementById('app');
+  var cfg = window.JCSAAS_CONFIG || {};
+  if (!cfg.apiKey) { app.innerHTML = '<div class="center"><div>Falta configurar Firebase en jcm_saas_config.js</div></div>'; return; }
+  firebase.initializeApp(cfg);
+  var auth = firebase.auth(), db = firebase.firestore();
+  try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
+
+  var fmtDate = function (ms) { try { return new Date(ms).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '—'; } };
+  var esc = function (s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  function planInfo(c) {
+    var now = Date.now();
+    if (c.plan === 'active' || c.plan === 'comp') return { label: 'Activo', color: 'var(--ok)' };
+    if (c.plan === 'suspended') return { label: 'Suspendido', color: 'var(--danger)' };
+    if (c.plan === 'trial') {
+      var left = Math.ceil(((c.trialEnds || 0) - now) / 86400000);
+      return left > 0 ? { label: 'Prueba · ' + left + 'd', color: 'var(--warn)' } : { label: 'Prueba vencida', color: 'var(--danger)' };
+    }
+    return { label: c.plan || '—', color: 'var(--faint)' };
+  }
+
+  function loginView(msg) {
+    app.innerHTML =
+      '<div class="center"><div style="width:100%;max-width:340px">' +
+      '<div style="font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);text-align:center">JC Medical · SaaS</div>' +
+      '<h1 class="serif" style="font-size:34px;text-align:center;margin:10px 0 18px">Super-admin</h1>' +
+      '<input id="e" placeholder="Correo" inputmode="email" autocomplete="email" style="margin-bottom:10px">' +
+      '<input id="p" type="password" placeholder="Contraseña" autocomplete="current-password" style="margin-bottom:14px">' +
+      (msg ? '<div style="color:#E0607A;font-size:12px;margin-bottom:10px">' + esc(msg) + '</div>' : '') +
+      '<button class="btn" style="width:100%" id="go">Entrar</button>' +
+      '</div></div>';
+    document.getElementById('go').onclick = function () {
+      var em = document.getElementById('e').value.trim().toLowerCase(), pw = document.getElementById('p').value;
+      auth.signInWithEmailAndPassword(em, pw).catch(function (err) { loginView('No se pudo entrar: ' + (err.code || err.message)); });
+    };
+    document.getElementById('p').onkeydown = function (ev) { if (ev.key === 'Enter') document.getElementById('go').click(); };
+  }
+
+  function notAllowed(email) {
+    app.innerHTML = '<div class="center"><div style="text-align:center;max-width:360px">' +
+      '<h1 class="serif" style="font-size:28px;margin-bottom:8px">Sin acceso</h1>' +
+      '<p class="muted">La cuenta <b>' + esc(email) + '</b> no es super-admin. Entra con ' + esc(SUPER_EMAIL) + '.</p>' +
+      '<button class="btn-ghost" style="margin-top:16px" onclick="window._logout()">Cerrar sesión</button>' +
+      '</div></div>';
+  }
+
+  function dash() {
+    app.innerHTML = '<div class="wrap"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">' +
+      '<h1 class="serif" style="font-size:30px">Clínicas</h1>' +
+      '<button class="btn-ghost" onclick="window._logout()">Cerrar sesión</button></div>' +
+      '<p class="muted" style="margin-bottom:22px">Activa el plan de una clínica cuando pague, suspende o extiende su prueba.</p>' +
+      '<div id="list" class="muted">Cargando…</div></div>';
+    db.collection('clinics').orderBy('createdAt', 'desc').get().then(function (snap) {
+      if (snap.empty) { document.getElementById('list').textContent = 'Aún no hay clínicas registradas.'; return; }
+      var html = '';
+      snap.forEach(function (d) {
+        var c = d.data(), pi = planInfo(c);
+        html += '<div class="row" data-id="' + esc(d.id) + '">' +
+          '<div><div class="serif" style="font-size:18px">' + esc(c.name || d.id) + '</div>' +
+          '<div class="faint">' + esc(c.ownerEmail || '') + '</div></div>' +
+          '<div class="muted">Creada ' + fmtDate(c.createdAt) + '<br><span class="faint">prueba hasta ' + fmtDate(c.trialEnds) + '</span></div>' +
+          '<div><span class="pill" style="color:' + pi.color + ';border-color:' + pi.color + '">' + pi.label + '</span></div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">' +
+          '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'active\')">Activar</button>' +
+          '<button class="btn-ghost" onclick="window._extend(\'' + esc(d.id) + '\')">+14d prueba</button>' +
+          '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'suspended\')">Suspender</button>' +
+          '</div></div>';
+      });
+      document.getElementById('list').innerHTML = html;
+    }).catch(function (e) { document.getElementById('list').innerHTML = '<span style="color:#E0607A">Error: ' + esc(e.code || e.message) + '</span>'; });
+  }
+
+  window._logout = function () { auth.signOut(); };
+  window._setPlan = function (id, plan) {
+    db.collection('clinics').doc(id).update({ plan: plan }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
+  };
+  window._extend = function (id) {
+    db.collection('clinics').doc(id).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000 }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
+  };
+
+  auth.onAuthStateChanged(function (user) {
+    if (!user) { loginView(''); return; }
+    if ((user.email || '').toLowerCase() !== SUPER_EMAIL.toLowerCase()) { notAllowed(user.email || ''); return; }
+    dash();
+  });
+})();
+</script>
+</body>
+</html>

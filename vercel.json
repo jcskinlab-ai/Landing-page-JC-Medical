@@ -6,11 +6,12 @@
     { "source": "/app", "destination": "/JC_App" },
     { "source": "/panel", "destination": "/JC_Admin" },
     { "source": "/reservar", "destination": "/agendar" },
-    { "source": "/movil", "destination": "/JC_Mobile" }
+    { "source": "/movil", "destination": "/JC_Mobile" },
+    { "source": "/admin", "destination": "/super" }
   ],
   "headers": [
     {
-      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index)(.html)?",
+      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index|super)(.html)?",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
     },
     {
