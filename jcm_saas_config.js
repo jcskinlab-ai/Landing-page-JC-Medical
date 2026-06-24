@@ -19,10 +19,10 @@ window.JCSAAS_CONFIG = {
   // App Check (anti-abuso) — SITE KEY de reCAPTCHA v3 (es público). Activo.
   appCheckKey: "6Lf3xzItAAAAAIsYLwPl-HbuV_yUC4mMY4u1OEXR",
 
-  // 2FA por email en dispositivo nuevo: queda INACTIVO mientras sea false. Para activarlo,
-  // pon true AQUÍ *y* configura en Vercel las variables OTP_SECRET + (RESEND_API_KEY o N8N_OTP_URL).
-  // Recomendación: actívalo y pruébalo primero en TU propia cuenta antes de venderlo.
-  mfa: false
+  // 2FA por email en dispositivo nuevo. ACTIVO. Requiere en Vercel: OTP_SECRET + (RESEND_API_KEY
+  // o N8N_OTP_URL). Si esas variables faltan, el endpoint responde 503 y el 2FA FALLA-ABIERTO
+  // (no bloquea el login) — así no deja a nadie afuera mientras configuras el canal de email.
+  mfa: true
 };
 
 /* Mapa dominio → clínica: en estos dominios la app de pacientes y la reserva

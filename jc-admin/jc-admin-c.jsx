@@ -560,7 +560,13 @@ function MetaConnectModal({ T, onClose, onSaved }) {
     if (!acc || !tk) { window.jcmToast && window.jcmToast("Completa la cuenta y el token.", "error"); return; }
     setBusy(true);
     // Verifica contra /api/meta antes de guardar (así la clínica sabe al instante si quedó bien).
-    fetch("/api/meta", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tk, account: acc }) })
+    // /api/meta exige el ID token de Firebase del usuario logueado, además del token de Meta.
+    const tokP = (window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
+    tokP.then(idt => {
+      const headers = { "Content-Type": "application/json" };
+      if (idt) headers["Authorization"] = "Bearer " + idt;
+      return fetch("/api/meta", { method: "POST", headers: headers, body: JSON.stringify({ token: tk, account: acc }) });
+    })
       .then(r => r.json()).then(d => {
         setBusy(false);
         if (d && d.ok) {

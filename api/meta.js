@@ -64,18 +64,26 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, error: "No autorizado: inicia sesión en el panel." });
   }
 
-  // Credenciales: variables de entorno del servidor (nunca del body del cliente).
-  const token = process.env.META_ACCESS_TOKEN;
-  const acctRaw = process.env.META_AD_ACCOUNT_ID;
-  if (!token || !acctRaw) {
-    return res.status(503).json({ ok: false, configured: false, error: "Meta Ads no configurado: falta token o cuenta publicitaria." });
-  }
-
   const ver = process.env.META_API_VERSION || "v21.0";
   const body = (req.method === "POST" && req.body) ? req.body : {};
   const preset = (typeof body.preset === 'string' && /^[a-z_]+$/.test(body.preset)) ? body.preset : "this_month";
   const fields = "spend,impressions,reach,clicks,actions";
+
+  // Opción B (Meta por clínica, AISLADO): si la clínica envía SU propio token+cuenta —guardados
+  // en su Firestore 'meta_creds'— se usan esos; si no, caen a las variables de ENV (clínica base).
+  // El request ya viene autenticado con el ID token de Firebase; el token de Meta nunca se loguea.
+  const bodyTok = (typeof body.token === 'string' && body.token.trim()) ? body.token.trim() : '';
+  const bodyAcct = (typeof body.account === 'string' && body.account.trim()) ? body.account.trim() : '';
+  const token = bodyTok || process.env.META_ACCESS_TOKEN;
+  const acctRaw = bodyAcct || process.env.META_AD_ACCOUNT_ID;
+  if (!token || !acctRaw) {
+    return res.status(503).json({ ok: false, configured: false, error: "Meta Ads no configurado: falta token o cuenta publicitaria." });
+  }
+  // El id de cuenta se concatena en la URL → validación estricta: solo "act_<dígitos>", coma-separado.
   const accounts = acctRaw.split(",").map(a => a.trim()).filter(Boolean);
+  if (!accounts.length || !accounts.every(a => /^act_\d+$/.test(a))) {
+    return res.status(400).json({ ok: false, error: "Cuenta publicitaria inválida (formato act_1234567890)." });
+  }
 
   async function fetchAccount(acct) {
     const url = "https://graph.facebook.com/" + ver + "/" + acct +
