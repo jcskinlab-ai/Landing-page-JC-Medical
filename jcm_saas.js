@@ -41,7 +41,8 @@
     user: null,       // Firebase user
     clinicId: null,
     clinic: null,     // doc de la clínica
-    bound: false      // window.DB ya re-namespaceado a esta clínica
+    bound: false,     // window.DB ya re-namespaceado a esta clínica
+    kvEmpty: false    // true si la clínica no tenía datos en Firestore al entrar
   };
   var authCbs = [];
   var settled = false, lastPayload = null; // para "replay" a quien se suscriba tarde
@@ -85,6 +86,7 @@
   function pullAll() {
     if (!db || !state.clinicId) return Promise.resolve();
     return db.collection('tenants').doc(state.clinicId).collection('kv').get().then(function (snap) {
+      state.kvEmpty = snap.empty;
       applyingRemote = true;
       snap.forEach(function (doc) {
         try {
@@ -287,6 +289,17 @@
     return Promise.resolve({ moved: moved });
   }
 
+  // ¿Hay datos de una clínica guardados en este equipo SIN namespace (de la
+  // época mono-clínica)? Sirve para ofrecer migrarlos al entrar por primera vez.
+  function hasLegacyData() {
+    var keys = ['appointments', 'patients', 'config', 'bookings', 'inventory', 'cash_moves', 'consents', 'services_over', 'team', 'horarios_v1'];
+    for (var i = 0; i < keys.length; i++) {
+      var v = localStorage.getItem('jcm_' + keys[i]);
+      if (v && v !== 'null' && v !== '{}' && v !== '[]' && v !== '""') return true;
+    }
+    return false;
+  }
+
   // ── Utilidades ────────────────────────────────────────────────────────
   function emit(name, detail) { try { window.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch (e) {} }
   function noop(e) { if (e) { try { console.warn('[JCSAAS]', e.code || e.message || e); } catch (_) {} } }
@@ -314,6 +327,8 @@
     currentClinic: function () { return state.clinic; },
     currentClinicId: function () { return state.clinicId; },
     access: access,
-    migrateLocal: migrateLocal
+    migrateLocal: migrateLocal,
+    hasLegacyData: hasLegacyData,
+    isFreshClinic: function () { return state.kvEmpty; }
   };
 })();

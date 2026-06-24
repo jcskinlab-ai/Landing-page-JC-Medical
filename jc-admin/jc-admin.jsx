@@ -640,7 +640,7 @@ function AdminApp() {
                     <button key={item.action} onClick={() => {
                       if (item.action === "photo") { profilePhotoInput.current && profilePhotoInput.current.click(); }
                       else if (item.action === "config") { nav("equipo"); setProfileOpen(false); }
-                      else if (item.action === "logout") { if (window.jcmAdminEndSession) window.jcmAdminEndSession(); location.reload(); }
+                      else if (item.action === "logout") { if (window.JCSAAS && window.JCSAAS.enabled) { window.JCSAAS.logout().then(function () { location.reload(); }); } else { if (window.jcmAdminEndSession) window.jcmAdminEndSession(); location.reload(); } }
                     }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 18px", background: "none", border: "none", borderTop: "1px solid " + T.lineSoft, cursor: "pointer", color: item.danger ? "#C0285A" : T.text, fontFamily: T.sans, fontSize: 13, textAlign: "left" }}>
                       <span style={{ color: item.danger ? "#C0285A" : T.textMute, display: "flex" }}>{item.icon}</span>
                       {item.label}
@@ -1760,5 +1760,120 @@ function AdminGate() {
     </div>
   );
 }
-Object.assign(window, { AdminGate });
-ReactDOM.createRoot(document.getElementById("root")).render(<AdminGate />);
+/* ─────────── ACCESO SaaS (multi-clínica · Firebase) ─────────── */
+function SaasGate() {
+  const T = (window.JCTHEME && window.JCTHEME.editorial) || { bg: "#070707", surface: "#141414", line: "rgba(255,255,255,.14)", text: "#F2EDE6", textMute: "rgba(242,237,230,.6)", accent: "#B9C2CB", gold: "#B9C2CB", serif: "Cormorant Garamond, serif", sans: "Jost, sans-serif", primaryBg: "#F2EDE6", primaryText: "#070707" };
+  const [phase, setPhase] = useState("loading"); // loading | auth | blocked | migrate | app
+  const [view, setView] = useState("login");      // login | register | recover
+  const [clinic, setClinic] = useState("");
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState(""); const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    window.JCSAAS.onAuth(payload => {
+      if (!payload || payload.incomplete) { setPhase("auth"); return; }
+      const a = window.JCSAAS.access();
+      if (!a.ok) { setPhase("blocked"); return; }
+      if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
+      setPhase("app");
+    });
+    const t = setTimeout(() => setPhase(p => p === "loading" ? "auth" : p), 9000);
+    return () => clearTimeout(t);
+  }, []);
+
+  async function doLogin() { setErr(""); setBusy(true); try { await window.JCSAAS.login(email, pass); } catch (e) { setErr(authMsg(e)); setBusy(false); } }
+  async function doRegister() { setErr(""); setBusy(true); try { await window.JCSAAS.register({ clinicName: clinic, email, password: pass }); } catch (e) { setErr(e && e.msg ? e.msg : authMsg(e)); setBusy(false); } }
+  async function doRecover() { setErr(""); setMsg(""); setBusy(true); try { await window.JCSAAS.resetPassword(email); setMsg("Te enviamos un correo para restablecer tu contraseña."); } catch (e) { setErr(authMsg(e)); } setBusy(false); }
+  async function doMigrate(importing) {
+    setBusy(true);
+    if (importing) { try { await window.JCSAAS.migrateLocal(); } catch (e) {} }
+    setBusy(false); setPhase("app");
+  }
+  function authMsg(e) {
+    const c = (e && e.code) || "";
+    if (c.indexOf("email-already-in-use") >= 0) return "Ese correo ya tiene una cuenta. Inicia sesión.";
+    if (c.indexOf("invalid-credential") >= 0 || c.indexOf("wrong-password") >= 0 || c.indexOf("user-not-found") >= 0) return "Correo o contraseña incorrectos.";
+    if (c.indexOf("invalid-email") >= 0) return "El correo no es válido.";
+    if (c.indexOf("weak-password") >= 0) return "La contraseña debe tener al menos 6 caracteres.";
+    if (c.indexOf("too-many-requests") >= 0) return "Demasiados intentos. Espera unos minutos.";
+    if (c.indexOf("network") >= 0) return "Sin conexión. Revisa tu internet.";
+    if (c.indexOf("configuration-not-found") >= 0) return "Falta habilitar Correo/contraseña en Firebase.";
+    return "No se pudo completar. Intenta nuevamente.";
+  }
+
+  if (phase === "app") return <AdminApp />;
+
+  const inp = { width: "100%", padding: "13px 14px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 14, outline: "none", boxSizing: "border-box" };
+  const pBtn = (label, onClick, disabled) => (<button onClick={onClick} disabled={disabled} style={{ marginTop: 4, padding: "14px", borderRadius: 6, border: "none", background: T.primaryBg, color: T.primaryText, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 }}>{label}</button>);
+  const gBtn = (label, onClick) => (<button onClick={onClick} style={{ marginTop: 4, padding: "13px", borderRadius: 6, border: "1px solid " + T.line, background: "transparent", color: T.text, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>{label}</button>);
+  const link = (label, onClick) => (<button onClick={onClick} style={{ background: "none", border: "none", cursor: "pointer", color: T.accent, fontFamily: T.sans, fontSize: 12, textDecoration: "underline", padding: 6 }}>{label}</button>);
+  const wrap = (title, subtitle, body, footer) => (
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" }}>Panel clínico · multi-clínica</div>
+        <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 34, color: T.text, textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 }}>{title}</h1>
+        <p style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" }}>{subtitle}</p>
+        {body}
+        <div style={{ textAlign: "center", marginTop: 14 }}>{footer}</div>
+      </div>
+    </div>
+  );
+
+  if (phase === "loading") return wrap("Conectando…", "Verificando tu sesión.", <div style={{ textAlign: "center", color: T.textMute, fontFamily: T.sans, fontSize: 12 }}>Un momento…</div>, null);
+
+  if (phase === "migrate") {
+    const cn = (window.JCSAAS.currentClinic() || {}).name || "tu clínica";
+    return wrap("Importar tus datos", "Detectamos datos de una clínica guardados en este equipo. ¿Quieres importarlos a " + cn + "? (agenda, pacientes, caja, inventario, configuración…)",
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        {pBtn(busy ? "Importando…" : "Sí, importar mis datos", () => doMigrate(true), busy)}
+        {gBtn("Empezar desde cero", () => doMigrate(false))}
+      </div>, null);
+  }
+
+  if (phase === "blocked") {
+    const a = window.JCSAAS.access();
+    const txt = a.status === "trial_expired" ? "Tu prueba gratuita de 14 días terminó." : (a.status === "suspended" ? "Tu cuenta está suspendida." : "Tu plan no está activo.");
+    return wrap("Plan inactivo", txt + " Para reactivar el acceso, escríbenos por WhatsApp y activamos tu plan.",
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <a href={"https://wa.me/56997880877?text=" + encodeURIComponent("Hola, quiero activar el plan de mi clínica en el panel.")} target="_blank" rel="noopener" style={{ textDecoration: "none" }}>{pBtn("Activar por WhatsApp", () => {}, false)}</a>
+        {link("Cerrar sesión", () => window.JCSAAS.logout())}
+      </div>, null);
+  }
+
+  if (view === "register") {
+    return wrap("Crea tu clínica", "14 días de prueba gratis. Sin tarjeta.",
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <input value={clinic} autoFocus onChange={e => setClinic(e.target.value)} placeholder="Nombre de la clínica" style={inp} />
+        <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Correo" inputMode="email" autoComplete="email" data-nocap="" style={inp} />
+        <input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => { if (e.key === "Enter") doRegister(); }} placeholder="Contraseña (mín. 6)" autoComplete="new-password" style={inp} />
+        {err && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#E0607A" }}>{err}</div>}
+        {pBtn(busy ? "Creando…" : "Crear cuenta y empezar", doRegister, busy || !clinic || !email || !pass)}
+      </div>,
+      <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>¿Ya tienes cuenta? {link("Inicia sesión", () => { setView("login"); setErr(""); })}</span>);
+  }
+  if (view === "recover") {
+    return wrap("Recuperar contraseña", "Te enviaremos un enlace a tu correo para restablecerla.",
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <input value={email} autoFocus onChange={e => setEmail(e.target.value)} placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" style={inp} />
+        {err && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#E0607A" }}>{err}</div>}
+        {msg && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#56b58b" }}>{msg}</div>}
+        {pBtn(busy ? "Enviando…" : "Enviar enlace", doRecover, busy || !email)}
+      </div>,
+      link("← Volver", () => { setView("login"); setErr(""); setMsg(""); }));
+  }
+  return wrap("Iniciar sesión", "Entra al panel de tu clínica.",
+    <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+      <input value={email} autoFocus onChange={e => setEmail(e.target.value)} placeholder="Correo" inputMode="email" autoComplete="email" data-nocap="" style={inp} />
+      <input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => { if (e.key === "Enter") doLogin(); }} placeholder="Contraseña" autoComplete="current-password" style={inp} />
+      {err && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#E0607A" }}>{err}</div>}
+      {pBtn(busy ? "Entrando…" : "Entrar", doLogin, busy || !email || !pass)}
+      <div style={{ textAlign: "center" }}>{link("¿Olvidaste tu contraseña?", () => { setView("recover"); setErr(""); })}</div>
+    </div>,
+    <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>¿Clínica nueva? {link("Crear cuenta (14 días gratis)", () => { setView("register"); setErr(""); })}</span>);
+}
+
+Object.assign(window, { AdminGate, SaasGate });
+ReactDOM.createRoot(document.getElementById("root")).render(
+  (window.JCSAAS && window.JCSAAS.enabled) ? <SaasGate /> : <AdminGate />
+);
