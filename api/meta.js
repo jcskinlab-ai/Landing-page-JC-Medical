@@ -21,8 +21,8 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
 
   const token = process.env.META_ACCESS_TOKEN;
-  const acct = process.env.META_AD_ACCOUNT_ID;
-  if (!token || !acct) {
+  const acctRaw = process.env.META_AD_ACCOUNT_ID;
+  if (!token || !acctRaw) {
     return res.status(503).json({ ok: false, configured: false, error: "Meta Ads no configurado: faltan META_ACCESS_TOKEN y META_AD_ACCOUNT_ID en el servidor." });
   }
 
@@ -30,29 +30,50 @@ export default async function handler(req, res) {
   // datePreset: this_month por defecto (configurable por query ?preset=...)
   const preset = (req.query && req.query.preset) || "this_month";
   const fields = "spend,impressions,reach,clicks,actions";
-  const url = "https://graph.facebook.com/" + ver + "/" + acct +
-    "/insights?fields=" + encodeURIComponent(fields) +
-    "&date_preset=" + encodeURIComponent(preset) +
-    "&access_token=" + encodeURIComponent(token);
+  // META_AD_ACCOUNT_ID admite UNA o VARIAS cuentas separadas por coma (ej. "act_111,act_222").
+  // Se consultan todas y se SUMAN, para ver el gasto/leads total de todos tus portafolios.
+  const accounts = acctRaw.split(",").map(a => a.trim()).filter(Boolean);
 
-  try {
+  async function fetchAccount(acct) {
+    const url = "https://graph.facebook.com/" + ver + "/" + acct +
+      "/insights?fields=" + encodeURIComponent(fields) +
+      "&date_preset=" + encodeURIComponent(preset) +
+      "&access_token=" + encodeURIComponent(token);
     const r = await fetch(url);
     const data = await r.json();
     if (!r.ok || data.error) {
-      console.error("Meta error", data.error || r.status);
-      return res.status(502).json({ ok: false, error: "Meta respondió con error.", detail: (data.error && data.error.message) || r.status });
+      const msg = (data.error && data.error.message) || r.status;
+      throw new Error(acct + ": " + msg);
     }
-    const row = (data.data && data.data[0]) || {};
-    // Leads = acciones de tipo lead (si la cuenta las registra).
-    let leads = 0;
-    (row.actions || []).forEach(a => { if (/lead/i.test(a.action_type)) leads += parseInt(a.value, 10) || 0; });
+    return (data.data && data.data[0]) || {};
+  }
+
+  try {
+    const totals = { spend: 0, reach: 0, impressions: 0, clicks: 0, leads: 0 };
+    const errors = [];
+    const rows = await Promise.all(accounts.map(a => fetchAccount(a).catch(e => { errors.push(e.message); return null; })));
+    rows.forEach(row => {
+      if (!row) return;
+      totals.spend += parseFloat(row.spend || 0);
+      totals.reach += parseInt(row.reach, 10) || 0;
+      totals.impressions += parseInt(row.impressions, 10) || 0;
+      totals.clicks += parseInt(row.clicks, 10) || 0;
+      (row.actions || []).forEach(a => { if (/lead/i.test(a.action_type)) totals.leads += parseInt(a.value, 10) || 0; });
+    });
+    // Si TODAS las cuentas fallaron, es un error real; si solo algunas, devolvemos el total parcial.
+    if (errors.length === accounts.length) {
+      console.error("Meta error (todas las cuentas)", errors);
+      return res.status(502).json({ ok: false, error: "Meta respondió con error.", detail: errors.join(" · ") });
+    }
     return res.status(200).json({
       ok: true,
-      spend: Math.round(parseFloat(row.spend || 0)),
-      reach: parseInt(row.reach, 10) || 0,
-      impressions: parseInt(row.impressions, 10) || 0,
-      clicks: parseInt(row.clicks, 10) || 0,
-      leads: leads
+      spend: Math.round(totals.spend),
+      reach: totals.reach,
+      impressions: totals.impressions,
+      clicks: totals.clicks,
+      leads: totals.leads,
+      accounts: accounts.length,
+      partialErrors: errors.length ? errors : undefined
     });
   } catch (e) {
     console.error("Error llamando a Meta:", e);
