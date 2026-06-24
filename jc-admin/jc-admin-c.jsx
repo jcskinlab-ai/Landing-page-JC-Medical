@@ -663,9 +663,9 @@ function ReportesView({ T, patients, appts }) {
   function RevChart() {
     const W = 720, H = 210, padL = 8, padR = 8, padT = 14, padB = 26;
     const innerW = W - padL - padR, innerH = H - padT - padB;
-    const maxY = Math.max.apply(null, serie) * 1.18, n = serie.length;
+    const maxY = (Math.max.apply(null, serie) || 1) * 1.18, n = serie.length; // evita 0/0 cuando no hay ingresos
     const X = i => padL + i * innerW / (n - 1);
-    const Y = v => padT + (1 - v / maxY) * innerH;
+    const Y = v => padT + (1 - (v || 0) / maxY) * innerH;
     const line = "M " + serie.map((v, i) => X(i).toFixed(1) + " " + Y(v).toFixed(1)).join(" L ");
     const area = line + " L " + X(n - 1).toFixed(1) + " " + (padT + innerH) + " L " + padL + " " + (padT + innerH) + " Z";
     const grid = [0, 1, 2, 3].map(g => padT + g * innerH / 3);
@@ -837,10 +837,11 @@ function ClinicDataCard({ T }) {
   });
   const [saved, setSaved] = useState(false);
   function onWa(v) {
-    // Prefijo +569 fijo, solo dígitos.
+    // Prefijo +56 9 fijo, solo dígitos. Se quita el país y el 9 móvil del prefijo visible (una sola vez).
     let d = (v || "").replace(/\D/g, "");
-    if (d.indexOf("569") === 0) d = d.slice(3); else if (d.indexOf("56") === 0) d = d.slice(2);
-    d = d.replace(/^9/, "").slice(0, 8);
+    if (d.indexOf("56") === 0) d = d.slice(2);
+    if (d.charAt(0) === "9") d = d.slice(1);
+    d = d.slice(0, 8);
     setF({ ...f, wa_number: "569" + d }); setSaved(false);
   }
   const waDisplay = "+569 " + ((f.wa_number || "").replace(/^569/, ""));

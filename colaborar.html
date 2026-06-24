@@ -284,8 +284,9 @@
     var ph = document.getElementById('phone'); if(!ph) return;
     function fmt(){
       var d = ph.value.replace(/\D/g,'');
-      if(d.indexOf('569')===0) d=d.slice(3); else if(d.indexOf('56')===0) d=d.slice(2);
-      d = d.replace(/^9/,'').slice(0,8);
+      if(d.indexOf('56')===0) d=d.slice(2);
+      if(d.charAt(0)==='9') d=d.slice(1);
+      d = d.slice(0,8);
       var sp = d.length>4 ? d.slice(0,4)+' '+d.slice(4) : d;
       ph.value = '+56 9 ' + sp;
     }

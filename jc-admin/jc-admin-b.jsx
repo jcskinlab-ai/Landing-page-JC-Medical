@@ -185,8 +185,9 @@ function NewPatientModal({ T, onClose, onSave }) {
   const onlyLetters = v => v.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñÜü\s.]/g, "");
   function onPhone(v) {
     let d = (v || "").replace(/\D/g, "");
-    if (d.indexOf("569") === 0) d = d.slice(3); else if (d.indexOf("56") === 0) d = d.slice(2);
-    d = d.replace(/^9/, "").slice(0, 8);
+    if (d.indexOf("56") === 0) d = d.slice(2);
+    if (d.charAt(0) === "9") d = d.slice(1);
+    d = d.slice(0, 8);
     setF({ ...f, phone: "+56 9 " + d });
   }
   const phoneDigits = f.phone.replace(/\D/g, "");

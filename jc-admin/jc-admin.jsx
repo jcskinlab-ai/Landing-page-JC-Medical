@@ -414,12 +414,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 
   /* ── gráfico de evolución ── */
   function Chart() {
-    const W = 720, H = 150, padL = 6, padR = 6, padT = 14, padB = 22;
+    const W = 720, H = 150, padL = 16, padR = 16, padT = 14, padB = 24;
     const innerW = W - padL - padR, innerH = H - padT - padB;
-    const maxY = Math.max.apply(null, serie) * 1.18;
+    const maxY = (Math.max.apply(null, serie) || 1) * 1.18; // evita dividir por 0 cuando todo es 0
     const n = serie.length;
     const X = i => padL + i * innerW / (n - 1);
-    const Y = v => padT + (1 - v / maxY) * innerH;
+    const Y = v => padT + (1 - (v || 0) / maxY) * innerH;
     const pts = serie.map((v, i) => X(i).toFixed(1) + " " + Y(v).toFixed(1));
     const line = "M " + pts.join(" L ");
     const area = line + " L " + X(n - 1).toFixed(1) + " " + (padT + innerH) + " L " + padL + " " + (padT + innerH) + " Z";
@@ -431,7 +431,11 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <path d={area} fill="url(#dashGrad)" />
         <path d={line} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
         {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.4" fill={T.surface} stroke={T.accent} strokeWidth="2" />)}
-        {dias.map((d, i) => <text key={d} x={X(i)} y={H - 6} textAnchor="middle" fontSize="11" fontFamily={T.sans} fill={T.textMute}>{d}</text>)}
+        {dias.map((d, i) => {
+          const anchor = i === 0 ? "start" : (i === n - 1 ? "end" : "middle");
+          const tx = i === 0 ? padL : (i === n - 1 ? padL + innerW : X(i));
+          return <text key={d} x={tx} y={H - 7} textAnchor={anchor} fontSize="11" fontFamily={T.sans} fill={T.textMute}>{d}</text>;
+        })}
       </svg>
     );
   }
@@ -585,6 +589,9 @@ function AdminApp() {
   const D = window.JCDATA, A = window.JCADMIN;
 
   const [section, setSection] = useState("dashboard");
+  // Tour de bienvenida: se muestra una vez por clínica al entrar al panel (se marca tour_done_v1).
+  const [showTour, setShowTour] = useState(() => { try { return !(window.DB && window.DB.get("tour_done_v1")); } catch (e) { return false; } });
+  function closeTour() { try { window.DB && window.DB.set("tour_done_v1", true); } catch (e) {} setShowTour(false); }
   const [darCita, setDarCita] = useState(null); // prellenado del copiloto → abre modal "Dar cita"
   const [patients, setPatients] = useState(() => {
     var saved = (window.DB && window.DB.get("patients"));
@@ -811,6 +818,7 @@ function AdminApp() {
         <Copilot T={T} patients={patients} appts={appts} addAppt={addAppt} onDarCita={(pf) => setDarCita(pf)} />
         {darCita && <NewCitaModal T={T} patients={patients} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} />}
         {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
+        {showTour && <WelcomeTour T={T} go={(k) => nav(k)} onClose={closeTour} />}
       </div>
     </div>
   );
@@ -1889,6 +1897,88 @@ function AdminGate() {
     </div>
   );
 }
+/* ─────────── TOUR DE BIENVENIDA · primer ingreso al panel (slides guiados) ─────────── */
+function WelcomeTour({ T, go, onClose }) {
+  const [i, setI] = useState(0);
+  const TIcon = ({ d }) => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
+  const checklist = [
+    { t: "Nombre de tu clínica", s: "En Configuración", k: "config" },
+    { t: "RUT de la clínica", s: "En Administración", k: "administracion" },
+    { t: "Profesionales", s: "En Equipo", k: "equipo" },
+    { t: "Servicios y precios", s: "En Servicios", k: "servicios" },
+    { t: "Inventario e insumos", s: "En Inventario", k: "inventario" }
+  ];
+  const slides = [
+    { kind: "checklist" },
+    { ic: <><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>, t: "Tu agenda", s: "Crea y gestiona citas en la vista de día o semana. Las reservas que llegan desde tu link entran solas aquí." },
+    { ic: <><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 3.5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.5" /></>, t: "Pacientes y fichas", s: "Crea pacientes con su RUT y teléfono, registra cada sesión e imprime su ficha clínica cuando la necesites." },
+    { ic: <><path d="M20 7H4M20 12H4M20 17H4" /></>, t: "Tus servicios", s: "Crea tus procedimientos con precio y duración. Aparecen automáticamente en la agenda y en tu página de reserva." },
+    { ic: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></>, t: "Caja y retorno", s: "Registra ingresos y egresos del día. El embudo del Dashboard te muestra tu ROAS real de Meta Ads." },
+    { ic: <><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.2l1-5.8L3.5 9.2l5.9-.9z" /></>, t: "Reserva online y Agente IA", s: "Comparte tu link de reserva en redes y conecta WhatsApp para que el asistente responda a tus pacientes." }
+  ];
+  const last = i === slides.length - 1;
+  const cur = slides[i];
+  const jump = k => { try { onClose(); } catch (e) {} if (go) go(k); };
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(8,12,20,.62)", backdropFilter: "blur(7px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 470, background: T.bg, border: "1px solid " + T.line, borderRadius: 18, padding: "24px 24px 20px", animation: "jcSlideUp .4s cubic-bezier(.22,1,.36,1) both", boxShadow: "0 30px 80px -30px rgba(0,0,0,.6)" }}>
+        {/* Encabezado */}
+        <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 18 }}>
+          <span style={{ width: 38, height: 38, borderRadius: 10, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 10px -3px rgba(0,0,0,.5)" }}>
+            <img src="assets/medique-logo.png" alt="Medique" style={{ width: 33, height: 33, objectFit: "contain" }} />
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>{i === 0 ? "¡Bienvenido a Medique!" : "Cómo usar tu panel"}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>Guía rápida · {i + 1} de {slides.length}</div>
+          </div>
+          <button onClick={onClose} title="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 4 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+        </div>
+
+        {/* Contenido del slide */}
+        <div key={i} style={{ animation: "jcFade .3s ease both", minHeight: 232 }}>
+          {cur.kind === "checklist" ? (
+            <>
+              <div style={{ fontFamily: T.serif, fontSize: 21, color: T.text, marginBottom: 6 }}>Configura lo básico para empezar</div>
+              <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 16 }}>Toca cada punto para ir directo y completarlo. Te toma pocos minutos.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {checklist.map((c, idx) => (
+                  <button key={c.k} onClick={() => jump(c.k)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: T.surface, border: "1px solid " + T.line, borderRadius: 11, padding: "12px 14px", cursor: "pointer" }}>
+                    <span style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, background: T.accent + "1c", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12, fontWeight: 700 }}>{idx + 1}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{c.t}</span>
+                      <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{c.s}</span>
+                    </span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.8"><path d="M9 18l6-6-6-6" /></svg>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: "center", paddingTop: 8 }}>
+              <div style={{ width: 60, height: 60, borderRadius: 16, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><TIcon d={cur.ic} /></div>
+              <div style={{ fontFamily: T.serif, fontSize: 23, color: T.text, marginBottom: 10 }}>{cur.t}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.textMute, lineHeight: 1.6, maxWidth: 360, margin: "0 auto" }}>{cur.s}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Puntos de progreso */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, margin: "18px 0 16px" }}>
+          {slides.map((_, idx) => <span key={idx} onClick={() => setI(idx)} style={{ width: idx === i ? 18 : 7, height: 7, borderRadius: 999, background: idx === i ? T.accent : T.line, cursor: "pointer", transition: "width .25s, background .25s" }} />)}
+        </div>
+
+        {/* Acciones */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {i > 0
+            ? <button onClick={() => setI(i - 1)} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 9, padding: "11px 16px", cursor: "pointer" }}>Anterior</button>
+            : <button onClick={onClose} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "none", padding: "11px 6px", cursor: "pointer" }}>Saltar</button>}
+          <div style={{ flex: 1 }} />
+          <button onClick={() => last ? onClose() : setI(i + 1)} style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.primaryText || "#fff", background: T.primaryBg || T.accent, border: "none", borderRadius: 9, padding: "12px 22px", cursor: "pointer" }}>{last ? "Empezar a usar Medique" : "Siguiente"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 /* ─────────── ONBOARDING · primer ingreso de una clínica nueva ─────────── */
 function OnboardingWizard({ T, onDone }) {
   const clinic = (window.JCSAAS && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {};
@@ -1899,6 +1989,7 @@ function OnboardingWizard({ T, onDone }) {
   const [addr, setAddr] = useState(cfg0.clinic_addr || "");
   const [wa, setWa] = useState(cfg0.wa_number || "");
   const OB_DAYS = [["Lun", 1], ["Mar", 2], ["Mié", 3], ["Jue", 4], ["Vie", 5], ["Sáb", 6], ["Dom", 0]];
+  const OB_TIMES = (() => { const a = []; for (let h = 7; h <= 22; h++) { a.push((h < 10 ? "0" : "") + h + ":00"); if (h < 22) a.push((h < 10 ? "0" : "") + h + ":30"); } return a; })();
   const [sched, setSched] = useState(() => {
     if (cfg0.clinic_hours_struct) return cfg0.clinic_hours_struct;
     var def = {}; OB_DAYS.forEach(function (d) { def[d[1]] = { on: d[1] >= 1 && d[1] <= 5, from: "10:00", to: "19:00" }; }); return def;
@@ -1911,8 +2002,9 @@ function OnboardingWizard({ T, onDone }) {
   }
   function onWaOb(v) {
     var dgt = (v || "").replace(/\D/g, "");
-    if (dgt.indexOf("569") === 0) dgt = dgt.slice(3); else if (dgt.indexOf("56") === 0) dgt = dgt.slice(2);
-    dgt = dgt.replace(/^9/, "").slice(0, 8);
+    if (dgt.indexOf("56") === 0) dgt = dgt.slice(2);  // código de país
+    if (dgt.charAt(0) === "9") dgt = dgt.slice(1);    // el 9 móvil del prefijo visible (+56 9); el resto es el número
+    dgt = dgt.slice(0, 8);
     setWa("569" + dgt);
   }
   var waObDisplay = "+56 9 " + ((wa || "").replace(/^569/, "").replace(/^56/, ""));
@@ -2009,15 +2101,25 @@ function OnboardingWizard({ T, onDone }) {
                 {OB_DAYS.map(([lbl, v]) => {
                   const s = sched[v] || { on: false, from: "10:00", to: "19:00" };
                   const setDay = patch => setSched({ ...sched, [v]: { ...s, ...patch } });
-                  const timeInp = { background: "rgba(255,255,255,.04)", border: "1px solid " + T.line, borderRadius: 8, padding: "7px 8px", fontFamily: T.sans, fontSize: 12.5, color: T.text, outline: "none", width: 86 };
+                  // Desplegables on-brand (en vez del selector nativo de hora, que se ve anticuado).
+                  const wrap = { position: "relative", display: "inline-flex", alignItems: "center" };
+                  const selTime = { appearance: "none", WebkitAppearance: "none", MozAppearance: "none", background: "rgba(255,255,255,.05)", border: "1px solid " + T.line, borderRadius: 9, padding: "8px 26px 8px 11px", fontFamily: T.sans, fontSize: 13, color: T.text, outline: "none", cursor: "pointer", width: 92 };
+                  const caret = <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="2.4" style={{ position: "absolute", right: 9, pointerEvents: "none" }}><path d="M6 9l6 6 6-6" /></svg>;
+                  const timeSel = (val, key) => (
+                    <span style={wrap}>
+                      <select value={val} onChange={e => setDay({ [key]: e.target.value })} style={selTime}>
+                        {OB_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>{caret}
+                    </span>
+                  );
                   return (
-                    <div key={v} style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <button onClick={() => setDay({ on: !s.on })} style={{ width: 52, flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, padding: "8px 0", borderRadius: 8, cursor: "pointer", background: s.on ? T.primaryBg : "transparent", color: s.on ? T.primaryText : T.textMute, border: "1px solid " + (s.on ? T.primaryBg : T.line) }}>{lbl}</button>
+                    <div key={v} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <button onClick={() => setDay({ on: !s.on })} style={{ width: 54, flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, padding: "9px 0", borderRadius: 9, cursor: "pointer", background: s.on ? T.primaryBg : "transparent", color: s.on ? T.primaryText : T.textMute, border: "1px solid " + (s.on ? T.primaryBg : T.line) }}>{lbl}</button>
                       {s.on ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1 }}>
-                          <input type="time" value={s.from} onChange={e => setDay({ from: e.target.value })} style={timeInp} />
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                          {timeSel(s.from, "from")}
                           <span style={{ color: T.textMute, fontSize: 12 }}>a</span>
-                          <input type="time" value={s.to} onChange={e => setDay({ to: e.target.value })} style={timeInp} />
+                          {timeSel(s.to, "to")}
                         </div>
                       ) : <span style={{ flex: 1, fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Cerrado</span>}
                     </div>
