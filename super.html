@@ -98,7 +98,8 @@
   function dash() {
     app.innerHTML = '<div class="wrap"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">' +
       '<h1 class="serif" style="font-size:30px">Clínicas</h1>' +
-      '<button class="btn-ghost" onclick="window._logout()">Cerrar sesión</button></div>' +
+      '<div style="display:flex;gap:8px"><button class="btn" onclick="window._newClinic()">+ Nueva clínica</button>' +
+      '<button class="btn-ghost" onclick="window._logout()">Cerrar sesión</button></div></div>' +
       '<p class="muted" style="margin-bottom:22px">Activa el plan de una clínica cuando pague, suspende o extiende su prueba.</p>' +
       '<div id="list" class="muted">Cargando…</div></div>';
     db.collection('clinics').orderBy('createdAt', 'desc').get().then(function (snap) {
@@ -128,6 +129,43 @@
   window._extend = function (id) {
     db.collection('clinics').doc(id).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000 }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
   };
+
+  function slug(s){ return (s||'clinica').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,28)||'clinica'; }
+
+  // Crea una clínica usando una app Firebase SECUNDARIA, para no cerrar la sesión del super-admin.
+  function createClinic(name, email, pass){
+    var second = firebase.initializeApp(cfg, 'admin2-' + Date.now());
+    var a2 = second.auth(), d2 = second.firestore();
+    return a2.createUserWithEmailAndPassword(email, pass).then(function(cred){
+      var uid = cred.user.uid, clinicId = slug(name) + '-' + uid.slice(0,6), now = Date.now();
+      return d2.collection('clinics').doc(clinicId).set({ id:clinicId, name:name, ownerUid:uid, ownerEmail:email, plan:'trial', trialEnds: now+14*86400000, createdAt:now, branding:{name:name} })
+        .then(function(){ return d2.collection('users').doc(uid).set({ clinicId:clinicId, role:'owner', email:email, createdAt:now }); });
+    }).then(function(){ return a2.signOut(); }).then(function(){ return second.delete(); });
+  }
+
+  window._newClinic = function(){
+    app.innerHTML = '<div class="wrap" style="max-width:420px">' +
+      '<h1 class="serif" style="font-size:28px;margin-bottom:4px">Nueva clínica</h1>' +
+      '<p class="muted" style="margin-bottom:18px">Se crea con 14 días de prueba. Entrega estas credenciales a la clínica para entrar en medique.cl/panel.</p>' +
+      '<input id="nc-name" placeholder="Nombre de la clínica" style="margin-bottom:10px">' +
+      '<input id="nc-email" placeholder="Correo de la clínica" inputmode="email" style="margin-bottom:10px">' +
+      '<input id="nc-pass" type="text" placeholder="Contraseña (mín. 6)" style="margin-bottom:14px">' +
+      '<div id="nc-err" style="color:#E0607A;font-size:12px;margin-bottom:10px"></div>' +
+      '<button class="btn" style="width:100%;margin-bottom:8px" id="nc-go">Crear clínica</button>' +
+      '<button class="btn-ghost" style="width:100%" onclick="window._dash()">Cancelar</button>' +
+      '</div>';
+    document.getElementById('nc-go').onclick = function(){
+      var n=document.getElementById('nc-name').value.trim(), e=document.getElementById('nc-email').value.trim().toLowerCase(), p=document.getElementById('nc-pass').value;
+      var err=document.getElementById('nc-err');
+      if(n.length<2){ err.textContent='Ingresa el nombre.'; return; }
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ err.textContent='Correo no válido.'; return; }
+      if(p.length<6){ err.textContent='La contraseña debe tener al menos 6 caracteres.'; return; }
+      var btn=document.getElementById('nc-go'); btn.textContent='Creando…'; btn.disabled=true; err.textContent='';
+      createClinic(n,e,p).then(function(){ alert('Clínica "'+n+'" creada.\n\nAcceso:\n'+e+'\nContraseña: '+p+'\n\nEntra en medique.cl/panel'); dash(); })
+        .catch(function(ex){ err.textContent = (ex.code||'').indexOf('email-already-in-use')>=0 ? 'Ese correo ya tiene cuenta.' : ('No se pudo crear: '+(ex.code||ex.message)); btn.textContent='Crear clínica'; btn.disabled=false; });
+    };
+  };
+  window._dash = dash;
 
   auth.onAuthStateChanged(function (user) {
     if (!user) { loginView(''); return; }
