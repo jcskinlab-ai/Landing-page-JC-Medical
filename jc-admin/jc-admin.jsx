@@ -2323,6 +2323,21 @@ function SaasGate() {
 
   if (phase === "blocked") {
     const a = window.JCSAAS.access();
+    // Cuenta recién creada: en revisión hasta que el super-admin la apruebe en /admin.
+    if (a.status === "pending") {
+      return wrap("Cuenta en revisión", "¡Gracias por registrar tu clínica! Tu cuenta quedó creada y está pendiente de aprobación. Te avisaremos apenas la activemos (suele ser muy rápido).",
+        <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+          <a href={"https://wa.me/56997880877?text=" + encodeURIComponent("Hola, acabo de registrar mi clínica en Medique y quiero que aprueben mi cuenta.")} target="_blank" rel="noopener" style={{ textDecoration: "none" }}>{pBtn("Apurar por WhatsApp", () => {}, false)}</a>
+          {link("Cerrar sesión", () => window.JCSAAS.logout())}
+        </div>, null);
+    }
+    if (a.status === "rejected") {
+      return wrap("Solicitud no aprobada", "Tu solicitud de cuenta no fue aprobada. Si crees que es un error, contáctanos por WhatsApp.",
+        <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+          <a href={"https://wa.me/56997880877?text=" + encodeURIComponent("Hola, mi solicitud de cuenta en Medique no fue aprobada y quiero consultar.")} target="_blank" rel="noopener" style={{ textDecoration: "none" }}>{pBtn("Contactar por WhatsApp", () => {}, false)}</a>
+          {link("Cerrar sesión", () => window.JCSAAS.logout())}
+        </div>, null);
+    }
     const txt = a.status === "trial_expired" ? "Tu prueba gratuita de 14 días terminó." : (a.status === "suspended" ? "Tu cuenta está suspendida." : "Tu plan no está activo.");
     return wrap("Plan inactivo", txt + " Para reactivar el acceso, escríbenos por WhatsApp y activamos tu plan.",
       <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
@@ -2332,7 +2347,7 @@ function SaasGate() {
   }
 
   if (view === "register") {
-    return wrap("Crea tu clínica", "14 días de prueba gratis. Sin tarjeta.",
+    return wrap("Crea tu clínica", "Tu cuenta queda en revisión y la aprobamos a la brevedad. Luego tienes 14 días de prueba gratis, sin tarjeta.",
       <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
         <input value={clinic} autoFocus onChange={e => setClinic(e.target.value)} placeholder="Nombre de la clínica" style={inp} />
         <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Correo" inputMode="email" autoComplete="email" data-nocap="" style={inp} />

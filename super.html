@@ -50,6 +50,8 @@
 
   function planInfo(c) {
     var now = Date.now();
+    if (c.plan === 'pending') return { label: 'Pendiente · aprobar', color: 'var(--warn)' };
+    if (c.plan === 'rejected') return { label: 'Rechazada', color: 'var(--danger)' };
     if (c.plan === 'active' || c.plan === 'comp') return { label: 'Activo', color: 'var(--ok)' };
     if (c.plan === 'suspended') return { label: 'Suspendido', color: 'var(--danger)' };
     if (c.plan === 'trial') {
@@ -100,7 +102,7 @@
       '<h1 class="serif" style="font-size:30px">Clínicas</h1>' +
       '<div style="display:flex;gap:8px"><button class="btn" onclick="window._newClinic()">+ Nueva clínica</button>' +
       '<button class="btn-ghost" onclick="window._logout()">Cerrar sesión</button></div></div>' +
-      '<p class="muted" style="margin-bottom:22px">Activa el plan de una clínica cuando pague, suspende o extiende su prueba.</p>' +
+      '<p class="muted" style="margin-bottom:22px">Las cuentas nuevas llegan como <b>Pendiente</b>: apruébalas para darles acceso (inicia su prueba de 14 días). También activas el plan cuando pagan, suspendes o extiendes la prueba.</p>' +
       '<div id="list" class="muted">Cargando…</div></div>';
     db.collection('clinics').orderBy('createdAt', 'desc').get().then(function (snap) {
       if (snap.empty) { document.getElementById('list').textContent = 'Aún no hay clínicas registradas.'; return; }
@@ -113,6 +115,8 @@
           '<div class="muted">Creada ' + fmtDate(c.createdAt) + '<br><span class="faint">prueba hasta ' + fmtDate(c.trialEnds) + '</span></div>' +
           '<div><span class="pill" style="color:' + pi.color + ';border-color:' + pi.color + '">' + pi.label + '</span></div>' +
           '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">' +
+          (c.plan === 'pending' ? '<button class="btn" onclick="window._approve(\'' + esc(d.id) + '\')">Aprobar</button>' +
+            '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._reject(\'' + esc(d.id) + '\')">Rechazar</button>' : '') +
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'active\')">Activar</button>' +
           '<button class="btn-ghost" onclick="window._extend(\'' + esc(d.id) + '\')">+14d prueba</button>' +
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'suspended\')">Suspender</button>' +
@@ -133,6 +137,15 @@
   window._extend = function (id) {
     db.collection('clinics').doc(id).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000 }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
   };
+  // Aprobar una cuenta pendiente: inicia su prueba de 14 días y le da acceso al panel.
+  window._approve = function (id) {
+    db.collection('clinics').doc(id).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000, approvedAt: Date.now() }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
+  };
+  // Rechazar una solicitud: la clínica no podrá entrar al panel.
+  window._reject = function (id) {
+    if (!confirm('¿Rechazar esta solicitud de cuenta? La clínica no podrá entrar al panel.')) return;
+    db.collection('clinics').doc(id).update({ plan: 'rejected' }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
+  };
 
   function slug(s){ return (s||'clinica').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,28)||'clinica'; }
 
@@ -140,11 +153,13 @@
   function createClinic(name, email, pass){
     var second = firebase.initializeApp(cfg, 'admin2-' + Date.now());
     var a2 = second.auth(), d2 = second.firestore();
+    var clinicId;
     return a2.createUserWithEmailAndPassword(email, pass).then(function(cred){
-      var uid = cred.user.uid, clinicId = slug(name) + '-' + uid.slice(0,6), now = Date.now();
-      return d2.collection('clinics').doc(clinicId).set({ id:clinicId, name:name, ownerUid:uid, ownerEmail:email, plan:'trial', trialEnds: now+14*86400000, createdAt:now, branding:{name:name} })
+      var uid = cred.user.uid; clinicId = slug(name) + '-' + uid.slice(0,6); var now = Date.now();
+      // Se crea PENDIENTE (la regla lo exige); el super-admin la aprueba enseguida (ver _newClinic).
+      return d2.collection('clinics').doc(clinicId).set({ id:clinicId, name:name, ownerUid:uid, ownerEmail:email, plan:'pending', trialEnds:0, createdAt:now, branding:{name:name} })
         .then(function(){ return d2.collection('users').doc(uid).set({ clinicId:clinicId, role:'owner', email:email, createdAt:now }); });
-    }).then(function(){ return a2.signOut(); }).then(function(){ return second.delete(); });
+    }).then(function(){ return a2.signOut(); }).then(function(){ return second.delete(); }).then(function(){ return clinicId; });
   }
 
   window._newClinic = function(){
@@ -165,7 +180,10 @@
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ err.textContent='Correo no válido.'; return; }
       if(p.length<6){ err.textContent='La contraseña debe tener al menos 6 caracteres.'; return; }
       var btn=document.getElementById('nc-go'); btn.textContent='Creando…'; btn.disabled=true; err.textContent='';
-      createClinic(n,e,p).then(function(){ alert('Clínica "'+n+'" creada.\n\nAcceso:\n'+e+'\nContraseña: '+p+'\n\nEntra en medique.cl/panel'); dash(); })
+      createClinic(n,e,p).then(function(clinicId){
+        // El super-admin la creó: se aprueba de inmediato (prueba de 14 días).
+        return db.collection('clinics').doc(clinicId).update({ plan:'trial', trialEnds: Date.now()+14*86400000, approvedAt: Date.now() });
+      }).then(function(){ alert('Clínica "'+n+'" creada y aprobada.\n\nAcceso:\n'+e+'\nContraseña: '+p+'\n\nEntra en medique.cl/panel'); dash(); })
         .catch(function(ex){ err.textContent = (ex.code||'').indexOf('email-already-in-use')>=0 ? 'Ese correo ya tiene cuenta.' : ('No se pudo crear: '+(ex.code||ex.message)); btn.textContent='Crear clínica'; btn.disabled=false; });
     };
   };

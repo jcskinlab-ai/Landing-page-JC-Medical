@@ -282,7 +282,9 @@
       var now = Date.now();
       var clinic = {
         id: clinicId, name: name, ownerUid: uid, ownerEmail: email,
-        plan: 'trial', trialEnds: now + TRIAL_DAYS * 86400000,
+        // La cuenta nace PENDIENTE: no puede usar el panel hasta que el super-admin la apruebe
+        // desde /admin. La prueba (trial) recién arranca al aprobar. Evita registros ilimitados.
+        plan: 'pending', trialEnds: 0,
         createdAt: now, branding: { name: name }
       };
       return db.collection('clinics').doc(clinicId).set(clinic).then(function () {
@@ -317,6 +319,8 @@
   function access() {
     var c = state.clinic;
     if (!c) return { ok: false, status: 'none' };
+    if (c.plan === 'pending') return { ok: false, status: 'pending' }; // esperando aprobación del super-admin
+    if (c.plan === 'rejected') return { ok: false, status: 'rejected' };
     if (c.plan === 'active' || c.plan === 'comp') return { ok: true, status: 'active', plan: c.plan };
     if (c.plan === 'trial') {
       var left = Math.ceil(((c.trialEnds || 0) - Date.now()) / 86400000);
