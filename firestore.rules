@@ -15,9 +15,12 @@ service cloud.firestore {
     }
 
     // SUPER-ADMIN (dueño del SaaS): puede ver todas las clínicas y activar planes.
-    // Cambia el correo si usas otro para la consola de administración.
+    // Preferir el custom claim (solo se setea con el Admin SDK, no se puede auto-asignar);
+    // se mantiene el correo como respaldo durante la transición. Quita la línea del correo
+    // una vez que confirmes que el claim funciona.
     function isSuper() {
-      return signedIn() && request.auth.token.email == 'medique.cl@gmail.com';
+      return signedIn() && (request.auth.token.superAdmin == true
+                            || request.auth.token.email == 'medique.cl@gmail.com');
     }
 
     // Mapeo usuario → clínica (uid, clinicId, rol). Cada quien gestiona el suyo.
@@ -35,10 +38,13 @@ service cloud.firestore {
 
     // Perfil de la clínica (nombre, marca, plan, prueba).
     match /clinics/{clinicId} {
-      // Al registrarse, el dueño crea su propia clínica.
+      // Al registrarse, el dueño crea su propia clínica. NO puede auto-asignarse un plan pagado:
+      // se obliga plan='trial' y que la prueba no exceda 30 días (evita "gratis para siempre").
       allow create: if signedIn()
                     && request.resource.data.ownerUid == request.auth.uid
-                    && clinicId == request.resource.data.id;
+                    && clinicId == request.resource.data.id
+                    && request.resource.data.plan == 'trial'
+                    && request.resource.data.trialEnds <= request.time.toMillis() + 2592000000;
       // La clínica puede leer y editar su perfil/marca…
       allow read:   if isSuper() || (signedIn()
                     && (resource.data.ownerUid == request.auth.uid || myClinic() == clinicId));

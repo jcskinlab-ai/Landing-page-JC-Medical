@@ -3,3 +3,7 @@ propuestas/
 *.DS_Store
 node_modules/
 .claude/
+# Secretos: service account de Firebase (NUNCA subir)
+serviceAccount*.json
+**/serviceAccount*.json
+*.serviceaccount.json
