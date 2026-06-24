@@ -3,13 +3,15 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "/panel", "permanent": false },
     { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "/app", "permanent": false },
     { "source": "/panel", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/panel", "permanent": false },
     { "source": "/admin", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/admin", "permanent": false },
     { "source": "/super", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/admin", "permanent": false }
   ],
   "rewrites": [
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Admin" },
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "admin.medique.cl" }], "destination": "/super" },
+    { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "/medique-home" },
     { "source": "/app", "destination": "/JC_App" },
     { "source": "/panel", "destination": "/JC_Admin" },
     { "source": "/panel/:path*", "destination": "/JC_Admin" },
@@ -30,7 +32,7 @@
       ]
     },
     {
-      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index|super|review|colaborar)(.html)?",
+      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index|super|review|colaborar|medique-home)(.html)?",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
     },
     {

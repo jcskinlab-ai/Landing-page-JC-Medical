@@ -414,7 +414,7 @@
     isFreshClinic: function () { return state.kvEmpty; },
     getPublic: function () { return state.publicProfile || null; },
     publishProfile: publishProfile,
-    bookingLink: function (cid) { return location.origin + '/reservar?c=' + (cid || state.clinicId || ''); },
+    bookingLink: function (cid) { return (window.jcmPubBase ? window.jcmPubBase() : location.origin) + '/reservar?c=' + (cid || state.clinicId || ''); },
     // La página de reserva (sin login) deja la reserva en la clínica activa (modo público).
     submitBooking: function (data) {
       if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });
@@ -460,7 +460,7 @@
       }).catch(function (e) { noop(e); return 0; });
     },
     // ── COLABORACIONES (formulario público por clínica) ──
-    collabLink: function (cid) { return location.origin + '/colaborar.html?c=' + (cid || state.clinicId || ''); },
+    collabLink: function (cid) { return (window.jcmPubBase ? window.jcmPubBase() : location.origin) + '/colaborar.html?c=' + (cid || state.clinicId || ''); },
     submitCollab: function (data) {
       if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });
       var doc = { name: '', email: '', phone: '', kind: '', ig: '', tiktok: '', ciudad: '', redPrincipal: '', reach: '', views: '', audiencia: '', ofrece: '', proc: '', message: '', createdAt: Date.now() };
@@ -487,7 +487,7 @@
       }).catch(function (e) { noop(e); return 0; });
     },
     // ── RESEÑAS (formulario público por clínica) ──
-    reviewLink: function (cid) { return location.origin + '/review.html?c=' + (cid || state.clinicId || ''); },
+    reviewLink: function (cid) { return (window.jcmPubBase ? window.jcmPubBase() : location.origin) + '/review.html?c=' + (cid || state.clinicId || ''); },
     submitReview: function (data) {
       if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });
       var doc = { name: '', phone: '', stars: 0, comment: '', createdAt: Date.now() };

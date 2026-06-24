@@ -140,6 +140,14 @@ function jcmUid(prefix) {
 }
 if (typeof window !== 'undefined') window.jcmUid = jcmUid;
 
+/* Dominio público para enlaces (reserva/colaboración/reseña): el panel vive en
+ * portal.medique.cl y el admin en admin.medique.cl, pero esas páginas públicas viven
+ * en medique.cl. Desde esos subdominios devolvemos medique.cl; en el resto, el origen actual. */
+if (typeof window !== 'undefined') window.jcmPubBase = function () {
+  try { var h = location.hostname; return (h === 'portal.medique.cl' || h === 'admin.medique.cl') ? 'https://medique.cl' : location.origin; }
+  catch (e) { return (typeof location !== 'undefined') ? location.origin : ''; }
+};
+
 // ── FEEDBACK GLOBAL (toasts de guardado + errores en modo debug) ─────────────
 // jcmToast(texto, tipo) → 'ok' | 'error' | 'info'. Confirmación visual reutilizable
 // desde cualquier vista. En errores muestra el mensaje/código exacto (fase de pruebas).

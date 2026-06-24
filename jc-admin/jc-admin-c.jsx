@@ -795,7 +795,7 @@ function ConfigView({ T }) {
   // Link de RESERVA DIRECTA, propio de cada clínica (no la app de pacientes).
   const bookUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.bookingLink)
     ? window.JCSAAS.bookingLink()
-    : ((typeof window !== "undefined" ? window.location.origin : "") + "/reservar");
+    : ((typeof window !== "undefined" ? (window.jcmPubBase ? window.jcmPubBase() : window.location.origin) : "") + "/reservar");
   const qr = "https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=0&data=" + encodeURIComponent(bookUrl);
   const [copied, setCopied] = useState(false);
   function copyLink() { try { navigator.clipboard.writeText(bookUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (e) {} }
@@ -999,7 +999,7 @@ function ColaboracionView({ T }) {
       {(() => {
         const url = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.collabLink)
           ? window.JCSAAS.collabLink()
-          : ((typeof window !== "undefined" ? window.location.origin : "") + "/colaborar.html");
+          : ((typeof window !== "undefined" ? (window.jcmPubBase ? window.jcmPubBase() : window.location.origin) : "") + "/colaborar.html");
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px", marginBottom: 16 }}>
             <div style={{ flex: 1, minWidth: 200 }}>
@@ -1448,7 +1448,7 @@ function AutomatizacionesView({ T }) {
   // Enlace de reseña PROPIO de la clínica (formulario Medique): medique.cl/review?c=clinicId
   const reviewUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink)
     ? window.JCSAAS.reviewLink()
-    : ((typeof window !== "undefined" ? window.location.origin : "") + "/review.html");
+    : ((typeof window !== "undefined" ? (window.jcmPubBase ? window.jcmPubBase() : window.location.origin) : "") + "/review.html");
   const [copiedRev, setCopiedRev] = useState(false);
   function copyReview() { try { navigator.clipboard.writeText(reviewUrl); setCopiedRev(true); setTimeout(() => setCopiedRev(false), 1800); } catch (e) {} }
   // Reseñas recibidas (importadas al panel desde el formulario público).

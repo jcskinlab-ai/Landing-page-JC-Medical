@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Medique — Software de gestión para clínicas de medicina estética</title>
+<meta name="description" content="Medique es la plataforma todo-en-uno para clínicas de medicina estética: agenda, fichas, inventario, caja, reservas online, marketing y asistente con IA. Agenda una demo.">
+<meta name="theme-color" content="#10151F">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://medique.cl/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Medique — Gestión para clínicas de medicina estética">
+<meta property="og:description" content="Agenda, fichas, inventario, caja, reservas online y asistente con IA. Una sola plataforma.">
+<meta property="og:url" content="https://medique.cl/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10151F; --bg2:#161D2B; --ink:#F2EFE9; --mute:#A7B0BF; --faint:#6C7689;
+    --accent:#8FA8B8; --line:rgba(255,255,255,.10); --ease:cubic-bezier(.22,1,.36,1);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:'Jost',sans-serif;color:var(--ink);background:var(--bg);
+    min-height:100dvh;display:flex;flex-direction:column;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  }
+  /* halo sutil detrás del contenido */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(60% 50% at 50% 32%, rgba(143,168,184,.14), transparent 70%);
+  }
+  .nav{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:26px clamp(20px,5vw,56px)}
+  .brand{font-family:'Marcellus';font-size:22px;letter-spacing:.06em;color:var(--ink)}
+  .brand b{color:var(--accent);font-weight:400}
+  .nav .access{font-family:'Jost';font-size:13px;font-weight:400;letter-spacing:.02em;color:var(--mute);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:9px 17px;transition:.2s var(--ease)}
+  .nav .access:hover{border-color:var(--accent);color:var(--ink)}
+  main{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:48px clamp(20px,5vw,56px) 64px}
+  .kicker{font-family:'Jost';font-size:12px;font-weight:500;letter-spacing:.34em;text-transform:uppercase;color:var(--accent);margin-bottom:26px}
+  h1{font-family:'Marcellus';font-weight:400;font-size:clamp(34px,7.5vw,68px);line-height:1.06;letter-spacing:-.015em;max-width:14ch;text-wrap:balance}
+  h1 em{font-family:'Cormorant Garamond';font-style:italic;color:var(--accent)}
+  .lead{font-weight:300;font-size:clamp(15px,2.2vw,18px);color:var(--mute);line-height:1.65;max-width:54ch;margin:24px auto 0;text-wrap:pretty}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:38px}
+  .btn{font-family:'Jost';font-size:14.5px;font-weight:500;letter-spacing:.02em;border-radius:999px;padding:14px 26px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:9px;transition:.2s var(--ease)}
+  .btn-prim{background:var(--ink);color:var(--bg)}
+  .btn-prim:hover{transform:translateY(-1px);box-shadow:0 14px 34px -18px rgba(242,239,233,.5)}
+  .btn-ghost{border:1px solid var(--line);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--accent)}
+  .feats{display:flex;gap:clamp(18px,4vw,46px);flex-wrap:wrap;justify-content:center;margin-top:62px;max-width:760px}
+  .feat{font-size:13.5px;color:var(--faint);letter-spacing:.02em}
+  .feat b{display:block;font-family:'Marcellus';font-size:15px;color:var(--ink);font-weight:400;margin-bottom:3px;letter-spacing:.01em}
+  footer{position:relative;z-index:2;padding:22px clamp(20px,5vw,56px);border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--faint)}
+  footer a{color:var(--mute);text-decoration:none}
+  footer a:hover{color:var(--ink)}
+  footer .legal{display:flex;gap:16px}
+  @media(max-width:560px){
+    .feats{gap:16px}
+    .feat{flex-basis:calc(50% - 8px)}
+  }
+</style>
+</head>
+<body>
+  <header class="nav">
+    <div class="brand">Medi<b>que</b></div>
+    <a class="access" href="https://portal.medique.cl">Ingresar &rarr;</a>
+  </header>
+
+  <main>
+    <div class="kicker">Próximamente</div>
+    <h1>La clínica estética, <em>en orden</em>.</h1>
+    <p class="lead">Medique reúne agenda, fichas clínicas, inventario, caja, reservas online y un asistente con IA en una sola plataforma — pensada para clínicas de medicina estética.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-prim" href="https://wa.me/56997880877?text=Hola%2C%20quiero%20agendar%20una%20demo%20de%20Medique%20para%20mi%20cl%C3%ADnica." target="_blank" rel="noopener">Agenda una demo</a>
+      <a class="btn btn-ghost" href="mailto:medique.cl@gmail.com?subject=Quiero%20conocer%20Medique">Escríbenos</a>
+    </div>
+
+    <div class="feats">
+      <div class="feat"><b>Agenda &amp; fichas</b>Reservas online por clínica</div>
+      <div class="feat"><b>Caja &amp; inventario</b>Consumo automático por procedimiento</div>
+      <div class="feat"><b>Marketing</b>ROAS real de Meta Ads</div>
+      <div class="feat"><b>Asistente IA</b>Atención y soporte clínico</div>
+    </div>
+  </main>
+
+  <footer>
+    <span>Medique &middot; operado por SKINLAB.TALCA SpA &middot; Talca, Chile</span>
+    <span class="legal">
+      <a href="/terminos">Términos</a>
+      <a href="/privacidad">Privacidad</a>
+      <a href="https://portal.medique.cl">Ingresar</a>
+    </span>
+  </footer>
+</body>
+</html>

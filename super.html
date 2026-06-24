@@ -169,7 +169,7 @@
   window._newClinic = function(){
     app.innerHTML = '<div class="wrap" style="max-width:420px">' +
       '<h1 class="serif" style="font-size:28px;margin-bottom:4px">Nueva clínica</h1>' +
-      '<p class="muted" style="margin-bottom:18px">Se crea con 14 días de prueba. Entrega estas credenciales a la clínica para entrar en medique.cl/panel.</p>' +
+      '<p class="muted" style="margin-bottom:18px">Se crea con 14 días de prueba. Entrega estas credenciales a la clínica para entrar en portal.medique.cl</p>' +
       '<input id="nc-name" placeholder="Nombre de la clínica" style="margin-bottom:10px">' +
       '<input id="nc-email" placeholder="Correo de la clínica" inputmode="email" style="margin-bottom:10px">' +
       '<input id="nc-pass" type="text" placeholder="Contraseña (mín. 6)" style="margin-bottom:14px">' +
@@ -187,7 +187,7 @@
       createClinic(n,e,p).then(function(clinicId){
         // El super-admin la creó: se aprueba de inmediato (prueba de 14 días).
         return db.collection('clinics').doc(clinicId).update({ plan:'trial', trialEnds: Date.now()+14*86400000, approvedAt: Date.now() });
-      }).then(function(){ alert('Clínica "'+n+'" creada y aprobada.\n\nAcceso:\n'+e+'\nContraseña: '+p+'\n\nEntra en medique.cl/panel'); dash(); })
+      }).then(function(){ alert('Clínica "'+n+'" creada y aprobada.\n\nAcceso:\n'+e+'\nContraseña: '+p+'\n\nEntra en portal.medique.cl'); dash(); })
         .catch(function(ex){ err.textContent = (ex.code||'').indexOf('email-already-in-use')>=0 ? 'Ese correo ya tiene cuenta.' : ('No se pudo crear: '+(ex.code||ex.message)); btn.textContent='Crear clínica'; btn.disabled=false; });
     };
   };
