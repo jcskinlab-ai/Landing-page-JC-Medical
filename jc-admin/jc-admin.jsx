@@ -1776,7 +1776,7 @@ function SaasGate() {
       const a = window.JCSAAS.access();
       if (!a.ok) { setPhase("blocked"); return; }
       if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
-      setPhase("app");
+      window.JCSAAS.importWebBookings().finally(function () { setPhase("app"); });
     });
     const t = setTimeout(() => setPhase(p => p === "loading" ? "auth" : p), 9000);
     return () => clearTimeout(t);
@@ -1788,7 +1788,7 @@ function SaasGate() {
   async function doMigrate(importing) {
     setBusy(true);
     if (importing) { try { await window.JCSAAS.migrateLocal(); } catch (e) {} }
-    setBusy(false); setPhase("app");
+    setBusy(false); window.JCSAAS.importWebBookings().finally(function () { setPhase("app"); });
   }
   function authMsg(e) {
     const c = (e && e.code) || "";
