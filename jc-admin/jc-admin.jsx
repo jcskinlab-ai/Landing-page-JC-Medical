@@ -182,13 +182,18 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   /* ── Embudo de marketing con ROAS real (vista principal) ── */
   const [metaEdit, setMetaEdit] = useState(false);
   const [, bumpRev] = useState(0);
-  const spendRef = useRef(null), leadsRef = useRef(null);
+  const spendRef = useRef(null), leadsRef = useRef(null), msgsRef = useRef(null), soldRef = useRef(null);
   function saveMeta() {
     try {
       const cfg = (window.DB && DB.get("config")) || {};
       cfg.meta_spend_mes = +(spendRef.current && spendRef.current.value) || 0;
       const lv = leadsRef.current && leadsRef.current.value;
       if (lv !== "" && lv != null) cfg.meta_leads_mes = +lv || 0;
+      // Mensajes recibidos y vendidos (cargados a mano para completar el embudo).
+      const mv = msgsRef.current && msgsRef.current.value;
+      cfg.meta_msgs_mes = (mv !== "" && mv != null) ? (+mv || 0) : 0;
+      const sv = soldRef.current && soldRef.current.value;
+      cfg.meta_sold_mes = (sv !== "" && sv != null) ? (+sv || 0) : 0;
       window.DB && DB.set("config", cfg);
     } catch (e) {}
     setMetaEdit(false); bumpRev(r => r + 1);
@@ -216,24 +221,32 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     let allAppts = []; try { allAppts = (window.DB && DB.get("appts")) || appts || []; } catch (e) { allAppts = appts || []; }
     let reservas = allAppts.length;
     let asistieron = allAppts.filter(a => a.attended || a.status === "atendida" || a.status === "confirmada").length;
-    let spend = 0, leads = 0;
-    try { const cfg = (window.DB && DB.get("config")) || {}; spend = +cfg.meta_spend_mes || 0; leads = +cfg.meta_leads_mes || 0; } catch (e) {}
+    let spend = 0, leads = 0, mensajes = 0, soldManual = null;
+    try {
+      const cfg = (window.DB && DB.get("config")) || {};
+      spend = +cfg.meta_spend_mes || 0; leads = +cfg.meta_leads_mes || 0;
+      mensajes = +cfg.meta_msgs_mes || 0; // mensajes recibidos (manual)
+      if (cfg.meta_sold_mes != null && cfg.meta_sold_mes !== "") soldManual = +cfg.meta_sold_mes || 0; // vendidos (manual)
+    } catch (e) {}
     // Si hay datos en vivo de Meta (token de la clínica o env de la base), tienen prioridad sobre la carga manual.
     if (liveMeta && liveMeta.ok) { spend = liveMeta.spend || 0; if (liveMeta.leads) leads = liveMeta.leads; }
     // En SaaS no se muestran datos de ejemplo: cada clínica ve sus cifras reales (0 hasta conectar Meta).
     const demo = !spend && !(window.JCSAAS && window.JCSAAS.enabled);
-    if (demo) { spend = 500000; leads = 120; reservas = 35; asistieron = 22; compras = 18; ingresos = 6800000; }
+    if (demo) { spend = 500000; leads = 120; mensajes = 80; reservas = 35; asistieron = 22; compras = 18; ingresos = 6800000; }
     else if (!leads) { leads = reservas; } // sin Meta conectado, los leads = reservas reales (0 si no hay)
+    // Vendidos cargados a mano tienen prioridad sobre el conteo automático de atenciones de caja.
+    if (soldManual != null) compras = soldManual;
     const roas = spend > 0 ? (ingresos / spend) : 0;
-    return { spend, leads, reservas, asistieron, compras, ingresos, roas, demo, live: !!(liveMeta && liveMeta.ok) };
+    return { spend, leads, mensajes, reservas, asistieron, compras, ingresos, roas, demo, live: !!(liveMeta && liveMeta.ok) };
   })();
 
   function FunnelBlock() {
     const stages = [
       { k: "Leads", n: funnel.leads, c: T.accent },
+      { k: "Mensajes recibidos", n: funnel.mensajes, c: T.accent },
       { k: "Reservaron", n: funnel.reservas, c: T.accent },
       { k: "Asistieron", n: funnel.asistieron, c: T.accent },
-      { k: "Compraron", n: funnel.compras, c: green }
+      { k: "Vendidos", n: funnel.compras, c: green }
     ];
     const top = stages[0].n || 1;
     const inp = { width: 120, fontFamily: T.sans, fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" };
@@ -247,11 +260,21 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           {/* Embudo */}
           <div>
             {metaEdit ? (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12, paddingBottom: 11, borderBottom: "1px solid " + T.lineSoft }}>
-                <input ref={spendRef} type="number" defaultValue={funnel.demo ? "" : funnel.spend} placeholder="Gasto Meta $" style={inp} />
-                <input ref={leadsRef} type="number" defaultValue={funnel.demo ? "" : funnel.leads} placeholder="Leads" style={{ ...inp, width: 80 }} />
-                <button onClick={saveMeta} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "9px 14px", cursor: "pointer" }}>Guardar</button>
-                <button onClick={() => setMetaEdit(false)} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 8, padding: "9px 12px", cursor: "pointer" }}>Cancelar</button>
+              <div style={{ marginBottom: 12, paddingBottom: 11, borderBottom: "1px solid " + T.lineSoft }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 3, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>Gasto Meta $
+                    <input ref={spendRef} type="number" defaultValue={funnel.demo ? "" : funnel.spend} placeholder="0" style={inp} /></label>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 3, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>Leads
+                    <input ref={leadsRef} type="number" defaultValue={funnel.demo ? "" : funnel.leads} placeholder="0" style={{ ...inp, width: 90 }} /></label>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 3, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>Mensajes recibidos
+                    <input ref={msgsRef} type="number" defaultValue={funnel.demo ? "" : funnel.mensajes} placeholder="0" style={{ ...inp, width: 110 }} /></label>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 3, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>Vendidos
+                    <input ref={soldRef} type="number" defaultValue={funnel.demo ? "" : funnel.compras} placeholder="0" style={{ ...inp, width: 90 }} /></label>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={saveMeta} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "9px 14px", cursor: "pointer" }}>Guardar</button>
+                  <button onClick={() => setMetaEdit(false)} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 8, padding: "9px 12px", cursor: "pointer" }}>Cancelar</button>
+                </div>
               </div>
             ) : (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 11, borderBottom: "1px solid " + T.lineSoft }}>
