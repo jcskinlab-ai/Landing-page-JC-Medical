@@ -25,9 +25,12 @@ const DB = {
       pts_start:   500,
       pts_daily_cap: 2000,
       reward_cost: 60000,
-      wa_number:   '56997880877',
-      clinic_addr: '1 Poniente 1258, Edificio Plaza Poniente, Talca',
-      clinic_hours:'Lun, Mié y Vie 10:00–19:00 · Sáb 10:30–14:30',
+      // Datos de la clínica: vacíos por defecto (cada clínica carga los suyos en el onboarding/Configuración).
+      // JC Medical (clínica base) recibe sus datos reales sembrados al entrar (ver scopeClinicData).
+      clinic_name: '',
+      wa_number:   '',
+      clinic_addr: '',
+      clinic_hours:'',
       yt_api_key:  '',  // YouTube Data API v3 — para estadísticas reales de videos
       firebase_config: ''  // Config web de Firebase (JSON) — activa la base de datos compartida en la nube
     };

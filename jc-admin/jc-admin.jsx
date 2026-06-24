@@ -84,6 +84,20 @@ function scopeClinicData() {
   var isBase = clinic.isBase === true || ((clinic.ownerEmail || "").toLowerCase() === "jc.skinlab@gmail.com");
   window.JCM_BASE = isBase;
   var D = window.JCDATA || {}, A = window.JCADMIN || {}, C = window.CADMIN || {};
+  // Datos de la clínica (nombre/dirección/WhatsApp/horario): cada clínica tiene los suyos.
+  // La base (JC Medical) recibe sus datos reales si aún no los tiene; las nuevas, solo su nombre.
+  try {
+    if (window.DB) {
+      var cfg = window.DB.get("config") || {};
+      if (isBase) {
+        if (!cfg.clinic_addr) cfg.clinic_addr = "1 Poniente 1258, Edificio Plaza Poniente, Talca";
+        if (!cfg.clinic_hours) cfg.clinic_hours = "Lun, Mié y Vie 10:00–19:00 · Sáb 10:30–14:30";
+        if (!cfg.wa_number) cfg.wa_number = "56997880877";
+      }
+      if (!cfg.clinic_name) cfg.clinic_name = clinic.name || "";
+      window.DB.set("config", cfg);
+    }
+  } catch (e) {}
   // Operacional → vacío para TODAS las clínicas (incl. JC Medical): pacientes, citas demo, campañas, integraciones, etc.
   A.patients = []; D.appointments = [];
   C.campaigns = []; C.integrations = []; C.waMessages = []; C.bizComments = []; C.fidelity = [];
@@ -1807,6 +1821,125 @@ function AdminGate() {
     </div>
   );
 }
+/* ─────────── ONBOARDING · primer ingreso de una clínica nueva ─────────── */
+function OnboardingWizard({ T, onDone }) {
+  const clinic = (window.JCSAAS && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {};
+  const cfg0 = (window.DB && window.DB.get("config")) || {};
+  const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState(clinic.name || cfg0.clinic_name || "");
+  const [addr, setAddr] = useState(cfg0.clinic_addr || "");
+  const [wa, setWa] = useState(cfg0.wa_number || "");
+  const [hours, setHours] = useState(cfg0.clinic_hours || "");
+  const [memName, setMemName] = useState("");
+  const [memRole, setMemRole] = useState("");
+  const [meta, setMeta] = useState("");
+
+  const steps = [
+    { k: "clinica", n: "Tu clínica", t: "Cuéntanos de tu clínica", s: "Estos datos aparecen en tu página de reserva y en las confirmaciones a tus pacientes. Puedes editarlos cuando quieras desde Configuración." },
+    { k: "equipo", n: "Tu equipo", t: "Agrega tu primer profesional", s: "Quién realiza las atenciones. Podrás sumar más miembros y permisos desde la sección Equipo." },
+    { k: "marketing", n: "Marketing", t: "Conecta tu inversión (opcional)", s: "Si haces campañas en Meta, registra tu gasto mensual para ver tu retorno real. También puedes hacerlo más tarde." }
+  ];
+  const cur = steps[step];
+  const last = step === steps.length - 1;
+
+  function finish() {
+    setSaving(true);
+    try {
+      var cfg = (window.DB && window.DB.get("config")) || {};
+      cfg.clinic_name = name.trim();
+      cfg.clinic_addr = addr.trim();
+      cfg.wa_number = (wa || "").replace(/\D/g, "");
+      cfg.clinic_hours = hours.trim();
+      if ((meta || "").replace(/\D/g, "")) cfg.meta_spend_mes = parseInt(meta.replace(/\D/g, ""), 10) || 0;
+      window.DB && window.DB.set("config", cfg);
+      if (memName.trim()) {
+        var team = (window.DB && window.DB.get("team")) || [];
+        team.push({ id: "t" + Date.now(), name: memName.trim(), role: (memRole.trim() || "Profesional"), active: true, color: "#8B9EB0" });
+        window.DB && window.DB.set("team", team);
+        if (window.CADMIN) window.CADMIN.team = team;
+      }
+      window.DB && window.DB.set("onboarded_v1", true);
+    } catch (e) {}
+    onDone();
+  }
+  function next() { if (last) finish(); else setStep(step + 1); }
+  // En el paso 1 exigimos el nombre de la clínica; el resto es opcional.
+  const canNext = step !== 0 || name.trim().length > 1;
+
+  const field = (label, value, set, opts) => {
+    opts = opts || {};
+    return (
+      <label style={{ display: "block", marginBottom: 13 }}>
+        <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{label}</span>
+        <input value={value} onChange={e => set(e.target.value)} type={opts.type || "text"} inputMode={opts.inputMode} data-only={opts.only} placeholder={opts.ph}
+          style={{ width: "100%", background: "rgba(255,255,255,.04)", border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", fontFamily: T.sans, fontSize: 14, color: T.text, outline: "none" }} />
+      </label>
+    );
+  };
+
+  return (
+    <div className="jc-stage" style={{ background: T.bg, minHeight: "100dvh", padding: "24px 16px" }}>
+      <div style={{ width: "100%", maxWidth: 460, animation: "jcSlideUp .5s cubic-bezier(.22,1,.36,1) both" }}>
+        {/* Encabezado */}
+        <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
+          <img src="assets/medique-mark.svg" alt="Medique" style={{ width: 34, height: 34 }} />
+          <div>
+            <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text, lineHeight: 1 }}>Bienvenido a Medique</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 3 }}>Configuremos tu clínica en 3 pasos</div>
+          </div>
+        </div>
+
+        {/* Progreso */}
+        <div style={{ display: "flex", gap: 7, marginBottom: 24 }}>
+          {steps.map((s, i) => (
+            <div key={s.k} style={{ flex: 1 }}>
+              <div style={{ height: 4, borderRadius: 4, background: i <= step ? T.primaryBg : "rgba(255,255,255,.12)", transition: "background .3s ease" }} />
+              <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: i <= step ? T.text : T.textMute, marginTop: 7 }}>{s.n}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tarjeta del paso */}
+        <div key={cur.k} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "22px 20px", animation: "jcFade .35s ease both" }}>
+          <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text, marginBottom: 6 }}>{cur.t}</div>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.55, marginBottom: 20 }}>{cur.s}</div>
+
+          {step === 0 && (<>
+            {field("Nombre de la clínica", name, setName, { ph: "Ej. Clínica Aurora" })}
+            {field("Dirección", addr, setAddr, { ph: "Calle, número, ciudad" })}
+            {field("WhatsApp de contacto", wa, setWa, { type: "tel", inputMode: "numeric", only: "num", ph: "56912345678" })}
+            {field("Horario de atención", hours, setHours, { ph: "Lun a Vie 10:00–19:00" })}
+          </>)}
+
+          {step === 1 && (<>
+            {field("Nombre del profesional", memName, setMemName, { ph: "Ej. Dra. Camila Soto" })}
+            {field("Rol o especialidad", memRole, setMemRole, { ph: "Ej. Médico cirujano" })}
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 4 }}>¿Trabajas sola/o? Puedes dejarlo en blanco y configurarlo después.</div>
+          </>)}
+
+          {step === 2 && (<>
+            {field("Gasto mensual en Meta Ads (CLP)", meta, setMeta, { type: "tel", inputMode: "numeric", only: "num", ph: "Ej. 300000" })}
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.55, marginTop: 4 }}>Esto activa tu embudo de retorno (ROAS) en el panel. La conexión completa con tu cuenta de Meta la haces desde <b style={{ color: T.text }}>Marketing</b> cuando quieras.</div>
+          </>)}
+        </div>
+
+        {/* Acciones */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18 }}>
+          {step > 0
+            ? <button onClick={() => setStep(step - 1)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 13, color: T.textMute }}>← Atrás</button>
+            : <button onClick={finish} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: T.textMute }}>Saltar por ahora</button>}
+          <div style={{ flex: 1 }} />
+          <button onClick={next} disabled={!canNext || saving}
+            style={{ background: canNext ? T.primaryBg : "rgba(255,255,255,.12)", color: canNext ? T.primaryText : T.textMute, border: "none", borderRadius: 11, padding: "13px 26px", fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, cursor: canNext ? "pointer" : "default", letterSpacing: ".01em" }}>
+            {last ? "Entrar al panel" : "Siguiente"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────── ACCESO SaaS (multi-clínica · Firebase) ─────────── */
 function SaasGate() {
   const T = (window.JCTHEME && window.JCTHEME.editorial) || { bg: "#070707", surface: "#141414", line: "rgba(255,255,255,.14)", text: "#F2EDE6", textMute: "rgba(242,237,230,.6)", accent: "#B9C2CB", gold: "#B9C2CB", serif: "Cormorant Garamond, serif", sans: "Jost, sans-serif", primaryBg: "#F2EDE6", primaryText: "#070707" };
@@ -1824,6 +1957,7 @@ function SaasGate() {
       if (!a.ok) { setPhase("blocked"); return; }
       if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
       scopeClinicData();
+      if (!window.JCM_BASE && !(window.DB && window.DB.get("onboarded_v1"))) { setPhase("onboarding"); return; }
       window.JCSAAS.importWebBookings().finally(function () { setPhase("app"); });
     });
     const t = setTimeout(() => setPhase(p => p === "loading" ? "auth" : p), 9000);
@@ -1836,7 +1970,7 @@ function SaasGate() {
   async function doMigrate(importing) {
     setBusy(true);
     if (importing) { try { await window.JCSAAS.migrateLocal(); } catch (e) {} }
-    setBusy(false); window.JCSAAS.importWebBookings().finally(function () { setPhase("app"); });
+    setBusy(false); scopeClinicData(); window.JCSAAS.importWebBookings().finally(function () { setPhase("app"); });
   }
   function authMsg(e) {
     const c = (e && e.code) || "";
@@ -1851,6 +1985,7 @@ function SaasGate() {
   }
 
   if (phase === "app") return <AdminApp />;
+  if (phase === "onboarding") return <OnboardingWizard T={T} onDone={() => { try { window.JCSAAS.importWebBookings(); } catch (e) {} setPhase("app"); }} />;
 
   const inp = { width: "100%", padding: "13px 14px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 14, outline: "none", boxSizing: "border-box" };
   const pBtn = (label, onClick, disabled) => (<button onClick={onClick} disabled={disabled} style={{ marginTop: 4, padding: "14px", borderRadius: 6, border: "none", background: T.primaryBg, color: T.primaryText, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 }}>{label}</button>);

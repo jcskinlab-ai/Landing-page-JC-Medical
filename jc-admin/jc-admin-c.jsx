@@ -1694,8 +1694,8 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
       {tab === "datos" && (
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, maxWidth: 560 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 13 }}>
-            <AdField T={T} label="Razón social" value={biz.razon} onChange={v => setBiz({ ...biz, razon: v })} placeholder="Ej. JC Medical SpA" />
-            <AdField T={T} label="RUT / Tax ID" value={biz.rut} onChange={v => setBiz({ ...biz, rut: v })} placeholder="78.373.211-4" />
+            <AdField T={T} label="Razón social" value={biz.razon} onChange={v => setBiz({ ...biz, razon: v })} placeholder="Ej. Mi Clínica SpA" />
+            <AdField T={T} label="RUT / Tax ID" value={biz.rut} onChange={v => setBiz({ ...biz, rut: v })} placeholder="Ej. 76.123.456-7" />
           </div>
           <div style={{ marginTop: 13 }}><AdField T={T} label="Plan / suscripción" value={biz.plan} onChange={v => setBiz({ ...biz, plan: v })} placeholder="Ej. Profesional" /></div>
           <div style={{ marginTop: 16, textAlign: "right" }}><AdBtn T={T} primary onClick={saveBiz}>Guardar</AdBtn></div>
