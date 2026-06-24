@@ -7,35 +7,74 @@
 //   META_AD_ACCOUNT_ID = id de la cuenta publicitaria, formato "act_1234567890"
 // Opcional:
 //   META_API_VERSION   = versión de la Graph API (por defecto "v21.0")
-//
-// Mientras no estén configuradas, responde 503 con un mensaje claro y el panel usa el gasto
-// que el dueño cargó manualmente (config.meta_spend_mes).
-//
-// NOTA: este proyecto también puede usar las herramientas MCP de Meta Ads directamente desde
-// el asistente; esta función queda como punto de integración HTTP para el panel en producción.
+
+import crypto from "node:crypto";
+
+const ALLOWED_ORIGINS = ['https://medique.cl', 'https://www.medique.cl', 'https://jcmedical.cl', 'https://www.jcmedical.cl'];
+const CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
+let _certCache = { at: 0, certs: null };
+
+async function googleCerts() {
+  const now = Date.now();
+  if (_certCache.certs && (now - _certCache.at) < 3600000) return _certCache.certs;
+  const r = await fetch(CERTS_URL);
+  const certs = await r.json();
+  _certCache = { at: now, certs };
+  return certs;
+}
+function b64urlToBuf(s) { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Buffer.from(s, 'base64'); }
+async function verifyFirebaseToken(token, projectId) {
+  if (!token) throw new Error('sin token');
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('token mal formado');
+  const header = JSON.parse(b64urlToBuf(parts[0]).toString('utf8'));
+  if (header.alg !== 'RS256' || !header.kid) throw new Error('alg/kid inválido');
+  const certs = await googleCerts();
+  const certPem = certs[header.kid];
+  if (!certPem) throw new Error('kid desconocido');
+  const pub = new crypto.X509Certificate(certPem).publicKey;
+  const ok = crypto.createVerify('RSA-SHA256').update(parts[0] + '.' + parts[1]).verify(pub, b64urlToBuf(parts[2]));
+  if (!ok) throw new Error('firma inválida');
+  const p = JSON.parse(b64urlToBuf(parts[1]).toString('utf8'));
+  const now = Math.floor(Date.now() / 1000);
+  if (!p.exp || p.exp <= now) throw new Error('token expirado');
+  if (p.aud !== projectId) throw new Error('aud inválido');
+  if (p.iss !== 'https://securetoken.google.com/' + projectId) throw new Error('iss inválido');
+  if (!p.sub) throw new Error('sub vacío');
+  return p;
+}
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  const origin = req.headers.origin || '';
+  const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  res.setHeader("Access-Control-Allow-Origin", safeOrigin);
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Método no permitido" });
 
-  // Credenciales: si vienen en el cuerpo (token/account de UNA clínica), se usan esas;
-  // si no, se cae a las variables de entorno (cuenta de la clínica base / JC Medical).
-  // El token de cada clínica es de solo lectura (ads_read) y vive aislado en su propio tenant.
-  const body = (req.method === "POST" && req.body) ? req.body : {};
-  const token = body.token || process.env.META_ACCESS_TOKEN;
-  const acctRaw = body.account || process.env.META_AD_ACCOUNT_ID;
+  // Solo usuarios autenticados pueden usar este proxy.
+  const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'medique-8dbf6';
+  const authz = req.headers['authorization'] || '';
+  const idToken = authz.startsWith('Bearer ') ? authz.slice(7) : '';
+  try {
+    await verifyFirebaseToken(idToken, PROJECT_ID);
+  } catch (e) {
+    return res.status(401).json({ ok: false, error: "No autorizado: inicia sesión en el panel." });
+  }
+
+  // Credenciales: variables de entorno del servidor (nunca del body del cliente).
+  const token = process.env.META_ACCESS_TOKEN;
+  const acctRaw = process.env.META_AD_ACCOUNT_ID;
   if (!token || !acctRaw) {
     return res.status(503).json({ ok: false, configured: false, error: "Meta Ads no configurado: falta token o cuenta publicitaria." });
   }
 
   const ver = process.env.META_API_VERSION || "v21.0";
-  // datePreset: this_month por defecto (configurable por query ?preset=...)
-  const preset = (req.query && req.query.preset) || "this_month";
+  const body = (req.method === "POST" && req.body) ? req.body : {};
+  const preset = (typeof body.preset === 'string' && /^[a-z_]+$/.test(body.preset)) ? body.preset : "this_month";
   const fields = "spend,impressions,reach,clicks,actions";
-  // META_AD_ACCOUNT_ID admite UNA o VARIAS cuentas separadas por coma (ej. "act_111,act_222").
-  // Se consultan todas y se SUMAN, para ver el gasto/leads total de todos tus portafolios.
   const accounts = acctRaw.split(",").map(a => a.trim()).filter(Boolean);
 
   async function fetchAccount(acct) {
@@ -64,7 +103,6 @@ export default async function handler(req, res) {
       totals.clicks += parseInt(row.clicks, 10) || 0;
       (row.actions || []).forEach(a => { if (/lead/i.test(a.action_type)) totals.leads += parseInt(a.value, 10) || 0; });
     });
-    // Si TODAS las cuentas fallaron, es un error real; si solo algunas, devolvemos el total parcial.
     if (errors.length === accounts.length) {
       console.error("Meta error (todas las cuentas)", errors);
       return res.status(502).json({ ok: false, error: "Meta respondió con error.", detail: errors.join(" · ") });

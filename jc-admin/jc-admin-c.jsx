@@ -1111,6 +1111,7 @@ function sumUnits(txt) {
 function FichaClinicaForm({ T, patient, updatePatient }) {
   const [f, setF] = useState(patient.clinica || {});
   const [saved, setSaved] = useState(false);
+  useEffect(() => { setF(patient.clinica || {}); setSaved(false); }, [patient.id]);
   const setVal = (k, v) => { setF(prev => ({ ...prev, [k]: v })); setSaved(false); };
   // Al tocar un chip, su texto se escribe (o se quita) en la barra del propio parámetro.
   const tokenToggle = (k, tok) => { setF(prev => { const cur = (prev[k] || "").split(",").map(s => s.trim()).filter(Boolean); const i = cur.indexOf(tok); if (i >= 0) cur.splice(i, 1); else cur.push(tok); return { ...prev, [k]: cur.join(", ") }; }); setSaved(false); };
@@ -1134,7 +1135,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Ficha clínica</div>
-        <AdBtn T={T} small primary onClick={() => { updatePatient(patient.id, { clinica: f }); setSaved(true); }}>{saved ? "✓ Guardada" : "Guardar ficha"}</AdBtn>
+        <AdBtn T={T} small primary onClick={() => { try { updatePatient(patient.id, { clinica: f }); setSaved(true); } catch(e) { if(window.jcmError) window.jcmError("Error al guardar la ficha. Intenta de nuevo."); } }}>{saved ? "✓ Guardada" : "Guardar ficha"}</AdBtn>
       </div>
 
       {/* Antecedentes médicos */}
@@ -1672,7 +1673,7 @@ function AgenteIAView({ T, patients, addAppt }) {
       </div>
       )}
       {darCita && (
-        <NewCitaModal T={T} patients={patients || []} prefill={{ name: darCita.name, phone: darCita.phone }} onClose={() => setDarCita(null)} onSave={handleSaveCita} />
+        <NewCitaModal T={T} patients={patients || []} prefill={{ patName: darCita.name, phone: darCita.phone }} onClose={() => setDarCita(null)} onSave={handleSaveCita} />
       )}
       {citaOk && <CitaAgendadaOkPopup T={T} cita={citaOk} appts={appts} onClose={() => setCitaOk(null)} />}
     </div>

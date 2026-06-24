@@ -91,8 +91,18 @@
     pushTimers[k] = setTimeout(function () {
       try {
         var ref = db.collection('tenants').doc(state.clinicId).collection('kv').doc(k);
-        if (v == null) ref.delete().catch(noop);
-        else ref.set({ v: JSON.stringify(v), _ts: Date.now() }).catch(noop);
+        var op = v == null ? ref.delete() : ref.set({ v: JSON.stringify(v), _ts: Date.now() });
+        op.catch(function (e) {
+          noop(e);
+          // Avisa al usuario si hay problema de sincronización (sin spam: solo 1 toast por tipo de error).
+          var code = (e && e.code) || 'unknown';
+          if (!pushKey._warnedCodes) pushKey._warnedCodes = {};
+          if (!pushKey._warnedCodes[code]) {
+            pushKey._warnedCodes[code] = true;
+            if (window.jcmError) window.jcmError('Error al sincronizar datos. Verifica tu conexión.');
+            setTimeout(function () { if (pushKey._warnedCodes) delete pushKey._warnedCodes[code]; }, 30000);
+          }
+        });
       } catch (e) { noop(e); }
     }, 600);
   }

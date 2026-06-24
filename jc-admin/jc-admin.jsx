@@ -804,7 +804,7 @@ function AdminApp() {
                   ].map(item => (
                     <button key={item.action} onClick={() => {
                       if (item.action === "photo") { profilePhotoInput.current && profilePhotoInput.current.click(); }
-                      else if (item.action === "config") { nav("equipo"); setProfileOpen(false); }
+                      else if (item.action === "config") { nav("config"); setProfileOpen(false); }
                       else if (item.action === "logout") { if (window.JCSAAS && window.JCSAAS.enabled) { window.JCSAAS.logout().then(function () { location.reload(); }); } else { if (window.jcmAdminEndSession) window.jcmAdminEndSession(); location.reload(); } }
                     }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 18px", background: "none", border: "none", borderTop: "1px solid " + T.lineSoft, cursor: "pointer", color: item.danger ? "#C0285A" : T.text, fontFamily: T.sans, fontSize: 13, textAlign: "left" }}>
                       <span style={{ color: item.danger ? "#C0285A" : T.textMute, display: "flex" }}>{item.icon}</span>

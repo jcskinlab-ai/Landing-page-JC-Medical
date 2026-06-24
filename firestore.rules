@@ -14,13 +14,17 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId;
     }
 
-    // SUPER-ADMIN (dueño del SaaS): puede ver todas las clínicas y activar planes.
-    // Preferir el custom claim (solo se setea con el Admin SDK, no se puede auto-asignar);
-    // se mantiene el correo como respaldo durante la transición. Quita la línea del correo
-    // una vez que confirmes que el claim funciona.
+    // SUPER-ADMIN (dueño del SaaS): solo vía custom claim (seteado con Admin SDK).
+    // Para setear el claim: firebase-admin → auth.setCustomUserClaims(uid, { superAdmin: true })
     function isSuper() {
-      return signedIn() && (request.auth.token.superAdmin == true
-                            || request.auth.token.email == 'medique.cl@gmail.com');
+      return signedIn() && request.auth.token.superAdmin == true;
+    }
+
+    // Plan activo: active, comp o trial vigente (validado en servidor, no en cliente).
+    function clinicActive(clinicId) {
+      let c = get(/databases/$(database)/documents/clinics/$(clinicId)).data;
+      return c.plan == 'active' || c.plan == 'comp'
+        || (c.plan == 'trial' && c.trialEnds > request.time.toMillis());
     }
 
     // Mapeo usuario → clínica (uid, clinicId, rol). Cada quien gestiona el suyo.
@@ -59,8 +63,11 @@ service cloud.firestore {
     }
 
     // Datos de cada clínica (agenda, pacientes, caja, inventario, etc.), aislados.
+    // La clínica debe tener plan activo o trial vigente (validado aquí, no solo en el cliente).
     match /tenants/{clinicId}/kv/{key} {
-      allow read, write: if signedIn() && myClinic() == clinicId;
+      allow read, write: if signedIn()
+                         && myClinic() == clinicId
+                         && (isSuper() || clinicActive(clinicId));
     }
 
     // Perfil público de la clínica (marca, dirección, horarios, precios) para la
@@ -75,14 +82,19 @@ service cloud.firestore {
     match /tenants/{clinicId}/bookings/{id} {
       allow create: if request.resource.data.keys().hasOnly(['name','phone','email','proc','fecha','time','dur','procs','note','createdAt','source'])
                     && request.resource.data.name is string
-                    && request.resource.data.phone is string;
+                    && request.resource.data.name.size() < 120
+                    && request.resource.data.phone is string
+                    && request.resource.data.phone.size() < 30
+                    && request.resource.data.createdAt == request.time.toMillis();
       allow read, update, delete: if signedIn() && myClinic() == clinicId;
     }
 
     // Colaboraciones que envían influencers/marcas desde el formulario público (sin login).
     match /tenants/{clinicId}/collabs/{id} {
       allow create: if request.resource.data.keys().hasOnly(['name','email','phone','kind','ig','tiktok','ciudad','redPrincipal','reach','views','audiencia','ofrece','proc','message','createdAt'])
-                    && request.resource.data.name is string;
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() < 120
+                    && request.resource.data.createdAt == request.time.toMillis();
       allow read, update, delete: if signedIn() && myClinic() == clinicId;
     }
 
@@ -90,7 +102,10 @@ service cloud.firestore {
     match /tenants/{clinicId}/reviews/{id} {
       allow create: if request.resource.data.keys().hasOnly(['name','phone','stars','comment','createdAt'])
                     && request.resource.data.stars is number
-                    && request.resource.data.stars >= 1 && request.resource.data.stars <= 5;
+                    && request.resource.data.stars >= 1 && request.resource.data.stars <= 5
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() < 120
+                    && request.resource.data.createdAt == request.time.toMillis();
       allow read, update, delete: if signedIn() && myClinic() == clinicId;
     }
   }

@@ -262,6 +262,7 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
 
   // Imprime UNA sesión/procedimiento (para adjuntar a la ficha física).
   function imprimirProc(h) {
+    const D = window.JCDATA || {};
     const proName = h.proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

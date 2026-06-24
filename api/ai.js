@@ -1,23 +1,43 @@
 // Medique · Agente IA (Vercel Serverless Function)
-// Proxy hacia Groq (Llama 3.3 70B). La API key vive SOLO en el servidor (variable de entorno),
-// nunca en el código del navegador. El cliente envía el contexto de la conversación; aquí se
-// llama a Groq y se devuelve la respuesta del asistente.
+// Proxy hacia Groq (Llama 3.3 70B). La API key vive SOLO en el servidor.
+// Incluye rate limiting por usuario (30 req/min, 500 req/día) para evitar
+// que una clínica queme el cupo de todas.
 //
 // Variable de entorno requerida (Vercel → Settings → Environment Variables):
 //   GROQ_API_KEY = la clave que genera el dueño en su cuenta de Groq (https://console.groq.com/keys)
 // Opcional:
 //   GROQ_MODEL   = modelo a usar (por defecto "llama-3.3-70b-versatile")
-//
-// Mientras GROQ_API_KEY no esté configurada, el endpoint responde 503 con un mensaje claro
-// y el panel sigue funcionando en modo manual (sin auto-respuesta de IA).
 
 import crypto from "node:crypto";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+// ── Rate limiting en memoria (se reinicia en cold starts, es suficiente para limitar abusos) ──
+// Mapa: uid → { min: { ts, count }, day: { ts, count } }
+const _rl = new Map();
+const RL_PER_MIN  = 30;
+const RL_PER_DAY  = 500;
+
+function checkRateLimit(uid) {
+  const now = Date.now();
+  let r = _rl.get(uid) || { min: { ts: now, count: 0 }, day: { ts: now, count: 0 } };
+  // Reiniciar ventana de 1 minuto
+  if (now - r.min.ts > 60000) r.min = { ts: now, count: 0 };
+  // Reiniciar ventana de 24 horas
+  if (now - r.day.ts > 86400000) r.day = { ts: now, count: 0 };
+  if (r.min.count >= RL_PER_MIN) return { ok: false, error: "Límite de velocidad alcanzado. Espera un momento." };
+  if (r.day.count >= RL_PER_DAY) return { ok: false, error: "Límite diario de mensajes IA alcanzado." };
+  r.min.count++;
+  r.day.count++;
+  _rl.set(uid, r);
+  // Limpiar uids inactivos (más de 25 horas sin actividad)
+  if (_rl.size > 5000) {
+    for (const [k, v] of _rl) { if (now - v.day.ts > 90000000) _rl.delete(k); }
+  }
+  return { ok: true };
+}
+
 // ── Verificación del ID token de Firebase del usuario logueado (sin Admin SDK) ──
-// Valida la firma RS256 contra las llaves públicas de Google + aud/iss/exp.
-// El projectId es público (no es secreto). Así solo usuarios autenticados usan el agente.
 const CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
 let _certCache = { at: 0, certs: null };
 async function googleCerts() {
@@ -34,7 +54,7 @@ async function verifyFirebaseToken(token, projectId) {
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('token mal formado');
   const header = JSON.parse(b64urlToBuf(parts[0]).toString('utf8'));
-  if (header.alg !== 'RS256' || !header.kid) throw new Error('alg/kid inválido'); // evita confusión de algoritmo
+  if (header.alg !== 'RS256' || !header.kid) throw new Error('alg/kid inválido');
   const certs = await googleCerts();
   const certPem = certs[header.kid];
   if (!certPem) throw new Error('kid desconocido');
@@ -51,7 +71,6 @@ async function verifyFirebaseToken(token, projectId) {
 }
 
 export default async function handler(req, res) {
-  // CORS restringido a los dominios propios (no wildcard).
   const ALLOWED_ORIGINS = ['https://medique.cl', 'https://www.medique.cl', 'https://jcmedical.cl', 'https://www.jcmedical.cl'];
   const origin = req.headers.origin || '';
   const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -62,18 +81,23 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Método no permitido" });
 
-  // Solo usuarios autenticados (panel con sesión Firebase): verifica el ID token. Evita que
-  // cualquiera en internet llame al endpoint y queme los créditos de Groq.
+  // Solo usuarios autenticados (panel con sesión Firebase).
   const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'medique-8dbf6';
   const authz = req.headers['authorization'] || '';
-  const idToken = authz.indexOf('Bearer ') === 0 ? authz.slice(7) : '';
+  const idToken = authz.startsWith('Bearer ') ? authz.slice(7) : '';
+  let tokenPayload;
   try {
-    await verifyFirebaseToken(idToken, PROJECT_ID);
+    tokenPayload = await verifyFirebaseToken(idToken, PROJECT_ID);
   } catch (e) {
     return res.status(401).json({ ok: false, error: "No autorizado: inicia sesión en el panel." });
   }
 
-  // Llave interna opcional adicional (si JCM_API_KEY está configurada).
+  // Rate limiting por uid (evita que una clínica queme el cupo de todas).
+  const uid = tokenPayload.sub;
+  const rl = checkRateLimit(uid);
+  if (!rl.ok) return res.status(429).json({ ok: false, error: rl.error });
+
+  // Clave interna opcional adicional.
   const internalKey = process.env.JCM_API_KEY;
   if (internalKey && req.headers['x-jcm-key'] !== internalKey) {
     return res.status(403).json({ ok: false, error: "No autorizado." });
@@ -85,12 +109,10 @@ export default async function handler(req, res) {
   }
 
   const body = req.body || {};
-  // El cliente envía: { messages:[{role,content}], clinic:{name,services,hours,address}, model? }
   const userMessages = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
   if (!userMessages.length) return res.status(400).json({ ok: false, error: "Faltan mensajes." });
 
   const clinic = body.clinic || {};
-  // Prompt de sistema con el contexto de la clínica (cada clínica tiene el suyo).
   const system = [
     "Eres el asistente de WhatsApp de " + (clinic.name || "una clínica de medicina estética") + ".",
     "Responde en español de Chile, con cercanía y profesionalismo, mensajes breves.",
@@ -104,8 +126,12 @@ export default async function handler(req, res) {
     "Si el paciente quiere agendar, pide su nombre y propón coordinar día y hora."
   ].filter(Boolean).join("\n");
 
+  const MAX_CONTENT = 4000;
   const messages = [{ role: "system", content: system }].concat(
-    userMessages.map(m => ({ role: m.role === "out" || m.role === "assistant" ? "assistant" : "user", content: String(m.content || m.t || "") }))
+    userMessages.map(m => ({
+      role: m.role === "out" || m.role === "assistant" ? "assistant" : "user",
+      content: String(m.content || m.t || "").slice(0, MAX_CONTENT)
+    }))
   );
 
   try {
