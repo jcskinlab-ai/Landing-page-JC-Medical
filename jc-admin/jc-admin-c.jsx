@@ -254,7 +254,7 @@ function ServiciosView({ T }) {
                     <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 3 }}>{s.dur} min{s.pts ? " · " + s.pts + " pts" : ""}</div>
                   </div>
                   <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 }}>{D.fmt(s.price || 0)}</div>
-                  <button onClick={e => { e.stopPropagation(); if (window.confirm("¿Eliminar el servicio “" + s.name + "”?")) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  <button onClick={e => { e.stopPropagation(); if (window.confirm(`¿Eliminar el servicio “${s.name}”?`)) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
                 </div>
               ))}
             </div>
@@ -758,7 +758,7 @@ function IndTemplatesEditor({ T }) {
   function save(n) { setTpls(n); try { DB.set("config", Object.assign({}, DB.cfg(), { ind_templates: n })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {} }
   function upd(i, patch) { save(tpls.map((t, j) => j === i ? { ...t, ...patch } : t)); }
   function add() { save([...tpls, { id: "tpl_" + Date.now(), name: "Nueva plantilla", body: "" }]); }
-  function del(i) { if (window.confirm("¿Eliminar la plantilla "" + (tpls[i] && tpls[i].name) + ""?")) save(tpls.filter((_, j) => j !== i)); }
+  function del(i) { if (window.confirm(`¿Eliminar la plantilla "${tpls[i] && tpls[i].name}"?`)) save(tpls.filter((_, j) => j !== i)); }
   const inp = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
   return (
     <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>

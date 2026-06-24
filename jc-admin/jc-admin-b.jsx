@@ -307,7 +307,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
           <FAct T={T} onClick={() => setEditD(true)} icon={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></>}>Editar datos</FAct>
           <FAct T={T} onClick={imprimirFicha} icon={<><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></>}>Imprimir ficha</FAct>
           <FAct T={T} primary onClick={() => onAgendar && onAgendar()} icon={<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>}>Agendar cita</FAct>
-          {removePatient && <FAct T={T} onClick={() => { if (window.confirm("¿Eliminar al paciente "" + patient.name + "" y todos sus datos? Esta acción no se puede deshacer.")) { removePatient(patient.id); onBack && onBack(); } }} icon={<><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></>}>Eliminar</FAct>}
+          {removePatient && <FAct T={T} onClick={() => { if (window.confirm(`¿Eliminar al paciente "${patient.name}" y todos sus datos? Esta acción no se puede deshacer.`)) { removePatient(patient.id); onBack && onBack(); } }} icon={<><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></>}>Eliminar</FAct>}
         </div>
       </div>
 
