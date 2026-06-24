@@ -11,7 +11,44 @@
 // Mientras GROQ_API_KEY no esté configurada, el endpoint responde 503 con un mensaje claro
 // y el panel sigue funcionando en modo manual (sin auto-respuesta de IA).
 
+import crypto from "node:crypto";
+
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+// ── Verificación del ID token de Firebase del usuario logueado (sin Admin SDK) ──
+// Valida la firma RS256 contra las llaves públicas de Google + aud/iss/exp.
+// El projectId es público (no es secreto). Así solo usuarios autenticados usan el agente.
+const CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
+let _certCache = { at: 0, certs: null };
+async function googleCerts() {
+  const now = Date.now();
+  if (_certCache.certs && (now - _certCache.at) < 3600000) return _certCache.certs;
+  const r = await fetch(CERTS_URL);
+  const certs = await r.json();
+  _certCache = { at: now, certs };
+  return certs;
+}
+function b64urlToBuf(s) { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Buffer.from(s, 'base64'); }
+async function verifyFirebaseToken(token, projectId) {
+  if (!token) throw new Error('sin token');
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('token mal formado');
+  const header = JSON.parse(b64urlToBuf(parts[0]).toString('utf8'));
+  if (header.alg !== 'RS256' || !header.kid) throw new Error('alg/kid inválido'); // evita confusión de algoritmo
+  const certs = await googleCerts();
+  const certPem = certs[header.kid];
+  if (!certPem) throw new Error('kid desconocido');
+  const pub = new crypto.X509Certificate(certPem).publicKey;
+  const ok = crypto.createVerify('RSA-SHA256').update(parts[0] + '.' + parts[1]).verify(pub, b64urlToBuf(parts[2]));
+  if (!ok) throw new Error('firma inválida');
+  const p = JSON.parse(b64urlToBuf(parts[1]).toString('utf8'));
+  const now = Math.floor(Date.now() / 1000);
+  if (!p.exp || p.exp <= now) throw new Error('token expirado');
+  if (p.aud !== projectId) throw new Error('aud inválido');
+  if (p.iss !== 'https://securetoken.google.com/' + projectId) throw new Error('iss inválido');
+  if (!p.sub) throw new Error('sub vacío');
+  return p;
+}
 
 export default async function handler(req, res) {
   // CORS restringido a los dominios propios (no wildcard).
@@ -21,12 +58,22 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", safeOrigin);
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-jcm-key");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-jcm-key, Authorization");
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Método no permitido" });
 
-  // Llave interna opcional: si JCM_API_KEY está configurada, solo se atienden peticiones que la envíen.
-  // (Mientras no exista la variable, este chequeo es no-op para no romper el panel.)
+  // Solo usuarios autenticados (panel con sesión Firebase): verifica el ID token. Evita que
+  // cualquiera en internet llame al endpoint y queme los créditos de Groq.
+  const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'medique-8dbf6';
+  const authz = req.headers['authorization'] || '';
+  const idToken = authz.indexOf('Bearer ') === 0 ? authz.slice(7) : '';
+  try {
+    await verifyFirebaseToken(idToken, PROJECT_ID);
+  } catch (e) {
+    return res.status(401).json({ ok: false, error: "No autorizado: inicia sesión en el panel." });
+  }
+
+  // Llave interna opcional adicional (si JCM_API_KEY está configurada).
   const internalKey = process.env.JCM_API_KEY;
   if (internalKey && req.headers['x-jcm-key'] !== internalKey) {
     return res.status(403).json({ ok: false, error: "No autorizado." });

@@ -179,11 +179,12 @@ if (typeof window !== 'undefined') { window.jcmToast = jcmToast; window.jcmError
 function mediqueAI(messages, clinic) {
   try {
     var headers = { 'Content-Type': 'application/json' };
-    // Si hay una llave interna disponible en el cliente, se envía (debe coincidir con JCM_API_KEY del servidor).
     if (typeof window !== 'undefined' && window.JCM_API_KEY) headers['x-jcm-key'] = window.JCM_API_KEY;
-    return fetch('/api/ai', {
-      method: 'POST', headers: headers,
-      body: JSON.stringify({ messages: messages || [], clinic: clinic || {} })
+    // El endpoint exige el ID token de Firebase del usuario logueado (no es secreto, dura 1h).
+    var tokP = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
+    return Promise.resolve(tokP).then(function (tok) {
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+      return fetch('/api/ai', { method: 'POST', headers: headers, body: JSON.stringify({ messages: messages || [], clinic: clinic || {} }) });
     }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
       .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
   } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }

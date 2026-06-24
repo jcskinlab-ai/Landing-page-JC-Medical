@@ -385,6 +385,8 @@
     onAuth: onAuth,
     currentClinic: function () { return state.clinic; },
     currentClinicId: function () { return state.clinicId; },
+    // ID token de Firebase del usuario logueado (para autenticar llamadas a /api/*). Corto (1h), no es secreto.
+    idToken: function () { try { return (auth && auth.currentUser) ? auth.currentUser.getIdToken() : Promise.resolve(null); } catch (e) { return Promise.resolve(null); } },
     access: access,
     migrateLocal: migrateLocal,
     hasLegacyData: hasLegacyData,
