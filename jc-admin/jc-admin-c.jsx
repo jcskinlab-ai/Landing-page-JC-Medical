@@ -216,6 +216,7 @@ function EquipoView({ T }) {
   const [editing, setEditing] = useState(null); // miembro a editar o "new"
   function save(m) {
     CADMIN.team = (m.id && team.find(x => x.id === m.id)) ? team.map(x => x.id === m.id ? m : x) : [...team, { ...m, id: "t" + Date.now(), color: m.color || "#8B9EB0" }];
+    try { window.DB && window.DB.set("team", CADMIN.team); } catch (e) {} // persiste por clínica
     setTeam(CADMIN.team); setEditing(null);
   }
   return (
@@ -1301,10 +1302,12 @@ function cashAll() { try { return (window.DB && DB.get("cash_moves")) || []; } c
 function cashSave(v) { try { if (window.DB) DB.set("cash_moves", v); } catch (e) {} }
 function cashAdd(mv) { const all = cashAll(); all.push({ id: "cm" + Date.now() + Math.random().toString(36).slice(2, 5), ts: new Date().toISOString(), ...mv }); cashSave(all); }
 function cashToday() { const t = new Date().toISOString().slice(0, 10); return cashAll().filter(m => (m.ts || "").slice(0, 10) === t); }
-/* inventario persistente */
-function invLoad() { try { return (window.DB && DB.get("inv_items")) || INV_SEED; } catch (e) { return INV_SEED; } }
+/* inventario persistente — el seed (INV_SEED/PROC_SEED) solo aplica a la clínica base o modo local; las nuevas parten vacías */
+function invSeed() { return (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) ? INV_SEED : []; }
+function procSeed() { return (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) ? PROC_SEED : []; }
+function invLoad() { try { var v = window.DB && DB.get("inv_items"); return Array.isArray(v) ? v : invSeed(); } catch (e) { return invSeed(); } }
 function invSave(v) { try { if (window.DB) DB.set("inv_items", v); } catch (e) {} }
-function procLoad() { try { return (window.DB && DB.get("inv_procs")) || PROC_SEED; } catch (e) { return PROC_SEED; } }
+function procLoad() { try { var v = window.DB && DB.get("inv_procs"); return Array.isArray(v) ? v : procSeed(); } catch (e) { return procSeed(); } }
 function procSave(v) { try { if (window.DB) DB.set("inv_procs", v); } catch (e) {} }
 function procCost(p, items) { return (p.uses || []).reduce((s, u) => { const it = items.find(x => x.id === u[0]); return s + (it ? it.price * u[1] : 0); }, 0); }
 

@@ -75,6 +75,36 @@ function adminNavItems() {
   return ADMIN_NAV.filter(function (n) { return n.k !== "appjcm" || showJcApp; });
 }
 
+// Aísla los datos por clínica. En SaaS, las clínicas parten VACÍAS (operacional);
+// solo la clínica BASE (JC Medical) conserva sus servicios/equipo/inventario reales.
+// Se ejecuta antes de montar el panel, así los seeds en memoria quedan neutralizados.
+function scopeClinicData() {
+  if (!(window.JCSAAS && window.JCSAAS.enabled)) return; // modo local → sin cambios
+  var clinic = (window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {};
+  var isBase = clinic.isBase === true || ((clinic.ownerEmail || "").toLowerCase() === "jc.skinlab@gmail.com");
+  window.JCM_BASE = isBase;
+  var D = window.JCDATA || {}, A = window.JCADMIN || {}, C = window.CADMIN || {};
+  // Operacional → vacío para TODAS las clínicas (incl. JC Medical): pacientes, citas demo, campañas, integraciones, etc.
+  A.patients = []; D.appointments = [];
+  C.campaigns = []; C.integrations = []; C.waMessages = []; C.bizComments = []; C.fidelity = [];
+  // Equipo por clínica: desde la BD si ya lo guardaron; si no, la base usa su equipo real y las nuevas parten vacías.
+  var savedTeam = (window.DB && window.DB.get("team"));
+  C.team = Array.isArray(savedTeam) ? savedTeam : (isBase ? (C.team || []) : []);
+  // Servicios: solo la base conserva su catálogo real; las nuevas parten sin servicios.
+  if (!isBase && D.catalog) D.catalog = [];
+}
+// Nombre que se muestra en el perfil/saludo: el de la clínica activa (no "Juan Claudio" para otras).
+function clinicDisplayName() {
+  var c = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || null;
+  return (c && c.name) || "Juan Claudio Parra";
+}
+// Foto de perfil: solo la base (JC Medical) o el modo local usan la foto por defecto; las nuevas, vacía.
+function clinicAvatarSrc(pic) {
+  if (pic) return pic;
+  if (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) return (window.JCADMIN || {}).pro;
+  return null;
+}
+
 /* ─────────── DASHBOARD (estilo Medique: indicadores + evolución + accesos) ─────────── */
 const DASH_IC = {
   pacientes: <><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 8a3 3 0 0 1 0 6" /><path d="M21 20a6 6 0 0 0-4-5.5" /></>,
@@ -100,11 +130,11 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
 
-  // Evolución de ingresos — estimación semanal (demo)
+  // Evolución de ingresos — en SaaS parte en 0 (cada clínica acumula lo suyo); demo solo en modo local.
   const dias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-  const serie = [380000, 420000, 510000, 470000, 540000, 610000, 740000];
+  const serie = (window.JCSAAS && window.JCSAAS.enabled) ? [0, 0, 0, 0, 0, 0, 0] : [380000, 420000, 510000, 470000, 540000, 610000, 740000];
   const totalSemana = serie.reduce((a, b) => a + b, 0);
-  const growth = Math.round((serie[serie.length - 1] / serie[0] - 1) * 100);
+  const growth = serie[0] ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
 
   // próximas citas (hoy primero por hora, luego el resto)
   const ord = appts.slice().sort((a, b) => (a.day || 0) - (b.day || 0) || (a.time || "").localeCompare(b.time || ""));
@@ -143,7 +173,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     let asistieron = allAppts.filter(a => a.attended || a.status === "atendida" || a.status === "confirmada").length;
     let spend = 0, leads = 0;
     try { const cfg = (window.DB && DB.get("config")) || {}; spend = +cfg.meta_spend_mes || 0; leads = +cfg.meta_leads_mes || 0; } catch (e) {}
-    const demo = !spend;
+    // En SaaS no se muestran datos de ejemplo: cada clínica ve sus cifras reales (0 hasta conectar Meta).
+    const demo = !spend && !(window.JCSAAS && window.JCSAAS.enabled);
     if (demo) { spend = 500000; leads = 120; reservas = 35; asistieron = 22; compras = 18; ingresos = 6800000; }
     else if (!leads) { leads = Math.max(reservas, 1); }
     const roas = spend > 0 ? (ingresos / spend) : 0;
@@ -485,11 +516,16 @@ function AdminApp() {
 
   const [section, setSection] = useState("dashboard");
   const [darCita, setDarCita] = useState(null); // prellenado del copiloto → abre modal "Dar cita"
-  const [patients, setPatients] = useState(() => A.patients.map(p => ({ ...p, points: p.points || [] })));
+  const [patients, setPatients] = useState(() => {
+    var saved = (window.DB && window.DB.get("patients"));
+    return (Array.isArray(saved) ? saved : A.patients).map(p => ({ ...p, points: p.points || [] }));
+  });
   const [openPatient, setOpenPatient] = useState(null);
   const [appts, setAppts] = useState(() => {
+    // Citas por clínica desde la BD (Firebase). Las reservas web ya entran aquí vía importWebBookings.
+    var saved = (window.DB && window.DB.get("appointments"));
+    if (Array.isArray(saved)) return saved.map(a => ({ ...a }));
     const base = D.appointments.map(a => ({ ...a }));
-    // Reservas hechas desde el sitio/app (DB 'bookings') → entran como pendientes por confirmar.
     try {
       const online = (window.DB && window.DB.get("bookings")) || [];
       online.forEach(b => base.push({
@@ -501,6 +537,9 @@ function AdminApp() {
     } catch (e) {}
     return base;
   });
+  // Persistencia por clínica
+  function savePatients(list) { try { window.DB && window.DB.set("patients", list); } catch (e) {} return list; }
+  function saveAppts(list) { try { window.DB && window.DB.set("appointments", list); } catch (e) {} return list; }
   const [navOpen, setNavOpen] = useState(false);
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -514,9 +553,9 @@ function AdminApp() {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  function updatePatient(id, patch) { setPatients(ps => ps.map(p => p.id === id ? { ...p, ...patch } : p)); }
-  function addPatient(p) { const np = { ...p, id: "p" + Date.now(), tags: [], consent: false, points: [], history: [] }; setPatients(ps => [np, ...ps]); return np; }
-  function addAppt(a) { setAppts(as => [...as, { ...a, id: "a" + Date.now() }]); }
+  function updatePatient(id, patch) { setPatients(ps => savePatients(ps.map(p => p.id === id ? { ...p, ...patch } : p))); }
+  function addPatient(p) { const np = { ...p, id: "p" + Date.now(), tags: [], consent: false, points: [], history: [] }; setPatients(ps => savePatients([np, ...ps])); return np; }
+  function addAppt(a) { setAppts(as => saveAppts([...as, { ...a, id: "a" + Date.now() }])); }
   function updateAppt(id, patch) {
     setAppts(as => {
       // Si se confirma una cita que estaba pendiente de pago, bloquear el slot ahora
@@ -531,7 +570,7 @@ function AdminApp() {
           } catch(e) {}
         }
       }
-      return as.map(a => a.id === id ? { ...a, ...patch } : a);
+      return saveAppts(as.map(a => a.id === id ? { ...a, ...patch } : a));
     });
   }
   function removeAppt(id) {
@@ -544,7 +583,7 @@ function AdminApp() {
         localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
       } catch(e) {}
     }
-    setAppts(as => as.filter(a => a.id !== id));
+    setAppts(as => saveAppts(as.filter(a => a.id !== id)));
   }
   function nav(k) { setSection(k); setOpenPatient(null); setNavOpen(false); }
 
@@ -624,9 +663,9 @@ function AdminApp() {
             {/* Derecha: dropdown de perfil */}
             <div ref={profileRef} style={{ position: "relative" }}>
               <button onClick={() => setProfileOpen(o => !o)} style={{ display: "flex", alignItems: "center", gap: 9, background: profileOpen ? (T.chipBg || "rgba(0,0,0,.06)") : "none", border: "1px solid " + (profileOpen ? T.chipBorder : "transparent"), cursor: "pointer", padding: "5px 10px 5px 6px", borderRadius: 10, transition: "all .15s" }}>
-                <Avatar T={T} name="Juan Claudio" src={profilePic || A.pro} size={32} />
+                <Avatar T={T} name={clinicDisplayName()} src={clinicAvatarSrc(profilePic)} size={32} />
                 <div style={{ minWidth: 0, textAlign: "left" }}>
-                  <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, lineHeight: 1.1, whiteSpace: "nowrap" }}>Juan Claudio Parra</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, lineHeight: 1.1, whiteSpace: "nowrap" }}>{clinicDisplayName()}</div>
                   <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, lineHeight: 1.1 }}>Mi perfil</div>
                 </div>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="2.2" style={{ flexShrink: 0, transform: profileOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6"/></svg>
@@ -634,9 +673,9 @@ function AdminApp() {
               {profileOpen && (
                 <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 230, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 12px 40px -10px rgba(0,0,0,.4)", zIndex: 200, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 18px 14px", borderBottom: "1px solid " + T.line }}>
-                    <Avatar T={T} name="Juan Claudio" src={profilePic || A.pro} size={42} />
+                    <Avatar T={T} name={clinicDisplayName()} src={clinicAvatarSrc(profilePic)} size={42} />
                     <div>
-                      <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text, lineHeight: 1.2 }}>Juan Claudio Parra</div>
+                      <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text, lineHeight: 1.2 }}>{clinicDisplayName()}</div>
                       <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>Administrador</div>
                     </div>
                   </div>
@@ -763,7 +802,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   const greet = now.getHours() < 13 ? "Buenos días" : now.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
   return (
     <div>
-      <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent }}>{greet}, Juan Claudio</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent }}>{greet}, {clinicDisplayName()}</div>
       <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, marginTop: 8, lineHeight: 1.05 }}>{now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}</h1>
 
       {/* Resumen semanal */}
@@ -859,7 +898,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
           <span style={{ width: 28, height: 28, borderRadius: 7, background: "#1877F2", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 16 }}>f</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>Meta Ads · {camps.filter(c => c.active).length} campañas activas</div>
-            <div style={{ fontFamily: T.sans, fontSize: 10, color: metaConn ? "#1F8A5B" : T.textMute, marginTop: 2 }}>{metaConn ? "● Conectado a JC Medical · Business Suite" : "Cuenta desconectada"}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 10, color: metaConn ? "#1F8A5B" : T.textMute, marginTop: 2 }}>{metaConn ? "● Conectado a Meta · Business Suite" : "Cuenta desconectada"}</div>
           </div>
           <button onClick={() => setMetaConn(!metaConn)} style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", padding: "8px 12px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", background: metaConn ? "transparent" : "#1877F2", color: metaConn ? "#1F8A5B" : "#fff", border: metaConn ? "1px solid #1F8A5B" : "none" }}>{metaConn ? "✓ Conectado" : "Conectar"}</button>
         </div>
@@ -1257,7 +1296,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   // parámetros
   const [esp, setEsp] = useState("Todas");
   const [proc, setProc] = useState(pf.proc || "Evaluación general");
-  const [prof, setProf] = useState(team[0] ? team[0].name : "Juan Claudio Parra");
+  const [prof, setProf] = useState(team[0] ? team[0].name : clinicDisplayName());
   const [recurso, setRecurso] = useState("No especificado");
   const [camilla, setCamilla] = useState("Box 1");
   const [dur, setDur] = useState("30 minutos");
@@ -1319,7 +1358,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
     const wk = dayInfo(pick.dayOff);
     const apptFecha = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff).toISOString().slice(0, 10);
     const waPhone = (finalPhone || "").replace(/[^0-9]/g, "");
-    const waMsg = encodeURIComponent("Hola " + finalName + " 👋\n\nTu cita en JC Medical quedó confirmada:\n\n📅 " + wk.wd + " " + wk.dd + " " + wk.mm + "\n🕐 " + pick.time + " hrs\n💉 " + proc + "\n👨‍⚕️ " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.\n\n¡Nos vemos pronto! 🌿");
+    const waMsg = encodeURIComponent("Hola " + finalName + " 👋\n\nTu cita en " + clinicDisplayName() + " quedó confirmada:\n\n📅 " + wk.wd + " " + wk.dd + " " + wk.mm + "\n🕐 " + pick.time + " hrs\n💉 " + proc + "\n👨‍⚕️ " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.\n\n¡Nos vemos pronto! 🌿");
     const waUrl = "https://api.whatsapp.com/send?phone=" + waPhone + "&text=" + waMsg;
     const daySlots = D ? (D.availability(new Date(apptFecha + "T00:00:00").getDay()).slots || []) : [];
     // Generar y descargar un evento .ics para el calendario nativo, con recordatorio 24 h antes
@@ -1340,10 +1379,10 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           "DTSTAMP:" + stamp,
           "DTSTART:" + fmt(start),
           "DTEND:" + fmt(end),
-          "SUMMARY:" + esc("Cita JC Medical · " + proc),
+          "SUMMARY:" + esc("Cita " + clinicDisplayName() + " · " + proc),
           "DESCRIPTION:" + esc("Paciente: " + (finalName || "—") + "\nProfesional: " + prof + "\nProcedimiento: " + proc),
-          "LOCATION:" + esc("JC Medical · SKINLAB Talca"),
-          "BEGIN:VALARM", "TRIGGER:-PT24H", "ACTION:DISPLAY", "DESCRIPTION:" + esc("Recordatorio: cita en JC Medical mañana"), "END:VALARM",
+          "LOCATION:" + esc(clinicDisplayName()),
+          "BEGIN:VALARM", "TRIGGER:-PT24H", "ACTION:DISPLAY", "DESCRIPTION:" + esc("Recordatorio: cita en " + clinicDisplayName() + " mañana"), "END:VALARM",
           "END:VEVENT", "END:VCALENDAR"
         ].join("\r\n");
         const ua = navigator.userAgent || "";
@@ -1358,10 +1397,10 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         // Si el navegador lo bloquea, caemos al .ics descargable.
         const gFmt = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "T" + pad(d.getHours()) + pad(d.getMinutes()) + "00";
         const gcal = "https://calendar.google.com/calendar/render?action=TEMPLATE"
-          + "&text=" + encodeURIComponent("Cita JC Medical · " + proc)
+          + "&text=" + encodeURIComponent("Cita " + clinicDisplayName() + " · " + proc)
           + "&dates=" + gFmt(start) + "/" + gFmt(end)
           + "&details=" + encodeURIComponent("Paciente: " + (finalName || "—") + "\nProfesional: " + prof + "\nProcedimiento: " + proc)
-          + "&location=" + encodeURIComponent("JC Medical · SKINLAB Talca")
+          + "&location=" + encodeURIComponent(clinicDisplayName())
           + "&ctz=America/Santiago";
         const win = window.open(gcal, "_blank");
         if (!win) {
@@ -1784,6 +1823,7 @@ function SaasGate() {
       const a = window.JCSAAS.access();
       if (!a.ok) { setPhase("blocked"); return; }
       if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
+      scopeClinicData();
       window.JCSAAS.importWebBookings().finally(function () { setPhase("app"); });
     });
     const t = setTimeout(() => setPhase(p => p === "loading" ? "auth" : p), 9000);
