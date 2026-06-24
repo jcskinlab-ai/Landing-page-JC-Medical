@@ -428,6 +428,60 @@
         toDelete.forEach(function (id) { col.doc(id).delete().catch(noop); });
         return added;
       }).catch(function (e) { noop(e); return 0; });
+    },
+    // ── COLABORACIONES (formulario público por clínica) ──
+    collabLink: function (cid) { return location.origin + '/colaborar.html?c=' + (cid || state.clinicId || ''); },
+    submitCollab: function (data) {
+      if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });
+      var doc = { name: '', email: '', phone: '', kind: '', ig: '', tiktok: '', ciudad: '', redPrincipal: '', reach: '', views: '', audiencia: '', ofrece: '', proc: '', message: '', createdAt: Date.now() };
+      Object.keys(data || {}).forEach(function (k) { if (k in doc) doc[k] = data[k]; });
+      return db.collection('tenants').doc(state.clinicId).collection('collabs').add(doc);
+    },
+    // Importa colaboraciones web al panel (DB 'collabs'), dedup por id, sin borrarlas del servidor.
+    importWebCollabs: function () {
+      if (!db || !state.clinicId || !window.DB) return Promise.resolve(0);
+      var col = db.collection('tenants').doc(state.clinicId).collection('collabs');
+      return col.orderBy('createdAt', 'desc').limit(200).get().then(function (s) {
+        if (s.empty) return 0;
+        var list = window.DB.get('collabs') || [];
+        var seen = {}; list.forEach(function (r) { if (r._wid) seen[r._wid] = 1; });
+        var added = 0;
+        s.forEach(function (d) {
+          if (seen[d.id]) return;
+          var b = d.data();
+          list.unshift({ id: 'wc' + d.id, _wid: d.id, name: b.name || '', email: b.email || '', phone: b.phone || '', kind: b.kind || b.redPrincipal || 'Colaboración', ig: b.ig || '', tiktok: b.tiktok || '', ciudad: b.ciudad || '', redPrincipal: b.redPrincipal || '', reach: b.reach || '', views: b.views || '', audiencia: b.audiencia || '', ofrece: b.ofrece || '', proc: b.proc || '', message: b.message || '', status: 'nueva', ts: new Date(b.createdAt || Date.now()).toISOString() });
+          added++;
+        });
+        if (added) window.DB.set('collabs', list);
+        return added;
+      }).catch(function (e) { noop(e); return 0; });
+    },
+    // ── RESEÑAS (formulario público por clínica) ──
+    reviewLink: function (cid) { return location.origin + '/review.html?c=' + (cid || state.clinicId || ''); },
+    submitReview: function (data) {
+      if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });
+      var doc = { name: '', phone: '', stars: 0, comment: '', createdAt: Date.now() };
+      Object.keys(data || {}).forEach(function (k) { if (k in doc) doc[k] = data[k]; });
+      doc.stars = parseInt(doc.stars, 10) || 0;
+      return db.collection('tenants').doc(state.clinicId).collection('reviews').add(doc);
+    },
+    importWebReviews: function () {
+      if (!db || !state.clinicId || !window.DB) return Promise.resolve(0);
+      var col = db.collection('tenants').doc(state.clinicId).collection('reviews');
+      return col.orderBy('createdAt', 'desc').limit(200).get().then(function (s) {
+        if (s.empty) return 0;
+        var list = window.DB.get('reviews') || [];
+        var seen = {}; list.forEach(function (r) { if (r._wid) seen[r._wid] = 1; });
+        var added = 0;
+        s.forEach(function (d) {
+          if (seen[d.id]) return;
+          var b = d.data();
+          list.unshift({ id: 'wr' + d.id, _wid: d.id, name: b.name || '', phone: b.phone || '', stars: b.stars || 0, comment: b.comment || '', ts: new Date(b.createdAt || Date.now()).toISOString() });
+          added++;
+        });
+        if (added) window.DB.set('reviews', list);
+        return added;
+      }).catch(function (e) { noop(e); return 0; });
     }
   };
 })();

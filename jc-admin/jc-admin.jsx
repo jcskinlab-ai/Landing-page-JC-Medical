@@ -118,6 +118,23 @@ function clinicAvatarSrc(pic) {
   if (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) return (window.JCADMIN || {}).pro;
   return null;
 }
+// ¿Esta clínica conserva los datos de ejemplo (demo)? Solo la base (JC Medical) o el modo local (sin SaaS).
+// Las clínicas nuevas del SaaS parten SIEMPRE vacías (sin pacientes/conversaciones/campañas/etc. de ejemplo).
+function clinicSeeded() { return window.JCM_BASE === true || !(window.JCSAAS && window.JCSAAS.enabled); }
+window.clinicSeeded = clinicSeeded;
+// Identidad para impresiones/mensajes: datos propios de la clínica activa (config), con respaldo al catálogo base.
+function clinicName() { try { var n = window.DB && DB.cfg().clinic_name; if (n) return n; } catch (e) {} return ((window.JCDATA || {}).brand) || "Medique"; }
+function clinicAddr() { try { var a = window.DB && DB.cfg().clinic_addr; if (a) return a; } catch (e) {} return (((window.JCDATA || {}).contact) || {}).address || ""; }
+function clinicPro() { try { var p = window.DB && DB.cfg().professional; if (p) return p; } catch (e) {} return (((window.JCDATA || {}).contact) || {}).pro || ""; }
+window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro;
+// Importa TODAS las bandejas web (reservas + colaboraciones + reseñas) al panel de la clínica.
+function importAllWeb() {
+  if (!(window.JCSAAS && window.JCSAAS.enabled)) return Promise.resolve(0);
+  var p = window.JCSAAS.importWebBookings ? window.JCSAAS.importWebBookings() : Promise.resolve(0);
+  try { window.JCSAAS.importWebCollabs && window.JCSAAS.importWebCollabs(); } catch (e) {}
+  try { window.JCSAAS.importWebReviews && window.JCSAAS.importWebReviews(); } catch (e) {}
+  return p;
+}
 
 /* ─────────── DASHBOARD (estilo Medique: indicadores + evolución + accesos) ─────────── */
 const DASH_IC = {
@@ -624,7 +641,7 @@ function AdminApp() {
   else if (section === "inventario") body = <InventarioView T={T} />;
   else if (section === "caja") body = <CajaView T={T} />;
   else if (section === "integraciones") body = <IntegracionesView T={T} />;
-  else if (section === "reportes") body = <ReportesView T={T} />;
+  else if (section === "reportes") body = <ReportesView T={T} patients={patients} appts={appts} />;
   else if (section === "colaboracion") body = <ColaboracionView T={T} />;
   else if (section === "config") body = <ConfigView T={T} />;
 
@@ -1121,7 +1138,7 @@ const PROC_LIST = () => { const D = window.JCDATA; const p = []; D.catalog.forEa
 const selS = T => ({ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" });
 const lblS = T => ({ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 });
 // Slots de 30 min usados en el panel (8:00–19:30)
-const ADMIN_HALF_HOURS = (() => { const s = []; for (let h = 8; h < 20; h++) { s.push((h<10?"0":"")+h+":00"); s.push((h<10?"0":"")+h+":30"); } return s; })();
+const ADMIN_HALF_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++) { s.push((h<10?"0":"")+h+":00"); s.push((h<10?"0":"")+h+":30"); } return s; })();
 
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha }) {
   const D = window.JCDATA;
@@ -1142,9 +1159,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const hourOf = t => parseInt((t || "0").split(":")[0], 10);
   const atCell = (off, h) => appts.filter(a => a.day === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
-  const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20;
-  const wkHours = []; for (let h = WK_OPEN; h < WK_CLOSE; h++) wkHours.push(h);
-  const wkGridH = (WK_CLOSE - WK_OPEN) * WPX;
+  const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
+  const wkHours = []; for (let h = WK_OPEN; h <= WK_CLOSE; h++) wkHours.push(h); // etiquetas 08:00 … 20:00
+  const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
 
   // Apila citas solapadas verticalmente (ancho completo, empuja las siguientes hacia abajo)
@@ -1195,22 +1212,22 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             {/* Etiquetas de hora */}
             <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
               {wkHours.map((h, i) => (
-                <div key={h} style={{ position: "absolute", top: Math.max(2, i * WPX - 8), right: 6, fontFamily: T.sans, fontSize: 10, color: T.textFaint, pointerEvents: "none", userSelect: "none" }}>
+                <div key={h} style={{ position: "absolute", top: i * WPX + 2, right: 6, fontFamily: T.sans, fontSize: 10, color: T.textFaint, pointerEvents: "none", userSelect: "none" }}>
                   {(h < 10 ? "0" : "") + h}:00
                 </div>
               ))}
             </div>
             {/* Columnas de días */}
             {days.map((d, ci) => {
-              const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < WK_CLOSE * 60);
+              const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
                   {/* Líneas de 30 min + zonas clicables; bloqueadas si hay cita que cubre ese slot */}
                   {ADMIN_HALF_HOURS.map((hhmm, i) => {
-                    const isHour = hhmm.endsWith(":00");
+                    const isHourLine = hhmm.endsWith(":30"); // el borde inferior de la media (:30) cae en la hora siguiente en punto
                     const blocked = appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
                     return (
-                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/2), height: WPX/2, borderBottom: "1px solid " + (isHour ? T.lineSoft : T.lineSoft + "55") }}>
+                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/2), height: WPX/2, borderBottom: isHourLine ? "1px solid " + T.lineSoft : "none" }}>
                         {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
                           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
                           <span className="jc-cell-add" style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1389,9 +1406,9 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         const stamp = now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate()) + "T" + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + "Z";
         const esc = s => String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
         const ics = [
-          "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//JC Medical//Agenda//ES", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+          "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Medique//Agenda//ES", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
           "BEGIN:VEVENT",
-          "UID:cita-" + Date.now() + "@jcmedical",
+          "UID:cita-" + Date.now() + "@medique",
           "DTSTAMP:" + stamp,
           "DTSTART:" + fmt(start),
           "DTEND:" + fmt(end),
@@ -1832,7 +1849,24 @@ function OnboardingWizard({ T, onDone }) {
   const [name, setName] = useState(clinic.name || cfg0.clinic_name || "");
   const [addr, setAddr] = useState(cfg0.clinic_addr || "");
   const [wa, setWa] = useState(cfg0.wa_number || "");
-  const [hours, setHours] = useState(cfg0.clinic_hours || "");
+  const OB_DAYS = [["Lun", 1], ["Mar", 2], ["Mié", 3], ["Jue", 4], ["Vie", 5], ["Sáb", 6], ["Dom", 0]];
+  const [sched, setSched] = useState(() => {
+    if (cfg0.clinic_hours_struct) return cfg0.clinic_hours_struct;
+    var def = {}; OB_DAYS.forEach(function (d) { def[d[1]] = { on: d[1] >= 1 && d[1] <= 5, from: "10:00", to: "19:00" }; }); return def;
+  });
+  // Resumen legible a partir del horario estructurado (agrupa días con el mismo rango).
+  function buildHoursStr(sc) {
+    var groups = {};
+    OB_DAYS.forEach(function (d) { var s = sc[d[1]]; if (s && s.on) { var k = s.from + "–" + s.to; (groups[k] = groups[k] || []).push(d[0]); } });
+    return Object.keys(groups).map(function (k) { return groups[k].join(", ") + " " + k; }).join(" · ");
+  }
+  function onWaOb(v) {
+    var dgt = (v || "").replace(/\D/g, "");
+    if (dgt.indexOf("569") === 0) dgt = dgt.slice(3); else if (dgt.indexOf("56") === 0) dgt = dgt.slice(2);
+    dgt = dgt.replace(/^9/, "").slice(0, 8);
+    setWa("569" + dgt);
+  }
+  var waObDisplay = "+56 9 " + ((wa || "").replace(/^569/, "").replace(/^56/, ""));
   const [memName, setMemName] = useState("");
   const [memRole, setMemRole] = useState("");
   const [meta, setMeta] = useState("");
@@ -1852,7 +1886,8 @@ function OnboardingWizard({ T, onDone }) {
       cfg.clinic_name = name.trim();
       cfg.clinic_addr = addr.trim();
       cfg.wa_number = (wa || "").replace(/\D/g, "");
-      cfg.clinic_hours = hours.trim();
+      cfg.clinic_hours_struct = sched;
+      cfg.clinic_hours = buildHoursStr(sched);
       if ((meta || "").replace(/\D/g, "")) cfg.meta_spend_mes = parseInt(meta.replace(/\D/g, ""), 10) || 0;
       window.DB && window.DB.set("config", cfg);
       if (memName.trim()) {
@@ -1912,8 +1947,35 @@ function OnboardingWizard({ T, onDone }) {
           {step === 0 && (<>
             {field("Nombre de la clínica", name, setName, { ph: "Ej. Clínica Aurora" })}
             {field("Dirección", addr, setAddr, { ph: "Calle, número, ciudad" })}
-            {field("WhatsApp de contacto", wa, setWa, { type: "tel", inputMode: "numeric", only: "num", ph: "56912345678" })}
-            {field("Horario de atención", hours, setHours, { ph: "Lun a Vie 10:00–19:00" })}
+            {/* WhatsApp con prefijo +56 9 fijo (no se borra), solo números */}
+            <label style={{ display: "block", marginBottom: 13 }}>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>WhatsApp de contacto</span>
+              <input value={waObDisplay} onChange={e => onWaOb(e.target.value)} inputMode="numeric" placeholder="+56 9 1234 5678"
+                style={{ width: "100%", background: "rgba(255,255,255,.04)", border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", fontFamily: T.sans, fontSize: 14, color: T.text, outline: "none" }} />
+            </label>
+            {/* Horario de atención: días seleccionables + rango horario por día */}
+            <div style={{ marginBottom: 4 }}>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Horario de atención</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {OB_DAYS.map(([lbl, v]) => {
+                  const s = sched[v] || { on: false, from: "10:00", to: "19:00" };
+                  const setDay = patch => setSched({ ...sched, [v]: { ...s, ...patch } });
+                  const timeInp = { background: "rgba(255,255,255,.04)", border: "1px solid " + T.line, borderRadius: 8, padding: "7px 8px", fontFamily: T.sans, fontSize: 12.5, color: T.text, outline: "none", width: 86 };
+                  return (
+                    <div key={v} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <button onClick={() => setDay({ on: !s.on })} style={{ width: 52, flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, padding: "8px 0", borderRadius: 8, cursor: "pointer", background: s.on ? T.primaryBg : "transparent", color: s.on ? T.primaryText : T.textMute, border: "1px solid " + (s.on ? T.primaryBg : T.line) }}>{lbl}</button>
+                      {s.on ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1 }}>
+                          <input type="time" value={s.from} onChange={e => setDay({ from: e.target.value })} style={timeInp} />
+                          <span style={{ color: T.textMute, fontSize: 12 }}>a</span>
+                          <input type="time" value={s.to} onChange={e => setDay({ to: e.target.value })} style={timeInp} />
+                        </div>
+                      ) : <span style={{ flex: 1, fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Cerrado</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </>)}
 
           {step === 1 && (<>
@@ -1962,7 +2024,7 @@ function SaasGate() {
       if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
       scopeClinicData();
       if (!window.JCM_BASE && !(window.DB && window.DB.get("onboarded_v1"))) { setPhase("onboarding"); return; }
-      window.JCSAAS.importWebBookings().finally(function () { setPhase("app"); });
+      importAllWeb().finally(function () { setPhase("app"); });
     });
     const t = setTimeout(() => setPhase(p => p === "loading" ? "auth" : p), 9000);
     return () => clearTimeout(t);
@@ -1974,7 +2036,7 @@ function SaasGate() {
   async function doMigrate(importing) {
     setBusy(true);
     if (importing) { try { await window.JCSAAS.migrateLocal(); } catch (e) {} }
-    setBusy(false); scopeClinicData(); window.JCSAAS.importWebBookings().finally(function () { setPhase("app"); });
+    setBusy(false); scopeClinicData(); importAllWeb().finally(function () { setPhase("app"); });
   }
   function authMsg(e) {
     const c = (e && e.code) || "";
@@ -1989,7 +2051,7 @@ function SaasGate() {
   }
 
   if (phase === "app") return <AdminApp />;
-  if (phase === "onboarding") return <OnboardingWizard T={T} onDone={() => { try { window.JCSAAS.importWebBookings(); } catch (e) {} setPhase("app"); }} />;
+  if (phase === "onboarding") return <OnboardingWizard T={T} onDone={() => { try { importAllWeb(); } catch (e) {} setPhase("app"); }} />;
 
   const inp = { width: "100%", padding: "13px 14px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 14, outline: "none", boxSizing: "border-box" };
   const pBtn = (label, onClick, disabled) => (<button onClick={onClick} disabled={disabled} style={{ marginTop: 4, padding: "14px", borderRadius: 6, border: "none", background: T.primaryBg, color: T.primaryText, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 }}>{label}</button>);

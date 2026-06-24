@@ -36,6 +36,22 @@ const CADMIN = {
     { id: "landing", name: "Landing medique.cl", desc: "Reservas online conectadas al sitio", letter: "jc", color: "#0a0f1c", connected: true, stat: "Reservas en vivo" }
   ]
 };
+// Exponer CADMIN en window para que scopeClinicData() (jc-admin.jsx) pueda aislar/vaciar los datos
+// demo por clínica. Sin esto, las mutaciones de scopeClinicData eran un no-op (CADMIN era solo léxico).
+if (typeof window !== "undefined") window.CADMIN = CADMIN;
+
+// Catálogo FIJO de herramientas conectables (no es dato demo: nunca se vacía por clínica).
+// El estado de conexión se guarda por clínica en DB 'integrations_state'. Cada clínica conecta las suyas.
+const INTEGRATIONS_CATALOG = [
+  { id: "metaads", name: "Meta Ads", desc: "Campañas de Facebook e Instagram Ads", letter: "f", color: "#1877F2", stat: "Campañas conectadas" },
+  { id: "metabiz", name: "Meta Business Suite", desc: "Bandeja de Instagram y Facebook", letter: "B", color: "#0866FF", stat: "DM y comentarios" },
+  { id: "gmail", name: "Gmail", desc: "Recordatorios y confirmaciones por correo", letter: "M", color: "#EA4335", stat: "Correo conectado" },
+  { id: "drive", name: "Google Drive", desc: "Respaldo de fichas y consentimientos", letter: "▲", color: "#1FA463", stat: "Respaldo automático" },
+  { id: "gcal", name: "Google Calendar", desc: "Sincroniza tu agenda", letter: "31", color: "#4285F4", stat: "Sync bidireccional" },
+  { id: "groq", name: "Groq (Agente IA)", desc: "Asistente que responde por WhatsApp", letter: "✦", color: "#8B6FE0", stat: "Asistente activo" },
+  { id: "wa", name: "WhatsApp Business", desc: "Recordatorios y agenda por WhatsApp", letter: "✆", color: "#1F8A5B", stat: "WhatsApp conectado" },
+  { id: "landing", name: "Reserva online Medique", desc: "Reservas online conectadas a tu link", letter: "M", color: "#0a0f1c", stat: "Reservas en vivo" }
+];
 
 /* ─────────── MINI CALENDARIO (mensual) ─────────── */
 function MiniCalendar({ T, selected, onSelect }) {
@@ -111,8 +127,78 @@ const SVC_ZONE = {
   "Vitaminas · iluminador": "Cara completa y escote",
   "Vitaminas · antiacné": "Zona T y mejillas",
 };
+/* Categorías disponibles al crear un servicio nuevo (editable: cualquiera puede tipear la suya). */
+const SVC_CATS = ["Toxina botulínica", "Ácido hialurónico", "Bioestimulación de colágeno", "Mesoterapia", "Lipolíticos inyectables", "Corporal", "Evaluación", "Otro"];
+/* Servicios propios de la clínica (persisten en DB, por clínica). */
+function customServices() { try { const v = window.DB && DB.get("services_custom"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveCustomServices(v) { try { if (window.DB) DB.set("services_custom", v); } catch (e) {} }
+/* Lista PLANA de todos los servicios de la clínica (catálogo base si aplica + propios). Fuente única para el desplegable de Nueva sesión. */
+function clinicServiceList() {
+  const D = window.JCDATA || {};
+  const out = [];
+  try {
+    (D.catalog || []).filter(s => s.sec !== "Promociones").forEach(sec => {
+      (sec.groups || []).forEach(g => {
+        (g.items || []).forEach(it => out.push({ name: it.n, cat: SVC_CAT_LABEL[g.cat] || g.cat, price: it.price || 0, dur: it.dur || 60 }));
+      });
+    });
+  } catch (e) {}
+  customServices().forEach(s => out.push({ name: s.name, cat: s.cat || "Otro", price: s.price || 0, dur: s.dur || 30 }));
+  return out;
+}
+if (typeof window !== "undefined") window.clinicServiceList = clinicServiceList;
+
+/* Modal para crear / editar un servicio propio. */
+function NewServiceModal({ T, initial, onClose, onSave }) {
+  const [f, setF] = useState(initial || { name: "", cat: "Toxina botulínica", price: "", dur: "30", pts: "", desc: "" });
+  const ok = (f.name || "").trim().length > 1;
+  return (
+    <AdModal T={T} title={initial ? "Editar servicio" : "Nuevo servicio"} onClose={onClose} footer={
+      <AdBtn T={T} primary full onClick={() => ok && onSave({
+        id: (initial && initial.id) || ("svc" + Date.now()),
+        name: f.name.trim(), cat: f.cat, desc: (f.desc || "").trim(),
+        price: parseInt((f.price + "").replace(/\D/g, ""), 10) || 0,
+        dur: parseInt((f.dur + "").replace(/\D/g, ""), 10) || 30,
+        pts: parseInt((f.pts + "").replace(/\D/g, ""), 10) || 0
+      })}>{initial ? "Guardar cambios" : "Crear servicio"}</AdBtn>
+    }>
+      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+        <AdField T={T} label="Nombre del servicio" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Botox 3 zonas" />
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Categoría</span>
+          <select value={f.cat} onChange={e => setF({ ...f, cat: e.target.value })} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}>
+            {SVC_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Descripción / zonas (opcional)</span>
+          <textarea value={f.desc} onChange={e => setF({ ...f, desc: e.target.value })} rows={2} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+        </label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
+          <label style={{ display: "block" }}>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Duración</span>
+            <select value={f.dur} onChange={e => setF({ ...f, dur: e.target.value })} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}>
+              {[15, 30, 45, 60, 90, 120].map(d => <option key={d} value={String(d)}>{d} min</option>)}
+            </select>
+          </label>
+          <AdField T={T} label="Puntos que otorga" value={f.pts} onChange={v => setF({ ...f, pts: v.replace(/\D/g, "") })} inputMode="numeric" placeholder="0" />
+        </div>
+        <AdField T={T} label="Precio (CLP)" value={f.price} onChange={v => setF({ ...f, price: v.replace(/\D/g, "") })} inputMode="numeric" placeholder="150000" />
+      </div>
+    </AdModal>
+  );
+}
+
 function ServiciosView({ T }) {
   const D = window.JCDATA;
+  const [custom, setCustom] = useState(customServices);
+  const [newSvc, setNewSvc] = useState(null); // objeto en edición o "new"
+  function saveSvc(s) {
+    const exists = custom.find(x => x.id === s.id);
+    const n = exists ? custom.map(x => x.id === s.id ? s : x) : [s, ...custom];
+    setCustom(n); saveCustomServices(n); setNewSvc(null);
+  }
+  function delSvc(id) { const n = custom.filter(x => x.id !== id); setCustom(n); saveCustomServices(n); }
   const [active, setActive] = useState({});
   const [over, setOver] = useState({});
   const [editing, setEditing] = useState(null);
@@ -129,15 +215,50 @@ function ServiciosView({ T }) {
   const ql = q.trim().toLowerCase();
   const matchItem = it => { if (!ql) return true; const v = val(it); return v.name.toLowerCase().includes(ql) || (v.desc || "").toLowerCase().includes(ql); };
   const hits = ql ? sections.reduce((s, sec) => s + sec.groups.reduce((s2, g) => s2 + g.items.filter(matchItem).length, 0), 0) : totalItems;
+  const totalAll = totalItems + custom.length;
   return (
     <div>
-      <SecHead T={T} title="Servicios" sub={totalItems + " procedimientos · haz clic en cualquier fila para editar"} />
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Servicios" sub={totalAll + " procedimiento" + (totalAll === 1 ? "" : "s") + " · crea los tuyos o edita los existentes"} />
+        <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Nuevo servicio</AdBtn>
+      </div>
       <div style={{ position: "relative", marginBottom: 22 }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar procedimiento por nombre…" style={{ width: "100%", padding: "12px 14px 12px 38px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-        {ql && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6 }}>{hits} resultado{hits === 1 ? "" : "s"}</div>}
+        {ql && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6 }}>{hits + custom.filter(s => s.name.toLowerCase().includes(ql)).length} resultado{(hits + custom.filter(s => s.name.toLowerCase().includes(ql)).length) === 1 ? "" : "s"}</div>}
       </div>
-      {ql && hits === 0 && <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textFaint, padding: "12px 2px" }}>Sin procedimientos que coincidan con "{q}".</div>}
+      {/* Servicios propios de la clínica (creados aquí). */}
+      {(() => {
+        const cv = custom.filter(s => !ql || s.name.toLowerCase().includes(ql) || (s.desc || "").toLowerCase().includes(ql));
+        if (!cv.length) return totalItems === 0 && !ql ? (
+          <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center", marginBottom: 22 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 420, margin: "0 auto 16px" }}>Aún no tienes servicios. Crea tu primer procedimiento con su nombre, precio, duración y categoría — aparecerá en la agenda y en la reserva online.</div>
+            <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Crear primer servicio</AdBtn>
+          </div>
+        ) : null;
+        return (
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>Servicios de la clínica</div>
+              <div style={{ flex: 1, height: 1, background: T.line }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {cv.map(s => (
+                <div key={s.id} onClick={() => setNewSvc(s)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{s.name}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{s.cat}{s.desc ? " · " + s.desc : ""}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 3 }}>{s.dur} min{s.pts ? " · " + s.pts + " pts" : ""}</div>
+                  </div>
+                  <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 }}>{D.fmt(s.price || 0)}</div>
+                  <button onClick={e => { e.stopPropagation(); if (window.confirm("¿Eliminar el servicio “" + s.name + "”?")) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+      {ql && hits === 0 && custom.filter(s => s.name.toLowerCase().includes(ql)).length === 0 && <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textFaint, padding: "12px 2px" }}>Sin procedimientos que coincidan con "{q}".</div>}
       {sections.map(section => {
         const vg = section.groups.filter(g => g.items.some(matchItem));
         if (!vg.length) return null;
@@ -205,6 +326,7 @@ function ServiciosView({ T }) {
           </div>
         </AdModal>
       )}
+      {newSvc && <NewServiceModal T={T} initial={newSvc === "new" ? null : newSvc} onClose={() => setNewSvc(null)} onSave={saveSvc} />}
     </div>
   );
 }
@@ -212,7 +334,7 @@ function ServiciosView({ T }) {
 /* ─────────── EQUIPO ─────────── */
 const PERM_SECCIONES = ["Agenda", "Pacientes", "Servicios", "Inventario", "Reportes", "Marketing", "Configuración"];
 function EquipoView({ T }) {
-  const [team, setTeam] = useState(CADMIN.team);
+  const [team, setTeam] = useState(() => { try { const t = window.DB && DB.get("team"); if (Array.isArray(t)) return t; } catch (e) {} return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? (CADMIN.team || []) : []; });
   const [editing, setEditing] = useState(null); // miembro a editar o "new"
   function save(m) {
     CADMIN.team = (m.id && team.find(x => x.id === m.id)) ? team.map(x => x.id === m.id ? m : x) : [...team, { ...m, id: "t" + Date.now(), color: m.color || "#8B9EB0" }];
@@ -287,27 +409,53 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
 
 /* ─────────── FIDELIDAD ─────────── */
 function FidelidadView({ T }) {
+  const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
+  // Sistema de fidelidad encendido/apagado por clínica (persiste en DB).
+  const [on, setOn] = useState(() => { try { const v = window.DB && DB.get("fidelity_on"); return v == null ? seeded : !!v; } catch (e) { return seeded; } });
+  function setFid(v) { setOn(v); try { if (window.DB) DB.set("fidelity_on", v); } catch (e) {} }
+  // Miembros: demo solo para la base/local; las clínicas nuevas parten sin miembros.
+  const members = seeded ? CADMIN.fidelity : [];
+  const oro = members.filter(m => m.tier === "Oro").length;
+  const ptsActivos = members.reduce((s, m) => s + (m.pts || 0), 0);
   return (
     <div>
       <SecHead T={T} title="Fidelidad" sub="Programa de puntos y retención" />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
-        <AdStat T={T} n="96%" l="Retención" />
-        <AdStat T={T} n="1.040" l="Puntos activos" />
-        <AdStat T={T} n="3" l="Miembros Oro" />
+      {/* Interruptor del sistema */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: T.surface, border: "1px solid " + (on ? T.accent + "55" : T.line), borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Programa de fidelidad</div>
+          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>{on ? "Activo · los pacientes acumulan puntos por cada atención." : "Apagado · enciéndelo para empezar a acumular puntos."}</div>
+        </div>
+        <AdSwitch T={T} on={on} onClick={() => setFid(!on)} />
       </div>
-      <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Pacientes</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {CADMIN.fidelity.map(p => (
-          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
-            <Avatar T={T} name={p.name} size={38} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{p.name}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.pts} puntos</div>
+      {on ? <>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
+          <AdStat T={T} n={members.length} l="Miembros" />
+          <AdStat T={T} n={ptsActivos.toLocaleString("es-CL")} l="Puntos activos" />
+          <AdStat T={T} n={oro} l="Miembros Oro" />
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>
+          Los puntos que otorga cada procedimiento se configuran en <b>Servicios</b> (campo “Puntos que otorga” al editar un servicio).
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Pacientes</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {members.length === 0 && <Empty2 T={T}>Aún no hay pacientes con puntos. A medida que registres atenciones, aparecerán aquí.</Empty2>}
+          {members.map(p => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
+              <Avatar T={T} name={p.name} size={38} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{p.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.pts} puntos</div>
+              </div>
+              <AdTag T={T} tone={p.tier === "Oro" ? "warn" : "muted"}>{p.tier}</AdTag>
             </div>
-            <AdTag T={T} tone={p.tier === "Oro" ? "warn" : "muted"}>{p.tier}</AdTag>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </> : (
+        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center" }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 420, margin: "0 auto" }}>El programa de fidelidad está apagado. Actívalo arriba para que tus pacientes acumulen puntos por cada procedimiento y puedas premiar su preferencia.</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -315,7 +463,7 @@ function FidelidadView({ T }) {
 /* ─────────── MARKETING ─────────── */
 function MarketingView({ T, go }) {
   const D = window.JCDATA;
-  const [camps, setCamps] = useState(CADMIN.campaigns);
+  const [camps, setCamps] = useState(() => ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? (CADMIN.campaigns || []) : []);
   const totLeads = camps.reduce((a, c) => a + c.leads, 0);
   const totSpend = camps.reduce((a, c) => a + c.spend, 0);
   return (
@@ -324,7 +472,7 @@ function MarketingView({ T, go }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
         <AdStat T={T} n={totLeads} l="Leads (mes)" />
         <AdStat T={T} n={D.fmt(totSpend)} l="Inversión" />
-        <AdStat T={T} n={Math.round(totSpend / totLeads / 100) / 10 + "k"} l="Costo/lead" />
+        <AdStat T={T} n={totLeads ? (Math.round(totSpend / totLeads / 100) / 10 + "k") : "—"} l="Costo/lead" />
       </div>
       <a href="https://adsmanager.facebook.com/adsmanager" target="_blank" rel="noopener" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 10, marginBottom: 16, textDecoration: "none", background: "#1877F2", border: "1px solid #1877F2" }}>
         <span style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(255,255,255,.18)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, flexShrink: 0 }}>f</span>
@@ -391,11 +539,23 @@ function Mini({ T, k, v }) { return <div><div style={{ fontFamily: T.sans, fontS
 
 /* ─────────── INTEGRACIONES ─────────── */
 function IntegracionesView({ T }) {
-  const [list, setList] = useState(CADMIN.integrations);
-  function toggle(id) { setList(list.map(i => i.id === id ? { ...i, connected: !i.connected } : i)); }
+  const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
+  // Las clínicas nuevas ven todas las herramientas SIN conexión (cada una conecta las suyas).
+  // El estado de conexión se guarda por clínica.
+  const [list, setList] = useState(() => {
+    let saved = {};
+    try { const s = window.DB && DB.get("integrations_state"); if (s) saved = s; } catch (e) {}
+    // Catálogo fijo de herramientas; conexión por clínica (todas inician desconectadas).
+    return INTEGRATIONS_CATALOG.map(i => ({ ...i, connected: (i.id in saved) ? saved[i.id] : false }));
+  });
+  function toggle(id) {
+    const n = list.map(i => i.id === id ? { ...i, connected: !i.connected } : i);
+    setList(n);
+    try { if (window.DB) { const map = {}; n.forEach(i => { map[i.id] = i.connected; }); DB.set("integrations_state", map); } } catch (e) {}
+  }
   return (
     <div>
-      <SecHead T={T} title="Integraciones" sub="Conecta tus herramientas a JC Medical" />
+      <SecHead T={T} title="Integraciones" sub="Conecta tus herramientas a Medique" />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {list.map(it => (
           <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (it.connected ? T.line : T.lineSoft) }}>
@@ -411,20 +571,42 @@ function IntegracionesView({ T }) {
           </div>
         ))}
       </div>
-      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 14, lineHeight: 1.6 }}>En el prototipo las conexiones son simuladas. En producción cada una usa el inicio de sesión oficial (OAuth) de la plataforma.</p>
+      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 14, lineHeight: 1.6 }}>Cada herramienta se conecta con el inicio de sesión oficial (OAuth) de la plataforma. Conecta solo las que uses en tu clínica.</p>
     </div>
   );
 }
 
 /* ─────────── REPORTES ─────────── */
-function ReportesView({ T }) {
+function ReportesView({ T, patients, appts }) {
   const D = window.JCDATA;
-  const rev = [{ m: "Ene", v: 1.8 }, { m: "Feb", v: 2.2 }, { m: "Mar", v: 2.0 }, { m: "Abr", v: 2.9 }, { m: "May", v: 3.4 }, { m: "Jun", v: 3.9 }];
+  // ── Reportes con datos REALES de la clínica (caja, pacientes, citas). Sin demo: 0 hasta que haya movimientos. ──
+  const moves = (() => { try { return (window.DB && window.DB.get("cash_moves")) || []; } catch (e) { return []; } })();
+  const ingresos = moves.filter(m => m.type === "ingreso");
+  const MES_ABBR = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  // Últimos 6 meses (incluido el actual), ingresos en MM CLP.
+  const now = new Date();
+  const rev = [];
+  for (let k = 5; k >= 0; k--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+    const key = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2);
+    const sum = ingresos.filter(m => (m.ts || "").slice(0, 7) === key).reduce((s, m) => s + (m.amount || 0), 0);
+    rev.push({ m: MES_ABBR[d.getMonth()], v: Math.round(sum / 100000) / 10 }); // MM CLP, 1 decimal
+  }
   const serie = rev.map(r => r.v);
   const totalAnual = serie.reduce((a, b) => a + b, 0);
-  const growth = Math.round((serie[serie.length - 1] / serie[0] - 1) * 100);
-  const pop = [["Toxina botulínica", 0.46], ["Rinomodelación", 0.24], ["Sculptra", 0.18], ["Mesoterapia", 0.12]];
-  let cashToday2 = 0; try { const mv = (window.DB && window.DB.get("cash_moves")) || []; const t = new Date().toISOString().slice(0, 10); cashToday2 = mv.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 10) === t).reduce((s, m) => s + (m.amount || 0), 0); } catch (e) {}
+  const growth = serie[0] > 0 ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
+  // Servicios más populares: por número de citas registradas por procedimiento.
+  const procCount = {};
+  (appts || []).forEach(a => { const k = (a.proc || "").trim(); if (k) procCount[k] = (procCount[k] || 0) + 1; });
+  const totalCitas = Object.values(procCount).reduce((a, b) => a + b, 0);
+  const pop = Object.entries(procCount).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => [n, totalCitas ? c / totalCitas : 0]);
+  // Ticket promedio real (ingresos / nº de ingresos).
+  const ticketProm = ingresos.length ? Math.round(ingresos.reduce((s, m) => s + (m.amount || 0), 0) / ingresos.length) : 0;
+  const t0 = new Date().toISOString().slice(0, 10);
+  const cashToday2 = ingresos.filter(m => (m.ts || "").slice(0, 10) === t0).reduce((s, m) => s + (m.amount || 0), 0);
+  // No-show real (citas marcadas no asistió / total con estado).
+  const conEstado = (appts || []).filter(a => a.status);
+  const noShow = conEstado.length ? Math.round(conEstado.filter(a => a.status === "no_show" || a.status === "ausente").length / conEstado.length * 100) : 0;
   const green = "#1F8A5B";
   // Gráfico de área con curva suave (mismo estilo que el dashboard).
   function RevChart() {
@@ -470,9 +652,9 @@ function ReportesView({ T }) {
         <RevChart />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 }}>
-        <AdStat T={T} n={D.fmt(238000)} l="Ticket promedio" />
-        <AdStat T={T} n="96%" l="Retención pacientes" />
-        <AdStat T={T} n="4%" l="No-show rate" />
+        <AdStat T={T} n={D.fmt(ticketProm)} l="Ticket promedio" />
+        <AdStat T={T} n={(patients || []).length} l="Pacientes" />
+        <AdStat T={T} n={noShow + "%"} l="No-show rate" />
         <AdStat T={T} n={D.fmt(cashToday2)} l="Ingresos hoy" />
       </div>
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
@@ -480,6 +662,7 @@ function ReportesView({ T }) {
           <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg></div>
           <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Servicios más populares</div>
         </div>
+        {pop.length === 0 && <Empty2 T={T}>Aún sin citas registradas. El ranking aparecerá cuando agendes procedimientos.</Empty2>}
         {pop.map(([n, p]) => (
           <div key={n} style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 5 }}><span>{n}</span><span style={{ color: T.accent, fontWeight: 600 }}>{Math.round(p * 100)}%</span></div>
@@ -487,7 +670,7 @@ function ReportesView({ T }) {
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 14 }}><AdBtn T={T} full onClick={() => { const csv = "Mes,Ingresos(MM CLP)\n" + rev.map(r => r.m + "," + r.v).join("\n"); const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv); a.download = "reporte-jcmedical.csv"; a.click(); }}>Exportar CSV</AdBtn></div>
+      <div style={{ marginTop: 14 }}><AdBtn T={T} full onClick={() => { const csv = "Mes,Ingresos(MM CLP)\n" + rev.map(r => r.m + "," + r.v).join("\n"); const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv); a.download = "reporte-ingresos.csv"; a.click(); }}>Exportar CSV</AdBtn></div>
     </div>
   );
 }
@@ -500,7 +683,8 @@ const IND_TPL_SEED = [
 ];
 function getIndTemplates() {
   try { const c = (window.DB && DB.cfg().ind_templates); if (c && c.length) return c; } catch (e) {}
-  return IND_TPL_SEED;
+  // Solo la clínica base (JC Medical) o el modo local heredan las plantillas de ejemplo; las nuevas parten en blanco.
+  return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? IND_TPL_SEED : [];
 }
 // Diagnósticos sugeridos (desplegable en Receta / Indicaciones).
 const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"];
@@ -573,12 +757,7 @@ function ConfigView({ T }) {
           </div>
         </div>
       </div>
-      <ClinCard T={T} title="Datos de la clínica">
-        <Row T={T} k="Nombre" v="JC Medical" />
-        <Row T={T} k="Dirección" v={D.contact.address} />
-        <Row T={T} k="Profesional" v={D.contact.pro} />
-        <Row T={T} k="WhatsApp" v={"+" + D.wa} />
-      </ClinCard>
+      <ClinicDataCard T={T} />
       <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>
       <IndTemplatesEditor T={T} />
       <ClinCard T={T} title="Notificaciones">
@@ -594,6 +773,46 @@ function ClinCard({ T, title, children }) {
   return <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
     <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{title}</div>{children}
   </div>;
+}
+/* Datos de la clínica — propios de cada clínica, editables. Vacíos para clínicas nuevas. */
+function ClinicDataCard({ T }) {
+  const cfg0 = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const clinicName = (() => { try { return (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && (window.JCSAAS.currentClinic() || {}).name); } catch (e) { return ""; } })();
+  const [f, setF] = useState({
+    clinic_name: cfg0.clinic_name || clinicName || "",
+    clinic_addr: cfg0.clinic_addr || "",
+    professional: cfg0.professional || "",
+    wa_number: cfg0.wa_number || ""
+  });
+  const [saved, setSaved] = useState(false);
+  function onWa(v) {
+    // Prefijo +569 fijo, solo dígitos.
+    let d = (v || "").replace(/\D/g, "");
+    if (d.indexOf("569") === 0) d = d.slice(3); else if (d.indexOf("56") === 0) d = d.slice(2);
+    d = d.replace(/^9/, "").slice(0, 8);
+    setF({ ...f, wa_number: "569" + d }); setSaved(false);
+  }
+  const waDisplay = "+569 " + ((f.wa_number || "").replace(/^569/, ""));
+  function save() {
+    try { DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), professional: f.professional.trim(), wa_number: (f.wa_number || "").replace(/\D/g, "") })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {}
+  }
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Datos de la clínica</div>
+        <AdBtn T={T} small primary onClick={save}>{saved ? "✓ Guardado" : "Guardar"}</AdBtn>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <AdField T={T} label="Nombre de la clínica" value={f.clinic_name} onChange={v => { setF({ ...f, clinic_name: v }); setSaved(false); }} placeholder="Ej: Clínica Karenina" />
+        <AdField T={T} label="Dirección" value={f.clinic_addr} onChange={v => { setF({ ...f, clinic_addr: v }); setSaved(false); }} placeholder="Ej: 1 Norte 123, oficina 4, Talca" />
+        <AdField T={T} label="Profesional a cargo" value={f.professional} onChange={v => { setF({ ...f, professional: v.replace(/[0-9]/g, "") }); setSaved(false); }} placeholder="Ej: Dra. Karenina Soto" />
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>WhatsApp</span>
+          <input value={waDisplay} onChange={e => onWa(e.target.value)} inputMode="numeric" placeholder="+569 1234 5678" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+        </label>
+      </div>
+    </div>
+  );
 }
 function Row({ T, k, v }) { return <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{k}</span><span style={{ color: T.text, textAlign: "right" }}>{v}</span></div>; }
 function ToggleRow({ T, label, def }) { const [on, setOn] = useState(def); return <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0" }}><span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{label}</span><AdSwitch T={T} on={on} onClick={() => setOn(!on)} /></div>; }
@@ -630,9 +849,11 @@ function ColaboracionView({ T }) {
   return (
     <div>
       <SecHead T={T} title="Colaboraciones" sub="Postulaciones de gente que quiere colaborar con la clínica, recibidas desde el formulario público." />
-      {/* Link del formulario público (formulario propio, no Google Forms) */}
+      {/* Link del formulario público, propio de cada clínica (las solicitudes llegan a este panel) */}
       {(() => {
-        const url = (typeof window !== "undefined" ? window.location.origin : "") + "/colaborar.html";
+        const url = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.collabLink)
+          ? window.JCSAAS.collabLink()
+          : ((typeof window !== "undefined" ? window.location.origin : "") + "/colaborar.html");
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px", marginBottom: 16 }}>
             <div style={{ flex: 1, minWidth: 200 }}>
@@ -691,7 +912,7 @@ function ColaboracionView({ T }) {
 
 /* ─────────── COLABORACIÓN · detalle (popup) ─────────── */
 function CollabModal({ T, D, r, onClose, onStatus }) {
-  const clinic = (D && D.brand) || "JC Medical";
+  const clinic = (window.clinicName && window.clinicName()) || (D && D.brand) || "la clínica";
   const saludo = "Hola " + (r.name || "") + ", ¡gracias por tu interés en colaborar con " + clinic + "!";
   const msgOk = saludo + " Revisamos tu perfil y nos encantaría avanzar contigo. Como los procedimientos de medicina estética son actos médicos, el siguiente paso es una evaluación clínica previa para definir el tratamiento y la fecha. ¿Qué día te acomoda para ver disponibilidad?";
   const msgNo = saludo + " Agradecemos mucho tu propuesta y el tiempo que dedicaste. Por ahora no podremos concretar esta colaboración, pero guardamos tus datos para futuras campañas. ¡Te deseamos mucho éxito!";
@@ -941,11 +1162,13 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
       <button onClick={() => delTask(t.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
     </div>
   );
+  const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
   const sinConsent = patients.filter(p => !p.consent);
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
-  const waMsgs = (window.CADMIN || {}).waMessages || [];
-  const bizC = (window.CADMIN || {}).bizComments || [];
-  const segs = D.reminders;
+  // WhatsApp/Business/seguimientos de ejemplo: solo la clínica base o el modo local. Las nuevas parten vacías.
+  const waMsgs = seeded ? (CADMIN.waMessages || []) : [];
+  const bizC = seeded ? (CADMIN.bizComments || []) : [];
+  const segs = seeded ? (D.reminders || []) : [];
   return (
     <div>
       <SecHead T={T} title="Pendientes" sub="Tareas generales del equipo y seguimientos clínicos." />
@@ -1072,25 +1295,48 @@ function AutomatizacionesView({ T }) {
     return AUTO_SEED.map(r => ({ ...r, on: r.id in saved ? saved[r.id] : r.on }));
   });
   function toggle(id) { const n = rules.map(r => r.id === id ? { ...r, on: !r.on } : r); setRules(n); try { DB.set("automations", n); } catch (e) {} }
-  const [reviewLink, setReviewLink] = useState(() => { try { return DB.cfg().review_link || ""; } catch (e) { return ""; } });
-  const [savedLink, setSavedLink] = useState(false);
-  function guardarLink() { try { DB.set("config", Object.assign({}, DB.cfg(), { review_link: reviewLink.trim() })); setSavedLink(true); setTimeout(() => setSavedLink(false), 2200); } catch (e) {} }
+  // Enlace de reseña PROPIO de la clínica (formulario Medique): medique.cl/review?c=clinicId
+  const reviewUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink)
+    ? window.JCSAAS.reviewLink()
+    : ((typeof window !== "undefined" ? window.location.origin : "") + "/review.html");
+  const [copiedRev, setCopiedRev] = useState(false);
+  function copyReview() { try { navigator.clipboard.writeText(reviewUrl); setCopiedRev(true); setTimeout(() => setCopiedRev(false), 1800); } catch (e) {} }
+  // Reseñas recibidas (importadas al panel desde el formulario público).
+  const reviews = (() => { try { return (window.DB && DB.get("reviews")) || []; } catch (e) { return []; } })();
+  const avg = reviews.length ? (reviews.reduce((s, r) => s + (r.stars || 0), 0) / reviews.length) : 0;
+  const stars = n => "★★★★★☆☆☆☆☆".slice(5 - Math.round(n), 10 - Math.round(n));
   return (
     <div>
       <SecHead T={T} title="Automatizaciones" sub="Configura recordatorios y mensajes automáticos para tus pacientes." />
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
-        Demo local: el envío real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aquí configuras y visualizas las reglas.
+        El envío real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aquí configuras y visualizas las reglas.
       </div>
-      {/* Enlace de reseña de Google: se agrega al final del mensaje de indicaciones post tratamiento. */}
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Enlace de reseña (Google)</div>
+      {/* Formulario de reseñas propio de la clínica (Medique). Se comparte con los pacientes; las reseñas llegan al panel. */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Formulario de reseñas de tu clínica</div>
+          {reviews.length > 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(avg)} <span style={{ color: T.textMute }}>{avg.toFixed(1)} · {reviews.length} reseña{reviews.length === 1 ? "" : "s"}</span></div>}
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Comparte este enlace con tus pacientes (se incluye al final del mensaje de indicaciones cuando "Solicitud de reseña" está activa). Las reseñas que dejen llegan a este panel.</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input value={reviewLink} onChange={e => setReviewLink(e.target.value)} data-nocap placeholder="https://g.page/r/…/review" style={{ flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }} />
-          <AdBtn T={T} primary onClick={guardarLink}>{savedLink ? "✓ Guardado" : "Guardar enlace"}</AdBtn>
+          <input readOnly value={reviewUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
+          <button onClick={copyReview} style={{ padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{copiedRev ? "✓" : "Copiar"}</button>
+          <a href={reviewUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, textDecoration: "none", fontFamily: T.sans, fontSize: 11.5 }}>Abrir ↗</a>
         </div>
-        <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 8, lineHeight: 1.5 }}>
-          Se obtiene en tu Perfil de Empresa de Google → "Pedir reseñas" → copiar enlace. Cuando "Solicitud de reseña" está activa, este enlace se añade al final del mensaje de indicaciones post tratamiento.
-        </div>
+        {/* Últimas reseñas recibidas */}
+        {reviews.length > 0 && (
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            {reviews.slice(0, 5).map(r => (
+              <div key={r.id} style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{r.name || "Anónimo"}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(r.stars || 0)}</span>
+                </div>
+                {r.comment && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3, lineHeight: 1.5 }}>{r.comment}</div>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {rules.map(r => {
@@ -1174,7 +1420,8 @@ function CitaAgendadaOkPopup({ T, cita, appts, onClose }) {
   );
 }
 function AgenteIAView({ T, patients, addAppt }) {
-  const [convs, setConvs] = useState(() => { try { return DB.get("wa_conversations") || WA_SEED; } catch (e) { return WA_SEED; } });
+  const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
+  const [convs, setConvs] = useState(() => { try { const s = DB.get("wa_conversations"); if (s) return s; } catch (e) {} return seeded ? WA_SEED : []; });
   const [appts, setAppts] = useState(() => { try { return DB.get("appts") || []; } catch (e) { return []; } });
   const [sel, setSel] = useState(convs[0] ? convs[0].id : null);
   const [draft, setDraft] = useState("");
@@ -1208,7 +1455,9 @@ function AgenteIAView({ T, patients, addAppt }) {
         </div>
       </div>
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
-        Modo prototipo. Conversaciones de ejemplo; el envío real de WhatsApp y las respuestas con IA corren en el servidor (Medique).
+        {seeded
+          ? "Conversaciones de ejemplo. El envío real de WhatsApp y las respuestas con IA corren en el servidor (Medique)."
+          : "Conecta tu WhatsApp Business para que el asistente responda a tus pacientes con el contexto de tu clínica. Hasta entonces, esta bandeja está vacía."}
       </div>
       {/* KPIs del agente */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 }}>
@@ -1224,6 +1473,16 @@ function AgenteIAView({ T, patients, addAppt }) {
         <span style={{ fontFamily: T.sans, fontSize: 9.5, color: "#1F8A5B", background: "rgba(31,138,91,.1)", borderRadius: 6, padding: "2px 7px" }}>Gratis</span>
         <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Auto-respuesta · Bot activo</span>
       </div>
+      {convs.length === 0 ? (
+        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "44px 28px", textAlign: "center" }}>
+          <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(31,138,91,.12)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" strokeWidth="1.7"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
+          </div>
+          <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text, marginBottom: 6 }}>Conecta tu agente de WhatsApp</div>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 18px" }}>Aún no hay conversaciones. Vincula tu WhatsApp Business y el asistente responderá a tus pacientes, agendará citas y resolverá dudas con el contexto de tu clínica.</div>
+          <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, borderRadius: 8, padding: "11px 20px", display: "inline-block" }}>Conectar WhatsApp</span>
+        </div>
+      ) : (
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 12, height: 460 }}>
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflowY: "auto" }}>
           {convs.map(c => (
@@ -1260,6 +1519,7 @@ function AgenteIAView({ T, patients, addAppt }) {
           </> : <Empty2 T={T}>Selecciona una conversación.</Empty2>}
         </div>
       </div>
+      )}
       {darCita && (
         <NewCitaModal T={T} patients={patients || []} prefill={{ name: darCita.name, phone: darCita.phone }} onClose={() => setDarCita(null)} onSave={handleSaveCita} />
       )}
@@ -1648,6 +1908,16 @@ const ADMIN_TABS = [["datos", "Datos / facturación"], ["registro", "Registro de
 function AdministracionView({ T, go, patients, appts, addPatient }) {
   const D = window.JCDATA;
   const [tab, setTab] = useState("datos");
+  // Plan/suscripción se autocompleta desde la clínica del SaaS (trial → "Demo").
+  const autoPlan = (() => {
+    try {
+      const c = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || null;
+      if (!c) return "";
+      const p = (c.plan || "").toLowerCase();
+      if (p === "trial" || p === "demo" || !p) return "Demo";
+      return c.plan.charAt(0).toUpperCase() + c.plan.slice(1);
+    } catch (e) { return ""; }
+  })();
   const [biz, setBiz] = useState(() => { try { return DB.get("clinic_biz") || { razon: "", rut: "", plan: "" }; } catch (e) { return { razon: "", rut: "", plan: "" }; } });
   const [msg, setMsg] = useState("");
   const fileRef = useRef(null);
@@ -1694,10 +1964,16 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
       {tab === "datos" && (
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, maxWidth: 560 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 13 }}>
-            <AdField T={T} label="Razón social" value={biz.razon} onChange={v => setBiz({ ...biz, razon: v })} placeholder="Ej. Mi Clínica SpA" />
-            <AdField T={T} label="RUT / Tax ID" value={biz.rut} onChange={v => setBiz({ ...biz, rut: v })} placeholder="Ej. 76.123.456-7" />
+            <AdField T={T} label="Razón social" value={biz.razon} onChange={v => setBiz({ ...biz, razon: v })} placeholder="Ej: Nombre SpA" />
+            <AdField T={T} label="RUT empresa" value={biz.rut} onChange={v => setBiz({ ...biz, rut: (window.jcmFmtRut ? window.jcmFmtRut(v) : v) })} placeholder="xx.xxx.xxx-x" />
           </div>
-          <div style={{ marginTop: 13 }}><AdField T={T} label="Plan / suscripción" value={biz.plan} onChange={v => setBiz({ ...biz, plan: v })} placeholder="Ej. Profesional" /></div>
+          <div style={{ marginTop: 13 }}>
+            <label style={{ display: "block" }}>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Plan / suscripción</span>
+              <div style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface2, color: T.textMute, fontFamily: T.sans, fontSize: 13.5, boxSizing: "border-box" }}>{autoPlan || biz.plan || "—"}</div>
+              <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>Se asigna automáticamente según tu suscripción en Medique.</p>
+            </label>
+          </div>
           <div style={{ marginTop: 16, textAlign: "right" }}><AdBtn T={T} primary onClick={saveBiz}>Guardar</AdBtn></div>
         </div>
       )}

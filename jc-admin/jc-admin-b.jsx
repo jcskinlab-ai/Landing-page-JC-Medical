@@ -81,7 +81,7 @@ function recitaDue(patients) { return (patients || []).map(p => ({ p, r: recitaF
 // Mensaje de WhatsApp que muestra el precio real y luego el precio preferente (en pesos, no en %).
 function recitaMsg(p, r) {
   const first = (p.name || "").split(" ")[0] || "";
-  return "Hola " + first + ", te saludamos de JC Medical. " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) +
+  return "Hola " + first + ", te saludamos de " + ((window.clinicName && window.clinicName()) || "tu clínica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) +
     ". El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + ". ¿Te agendamos tu hora?";
 }
 function recitaWa(p, r) { return "https://wa.me/" + (p.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(recitaMsg(p, r)); }
@@ -182,17 +182,33 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
 
 function NewPatientModal({ T, onClose, onSave }) {
   const [f, setF] = useState({ name: "", rut: "", age: "", phone: "+56 9 ", email: "" });
-  const ok = f.name.trim().length > 2 && f.phone.replace(/\D/g, "").length >= 11;
+  const onlyLetters = v => v.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñÜü\s.]/g, "");
+  function onPhone(v) {
+    let d = (v || "").replace(/\D/g, "");
+    if (d.indexOf("569") === 0) d = d.slice(3); else if (d.indexOf("56") === 0) d = d.slice(2);
+    d = d.replace(/^9/, "").slice(0, 8);
+    setF({ ...f, phone: "+56 9 " + d });
+  }
+  const phoneDigits = f.phone.replace(/\D/g, "");
+  const rutOk = !f.rut.trim() || (window.jcmValidRut ? window.jcmValidRut(f.rut) : true);
+  const emailOk = !f.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim());
+  const ok = f.name.trim().length > 2 && phoneDigits.length >= 11 && rutOk && emailOk;
   return (
-    <AdModal T={T} title="Nuevo paciente" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ ...f, age: parseInt(f.age, 10) || 0 })}>Guardar paciente</AdBtn>}>
+    <AdModal T={T} title="Nuevo paciente" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ ...f, name: f.name.trim(), age: parseInt(f.age, 10) || 0 })}>Guardar paciente</AdBtn>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Valentina Pérez" />
+        <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: onlyLetters(v) })} placeholder="Ej: Valentina Pérez" />
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr .8fr", gap: 10 }}>
-          <AdField T={T} label="RUT" value={f.rut} onChange={v => setF({ ...f, rut: v })} placeholder="12.345.678-9" />
-          <AdField T={T} label="Edad" value={f.age} onChange={v => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 2) })} inputMode="numeric" placeholder="32" />
+          <div>
+            <AdField T={T} label="RUT" value={f.rut} onChange={v => setF({ ...f, rut: (window.jcmFmtRut ? window.jcmFmtRut(v) : v) })} placeholder="20.090.534-2" />
+            {f.rut.trim() && !rutOk && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 5 }}>RUT inválido (revisa el dígito verificador).</div>}
+          </div>
+          <AdField T={T} label="Edad" value={f.age} onChange={v => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 3) })} inputMode="numeric" placeholder="32" />
         </div>
-        <AdField T={T} label="Teléfono (WhatsApp)" value={f.phone} onChange={v => setF({ ...f, phone: v })} inputMode="tel" />
-        <AdField T={T} label="Correo" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" placeholder="correo@ejemplo.com" />
+        <AdField T={T} label="Teléfono (WhatsApp)" value={f.phone} onChange={onPhone} inputMode="numeric" />
+        <div>
+          <AdField T={T} label="Correo (opcional)" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" placeholder="correo@ejemplo.com" />
+          {f.email.trim() && !emailOk && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 5 }}>Correo inválido.</div>}
+        </div>
       </div>
     </AdModal>
   );
@@ -220,7 +236,7 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
     const cv = k => (window.clinVal ? window.clinVal(c, k) : (c[k] || ""));
     const hist = patient.history || [];
     // Profesional que atendió: el de la sesión más reciente; si no hay, el responsable de la clínica.
-    const proName = (hist.find(h => h.proName) || {}).proName || (D.contact && D.contact.pro) || "Juan Claudio Parra";
+    const proName = (hist.find(h => h.proName) || {}).proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const field = (l, v) => "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + (v ? esc(v) : "—") + "</div></div>";
@@ -231,37 +247,37 @@ function FichaMedica({ T, patient, updatePatient, onBack, onAgendar }) {
       (h.proName ? "<div class='sp'>Realizado por " + esc(h.proName) + "</div>" : "") + "</div>";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Ficha clínica · " + esc(patient.name) + "</title>" +
       "<style>body{font-family:Georgia,serif;color:#1a1a14;margin:0;padding:38px 44px;line-height:1.5}h1{font-size:22px;margin:0;font-weight:400}h2{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#888;margin:26px 0 8px;border-bottom:1px solid #ddd;padding-bottom:5px}.muted{color:#666;font-size:12px}.row{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1a14;padding-bottom:10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}.fld{padding:4px 0}.fl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#999}.fv{font-size:14px}.ses{padding:9px 0;border-bottom:1px dotted #ccc}.sd{font-size:14px;font-weight:bold}.sd .u{font-weight:normal;color:#666}.sm{font-size:11px;color:#777;margin-top:2px}.sn{font-size:13px;margin-top:3px}.sp{font-size:11px;color:#888;font-style:italic;margin-top:3px}.firma{margin-top:80px;display:flex;justify-content:space-between;gap:40px}.firmaBox{flex:1;text-align:center}.line{border-top:1px solid #1a1a14;margin-top:54px;padding-top:6px;font-size:12px}.timbre{width:200px;height:90px;border:1px dashed #aaa;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px;margin:0 auto}</style></head><body>" +
-      "<div class='row'><div><h1>" + esc(D.brand || "JC Medical") + "</h1><div class='muted'>Ficha clínica</div></div><div class='muted'>" + hoy + "</div></div>" +
+      "<div class='row'><div><h1>" + esc((window.clinicName && window.clinicName()) || D.brand || "Medique") + "</h1><div class='muted'>Ficha clínica</div></div><div class='muted'>" + hoy + "</div></div>" +
       "<h2>Paciente</h2><div class='grid'>" + field("Nombre", patient.name) + field("CI / RUT", patient.rut) + field("Edad", patient.age ? patient.age + " años" : "") + field("Teléfono", patient.phone) + field("Correo", patient.email) + field("Estado", estado) + "</div>" +
       "<h2>Antecedentes</h2><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + "</div>" +
       "<h2>Hábitos y piel</h2><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros al día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
       (patient.notes ? "<h2>Notas internas</h2><div class='fv'>" + esc(patient.notes) + "</div>" : "") +
       "<h2>Historial de sesiones</h2>" + (hist.length ? hist.map(sesion).join("") : "<div class='muted'>Sin sesiones registradas.</div>") +
       "<div class='firma'><div class='firmaBox' style='max-width:320px'><div class='line'>Firma del profesional</div><div class='muted' style='margin-top:4px'>" + esc(proName) + " · Medicina estética</div></div></div>" +
-      "<script>window.onload=function(){window.print();}<\/script></body></html>";
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); }
+      "</body></html>";
+    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
   }
 
   // Imprime UNA sesión/procedimiento (para adjuntar a la ficha física).
   function imprimirProc(h) {
-    const proName = h.proName || (D.contact && D.contact.pro) || "Juan Claudio Parra";
+    const proName = h.proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const field = (l, v) => v ? "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + esc(v) + "</div></div>" : "";
     const meta = [h.lote && ("Lote " + h.lote), h.venc && ("Vence " + h.venc), h.temp && ("Temp. " + h.temp), h.dilucion && ("Dilución " + h.dilucion)].filter(Boolean).join("  ·  ");
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Procedimiento · " + esc(patient.name) + "</title>" +
       "<style>@page{size:letter;margin:2.2cm 2cm}body{font-family:Georgia,serif;color:#1a1a14;margin:0;line-height:1.55}h1{font-size:21px;margin:0;font-weight:400}h2{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#888;margin:24px 0 8px;border-bottom:1px solid #ddd;padding-bottom:5px}.muted{color:#666;font-size:12px}.row{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1a14;padding-bottom:10px}.tt{font-size:15px;letter-spacing:.06em;text-transform:uppercase;text-align:center;margin:22px 0 4px;font-family:Helvetica,Arial,sans-serif}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}.fld{padding:4px 0}.fl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#999}.fv{font-size:14px}.box{font-size:14px;line-height:1.8;margin-top:6px;white-space:pre-wrap}.firma{margin-top:90px}.firmaBox{max-width:320px}.line{border-top:1px solid #1a1a14;padding-top:6px;font-size:12px}</style></head><body>" +
-      "<div class='row'><div><h1>" + esc(D.brand || "JC Medical") + "</h1><div class='muted'>" + esc(proName) + " · Medicina estética" + ((D.contact && D.contact.address) ? " · " + esc(D.contact.address) : "") + "</div></div><div class='muted' style='text-align:right'>" + esc(h.date || hoy) + "</div></div>" +
+      "<div class='row'><div><h1>" + esc((window.clinicName && window.clinicName()) || D.brand || "Medique") + "</h1><div class='muted'>" + esc(proName) + " · Medicina estética" + ((window.clinicAddr && window.clinicAddr()) ? " · " + esc(window.clinicAddr()) : "") + "</div></div><div class='muted' style='text-align:right'>" + esc(h.date || hoy) + "</div></div>" +
       "<div class='tt'>Procedimiento realizado</div>" +
       "<h2>Paciente</h2><div class='grid'>" + field("Nombre", patient.name) + field("CI / RUT", patient.rut) + field("Edad", patient.age ? patient.age + " años" : "") + "</div>" +
       "<h2>Procedimiento</h2><div class='grid'>" + field("Tratamiento", h.proc) + field("Unidades / dosis", h.units) + field("Insumo", meta) + "</div>" +
       (h.resumen ? "<h2>Resumen de la aplicación</h2><div class='box'>" + esc(h.resumen) + "</div>" : "") +
       (h.note ? "<h2>Notas / resultados</h2><div class='box'>" + esc(h.note) + "</div>" : "") +
       "<div class='firma'><div class='firmaBox'><div class='line'>Firma del profesional</div><div class='muted' style='margin-top:4px'>" + esc(proName) + "</div></div></div>" +
-      "<script>window.onload=function(){window.print();}<\/script></body></html>";
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); }
+      "</body></html>";
+    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
   }
 
   return (
@@ -482,7 +498,36 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             <AdField T={T} label="Fecha" value={f.date} onChange={v => setF({ ...f, date: v })} />
             <AdField T={T} label="Dosis / cantidad" value={f.units} onChange={v => setF({ ...f, units: v })} placeholder="24U / 1 ml" />
           </div>
-          <AdField T={T} label="Procedimiento" value={f.proc} onChange={v => setF({ ...f, proc: v })} placeholder="Botox 3 zonas" />
+          {/* Procedimiento: desplegable con los servicios de la clínica (agrupados por categoría) + opción "Otro". */}
+          {(() => {
+            const svcs = (window.clinicServiceList ? window.clinicServiceList() : []);
+            const byCat = {}; svcs.forEach(s => { (byCat[s.cat] = byCat[s.cat] || []).push(s); });
+            const cats = Object.keys(byCat);
+            const known = svcs.some(s => s.name === f.proc);
+            const isOther = f.proc && !known;
+            if (!svcs.length) {
+              return (
+                <label style={{ display: "block" }}>
+                  <span style={lblS}>Procedimiento</span>
+                  <AdField T={T} value={f.proc} onChange={v => setF({ ...f, proc: v })} placeholder="Escríbelo o créalo en Servicios" />
+                  <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>Crea tus servicios en la sección <b>Servicios</b> para elegirlos aquí.</p>
+                </label>
+              );
+            }
+            return (
+              <div>
+                <label style={{ display: "block" }}>
+                  <span style={lblS}>Procedimiento</span>
+                  <select value={isOther ? "__other__" : f.proc} onChange={e => { const v = e.target.value; setF({ ...f, proc: v === "__other__" ? " " : v }); }} style={sel}>
+                    <option value="">Selecciona un servicio…</option>
+                    {cats.map(c => <optgroup key={c} label={c}>{byCat[c].map((s, i) => <option key={c + i} value={s.name}>{s.name}</option>)}</optgroup>)}
+                    <option value="__other__">Otro (especificar)…</option>
+                  </select>
+                </label>
+                {isOther && <div style={{ marginTop: 8 }}><AdField T={T} value={f.proc.trim()} onChange={v => setF({ ...f, proc: v })} placeholder="Nombre del procedimiento" /></div>}
+              </div>
+            );
+          })()}
 
           {/* Profesional que realiza */}
           <label style={{ display: "block" }}>
@@ -505,8 +550,8 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 11 }}>Producto aplicado</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: v })} placeholder="Ej. AB1234" />
-              <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => setF({ ...f, venc: v })} placeholder="2027-03" />
-              <AdField T={T} label="Temperatura conserv." value={f.temp} onChange={v => { const base = v.replace(/\s*°.*$/, "").replace(/\s+$/, ""); setF({ ...f, temp: base ? base + " °C" : "" }); }} placeholder="2–8 °C" />
+              <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => { let d = v.replace(/\D/g, "").slice(0, 6); setF({ ...f, venc: d.length > 4 ? d.slice(0, 4) + "-" + d.slice(4) : d }); }} inputMode="numeric" placeholder="2027-03 (AAAA-MM)" />
+              <AdField T={T} label="Temperatura conserv." value={f.temp} onChange={v => { const base = v.replace(/[^0-9–\-]/g, "").replace(/-/g, "–"); setF({ ...f, temp: base ? base + " °C" : "" }); }} inputMode="numeric" placeholder="2–8 °C" />
               <AdField T={T} label="Dilución / reconstitución" value={f.dilucion} onChange={v => setF({ ...f, dilucion: v })} placeholder="100U en 2,5 ml SF" />
             </div>
           </div>
@@ -671,7 +716,7 @@ function SignConsentModal({ T, data, onClose, onSign }) {
   const [nombre, setNombre] = useState(data.patient.name || "");
   const [ci, setCi] = useState(data.patient.rut || "");
   const [edad, setEdad] = useState(data.patient.age ? "" + data.patient.age : "");
-  const [prof, setProf] = useState("Juan Claudio Parra");
+  const [prof, setProf] = useState((window.clinicPro && window.clinicPro()) || "");
   const [fecha, setFecha] = useState(new Date().toLocaleDateString("es-CL"));
   const [sigPac, setSigPac] = useState(null);
   const [sigPro, setSigPro] = useState(null);
@@ -1095,27 +1140,27 @@ function RecetaTab({ T, patient, updatePatient }) {
     setDiag(""); setRp(""); setInd("");
   }
   function imprimir(r) {
-    const pro = (D.contact && D.contact.pro) || "Juan Claudio Parra";
-    const dir = (D.contact && D.contact.address) || "";
+    const pro = (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
+    const dir = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
     const title = titleOf(r.tipo);
     const rpHtml = r.rp.split("\n").map(l => "<div style='padding:4px 0;border-bottom:1px dotted #ccc'>" + (l || "&nbsp;") + "</div>").join("");
     const edad = patient.age ? patient.age + " años" : "";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + title + "</title>" +
       "<style>@page{size:letter;margin:2.2cm 2cm}body{font-family:Georgia,serif;color:#1a1a14;margin:0;line-height:1.5}h1{font-size:21px;margin:0;font-weight:400}.muted{color:#666;font-size:12px}.row{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1a14;padding-bottom:10px}.tt{font-size:15px;letter-spacing:.06em;text-transform:uppercase;text-align:center;margin:22px 0 4px;font-family:Helvetica,Arial,sans-serif}.lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#888;margin-top:16px}.grid{display:flex;gap:28px;flex-wrap:wrap}.rp{font-size:30px;font-style:italic;margin:12px 0 4px}.box{min-height:150px;font-size:15px;line-height:1.9;margin-top:6px}.firma{margin-top:90px}.firmaBox{max-width:320px}.line{border-top:1px solid #1a1a14;padding-top:6px;font-size:12px}</style></head><body>" +
-      "<div class='row'><div><h1>" + (D.brand || "JC Medical") + "</h1><div class='muted'>" + pro + " · Medicina estética" + (dir ? " · " + dir : "") + "</div></div><div class='muted' style='text-align:right'>" + r.fecha + "</div></div>" +
+      "<div class='row'><div><h1>" + ((window.clinicName && window.clinicName()) || D.brand || "Medique") + "</h1><div class='muted'>" + pro + " · Medicina estética" + (dir ? " · " + dir : "") + "</div></div><div class='muted' style='text-align:right'>" + r.fecha + "</div></div>" +
       "<div class='tt'>" + title + "</div>" +
       "<div class='lbl'>Paciente</div><div class='grid' style='font-size:15px'><div><b>" + (patient.name || "") + "</b></div>" + (patient.rut ? "<div>RUT " + patient.rut + "</div>" : "") + (edad ? "<div>Edad: " + edad + "</div>" : "") + "</div>" +
       (r.diag ? "<div class='lbl'>Diagnóstico</div><div>" + r.diag + "</div>" : "") +
       (r.tipo === "indicaciones" ? "<div class='lbl' style='margin-top:20px'>Indicaciones</div><div class='box'>" + rpHtml + "</div>" : "<div class='rp'>Rp.</div><div class='box'>" + rpHtml + "</div>") +
       (r.ind ? "<div class='lbl'>Notas adicionales</div><div>" + r.ind.replace(/\n/g, "<br>") + "</div>" : "") +
       "<div class='firma'><div class='firmaBox'><div class='line'>Firma del profesional</div><div class='muted' style='margin-top:4px'>" + pro + "</div></div></div>" +
-      "<script>window.onload=function(){window.print();}<\/script></body></html>";
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); }
+      "</body></html>";
+    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
   }
   function enviarWa(r) {
-    const pro = (D.contact && D.contact.pro) || "Juan Claudio Parra";
-    const L = ["*" + titleOf(r.tipo) + " — " + (D.brand || "JC Medical") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " años)" : "")];
+    const pro = (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
+    const L = ["*" + titleOf(r.tipo) + " — " + ((window.clinicName && window.clinicName()) || D.brand || "Medique") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " años)" : "")];
     if (r.diag) L.push("Diagnóstico: " + r.diag);
     L.push((r.tipo === "indicaciones" ? "Indicaciones:" : "Rp.:"), r.rp);
     if (r.ind) L.push("Notas: " + r.ind);

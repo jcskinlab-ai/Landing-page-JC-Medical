@@ -59,6 +59,55 @@ function jcmSanitize(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// ── RUT CHILENO (formato 20.090.534-2 + validación módulo 11) ───────────────
+// Formatea progresivamente mientras se escribe: solo dígitos + K como verificador.
+function jcmFmtRut(v) {
+  let s = (v || '').toString().toUpperCase().replace(/[^0-9K]/g, '');
+  if (!s) return '';
+  if (s.length > 9) s = s.slice(0, 9); // 8 dígitos cuerpo + 1 verificador
+  const dv = s.slice(-1);
+  let cuerpo = s.slice(0, -1);
+  if (!cuerpo) return dv; // aún escribiendo el primer dígito
+  // Puntos cada 3 desde la derecha.
+  cuerpo = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return cuerpo + '-' + dv;
+}
+// Valida un RUT chileno completo (con o sin formato). Devuelve true/false.
+function jcmValidRut(v) {
+  const s = (v || '').toString().toUpperCase().replace(/[^0-9K]/g, '');
+  if (s.length < 2) return false;
+  const cuerpo = s.slice(0, -1), dv = s.slice(-1);
+  if (!/^\d+$/.test(cuerpo)) return false;
+  let suma = 0, mul = 2;
+  for (let i = cuerpo.length - 1; i >= 0; i--) { suma += parseInt(cuerpo[i], 10) * mul; mul = mul === 7 ? 2 : mul + 1; }
+  const res = 11 - (suma % 11);
+  const dvCalc = res === 11 ? '0' : res === 10 ? 'K' : String(res);
+  return dvCalc === dv;
+}
+if (typeof window !== 'undefined') { window.jcmFmtRut = jcmFmtRut; window.jcmValidRut = jcmValidRut; }
+
+// ── IMPRESIÓN CONFIABLE (iframe oculto; evita bloqueadores de pop-ups) ───────
+// Recibe un documento HTML completo y lo imprime sin abrir una ventana nueva.
+function jcmPrintHTML(html) {
+  try {
+    const clean = html.replace(/<script[\s\S]*?<\/script>/gi, ''); // el print lo disparamos nosotros
+    const ifr = document.createElement('iframe');
+    ifr.setAttribute('aria-hidden', 'true');
+    ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;';
+    document.body.appendChild(ifr);
+    const doc = ifr.contentWindow.document;
+    doc.open(); doc.write(clean); doc.close();
+    const fire = () => { try { ifr.contentWindow.focus(); ifr.contentWindow.print(); } catch (e) {} setTimeout(() => { try { document.body.removeChild(ifr); } catch (e) {} }, 1500); };
+    if (ifr.contentWindow.document.readyState === 'complete') setTimeout(fire, 300);
+    else ifr.onload = () => setTimeout(fire, 300);
+    return true;
+  } catch (e) {
+    try { const w = window.open('', '_blank'); if (w) { w.document.write(html); w.document.close(); return true; } } catch (_) {}
+    return false;
+  }
+}
+if (typeof window !== 'undefined') window.jcmPrintHTML = jcmPrintHTML;
+
 // ── SESIÓN (8 h de TTL) ────────────────────────────────────────────────────
 const _SESS_KEY = 'jcm_session';
 const _SESS_TTL = 8 * 3600 * 1000;

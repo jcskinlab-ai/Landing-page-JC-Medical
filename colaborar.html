@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Solicitud de Colaboración — JC Medical</title>
+<title>Solicitud de Colaboración</title>
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#F5F2EC;--surface:#fff;--surface2:#FBF9F5;--ink:#1A1A14;--mute:#5C5A50;--faint:#8A8674;--line:rgba(20,20,15,.12);--accent:#54707F;--danger:#C0285A;--ok:#1F8A5B}
@@ -203,11 +203,26 @@
   <div id="done" class="ok hide">
     <div class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></div>
     <h2>¡Gracias por postular!</h2>
-    <p>Tu solicitud fue enviada a JC Medical. Revisamos cada propuesta según el perfil, la audiencia y la disponibilidad. Si avanzamos, te contactaremos por el correo o la red que indicaste.</p>
+    <p>Tu solicitud fue enviada a <span id="done-clinic">la clínica</span>. Revisamos cada propuesta según el perfil, la audiencia y la disponibilidad. Si avanzamos, te contactaremos por el correo o la red que indicaste.</p>
   </div>
 </div>
 
+<!-- Multi-clínica: si la URL trae ?c=clinicId, la solicitud llega a esa clínica -->
+<script src="jcm_saas_config.js?v=4"></script>
+<script src="jcm_saas.js?v=7"></script>
 <script>
+  // Marca de la clínica activa (cuando la URL trae ?c=clinicId).
+  var COLLAB_CLINIC = null;
+  function applyCollabClinic(p){
+    if(!p) return; COLLAB_CLINIC = p;
+    try{
+      document.title = 'Solicitud de Colaboración — ' + (p.name || 'Clínica');
+      var dn = document.getElementById('done-clinic'); if(dn && p.name) dn.textContent = p.name;
+    }catch(e){}
+  }
+  window.addEventListener('jcsaas:public', function(ev){ applyCollabClinic(ev.detail && ev.detail.profile); });
+  try{ if(window.JCSAAS && window.JCSAAS.getPublic && window.JCSAAS.getPublic()) applyCollabClinic(window.JCSAAS.getPublic()); }catch(e){}
+
   var STEPS = 4, cur = 0;
   var steps = [].slice.call(document.querySelectorAll('.step'));
   var backBtn = document.getElementById('back'), nextBtn = document.getElementById('next'), sendBtn = document.getElementById('send');
@@ -247,6 +262,28 @@
     if(firstBad){ firstBad.scrollIntoView({block:'center',behavior:'smooth'}); }
     return ok;
   }
+
+  // ── Validaciones de tipo por campo ──
+  // Solo letras (nombre, ciudad, audiencia): bloquea números y símbolos inválidos.
+  function lettersOnly(v){ return v.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñÜü .,'-]/g,''); }
+  ['name','ciudad','audiencia'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.addEventListener('input', function(){ var p=el.selectionStart; el.value = lettersOnly(el.value); try{el.setSelectionRange(p,p);}catch(e){} });
+  });
+  // Teléfono: prefijo +56 9 fijo (no se borra), solo números después.
+  (function(){
+    var ph = document.getElementById('phone'); if(!ph) return;
+    function fmt(){
+      var d = ph.value.replace(/\D/g,'');
+      if(d.indexOf('569')===0) d=d.slice(3); else if(d.indexOf('56')===0) d=d.slice(2);
+      d = d.replace(/^9/,'').slice(0,8);
+      var sp = d.length>4 ? d.slice(0,4)+' '+d.slice(4) : d;
+      ph.value = '+56 9 ' + sp;
+    }
+    ph.addEventListener('input', fmt);
+    ph.addEventListener('focus', fmt);
+    fmt();
+  })();
 
   nextBtn.addEventListener('click', function(){ if(validate(cur)) show(Math.min(cur+1, STEPS-1)); });
   backBtn.addEventListener('click', function(){ show(Math.max(cur-1, 0)); });
@@ -290,8 +327,20 @@
       status: 'nueva',
       ts: new Date().toISOString()
     };
-    var list = getCollabs(); list.unshift(item);
-    try{ localStorage.setItem(k('collabs'), JSON.stringify(list)); }catch(err){}
+    // Envío por clínica: si la URL trae ?c= y el SaaS está activo, va a Firestore (panel de esa clínica).
+    var sent = false;
+    try {
+      if (window.JCSAAS && window.JCSAAS.enabled && COLLAB_CLINIC && window.JCSAAS.submitCollab) {
+        sent = true;
+        window.JCSAAS.submitCollab({
+          name: name, email: email, phone: phone, kind: red || 'Colaboración',
+          ig: ig, tiktok: tiktok, ciudad: ciudad, redPrincipal: red, reach: seg,
+          views: views, audiencia: audiencia, ofrece: ofrece, proc: proc, message: message
+        }).catch(function(err){ try{ console.warn(err); }catch(e){} });
+      }
+    } catch(e){}
+    // Respaldo local (modo demo / sin clínica): conserva la solicitud en este dispositivo.
+    if (!sent) { var list = getCollabs(); list.unshift(item); try{ localStorage.setItem(k('collabs'), JSON.stringify(list)); }catch(err){} }
 
     document.getElementById('f').classList.add('hide');
     document.querySelector('.req-hint').classList.add('hide');

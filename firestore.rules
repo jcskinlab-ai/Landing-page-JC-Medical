@@ -69,5 +69,20 @@ service cloud.firestore {
                     && request.resource.data.phone is string;
       allow read, update, delete: if signedIn() && myClinic() == clinicId;
     }
+
+    // Colaboraciones que envían influencers/marcas desde el formulario público (sin login).
+    match /tenants/{clinicId}/collabs/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['name','email','phone','kind','ig','tiktok','ciudad','redPrincipal','reach','views','audiencia','ofrece','proc','message','createdAt'])
+                    && request.resource.data.name is string;
+      allow read, update, delete: if signedIn() && myClinic() == clinicId;
+    }
+
+    // Reseñas que dejan los pacientes desde el formulario público (sin login).
+    match /tenants/{clinicId}/reviews/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['name','phone','stars','comment','createdAt'])
+                    && request.resource.data.stars is number
+                    && request.resource.data.stars >= 1 && request.resource.data.stars <= 5;
+      allow read, update, delete: if signedIn() && myClinic() == clinicId;
+    }
   }
 }

@@ -18,7 +18,7 @@
   ],
   "headers": [
     {
-      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index|super)(.html)?",
+      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index|super|review|colaborar)(.html)?",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
     },
     {
