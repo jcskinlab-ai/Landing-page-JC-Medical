@@ -193,6 +193,20 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     } catch (e) {}
     setMetaEdit(false); bumpRev(r => r + 1);
   }
+  // Gasto/leads REALES de Meta (Opción B): cada clínica usa SU propio token (guardado en
+  // 'meta_creds', aislado). La clínica base usa las variables de entorno del servidor.
+  // Una clínica nueva sin Meta propio NO consulta /api/meta (evita ver el gasto de JC).
+  const [liveMeta, setLiveMeta] = useState(null);
+  useEffect(() => {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return; // modo local: sin fetch
+    let creds = null; try { creds = (window.DB && DB.get("meta_creds")) || null; } catch (e) {}
+    const hasOwn = !!(creds && creds.token && creds.account);
+    const isBase = window.JCM_BASE === true;
+    if (!hasOwn && !isBase) return; // clínica nueva sin Meta propio → solo carga manual
+    const bodyObj = hasOwn ? { token: creds.token, account: creds.account } : {};
+    fetch("/api/meta", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyObj) })
+      .then(r => r.json()).then(d => { if (d && d.ok) setLiveMeta(d); }).catch(() => {});
+  }, []);
   const funnel = (function () {
     const mes = new Date().toISOString().slice(0, 7);
     const inMonth = ts => (ts || "").slice(0, 7) === mes;
@@ -204,12 +218,14 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     let asistieron = allAppts.filter(a => a.attended || a.status === "atendida" || a.status === "confirmada").length;
     let spend = 0, leads = 0;
     try { const cfg = (window.DB && DB.get("config")) || {}; spend = +cfg.meta_spend_mes || 0; leads = +cfg.meta_leads_mes || 0; } catch (e) {}
+    // Si hay datos en vivo de Meta (token de la clínica o env de la base), tienen prioridad sobre la carga manual.
+    if (liveMeta && liveMeta.ok) { spend = liveMeta.spend || 0; if (liveMeta.leads) leads = liveMeta.leads; }
     // En SaaS no se muestran datos de ejemplo: cada clínica ve sus cifras reales (0 hasta conectar Meta).
     const demo = !spend && !(window.JCSAAS && window.JCSAAS.enabled);
     if (demo) { spend = 500000; leads = 120; reservas = 35; asistieron = 22; compras = 18; ingresos = 6800000; }
     else if (!leads) { leads = reservas; } // sin Meta conectado, los leads = reservas reales (0 si no hay)
     const roas = spend > 0 ? (ingresos / spend) : 0;
-    return { spend, leads, reservas, asistieron, compras, ingresos, roas, demo };
+    return { spend, leads, reservas, asistieron, compras, ingresos, roas, demo, live: !!(liveMeta && liveMeta.ok) };
   })();
 
   function FunnelBlock() {
@@ -225,7 +241,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px 18px", marginBottom: 16, boxShadow: "0 14px 40px -30px rgba(0,0,0,.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
           <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>Embudo de marketing · este mes</div>
-          <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}>{funnel.demo ? "Datos de ejemplo — carga tu gasto de Meta para verlo real" : "Datos reales de tu mes"}</span>
+          <span style={{ fontFamily: T.sans, fontSize: 10, color: funnel.live ? "#1F8A5B" : T.textFaint }}>{funnel.demo ? "Datos de ejemplo — carga tu gasto de Meta para verlo real" : (funnel.live ? "● Conectado a Meta · en vivo" : "Datos reales de tu mes")}</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18, alignItems: "start" }}>
           {/* Embudo */}

@@ -147,7 +147,7 @@
     </svg>
   </div>
   <h1>Agenda tu <em>cita</em></h1>
-  <div id="clinic-tag" style="display:none;margin:8px 0 0;font-family:'Jost';font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#54707F"></div>
+  <div id="clinic-tag" style="display:none;margin:10px 0 0;font-family:'Marcellus',serif;font-size:19px;line-height:1.2;color:#1A1A14"></div>
   <p class="sub">Elige uno o más tratamientos, tu hora y completa tus datos.<br>Te confirmamos de inmediato por WhatsApp.</p>
 
   <!-- Steps wrapper — hidden on success -->
@@ -274,7 +274,7 @@
 <script src="jc-proto/jc-data.js?v=74"></script>
 <!-- Multi-clínica: si la URL trae ?c=clinicId, carga la marca/datos de esa clínica -->
 <script src="jcm_saas_config.js?v=4"></script>
-<script src="jcm_saas.js?v=7"></script>
+<script src="jcm_saas.js?v=8"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -292,6 +292,8 @@
       document.title = 'Agenda tu cita — ' + (p.name || 'Clínica');
       var tag = document.getElementById('clinic-tag');
       if(tag && p.name){ tag.textContent = p.name; tag.style.display = 'block'; }
+      // El perfil de la clínica llega async; re-render los servicios con los SUYOS.
+      if(typeof buildServices === 'function') buildServices();
     }catch(e){}
   }
   window.addEventListener('jcsaas:public', function(ev){ applyClinic(ev.detail && ev.detail.profile); });
@@ -400,22 +402,42 @@
   function buildServices(){
     var el = document.getElementById('svc-list');
     var D  = window.JCDATA;
-    if(!D || !D.catalog){
-      el.innerHTML='<p style="color:var(--faint);font-size:13px;padding:14px 0">Cargando servicios...</p>';
-      return;
-    }
-    function card(name, price, meta){
+    function card(name, price, meta, dur){
       return '<div class="svc-card" data-name="'+esc(name)+'" data-price="'+price+'" onclick="addProc(this.dataset.name, parseInt(this.dataset.price,10)||0)">'
         + '<span class="svc-add">+</span>'
         + '<div class="svc-name">'+esc(name)+'</div>'
         + '<div class="svc-price">'+fmt(price)+'</div>'
         + (meta ? '<div class="svc-meta">'+esc(meta)+'</div>' : '')
-        + '<span class="svc-dur">⏱ '+procMin(name)+' min</span>'
+        + '<span class="svc-dur">⏱ '+(dur || procMin(name))+' min</span>'
         + '</div>';
+    }
+    // Servicios PROPIOS de la clínica del enlace (?c=clinicId), publicados en su perfil.
+    // Si el enlace trae una clínica, se muestran SOLO sus servicios — NUNCA el catálogo de otra
+    // clínica, aunque su perfil aún no haya publicado la lista (en ese caso, lista vacía).
+    var clinicSvcs = CLINIC ? (Array.isArray(CLINIC.services) ? CLINIC.services : []) : null;
+    if (clinicSvcs) {
+      var h = '<div class="cat-label">Para empezar</div><div class="svc-grid">'
+        + card("Evaluación general", 15000, "Diagnóstico y plan personalizado") + '</div>';
+      if (!clinicSvcs.length) {
+        el.innerHTML = h + '<p style="color:var(--faint);font-size:12.5px;padding:12px 2px;line-height:1.5">Esta clínica aún no publicó su lista de servicios. Puedes solicitar una evaluación general y la clínica te orientará.</p>';
+        markCards(); return;
+      }
+      var byCat = {};
+      clinicSvcs.forEach(function(s){ var c = s.cat || 'Servicios'; (byCat[c] = byCat[c] || []).push(s); });
+      Object.keys(byCat).forEach(function(cat){
+        h += '<div class="cat-label">'+esc(cat)+'</div><div class="svc-grid">';
+        byCat[cat].forEach(function(s){ h += card(s.name, s.price || 0, s.desc || "", s.dur); });
+        h += '</div>';
+      });
+      el.innerHTML = h; markCards(); return;
+    }
+    // Sin clínica en el enlace (reserva directa de JC Medical o fallback): catálogo base.
+    if(!D || !D.catalog){
+      el.innerHTML='<p style="color:var(--faint);font-size:13px;padding:14px 0">Cargando servicios...</p>';
+      return;
     }
     var html = '<div class="cat-label">Para empezar</div><div class="svc-grid">'
       + card("Evaluación general", 15000, "Diagnóstico y plan personalizado") + '</div>';
-
     D.catalog.filter(function(s){ return s.sec !== "Promociones"; }).forEach(function(sec){
       html += '<div class="cat-label">'+esc(sec.sec)+'</div>';
       sec.groups.forEach(function(g){

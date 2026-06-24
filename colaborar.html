@@ -81,8 +81,8 @@
 <body>
 <div class="wrap">
   <div class="badge"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#54707F" stroke-width="1.5"><path d="M16 4h2a2 2 0 0 1 2 2v14l-4-3H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 4h6v4H9z"/></svg></div>
-  <h1>Solicitud de <em>Colaboración</em></h1>
-  <p class="sub">Gracias por tu interés en colaborar con JC Medical. Evaluamos cada solicitud de forma personalizada según el perfil, la audiencia y la propuesta.</p>
+  <h1 id="collab-h1">Solicitud de <em>Colaboración</em></h1>
+  <p class="sub" id="collab-sub">Gracias por tu interés en colaborar con nosotros. Evaluamos cada solicitud de forma personalizada según el perfil, la audiencia y la propuesta.</p>
   <div class="nota"><b>Importante:</b> los procedimientos de medicina estética son actos médicos y toda colaboración queda sujeta a una valoración clínica previa. Completar este formulario no garantiza la aprobación del canje.</div>
   <div class="req-hint">* Indica que la pregunta es obligatoria</div>
 
@@ -218,6 +218,15 @@
     try{
       document.title = 'Solicitud de Colaboración — ' + (p.name || 'Clínica');
       var dn = document.getElementById('done-clinic'); if(dn && p.name) dn.textContent = p.name;
+      var cf = p.collabForm || {};
+      // Título e intro personalizados por la clínica (o el nombre de la clínica en el texto por defecto).
+      var h1 = document.getElementById('collab-h1');
+      if(h1 && cf.title) h1.textContent = cf.title;
+      var sub = document.getElementById('collab-sub');
+      if(sub){
+        if(cf.intro) sub.textContent = cf.intro;
+        else if(p.name) sub.textContent = 'Gracias por tu interés en colaborar con ' + p.name + '. Evaluamos cada solicitud de forma personalizada según el perfil, la audiencia y la propuesta.';
+      }
     }catch(e){}
   }
   window.addEventListener('jcsaas:public', function(ev){ applyCollabClinic(ev.detail && ev.detail.profile); });

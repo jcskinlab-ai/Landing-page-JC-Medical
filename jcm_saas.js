@@ -40,7 +40,7 @@
     } catch (e) { return null; }
   })();
   // Claves cuyo cambio re-publica el perfil público de la clínica.
-  var PUBLIC_TRIGGER = { config: 1, horarios_v1: 1, services_over: 1 };
+  var PUBLIC_TRIGGER = { config: 1, horarios_v1: 1, services_over: 1, services_custom: 1, collab_form: 1 };
   var pubTimer = null;
 
   // Claves de window.DB que NO se sincronizan (sesión/seguridad local).
@@ -154,6 +154,10 @@
       wa: cf.wa_number || '',
       horarios: (window.DB && window.DB.get('horarios_v1')) || null,
       servicesOver: (window.DB && window.DB.get('services_over')) || null,
+      // Servicios PROPIOS de la clínica (catálogo base si es la clínica base, o sus servicios creados).
+      // La reserva directa (agendar.html) muestra SOLO estos, no el catálogo de otra clínica.
+      services: (typeof window.clinicServiceList === 'function') ? window.clinicServiceList() : [],
+      collabForm: (window.DB && window.DB.get('collab_form')) || null,
       updatedAt: Date.now()
     };
     try {

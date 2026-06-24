@@ -539,16 +539,61 @@ function MarketingView({ T, go }) {
 function Mini({ T, k, v }) { return <div><div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent }}>{k}</div><div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, marginTop: 3 }}>{v}</div></div>; }
 
 /* ─────────── INTEGRACIONES ─────────── */
+/* Credenciales de Meta por clínica (token de solo lectura + cuenta), aisladas en DB 'meta_creds'. */
+function metaCreds() { try { return (window.DB && DB.get("meta_creds")) || {}; } catch (e) { return {}; } }
+function metaConnected() { const c = metaCreds(); return !!(c.token && c.account); }
+/* Modal para conectar Meta Ads con el token propio de la clínica. */
+function MetaConnectModal({ T, onClose, onSaved }) {
+  const c0 = metaCreds();
+  const [account, setAccount] = useState(c0.account || "");
+  const [token, setToken] = useState(c0.token || "");
+  const [busy, setBusy] = useState(false);
+  function fmtAcct(v) { v = (v || "").trim(); return v && !/^act_/.test(v) ? "act_" + v.replace(/[^0-9,act_]/g, "") : v; }
+  function save() {
+    const acc = fmtAcct(account), tk = token.trim();
+    if (!acc || !tk) { window.jcmToast && window.jcmToast("Completa la cuenta y el token.", "error"); return; }
+    setBusy(true);
+    // Verifica contra /api/meta antes de guardar (así la clínica sabe al instante si quedó bien).
+    fetch("/api/meta", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tk, account: acc }) })
+      .then(r => r.json()).then(d => {
+        setBusy(false);
+        if (d && d.ok) {
+          try { DB.set("meta_creds", { account: acc, token: tk }); } catch (e) {}
+          window.jcmToast && window.jcmToast("Meta Ads conectado · gasto del mes: " + (window.JCDATA ? window.JCDATA.fmt(d.spend || 0) : d.spend), "ok");
+          onSaved && onSaved();
+        } else {
+          window.jcmError && window.jcmError("No se pudo conectar Meta", (d && d.error) || d);
+        }
+      }).catch(e => { setBusy(false); window.jcmError && window.jcmError("No se pudo conectar Meta", e); });
+  }
+  function disconnect() { try { DB.del("meta_creds"); } catch (e) {} window.jcmToast && window.jcmToast("Meta Ads desconectado.", "info"); onSaved && onSaved(); }
+  return (
+    <AdModal T={T} title="Conectar Meta Ads" onClose={onClose} footer={
+      <div style={{ display: "flex", gap: 10, width: "100%" }}>
+        {metaConnected() && <AdBtn T={T} onClick={disconnect}>Desconectar</AdBtn>}
+        <div style={{ flex: 1 }}><AdBtn T={T} primary full onClick={save}>{busy ? "Verificando…" : "Conectar y verificar"}</AdBtn></div>
+      </div>
+    }>
+      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>Conecta tu cuenta de Meta Ads para ver tu gasto, leads y ROAS reales en el panel. Usa un token de <b>solo lectura</b> (<code>ads_read</code>).</p>
+        <AdField T={T} label="ID de cuenta publicitaria" value={account} onChange={setAccount} placeholder="act_1234567890" />
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Token de acceso (ads_read)</span>
+          <input type="password" value={token} onChange={e => setToken(e.target.value)} placeholder="EAAB…" autoComplete="off" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+        </label>
+        <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>El token se guarda solo en los datos privados de tu clínica y se usa para leer tus estadísticas. Puedes desconectarlo cuando quieras. ¿No sabes generarlo? Pídelo en business.facebook.com → Usuarios del sistema → Generar token (permiso ads_read).</p>
+      </div>
+    </AdModal>
+  );
+}
 function IntegracionesView({ T }) {
-  const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
-  // Las clínicas nuevas ven todas las herramientas SIN conexión (cada una conecta las suyas).
-  // El estado de conexión se guarda por clínica.
   const [list, setList] = useState(() => {
     let saved = {};
     try { const s = window.DB && DB.get("integrations_state"); if (s) saved = s; } catch (e) {}
-    // Catálogo fijo de herramientas; conexión por clínica (todas inician desconectadas).
     return INTEGRATIONS_CATALOG.map(i => ({ ...i, connected: (i.id in saved) ? saved[i.id] : false }));
   });
+  const [metaModal, setMetaModal] = useState(false);
+  const [metaOn, setMetaOn] = useState(metaConnected());
   function toggle(id) {
     const n = list.map(i => i.id === id ? { ...i, connected: !i.connected } : i);
     setList(n);
@@ -558,21 +603,26 @@ function IntegracionesView({ T }) {
     <div>
       <SecHead T={T} title="Integraciones" sub="Conecta tus herramientas a Medique" />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {list.map(it => (
-          <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (it.connected ? T.line : T.lineSoft) }}>
+        {list.map(it => {
+          const isMeta = it.id === "metaads";
+          const connected = isMeta ? metaOn : it.connected;
+          return (
+          <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (connected ? T.line : T.lineSoft) }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: it.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 500, flexShrink: 0 }}>{it.letter}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{it.name}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{it.connected ? it.stat : it.desc}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{isMeta ? (connected ? "Conectada · leyendo tu gasto real" : "Conecta tu cuenta para ver gasto y ROAS reales") : (connected ? it.stat : it.desc)}</div>
             </div>
-            <button onClick={() => toggle(it.id)} style={{
+            <button onClick={() => isMeta ? setMetaModal(true) : toggle(it.id)} style={{
               fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "9px 14px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap",
-              background: it.connected ? "transparent" : T.primaryBg, color: it.connected ? "#1F8A5B" : T.primaryText, border: it.connected ? "1px solid #1F8A5B" : "none"
-            }}>{it.connected ? "✓ Conectado" : "Conectar"}</button>
+              background: connected ? "transparent" : T.primaryBg, color: connected ? "#1F8A5B" : T.primaryText, border: connected ? "1px solid #1F8A5B" : "none"
+            }}>{connected ? (isMeta ? "✓ Administrar" : "✓ Conectado") : "Conectar"}</button>
           </div>
-        ))}
+          );
+        })}
       </div>
       <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 14, lineHeight: 1.6 }}>Cada herramienta se conecta con el inicio de sesión oficial (OAuth) de la plataforma. Conecta solo las que uses en tu clínica.</p>
+      {metaModal && <MetaConnectModal T={T} onClose={() => setMetaModal(false)} onSaved={() => { setMetaOn(metaConnected()); setMetaModal(false); }} />}
     </div>
   );
 }
@@ -818,7 +868,82 @@ function ClinicDataCard({ T }) {
 function Row({ T, k, v }) { return <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{k}</span><span style={{ color: T.text, textAlign: "right" }}>{v}</span></div>; }
 function ToggleRow({ T, label, def }) { const [on, setOn] = useState(def); return <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0" }}><span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{label}</span><AdSwitch T={T} on={on} onClick={() => setOn(!on)} /></div>; }
 
-/* ─────────── COLABORACIÓN (Google Form) ─────────── */
+/* ─────────── COLABORACIÓN ─────────── */
+// Mensajes de respuesta (aceptada/rechazada), editables por clínica. {nombre} y {clinica} se reemplazan al enviar.
+const COLLAB_MSG_DEFAULT = {
+  ok: "Hola {nombre}, ¡gracias por tu interés en colaborar con {clinica}! Revisamos tu perfil y nos encantaría avanzar contigo. Como los procedimientos de medicina estética son actos médicos, el siguiente paso es una evaluación clínica previa para definir el tratamiento y la fecha. ¿Qué día te acomoda para ver disponibilidad?",
+  no: "Hola {nombre}, ¡gracias por tu interés en colaborar con {clinica}! Agradecemos mucho tu propuesta y el tiempo que dedicaste. Por ahora no podremos concretar esta colaboración, pero guardamos tus datos para futuras campañas. ¡Te deseamos mucho éxito!"
+};
+function collabMsg(which) {
+  try { const v = window.DB && DB.get(which === "ok" ? "collab_msg_ok" : "collab_msg_no"); if (v != null && v !== "") return v; } catch (e) {}
+  return COLLAB_MSG_DEFAULT[which];
+}
+// Encabezado del formulario público (título + intro), editable por clínica. La plantilla por defecto
+// es la que ya tiene colaborar.html; cada clínica puede personalizarla.
+const COLLAB_FORM_DEFAULT = {
+  title: "Colabora con nosotros",
+  intro: "¿Te gustaría colaborar con nuestra clínica? Cuéntanos de ti y de tu comunidad. Revisamos cada propuesta según el perfil, la audiencia y la disponibilidad."
+};
+function collabForm() {
+  try { const v = window.DB && DB.get("collab_form"); if (v && (v.title || v.intro)) return { title: v.title || COLLAB_FORM_DEFAULT.title, intro: v.intro || COLLAB_FORM_DEFAULT.intro }; } catch (e) {}
+  return COLLAB_FORM_DEFAULT;
+}
+// Editor del formulario + mensajes (se muestra arriba de las solicitudes).
+function ColabFormEditor({ T }) {
+  const [open, setOpen] = useState(false);
+  const f0 = collabForm();
+  const [title, setTitle] = useState(f0.title);
+  const [intro, setIntro] = useState(f0.intro);
+  const [okMsg, setOkMsg] = useState(collabMsg("ok"));
+  const [noMsg, setNoMsg] = useState(collabMsg("no"));
+  const [saved, setSaved] = useState(false);
+  const ta = { width: "100%", padding: "11px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box" };
+  function save() {
+    try {
+      DB.set("collab_form", { title: title.trim() || COLLAB_FORM_DEFAULT.title, intro: intro.trim() });
+      DB.set("collab_msg_ok", okMsg.trim());
+      DB.set("collab_msg_no", noMsg.trim());
+      setSaved(true); setTimeout(() => setSaved(false), 1800);
+      window.jcmToast && window.jcmToast("Formulario y mensajes guardados.", "ok");
+    } catch (e) { window.jcmError && window.jcmError("No se pudo guardar", e); }
+  }
+  function reset() {
+    setTitle(COLLAB_FORM_DEFAULT.title); setIntro(COLLAB_FORM_DEFAULT.intro);
+    setOkMsg(COLLAB_MSG_DEFAULT.ok); setNoMsg(COLLAB_MSG_DEFAULT.no);
+  }
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, marginBottom: 16 }}>
+      <button onClick={() => setOpen(o => !o)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "none", border: "none", cursor: "pointer", padding: "14px 16px", textAlign: "left" }}>
+        <span style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Personalizar formulario y mensajes</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      {open && (
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent }}>Formulario público</div>
+          <AdField T={T} label="Título del formulario" value={title} onChange={setTitle} placeholder="Colabora con nosotros" />
+          <label style={{ display: "block" }}>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Texto de introducción</span>
+            <textarea value={intro} onChange={e => setIntro(e.target.value)} rows={3} style={ta} />
+          </label>
+          <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginTop: 4 }}>Mensajes de respuesta</div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5 }}>Usa <b>{"{nombre}"}</b> y <b>{"{clinica}"}</b> donde quieras que aparezca el nombre de la persona o de tu clínica.</div>
+          <label style={{ display: "block" }}>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 6 }}>Solicitud aceptada</span>
+            <textarea value={okMsg} onChange={e => setOkMsg(e.target.value)} rows={4} style={ta} />
+          </label>
+          <label style={{ display: "block" }}>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: "#C0285A", marginBottom: 6 }}>Solicitud rechazada</span>
+            <textarea value={noMsg} onChange={e => setNoMsg(e.target.value)} rows={4} style={ta} />
+          </label>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+            <button onClick={reset} style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "9px 13px", cursor: "pointer" }}>Restaurar plantilla</button>
+            <AdBtn T={T} primary onClick={save}>{saved ? "✓ Guardado" : "Guardar"}</AdBtn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 function ColaboracionView({ T }) {
   const D = window.JCDATA;
   const [reqs, setReqs] = useState(() => { try { return (window.DB && DB.get("collabs")) || []; } catch (e) { return []; } });
@@ -866,6 +991,7 @@ function ColaboracionView({ T }) {
           </div>
         );
       })()}
+      <ColabFormEditor T={T} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
         <div onClick={() => reqs.length && setStatList("all")} style={{ cursor: reqs.length ? "pointer" : "default" }}><AdStat T={T} n={reqs.length} l="Solicitudes" /></div>
         <div onClick={() => pend.length && setStatList("nueva")} style={{ cursor: pend.length ? "pointer" : "default" }}><AdStat T={T} n={pend.length} l="Sin revisar" accent={pend.length > 0} /></div>
@@ -915,8 +1041,10 @@ function ColaboracionView({ T }) {
 function CollabModal({ T, D, r, onClose, onStatus }) {
   const clinic = (window.clinicName && window.clinicName()) || (D && D.brand) || "la clínica";
   const saludo = "Hola " + (r.name || "") + ", ¡gracias por tu interés en colaborar con " + clinic + "!";
-  const msgOk = saludo + " Revisamos tu perfil y nos encantaría avanzar contigo. Como los procedimientos de medicina estética son actos médicos, el siguiente paso es una evaluación clínica previa para definir el tratamiento y la fecha. ¿Qué día te acomoda para ver disponibilidad?";
-  const msgNo = saludo + " Agradecemos mucho tu propuesta y el tiempo que dedicaste. Por ahora no podremos concretar esta colaboración, pero guardamos tus datos para futuras campañas. ¡Te deseamos mucho éxito!";
+  // Mensajes editables por clínica (con marcadores {nombre} y {clinica}). Si no hay, usa los por defecto.
+  const fill = t => (t || "").replace(/\{nombre\}/g, r.name || "").replace(/\{clinica\}/g, clinic);
+  const msgOk = fill(collabMsg("ok"));
+  const msgNo = fill(collabMsg("no"));
   function wa(text) { const p = (r.phone || "").replace(/\D/g, ""); window.open("https://wa.me/" + p + "?text=" + encodeURIComponent(text), "_blank", "noopener"); }
   const igUrl = r.ig ? ("https://instagram.com/" + (r.ig || "").replace(/^@/, "")) : null;
   const rows = [["Correo", r.email], ["Teléfono / WhatsApp", r.phone], ["Ciudad o comuna", r.ciudad], ["Instagram", r.ig], ["TikTok", r.tiktok], ["Red principal", r.redPrincipal], ["Seguidores", r.reach], ["Visualizaciones (30 días)", r.views], ["Audiencia", r.audiencia], ["Procedimiento de interés", r.proc]].filter(x => x[1]);

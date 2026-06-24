@@ -20,10 +20,14 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  const token = process.env.META_ACCESS_TOKEN;
-  const acctRaw = process.env.META_AD_ACCOUNT_ID;
+  // Credenciales: si vienen en el cuerpo (token/account de UNA clínica), se usan esas;
+  // si no, se cae a las variables de entorno (cuenta de la clínica base / JC Medical).
+  // El token de cada clínica es de solo lectura (ads_read) y vive aislado en su propio tenant.
+  const body = (req.method === "POST" && req.body) ? req.body : {};
+  const token = body.token || process.env.META_ACCESS_TOKEN;
+  const acctRaw = body.account || process.env.META_AD_ACCOUNT_ID;
   if (!token || !acctRaw) {
-    return res.status(503).json({ ok: false, configured: false, error: "Meta Ads no configurado: faltan META_ACCESS_TOKEN y META_AD_ACCOUNT_ID en el servidor." });
+    return res.status(503).json({ ok: false, configured: false, error: "Meta Ads no configurado: falta token o cuenta publicitaria." });
   }
 
   const ver = process.env.META_API_VERSION || "v21.0";
