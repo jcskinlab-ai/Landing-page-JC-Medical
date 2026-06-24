@@ -23,8 +23,12 @@ service cloud.firestore {
     // Mapeo usuario → clínica (uid, clinicId, rol). Cada quien gestiona el suyo.
     match /users/{uid} {
       allow read:          if signedIn() && request.auth.uid == uid;
-      allow create, update:if signedIn() && request.auth.uid == uid
+      allow create:        if signedIn() && request.auth.uid == uid
                            && request.resource.data.clinicId is string;
+      // En update, el clinicId NO puede cambiar: evita que un usuario se reasigne a otra clínica
+      // y obtenga acceso a sus datos (myClinic() lee este campo).
+      allow update:        if signedIn() && request.auth.uid == uid
+                           && request.resource.data.clinicId == resource.data.clinicId;
       // Solo el super-admin puede eliminar el mapeo (al borrar una clínica desde la consola).
       allow delete:        if isSuper();
     }

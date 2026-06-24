@@ -14,11 +14,23 @@
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // CORS restringido a los dominios propios (no wildcard).
+  const ALLOWED_ORIGINS = ['https://medique.cl', 'https://www.medique.cl', 'https://jcmedical.cl', 'https://www.jcmedical.cl'];
+  const origin = req.headers.origin || '';
+  const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  res.setHeader("Access-Control-Allow-Origin", safeOrigin);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-jcm-key");
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Método no permitido" });
+
+  // Llave interna opcional: si JCM_API_KEY está configurada, solo se atienden peticiones que la envíen.
+  // (Mientras no exista la variable, este chequeo es no-op para no romper el panel.)
+  const internalKey = process.env.JCM_API_KEY;
+  if (internalKey && req.headers['x-jcm-key'] !== internalKey) {
+    return res.status(403).json({ ok: false, error: "No autorizado." });
+  }
 
   const key = process.env.GROQ_API_KEY;
   if (!key) {

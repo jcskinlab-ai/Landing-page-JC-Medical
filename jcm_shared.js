@@ -42,12 +42,33 @@ const DB = {
 // ── SEGURIDAD ──────────────────────────────────────────────────────────────
 const _JCM_SALT = 'jcm_medical_talca_2026_v2';
 
-async function jcmHash(password) {
+// Hash NUEVO: genera un salt aleatorio por usuario y lo devuelve junto al hash (formato v:2).
+async function jcmHashNew(password) {
   try {
     const enc = new TextEncoder();
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const saltB64 = btoa(String.fromCharCode(...saltBytes));
     const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
     const bits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', salt: enc.encode(_JCM_SALT), iterations: 100000, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' },
+      key, 256
+    );
+    const hash = btoa(String.fromCharCode(...new Uint8Array(bits)));
+    return { hash, salt: saltB64, v: 2 };
+  } catch(e) { return null; }
+}
+
+// Hash de verificación. Con saltB64 (cuentas v:2) usa ese salt; sin él, usa el salt fijo legacy
+// para seguir validando cuentas creadas antes de este cambio (retrocompatibilidad).
+async function jcmHash(password, saltB64) {
+  try {
+    const enc = new TextEncoder();
+    const saltBytes = saltB64
+      ? Uint8Array.from(atob(saltB64), c => c.charCodeAt(0))
+      : enc.encode(_JCM_SALT);
+    const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' },
       key, 256
     );
     return btoa(String.fromCharCode(...new Uint8Array(bits)));
@@ -157,8 +178,11 @@ if (typeof window !== 'undefined') { window.jcmToast = jcmToast; window.jcmError
 // (sin GROQ_API_KEY en el servidor) resuelve { ok:false, configured:false }.
 function mediqueAI(messages, clinic) {
   try {
+    var headers = { 'Content-Type': 'application/json' };
+    // Si hay una llave interna disponible en el cliente, se envía (debe coincidir con JCM_API_KEY del servidor).
+    if (typeof window !== 'undefined' && window.JCM_API_KEY) headers['x-jcm-key'] = window.JCM_API_KEY;
     return fetch('/api/ai', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: headers,
       body: JSON.stringify({ messages: messages || [], clinic: clinic || {} })
     }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
       .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
@@ -206,8 +230,8 @@ async function jcmRegister(name, phone, password, email) {
   const users = DB.get('users') || [];
   if (users.find(u => jcmPhoneKey(u.phone) === ph)) return { ok:false, msg:'Este teléfono ya está registrado. ¿Quieres iniciar sesión?' };
 
-  const hash = await jcmHash(password);
-  if (!hash) return { ok:false, msg:'Error interno. Intenta nuevamente.' };
+  const h = await jcmHashNew(password);
+  if (!h) return { ok:false, msg:'Error interno. Intenta nuevamente.' };
 
   const cfg  = DB.cfg();
   const user = {
@@ -215,7 +239,9 @@ async function jcmRegister(name, phone, password, email) {
     name:        name.trim(),
     phone:       phone.trim(),
     email:       em,
-    hash,
+    hash:        h.hash,
+    salt:        h.salt,
+    v:           h.v,
     points:      cfg.pts_start || 500,
     bonus_given: true,
     created:     new Date().toISOString(),
@@ -243,7 +269,7 @@ async function jcmLogin(phone, password) {
     return { ok:false, msg:'Teléfono no registrado.' };
   }
 
-  const hash = await jcmHash(password);
+  const hash = await jcmHash(password, user.v === 2 ? user.salt : null);
   if (!hash || hash !== user.hash) {
     att.n++; att.t = Date.now(); _loginAttempts[key] = att;
     return { ok:false, msg:'Contraseña incorrecta.' };
@@ -273,9 +299,9 @@ function jcmAdminUser() { try { const r = DB.get('admin_pass'); return (r && r.u
 async function jcmAdminSetPass(pass, user) {
   if (!user || user.trim().length < 3) return { ok: false, msg: 'El usuario debe tener al menos 3 caracteres.' };
   if (!pass || pass.length < 8) return { ok: false, msg: 'La contraseña debe tener al menos 8 caracteres.' };
-  const hash = await jcmHash(pass);
-  if (!hash) return { ok: false, msg: 'Error interno. Intenta nuevamente.' };
-  DB.set('admin_pass', { user: user.trim(), hash, created: new Date().toISOString() });
+  const h = await jcmHashNew(pass);
+  if (!h) return { ok: false, msg: 'Error interno. Intenta nuevamente.' };
+  DB.set('admin_pass', { user: user.trim(), hash: h.hash, salt: h.salt, v: h.v, created: new Date().toISOString() });
   jcmAdminStartSession();
   return { ok: true };
 }
@@ -284,7 +310,7 @@ async function jcmAdminCheck(user, pass) {
   if (_adminAtt.n >= 5 && Date.now() - _adminAtt.t < 15 * 60 * 1000)
     return { ok: false, msg: 'Demasiados intentos. Espera 15 minutos.' };
   const rec = DB.get('admin_pass');
-  const hash = await jcmHash(pass || '');
+  const hash = await jcmHash(pass || '', (rec && rec.v === 2) ? rec.salt : null);
   const userOk = !rec || !rec.user || (user || '').trim().toLowerCase() === (rec.user || '').toLowerCase();
   if (!rec || !hash || hash !== rec.hash || !userOk) {
     _adminAtt.n++; _adminAtt.t = Date.now();

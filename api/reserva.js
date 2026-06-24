@@ -6,8 +6,12 @@
 // añade la capa de backend para disparar notificaciones reales por WhatsApp vía n8n.
 
 export default async function handler(req, res) {
-  // CORS básico (mismo dominio en producción; ajusta si separas front/back)
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // CORS restringido a los dominios propios (lo llaman pacientes sin login, pero solo desde el sitio).
+  const ALLOWED_ORIGINS = ['https://medique.cl', 'https://www.medique.cl', 'https://jcmedical.cl', 'https://www.jcmedical.cl'];
+  const origin = req.headers.origin || '';
+  const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  res.setHeader("Access-Control-Allow-Origin", safeOrigin);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(204).end();

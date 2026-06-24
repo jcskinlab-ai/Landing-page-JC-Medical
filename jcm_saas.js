@@ -399,15 +399,16 @@
       Object.keys(data || {}).forEach(function (k) { if (k in doc) doc[k] = data[k]; });
       return db.collection('tenants').doc(state.clinicId).collection('bookings').add(doc);
     },
-    // La clínica (logueada) lee las reservas que dejaron los pacientes.
+    // La clínica (logueada) lee las reservas web PENDIENTES (no las ya importadas).
     fetchBookings: function () {
       if (!db || !state.clinicId) return Promise.resolve([]);
       return db.collection('tenants').doc(state.clinicId).collection('bookings').orderBy('createdAt', 'desc').limit(100).get()
-        .then(function (s) { var a = []; s.forEach(function (d) { a.push(Object.assign({ _id: d.id }, d.data())); }); return a; })
+        .then(function (s) { var a = []; s.forEach(function (d) { var b = d.data(); if (b.imported) return; a.push(Object.assign({ _id: d.id }, b)); }); return a; })
         .catch(function (e) { noop(e); return []; });
     },
-    // Importa las reservas web a la agenda de la clínica (como citas pendiente_pago)
-    // y las quita de la bandeja. Reusa toda la UI de Agenda/Pendientes del panel.
+    // Importa las reservas web a la agenda de la clínica (como citas pendiente_pago).
+    // En vez de BORRARLAS (riesgo de pérdida si falla a mitad), las MARCA como importadas
+    // y se filtran en lecturas futuras. Así nunca se pierde una reserva.
     importWebBookings: function () {
       if (!db || !state.clinicId || !window.DB) return Promise.resolve(0);
       var col = db.collection('tenants').doc(state.clinicId).collection('bookings');
@@ -415,11 +416,13 @@
         if (s.empty) return 0;
         var appts = window.DB.get('appointments') || [];
         var seen = {}; appts.forEach(function (a) { if (a._bk) seen[a._bk] = 1; });
-        var added = 0, toDelete = [];
+        var added = 0, toMark = [];
         s.forEach(function (d) {
-          toDelete.push(d.id);
-          if (seen[d.id]) return;
-          var b = d.data(), dayOff = 0;
+          var b = d.data();
+          if (b.imported) return;        // ya importada en una corrida anterior → ignorar
+          toMark.push(d.id);             // marcar como importada (no borrar)
+          if (seen[d.id]) return;        // ya está en la agenda (dedup por _bk) → marcar sin re-agregar
+          var dayOff = 0;
           try { dayOff = Math.round((new Date(b.fecha + 'T00:00:00') - new Date().setHours(0, 0, 0, 0)) / 86400000); } catch (e) {}
           appts.push({
             id: 'web' + d.id, _bk: d.id, name: b.name || '', phone: b.phone || '', email: b.email || '',
@@ -429,7 +432,7 @@
           added++;
         });
         if (added) window.DB.set('appointments', appts);
-        toDelete.forEach(function (id) { col.doc(id).delete().catch(noop); });
+        toMark.forEach(function (id) { col.doc(id).update({ imported: true, importedAt: Date.now() }).catch(noop); });
         return added;
       }).catch(function (e) { noop(e); return 0; });
     },
