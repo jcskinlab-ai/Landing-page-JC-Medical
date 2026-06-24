@@ -7,7 +7,9 @@
     { "source": "/panel", "destination": "/JC_Admin" },
     { "source": "/reservar", "destination": "/agendar" },
     { "source": "/movil", "destination": "/JC_Mobile" },
-    { "source": "/admin", "destination": "/super" }
+    { "source": "/admin", "destination": "/super" },
+    { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "/JC_Admin" },
+    { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "/JC_App" }
   ],
   "headers": [
     {
