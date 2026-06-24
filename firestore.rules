@@ -1,0 +1,55 @@
+rules_version = '2';
+// ════════════════════════════════════════════════════════════════════════
+// Reglas de seguridad de Firestore para el SaaS multi-clínica de JC Medical.
+// Pega TODO esto en: Firebase Console → Firestore Database → pestaña "Reglas".
+// Aíslan los datos: cada clínica solo puede leer/escribir lo suyo.
+// ════════════════════════════════════════════════════════════════════════
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    // clinicId al que pertenece el usuario logueado (según su doc en users/).
+    function myClinic() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId;
+    }
+
+    // Mapeo usuario → clínica (uid, clinicId, rol). Cada quien gestiona el suyo.
+    match /users/{uid} {
+      allow read:          if signedIn() && request.auth.uid == uid;
+      allow create, update:if signedIn() && request.auth.uid == uid
+                           && request.resource.data.clinicId is string;
+      allow delete:        if false;
+    }
+
+    // Perfil de la clínica (nombre, marca, plan, prueba).
+    match /clinics/{clinicId} {
+      // Al registrarse, el dueño crea su propia clínica.
+      allow create: if signedIn()
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && clinicId == request.resource.data.id;
+      // La clínica puede leer y editar su perfil/marca…
+      allow read:   if signedIn()
+                    && (resource.data.ownerUid == request.auth.uid || myClinic() == clinicId);
+      // …pero NO puede tocar su propio plan/prueba/propietario (eso lo controla el super-admin
+      // desde la consola de Firebase). Así nadie se auto-activa el plang gratis para siempre.
+      allow update: if signedIn()
+                    && (resource.data.ownerUid == request.auth.uid || myClinic() == clinicId)
+                    && request.resource.data.plan      == resource.data.plan
+                    && request.resource.data.trialEnds == resource.data.trialEnds
+                    && request.resource.data.ownerUid  == resource.data.ownerUid;
+      allow delete: if false;
+    }
+
+    // Datos de cada clínica (agenda, pacientes, caja, inventario, etc.), aislados.
+    match /tenants/{clinicId}/kv/{key} {
+      allow read, write: if signedIn() && myClinic() == clinicId;
+    }
+
+    // (Fase 3) Datos públicos para la app de pacientes / reserva de citas:
+    // match /tenants/{clinicId}/public/{doc} {
+    //   allow read: if true;                                   // catálogo, horarios, marca
+    //   allow write: if signedIn() && myClinic() == clinicId;  // solo la clínica los edita
+    // }
+  }
+}
