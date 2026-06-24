@@ -14,10 +14,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId;
     }
 
-    // SUPER-ADMIN (dueño del SaaS): solo vía custom claim (seteado con Admin SDK).
-    // Para setear el claim: firebase-admin → auth.setCustomUserClaims(uid, { superAdmin: true })
+    // SUPER-ADMIN (dueño del SaaS): preferimos el custom claim (seteado con Admin SDK,
+    // no se puede auto-asignar). Se MANTIENEN los correos de los dueños como respaldo para
+    // no quedar bloqueados de /admin. Quita la lista de correos SOLO cuando confirmes que
+    // ambas cuentas tienen el claim. Setear claim: auth.setCustomUserClaims(uid,{superAdmin:true}).
     function isSuper() {
-      return signedIn() && request.auth.token.superAdmin == true;
+      return signedIn() && (request.auth.token.superAdmin == true
+                            || request.auth.token.email == 'medique.cl@gmail.com'
+                            || request.auth.token.email == 'jc.skinlab@gmail.com');
     }
 
     // Plan activo: active, comp o trial vigente (validado en servidor, no en cliente).
@@ -85,7 +89,9 @@ service cloud.firestore {
                     && request.resource.data.name.size() < 120
                     && request.resource.data.phone is string
                     && request.resource.data.phone.size() < 30
-                    && request.resource.data.createdAt == request.time.toMillis();
+                    && request.resource.data.createdAt is number
+                    && request.resource.data.createdAt >= request.time.toMillis() - 300000
+                    && request.resource.data.createdAt <= request.time.toMillis() + 300000;
       allow read, update, delete: if signedIn() && myClinic() == clinicId;
     }
 
@@ -94,7 +100,9 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasOnly(['name','email','phone','kind','ig','tiktok','ciudad','redPrincipal','reach','views','audiencia','ofrece','proc','message','createdAt'])
                     && request.resource.data.name is string
                     && request.resource.data.name.size() < 120
-                    && request.resource.data.createdAt == request.time.toMillis();
+                    && request.resource.data.createdAt is number
+                    && request.resource.data.createdAt >= request.time.toMillis() - 300000
+                    && request.resource.data.createdAt <= request.time.toMillis() + 300000;
       allow read, update, delete: if signedIn() && myClinic() == clinicId;
     }
 
@@ -105,7 +113,9 @@ service cloud.firestore {
                     && request.resource.data.stars >= 1 && request.resource.data.stars <= 5
                     && request.resource.data.name is string
                     && request.resource.data.name.size() < 120
-                    && request.resource.data.createdAt == request.time.toMillis();
+                    && request.resource.data.createdAt is number
+                    && request.resource.data.createdAt >= request.time.toMillis() - 300000
+                    && request.resource.data.createdAt <= request.time.toMillis() + 300000;
       allow read, update, delete: if signedIn() && myClinic() == clinicId;
     }
   }
