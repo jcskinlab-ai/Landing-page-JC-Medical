@@ -23,6 +23,6 @@ window.JCSAAS_CONFIG = {
  * jcmedical.cl es el dominio propio de JC Medical → su clinicId.
  * (Pega el clinicId de JC Medical; lo obtienes en /admin con el botón "Link reserva".) */
 window.JCSAAS_HOSTS = {
-  // "jcmedical.cl": "jc-medical-XXXXXX",
-  // "www.jcmedical.cl": "jc-medical-XXXXXX"
+  "jcmedical.cl": "jc-medical-qI9deP",
+  "www.jcmedical.cl": "jc-medical-qI9deP"
 };
