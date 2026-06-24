@@ -537,7 +537,10 @@ function IndTemplatesEditor({ T }) {
 /* ─────────── CONFIGURACIÓN ─────────── */
 function ConfigView({ T }) {
   const D = window.JCDATA;
-  const bookUrl = (typeof window !== "undefined" ? window.location.origin : "") + "/JC_App.html";
+  // Link de RESERVA DIRECTA, propio de cada clínica (no la app de pacientes).
+  const bookUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.bookingLink)
+    ? window.JCSAAS.bookingLink()
+    : ((typeof window !== "undefined" ? window.location.origin : "") + "/reservar");
   const qr = "https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=0&data=" + encodeURIComponent(bookUrl);
   const [copied, setCopied] = useState(false);
   function copyLink() { try { navigator.clipboard.writeText(bookUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (e) {} }
@@ -550,7 +553,7 @@ function ConfigView({ T }) {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
           Reserva online — comparte tu link
         </div>
-        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px" }}>Comparte este enlace o código QR en Instagram, WhatsApp o tu web para que tus pacientes agenden solos. Abre tu app de pacientes.</div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px" }}>Comparte este enlace o código QR en Instagram, WhatsApp o tu web para que tus pacientes agenden solos. Es tu página de reserva directa.</div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
           <div style={{ flex: 1, minWidth: 240 }}>
             <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Enlace público</span>
@@ -560,7 +563,7 @@ function ConfigView({ T }) {
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
               <a href={bookUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, color: T.text, textDecoration: "none", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "9px 13px" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>Abrir</a>
-              <a href={qr} download="qr-reserva-jcmedical.png" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, color: T.text, textDecoration: "none", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "9px 13px" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 16V4M7 11l5 5 5-5M5 20h14" /></svg>Descargar QR</a>
+              <a href={qr} download="qr-reserva.png" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, color: T.text, textDecoration: "none", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "9px 13px" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 16V4M7 11l5 5 5-5M5 20h14" /></svg>Descargar QR</a>
             </div>
           </div>
           <div style={{ flexShrink: 0, background: "#fff", border: "1px solid " + T.line, borderRadius: 12, padding: 10 }}>

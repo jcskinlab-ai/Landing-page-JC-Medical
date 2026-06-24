@@ -583,7 +583,7 @@ function AdminApp() {
     SIDE_MUTE = T.dark ? "rgba(239,234,224,.55)" : "#5C5A50",
     SIDE_LINE = T.dark ? "rgba(239,234,224,.10)" : "rgba(20,20,15,.10)",
     SIDE_ACT = T.dark ? "rgba(239,234,224,.10)" : (T.accentSoft || "rgba(84,112,127,.12)");
-  const SIDE_LOGO = T.dark ? "assets/logo-jc-mark-white.png" : "assets/logo-jc-mark-navy.png";
+  const SIDE_LOGO = "assets/medique-mark.svg";
   return (
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
       <div className="jc-admin-frame" style={{ background: T.bg, boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" }}>
@@ -592,8 +592,8 @@ function AdminApp() {
           style={{ width: RAIL, flexShrink: 0, background: SIDE_BG, position: "relative", zIndex: 20 }}>
           <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" }}>
             <button onClick={() => nav("dashboard")} title="Ir al Dashboard" style={{ display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}>
-              <img src={SIDE_LOGO} alt="JC" style={{ height: 22, flexShrink: 0 }} />
-              {navOpen && <span style={{ fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" }}>medical</span>}
+              <img src={SIDE_LOGO} alt="Medique" style={{ height: 22, flexShrink: 0 }} />
+              {navOpen && <span style={{ fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" }}>medique</span>}
             </button>
             <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
               {adminNavItems().map(n => {
@@ -1758,7 +1758,7 @@ function AdminGate() {
   return (
     <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 360 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" }}>JC Medical · Panel clínico</div>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" }}>Medique · Panel clínico</div>
         <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 36, color: T.text, textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 }}>{title}</h1>
         <p style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" }}>{subtitle}</p>
         {body}
@@ -1819,7 +1819,7 @@ function SaasGate() {
   const wrap = (title, subtitle, body, footer) => (
     <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" }}>Panel clínico · multi-clínica</div>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" }}>Medique · Panel clínico</div>
         <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 34, color: T.text, textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 }}>{title}</h1>
         <p style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" }}>{subtitle}</p>
         {body}
