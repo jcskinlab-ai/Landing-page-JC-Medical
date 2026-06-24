@@ -151,6 +151,18 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
       source: "app"
     };
     try { const b = (window.DB && window.DB.get("bookings")) || []; b.push(appt); window.DB.set("bookings", b); } catch (e) {}
+    // Multi-clínica: además del guardado local, deja la reserva en Firebase de la clínica
+    // (así llega al panel). Solo si la app está enlazada a una clínica (?c o dominio configurado).
+    try {
+      if (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.submitBooking && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) {
+        window.JCSAAS.submitBooking({
+          name: form.name, phone: form.phone, email: form.email,
+          proc: cart.map(function (p) { return (p.qty > 1 ? p.qty + "× " : "") + p.name; }).join(" + "),
+          procs: cart.map(function (p) { return p.name + (p.qty > 1 ? " x" + p.qty : ""); }),
+          fecha: appt.fecha || "", time: time || "", source: "app"
+        });
+      }
+    } catch (e) {}
     // El slot solo se bloquea inmediatamente en pagos no-transferencia
     // Para transferencias el doctor confirma en el panel y el slot se bloquea en ese momento
     if (!isTransfer) {

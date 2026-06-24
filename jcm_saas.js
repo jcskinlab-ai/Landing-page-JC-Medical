@@ -29,8 +29,16 @@
   var cfg = window.JCSAAS_CONFIG || {};
   var CONFIGURED = !!(cfg && cfg.apiKey && cfg.projectId);
   var TRIAL_DAYS = 14;
-  // ?c=clinicId en la URL → modo PÚBLICO (app de pacientes / reserva de una clínica).
-  var urlC = (function () { try { return new URLSearchParams(location.search).get('c'); } catch (e) { return null; } })();
+  // Clínica para modo PÚBLICO (app de pacientes / reserva): por ?c=clinicId en la URL,
+  // o por dominio (window.JCSAAS_HOSTS mapea hostname → clinicId, p. ej. jcmedical.cl → su clínica).
+  var urlC = (function () {
+    try {
+      var p = new URLSearchParams(location.search).get('c');
+      if (p) return p;
+      var hosts = window.JCSAAS_HOSTS || {};
+      return hosts[location.hostname] || null;
+    } catch (e) { return null; }
+  })();
   // Claves cuyo cambio re-publica el perfil público de la clínica.
   var PUBLIC_TRIGGER = { config: 1, horarios_v1: 1, services_over: 1 };
   var pubTimer = null;

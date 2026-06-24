@@ -17,3 +17,12 @@ window.JCSAAS_CONFIG = {
   appId: "1:881482942178:web:4890bca82cc82625fe40bb",
   measurementId: "G-GT15YYTP0S"
 };
+
+/* Mapa dominio → clínica: en estos dominios la app de pacientes y la reserva
+ * (sin ?c en la URL) quedan enlazadas a esta clínica en Firebase.
+ * jcmedical.cl es el dominio propio de JC Medical → su clinicId.
+ * (Pega el clinicId de JC Medical; lo obtienes en /admin con el botón "Link reserva".) */
+window.JCSAAS_HOSTS = {
+  // "jcmedical.cl": "jc-medical-XXXXXX",
+  // "www.jcmedical.cl": "jc-medical-XXXXXX"
+};
