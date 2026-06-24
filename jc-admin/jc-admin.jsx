@@ -228,8 +228,13 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     const isBase = window.JCM_BASE === true;
     if (!hasOwn && !isBase) return; // clínica nueva sin Meta propio → solo carga manual
     const bodyObj = hasOwn ? { token: creds.token, account: creds.account } : {};
-    fetch("/api/meta", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyObj) })
-      .then(r => r.json()).then(d => { if (d && d.ok) setLiveMeta(d); }).catch(() => {});
+    // /api/meta exige el ID token de Firebase del usuario logueado (verificación RS256 en el server).
+    const tokP = (window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
+    tokP.then(tok => {
+      const headers = { "Content-Type": "application/json" };
+      if (tok) headers["Authorization"] = "Bearer " + tok;
+      return fetch("/api/meta", { method: "POST", headers: headers, body: JSON.stringify(bodyObj) });
+    }).then(r => r.json()).then(d => { if (d && d.ok) setLiveMeta(d); }).catch(() => {});
   }, []);
   const funnel = (function () {
     const mes = new Date().toISOString().slice(0, 7);
