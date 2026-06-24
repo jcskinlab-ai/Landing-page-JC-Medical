@@ -2,6 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/panel", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/panel", "permanent": false },
+    { "source": "/admin", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/admin", "permanent": false },
+    { "source": "/super", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/admin", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/app", "destination": "/JC_App" },
     { "source": "/panel", "destination": "/JC_Admin" },
