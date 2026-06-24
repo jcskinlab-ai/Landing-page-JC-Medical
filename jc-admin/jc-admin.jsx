@@ -2405,6 +2405,9 @@ function SaasGate() {
         <input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => { if (e.key === "Enter") doRegister(); }} placeholder="Contraseña (mín. 6)" autoComplete="new-password" style={inp} />
         {err && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#E0607A" }}>{err}</div>}
         {pBtn(busy ? "Creando…" : "Crear cuenta y empezar", doRegister, busy || !clinic || !email || !pass)}
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5, textAlign: "center", marginTop: 2 }}>
+          Al crear tu cuenta aceptas los <a href="/terminos" target="_blank" rel="noopener" style={{ color: T.accent, textDecoration: "underline" }}>Términos de Servicio</a> y la <a href="/privacidad" target="_blank" rel="noopener" style={{ color: T.accent, textDecoration: "underline" }}>Política de Privacidad</a>.
+        </div>
       </div>,
       <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>¿Ya tienes cuenta? {link("Inicia sesión", () => { setView("login"); setErr(""); })}</span>);
   }
