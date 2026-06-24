@@ -147,6 +147,7 @@
     </svg>
   </div>
   <h1>Agenda tu <em>cita</em></h1>
+  <div id="clinic-tag" style="display:none;margin:8px 0 0;font-family:'Jost';font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#54707F"></div>
   <p class="sub">Elige uno o más tratamientos, tu hora y completa tus datos.<br>Te confirmamos de inmediato por WhatsApp.</p>
 
   <!-- Steps wrapper — hidden on success -->
@@ -271,6 +272,9 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="jc-proto/jc-data.js?v=74"></script>
+<!-- Multi-clínica: si la URL trae ?c=clinicId, carga la marca/datos de esa clínica -->
+<script src="jcm_saas_config.js?v=2"></script>
+<script src="jcm_saas.js?v=4"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -279,6 +283,19 @@
   var cart = [];        // [{ name, price }]  (cada unidad es un elemento; 2 Botox = 2 elementos)
   var selDate = null;   // { date, wd, dd, mm }
   var selTime = null;   // "HH:MM"
+
+  // Multi-clínica: marca/datos de la clínica activa (cuando la URL trae ?c=clinicId).
+  var CLINIC = null;
+  function applyClinic(p){
+    if(!p) return; CLINIC = p;
+    try{
+      document.title = 'Agenda tu cita — ' + (p.name || 'Clínica');
+      var tag = document.getElementById('clinic-tag');
+      if(tag && p.name){ tag.textContent = p.name; tag.style.display = 'block'; }
+    }catch(e){}
+  }
+  window.addEventListener('jcsaas:public', function(ev){ applyClinic(ev.detail && ev.detail.profile); });
+  try{ if(window.JCSAAS && window.JCSAAS.getPublic && window.JCSAAS.getPublic()) applyClinic(window.JCSAAS.getPublic()); }catch(e){}
 
   var steps   = [].slice.call(document.querySelectorAll('.step'));
   var nextBtn = document.getElementById('next-btn');
@@ -620,9 +637,19 @@
       localStorage.setItem('jcm_appts', JSON.stringify(appts));
     }catch(e){}
 
+    // Multi-clínica: además del localStorage local, deja la reserva en Firestore de la clínica activa.
+    try{
+      if(window.JCSAAS && window.JCSAAS.enabled && CLINIC && window.JCSAAS.submitBooking){
+        window.JCSAAS.submitBooking({ name:name, phone:phone, email:email, proc:procLabel,
+          fecha:selDate.date, time:selTime, dur:totalMin+' min',
+          procs: procsArr.map(function(p){ return p.name+(p.qty>1?' x'+p.qty:''); }), source:'web' });
+      }
+    }catch(e){}
+
     // Mensaje WhatsApp con todos los procedimientos + duración total
-    var clinicPhone = '56997880877';
-    var msg = 'Hola JC Medical 👋 Quiero confirmar mi reserva:\n\n'
+    var clinicPhone = (CLINIC && CLINIC.wa) ? (''+CLINIC.wa).replace(/\D/g,'') : '56997880877';
+    var clinicName  = (CLINIC && CLINIC.name) ? CLINIC.name : 'JC Medical';
+    var msg = 'Hola '+clinicName+' 👋 Quiero confirmar mi reserva:\n\n'
       +'👤 '+name+'\n'
       +'📅 '+DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm+'\n'
       +'🕐 '+selTime+' hrs\n'
