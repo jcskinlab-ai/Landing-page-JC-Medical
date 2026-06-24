@@ -191,6 +191,21 @@ function mediqueAI(messages, clinic) {
 }
 if (typeof window !== 'undefined') window.mediqueAI = mediqueAI;
 
+// ── CLIENTE 2FA por email (/api/otp). Envía el ID token de Firebase del usuario. ──
+function mediqueOtp(action, extra) {
+  try {
+    var tokP = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
+    return Promise.resolve(tokP).then(function (tok) {
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+      var body = Object.assign({ action: action }, extra || {});
+      return fetch('/api/otp', { method: 'POST', headers: headers, body: JSON.stringify(body) });
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
+      .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
+  } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }
+}
+if (typeof window !== 'undefined') window.mediqueOtp = mediqueOtp;
+
 // ── SESIÓN (8 h de TTL) ────────────────────────────────────────────────────
 const _SESS_KEY = 'jcm_session';
 const _SESS_TTL = 8 * 3600 * 1000;

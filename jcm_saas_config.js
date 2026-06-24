@@ -15,10 +15,15 @@ window.JCSAAS_CONFIG = {
   storageBucket: "medique-8dbf6.firebasestorage.app",
   messagingSenderId: "881482942178",
   appId: "1:881482942178:web:4890bca82cc82625fe40bb",
-  measurementId: "G-GT15YYTP0S"
+  measurementId: "G-GT15YYTP0S",
   // App Check (anti-abuso): cuando registres tu app en Firebase Console → App Check con
   // reCAPTCHA v3, pega aquí el SITE KEY (es público). Hasta entonces, App Check queda inactivo.
-  // , appCheckKey: "TU_SITE_KEY_DE_RECAPTCHA_V3"
+  // appCheckKey: "TU_SITE_KEY_DE_RECAPTCHA_V3",
+
+  // 2FA por email en dispositivo nuevo: queda INACTIVO mientras sea false. Para activarlo,
+  // pon true AQUÍ *y* configura en Vercel las variables OTP_SECRET + (RESEND_API_KEY o N8N_OTP_URL).
+  // Recomendación: actívalo y pruébalo primero en TU propia cuenta antes de venderlo.
+  mfa: false
 };
 
 /* Mapa dominio → clínica: en estos dominios la app de pacientes y la reserva
