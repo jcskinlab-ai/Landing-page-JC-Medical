@@ -67,6 +67,14 @@ const ADMIN_NAV = [
   { k: "integraciones", l: "Integraciones" }, { k: "reportes", l: "Reportes" }, { k: "administracion", l: "Administración" }, { k: "config", l: "Configuración" }
 ];
 
+// La pestaña "App JC Medical" es exclusiva: solo se muestra en modo local (sin SaaS)
+// o en clínicas con el flag jcApp activado (lo activa el super-admin). Las demás no la ven.
+function adminNavItems() {
+  var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled)
+    || (((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}).jcApp === true);
+  return ADMIN_NAV.filter(function (n) { return n.k !== "appjcm" || showJcApp; });
+}
+
 /* ─────────── DASHBOARD (estilo Medique: indicadores + evolución + accesos) ─────────── */
 const DASH_IC = {
   pacientes: <><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 8a3 3 0 0 1 0 6" /><path d="M21 20a6 6 0 0 0-4-5.5" /></>,
@@ -588,7 +596,7 @@ function AdminApp() {
               {navOpen && <span style={{ fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" }}>medical</span>}
             </button>
             <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
-              {ADMIN_NAV.map(n => {
+              {adminNavItems().map(n => {
                 const active = section === n.k;
                 return (
                   <button key={n.k} onClick={() => nav(n.k)} title={n.l} style={{
@@ -666,7 +674,7 @@ function AdminApp() {
 
           {/* barra dashboard horizontal (pestañas superiores) · estilo moderno */}
           <div className="jc-scroll" style={{ display: "flex", gap: 5, overflowX: "auto", padding: "5px 16px", borderBottom: "1px solid " + T.line, background: T.navBg, position: "relative", zIndex: 5, flexShrink: 0 }}>
-            {ADMIN_NAV.map(n => {
+            {adminNavItems().map(n => {
               const active = section === n.k;
               return (
                 <button key={n.k} onClick={() => nav(n.k)} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", boxShadow: active ? "0 3px 10px -4px " + T.accent : "none", transition: "all .2s " + T.ease }}>

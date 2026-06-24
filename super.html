@@ -116,6 +116,7 @@
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'active\')">Activar</button>' +
           '<button class="btn-ghost" onclick="window._extend(\'' + esc(d.id) + '\')">+14d prueba</button>' +
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'suspended\')">Suspender</button>' +
+          '<button class="btn-ghost" style="' + (c.jcApp ? 'border-color:var(--ok);color:var(--ok)' : '') + '" onclick="window._toggleJcApp(\'' + esc(d.id) + '\',' + (c.jcApp ? 'true' : 'false') + ')">App JC' + (c.jcApp ? ' ✓' : '') + '</button>' +
           '</div></div>';
       });
       document.getElementById('list').innerHTML = html;
@@ -166,6 +167,9 @@
     };
   };
   window._dash = dash;
+  window._toggleJcApp = function (id, cur) {
+    db.collection('clinics').doc(id).update({ jcApp: !cur }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
+  };
 
   auth.onAuthStateChanged(function (user) {
     if (!user) { loginView(''); return; }
