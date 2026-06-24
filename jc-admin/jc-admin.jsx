@@ -197,7 +197,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     const mes = new Date().toISOString().slice(0, 7);
     const inMonth = ts => (ts || "").slice(0, 7) === mes;
     let cash = []; try { cash = (typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || []); } catch (e) {}
-    let ingresos = cash.filter(m => m.kind !== "egreso" && inMonth(m.ts)).reduce((s, m) => s + (m.amount || 0), 0);
+    let ingresos = cash.filter(m => m.type === "ingreso" && inMonth(m.ts)).reduce((s, m) => s + (m.amount || 0), 0);
     let compras = cash.filter(m => m.kind === "atencion" && inMonth(m.ts)).length;
     let allAppts = []; try { allAppts = (window.DB && DB.get("appts")) || appts || []; } catch (e) { allAppts = appts || []; }
     let reservas = allAppts.length;
@@ -207,7 +207,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     // En SaaS no se muestran datos de ejemplo: cada clínica ve sus cifras reales (0 hasta conectar Meta).
     const demo = !spend && !(window.JCSAAS && window.JCSAAS.enabled);
     if (demo) { spend = 500000; leads = 120; reservas = 35; asistieron = 22; compras = 18; ingresos = 6800000; }
-    else if (!leads) { leads = Math.max(reservas, 1); }
+    else if (!leads) { leads = reservas; } // sin Meta conectado, los leads = reservas reales (0 si no hay)
     const roas = spend > 0 ? (ingresos / spend) : 0;
     return { spend, leads, reservas, asistieron, compras, ingresos, roas, demo };
   })();
@@ -1358,7 +1358,9 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const metaConn = (((window.CADMIN || { integrations: [] }).integrations || []).find(i => /meta/i.test(i.name)) || {}).connected;
   const [origen, setOrigen] = useState("");
 
-  const procsByEsp = esp === "Todas" ? PROC_LIST() : (D.catalog.find(s => s.sec === esp) || { groups: [] }).groups.reduce((a, g) => a.concat(g.items.map(i => i.n)), []);
+  // "Todas" usa la lista completa de servicios de la clínica (catálogo base + servicios propios creados en Servicios).
+  const allClinicProcs = (window.clinicServiceList ? Array.from(new Set(window.clinicServiceList().map(s => s.name))) : PROC_LIST());
+  const procsByEsp = esp === "Todas" ? allClinicProcs : (D.catalog.find(s => s.sec === esp) || { groups: [] }).groups.reduce((a, g) => a.concat(g.items.map(i => i.n)), []);
   const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const b0 = new Date();
   const week = []; for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), mm: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][dt.getMonth()], wd: wdN[dt.getDay()], wday: dt.getDay() }); }
