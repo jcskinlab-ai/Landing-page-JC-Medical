@@ -47,7 +47,7 @@
   var NO_SYNC = { session: 1, admin_pass: 1, cloud_pulled: 1, saas_ns: 1 };
 
   // ── Estado interno ────────────────────────────────────────────────────
-  var fb = null, auth = null, db = null;
+  var fb = null, auth = null, db = null, storage = null;
   var state = {
     enabled: CONFIGURED,
     mode: 'staff',
@@ -253,7 +253,8 @@
     var scripts = [
       loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-app-compat.js'),
       loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-auth-compat.js'),
-      loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-firestore-compat.js')
+      loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-firestore-compat.js'),
+      loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-storage-compat.js')
     ];
     // App Check (anti-abuso): solo se carga/activa si hay site key de reCAPTCHA v3 en la config.
     // El site key es público (va en el cliente). Mientras no exista, todo sigue igual.
@@ -266,6 +267,7 @@
       }
       auth = fb.auth();
       db = fb.firestore();
+      try { storage = fb.storage(); } catch (e) { noop(e); }
       try { auth.setPersistence(fb.auth.Auth.Persistence.LOCAL); } catch (e) {}
     });
   }
@@ -477,6 +479,26 @@
     // portal.medique.cl), no el público — así el login/App Check ya está habilitado y
     // la sesión iniciada se comparte (entra directo sin volver a iniciar sesión).
     mobileLink: function (cid) { return location.origin + '/movil?c=' + (cid || state.clinicId || ''); },
+    // ── FIREBASE STORAGE: subida de imágenes clínicas ──
+    // dataUrl: string "data:image/jpeg;base64,…" (ya comprimida/resized).
+    // path:    ruta relativa dentro de la clínica, p. ej. "pId/imTimestamp.jpg".
+    // Devuelve Promise<string> con la URL pública permanente de descarga.
+    uploadImage: function (dataUrl, path) {
+      if (!storage || !state.clinicId) return Promise.reject(new Error('Storage no disponible'));
+      try {
+        var parts = dataUrl.split(',');
+        var mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+        var raw = atob(parts[1]), len = raw.length, arr = new Uint8Array(len);
+        while (len--) arr[len] = raw.charCodeAt(len);
+        var blob = new Blob([arr], { type: mime });
+        var ref = storage.ref(state.clinicId + '/patients/' + path);
+        return ref.put(blob).then(function () { return ref.getDownloadURL(); });
+      } catch (e) { return Promise.reject(e); }
+    },
+    deleteImage: function (path) {
+      if (!storage || !state.clinicId) return Promise.resolve();
+      try { return storage.ref(state.clinicId + '/patients/' + path).delete().catch(noop); } catch (e) { return Promise.resolve(); }
+    },
     // La página de reserva (sin login) deja la reserva en la clínica activa (modo público).
     submitBooking: function (data) {
       if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });

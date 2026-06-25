@@ -609,15 +609,11 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
   });
   // Precio sugerido del servicio (para auto-rellenar el cobro al elegir el procedimiento).
   function svcPrice(name) { try { const s = (window.clinicServiceList ? window.clinicServiceList() : []).find(x => x.name === name); return s ? (s.price || 0) : 0; } catch (e) { return 0; } }
-  const points = (patient && patient.points) || [];
-  const savePoints = pts => { if (patient && updatePatient) updatePatient(patient.id, { points: pts }); };
   // En edición, el profesional que REALIZÓ el tratamiento no cambia: se confirma con su clave.
   // (Sesiones antiguas sin proId quedan asociadas al profesional mostrado, con respaldo al primero del equipo.)
   const origPro = isEdit ? (team.find(t => t.id === (entry.proId || f.proId)) || team.find(t => t.name === (entry.proName || f.proName)) || team[0]) : null;
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
-  const [narrow, setNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 900);
-  useEffect(() => { const h = () => setNarrow(window.innerWidth < 900); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
   function submit() {
     if (!f.proc.trim()) { setErr("Indica el procedimiento."); return; }
@@ -633,13 +629,11 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
 
   const ta = rows => ({ width: "100%", padding: "12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", minHeight: rows * 20 });
   return (
-    <AdModal T={T} huge title={ro ? "Detalle de la sesión" : (isEdit ? "Editar sesión" : "Nueva sesión")} onClose={onClose}
+    <AdModal T={T} wide title={ro ? "Detalle de la sesión" : (isEdit ? "Editar sesión" : "Nueva sesión")} onClose={onClose}
       footer={ro
         ? <AdBtn T={T} primary full onClick={() => setRo(false)}>Editar sesión</AdBtn>
         : <AdBtn T={T} primary full onClick={submit}>{isEdit ? "Confirmar cambios" : "Registrar sesión"}</AdBtn>}>
-      <div style={{ display: narrow ? "flex" : "grid", flexDirection: narrow ? "column" : undefined, gridTemplateColumns: narrow ? undefined : "minmax(0,1fr) minmax(0,1.05fr)", gap: 22, alignItems: "start" }}>
-        {/* Columna izquierda · datos de la sesión (solo-lectura cuando ro) */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 13, pointerEvents: ro ? "none" : "auto", opacity: ro ? .97 : 1 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 13, pointerEvents: ro ? "none" : "auto", opacity: ro ? .97 : 1 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <AdField T={T} label="Fecha" value={f.date} onChange={v => setF({ ...f, date: v })} />
             <label style={{ display: "block" }}>
@@ -752,15 +746,6 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             </div>
           )}
           {err && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#C0285A" }}>{err}</div>}
-        </div>
-
-        {/* Columna derecha · mapa facial y antropometría */}
-        <div style={{ minWidth: 0, borderLeft: narrow ? "none" : ("1px solid " + T.lineSoft), borderTop: narrow ? ("1px solid " + T.lineSoft) : "none", paddingLeft: narrow ? 0 : 22, paddingTop: narrow ? 18 : 0 }}>
-          <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Mapa facial y antropometría</div>
-          {patient
-            ? <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} />
-            : <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Abre la sesión desde la ficha del paciente para registrar el mapa facial.</div>}
-        </div>
       </div>
     </AdModal>
   );
@@ -1132,6 +1117,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
   const [proc, setProc] = useState(IMG_PROCS[0]);
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [src, setSrc] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [viewer, setViewer] = useState(null); // imagen abierta a pantalla completa
   const fileRef = useRef(null);
 
@@ -1157,10 +1143,28 @@ function ImagenesTab({ T, patient, updatePatient }) {
     if (patient.images && patient.images.length) { try { updatePatient(patient.id, { images: [] }); } catch (e) {} }
   }
 
+  function resetForm() { setAdding(false); setSrc(null); setProc(IMG_PROCS[0]); setFecha(new Date().toISOString().slice(0, 10)); }
+
   function save() {
-    const item = { id: "im" + Date.now(), proc, date: fecha, label: proc, src: src || null };
-    commitImgs([item, ...imgs]);
-    setAdding(false); setSrc(null); setProc(IMG_PROCS[0]); setFecha(new Date().toISOString().slice(0, 10));
+    if (!src) { if (window.jcmError) window.jcmError("Selecciona una imagen."); return; }
+    const id = "im" + Date.now();
+    const item = { id, proc, date: fecha, label: proc };
+    const canUpload = window.JCSAAS && typeof window.JCSAAS.uploadImage === "function";
+    if (canUpload) {
+      const storPath = patient.id + "/" + id + ".jpg";
+      setUploading(true);
+      window.JCSAAS.uploadImage(src, storPath)
+        .then(url => { setUploading(false); commitImgs([{ ...item, src: url, storPath }, ...imgs]); resetForm(); })
+        .catch(() => { setUploading(false); commitImgs([{ ...item, src }, ...imgs]); resetForm(); });
+    } else {
+      commitImgs([{ ...item, src }, ...imgs]);
+      resetForm();
+    }
+  }
+
+  function deleteImg(im) {
+    commitImgs(imgs.filter(x => x.id !== im.id));
+    if (im.storPath && window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage(im.storPath);
   }
   // Agrupa por procedimiento y, dentro, ordena por fecha (más reciente primero).
   const groups = {};
@@ -1192,7 +1196,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
                   : <div style={{ aspectRatio: "4/5", display: "flex", alignItems: "center", justifyContent: "center", background: T.surface2 }}><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.4"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg></div>}
                 <figcaption style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, padding: "8px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                   <span>{fmtDate(im.date)}</span>
-                  <button onClick={() => commitImgs(imgs.filter(x => x.id !== im.id))} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  <button onClick={() => deleteImg(im)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
                 </figcaption>
               </figure>
             ))}
@@ -1201,7 +1205,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
       ))}
 
       {adding && (
-        <AdModal T={T} title="Subir imagen clínica" onClose={() => { setAdding(false); setSrc(null); }} footer={<AdBtn T={T} primary full onClick={save}>Guardar imagen</AdBtn>}>
+        <AdModal T={T} title="Subir imagen clínica" onClose={() => { setAdding(false); setSrc(null); }} footer={<AdBtn T={T} primary full onClick={save} disabled={uploading}>{uploading ? "Subiendo…" : "Guardar imagen"}</AdBtn>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <input ref={fileRef} type="file" accept="image/*" onChange={e => { const f = e.target.files && e.target.files[0]; if (f) readImageResized(f, setSrc); }} style={{ display: "none" }} />
             <button onClick={() => fileRef.current && fileRef.current.click()} style={{ aspectRatio: src ? "auto" : "16/9", border: "1px dashed " + T.chipBorder, borderRadius: 10, background: T.surface, cursor: "pointer", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 14, overflow: "hidden" }}>
