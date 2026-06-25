@@ -1076,6 +1076,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
   const [proc, setProc] = useState(IMG_PROCS[0]);
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [src, setSrc] = useState(null);
+  const [viewer, setViewer] = useState(null); // imagen abierta a pantalla completa
   const fileRef = useRef(null);
 
   function save() {
@@ -1109,7 +1110,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
             {groups[proc].map(im => (
               <figure key={im.id} style={{ margin: 0, borderRadius: 8, overflow: "hidden", border: "1px solid " + T.line, background: T.surface }}>
                 {im.src
-                  ? <img src={im.src} alt={im.label} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
+                  ? <img src={im.src} alt={im.label} onClick={() => setViewer(im)} title="Ver imagen completa" style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block", cursor: "zoom-in" }} />
                   : <div style={{ aspectRatio: "4/5", display: "flex", alignItems: "center", justifyContent: "center", background: T.surface2 }}><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.4"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg></div>}
                 <figcaption style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, padding: "8px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                   <span>{fmtDate(im.date)}</span>
@@ -1138,6 +1139,18 @@ function ImagenesTab({ T, patient, updatePatient }) {
             </div>
           </div>
         </AdModal>
+      )}
+
+      {/* Visor de imagen a pantalla completa (clic en cualquier foto) */}
+      {viewer && (
+        <div onClick={() => setViewer(null)} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(8,8,6,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px", boxSizing: "border-box" }}>
+          <div style={{ position: "absolute", top: "calc(14px + env(safe-area-inset-top,0px))", left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px" }}>
+            <span style={{ fontFamily: T.sans, fontSize: 12.5, color: "#fff" }}>{viewer.proc || viewer.label || "Imagen"}{viewer.date ? " · " + fmtDate(viewer.date) : ""}</span>
+            <button onClick={() => setViewer(null)} style={{ background: "rgba(255,255,255,.14)", border: "none", borderRadius: 999, width: 40, height: 40, cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+          </div>
+          <img src={viewer.src} alt={viewer.label || "Imagen"} onClick={e => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+          <a href={viewer.src} download={"imagen-" + (viewer.proc || "clinica") + "-" + (viewer.date || "") + ".jpg"} onClick={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(18px + env(safe-area-inset-bottom,0px))", fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: "#fff", background: "rgba(255,255,255,.16)", borderRadius: 10, padding: "11px 20px", textDecoration: "none" }}>↓ Descargar</a>
+        </div>
       )}
     </div>
   );
