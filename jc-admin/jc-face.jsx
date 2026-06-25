@@ -234,7 +234,8 @@ function FaceSVG({ view, stroke, faint }) {
 const MARQ_RATIO = 552 / 740;
 function MarquardtMask({ color, scale, dy, opacity, fit }) {
   // Usa la imagen oficial de la máscara como alpha-mask, para poder recolorearla con el tema.
-  const url = "jc-proto/marquardt-mask.png?v=65";
+  // Ruta ABSOLUTA: en URLs profundas (/pacientes/<id>) una ruta relativa resolvería mal → 404.
+  const url = "/jc-proto/marquardt-mask.png?v=65";
   const base = {
     pointerEvents: "none", opacity,
     backgroundColor: color,
@@ -635,6 +636,22 @@ function RickettsTool({ T, patient, updatePatient }) {
     report = { su, sl, iu: interp(su), il: interp(sl) };
   }
 
+  // Sugerencias de procedimientos según la posición de los labios respecto a la línea E.
+  const rickRecs = [];
+  if (report) {
+    const prot = report.su > 4 || report.sl > 4;      // labios por delante de la línea
+    const retr = report.su < -4 || report.sl < -4;    // labios muy por detrás
+    if (prot) {
+      rickRecs.push("Labios por delante de la línea E: valorar proyección de mentón con bioestimulación o relleno para equilibrar el perfil.");
+      rickRecs.push("La rinomodelación de la punta nasal puede armonizar la relación nariz–labios–mentón.");
+    }
+    if (retr) {
+      rickRecs.push("Labios retruidos respecto a la línea E: el relleno labial puede aportar proyección y mejorar el equilibrio del perfil.");
+      rickRecs.push("Evaluar la proyección del mentón (bioestimulación o relleno) según el caso.");
+    }
+    if (!prot && !retr) rickRecs.push("Perfil labial dentro de rangos armónicos según la línea E. Mantención y prevención.");
+  }
+
   return (
     <div>
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.55 }}>
@@ -674,7 +691,11 @@ function RickettsTool({ T, patient, updatePatient }) {
             <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 12, lineHeight: 1.55 }}>
               Referencia: en el adulto los labios suelen quedar ligeramente por detrás de la línea E (labio superior ≈ −4, inferior ≈ −2). Valores positivos indican protrusión labial. Medida relativa al largo de la línea nariz–mentón.
             </div>
-            <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 8, lineHeight: 1.5 }}>Análisis orientativo, no sustituye un cefalograma. El criterio clínico prevalece.</div>
+            {rickRecs.length > 0 && <div style={{ marginTop: 14 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 7 }}>Sugerencias</div>
+              {rickRecs.map((r, i) => <div key={i} style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5, marginBottom: 5, paddingLeft: 12, position: "relative" }}><span style={{ position: "absolute", left: 0, color: T.accent }}>·</span>{r}</div>)}
+            </div>}
+            <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>Análisis orientativo, no sustituye un cefalograma. El criterio clínico prevalece.</div>
           </>}
         </div>
       </div>
