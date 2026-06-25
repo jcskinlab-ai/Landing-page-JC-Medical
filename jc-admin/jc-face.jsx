@@ -98,7 +98,8 @@ function aureoCompute(lm, W, H, opts) {
 
   // Puntos del plano sagital medio (línea media de la nariz/rostro)
   const glabella = P(9), nasion = P(168), subnasale = P(2);
-  const stomion = P(13), menton = P(152);
+  // stomion = línea media de los labios (promedio de labio superior 13 y labio inferior 14) → más preciso.
+  const stomion = { x: (P(13).x + P(14).x) / 2, y: (P(13).y + P(14).y) / 2 }, menton = P(152);
   // Trichion (nacimiento del cabello): MediaPipe no lo detecta — usa el punto superior
   // de la frente (10) por defecto y admite ajuste manual fino (opts.trichY en px).
   const trichDet = P(10);
@@ -141,7 +142,7 @@ function aureoCompute(lm, W, H, opts) {
   const mouthW = dist(mouthL, mouthR);
   const eyeW = dist(eyeOutL, eyeInL), eyeH = dist(eyeTopL, eyeBotL);
   const interEye = dist(eyeInL, eyeInR);
-  const lowerNose = dist(subnasale, menton), noseToMouth = dist(subnasale, stomion);
+  const subToLip = dist(subnasale, stomion), lipToChin = dist(stomion, menton);
 
   const sc = (val, ideal, tol) => Math.max(0, Math.min(1, 1 - Math.abs(val - ideal) / tol));
   // — SIMETRÍA respecto al eje medio real —
@@ -154,11 +155,11 @@ function aureoCompute(lm, W, H, opts) {
   const metrics = [
     { key: "tercios", label: "Tercios faciales (33/33/33)", value: Math.round(t1) + " / " + Math.round(t2) + " / " + Math.round(t3) + "%", score: (sc(t1, 33.3, 12) + sc(t2, 33.3, 12) + sc(t3, 33.3, 12)) / 3, ideal: "33 / 33 / 33 %", note: t3 > 37 ? "Tercio inferior dominante" : t3 < 29 ? "Tercio inferior corto" : "Equilibrio en tercios" },
     { key: "quintos", label: "Quintos faciales (20% c/u)", value: fifths.map(v => Math.round(v)).join("/") + "%", score: sc(fifthsDev, 0, 12), ideal: "20/20/20/20/20 %", note: fifths[2] > 24 ? "Quinto central (intercantal) amplio" : fifths[2] < 16 ? "Quinto central estrecho" : "Quintos equilibrados" },
-    { key: "nariz", label: "Nariz · alto:ancho", value: (noseH / noseW).toFixed(2) + " : 1", score: sc(noseH / noseW, PHI, 0.5), ideal: "1.618 : 1", note: (noseH / noseW) < 1.45 ? "Base nasal ancha respecto a su altura" : "Dentro de rango" },
-    { key: "boca", label: "Ancho boca : ancho nariz", value: (mouthW / noseW).toFixed(2) + " : 1", score: sc(mouthW / noseW, PHI, 0.45), ideal: "1.618 : 1", note: (mouthW / noseW) < 1.45 ? "Boca estrecha respecto a la nariz" : "Dentro de rango" },
-    { key: "ojos", label: "Ojo · ancho:alto", value: (eyeW / eyeH).toFixed(2) + " : 1", score: sc(eyeW / eyeH, 3, 1.1), ideal: "≈ 3 : 1", note: (eyeW / eyeH) > 3.6 ? "Ojo alargado" : (eyeW / eyeH) < 2.4 ? "Ojo redondeado" : "Almendrado" },
-    { key: "intercantal", label: "Distancia intercantal", value: (interEye / eyeW).toFixed(2) + " : 1", score: sc(interEye / eyeW, 1, 0.35), ideal: "≈ 1 ojo", note: (interEye / eyeW) > 1.25 ? "Ojos separados" : (interEye / eyeW) < 0.8 ? "Ojos juntos" : "Separación ideal" },
-    { key: "nasolabial", label: "Surco nasolabial → mentón", value: (lowerNose / noseToMouth).toFixed(2) + " : 1", score: sc(lowerNose / noseToMouth, PHI, 0.6), ideal: "1.618 : 1", note: "Proporción áurea del tercio inferior" },
+    { key: "nariz", label: "Nariz · alto:ancho", value: (noseH / noseW).toFixed(2) + " : 1", score: sc(noseH / noseW, PHI, 0.85), ideal: "1.618 : 1", note: (noseH / noseW) < 1.4 ? "Base nasal ancha respecto a su altura" : (noseH / noseW) > 1.9 ? "Nariz alargada" : "Dentro de rango" },
+    { key: "boca", label: "Ancho boca : ancho nariz", value: (mouthW / noseW).toFixed(2) + " : 1", score: sc(mouthW / noseW, PHI, 0.8), ideal: "1.618 : 1", note: (mouthW / noseW) < 1.35 ? "Boca estrecha respecto a la nariz" : (mouthW / noseW) > 1.9 ? "Boca ancha respecto a la nariz" : "Dentro de rango" },
+    { key: "ojos", label: "Ojo · ancho:alto", value: (eyeW / eyeH).toFixed(2) + " : 1", score: sc(eyeW / eyeH, 3, 1.2), ideal: "≈ 3 : 1", note: (eyeW / eyeH) > 3.6 ? "Ojo alargado" : (eyeW / eyeH) < 2.4 ? "Ojo redondeado" : "Almendrado" },
+    { key: "intercantal", label: "Distancia intercantal", value: (interEye / eyeW).toFixed(2) + " : 1", score: sc(interEye / eyeW, 1, 0.5), ideal: "≈ 1 ojo", note: (interEye / eyeW) > 1.25 ? "Ojos separados" : (interEye / eyeW) < 0.8 ? "Ojos juntos" : "Separación ideal" },
+    { key: "nasolabial", label: "Surco nasolabial → mentón", value: (lipToChin / subToLip).toFixed(2) + " : 1", score: sc(lipToChin / subToLip, PHI, 0.8), ideal: "1.618 : 1", note: (lipToChin / subToLip) > 2.1 ? "Mentón/labio inferior dominante" : (lipToChin / subToLip) < 1.25 ? "Tercio inferior corto" : "Proporción equilibrada del tercio inferior" },
     { key: "simetria", label: "Simetría facial (eje medio)", value: Math.round(symmetry * 100) + "%", score: symmetry, ideal: "100 %", note: symmetry < 0.9 ? "Asimetría respecto a la línea media" : "Buena simetría" }
   ];
   const harmony = Math.round(metrics.reduce((s, m) => s + m.score, 0) / metrics.length * 100);
@@ -691,8 +692,8 @@ function RickettsTool({ T, patient, updatePatient }) {
               : <div style={{ textAlign: "center", color: T.textFaint, fontFamily: T.sans, fontSize: 12, padding: 20 }}>Sin foto de perfil</div>}
             {photo && (
               <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
-                {marks.nariz && marks.menton && <line x1={marks.nariz.x * 100} y1={marks.nariz.y * 100} x2={marks.menton.x * 100} y2={marks.menton.y * 100} stroke={T.accent} strokeWidth="0.6" />}
-                {RICK_STEPS.map(([k]) => marks[k] && <circle key={k} cx={marks[k].x * 100} cy={marks[k].y * 100} r="1.3" fill={k === "lsup" || k === "linf" ? "#C0285A" : T.accent} />)}
+                {marks.nariz && marks.menton && <line x1={marks.nariz.x * 100} y1={marks.nariz.y * 100} x2={marks.menton.x * 100} y2={marks.menton.y * 100} stroke={T.accent} strokeWidth="1.4" strokeOpacity="0.85" vectorEffect="non-scaling-stroke" />}
+                {RICK_STEPS.map(([k]) => { const c = (k === "lsup" || k === "linf") ? "#E0607A" : T.accent; return marks[k] && <circle key={k} cx={marks[k].x * 100} cy={marks[k].y * 100} r="0.85" fill={c} fillOpacity="0.3" stroke={c} strokeWidth="1.4" vectorEffect="non-scaling-stroke" />; })}
               </svg>
             )}
           </div>
@@ -737,6 +738,7 @@ function MarquardtTool({ T, patient, updatePatient }) {
   const [fit, setFit] = useState(null);   // encuadre auto {left,top,w,h} en % del contenedor
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [comment, setComment] = useState(null);   // comentario rostro vs máscara (armonía + zonas)
   const fileRef = useRef(null);
   const boxRef = useRef(null);
 
@@ -764,6 +766,12 @@ function MarquardtTool({ T, patient, updatePatient }) {
       const maskTop = faceTopPx - extTop, maskLeft = cxPx - maskW / 2;
       setScale(1); setDy(0);
       setFit({ left: maskLeft / Cw * 100, top: maskTop / Ch * 100, w: maskW / Cw * 100, h: maskH / Ch * 100 });
+      // Comentario rostro vs máscara: usa el mismo análisis áureo para resumir el ajuste.
+      try {
+        const a = aureoCompute(lm, W, H);
+        const low = a.metrics.slice().sort((x, y) => x.score - y.score).slice(0, 2).map(m => m.label.split(" · ")[0].split(" (")[0].trim());
+        setComment({ harmony: a.harmony, low: low });
+      } catch (e2) { setComment(null); }
     } catch (e) { setErr(e.message || "No se pudo detectar el rostro."); }
     setBusy(false);
   }
@@ -801,6 +809,16 @@ function MarquardtTool({ T, patient, updatePatient }) {
           <div style={{ marginBottom: 14 }}><span style={rlbl}>Escala</span><input type="range" min="0.7" max="1.5" step="0.02" value={scale} onChange={e => setScale(+e.target.value)} style={rng} /></div>
           <div style={{ marginBottom: 14 }}><span style={rlbl}>Alto (vertical)</span><input type="range" min="-20" max="20" step="1" value={dy} onChange={e => setDy(+e.target.value)} style={rng} /></div>
           <div style={{ marginBottom: 14 }}><span style={rlbl}>Opacidad</span><input type="range" min="0.2" max="1" step="0.05" value={op} onChange={e => setOp(+e.target.value)} style={rng} /></div>
+          {photo && comment && <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 7 }}>Rostro vs máscara</div>
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.55 }}>
+              El rostro coincide con la máscara áurea en un <b>{comment.harmony}%</b> de armonía.{" "}
+              {comment.harmony >= 75 ? "Buen ajuste general al trazado de Marquardt." : comment.harmony >= 55 ? "Ajuste moderado: el rostro sigue el trazado en lo general, con desviaciones puntuales." : "El rostro se aparta del trazado en varias zonas."}
+            </div>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 6, lineHeight: 1.5 }}>
+              Zonas que más se alejan de la máscara: <b>{(comment.low || []).join(" y ")}</b>.
+            </div>
+          </div>}
           <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6, lineHeight: 1.55 }}>
             La máscara se posiciona automáticamente con detección facial (MediaPipe, 468 puntos). Deriva del número áureo (Φ) y es una <b>referencia estética orientativa</b>: la belleza real es diversa y el criterio clínico siempre prevalece.
           </div>
