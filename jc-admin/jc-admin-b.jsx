@@ -944,7 +944,7 @@ function ConsentTab({ T, patient, updatePatient }) {
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
   }
 
-  function imprimirConsentDoc(doc) {
+  function imprimirConsentDoc(doc, openOnly) {
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const EU = esc(doc.prof || "____________________");
     const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
@@ -972,7 +972,7 @@ function ConsentTab({ T, patient, updatePatient }) {
       body += p("6.-", "Doy fe de no haber omitido o alterado mis antecedentes clínicos. Leí detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.");
     }
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + esc(patient.name || "") + "</title>" +
-      "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}img{max-height:70px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.sig-label{font-size:11px;color:#444;margin-bottom:4px}</style>" +
+      "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:150px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff}.sig-box img{max-height:142px;max-width:96%}</style>" +
       "</head><body>" +
       "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>" +
       "<h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2>" +
@@ -980,9 +980,14 @@ function ConsentTab({ T, patient, updatePatient }) {
       "<div style='font-size:12px;margin-bottom:16px'>Identificado con CI N° <b>" + esc(doc.ci || "") + "</b> · Edad <b>" + esc(doc.edad || "") + "</b></div>" +
       body +
       "<div class='sigs'>" +
-        "<div><div class='sig-label'>Firma paciente</div>" + (doc.sigPac ? "<img src='" + doc.sigPac + "' style='height:60px;border:1px solid #ddd;border-radius:4px'/>" : "<div style='height:60px;border:1px dashed #ccc;border-radius:4px'></div>") + "</div>" +
-        "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div>" + (doc.sigPro ? "<img src='" + doc.sigPro + "' style='height:60px;border:1px solid #ddd;border-radius:4px'/>" : "<div style='height:60px;border:1px dashed #ccc;border-radius:4px'></div>") + "</div>" +
+        "<div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (doc.sigPac ? "<img src='" + doc.sigPac + "'/>" : "") + "</div></div>" +
+        "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (doc.sigPro ? "<img src='" + doc.sigPro + "'/>" : "") + "</div></div>" +
       "</div></body></html>";
+    if (openOnly) {
+      // Solo ABRIR el consentimiento en una pestaña nueva (sin lanzar el diálogo de impresión).
+      const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+      return;
+    }
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
   }
@@ -1038,10 +1043,10 @@ function ConsentTab({ T, patient, updatePatient }) {
         lista.unshift(nuevo);
         updatePatient(patient.id, { consent: true, consentSig: r.sigPac, consentSigPro: r.sigPro, consentInfo: r.tpl.title + " · " + r.fields.fecha, consentDoc: nuevo, consents: lista });
         setSigning(false);
-        try { window.jcmToast && window.jcmToast("Consentimiento guardado. Abriendo copia para guardar como PDF…", "ok"); } catch (e) {}
-        // Abre el consentimiento firmado en una pestaña nueva y lanza el diálogo de impresión,
-        // donde se puede "Guardar en Archivos" (PDF) como respaldo local en el dispositivo.
-        setTimeout(() => { try { imprimirConsentDoc(nuevo); } catch (e) {} }, 500);
+        try { window.jcmToast && window.jcmToast("Consentimiento guardado. Se abrió en una pestaña para tu respaldo.", "ok"); } catch (e) {}
+        // Abre el consentimiento firmado en una PESTAÑA NUEVA (sin lanzar la impresión).
+        // Se abre dentro del mismo gesto del usuario para que iOS no bloquee la pestaña.
+        try { imprimirConsentDoc(nuevo, true); } catch (e) {}
       }} />}
     </div>
   );

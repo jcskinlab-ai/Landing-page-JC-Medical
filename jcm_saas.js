@@ -69,6 +69,25 @@
   var origK = null;
   function nsKey(k) { return 'jcm_' + (state.clinicId ? state.clinicId + '_' : '') + k; }
 
+  // ── Registro de claves SIN SINCRONIZAR (persistente en localStorage) ──────────
+  // Si un push a la nube falla (sin conexión, App Check, doc grande), la clave queda
+  // marcada como "dirty". Mientras esté dirty, la sincronización remota (pullAll /
+  // liveKv) NO la sobrescribe — ni siquiera tras recargar la página — para no perder
+  // datos guardados localmente (p. ej. un consentimiento recién firmado).
+  function dirtyAll() { try { return JSON.parse(localStorage.getItem(nsKey('__dirty__')) || '{}') || {}; } catch (e) { return {}; } }
+  function dirtySave(m) { try { localStorage.setItem(nsKey('__dirty__'), JSON.stringify(m)); } catch (e) {} }
+  function setDirty(k, on) { var m = dirtyAll(); if (on) { if (!m[k]) { m[k] = Date.now(); dirtySave(m); } } else if (m[k]) { delete m[k]; dirtySave(m); } }
+  function isDirty(k) { return dirtyAll()[k] != null; }
+  // Reintenta subir todas las claves pendientes (al iniciar sesión, al reconectar, etc.).
+  function flushDirty() {
+    var m = dirtyAll();
+    Object.keys(m).forEach(function (k) {
+      var raw = null; try { raw = localStorage.getItem(nsKey(k)); } catch (e) {}
+      var v = null; try { v = raw == null ? null : JSON.parse(raw); } catch (e) { v = null; }
+      pushKey(k, v);
+    });
+  }
+
   function bindDB() {
     if (!window.DB || state.bound || !state.clinicId) return;
     origK = window.DB._k.bind(window.DB);
@@ -93,6 +112,7 @@
     if (!db || !state.clinicId) return;
     attempt = attempt || 0;
     pendingPush[k] = JSON.stringify(v == null ? null : v); // marca: hay cambio local sin confirmar
+    setDirty(k, true); // persiste el "sin sincronizar" para que sobreviva a recargas
     clearTimeout(pushTimers[k]);
     pushTimers[k] = setTimeout(function () {
       try {
@@ -101,7 +121,7 @@
         var op = v == null ? ref.delete() : ref.set({ v: JSON.stringify(v), _ts: Date.now() });
         op.then(function () {
           // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
-          if (pendingPush[k] === snapshot) delete pendingPush[k];
+          if (pendingPush[k] === snapshot) { delete pendingPush[k]; setDirty(k, false); }
         }).catch(function (e) {
           noop(e);
           var code = (e && e.code) || 'unknown';
@@ -128,7 +148,7 @@
       state.kvEmpty = snap.empty;
       applyingRemote = true;
       snap.forEach(function (doc) {
-        if (pendingPush[doc.id] != null) return; // conserva cambios locales sin sincronizar
+        if (pendingPush[doc.id] != null || isDirty(doc.id)) return; // conserva cambios locales sin sincronizar (también tras recargar)
         try {
           var data = doc.data();
           var val = data && data.v != null ? JSON.parse(data.v) : null;
@@ -149,9 +169,9 @@
         var changed = false;
         applyingRemote = true;
         snap.docChanges().forEach(function (ch) {
-          // No sobrescribir una clave con cambios locales pendientes (p. ej. un consentimiento
-          // recién firmado cuyo push aún no se confirma): evita perder datos por el rollback de Firestore.
-          if (pendingPush[ch.doc.id] != null) return;
+          // No sobrescribir una clave con cambios locales pendientes o sin sincronizar (p. ej. un
+          // consentimiento recién firmado): evita perder datos por el rollback de Firestore o tras recargar.
+          if (pendingPush[ch.doc.id] != null || isDirty(ch.doc.id)) return;
           if (ch.type === 'removed') { localStorage.removeItem(nsKey(ch.doc.id)); changed = true; return; }
           try {
             var data = ch.doc.data();
@@ -290,6 +310,7 @@
       bindDB();
       pullAll().then(function () {
         liveKv();
+        flushDirty(); // reintenta subir lo que quedó sin sincronizar en sesiones anteriores
         setTimeout(publishProfile, 1500); // publica/actualiza el perfil público de la clínica
         fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role });
       });
@@ -427,6 +448,8 @@
       return true;
     }).catch(function (e) { noop(e); state.enabled = false; return false; });
   }
+  // Al recuperar conexión, reintenta subir lo que quedó sin sincronizar.
+  if (typeof window !== 'undefined') window.addEventListener('online', function () { try { if (state.clinicId) flushDirty(); } catch (e) {} });
 
   window.JCSAAS = {
     get enabled() { return state.enabled; },
