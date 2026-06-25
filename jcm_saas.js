@@ -430,8 +430,10 @@
     getPublic: function () { return state.publicProfile || null; },
     publishProfile: publishProfile,
     bookingLink: function (cid) { return (window.jcmPubBase ? window.jcmPubBase() : location.origin) + '/reservar?c=' + (cid || state.clinicId || ''); },
-    // Panel móvil del equipo (confirmar y crear citas desde el teléfono).
-    mobileLink: function (cid) { return (window.jcmPubBase ? window.jcmPubBase() : location.origin) + '/movil?c=' + (cid || state.clinicId || ''); },
+    // Panel móvil del EQUIPO: usa el MISMO dominio del admin (location.origin, p. ej.
+    // portal.medique.cl), no el público — así el login/App Check ya está habilitado y
+    // la sesión iniciada se comparte (entra directo sin volver a iniciar sesión).
+    mobileLink: function (cid) { return location.origin + '/movil?c=' + (cid || state.clinicId || ''); },
     // La página de reserva (sin login) deja la reserva en la clínica activa (modo público).
     submitBooking: function (data) {
       if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });

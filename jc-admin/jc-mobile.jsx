@@ -432,6 +432,14 @@ function MobileSaasGate() {
     return () => clearTimeout(t);
   }, []);
 
+  // Si tras iniciar sesión la carga de datos no responde (p. ej. App Check no habilitado
+  // en este dominio), no dejamos el botón pegado: mostramos un aviso y reactivamos.
+  useEffect(() => {
+    if (!busy) return;
+    const t = setTimeout(() => { setBusy(false); setErr("La conexión está tardando demasiado. Revisa tu internet e inténtalo de nuevo."); }, 13000);
+    return () => clearTimeout(t);
+  }, [busy]);
+
   async function doLogin() {
     if (!email.trim() || !pass) return;
     setErr(""); setBusy(true);

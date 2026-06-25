@@ -917,10 +917,10 @@ function ConfigView({ T }) {
   const bookUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.bookingLink)
     ? window.JCSAAS.bookingLink()
     : ((typeof window !== "undefined" ? (window.jcmPubBase ? window.jcmPubBase() : window.location.origin) : "") + "/reservar");
-  // Panel móvil del equipo: confirmar y crear citas directas desde el teléfono.
+  // Panel móvil del equipo: mismo dominio del admin (donde ya hay sesión y App Check).
   const mobileUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.mobileLink)
     ? window.JCSAAS.mobileLink()
-    : ((typeof window !== "undefined" ? (window.jcmPubBase ? window.jcmPubBase() : window.location.origin) : "") + "/movil");
+    : ((typeof window !== "undefined" ? window.location.origin : "") + "/movil");
   const qr = "https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=0&data=" + encodeURIComponent(bookUrl);
   const [copied, setCopied] = useState(false);
   const [copiedMob, setCopiedMob] = useState(false);

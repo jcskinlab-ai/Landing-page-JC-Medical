@@ -320,7 +320,7 @@ function GamesScreen({ T, go, onBack }) {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
             </a>
           </div>
-          <iframe src={open.url + (open.url.indexOf("?") >= 0 ? "&" : "?") + "v=45"} title={open.nm} style={{ flex: 1, width: "100%", border: 0, background: "#fff" }} />
+          <iframe src={open.url + (open.url.indexOf("?") >= 0 ? "&" : "?") + "v=46"} title={open.nm} style={{ flex: 1, width: "100%", border: 0, background: "#fff" }} />
         </div>
       )}
     </div>
