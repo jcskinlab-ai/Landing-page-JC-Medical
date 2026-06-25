@@ -68,6 +68,28 @@ function faceSetPhoto(pid, view, url) {
   } catch (e) { try { window.jcmError && window.jcmError("No se pudo guardar la foto (almacenamiento del navegador lleno)."); } catch (_) {} }
 }
 
+// Calidad de la foto: brillo medio y contraste (desviación estándar de luminancia).
+// Sirve para avisar cuando la foto está muy oscura/quemada o con luz plana (poco fiable).
+function photoQuality(dataUrl) {
+  return new Promise(resolve => {
+    try {
+      const img = new Image();
+      img.onload = function () {
+        try {
+          const s = 48, c = document.createElement("canvas"); c.width = s; c.height = s;
+          const ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0, s, s);
+          const d = ctx.getImageData(0, 0, s, s).data; let sum = 0; const lums = [];
+          for (let i = 0; i < d.length; i += 4) { const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; lums.push(l); sum += l; }
+          const mean = sum / lums.length; let vs = 0; for (let k = 0; k < lums.length; k++) vs += (lums[k] - mean) * (lums[k] - mean);
+          resolve({ bright: mean, contrast: Math.sqrt(vs / lums.length) });
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = function () { resolve(null); };
+      img.src = dataUrl;
+    } catch (e) { resolve(null); }
+  });
+}
+
 const FACEMESH_SRC = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js";
 // Detecta 468 landmarks faciales en el navegador. Devuelve {lm, W, H} o lanza error.
 async function detectFaceMesh(dataUrl) {
@@ -155,13 +177,13 @@ function aureoCompute(lm, W, H, opts) {
   const frontal = 1 - Math.min(1, Math.abs(dEyeL - dEyeR) / (((dEyeL + dEyeR) / 2) || 1));
 
   const metrics = [
-    { key: "tercios", label: "Tercios faciales (33/33/33)", value: Math.round(t1) + " / " + Math.round(t2) + " / " + Math.round(t3) + "%", score: (sc(t1, 33.3, 12) + sc(t2, 33.3, 12) + sc(t3, 33.3, 12)) / 3, ideal: "33 / 33 / 33 %", note: t3 > 37 ? "Tercio inferior dominante" : t3 < 29 ? "Tercio inferior corto" : "Equilibrio en tercios" },
+    { key: "tercios", label: "Tercios faciales (33/33/33)", value: Math.round(t1) + " / " + Math.round(t2) + " / " + Math.round(t3) + "%", score: (sc(t1, 33.3, 10) + sc(t2, 33.3, 10) + sc(t3, 33.3, 10)) / 3, ideal: "33 / 33 / 33 %", note: t3 > 37 ? "Tercio inferior dominante" : t3 < 29 ? "Tercio inferior corto" : "Equilibrio en tercios" },
     { key: "quintos", label: "Quintos faciales (20% c/u)", value: fifths.map(v => Math.round(v)).join("/") + "%", score: sc(fifthsDev, 0, 7), ideal: "20/20/20/20/20 %", note: fifths[2] > 24 ? "Quinto central (intercantal) amplio" : fifths[2] < 16 ? "Quinto central estrecho" : "Quintos equilibrados" },
     { key: "nariz", label: "Nariz · alto:ancho", value: (noseH / noseW).toFixed(2) + " : 1", score: sc(noseH / noseW, PHI, 0.6), ideal: "1.618 : 1", note: (noseH / noseW) < 1.4 ? "Base nasal ancha respecto a su altura" : (noseH / noseW) > 1.9 ? "Nariz alargada" : "Dentro de rango" },
-    { key: "boca", label: "Ancho boca : ancho nariz", value: (mouthW / noseW).toFixed(2) + " : 1", score: sc(mouthW / noseW, PHI, 0.8), ideal: "1.618 : 1", note: (mouthW / noseW) < 1.35 ? "Boca estrecha respecto a la nariz" : (mouthW / noseW) > 1.9 ? "Boca ancha respecto a la nariz" : "Dentro de rango" },
-    { key: "ojos", label: "Ojo · ancho:alto", value: (eyeW / eyeH).toFixed(2) + " : 1", score: sc(eyeW / eyeH, 3, 1.2), ideal: "≈ 3 : 1", note: (eyeW / eyeH) > 3.6 ? "Ojo alargado" : (eyeW / eyeH) < 2.4 ? "Ojo redondeado" : "Almendrado" },
+    { key: "boca", label: "Ancho boca : ancho nariz", value: (mouthW / noseW).toFixed(2) + " : 1", score: sc(mouthW / noseW, PHI, 0.65), ideal: "1.618 : 1", note: (mouthW / noseW) < 1.35 ? "Boca estrecha respecto a la nariz" : (mouthW / noseW) > 1.9 ? "Boca ancha respecto a la nariz" : "Dentro de rango" },
+    { key: "ojos", label: "Ojo · ancho:alto", value: (eyeW / eyeH).toFixed(2) + " : 1", score: sc(eyeW / eyeH, 3, 1.0), ideal: "≈ 3 : 1", note: (eyeW / eyeH) > 3.6 ? "Ojo alargado" : (eyeW / eyeH) < 2.4 ? "Ojo redondeado" : "Almendrado" },
     { key: "intercantal", label: "Distancia intercantal", value: (interEye / eyeW).toFixed(2) + " : 1", score: sc(interEye / eyeW, 1, 0.35), ideal: "≈ 1 ojo", note: (interEye / eyeW) > 1.25 ? "Ojos separados" : (interEye / eyeW) < 0.8 ? "Ojos juntos" : "Separación ideal" },
-    { key: "nasolabial", label: "Surco nasolabial → mentón", value: (lipToChin / subToLip).toFixed(2) + " : 1", score: sc(lipToChin / subToLip, PHI, 0.8), ideal: "1.618 : 1", note: (lipToChin / subToLip) > 2.1 ? "Mentón/labio inferior dominante" : (lipToChin / subToLip) < 1.25 ? "Tercio inferior corto" : "Proporción equilibrada del tercio inferior" },
+    { key: "nasolabial", label: "Surco nasolabial → mentón", value: (lipToChin / subToLip).toFixed(2) + " : 1", score: sc(lipToChin / subToLip, PHI, 0.65), ideal: "1.618 : 1", note: (lipToChin / subToLip) > 2.1 ? "Mentón/labio inferior dominante" : (lipToChin / subToLip) < 1.25 ? "Tercio inferior corto" : "Proporción equilibrada del tercio inferior" },
     { key: "simetria", label: "Simetría facial (eje medio)", value: Math.round(symmetry * 100) + "%", score: symmetry, ideal: "100 %", note: symmetry < 0.9 ? "Asimetría respecto a la línea media" : "Buena simetría" }
   ];
   const harmony = Math.round(metrics.reduce((s, m) => s + m.score, 0) / metrics.length * 100);
@@ -501,10 +523,11 @@ function AureoTool({ T, patient, updatePatient }) {
   const [res, setRes] = useState(saved || null);
   const [trichAdj, setTrichAdj] = useState(0);     // ajuste fino de la línea del cabello (% del alto facial)
   const [canAdjust, setCanAdjust] = useState(false); // hay landmarks en memoria para recalcular
+  const [warn, setWarn] = useState(null);            // avisos de calidad de foto (ángulo / luz)
   const fileRef = useRef(null);
   const lmRef = useRef(null);                       // landmarks de la última detección
 
-  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { faceSetPhoto(patient && patient.id, "aureo", u); setPhoto(u); setRes(null); setErr(""); setTrichAdj(0); setCanAdjust(false); lmRef.current = null; }); e.target.value = ""; }
+  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { faceSetPhoto(patient && patient.id, "aureo", u); setPhoto(u); setRes(null); setErr(""); setWarn(null); setTrichAdj(0); setCanAdjust(false); lmRef.current = null; }); e.target.value = ""; }
   async function analyze() {
     if (!photo || busy) return; setBusy(true); setErr("");
     try {
@@ -512,6 +535,13 @@ function AureoTool({ T, patient, updatePatient }) {
       lmRef.current = { lm, W, H };
       const r = aureoCompute(lm, W, H); r.ts = Date.now();
       setTrichAdj(0); setCanAdjust(true); setRes(r);
+      // Calidad de foto: avisa si no es frontal o la luz es deficiente (análisis menos fiable).
+      const q = await photoQuality(photo);
+      const reasons = [];
+      if (r.frontal != null && r.frontal < 0.88) reasons.push("la foto no está totalmente de frente");
+      if (q && (q.bright < 55 || q.bright > 225)) reasons.push("la iluminación es muy oscura o quemada");
+      else if (q && q.contrast < 22) reasons.push("la luz es plana / con poco contraste");
+      setWarn(reasons.length ? reasons : null);
       if (updatePatient && patient) updatePatient(patient.id, { aureo: { metrics: r.metrics, harmony: r.harmony, recs: r.recs, ts: r.ts, W: r.W, H: r.H, overlay: r.overlay } });
     } catch (e) { setErr(e.message || "No se pudo analizar."); }
     setBusy(false);
@@ -605,6 +635,10 @@ function AureoTool({ T, patient, updatePatient }) {
               <span style={{ fontFamily: T.serif, fontSize: 44, fontWeight: 300, color: T.text, lineHeight: 1 }}>{res.harmony}</span>
               <span style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>/ 100 armonía facial</span>
             </div>
+            {warn && <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "rgba(201,162,39,.12)", border: "1px solid rgba(201,162,39,.4)", borderRadius: 9, padding: "10px 12px", marginBottom: 12 }}>
+              <span style={{ fontSize: 14, lineHeight: 1.2 }}>⚠️</span>
+              <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5 }}>Calidad de foto: {warn.join(" y ")}. El análisis pierde precisión — para resultados fiables usa una <b>foto frontal, neutra y bien iluminada</b>.</span>
+            </div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
               {res.metrics.map(m => (
                 <div key={m.key}>
