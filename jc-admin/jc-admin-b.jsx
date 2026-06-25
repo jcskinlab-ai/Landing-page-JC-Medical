@@ -278,58 +278,36 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     const proName = (hist.find(h => h.proName) || {}).proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
     const clinAddr = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const team = (window.CADMIN && window.CADMIN.team) || [];
+    const proMember = team.find(function(t){ return t.name === proName; });
+    const proRole = (proMember && proMember.role) || "Medicina estética";
+    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
     const now = new Date();
     const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const field = (l, v) => "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + (v ? esc(v) : "—") + "</div></div>";
-    const sesion = h => "<div class='ses'><div class='sd'>" + esc(h.date || "") + " · " + esc(h.proc || "") + (h.units ? " <span class='u'>(" + esc(h.units) + ")</span>" : "") + "</div>" +
+    const field = (l, v) => "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + (v ? esc(v) : "") + "</div></div>";
+    const sesion = h => "<div class='ses'><div class='sd'>" + esc(h.date || "") + " &nbsp;·&nbsp; " + esc(h.proc || "") + (h.units ? " <span class='u'>(" + esc(h.units) + ")</span>" : "") + "</div>" +
       ((h.lote || h.venc || h.temp || h.dilucion) ? "<div class='sm'>" + [h.lote && ("Lote " + esc(h.lote)), h.venc && ("Vence " + esc(h.venc)), h.temp && ("Temp. " + esc(h.temp)), h.dilucion && ("Dilución " + esc(h.dilucion))].filter(Boolean).join(" · ") + "</div>" : "") +
       (h.resumen ? "<div class='sn'>" + esc(h.resumen) + "</div>" : "") +
       (h.note ? "<div class='sn'>" + esc(h.note) + "</div>" : "") +
       (h.proName ? "<div class='sp'>Realizado por " + esc(h.proName) + "</div>" : "") + "</div>";
+    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4;margin-bottom:0}.hdr-logo{height:52px;width:auto}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:46px;font-weight:300;color:#1a1a14;line-height:1;letter-spacing:-.01em;margin-bottom:20px}.doc-title em{font-style:italic}.exp-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c8c2b4;float:right;margin-top:6px}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 18px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.pat-dot{width:8px;height:8px;border-radius:50%;border:1px solid rgba(255,255,255,.35);flex-shrink:0}.sec-hd{display:flex;align-items:center;gap:10px;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:22px 0 8px;border-bottom:1px solid #e8e5de;padding-bottom:5px}.sec-hd em{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:#999;text-transform:none;letter-spacing:0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.fld{padding:6px 0;border-bottom:1px solid #f2efe8}.fl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#ccc;margin-bottom:3px}.fv{font-size:12.5px;color:#1a1a14;min-height:16px}.ses{padding:10px 0;border-bottom:1px solid #eeece6}.sd{font-size:13px;font-weight:500}.sd .u{font-weight:400;color:#888}.sm{font-size:10px;color:#999;margin-top:2px}.sn{font-size:12px;margin-top:5px;color:#444;white-space:pre-wrap;line-height:1.6}.sp{font-size:10px;color:#aaa;font-style:italic;margin-top:3px}.sig{margin-top:60px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
+    const header = "<div class='hdr'><img class='hdr-logo' src='/assets/logo-jc-lockup-navy.png'><div class='hdr-r'><span class='hdr-name'>" + esc(proName || clinName) + "</span>" + esc(proRole) + "<br>" + esc(clinAddr) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>";
+    const patBar = "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + (patient.phone ? "<span>Tel. &nbsp;" + esc(patient.phone) + "</span>" : "") + "</div><div class='pat-dot'></div></div>";
+    const footer = "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(proName) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div><div class='sig-mark'><img src='/assets/logo-jc-mark-navy.png'></div></div><div class='strip'><span>Ficha clínica &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Ficha clínica · " + esc(patient.name) + "</title>" +
-      "<link rel='preconnect' href='https://fonts.googleapis.com'>" +
-      "<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
-      "<link href='https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
-      "<style>" +
-      "@page{size:letter;margin:2.2cm 2.4cm 2.8cm}" +
-      "*{box-sizing:border-box;margin:0;padding:0}" +
-      "body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}" +
-      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid #1a1a14;margin-bottom:8px}" +
-      ".hclinic{font-family:'Marcellus',Georgia,serif;font-size:22px;color:#1a1a14}" +
-      ".hinfo{font-size:10px;color:#888;margin-top:3px;line-height:1.5}" +
-      ".hright{text-align:right;font-size:10px;color:#888;padding-top:4px;line-height:1.6}" +
-      ".hright b{font-family:'Jost',sans-serif;font-size:11.5px;font-weight:500;color:#1a1a14;display:block}" +
-      ".clinic-doc{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:#c0b8a0;text-align:center;margin:14px 0 3px}" +
-      ".doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:26px;font-weight:400;font-style:italic;text-align:center;color:#1a1a14;margin-bottom:14px}" +
-      ".pat-bar{background:#1a1a14;color:#fff;padding:11px 16px;border-radius:3px;margin:0 0 18px;display:flex;align-items:center}" +
-      ".pb-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;flex:1;letter-spacing:.01em}" +
-      ".pb-meta{font-size:9.5px;color:#ccc;display:flex;gap:14px;align-items:center;flex-wrap:wrap;letter-spacing:.04em}" +
-      ".sec-hd{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#b0a890;margin:20px 0 7px;padding-bottom:5px;border-bottom:1px solid #e8e5de;display:flex;align-items:center;gap:8px}" +
-      ".sec-hd em{font-family:'Cormorant Garamond',serif;font-size:11px;font-style:italic;color:#888;text-transform:none;letter-spacing:0}" +
-      ".grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}" +
-      ".fld{padding:4px 0}.fl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#c0b8a8}.fv{font-size:12.5px;color:#1a1a14;margin-top:1px}" +
-      ".ses{padding:9px 0;border-bottom:1px solid #eeece6}" +
-      ".sd{font-size:13px;font-weight:500;color:#1a1a14}.sd .u{font-weight:400;color:#777}" +
-      ".sm{font-size:10px;color:#999;margin-top:2px}.sn{font-size:11.5px;margin-top:4px;color:#444;white-space:pre-wrap}" +
-      ".sp{font-size:10px;color:#aaa;font-style:italic;margin-top:3px}" +
-      ".footer-doc{position:fixed;bottom:1.8cm;left:2.4cm;right:2.4cm;display:flex;justify-content:space-between;font-size:9px;color:#bbb;border-top:1px solid #e8e5de;padding-top:6px}" +
-      "</style></head><body>" +
-      "<div class='header'>" +
-        "<div><div class='hclinic'>" + esc(clinName) + "</div><div class='hinfo'>" + esc(proName || "") + (clinAddr ? " &nbsp;·&nbsp; " + esc(clinAddr) : "") + "</div></div>" +
-        "<div class='hright'><b>" + esc(proName || "—") + "</b>Medicina estética" + (clinAddr ? "<br>" + esc(clinAddr) : "") + "</div>" +
-      "</div>" +
-      "<div class='clinic-doc'>Documento clínico</div><div class='doc-title'>Ficha clínica</div>" +
-      "<div class='pat-bar'><div class='pb-name'>" + esc(patient.name || "—") + "</div><div class='pb-meta'>" +
-        (patient.rut ? "<span>CI " + esc(patient.rut) + "</span>" : "") +
-        (patient.age ? "<span>" + esc(patient.age) + " años</span>" : "") +
-        (patient.phone ? "<span>" + esc(patient.phone) + "</span>" : "") +
-      "</div></div>" +
-      "<div class='sec-hd'><em>i</em> Antecedentes</div><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + field("Correo electrónico", patient.email) + "</div>" +
-      "<div class='sec-hd'><em>ii</em> Hábitos y piel</div><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros/día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador solar", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
-      (patient.notes ? "<div class='sec-hd'>Notas internas</div><div class='fv' style='font-size:12px;color:#444;white-space:pre-wrap'>" + esc(patient.notes) + "</div>" : "") +
-      "<div class='sec-hd'><em>iii</em> Historial de sesiones</div>" + (hist.length ? hist.map(sesion).join("") : "<div style='color:#bbb;font-size:11px;padding:6px 0'>Sin sesiones registradas.</div>") +
-      "<div class='footer-doc'><span>" + esc(proName) + " &nbsp;·&nbsp; Medicina estética</span><span>" + esc(clinName) + "</span><span>" + esc(hoy) + "</span></div>" +
+      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
+      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
+      "<style>" + css + "</style></head><body>" +
+      header +
+      "<div class='doc-type'>Documento clínico</div>" +
+      "<div style='position:relative'><div class='doc-title'>Ficha <em>clínica</em></div><div class='exp-lbl'>Expediente</div></div>" +
+      patBar +
+      "<div class='sec-hd'><em>i</em>&nbsp; Antecedentes</div><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + field("Correo electrónico", patient.email) + "</div>" +
+      "<div class='sec-hd'><em>ii</em>&nbsp; Hábitos y piel</div><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros/día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador solar", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
+      (patient.notes ? "<div class='sec-hd'>Notas internas</div><div style='font-size:12px;color:#444;white-space:pre-wrap;margin-top:4px'>" + esc(patient.notes) + "</div>" : "") +
+      "<div class='sec-hd'><em>iii</em>&nbsp; Historial de sesiones</div>" + (hist.length ? hist.map(sesion).join("") : "<div style='color:#bbb;font-size:11px;padding:8px 0'>Sin sesiones registradas.</div>") +
+      footer +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
@@ -341,52 +319,35 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     const proName = h.proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
     const clinAddr = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const team = (window.CADMIN && window.CADMIN.team) || [];
+    const proMember = team.find(function(t){ return t.name === proName; });
+    const proRole = (proMember && proMember.role) || "Medicina estética";
+    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
     const now = new Date();
     const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const sesDate = h.date || now.toISOString().slice(0, 10);
     const [sy, sm, sd] = sesDate.split("-");
-    const hoyDot = (sd||"—") + " · " + (sm||"—") + " · " + (sy||"—");
+    const dotDate = (sd||"—") + " &middot; " + (sm||"—") + " &middot; " + (sy||"—");
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const bx = (l, v) => v ? "<div class='insumo-bx'><div class='ibxl'>" + l + "</div><div class='ibxv'>" + esc(v) + "</div></div>" : "";
+    const insBx = (l, v) => v ? "<div class='ibx'><div class='ibxl'>" + l + "</div><div class='ibxv'>" + esc(v) + "</div></div>" : "<div class='ibx'><div class='ibxl'>" + l + "</div><div class='ibxv' style='color:#ccc'>—</div></div>";
+    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4}.hdr-logo{height:52px;width:auto}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:46px;font-weight:300;color:#1a1a14;line-height:1;letter-spacing:-.01em}.doc-title em{font-style:italic}.date-box{text-align:right;padding-top:2px}.date-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.date-val{font-family:'Jost',sans-serif;font-size:22px;font-weight:300;color:#1a1a14;letter-spacing:.05em;line-height:1}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 18px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.info-box{border:1px solid #e0ddd5;border-left:3px solid #1a1a14;padding:12px 18px;margin:0 0 20px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.info-col{flex:1}.info-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-bottom:5px}.info-val{font-size:16px;color:#1a1a14;font-weight:400;font-family:'Cormorant Garamond',serif}.sec-hd{display:flex;align-items:center;gap:10px;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:22px 0 10px;border-bottom:1px solid #e8e5de;padding-bottom:5px}.sec-hd em{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:#999;text-transform:none;letter-spacing:0}.insumo-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.ibx{border:1px solid #e8e5de;padding:10px 13px}.ibxl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.ibxv{font-size:13px;color:#1a1a14}.text-box{font-size:13px;color:#444;white-space:pre-wrap;line-height:1.7;margin-top:6px;min-height:60px}.total-row{text-align:right;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-top:10px}.sig{margin-top:60px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Procedimiento · " + esc(patient.name) + "</title>" +
-      "<style>@page{size:letter;margin:2cm 2.2cm}*{box-sizing:border-box}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a14;margin:0;font-size:12px;line-height:1.5}" +
-      "h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;margin:0;font-weight:400}" +
-      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1.5px solid #1a1a14}" +
-      ".hdr-right{text-align:right;font-size:11px;color:#444;line-height:1.6}" +
-      ".hdr-right b{font-size:12.5px;color:#1a1a14;display:block}" +
-      ".clinic-doc{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#aaa;margin:14px 0 2px;text-align:center}" +
-      ".doc-title{font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;text-align:center;margin:0 0 4px;color:#1a1a14}" +
-      ".doc-date{text-align:center;font-size:11px;color:#aaa;letter-spacing:.12em;margin-bottom:10px}" +
-      ".pat-bar{background:#1a1a14;color:#fff;padding:10px 14px;border-radius:4px;margin:0 0 18px;display:flex;align-items:center}" +
-      ".pb-name{font-family:Georgia,serif;font-size:15px;font-weight:400;flex:1}" +
-      ".pb-meta{font-size:10px;color:#ccc;display:flex;gap:16px;align-items:center;flex-wrap:wrap}" +
-      ".sec-hd{display:flex;align-items:baseline;gap:10px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin:18px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}" +
-      ".sec-hd em{font-style:italic;font-family:Georgia,serif;font-size:11px;color:#444;text-transform:none;letter-spacing:0}" +
-      ".proc-box{border:1px solid #ddd;border-radius:6px;padding:12px 16px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}" +
-      ".pbxl{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#bbb;margin-bottom:2px}.pbxv{font-size:15px;color:#1a1a14;font-weight:500}" +
-      ".insumos{display:flex;gap:10px;margin-top:4px}" +
-      ".insumo-bx{flex:1;border:1px solid #eee;border-radius:5px;padding:8px 11px;text-align:center}" +
-      ".ibxl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#bbb;margin-bottom:3px}" +
-      ".ibxv{font-size:12.5px;color:#1a1a14}" +
-      ".box{font-size:12px;line-height:1.75;margin-top:4px;white-space:pre-wrap;color:#333}" +
-      ".footer{margin-top:50px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}" +
-      "</style></head><body>" +
-      "<div class='header'><div><h1>" + esc(clinName) + "</h1></div>" +
-      "<div class='hdr-right'><b>" + esc(proName || "—") + "</b>Medicina estética" + (clinAddr ? "<br>" + esc(clinAddr) : "") + "</div></div>" +
-      "<div class='clinic-doc'>Documento clínico</div><div class='doc-title'>Procedimiento realizado</div><div class='doc-date'>" + hoyDot + "</div>" +
-      "<div class='pat-bar'><div class='pb-name'>" + esc(patient.name || "—") + "</div><div class='pb-meta'>" +
-        (patient.rut ? "<span>RUT " + esc(patient.rut) + "</span>" : "") +
-        (patient.age ? "<span>" + esc(patient.age) + " años</span>" : "") +
-        (patient.phone ? "<span>" + esc(patient.phone) + "</span>" : "") +
-      "</div></div>" +
-      "<div class='proc-box'><div><div class='pbxl'>Tratamiento</div><div class='pbxv'>" + esc(h.proc || "—") + "</div></div>" +
-      "<div><div class='pbxl'>Unidades / Dosis</div><div class='pbxv'>" + esc(h.units || "—") + "</div></div></div>" +
-      "<div class='sec-hd'><em>i</em> Insumo</div><div class='insumos'>" +
-        bx("Lote", h.lote) + bx("Vencimiento", h.venc) + bx("Temp.", h.temp) + bx("Dilución", h.dilucion) +
-      "</div>" +
-      (h.resumen ? "<div class='sec-hd'><em>ii</em> Resumen de la aplicación</div><div class='box'>" + esc(h.resumen) + "</div>" : "") +
-      (h.note ? "<div class='sec-hd'>Notas</div><div class='box'>" + esc(h.note) + "</div>" : "") +
-      "<div class='footer'><span>" + esc(proName) + " · Medicina estética</span><span>" + esc(clinName) + "</span><span>" + hoy + "</span></div>" +
+      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
+      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
+      "<style>" + css + "</style></head><body>" +
+      "<div class='hdr'><img class='hdr-logo' src='/assets/logo-jc-lockup-navy.png'><div class='hdr-r'><span class='hdr-name'>" + esc(proName || clinName) + "</span>" + esc(proRole) + "<br>" + esc(clinAddr) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>" +
+      "<div class='doc-type'>Registro de tratamiento</div>" +
+      "<div class='title-row'><div class='doc-title'>Procedimiento <em>realizado</em></div><div class='date-box'><div class='date-lbl'>Fecha</div><div class='date-val'>" + dotDate + "</div></div></div>" +
+      "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + "</div></div>" +
+      "<div class='info-box'><div class='info-col'><div class='info-lbl'>Tratamiento</div><div class='info-val'>" + esc(h.proc || "—") + "</div></div><div style='text-align:right'><div class='info-lbl'>Unidades / Dosis</div><div class='info-val'>" + esc(h.units || "—") + "</div></div></div>" +
+      "<div class='sec-hd'><em>i</em>&nbsp; Insumo</div>" +
+      "<div class='insumo-grid'>" + insBx("Lote", h.lote) + insBx("Vencimiento", h.venc) + insBx("Dilución", h.dilucion) + "</div>" +
+      (h.temp ? "<div style='font-size:10px;color:#999;margin-top:8px'>Temperatura: " + esc(h.temp) + "</div>" : "") +
+      "<div class='sec-hd'><em>ii</em>&nbsp; Resumen de la aplicación</div><div class='text-box'>" + esc(h.resumen || "") + "</div>" +
+      (h.note ? "<div class='sec-hd'>Notas</div><div class='text-box'>" + esc(h.note) + "</div>" : "") +
+      (h.units ? "<div class='total-row'>Total aplicado &nbsp;&nbsp;" + esc(h.units) + "</div>" : "") +
+      "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(proName) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div><div class='sig-mark'><img src='/assets/logo-jc-mark-navy.png'></div></div>" +
+      "<div class='strip'><span>Procedimiento realizado &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>" +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
@@ -1603,60 +1564,39 @@ function RecetaTab({ T, patient, updatePatient }) {
     const pro = (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const dir = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
     const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
-    const title = titleOf(r.tipo);
-    const edad = patient.age ? patient.age + " años" : "";
-    const rpHtml = r.rp.split("\n").map(l => l.trim() ? "<div class='ind-line'>" + l + "</div>" : "").join("");
+    const team = (window.CADMIN && window.CADMIN.team) || [];
+    const proMember = team.find(function(t){ return t.name === pro; });
+    const proRole = (proMember && proMember.role) || "Medicina estética";
+    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
+    const now = new Date();
+    const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const dotDate = dd + " &middot; " + mm + " &middot; " + now.getFullYear();
+    const isInd = r.tipo === "indicaciones";
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + esc(title) + " · " + esc(patient.name || "") + "</title>" +
-      "<link rel='preconnect' href='https://fonts.googleapis.com'>" +
-      "<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
-      "<link href='https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
-      "<style>" +
-      "@page{size:letter;margin:2.4cm 2.4cm 2.8cm}" +
-      "*{box-sizing:border-box;margin:0;padding:0}" +
-      "body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.6;-webkit-font-smoothing:antialiased}" +
-      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #1a1a14;margin-bottom:10px}" +
-      ".hclinic{font-family:'Marcellus',Georgia,serif;font-size:20px;color:#1a1a14;letter-spacing:.01em}" +
-      ".hinfo{font-size:10px;color:#888;margin-top:3px;line-height:1.5}" +
-      ".hdate{font-family:'Jost',sans-serif;font-size:11px;color:#888;text-align:right;padding-top:4px}" +
-      ".doc-label{font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:#b0a890;text-align:center;margin:20px 0 4px}" +
-      ".doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:26px;font-weight:400;text-align:center;color:#1a1a14;margin-bottom:6px}" +
-      ".doc-sub{font-size:10px;color:#aaa;text-align:center;letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px}" +
-      ".divider{border:none;border-top:1px solid #e0ddd5;margin:16px 0}" +
-      ".lbl{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:4px;margin-top:14px}" +
-      ".pat-name{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:500;color:#1a1a14}" +
-      ".pat-meta{font-size:12px;color:#555;margin-top:2px}" +
-      ".diag{font-size:13px;color:#1a1a14;font-style:italic;margin-top:3px}" +
-      ".ind-section{margin-top:18px}" +
-      ".ind-line{padding:9px 0;border-bottom:1px solid #eeece6;font-size:13.5px;color:#1a1a14;line-height:1.5}" +
-      ".ind-line:first-child{border-top:1px solid #eeece6}" +
-      ".rp-sym{font-family:'Cormorant Garamond',serif;font-size:40px;font-style:italic;color:#1a1a14;line-height:1;margin:14px 0 4px}" +
-      ".rp-box{font-size:13.5px;line-height:2;color:#1a1a14}" +
-      ".notas{font-size:12px;color:#555;font-style:italic;margin-top:6px;padding:10px 14px;background:#f8f7f3;border-radius:4px}" +
-      ".firma{margin-top:64px;display:flex;justify-content:flex-start}" +
-      ".firma-inner{width:280px}" +
-      ".firma-line{border-top:1px solid #1a1a14;padding-top:7px}" +
-      ".firma-name{font-family:'Jost',sans-serif;font-size:11.5px;color:#333;font-weight:500}" +
-      ".firma-role{font-size:10px;color:#aaa;margin-top:1px}" +
-      ".footer-doc{position:fixed;bottom:1.8cm;left:2.4cm;right:2.4cm;display:flex;justify-content:space-between;font-size:9px;color:#bbb;border-top:1px solid #e8e5de;padding-top:6px}" +
-      "</style></head><body>" +
-      "<div class='header'>" +
-        "<div><div class='hclinic'>" + esc(clinName) + "</div><div class='hinfo'>" + esc(pro) + (dir ? " &nbsp;·&nbsp; " + esc(dir) : "") + "</div></div>" +
-        "<div class='hdate'>" + esc(r.fecha) + "</div>" +
-      "</div>" +
-      "<div class='doc-label'>Documento clínico</div>" +
-      "<div class='doc-title'>" + esc(title) + "</div>" +
-      "<hr class='divider'>" +
-      "<div class='lbl'>Paciente</div>" +
-      "<div class='pat-name'>" + esc(patient.name || "—") + "</div>" +
-      "<div class='pat-meta'>" + (patient.rut ? "CI " + esc(patient.rut) : "") + (patient.rut && edad ? " &nbsp;·&nbsp; " : "") + (edad ? esc(edad) : "") + "</div>" +
-      (r.diag ? "<div class='lbl'>Diagnóstico</div><div class='diag'>" + esc(r.diag) + "</div>" : "") +
-      (r.tipo === "indicaciones"
-        ? "<div class='ind-section'>" + (rpHtml || "<div class='ind-line' style='color:#aaa'>Sin indicaciones registradas.</div>") + "</div>"
-        : "<div class='rp-sym'>Rp.</div><div class='rp-box'>" + esc(r.rp).replace(/\n/g, "<br>") + "</div>") +
-      (r.ind ? "<div class='lbl'>Notas adicionales</div><div class='notas'>" + esc(r.ind).replace(/\n/g, "<br>") + "</div>" : "") +
-      "<div class='firma'><div class='firma-inner'><div class='firma-line'><div class='firma-name'>" + esc(pro) + "</div><div class='firma-role'>Firma del profesional</div></div></div></div>" +
-      "<div class='footer-doc'><span>" + esc(clinName) + " &nbsp;·&nbsp; Medicina estética</span><span>" + esc(r.fecha) + "</span></div>" +
+    const lines = r.rp.split("\n").map(l => l.replace(/^[•\-\*]\s*/, "").trim()).filter(Boolean);
+    const indHtml = lines.map(function(l, i){ return "<div class='ind-item'><div class='ind-num'>" + (i+1) + "</div><div class='ind-text'>" + esc(l) + "</div></div>"; }).join("");
+    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4}.hdr-logo{height:52px;width:auto}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:44px;font-weight:300;color:#1a1a14;line-height:1.02;letter-spacing:-.01em}.doc-title em{font-style:italic}.date-box{text-align:right;padding-top:2px;flex-shrink:0;margin-left:16px}.date-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.date-val{font-family:'Jost',sans-serif;font-size:22px;font-weight:300;color:#1a1a14;letter-spacing:.05em;line-height:1}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 16px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.info-box{border:1px solid #e0ddd5;border-left:3px solid #1a1a14;padding:12px 18px;margin:0 0 20px}.info-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-bottom:5px}.info-val{font-size:15px;color:#1a1a14;font-family:'Cormorant Garamond',serif;font-style:italic}.sec-hd{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:20px 0 0;border-bottom:1px solid #e8e5de;padding-bottom:5px}.ind-item{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #f0ede6;align-items:flex-start}.ind-num{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:19px;color:#c8c2b4;min-width:22px;flex-shrink:0;padding-top:1px}.ind-text{font-size:13px;color:#1a1a14;line-height:1.6;flex:1}.rp-sym{font-family:'Cormorant Garamond',serif;font-size:40px;font-style:italic;color:#1a1a14;line-height:1;margin:14px 0 4px}.text-box{font-size:13px;color:#444;white-space:pre-wrap;line-height:1.7;margin-top:6px}.ctrl-bar{background:#1a1a14;color:#fff;padding:10px 18px;margin-top:24px;display:flex;align-items:center;gap:12px}.ctrl-plus{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;opacity:.5}.ctrl-txt{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase}.notas{font-size:12px;color:#555;padding:10px 14px;background:#f8f7f4;border-left:3px solid #d0cdc4;margin-top:8px;line-height:1.6}.sig{margin-top:56px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
+    const docType = isInd ? "Cuidados posteriores" : "Prescripción médica";
+    const titleHtml = isInd ? "Indicaciones <em>post tratamiento</em>" : "Receta <em>médica</em>";
+    const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + esc(titleOf(r.tipo)) + " · " + esc(patient.name || "") + "</title>" +
+      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
+      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
+      "<style>" + css + "</style></head><body>" +
+      "<div class='hdr'><img class='hdr-logo' src='/assets/logo-jc-lockup-navy.png'><div class='hdr-r'><span class='hdr-name'>" + esc(pro || clinName) + "</span>" + esc(proRole) + "<br>" + esc(dir) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>" +
+      "<div class='doc-type'>" + docType + "</div>" +
+      "<div class='title-row'><div class='doc-title'>" + titleHtml + "</div><div class='date-box'><div class='date-lbl'>Fecha</div><div class='date-val'>" + dotDate + "</div></div></div>" +
+      "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + "</div></div>" +
+      (r.diag ? "<div class='info-box'><div class='info-lbl'>Diagnóstico / Procedimiento</div><div class='info-val'>" + esc(r.diag) + "</div></div>" : "") +
+      "<div class='sec-hd'>" + (isInd ? "Indicaciones" : "Prescripción") + "</div>" +
+      (isInd
+        ? (lines.length ? indHtml : "<div class='ind-item'><div class='ind-num'>1</div><div class='ind-text' style='color:#ccc'>Sin indicaciones registradas.</div></div>")
+        : "<div class='rp-sym'>Rp.</div><div class='text-box'>" + esc(r.rp).replace(/\n/g, "<br>") + "</div>") +
+      (r.ind ? "<div class='notas'>" + esc(r.ind).replace(/\n/g, "<br>") + "</div>" : "") +
+      (isInd ? "<div class='ctrl-bar'><div class='ctrl-plus'>+</div><div class='ctrl-txt'>Control de evaluación</div></div>" : "") +
+      "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(pro) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div><div class='sig-mark'><img src='/assets/logo-jc-mark-navy.png'></div></div>" +
+      "<div class='strip'><span>" + esc(titleOf(r.tipo)) + " &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>" +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
