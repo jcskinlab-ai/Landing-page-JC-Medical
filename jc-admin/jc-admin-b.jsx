@@ -55,6 +55,15 @@ function patImages(p) {
   try { const v = window.DB && window.DB.get(patImgKey(p.id)); if (Array.isArray(v)) return v; } catch (e) {}
   return p.images || [];
 }
+// Los CONSENTIMIENTOS de cada paciente viven en su propio documento (pcons_<id>), fuera del
+// documento de pacientes. Así cada uno es pequeño, SÍ sube a la nube y se ve en todos los
+// dispositivos en tiempo real, sin chocar con el límite de 1 MB por documento de Firestore.
+function patConsKey(id) { return "pcons_" + id; }
+function patConsents(p) {
+  if (!p) return [];
+  try { const v = window.DB && window.DB.get(patConsKey(p.id)); if (Array.isArray(v)) return v; } catch (e) {}
+  return p.consents || (p.consentDoc ? [p.consentDoc] : []);
+}
 
 function AdTag({ T, tone, children }) {
   const c = { ok: "#1F8A5B", warn: T.gold, danger: "#C0285A", muted: T.textFaint }[tone] || T.accent;
@@ -825,13 +834,20 @@ function ConsentView({ T, patients, updatePatient }) {
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{p.name}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>{p.consentInfo || "Consentimiento informado"}</div>
             </div>
-            {p.consentSig ? <img src={p.consentSig} alt="firma" style={{ height: 34, width: "auto", filter: T.dark ? "invert(0)" : "none", opacity: .9 }} /> : <AdTag T={T} tone="ok">Firmado</AdTag>}
+            <AdTag T={T} tone="ok">Firmado</AdTag>
           </div>
         ))}
       </div>
 
       {signing && <SignConsentModal T={T} data={signing} onClose={() => setSigning(null)}
-        onSign={(r) => { updatePatient(signing.patient.id, { consent: true, consentSig: r.sigPac, consentSigPro: r.sigPro, consentInfo: r.tpl.title + " · " + r.fields.fecha, consentDoc: { kind: r.tpl.kind, title: r.tpl.title, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() } }); setSigning(null); }} />}
+        onSign={(r) => {
+          const p = signing.patient;
+          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+          const lista = patConsents(p).slice(); lista.unshift(nuevo);
+          try { window.DB.set(patConsKey(p.id), lista); } catch (e) {}
+          updatePatient(p.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+          setSigning(null);
+        }} />}
     </div>
   );
 }
@@ -952,8 +968,22 @@ function ConsentTab({ T, patient, updatePatient }) {
   const [tpl0, setTpl0] = useState(null);
   const [openDoc, setOpenDoc] = useState(null); // consentimiento abierto en popup
   const A = window.JCADMIN;
-  // Lista de consentimientos (compatibilidad con el modelo antiguo de uno solo).
-  const consents = patient.consents || (patient.consentDoc ? [patient.consentDoc] : []);
+  // Consentimientos en su propia clave (pcons_<id>) → suben a la nube y se ven en todos lados.
+  const consKey = patConsKey(patient.id);
+  const [consents, setConsentsState] = useState(() => patConsents(patient));
+  useEffect(() => {
+    setConsentsState(patConsents(patient));
+    // Migración del modelo antiguo (consentimientos dentro del paciente) → su clave propia.
+    try {
+      const legacy = patient.consents || (patient.consentDoc ? [patient.consentDoc] : []);
+      const own = window.DB && window.DB.get(consKey);
+      if (legacy.length && !Array.isArray(own)) {
+        window.DB.set(consKey, legacy);
+        if (Array.isArray(window.DB.get(consKey))) updatePatient(patient.id, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+      }
+    } catch (e) {}
+  }, [patient.id]);
+  function commitConsents(next) { try { window.DB.set(consKey, next); } catch (e) {} setConsentsState(next); }
   const printRef = useRef(null);
   function start(t) { setTpl0(t); setSigning(true); }
   const fmtHora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
@@ -1062,9 +1092,11 @@ function ConsentTab({ T, patient, updatePatient }) {
 
       {signing && <SignConsentModal T={T} data={{ patient: patient, template: tpl0 || A.consents[0] }} onClose={() => setSigning(false)} onSign={(r) => {
         const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
-        const lista = (patient.consents || (patient.consentDoc ? [patient.consentDoc] : [])).slice();
+        const lista = patConsents(patient).slice();
         lista.unshift(nuevo);
-        updatePatient(patient.id, { consent: true, consentSig: r.sigPac, consentSigPro: r.sigPro, consentInfo: r.tpl.title + " · " + r.fields.fecha, consentDoc: nuevo, consents: lista });
+        commitConsents(lista); // guarda el consentimiento en su propia clave (sube a la nube)
+        // En el paciente solo queda la marca liviana (sin firmas) para que el documento sea pequeño.
+        updatePatient(patient.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
         setSigning(false);
         try { window.jcmToast && window.jcmToast("Consentimiento guardado. Se abrió en una pestaña para tu respaldo.", "ok"); } catch (e) {}
         // Abre el consentimiento firmado en una PESTAÑA NUEVA (sin lanzar la impresión).
