@@ -536,7 +536,7 @@ function AureoTool({ T, patient, updatePatient }) {
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.55 }}>
         Sube una foto <b>frontal</b>, clara y bien iluminada. La IA detecta 468 puntos faciales <b>en este dispositivo</b> (sin enviar la imagen a ningún servidor), traza la <b>línea media de la nariz</b> y desde ese eje calcula <b>tercios</b>, <b>quintos</b> faciales y la proporción áurea (Φ 1.618).
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 330px) 1fr", gap: 18, alignItems: "start" }}>
         {/* imagen + overlay */}
         <div>
           <input ref={fileRef} type="file" accept="image/*" onChange={onUpload} style={{ display: "none" }} />
@@ -685,7 +685,7 @@ function RickettsTool({ T, patient, updatePatient }) {
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.55 }}>
         Sube una foto de <b>perfil</b> y marca 4 puntos: la línea estética E de Ricketts une la <b>punta de la nariz</b> con el <b>mentón</b>; se evalúa cuánto sobresalen los labios respecto a esa línea.
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 330px) 1fr", gap: 18, alignItems: "start" }}>
         <div>
           <input ref={fileRef} type="file" accept="image/*" onChange={onUpload} style={{ display: "none" }} />
           <div ref={areaRef} onClick={clickArea} style={{ position: "relative", aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", border: "1px solid " + T.line, background: T.surface, cursor: photo && next ? "crosshair" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -802,7 +802,7 @@ function MarquardtTool({ T, patient, updatePatient }) {
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.55 }}>
         Sube una foto <b>frontal</b> en reposo: la <b>máscara de Marquardt</b> (rejilla áurea Φ 1.618) se <b>calza sola</b> sobre el rostro con IA. Afina con los controles si lo necesitas.
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 330px) 1fr", gap: 18, alignItems: "start" }}>
         <div>
           <input ref={fileRef} type="file" accept="image/*" onChange={onUpload} style={{ display: "none" }} />
           <div ref={boxRef} style={{ position: "relative", aspectRatio: "200/260", borderRadius: 10, overflow: "hidden", border: "1px solid " + T.line, background: photo ? "#0c0f13" : T.surface, display: "flex", alignItems: "center", justifyContent: "center" }}>
