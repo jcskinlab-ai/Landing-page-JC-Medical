@@ -43,6 +43,31 @@ function loadScriptOnce(src) {
   });
 }
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+/* ── Fotos del rostro: almacén LOCAL de este equipo ──────────────────────────────
+ * Las fotos en base64 NO se sincronizan a Firestore (superarían el límite de 1 MB por
+ * documento). Se guardan en localStorage bajo una clave que la sincronización NUNCA toca,
+ * así sobreviven a la recarga. Los RESULTADOS del análisis (números/sugerencias) sí se
+ * guardan en el paciente y sincronizan. (Para que las fotos crucen dispositivos haría falta
+ * Firebase Storage + Blaze; pendiente.) */
+function _faceKey() {
+  var cid = "local";
+  try { cid = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || "local"; } catch (e) {}
+  return "jcm_facephotos_" + cid;
+}
+function faceGetPhoto(pid, view) {
+  try { var all = JSON.parse(localStorage.getItem(_faceKey()) || "{}"); return (all[pid] || {})[view] || null; } catch (e) { return null; }
+}
+function faceSetPhoto(pid, view, url) {
+  if (!pid) return;
+  try {
+    var k = _faceKey(), all = JSON.parse(localStorage.getItem(k) || "{}");
+    if (!all[pid]) all[pid] = {};
+    if (url == null) { delete all[pid][view]; if (!Object.keys(all[pid]).length) delete all[pid]; }
+    else all[pid][view] = url;
+    localStorage.setItem(k, JSON.stringify(all));
+  } catch (e) { try { window.jcmError && window.jcmError("No se pudo guardar la foto (almacenamiento del navegador lleno)."); } catch (_) {} }
+}
+
 const FACEMESH_SRC = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js";
 // Detecta 468 landmarks faciales en el navegador. Devuelve {lm, W, H} o lanza error.
 async function detectFaceMesh(dataUrl) {
@@ -268,10 +293,10 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
   const mirror = view === "sider";
   const svgView = view === "front" ? "front" : "side";
   const zones = view === "front" ? A.zonesFront : (mirror ? A.zonesSide.map(z => ({ ...z, x: 100 - z.x })) : A.zonesSide);
-  const photos = (patient && patient.facePhotos) || {};
-  const photo = photos[view];
+  const [photo, _setPhoto] = useState(() => faceGetPhoto(patient && patient.id, view));
+  useEffect(() => { _setPhoto(faceGetPhoto(patient && patient.id, view)); }, [view, patient && patient.id]);
 
-  function setPhoto(url) { if (updatePatient && patient) updatePatient(patient.id, { facePhotos: { ...photos, [view]: url } }); }
+  function setPhoto(url) { if (patient) { faceSetPhoto(patient.id, view, url); _setPhoto(url || null); } }
   function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, setPhoto); e.target.value = ""; }
   function addPoint(x, y, label, def) {
     const p = { id: "pt" + Date.now() + Math.random().toString(36).slice(2, 5), view, x, y, product: product.id, units: def || defFor(product), label: label || "", note: "" };
@@ -467,7 +492,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
 /* ════════ HERRAMIENTA 2 · PROPORCIÓN ÁUREA con IA ════════ */
 function AureoTool({ T, patient, updatePatient }) {
   const saved = (patient && patient.aureo) || null;
-  const [photo, setPhoto] = useState((patient && patient.facePhotos && patient.facePhotos.aureo) || (saved && saved.photo) || null);
+  const [photo, setPhoto] = useState(() => faceGetPhoto(patient && patient.id, "aureo") || (saved && saved.photo) || null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [res, setRes] = useState(saved || null);
@@ -476,7 +501,7 @@ function AureoTool({ T, patient, updatePatient }) {
   const fileRef = useRef(null);
   const lmRef = useRef(null);                       // landmarks de la última detección
 
-  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { setPhoto(u); setRes(null); setErr(""); setTrichAdj(0); setCanAdjust(false); lmRef.current = null; }); e.target.value = ""; }
+  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { faceSetPhoto(patient && patient.id, "aureo", u); setPhoto(u); setRes(null); setErr(""); setTrichAdj(0); setCanAdjust(false); lmRef.current = null; }); e.target.value = ""; }
   async function analyze() {
     if (!photo || busy) return; setBusy(true); setErr("");
     try {
@@ -484,7 +509,7 @@ function AureoTool({ T, patient, updatePatient }) {
       lmRef.current = { lm, W, H };
       const r = aureoCompute(lm, W, H); r.ts = Date.now();
       setTrichAdj(0); setCanAdjust(true); setRes(r);
-      if (updatePatient && patient) updatePatient(patient.id, { aureo: { metrics: r.metrics, harmony: r.harmony, recs: r.recs, ts: r.ts, W: r.W, H: r.H, overlay: r.overlay }, facePhotos: { ...((patient.facePhotos) || {}), aureo: photo } });
+      if (updatePatient && patient) updatePatient(patient.id, { aureo: { metrics: r.metrics, harmony: r.harmony, recs: r.recs, ts: r.ts, W: r.W, H: r.H, overlay: r.overlay } });
     } catch (e) { setErr(e.message || "No se pudo analizar."); }
     setBusy(false);
   }
@@ -497,7 +522,7 @@ function AureoTool({ T, patient, updatePatient }) {
     const trichY = detTrichY - (adj / 100) * (mentonY - detTrichY);
     const r = aureoCompute(lm, W, H, { trichY }); r.ts = Date.now();
     setRes(r);
-    if (updatePatient && patient) updatePatient(patient.id, { aureo: { metrics: r.metrics, harmony: r.harmony, recs: r.recs, ts: r.ts, W: r.W, H: r.H, overlay: r.overlay }, facePhotos: { ...((patient.facePhotos) || {}), aureo: photo } });
+    if (updatePatient && patient) updatePatient(patient.id, { aureo: { metrics: r.metrics, harmony: r.harmony, recs: r.recs, ts: r.ts, W: r.W, H: r.H, overlay: r.overlay } });
   }
   // Análisis IA automático: al cargar o cambiar la foto, si aún no hay resultado.
   useEffect(() => { if (photo && !res && !busy) analyze(); }, [photo]);
@@ -607,13 +632,13 @@ function AureoTool({ T, patient, updatePatient }) {
 const RICK_STEPS = [["nariz", "punta de la nariz"], ["lsup", "labio superior"], ["linf", "labio inferior"], ["menton", "mentón (pogonion)"]];
 function RickettsTool({ T, patient, updatePatient }) {
   const saved = (patient && patient.ricketts) || null;
-  const [photo, setPhoto] = useState((patient && patient.facePhotos && patient.facePhotos.ricketts) || null);
+  const [photo, setPhoto] = useState(() => faceGetPhoto(patient && patient.id, "ricketts"));
   const [marks, setMarks] = useState((saved && saved.marks) || {});
   const fileRef = useRef(null);
   const areaRef = useRef(null);
   const next = RICK_STEPS.find(([k]) => !marks[k]);
 
-  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { setPhoto(u); setMarks({}); if (updatePatient && patient) updatePatient(patient.id, { facePhotos: { ...((patient.facePhotos) || {}), ricketts: u }, ricketts: null }); }); e.target.value = ""; }
+  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { faceSetPhoto(patient && patient.id, "ricketts", u); setPhoto(u); setMarks({}); if (updatePatient && patient) updatePatient(patient.id, { ricketts: null }); }); e.target.value = ""; }
   function clickArea(e) {
     if (!photo || !next) return;
     const r = areaRef.current.getBoundingClientRect();
@@ -705,7 +730,7 @@ function RickettsTool({ T, patient, updatePatient }) {
 
 /* ════════ HERRAMIENTA 4 · MÁSCARA DE MARQUARDT ════════ */
 function MarquardtTool({ T, patient, updatePatient }) {
-  const [photo, setPhoto] = useState((patient && patient.facePhotos && patient.facePhotos.marquardt) || null);
+  const [photo, setPhoto] = useState(() => faceGetPhoto(patient && patient.id, "marquardt"));
   const [scale, setScale] = useState(1);
   const [dy, setDy] = useState(0);
   const [op, setOp] = useState(0.85);
@@ -745,8 +770,8 @@ function MarquardtTool({ T, patient, updatePatient }) {
   // Auto-ajustar cada vez que cambia la foto.
   useEffect(() => { if (photo) { const t = setTimeout(autoFit, 60); return () => clearTimeout(t); } else { setFit(null); setErr(""); } }, [photo]);
 
-  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { setPhoto(u); if (updatePatient && patient) updatePatient(patient.id, { facePhotos: { ...((patient.facePhotos) || {}), marquardt: u } }); }); e.target.value = ""; }
-  function clearPhoto() { setPhoto(null); setFit(null); if (updatePatient && patient) updatePatient(patient.id, { facePhotos: { ...((patient.facePhotos) || {}), marquardt: null } }); }
+  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { faceSetPhoto(patient && patient.id, "marquardt", u); setPhoto(u); }); e.target.value = ""; }
+  function clearPhoto() { faceSetPhoto(patient && patient.id, "marquardt", null); setPhoto(null); setFit(null); }
   const rng = { width: "100%" };
   const rlbl = { display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 4 };
   return (
