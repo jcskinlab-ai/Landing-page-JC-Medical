@@ -141,18 +141,19 @@ function importAllWeb() {
 const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, marketing: 1, agenteia: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, config: 1, appjcm: 1 };
 function panelParseRoute() {
   try {
-    var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/");
-    if (parts[0] !== "panel") return { section: "dashboard", pid: null };
-    var sec = parts[1] || "dashboard";
+    var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+    if (parts[0] === "panel") parts.shift(); // compat: enlaces/bookmarks antiguos /panel/<seccion>
+    var sec = parts[0] || "dashboard";
     if (!PANEL_SECTIONS[sec]) sec = "dashboard";
-    var pid = (sec === "pacientes" && parts[2]) ? decodeURIComponent(parts[2]) : null;
+    var pid = (sec === "pacientes" && parts[1]) ? decodeURIComponent(parts[1]) : null;
     return { section: sec, pid: pid };
   } catch (e) { return { section: "dashboard", pid: null }; }
 }
+// URLs limpias en portal.medique.cl: /inventario, /pacientes/<id> (sin el prefijo /panel).
 function panelRoutePath(sec, pid) {
-  if (sec === "pacientes" && pid) return "/panel/pacientes/" + encodeURIComponent(pid);
-  if (!sec || sec === "dashboard") return "/panel";
-  return "/panel/" + sec;
+  if (sec === "pacientes" && pid) return "/pacientes/" + encodeURIComponent(pid);
+  if (!sec || sec === "dashboard") return "/";
+  return "/" + sec;
 }
 
 /* ─────────── DASHBOARD (estilo Medique: indicadores + evolución + accesos) ─────────── */

@@ -4,20 +4,21 @@
   "trailingSlash": false,
   "redirects": [
     { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "/app", "permanent": false },
-    { "source": "/panel", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/panel", "permanent": false },
-    { "source": "/admin", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/admin", "permanent": false },
-    { "source": "/super", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://medique.cl/admin", "permanent": false }
+    { "source": "/panel", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://portal.medique.cl/", "permanent": false },
+    { "source": "/panel/:path*", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://portal.medique.cl/:path*", "permanent": false },
+    { "source": "/admin", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://admin.medique.cl/", "permanent": false },
+    { "source": "/super", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://admin.medique.cl/", "permanent": false },
+    { "source": "/panel", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "https://portal.medique.cl/", "permanent": false },
+    { "source": "/panel/:path*", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "https://portal.medique.cl/:path*", "permanent": false },
+    { "source": "/admin", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "https://admin.medique.cl/", "permanent": false }
   ],
   "rewrites": [
     { "source": "/(.*)", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Admin" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "admin.medique.cl" }], "destination": "/super" },
     { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "/medique-home" },
     { "source": "/app", "destination": "/JC_App" },
-    { "source": "/panel", "destination": "/JC_Admin" },
-    { "source": "/panel/:path*", "destination": "/JC_Admin" },
     { "source": "/reservar", "destination": "/agendar" },
-    { "source": "/movil", "destination": "/JC_Mobile" },
-    { "source": "/admin", "destination": "/super" }
+    { "source": "/movil", "destination": "/JC_Mobile" }
   ],
   "headers": [
     {
