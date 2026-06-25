@@ -46,6 +46,16 @@ function AdModal({ T, title, onClose, children, footer, wide, huge }) {
   );
 }
 
+// Las imágenes clínicas (base64, pesadas) se guardan en su PROPIA clave por paciente
+// (pimg_<id>), fuera del documento de pacientes. Así la ficha (sesiones, consentimientos,
+// datos) se mantiene liviana y se guarda siempre, sin chocar con el límite de almacenamiento.
+function patImgKey(id) { return "pimg_" + id; }
+function patImages(p) {
+  if (!p) return [];
+  try { const v = window.DB && window.DB.get(patImgKey(p.id)); if (Array.isArray(v)) return v; } catch (e) {}
+  return p.images || [];
+}
+
 function AdTag({ T, tone, children }) {
   const c = { ok: "#1F8A5B", warn: T.gold, danger: "#C0285A", muted: T.textFaint }[tone] || T.accent;
   return <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: c, border: "1px solid " + c, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap" }}>{children}</span>;
@@ -223,6 +233,19 @@ function NewPatientModal({ T, onClose, onSave }) {
 /* ─────────── FICHA MÉDICA ─────────── */
 function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab }) {
   const [tab, setTab] = useState(initialTab || "fichaclinica");
+  // Al abrir la ficha: si el paciente tiene imágenes guardadas DENTRO de su registro (modelo
+  // antiguo, pesado), muévelas a su propia clave (pimg_<id>) y vacía patient.images. Así el
+  // documento del paciente se mantiene liviano y las sesiones/consentimientos se guardan siempre.
+  useEffect(() => {
+    try {
+      if (patient && patient.images && patient.images.length) {
+        const key = patImgKey(patient.id);
+        const own = window.DB && window.DB.get(key);
+        if (!Array.isArray(own)) { window.DB.set(key, patient.images); }
+        if (Array.isArray(window.DB.get(key))) updatePatient(patient.id, { images: [] });
+      }
+    } catch (e) {}
+  }, [patient.id]);
   const [newEntry, setNewEntry] = useState(false);
   const [editIdx, setEditIdx] = useState(null); // índice de la sesión a editar (null = nueva)
   const [viewMode, setViewMode] = useState(false); // abrir la sesión en solo-lectura
@@ -738,7 +761,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
 function SesionDetalle({ T, h, patient, onClose, onEditar, go }) {
   const pts = (patient.points || []);
   const ptsCount = Array.isArray(pts) ? pts.length : (pts && typeof pts === "object" ? Object.keys(pts).length : 0);
-  const fotos = (patient.images || []).filter(im => im.date === h.date || (im.proc && h.proc && im.proc.toLowerCase().includes((h.proc || "").toLowerCase().split(" ")[0])));
+  const fotos = patImages(patient).filter(im => im.date === h.date || (im.proc && h.proc && im.proc.toLowerCase().includes((h.proc || "").toLowerCase().split(" ")[0])));
   const meta = [h.lote && ("Lote " + h.lote), h.venc && ("Vence " + h.venc), h.temp && ("Temp. " + h.temp), h.dilucion && ("Dilución " + h.dilucion)].filter(Boolean);
   const row = (k, v) => v ? <div style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid " + T.lineSoft }}><div style={{ width: 150, flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute }}>{k}</div><div style={{ flex: 1, fontFamily: T.sans, fontSize: 13, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{v}</div></div> : null;
   return (
@@ -1071,7 +1094,8 @@ function readImageResized(file, cb) {
 }
 const IMG_PROCS = ["Botox", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Limpieza facial", "Evaluación inicial", "Antes / después", "Otro"];
 function ImagenesTab({ T, patient, updatePatient }) {
-  const imgs = patient.images || [];
+  const imgKey = patImgKey(patient.id);
+  const [imgs, setImgsState] = useState(() => patImages(patient));
   const [adding, setAdding] = useState(false);
   const [proc, setProc] = useState(IMG_PROCS[0]);
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
@@ -1079,9 +1103,31 @@ function ImagenesTab({ T, patient, updatePatient }) {
   const [viewer, setViewer] = useState(null); // imagen abierta a pantalla completa
   const fileRef = useRef(null);
 
+  // Al abrir la ficha: migra imágenes antiguas (que estaban dentro del paciente) a su
+  // propia clave y vacía patient.images, SOLO si la copia a la clave nueva fue exitosa.
+  useEffect(() => {
+    setImgsState(patImages(patient));
+    try {
+      const own = window.DB && window.DB.get(imgKey);
+      if (patient.images && patient.images.length && !Array.isArray(own)) {
+        window.DB.set(imgKey, patient.images);
+        if (Array.isArray(window.DB.get(imgKey))) updatePatient(patient.id, { images: [] });
+      }
+    } catch (e) {}
+  }, [patient.id]);
+
+  // Guarda las imágenes SOLO en su clave propia (nunca dentro del paciente).
+  function commitImgs(next) {
+    let ok = false;
+    try { window.DB.set(imgKey, next); ok = Array.isArray(window.DB.get(imgKey)); } catch (e) {}
+    if (!ok) { if (window.jcmError) window.jcmError("No se pudo guardar la imagen (espacio del dispositivo lleno)."); return; }
+    setImgsState(next);
+    if (patient.images && patient.images.length) { try { updatePatient(patient.id, { images: [] }); } catch (e) {} }
+  }
+
   function save() {
     const item = { id: "im" + Date.now(), proc, date: fecha, label: proc, src: src || null };
-    updatePatient(patient.id, { images: [item, ...imgs] });
+    commitImgs([item, ...imgs]);
     setAdding(false); setSrc(null); setProc(IMG_PROCS[0]); setFecha(new Date().toISOString().slice(0, 10));
   }
   // Agrupa por procedimiento y, dentro, ordena por fecha (más reciente primero).
@@ -1114,7 +1160,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
                   : <div style={{ aspectRatio: "4/5", display: "flex", alignItems: "center", justifyContent: "center", background: T.surface2 }}><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.4"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg></div>}
                 <figcaption style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, padding: "8px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                   <span>{fmtDate(im.date)}</span>
-                  <button onClick={() => updatePatient(patient.id, { images: imgs.filter(x => x.id !== im.id) })} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  <button onClick={() => commitImgs(imgs.filter(x => x.id !== im.id))} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
                 </figcaption>
               </figure>
             ))}
