@@ -40,7 +40,7 @@
     } catch (e) { return null; }
   })();
   // Claves cuyo cambio re-publica el perfil público de la clínica.
-  var PUBLIC_TRIGGER = { config: 1, horarios_v1: 1, services_over: 1, services_custom: 1, collab_form: 1 };
+  var PUBLIC_TRIGGER = { config: 1, horarios_v1: 1, horarios_dates: 1, services_over: 1, services_custom: 1, collab_form: 1 };
   var pubTimer = null;
 
   // Claves de window.DB que NO se sincronizan (sesión/seguridad local).
@@ -163,6 +163,7 @@
       hours: cf.clinic_hours || '',
       wa: cf.wa_number || '',
       horarios: (window.DB && window.DB.get('horarios_v1')) || null,
+      horariosDates: (window.DB && window.DB.get('horarios_dates')) || null,
       servicesOver: (window.DB && window.DB.get('services_over')) || null,
       // Servicios PROPIOS de la clínica (catálogo base si es la clínica base, o sus servicios creados).
       // La reserva directa (agendar.html) muestra SOLO estos, no el catálogo de otra clínica.
@@ -181,6 +182,20 @@
       .then(function (snap) {
         state.publicProfile = snap.exists ? snap.data() : null;
         state.clinicId = clinicId;
+        // Aplicar horarios semanales y por fecha al JCDATA local para que buildSchedule los use
+        if (state.publicProfile) {
+          var p = state.publicProfile;
+          if (p.horarios && window.DB) {
+            try { window.DB.set('horarios_v1', p.horarios); } catch (e) {}
+          }
+          if (p.horariosDates && window.DB) {
+            try { window.DB.set('horarios_dates', p.horariosDates); } catch (e) {}
+          }
+          // Reconstruir el calendario con los datos recién aplicados
+          if (window.JCDATA && window.JCDATA.rebuildSchedule) {
+            try { window.JCDATA.rebuildSchedule(); } catch (e) {}
+          }
+        }
         emit('jcsaas:public', { clinicId: clinicId, profile: state.publicProfile });
         return state.publicProfile;
       }).catch(function (e) { noop(e); return null; });
@@ -415,6 +430,8 @@
     getPublic: function () { return state.publicProfile || null; },
     publishProfile: publishProfile,
     bookingLink: function (cid) { return (window.jcmPubBase ? window.jcmPubBase() : location.origin) + '/reservar?c=' + (cid || state.clinicId || ''); },
+    // Panel móvil del equipo (confirmar y crear citas desde el teléfono).
+    mobileLink: function (cid) { return (window.jcmPubBase ? window.jcmPubBase() : location.origin) + '/movil?c=' + (cid || state.clinicId || ''); },
     // La página de reserva (sin login) deja la reserva en la clínica activa (modo público).
     submitBooking: function (data) {
       if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });

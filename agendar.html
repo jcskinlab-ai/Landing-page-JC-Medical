@@ -137,6 +137,7 @@
     button.nav{font-size:15px}
   }
   @media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important}.toast{transition:opacity .2s}}
+  @keyframes jcSlideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
 </style>
 </head>
 <body>
@@ -260,6 +261,33 @@
 
 </div><!-- /wrap -->
 
+<!-- Modal upsell: segundo procedimiento con 15% descuento -->
+<div id="upsell-overlay" class="hide" onclick="upsellClose()" style="position:fixed;inset:0;background:rgba(26,26,20,.52);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:80;display:flex;align-items:flex-end;justify-content:center;padding:0">
+  <div id="upsell-box" onclick="event.stopPropagation()" style="background:var(--bg);border-radius:24px 24px 0 0;border:1px solid var(--line);border-bottom:none;width:100%;max-width:680px;padding:28px 24px 40px;animation:jcSlideUp .35s var(--ease)">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(84,112,127,.12);border-radius:999px;padding:7px 16px;margin-bottom:14px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <span style="font-family:'Jost';font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--accent)">OFERTA ESPECIAL</span>
+      </div>
+      <h2 style="font-family:'Marcellus';font-weight:400;font-size:22px;color:var(--ink);margin-bottom:6px">Agrega un segundo procedimiento</h2>
+      <p style="font-size:13px;color:var(--mute);line-height:1.5">Por agendar hoy, tu próximo tratamiento tiene <strong>15% de descuento</strong>.</p>
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:8px">Elige el procedimiento</label>
+      <select id="upsell-sel" onchange="upsellUpdatePrice()" style="width:100%;font-family:'Jost';font-size:14px;padding:14px 13px;border-radius:11px;border:1px solid var(--line);background:var(--surface);color:var(--ink);outline:none"></select>
+    </div>
+    <div id="upsell-price-row" class="hide" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding:12px 15px;background:var(--surface2);border-radius:10px;border:1px solid var(--line)">
+      <div>
+        <div id="upsell-original" style="font-size:11.5px;color:var(--faint);text-decoration:line-through"></div>
+        <div id="upsell-discounted" style="font-family:'Marcellus';font-size:19px;color:var(--accent)"></div>
+      </div>
+      <div style="background:rgba(31,138,91,.12);border-radius:999px;padding:5px 12px;font-size:11px;font-weight:600;color:#1F8A5B">-15%</div>
+    </div>
+    <button onclick="upsellApply()" style="width:100%;font-family:'Jost';font-size:14px;font-weight:600;padding:16px;border-radius:12px;border:none;background:var(--ink);color:var(--bg);cursor:pointer;margin-bottom:10px">Agendar con 15% descuento</button>
+    <button onclick="upsellClose()" style="width:100%;font-family:'Jost';font-size:13px;font-weight:400;padding:12px;border-radius:12px;border:none;background:transparent;color:var(--mute);cursor:pointer">No gracias</button>
+  </div>
+</div>
+
 <!-- Barra de navegación fija -->
 <div class="footer" id="footer-nav">
   <button class="nav btn-ghost" id="back-btn" style="display:none" onclick="navBack()">Atrás</button>
@@ -271,10 +299,10 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="jc-proto/jc-data.js?v=74"></script>
+<script src="jc-proto/jc-data.js?v=75"></script>
 <!-- Multi-clínica: si la URL trae ?c=clinicId, carga la marca/datos de esa clínica -->
 <script src="jcm_saas_config.js?v=7"></script>
-<script src="jcm_saas.js?v=12"></script>
+<script src="jcm_saas.js?v=14"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -456,20 +484,26 @@
   }
 
   /* ─── Paso 2: Fechas ─── */
+  function futureSlotsForDate(ds, isToday){
+    var slots = getSlotsForDate(ds);
+    if(!isToday) return slots;
+    var now = new Date(), cutMins = now.getHours()*60 + now.getMinutes() + 30;
+    return slots.filter(function(s){ var p=s.split(':'); return parseInt(p[0])*60+parseInt(p[1]) >= cutMins; });
+  }
   function buildDates(){
     var el = document.getElementById('date-list');
     el.innerHTML = '';
     var base = new Date(), found = 0;
-    for(var i=1; i<=28 && found<14; i++){
+    for(var i=0; i<=28 && found<14; i++){
       var d = new Date(base);
       d.setDate(base.getDate()+i);
       var ds = dKey(d);
-      if(!getSlotsForDate(ds).length) continue;
+      if(!futureSlotsForDate(ds, i===0).length) continue;
       found++;
       var wd = d.getDay();
       var btn = document.createElement('div');
       btn.className = 'date-btn' + (selDate && selDate.date===ds ? ' sel' : '');
-      btn.innerHTML = '<div class="dwd">'+DAYS[wd]+'</div>'
+      btn.innerHTML = '<div class="dwd">'+(i===0?'Hoy':DAYS[wd])+'</div>'
         +'<div class="ddd">'+d.getDate()+'</div>'
         +'<div class="dmm">'+MONTHS[d.getMonth()]+'</div>';
       btn.dataset.date = ds;
@@ -494,7 +528,7 @@
 
   function buildTimes(dateStr){
     var area = document.getElementById('time-area');
-    var slots = getSlotsForDate(dateStr);
+    var slots = futureSlotsForDate(dateStr, dateStr === dKey(new Date()));
     if(!slots.length){
       area.innerHTML = '<div class="time-empty">Sin horarios disponibles para esta fecha</div>';
       return;
@@ -700,7 +734,72 @@
     document.getElementById('footer-nav').classList.add('hide');
     document.getElementById('done').classList.remove('hide');
     window.scrollTo({top:0, behavior:'smooth'});
+    setTimeout(showUpsell, 1600);
   }
+
+  /* ─── Upsell: segundo procedimiento con 15% descuento ─── */
+  var _upsellDiscount = false;
+  var _upsellItems = []; // { name, price } items del catálogo para el selector
+
+  function buildUpsellItems(){
+    if(_upsellItems.length) return;
+    var D = window.JCDATA;
+    if(!D || !D.catalog) return;
+    D.catalog.forEach(function(sec){
+      sec.groups.forEach(function(g){
+        g.items.forEach(function(it){
+          var price = it.opts ? it.opts[0][1] : (it.price||0);
+          if(price>0) _upsellItems.push({ name:it.n, price:price });
+        });
+      });
+    });
+  }
+
+  function showUpsell(){
+    buildUpsellItems();
+    if(!_upsellItems.length) return;
+    var sel = document.getElementById('upsell-sel');
+    sel.innerHTML = '<option value="">Elige un procedimiento…</option>'
+      + _upsellItems.map(function(it){
+          return '<option value="'+esc(it.name)+'" data-price="'+it.price+'">'+esc(it.name)+'</option>';
+        }).join('');
+    document.getElementById('upsell-price-row').classList.add('hide');
+    document.getElementById('upsell-overlay').classList.remove('hide');
+  }
+
+  window.upsellUpdatePrice = function(){
+    var sel = document.getElementById('upsell-sel');
+    var opt = sel.options[sel.selectedIndex];
+    var price = parseInt(opt && opt.dataset.price, 10)||0;
+    var row = document.getElementById('upsell-price-row');
+    if(!price){ row.classList.add('hide'); return; }
+    var disc = Math.round(price*0.85/1000)*1000;
+    document.getElementById('upsell-original').textContent = fmt(price);
+    document.getElementById('upsell-discounted').textContent = fmt(disc);
+    row.classList.remove('hide');
+  };
+
+  window.upsellClose = function(){
+    document.getElementById('upsell-overlay').classList.add('hide');
+  };
+
+  window.upsellApply = function(){
+    var sel = document.getElementById('upsell-sel');
+    var opt = sel.options[sel.selectedIndex];
+    if(!opt || !opt.value){ showToast('Elige un procedimiento'); return; }
+    var name = opt.value;
+    var price = parseInt(opt.dataset.price,10)||0;
+    var disc = Math.round(price*0.85/1000)*1000;
+    upsellClose();
+    _upsellDiscount = true;
+    reinit();
+    setTimeout(function(){
+      cart.push({ name:name, price:disc });
+      renderCart(); markCards();
+      showToast('15% de descuento aplicado ✓');
+      _upsellDiscount = false;
+    }, 80);
+  };
 
   /* ─── Reiniciar ─── */
   window.reinit = function(){

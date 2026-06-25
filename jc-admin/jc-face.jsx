@@ -320,6 +320,8 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
   const zones = view === "front" ? A.zonesFront : (mirror ? A.zonesSide.map(z => ({ ...z, x: 100 - z.x })) : A.zonesSide);
   const [photo, _setPhoto] = useState(() => faceGetPhoto(patient && patient.id, view));
   useEffect(() => { _setPhoto(faceGetPhoto(patient && patient.id, view)); }, [view, patient && patient.id]);
+  const [narrow, setNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 900);
+  useEffect(() => { const h = () => setNarrow(window.innerWidth < 900); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
   function setPhoto(url) { if (patient) { faceSetPhoto(patient.id, view, url); _setPhoto(url || null); } }
   function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, setPhoto); e.target.value = ""; }
@@ -405,8 +407,32 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
           <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>Arrastra para girar 360°, acerca con rueda/pellizco. Para registrar punciones usa Frontal o Perfil.</p>
         </div>
       ) : (
-      <div style={{ display: "grid", gridTemplateColumns: "1.1fr .9fr", gap: 14, alignItems: "start" }}>
+      <div style={{ display: narrow ? "flex" : "grid", flexDirection: narrow ? "column" : undefined, gridTemplateColumns: narrow ? undefined : "1.1fr .9fr", gap: 14, alignItems: "start" }}>
         <div>
+          {product.id !== "botox" ? (
+            <div>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{product.id === "ah" ? "Fotos antes / después · Rinomodelación" : "Fotos del paciente · Bioestimulación"}</div>
+              {(() => {
+                const allImgs = (patient && patient.images) || [];
+                const kws = product.id === "ah" ? ["rino", "hialu", "armoniz", "relleno"] : ["bio", "sculptra", "colág", "estimul"];
+                const imgs = allImgs.length > 0 ? allImgs.filter(im => !im.proc || kws.some(k => (im.proc || "").toLowerCase().includes(k))) : [];
+                if (imgs.length === 0) return (
+                  <div style={{ padding: "22px 14px", textAlign: "center", border: "1px dashed " + T.line, borderRadius: 8, color: T.textFaint, fontFamily: T.sans, fontSize: 12, lineHeight: 1.6 }}>
+                    Sin fotos de {product.id === "ah" ? "rinomodelación" : "bioestimulación"}.<br />Añádelas en la pestaña <b>Imágenes</b>.
+                  </div>
+                );
+                return <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 8 }}>
+                  {imgs.map(im => (
+                    <figure key={im.id || im.src} style={{ margin: 0, borderRadius: 7, overflow: "hidden", border: "1px solid " + T.line }}>
+                      <img src={im.src} alt={im.label || ""} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
+                      <figcaption style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, padding: "4px 7px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{im.proc || im.label || ""}</figcaption>
+                    </figure>
+                  ))}
+                </div>;
+              })()}
+            </div>
+          ) : (
+          <>
           <div style={{ perspective: 900, maxWidth: "65%", margin: "0 auto" }}>
             <div ref={areaRef} onClick={clickArea} style={{
               position: "relative", aspectRatio: "200/260", background: photo ? "#0c0f13" : "#fff", border: "1px solid " + T.line, borderRadius: 8, cursor: "crosshair", overflow: "hidden",
@@ -437,7 +463,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
                 const pr = prodOf(p.product); const active = sel === p.id;
                 return (
                   <button key={p.id} data-marker title={pr.label + " · clic para eliminar este punto"} onClick={e => { e.stopPropagation(); remove(p.id); }}
-                    style={{ position: "absolute", left: p.x + "%", top: p.y + "%", transform: "translate(-50%,-50%) scale(" + (active ? 1.3 : 1) + ")", width: 16, height: 16, borderRadius: "50%", background: "#16263A", border: "2px solid " + (active ? pr.color : "#fff"), color: "#fff", fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 1px 5px rgba(0,0,0,.45)", transition: "transform .15s", padding: 0, lineHeight: "12px" }}>
+                    style={{ position: "absolute", left: p.x + "%", top: p.y + "%", transform: "translate(-50%,-50%) scale(" + (active ? 1.3 : 1) + ")", width: 13, height: 13, borderRadius: "50%", background: "#16263A", border: "2px solid " + (active ? pr.color : "#fff"), color: "#fff", fontFamily: T.sans, fontSize: 7.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 1px 5px rgba(0,0,0,.45)", transition: "transform .15s", padding: 0, lineHeight: "9px" }}>
                     {points.indexOf(p) + 1}
                   </button>
                 );
@@ -446,6 +472,8 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
           </div>
           {viewTabs}
           <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5, textAlign: "center" }}>Haz clic en el rostro para marcar un punto de tratamiento; haz clic sobre un punto ya puesto para eliminarlo. Sube una <b>foto del rostro en reposo</b> o usa el esquema muscular 2D y el modelo 3D para planificar la sesión.</p>
+          </>
+          )}
           {/* Notas / Resultados */}
           <div style={{ marginTop: 14 }}>
             <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Notas / Resultados</div>

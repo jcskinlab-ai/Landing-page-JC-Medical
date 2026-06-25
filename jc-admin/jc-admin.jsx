@@ -172,12 +172,102 @@ const DASH_IC = {
 };
 function DashIcon({ name, c, size }) { return <svg width={size || 20} height={size || 20} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{DASH_IC[name]}</svg>; }
 
+/* ── Historial de movimientos de caja (estilo banco): día / semana / mes + saldo antes→después ── */
+function MovimientosCajaModal({ T, onClose }) {
+  const D = window.JCDATA || {};
+  const fmt = D.fmt ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
+  const green = "#1F8A5B", red = "#C0285A";
+  const [period, setPeriod] = useState("mes"); // dia | semana | mes
+  const [, force] = useState(0);
+  // Refresco en vivo (al registrar/eliminar un movimiento en cualquier parte).
+  useEffect(() => {
+    const tick = () => force(x => x + 1);
+    window.addEventListener("jcm:cash", tick); window.addEventListener("focus", tick);
+    return () => { window.removeEventListener("jcm:cash", tick); window.removeEventListener("focus", tick); };
+  }, []);
+  let all = []; try { all = (typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || []); } catch (e) {}
+  // Saldo corrido cronológico (más antiguo → más nuevo): cada movimiento guarda saldo antes y después.
+  const asc = all.slice().sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
+  let run = 0;
+  const withBal = asc.map(m => { const delta = m.type === "egreso" ? -(m.amount || 0) : (m.amount || 0); const antes = run; run += delta; return { ...m, _antes: antes, _despues: run }; });
+  const saldoActual = run;
+  // Rango del período seleccionado.
+  const now = new Date();
+  const hoyKey = now.toISOString().slice(0, 10);
+  const mesKey = now.toISOString().slice(0, 7);
+  const lunes = (() => { const d = new Date(now); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); d.setHours(0, 0, 0, 0); return d.toISOString().slice(0, 10); })();
+  const inPeriod = ts => { const day = (ts || "").slice(0, 10); if (period === "dia") return day === hoyKey; if (period === "semana") return day >= lunes; return (ts || "").slice(0, 7) === mesKey; };
+  const moves = withBal.filter(m => inPeriod(m.ts)).reverse(); // más nuevo primero para mostrar
+  const ingP = moves.filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+  const egrP = moves.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+  const byDay = {}; moves.forEach(m => { const d = (m.ts || "").slice(0, 10); (byDay[d] = byDay[d] || []).push(m); });
+  const days = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
+  const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  const diaTxt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }); } catch (e) { return d; } };
+  const periodLbl = period === "dia" ? "hoy" : period === "semana" ? "esta semana" : "este mes";
+  const del = async (id) => { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento de caja?", { danger: true }) && window.cashDelete) { window.cashDelete(id); force(x => x + 1); } };
+  const segBtn = (k, l) => <button key={k} onClick={() => setPeriod(k)} style={{ flex: 1, fontFamily: T.sans, fontSize: 12, fontWeight: period === k ? 600 : 500, padding: "9px 6px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (period === k ? T.accent : T.line), background: period === k ? T.accent : "transparent", color: period === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: 16, paddingRight: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "100%", background: T.bg, border: "1px solid " + T.line, borderRadius: 16, display: "flex", flexDirection: "column", animation: "jcSlideUp .25s ease", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid " + T.line, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontFamily: T.serif, fontSize: 20, fontWeight: 300, color: T.text }}>Movimientos de caja</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>Saldo actual: <b style={{ color: saldoActual >= 0 ? green : red }}>{fmt(saldoActual)}</b></div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 4 }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+        </div>
+        <div style={{ padding: "14px 20px 0", flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>{segBtn("dia", "Día")}{segBtn("semana", "Semana")}{segBtn("mes", "Mes")}</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+            {[["Ingresos", ingP, green], ["Egresos", egrP, red], ["Neto", ingP - egrP, T.accent]].map(([l, v, c]) => (
+              <div key={l} style={{ flex: 1, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "8px 10px" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>{l}</div>
+                <div style={{ fontFamily: T.serif, fontSize: 15, color: c, marginTop: 2 }}>{fmt(v)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="jc-scroll" style={{ padding: "8px 20px 18px", overflowY: "auto", flex: 1 }}>
+          {!moves.length ? (
+            <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "20px 0", textAlign: "center", lineHeight: 1.6 }}>No hay movimientos {periodLbl}.<br /><span style={{ fontSize: 11.5, color: T.textFaint }}>Se registran al cobrar atenciones, agregar procedimientos con cobro en una ficha o crear movimientos en Caja.</span></div>
+          ) : days.map(day => (
+            <div key={day}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "12px 0 4px", paddingBottom: 4, borderBottom: "1px solid " + T.line }}>
+                <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent }}>{diaTxt(day)}</span>
+              </div>
+              {byDay[day].map(m => {
+                const esEgreso = m.type === "egreso";
+                return (
+                  <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderBottom: "1px solid " + T.lineSoft }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.concept || (esEgreso ? "Egreso" : "Ingreso")}</div>
+                      <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{hora(m.ts)}{m.method ? " · " + m.method : ""}{m.kind === "atencion" ? " · atención" : ""}</div>
+                      <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 3 }}>Saldo: {fmt(m._antes)} <span style={{ color: T.textMute }}>→</span> <b style={{ color: T.textMute }}>{fmt(m._despues)}</b></div>
+                    </div>
+                    <span style={{ fontFamily: T.serif, fontSize: 15, color: esEgreso ? red : green, whiteSpace: "nowrap" }}>{esEgreso ? "− " : "+ "}{fmt(m.amount || 0)}</span>
+                    <button onClick={() => del(m.id)} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DashboardView({ T, D, A, appts, patients, go }) {
   const [tab, setTab] = useState("general");
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
+  const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
   const hoy = appts.filter(a => a.day === 0);
-  const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || 0) : 0;
+  // Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
+  const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
 
@@ -330,9 +420,13 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           </div>
           {/* Resultado + ROAS */}
           <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-            <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 15px" }}>
-              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute }}>Facturaste este mes</div>
+            <div onClick={() => setMovCaja(true)} title="Ver los movimientos de caja (día, semana, mes) con saldo" style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 15px", cursor: "pointer" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute }}>Facturaste este mes</div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+              </div>
               <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1.1, marginTop: 4 }}>{fmt(funnel.ingresos)}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 10, color: T.accent, marginTop: 3 }}>Ver movimientos del mes →</div>
             </div>
             <div style={{ background: green + "12", border: "1px solid " + green + "44", borderRadius: 12, padding: "16px 16px" }}>
               <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: green }}>ROAS real</div>
@@ -411,6 +505,60 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           <span style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>{fmt(ingresosHoy)}</span>
         </div>
       );
+    } else if (kpiPopup === "mes") {
+      // Movimientos de caja del MES en curso, agrupados por día, con su origen y opción de eliminar.
+      const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+      const now = new Date();
+      const mesKey = now.toISOString().slice(0, 7);
+      title = "Movimientos · " + MES[now.getMonth()];
+      let cash = []; try { cash = (typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || []); } catch (e) {}
+      const mov = cash.filter(m => (m.ts || "").slice(0, 7) === mesKey);
+      const ingM = mov.filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+      const egrM = mov.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+      const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+      const diaTxt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }); } catch (e) { return d; } };
+      // Resumen ingresos / egresos / neto
+      rows.push(
+        <div key="resumen" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          {[["Ingresos", ingM, green], ["Egresos", egrM, "#C0285A"], ["Neto", ingM - egrM, T.accent]].map(([l, v, c]) => (
+            <div key={l} style={{ flex: 1, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "9px 10px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>{l}</div>
+              <div style={{ fontFamily: T.serif, fontSize: 16, color: c, marginTop: 2 }}>{fmt(v)}</div>
+            </div>
+          ))}
+        </div>
+      );
+      if (!mov.length) {
+        rows.push(<div key="vacio" style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "12px 0" }}>No hay movimientos de caja este mes. Se registran al cobrar atenciones, agregar procedimientos en una ficha o crear movimientos en Caja.</div>);
+      } else {
+        const byDay = {};
+        mov.forEach(m => { const d = (m.ts || "").slice(0, 10); (byDay[d] = byDay[d] || []).push(m); });
+        Object.keys(byDay).sort((a, b) => b.localeCompare(a)).forEach(day => {
+          const dayMov = byDay[day].sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
+          const dayNet = dayMov.reduce((s, m) => s + (m.type === "egreso" ? -(m.amount || 0) : (m.amount || 0)), 0);
+          rows.push(
+            <div key={"h" + day} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "14px 0 4px", paddingBottom: 4, borderBottom: "1px solid " + T.line }}>
+              <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent }}>{diaTxt(day)}</span>
+              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{fmt(dayNet)}</span>
+            </div>
+          );
+          dayMov.forEach(m => {
+            const esEgreso = m.type === "egreso";
+            rows.push(
+              <div key={m.id} style={rowStyle}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.concept || (esEgreso ? "Egreso" : "Ingreso")}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{hora(m.ts)}{m.method ? " · " + m.method : ""}{m.kind === "atencion" ? " · atención" : ""}</div>
+                </div>
+                <span style={{ fontFamily: T.serif, fontSize: 15, color: esEgreso ? "#C0285A" : green, whiteSpace: "nowrap" }}>{esEgreso ? "− " : ""}{fmt(m.amount || 0)}</span>
+                <button onClick={async () => { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento de caja?", { danger: true }) && window.cashDelete) { window.cashDelete(m.id); bumpRev(r => r + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
+                </button>
+              </div>
+            );
+          });
+        });
+      }
     }
     return (
       <div onClick={() => setKpiPopup(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -586,6 +734,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         </div>
       )}
       <KpiPopup />
+      {movCaja && <MovimientosCajaModal T={T} onClose={() => setMovCaja(false)} />}
     </div>
   );
 }
@@ -624,6 +773,7 @@ function AdminApp() {
     return (Array.isArray(saved) ? saved : A.patients).map(p => ({ ...p, points: p.points || [] }));
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
+  const [openPatientTab, setOpenPatientTab] = useState(null);
   const [appts, setAppts] = useState(() => {
     // Citas por clínica desde la BD (Firebase). Las reservas web ya entran aquí vía importWebBookings.
     var saved = (window.DB && window.DB.get("appointments"));
@@ -722,12 +872,12 @@ function AdminApp() {
   else if (section === "resumen") body = <Resumen T={T} D={D} A={A} appts={appts} patients={patients} go={nav} updateAppt={updateAppt} removeAppt={removeAppt} themeKey={themeKey} setThemeKey={setThemeKey} />;
   else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
   else if (section === "pacientes") body = current
-    ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={removePatient} onBack={() => setOpenPatient(null)} onAgendar={() => nav("agenda")} />
+    ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} />
     : <PacientesView T={T} patients={patients} appts={appts} onOpen={setOpenPatient} updatePatient={updatePatient} addPatient={addPatient} />;
-  else if (section === "salaespera") body = <SalaEsperaView T={T} appts={appts} patients={patients} />;
+  else if (section === "salaespera") body = <SalaEsperaView T={T} appts={appts} patients={patients} updatePatient={updatePatient} />;
   else if (section === "automatizaciones") body = <AutomatizacionesView T={T} />;
   else if (section === "agenteia") body = <AgenteIAView T={T} patients={patients} addAppt={addAppt} />;
-  else if (section === "pendientes") body = <PendientesView T={T} patients={patients} appts={appts} go={nav} openP={(id) => { setOpenPatient(id); setSection("pacientes"); }} updatePatient={updatePatient} />;
+  else if (section === "pendientes") body = <PendientesView T={T} patients={patients} appts={appts} go={nav} openP={(id, tab) => { setOpenPatient(id); setOpenPatientTab(tab || null); setSection("pacientes"); }} updatePatient={updatePatient} />;
   else if (section === "servicios") body = <ServiciosView T={T} />;
   else if (section === "equipo") body = <EquipoView T={T} />;
   else if (section === "fidelidad") body = <FidelidadView T={T} />;
@@ -980,7 +1130,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
 
       {/* Próximas 3 citas */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 10px" }}>
-        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Próximas 3 citas</div>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>{"Próximas " + next3.length + " cita" + (next3.length !== 1 ? "s" : "")}</div>
         <button onClick={() => go("agenda")} style={linkBtn(T)}>Ver agenda →</button>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1109,6 +1259,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [edit, setEdit] = useState(null);
   const [toast, setToast] = useState(null);
   const [hoverA, setHoverA] = useState(null); // { a, x, y } · vista previa al pasar el cursor (vista día/lista)
+  const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   const D = window.JCDATA;
@@ -1168,7 +1319,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       </div>
 
       {view === "semana" ? (
-        <SemanaGrid T={T} week={week} appts={appts} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={setEdit} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => { const p = (patients || []).find(x => x.name === appt.name); if (p && onOpenPatient) onOpenPatient(p.id); }} />
+        <SemanaGrid T={T} week={week} appts={appts} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={setEdit} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
+          const clean = s => (s || "").replace(/\D/g, "");
+          const ap = clean(appt.phone || "");
+          let found = null;
+          if (ap.length >= 8) found = (patients || []).find(x => { const xp = clean(x.phone || ""); return xp.length >= 8 && (xp.slice(-8) === ap.slice(-8)); });
+          if (!found) { const an = (appt.name || "").toLowerCase().trim(); found = (patients || []).find(x => { const xn = (x.name || "").toLowerCase(); return xn === an || (an.length >= 4 && (xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]))); }); }
+          setFichaConfirm({ appt, patient: found || null });
+        }} />
       ) : (
         <div>
           <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
@@ -1209,6 +1367,35 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} />}
       {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
       {toast && <Toast T={T} data={toast} onClose={() => setToast(null)} />}
+      {fichaConfirm && (
+        <div onClick={() => setFichaConfirm(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.48)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: T.bg, borderRadius: 16, padding: 24, maxWidth: 390, width: "100%", boxShadow: "0 24px 60px -18px rgba(0,0,0,.5)", border: "1px solid " + T.line }}>
+            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Ir a ficha del paciente</div>
+            <div style={{ marginBottom: 14, padding: "12px 14px", background: T.surface, borderRadius: 10, border: "1px solid " + T.line }}>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 3 }}>Cita agendada</div>
+              <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>{fichaConfirm.appt.name}</div>
+              {fichaConfirm.appt.phone && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>{fichaConfirm.appt.phone}</div>}
+              <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>{fichaConfirm.appt.proc}</div>
+            </div>
+            {fichaConfirm.patient ? (
+              <div style={{ marginBottom: 18, padding: "12px 14px", background: "rgba(31,138,91,.08)", borderRadius: 10, border: "1px solid rgba(31,138,91,.28)" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 10, color: "#1F8A5B", marginBottom: 4 }}>✓ Paciente encontrado</div>
+                <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>{fichaConfirm.patient.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>{[fichaConfirm.patient.phone, fichaConfirm.patient.rut].filter(Boolean).join(" · ")}</div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 18, padding: "12px 14px", background: "rgba(192,40,90,.07)", borderRadius: 10, border: "1px solid rgba(192,40,90,.22)" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 10, color: "#C0285A", marginBottom: 3 }}>Sin ficha registrada</div>
+                <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>No se encontró paciente con ese teléfono o nombre. Búscalo manualmente en Pacientes.</div>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setFichaConfirm(null)} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.surface, color: T.textMute, border: "1px solid " + T.line }}>Cancelar</button>
+              {fichaConfirm.patient && <button onClick={() => { if (onOpenPatient) onOpenPatient(fichaConfirm.patient.id); setFichaConfirm(null); }} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" }}>Ir a ficha</button>}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Vista previa momentánea al pasar el cursor sobre una cita (vista día/lista) */}
       {hoverA && hoverA.a && !edit && (() => {
         const a = hoverA.a, isPP = a.status === "pendiente_pago";
@@ -1618,7 +1805,11 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
             <span style={lbl}>Tratamiento</span>
             <select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}>
               <option value="Evaluación general">Evaluación general</option>
-              {PROC_LIST().map(p => <option key={p} value={p}>{p}</option>)}
+              {(window.JCDATA && window.JCDATA.catalog ? window.JCDATA.catalog : []).map(sec => (
+                <optgroup key={sec.sec} label={sec.sec}>
+                  {sec.groups.flatMap(g => g.items).map(it => <option key={it.n} value={it.n}>{it.n}</option>)}
+                </optgroup>
+              ))}
             </select>
           </div>
           <div>
@@ -1644,7 +1835,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                 <input value={patQ} onChange={e => setPatQ(e.target.value)} placeholder="Buscar por nombre o RUT…" style={{ ...selStyle, paddingLeft: 34 }} />
               </div>
               <div className="jc-scroll" style={{ maxHeight: 230, overflowY: "auto", border: "1px solid " + T.line, borderRadius: 8 }}>
-                {(() => { const q = patQ.trim().toLowerCase(); const fl = q ? patients.filter(p => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q)) : patients; return fl.length ? fl.map(p => (
+                {(() => { const q = patQ.trim().toLowerCase(); const qNorm = q.replace(/[^0-9k]/g, ""); const fl = q ? patients.filter(p => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q) || (qNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qNorm))) : patients; return fl.length ? fl.map(p => (
                   <button key={p.id} onClick={() => setPid(p.id)} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 13px", background: pid === p.id ? (T.surface2 || T.accent + "14") : "transparent", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
                     <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{p.name}</div>
                     <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.rut || p.phone || "Paciente"}</div>

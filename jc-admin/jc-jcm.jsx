@@ -26,18 +26,86 @@ function JcmTabsBar({ T, tabs, sel, onSel }) {
 }
 
 function AppJCMView({ T }) {
-  const [sub, setSub] = useState("horarios");
+  const [sub, setSub] = useState("usuarios");
   return (
     <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 20px 40px" }}>
       <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".24em", textTransform: "uppercase", color: T.accent }}>Gestión de la app de usuario</div>
       <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 34, letterSpacing: "-.02em", color: T.text, margin: "8px 0 18px" }}>App JC Medical</h1>
       <JcmTabsBar T={T} sel={sub} onSel={setSub} tabs={[
-        { k: "horarios", l: "Horarios disponibles" }, { k: "contenido", l: "Contenido" }, { k: "fidelidad", l: "Fidelidad · Glow Points" }, { k: "integraciones", l: "Integraciones" }
+        { k: "usuarios", l: "Usuarios registrados" }, { k: "horarios", l: "Horarios disponibles" }, { k: "contenido", l: "Contenido" }, { k: "fidelidad", l: "Glow Points" }, { k: "integraciones", l: "Integraciones" }
       ]} />
+      {sub === "usuarios" && <UsuariosApp T={T} />}
       {sub === "horarios" && <HorariosApp T={T} />}
       {sub === "contenido" && <ContenidoApp T={T} />}
       {sub === "fidelidad" && <FidelidadApp T={T} />}
       {sub === "integraciones" && <IntegracionesApp T={T} />}
+    </div>
+  );
+}
+
+/* ── USUARIOS REGISTRADOS EN LA APP ── */
+function UsuariosApp({ T }) {
+  const DB = _db();
+  const [users] = useState(() => DB.get("users") || []);
+  const [reds] = useState(() => DB.get("redeems") || []);
+  const [q, setQ] = useState("");
+  // Contar tickets canjeados (done=true) por nombre de usuario
+  const ticketsByUser = {};
+  reds.forEach(r => { if (r.done) ticketsByUser[r.user] = (ticketsByUser[r.user] || 0) + 1; });
+  const filtered = q.trim() ? users.filter(u => (u.name || "").toLowerCase().includes(q.toLowerCase()) || (u.email || "").toLowerCase().includes(q.toLowerCase()) || (u.phone || "").includes(q)) : users;
+  function expUsers() {
+    const rows = [["Nombre", "Teléfono", "Correo", "Glow Points", "Tickets canjeados", "Registrado"], ...filtered.map(u => [u.name || "", u.phone || "", u.email || "", u.points || 0, ticketsByUser[u.name] || 0, u.createdAt ? new Date(u.createdAt).toLocaleDateString("es-CL") : ""])];
+    const csv = rows.map(r => r.map(c => { const s = String(c); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(";")).join("\n");
+    const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8,﻿" + encodeURIComponent(csv); a.download = "usuarios-app.csv"; a.click();
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <JcmCard T={T}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>Usuarios registrados <span style={{ fontSize: 13, color: T.textMute }}>· {users.length}</span></div>
+          {users.length > 0 && <JcmBtn T={T} ghost onClick={expUsers}>↓ Exportar CSV</JcmBtn>}
+        </div>
+        {/* Buscador */}
+        {users.length > 0 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por nombre, correo o teléfono…" style={{ width: "100%", padding: "10px 13px", borderRadius: 6, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", marginBottom: 12 }} />}
+        {users.length === 0 && <p style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>Aún no hay usuarios registrados en la app. Cuando alguien cree una cuenta en jcmedical.cl/app, aparecerá aquí.</p>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {filtered.map((u, i) => {
+            const tickets = ticketsByUser[u.name] || 0;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: i === 0 ? 0 : 10, marginTop: i === 0 ? 0 : 10, borderTop: i === 0 ? "none" : "1px solid " + T.lineSoft }}>
+                {/* Avatar inicial */}
+                <div style={{ width: 38, height: 38, borderRadius: "50%", background: T.accent + "22", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 15, fontWeight: 600, flexShrink: 0 }}>{(u.name || "?")[0].toUpperCase()}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{u.name || "Sin nombre"}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1 }}>
+                    {u.phone && <span>{u.phone}</span>}
+                    {u.phone && u.email && <span style={{ margin: "0 5px", opacity: .4 }}>·</span>}
+                    {u.email && <span>{u.email}</span>}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 15, color: T.gold || "#C4A96A" }}>{(u.points || 0).toLocaleString("es-CL")} pts</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10, color: tickets > 0 ? "#1F8A5B" : T.textFaint, marginTop: 1 }}>{tickets > 0 ? tickets + " ticket" + (tickets !== 1 ? "s" : "") + " canjeado" + (tickets !== 1 ? "s" : "") : "Sin canjes"}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {filtered.length === 0 && q && <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 8 }}>No hay resultados para "{q}".</p>}
+      </JcmCard>
+      {/* Resumen rápido */}
+      {users.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        {[
+          { n: users.length, l: "Cuentas creadas" },
+          { n: users.reduce((s, u) => s + (u.points || 0), 0).toLocaleString("es-CL"), l: "Puntos totales" },
+          { n: reds.filter(r => r.done).length, l: "Tickets canjeados" }
+        ].map(({ n, l }) => (
+          <div key={l} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px", textAlign: "center" }}>
+            <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text }}>{n}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginTop: 3 }}>{l}</div>
+          </div>
+        ))}
+      </div>}
     </div>
   );
 }
@@ -47,12 +115,12 @@ function HorariosApp({ T }) {
   const D = window.JCDATA;
   const [week, setWeek] = useState(0);     // 0 = semana 1, 1 = semana 2
   const [tick, setTick] = useState(0);     // refresca tras guardar
-  // 14 días desde mañana
+  // 14 días desde HOY (i=0 incluye hoy para que el panel también lo muestre y edite)
   const base = new Date(); base.setHours(0, 0, 0, 0);
   const days = [];
-  for (let i = 1; i <= 14; i++) { const d = new Date(base); d.setDate(base.getDate() + i); days.push(d); }
+  for (let i = 0; i <= 13; i++) { const d = new Date(base); d.setDate(base.getDate() + i); days.push(d); }
   const weekDays = days.slice(week * 7, week * 7 + 7);
-  const [selKey, setSelKey] = useState(D.dKey(weekDays[0]));
+  const [selKey, setSelKey] = useState(D.dKey(days[0]));
   const selDate = days.find(d => D.dKey(d) === selKey) || weekDays[0];
   const wd = selDate.getDay();
   const grid = D.slotGrid(wd);
@@ -60,14 +128,18 @@ function HorariosApp({ T }) {
   const effective = override != null ? override : D.availForDate(selDate).slots;
   const isClosed = override != null && override.length === 0;
   const has = t => effective.indexOf(t) >= 0;
+  // Después de cada cambio de fecha, sincronizar horarios_dates vía DB para que llegue a Firestore
+  function syncDates() {
+    try { if (window.DB && D.loadHorariosDates) window.DB.set('horarios_dates', D.loadHorariosDates()); } catch (e) {}
+  }
   function toggle(t) {
     let next = override != null ? override.slice() : D.availForDate(selDate).slots.slice();
     if (next.indexOf(t) >= 0) next = next.filter(x => x !== t); else { next.push(t); next.sort(); }
-    D.saveDateSlots(selKey, next); setTick(tick + 1);
+    D.saveDateSlots(selKey, next); syncDates(); setTick(tick + 1);
   }
-  function closeDay() { D.saveDateSlots(selKey, []); setTick(tick + 1); }
-  function toggleAll() { const allOn = grid.every(t => has(t)); D.saveDateSlots(selKey, allOn ? [] : grid.slice()); setTick(tick + 1); }
-  function resetDay() { D.resetDate(selKey); setTick(tick + 1); }
+  function closeDay() { D.saveDateSlots(selKey, []); syncDates(); setTick(tick + 1); }
+  function toggleAll() { const allOn = grid.every(t => has(t)); D.saveDateSlots(selKey, allOn ? [] : grid.slice()); syncDates(); setTick(tick + 1); }
+  function resetDay() { D.resetDate(selKey); syncDates(); setTick(tick + 1); }
   const cnt = key => { const ov = D.getDateSlots(key); if (ov != null) return ov.length; const dd = days.find(x => D.dKey(x) === key); return dd ? D.availForDate(dd).slots.length : 0; };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -263,4 +335,4 @@ function IntegracionesApp({ T }) {
   );
 }
 
-Object.assign(window, { AppJCMView, HorariosApp, ContenidoApp, FidelidadApp, IntegracionesApp });
+Object.assign(window, { AppJCMView, UsuariosApp, HorariosApp, ContenidoApp, FidelidadApp, IntegracionesApp });

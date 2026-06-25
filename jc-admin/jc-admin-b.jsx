@@ -28,9 +28,13 @@ function AdField({ T, label, value, onChange, placeholder, inputMode }) {
 }
 
 function AdModal({ T, title, onClose, children, footer, wide, huge }) {
+  // El popup SIEMPRE queda entre la barra superior (≈66px) y el borde inferior, con
+  // márgenes de seguridad (incluida el área segura de iOS). maxHeight:100% del área
+  // disponible → el contenido largo (p. ej. "Nuevo procedimiento") hace scroll interno
+  // sin salirse de pantalla ni quedar cortado.
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: huge ? 12 : 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: huge ? "97vw" : "100%", maxWidth: huge ? 1180 : (wide ? 720 : 460), maxHeight: huge ? "95vh" : "92vh", background: T.bg, borderRadius: 16, border: "1px solid " + T.line, display: "flex", flexDirection: "column", animation: "jcSlideUp .3s " + T.ease }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: huge ? 12 : 16, paddingRight: huge ? 12 : 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: huge ? "97vw" : "100%", maxWidth: huge ? 1180 : (wide ? 720 : 460), maxHeight: "100%", background: T.bg, borderRadius: 16, border: "1px solid " + T.line, display: "flex", flexDirection: "column", animation: "jcSlideUp .3s " + T.ease, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid " + T.line }}>
           <div style={{ fontFamily: T.serif, fontSize: 22, fontWeight: 300, color: T.text }}>{title}</div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 4 }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
@@ -93,8 +97,9 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const ax = appts || [];
   const meta = p => { const ag = ax.some(a => a.name === p.name); const comp = (p.history || []).length > 0; return { ag, comp, inte: !comp && !ag }; };
   const ql = q.trim().toLowerCase();
+  const qlNorm = ql.replace(/[^0-9k]/g, "");
   const list = patients.filter(p => {
-    if (ql && !(p.name.toLowerCase().includes(ql) || p.rut.includes(ql))) return false;
+    if (ql && !(p.name.toLowerCase().includes(ql) || (p.rut || "").toLowerCase().includes(ql) || (qlNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qlNorm)))) return false;
     const m = meta(p);
     if (filt === "agendado" && !m.ag) return false;
     if (filt === "comprado" && !m.comp) return false;
@@ -216,12 +221,14 @@ function NewPatientModal({ T, onClose, onSave }) {
 }
 
 /* ─────────── FICHA MÉDICA ─────────── */
-function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar }) {
-  const [tab, setTab] = useState("fichaclinica");
+function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "fichaclinica");
   const [newEntry, setNewEntry] = useState(false);
   const [editIdx, setEditIdx] = useState(null); // índice de la sesión a editar (null = nueva)
   const [viewMode, setViewMode] = useState(false); // abrir la sesión en solo-lectura
   const [editD, setEditD] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [delInput, setDelInput] = useState("");
   const points = patient.points || [];
   const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ["facturacion", "Atenciones"], ["campana", "Campaña"], ["notas", "Notas"], ["resumen", "Resumen IA"], ["auditoria", "Auditoría IA"]];
   const estado = patient.estado || "Activo";
@@ -230,15 +237,17 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
 
   function savePoints(pts) { updatePatient(patient.id, { points: pts }); }
 
-  // Imprime la ficha clínica completa; al final, los datos del profesional que atendió.
+  // Imprime la ficha clínica completa en formato clínico con identidad de la clínica.
   function imprimirFicha() {
     const D = window.JCDATA || {};
     const c = patient.clinica || {};
     const cv = k => (window.clinVal ? window.clinVal(c, k) : (c[k] || ""));
     const hist = patient.history || [];
-    // Profesional que atendió: el de la sesión más reciente; si no hay, el responsable de la clínica.
     const proName = (hist.find(h => h.proName) || {}).proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
-    const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
+    const clinAddr = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const now = new Date();
+    const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const field = (l, v) => "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + (v ? esc(v) : "—") + "</div></div>";
     const sesion = h => "<div class='ses'><div class='sd'>" + esc(h.date || "") + " · " + esc(h.proc || "") + (h.units ? " <span class='u'>(" + esc(h.units) + ")</span>" : "") + "</div>" +
@@ -247,36 +256,94 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       (h.note ? "<div class='sn'>" + esc(h.note) + "</div>" : "") +
       (h.proName ? "<div class='sp'>Realizado por " + esc(h.proName) + "</div>" : "") + "</div>";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Ficha clínica · " + esc(patient.name) + "</title>" +
-      "<style>body{font-family:Georgia,serif;color:#1a1a14;margin:0;padding:38px 44px;line-height:1.5}h1{font-size:22px;margin:0;font-weight:400}h2{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#888;margin:26px 0 8px;border-bottom:1px solid #ddd;padding-bottom:5px}.muted{color:#666;font-size:12px}.row{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1a14;padding-bottom:10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}.fld{padding:4px 0}.fl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#999}.fv{font-size:14px}.ses{padding:9px 0;border-bottom:1px dotted #ccc}.sd{font-size:14px;font-weight:bold}.sd .u{font-weight:normal;color:#666}.sm{font-size:11px;color:#777;margin-top:2px}.sn{font-size:13px;margin-top:3px}.sp{font-size:11px;color:#888;font-style:italic;margin-top:3px}.firma{margin-top:80px;display:flex;justify-content:space-between;gap:40px}.firmaBox{flex:1;text-align:center}.line{border-top:1px solid #1a1a14;margin-top:54px;padding-top:6px;font-size:12px}.timbre{width:200px;height:90px;border:1px dashed #aaa;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px;margin:0 auto}</style></head><body>" +
-      "<div class='row'><div><h1>" + esc((window.clinicName && window.clinicName()) || D.brand || "Medique") + "</h1><div class='muted'>Ficha clínica</div></div><div class='muted'>" + hoy + "</div></div>" +
-      "<h2>Paciente</h2><div class='grid'>" + field("Nombre", patient.name) + field("CI / RUT", patient.rut) + field("Edad", patient.age ? patient.age + " años" : "") + field("Teléfono", patient.phone) + field("Correo", patient.email) + field("Estado", estado) + "</div>" +
-      "<h2>Antecedentes</h2><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + "</div>" +
-      "<h2>Hábitos y piel</h2><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros al día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
-      (patient.notes ? "<h2>Notas internas</h2><div class='fv'>" + esc(patient.notes) + "</div>" : "") +
-      "<h2>Historial de sesiones</h2>" + (hist.length ? hist.map(sesion).join("") : "<div class='muted'>Sin sesiones registradas.</div>") +
-      "<div class='firma'><div class='firmaBox' style='max-width:320px'><div class='line'>Firma del profesional</div><div class='muted' style='margin-top:4px'>" + esc(proName) + " · Medicina estética</div></div></div>" +
+      "<style>@page{size:letter;margin:2cm 2.2cm}*{box-sizing:border-box}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a14;margin:0;font-size:12px;line-height:1.5}" +
+      "h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;margin:0;font-weight:400}" +
+      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1.5px solid #1a1a14}" +
+      ".hdr-right{text-align:right;font-size:11px;color:#444;line-height:1.6}" +
+      ".hdr-right b{font-size:12.5px;color:#1a1a14;display:block}" +
+      ".clinic-doc{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#aaa;margin:14px 0 2px;text-align:center}" +
+      ".doc-title{font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;text-align:center;margin:0 0 10px;color:#1a1a14}" +
+      ".doc-title em{font-style:italic}" +
+      ".pat-bar{background:#1a1a14;color:#fff;padding:10px 14px;border-radius:4px;margin:0 0 18px;display:flex;align-items:center;gap:0}" +
+      ".pat-bar .pb-name{font-family:Georgia,serif;font-size:15px;font-weight:400;flex:1}" +
+      ".pat-bar .pb-meta{font-size:10px;color:#ccc;display:flex;gap:16px;align-items:center;flex-wrap:wrap}" +
+      ".sec-hd{display:flex;align-items:baseline;gap:10px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin:20px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}" +
+      ".sec-hd em{font-style:italic;font-family:Georgia,serif;font-size:11px;color:#444;text-transform:none;letter-spacing:0}" +
+      ".grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 22px}" +
+      ".fld{padding:3px 0}.fl{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#bbb}.fv{font-size:12.5px;color:#1a1a14}" +
+      ".ses{padding:8px 0;border-bottom:1px dotted #ddd}.sd{font-size:13px;font-weight:600}.sd .u{font-weight:400;color:#666}.sm{font-size:10.5px;color:#888;margin-top:2px}.sn{font-size:11.5px;margin-top:3px;color:#333}.sp{font-size:10px;color:#999;font-style:italic;margin-top:3px}" +
+      ".footer{margin-top:36px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}" +
+      "</style></head><body>" +
+      "<div class='header'><div><h1>" + esc(clinName) + "</h1></div>" +
+      "<div class='hdr-right'><b>" + esc(proName || "—") + "</b>Medicina estética" + (clinAddr ? "<br>" + esc(clinAddr) : "") + "</div></div>" +
+      "<div class='clinic-doc'>Documento clínico</div><div class='doc-title'>Ficha <em>clínica</em></div>" +
+      "<div class='pat-bar'><div class='pb-name'>" + esc(patient.name || "—") + "</div><div class='pb-meta'>" +
+        (patient.rut ? "<span>RUT " + esc(patient.rut) + "</span>" : "") +
+        (patient.age ? "<span>" + esc(patient.age) + " años</span>" : "") +
+        (patient.phone ? "<span>" + esc(patient.phone) + "</span>" : "") +
+      "</div></div>" +
+      "<div class='sec-hd'><em>i</em> Antecedentes</div><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + field("Correo", patient.email) + "</div>" +
+      "<div class='sec-hd'><em>ii</em> Hábitos y piel</div><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros/día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador solar", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
+      (patient.notes ? "<div class='sec-hd'>Notas internas</div><div class='fv' style='font-size:12px;color:#333'>" + esc(patient.notes) + "</div>" : "") +
+      "<div class='sec-hd'><em>iii</em> Historial de sesiones</div>" + (hist.length ? hist.map(sesion).join("") : "<div style='color:#aaa;font-size:11px;padding:6px 0'>Sin sesiones registradas.</div>") +
+      "<div class='footer'><span>" + esc(proName) + " · Medicina estética</span><span>" + esc(clinName) + "</span><span>" + hoy + "</span></div>" +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
   }
 
-  // Imprime UNA sesión/procedimiento (para adjuntar a la ficha física).
+  // Imprime UNA sesión/procedimiento en formato clínico con identidad de la clínica.
   function imprimirProc(h) {
     const D = window.JCDATA || {};
     const proName = h.proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
-    const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
+    const clinAddr = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const now = new Date();
+    const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const sesDate = h.date || now.toISOString().slice(0, 10);
+    const [sy, sm, sd] = sesDate.split("-");
+    const hoyDot = (sd||"—") + " · " + (sm||"—") + " · " + (sy||"—");
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const field = (l, v) => v ? "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + esc(v) + "</div></div>" : "";
-    const meta = [h.lote && ("Lote " + h.lote), h.venc && ("Vence " + h.venc), h.temp && ("Temp. " + h.temp), h.dilucion && ("Dilución " + h.dilucion)].filter(Boolean).join("  ·  ");
+    const bx = (l, v) => v ? "<div class='insumo-bx'><div class='ibxl'>" + l + "</div><div class='ibxv'>" + esc(v) + "</div></div>" : "";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Procedimiento · " + esc(patient.name) + "</title>" +
-      "<style>@page{size:letter;margin:2.2cm 2cm}body{font-family:Georgia,serif;color:#1a1a14;margin:0;line-height:1.55}h1{font-size:21px;margin:0;font-weight:400}h2{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#888;margin:24px 0 8px;border-bottom:1px solid #ddd;padding-bottom:5px}.muted{color:#666;font-size:12px}.row{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1a14;padding-bottom:10px}.tt{font-size:15px;letter-spacing:.06em;text-transform:uppercase;text-align:center;margin:22px 0 4px;font-family:Helvetica,Arial,sans-serif}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}.fld{padding:4px 0}.fl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#999}.fv{font-size:14px}.box{font-size:14px;line-height:1.8;margin-top:6px;white-space:pre-wrap}.firma{margin-top:90px}.firmaBox{max-width:320px}.line{border-top:1px solid #1a1a14;padding-top:6px;font-size:12px}</style></head><body>" +
-      "<div class='row'><div><h1>" + esc((window.clinicName && window.clinicName()) || D.brand || "Medique") + "</h1><div class='muted'>" + esc(proName) + " · Medicina estética" + ((window.clinicAddr && window.clinicAddr()) ? " · " + esc(window.clinicAddr()) : "") + "</div></div><div class='muted' style='text-align:right'>" + esc(h.date || hoy) + "</div></div>" +
-      "<div class='tt'>Procedimiento realizado</div>" +
-      "<h2>Paciente</h2><div class='grid'>" + field("Nombre", patient.name) + field("CI / RUT", patient.rut) + field("Edad", patient.age ? patient.age + " años" : "") + "</div>" +
-      "<h2>Procedimiento</h2><div class='grid'>" + field("Tratamiento", h.proc) + field("Unidades / dosis", h.units) + field("Insumo", meta) + "</div>" +
-      (h.resumen ? "<h2>Resumen de la aplicación</h2><div class='box'>" + esc(h.resumen) + "</div>" : "") +
-      (h.note ? "<h2>Notas / resultados</h2><div class='box'>" + esc(h.note) + "</div>" : "") +
-      "<div class='firma'><div class='firmaBox'><div class='line'>Firma del profesional</div><div class='muted' style='margin-top:4px'>" + esc(proName) + "</div></div></div>" +
+      "<style>@page{size:letter;margin:2cm 2.2cm}*{box-sizing:border-box}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a14;margin:0;font-size:12px;line-height:1.5}" +
+      "h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;margin:0;font-weight:400}" +
+      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1.5px solid #1a1a14}" +
+      ".hdr-right{text-align:right;font-size:11px;color:#444;line-height:1.6}" +
+      ".hdr-right b{font-size:12.5px;color:#1a1a14;display:block}" +
+      ".clinic-doc{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#aaa;margin:14px 0 2px;text-align:center}" +
+      ".doc-title{font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;text-align:center;margin:0 0 4px;color:#1a1a14}" +
+      ".doc-date{text-align:center;font-size:11px;color:#aaa;letter-spacing:.12em;margin-bottom:10px}" +
+      ".pat-bar{background:#1a1a14;color:#fff;padding:10px 14px;border-radius:4px;margin:0 0 18px;display:flex;align-items:center}" +
+      ".pb-name{font-family:Georgia,serif;font-size:15px;font-weight:400;flex:1}" +
+      ".pb-meta{font-size:10px;color:#ccc;display:flex;gap:16px;align-items:center;flex-wrap:wrap}" +
+      ".sec-hd{display:flex;align-items:baseline;gap:10px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin:18px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}" +
+      ".sec-hd em{font-style:italic;font-family:Georgia,serif;font-size:11px;color:#444;text-transform:none;letter-spacing:0}" +
+      ".proc-box{border:1px solid #ddd;border-radius:6px;padding:12px 16px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}" +
+      ".pbxl{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#bbb;margin-bottom:2px}.pbxv{font-size:15px;color:#1a1a14;font-weight:500}" +
+      ".insumos{display:flex;gap:10px;margin-top:4px}" +
+      ".insumo-bx{flex:1;border:1px solid #eee;border-radius:5px;padding:8px 11px;text-align:center}" +
+      ".ibxl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#bbb;margin-bottom:3px}" +
+      ".ibxv{font-size:12.5px;color:#1a1a14}" +
+      ".box{font-size:12px;line-height:1.75;margin-top:4px;white-space:pre-wrap;color:#333}" +
+      ".footer{margin-top:50px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}" +
+      "</style></head><body>" +
+      "<div class='header'><div><h1>" + esc(clinName) + "</h1></div>" +
+      "<div class='hdr-right'><b>" + esc(proName || "—") + "</b>Medicina estética" + (clinAddr ? "<br>" + esc(clinAddr) : "") + "</div></div>" +
+      "<div class='clinic-doc'>Documento clínico</div><div class='doc-title'>Procedimiento realizado</div><div class='doc-date'>" + hoyDot + "</div>" +
+      "<div class='pat-bar'><div class='pb-name'>" + esc(patient.name || "—") + "</div><div class='pb-meta'>" +
+        (patient.rut ? "<span>RUT " + esc(patient.rut) + "</span>" : "") +
+        (patient.age ? "<span>" + esc(patient.age) + " años</span>" : "") +
+        (patient.phone ? "<span>" + esc(patient.phone) + "</span>" : "") +
+      "</div></div>" +
+      "<div class='proc-box'><div><div class='pbxl'>Tratamiento</div><div class='pbxv'>" + esc(h.proc || "—") + "</div></div>" +
+      "<div><div class='pbxl'>Unidades / Dosis</div><div class='pbxv'>" + esc(h.units || "—") + "</div></div></div>" +
+      "<div class='sec-hd'><em>i</em> Insumo</div><div class='insumos'>" +
+        bx("Lote", h.lote) + bx("Vencimiento", h.venc) + bx("Temp.", h.temp) + bx("Dilución", h.dilucion) +
+      "</div>" +
+      (h.resumen ? "<div class='sec-hd'><em>ii</em> Resumen de la aplicación</div><div class='box'>" + esc(h.resumen) + "</div>" : "") +
+      (h.note ? "<div class='sec-hd'>Notas</div><div class='box'>" + esc(h.note) + "</div>" : "") +
+      "<div class='footer'><span>" + esc(proName) + " · Medicina estética</span><span>" + esc(clinName) + "</span><span>" + hoy + "</span></div>" +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
@@ -307,7 +374,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
           <FAct T={T} onClick={() => setEditD(true)} icon={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></>}>Editar datos</FAct>
           <FAct T={T} onClick={imprimirFicha} icon={<><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></>}>Imprimir ficha</FAct>
           <FAct T={T} primary onClick={() => onAgendar && onAgendar()} icon={<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>}>Agendar cita</FAct>
-          {removePatient && <FAct T={T} onClick={async () => { if (await (window.jcmConfirm || window.confirm)(`¿Eliminar al paciente "${patient.name}" y todos sus datos? Esta acción no se puede deshacer.`, {danger: true, title: 'Eliminar paciente'})) { removePatient(patient.id); onBack && onBack(); } }} icon={<><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></>}>Eliminar</FAct>}
+          {removePatient && <FAct T={T} onClick={() => { setConfirmDel(true); setDelInput(""); }} icon={<><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></>}>Eliminar</FAct>}
         </div>
       </div>
 
@@ -401,8 +468,15 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             const hist = (patient.history || []).slice();
             const editing = editIdx != null;
             if (editing) hist[editIdx] = { ...hist[editIdx], ...e }; else hist.unshift({ id: (window.jcmUid ? window.jcmUid("s") : "s" + Date.now()), ...e });
-            updatePatient(patient.id, { history: hist }); setNewEntry(false); setEditIdx(null); setViewMode(false);
-            try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : "Sesión registrada.", "ok"); } catch (e2) {}
+            const patch = { history: hist };
+            if (!editing && patient.campaign) patch.campaign = { ...patient.campaign, meta_estado: "compro" };
+            updatePatient(patient.id, patch); setNewEntry(false); setEditIdx(null); setViewMode(false);
+            // Al registrar una sesión NUEVA con cobro, se suma automáticamente a Caja (ingreso por atención),
+            // de modo que el procedimiento de la ficha aparece en Caja, Reportes y el Dashboard.
+            if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
+              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name }); } catch (e3) {}
+            }
+            try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : ((e.cobro || 0) > 0 ? "Sesión registrada · " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesión registrada."), "ok"); } catch (e2) {}
           }} />}
         </div>
       )}
@@ -412,6 +486,21 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       )}
       </div>
       {editD && <EditDatosModal T={T} patient={patient} onClose={() => setEditD(false)} onSave={(d) => { updatePatient(patient.id, d); setEditD(false); }} />}
+      {confirmDel && (
+        <AdModal T={T} title="Eliminar paciente" onClose={() => { setConfirmDel(false); setDelInput(""); }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, lineHeight: 1.65 }}>
+              Estás por eliminar a <b>{patient.name}</b> y toda su ficha clínica, historial y consentimientos.{" "}
+              <span style={{ color: "#C0285A", fontWeight: 600 }}>Esta acción no se puede deshacer.</span>
+            </div>
+            <AdField T={T} label='Escribe "ELIMINAR" para confirmar' value={delInput} onChange={v => setDelInput(v.toUpperCase())} />
+            <div onClick={() => { if (delInput !== "ELIMINAR") return; removePatient(patient.id); setConfirmDel(false); if (onBack) onBack(); }}
+              style={{ padding: "13px", textAlign: "center", borderRadius: 7, fontFamily: T.sans, fontSize: 13, fontWeight: 600, cursor: delInput === "ELIMINAR" ? "pointer" : "not-allowed", background: delInput === "ELIMINAR" ? "#C0285A" : T.lineSoft || T.line, color: delInput === "ELIMINAR" ? "#fff" : T.textFaint, transition: "all .15s" }}>
+              Eliminar definitivamente
+            </div>
+          </div>
+        </AdModal>
+      )}
     </div>
   );
 }
@@ -421,21 +510,31 @@ function FAct({ T, children, icon, href, onClick, primary }) {
   return href ? <a href={href} target="_blank" rel="noopener" style={st}>{ic}{children}</a> : <button onClick={onClick} style={st}>{ic}{children}</button>;
 }
 function EditDatosModal({ T, patient, onClose, onSave }) {
-  const [f, setF] = useState({ name: patient.name || "", rut: patient.rut || "", age: patient.age ? "" + patient.age : "", phone: patient.phone || "", email: patient.email || "", estado: patient.estado || "Activo" });
-  const rutOk = !f.rut.trim() || (window.jcmValidRut ? window.jcmValidRut(f.rut) : true);
+  const PREFIX = "+56 9 ";
+  const rawPhone = patient.phone || "";
+  const initPhone = rawPhone.startsWith(PREFIX) ? rawPhone : (rawPhone ? PREFIX + rawPhone : PREFIX);
+  const [f, setF] = useState({ name: patient.name || "", rut: patient.rut || "", age: patient.age ? "" + patient.age : "", phone: initPhone, email: patient.email || "", estado: patient.estado || "Activo" });
+  const rutWarn = f.rut.trim() && !(window.jcmValidRut ? window.jcmValidRut(f.rut) : true);
   const emailOk = !f.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim());
   const phoneDigits = f.phone.replace(/\D/g, "");
-  const ok = f.name.trim().length > 2 && phoneDigits.length >= 11 && rutOk && emailOk;
+  const ok = f.name.trim().length > 2 && phoneDigits.length >= 11 && emailOk;
+  const sel = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
+  const lblS = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  function guardaPhone(v) { setF({ ...f, phone: v.startsWith(PREFIX) ? v : PREFIX }); }
+  function phoneKeyDown(e) { if ((e.key === "Backspace" || e.key === "Delete") && e.target.selectionStart <= PREFIX.length) e.preventDefault(); }
   return (
     <AdModal T={T} title="Editar datos del paciente" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: f.phone.trim(), email: f.email.trim(), estado: f.estado })}>Guardar cambios</AdBtn>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div><AdField T={T} label="CI / RUT" value={f.rut} onChange={v => setF({ ...f, rut: (window.jcmFmtRut ? window.jcmFmtRut(v) : v) })} />{f.rut.trim() && !rutOk && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 5 }}>RUT inválido.</div>}</div>
+          <div><AdField T={T} label="CI / RUT" value={f.rut} onChange={v => setF({ ...f, rut: (window.jcmFmtRut ? window.jcmFmtRut(v) : v) })} />{rutWarn && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C9A227", marginTop: 5 }}>Revisa el dígito verificador.</div>}</div>
           <AdField T={T} label="Edad" value={f.age} onChange={v => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 3) })} inputMode="numeric" />
         </div>
-        <AdField T={T} label="Teléfono móvil" value={f.phone} onChange={v => setF({ ...f, phone: v })} inputMode="tel" />
-        <AdField T={T} label="Correo" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" />
+        <label style={{ display: "block" }}>
+          <span style={lblS}>Teléfono móvil</span>
+          <input value={f.phone} onChange={e => guardaPhone(e.target.value)} onKeyDown={phoneKeyDown} inputMode="tel" style={sel} />
+        </label>
+        <AdField T={T} label="Correo (opcional)" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" />
         <div><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Estado</span>
           <select value={f.estado} onChange={e => setF({ ...f, estado: e.target.value })} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}><option>Activo</option><option>Inactivo</option></select>
         </div>
@@ -467,13 +566,17 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
   const [f, setF] = useState(entry ? {
     date: entry.date || today, proc: entry.proc || "", units: entry.units || "", note: entry.note || "",
     proId: entry.proId || (team[0] || {}).id || "", proName: entry.proName || (team[0] || {}).name || "",
-    lote: entry.lote || "", venc: entry.venc || "", temp: entry.temp || "", dilucion: entry.dilucion || "", resumen: entry.resumen || "",
-    recomendados: entry.recomendados || "", realizados: entry.realizados || ""
+    lote: entry.lote || "", venc: entry.venc || "", temp: (entry.temp || "").replace(/\s*°C\s*/g, "").trim(), dilucion: entry.dilucion || "", resumen: entry.resumen || "",
+    recomendados: entry.recomendados || "", realizados: entry.realizados || "",
+    cobro: entry.cobro != null ? "" + entry.cobro : "", metodo: entry.metodo || "Efectivo"
   } : {
     date: today, proc: "", units: "", note: "",
     proId: (team[0] || {}).id || "", proName: (team[0] || {}).name || "",
-    lote: "", venc: "", temp: "", dilucion: "", resumen: "", recomendados: "", realizados: ""
+    lote: "", venc: "", temp: "", dilucion: "", resumen: "", recomendados: "", realizados: "",
+    cobro: "", metodo: "Efectivo"
   });
+  // Precio sugerido del servicio (para auto-rellenar el cobro al elegir el procedimiento).
+  function svcPrice(name) { try { const s = (window.clinicServiceList ? window.clinicServiceList() : []).find(x => x.name === name); return s ? (s.price || 0) : 0; } catch (e) { return 0; } }
   const points = (patient && patient.points) || [];
   const savePoints = pts => { if (patient && updatePatient) updatePatient(patient.id, { points: pts }); };
   // En edición, el profesional que REALIZÓ el tratamiento no cambia: se confirma con su clave.
@@ -481,6 +584,8 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
   const origPro = isEdit ? (team.find(t => t.id === (entry.proId || f.proId)) || team.find(t => t.name === (entry.proName || f.proName)) || team[0]) : null;
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
+  const [narrow, setNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 900);
+  useEffect(() => { const h = () => setNarrow(window.innerWidth < 900); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
   function submit() {
     if (!f.proc.trim()) { setErr("Indica el procedimiento."); return; }
@@ -488,7 +593,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
       if (!origPro || !origPro.pin) { setErr("El profesional que realizó esta sesión no tiene clave configurada. Defínela en Equipo."); return; }
       if (pin !== origPro.pin) { setErr("Clave incorrecta. Solo " + (origPro.name) + " puede confirmar cambios en su sesión."); return; }
     }
-    onSave(f);
+    onSave({ ...f, temp: f.temp.trim() ? f.temp.trim() + " °C" : "", cobro: parseInt(("" + (f.cobro || "")).replace(/\D/g, ""), 10) || 0 });
   }
   const setPro = id => { const p = team.find(t => t.id === id); setF({ ...f, proId: id, proName: p ? p.name : f.proName }); };
   const sel = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
@@ -500,12 +605,17 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
       footer={ro
         ? <AdBtn T={T} primary full onClick={() => setRo(false)}>Editar sesión</AdBtn>
         : <AdBtn T={T} primary full onClick={submit}>{isEdit ? "Confirmar cambios" : "Registrar sesión"}</AdBtn>}>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.05fr)", gap: 22, alignItems: "start" }}>
+      <div style={{ display: narrow ? "flex" : "grid", flexDirection: narrow ? "column" : undefined, gridTemplateColumns: narrow ? undefined : "minmax(0,1fr) minmax(0,1.05fr)", gap: 22, alignItems: "start" }}>
         {/* Columna izquierda · datos de la sesión (solo-lectura cuando ro) */}
         <div style={{ display: "flex", flexDirection: "column", gap: 13, pointerEvents: ro ? "none" : "auto", opacity: ro ? .97 : 1 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <AdField T={T} label="Fecha" value={f.date} onChange={v => setF({ ...f, date: v })} />
-            <AdField T={T} label="Dosis / cantidad" value={f.units} onChange={v => setF({ ...f, units: v })} placeholder="24U / 1 ml" />
+            <label style={{ display: "block" }}>
+              <span style={lblS}>Dosis / cantidad</span>
+              <input value={f.units} onChange={e => setF({ ...f, units: e.target.value })}
+                onKeyDown={e => { if (e.key === " " && /[uU]$/.test(f.units.trim()) && !f.units.includes("/")) { e.preventDefault(); setF({ ...f, units: f.units.trim() + " / " }); } }}
+                placeholder="24U / 1 ml" style={sel} />
+            </label>
           </div>
           {/* Procedimiento: desplegable con los servicios de la clínica (agrupados por categoría) + opción "Otro". */}
           {(() => {
@@ -527,7 +637,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
               <div>
                 <label style={{ display: "block" }}>
                   <span style={lblS}>Procedimiento</span>
-                  <select value={isOther ? "__other__" : f.proc} onChange={e => { const v = e.target.value; setF({ ...f, proc: v === "__other__" ? " " : v }); }} style={sel}>
+                  <select value={isOther ? "__other__" : f.proc} onChange={e => { const v = e.target.value; const np = v === "__other__" ? " " : v; const pr = svcPrice(np); setF(prev => ({ ...prev, proc: np, cobro: (!prev.cobro && pr) ? "" + pr : prev.cobro })); }} style={sel}>
                     <option value="">Selecciona un servicio…</option>
                     {cats.map(c => <optgroup key={c} label={c}>{byCat[c].map((s, i) => <option key={c + i} value={s.name}>{s.name}</option>)}</optgroup>)}
                     <option value="__other__">Otro (especificar)…</option>
@@ -537,6 +647,29 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
               </div>
             );
           })()}
+
+          {/* Cobro → se registra en Caja automáticamente al guardar la sesión (solo sesiones nuevas) */}
+          {!isEdit && (
+            <div style={{ background: "rgba(31,138,91,.06)", border: "1px solid rgba(31,138,91,.25)", borderRadius: 8, padding: "13px 14px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 11 }}>Cobro · se suma a Caja</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <label style={{ display: "block" }}>
+                  <span style={lblS}>Cobro (opcional)</span>
+                  <div style={{ display: "flex", alignItems: "center", border: "1px solid " + T.line, borderRadius: 4, overflow: "hidden", background: T.surface }}>
+                    <span style={{ paddingLeft: 13, fontFamily: T.sans, fontSize: 13.5, color: T.textMute, userSelect: "none" }}>$</span>
+                    <input value={f.cobro ? Number(("" + f.cobro).replace(/\D/g, "")).toLocaleString("es-CL") : ""} onChange={e => setF({ ...f, cobro: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="0" style={{ flex: 1, padding: "12px 10px", border: "none", background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
+                  </div>
+                </label>
+                <label style={{ display: "block" }}>
+                  <span style={lblS}>Método de pago</span>
+                  <select value={f.metodo} onChange={e => setF({ ...f, metodo: e.target.value })} style={sel}>
+                    {["Efectivo", "Transferencia", "Débito", "Crédito", "Otro"].map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </label>
+              </div>
+              <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 8 }}>Si indicas un cobro, se registra como ingreso en <b>Caja</b> y aparece en Reportes y el Dashboard. Déjalo en blanco si no corresponde cobro.</p>
+            </div>
+          )}
 
           {/* Profesional que realiza */}
           <label style={{ display: "block" }}>
@@ -559,8 +692,14 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 11 }}>Producto aplicado</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: v })} placeholder="Ej. AB1234" />
-              <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => { let d = v.replace(/\D/g, "").slice(0, 6); setF({ ...f, venc: d.length > 4 ? d.slice(0, 4) + "-" + d.slice(4) : d }); }} inputMode="numeric" placeholder="2027-03 (AAAA-MM)" />
-              <AdField T={T} label="Temperatura conserv." value={f.temp} onChange={v => { const base = v.replace(/[^0-9–\-]/g, "").replace(/-/g, "–"); setF({ ...f, temp: base ? base + " °C" : "" }); }} inputMode="numeric" placeholder="2–8 °C" />
+              <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => { let d = v.replace(/\D/g, "").slice(0, 8); let fmt = d.length > 6 ? d.slice(0,4)+"-"+d.slice(4,6)+"-"+d.slice(6) : d.length > 4 ? d.slice(0,4)+"-"+d.slice(4) : d; setF({ ...f, venc: fmt }); }} inputMode="numeric" placeholder="2027-03-15 (AAAA-MM-DD)" />
+              <label style={{ display: "block" }}>
+                <span style={lblS}>Temperatura conserv.</span>
+                <div style={{ display: "flex", alignItems: "center", border: "1px solid " + T.line, borderRadius: 4, overflow: "hidden" }}>
+                  <input value={f.temp} onChange={e => setF({ ...f, temp: e.target.value.replace(/[^0-9.,–\-]/g, "") })} inputMode="decimal" placeholder="2–8" style={{ flex: 1, padding: "12px 13px", border: "none", background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
+                  <span style={{ paddingRight: 13, fontFamily: T.sans, fontSize: 13.5, color: T.textMute, userSelect: "none", background: T.surface }}>°C</span>
+                </div>
+              </label>
               <AdField T={T} label="Dilución / reconstitución" value={f.dilucion} onChange={v => setF({ ...f, dilucion: v })} placeholder="100U en 2,5 ml SF" />
             </div>
           </div>
@@ -584,7 +723,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
         </div>
 
         {/* Columna derecha · mapa facial y antropometría */}
-        <div style={{ minWidth: 0, borderLeft: "1px solid " + T.lineSoft, paddingLeft: 22 }}>
+        <div style={{ minWidth: 0, borderLeft: narrow ? "none" : ("1px solid " + T.lineSoft), borderTop: narrow ? ("1px solid " + T.lineSoft) : "none", paddingLeft: narrow ? 0 : 22, paddingTop: narrow ? 18 : 0 }}>
           <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Mapa facial y antropometría</div>
           {patient
             ? <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} />
@@ -686,6 +825,10 @@ const CONSENT_EXCL = [
 function ConsentDoc({ T, tpl, prof }) {
   const P = ({ n, children }) => <p style={{ margin: "0 0 11px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}><b>{n}</b> {children}</p>;
   const EU = prof || "____________________";
+  if (tpl.kind === "custom") {
+    const renderT = t => { const parts = t.split("{EU}"); if (parts.length === 1) return t; return parts.reduce((a, p, i) => i < parts.length - 1 ? [...a, p, <b key={i}>{EU}</b>] : [...a, p], []); };
+    return <div>{(tpl.paragraphs || []).map((p, i) => <P key={i} n={p.n}>{renderT(p.t)}</P>)}</div>;
+  }
   if (tpl.kind === "extra") return (
     <div>
       {tpl.proc && <P n="">Procedimiento: <b>{tpl.proc}</b>.</P>}
@@ -794,11 +937,54 @@ function ConsentTab({ T, patient, updatePatient }) {
   // Imprime el consentimiento reutilizando el contenido ya renderizado en el popup (texto legal + firmas).
   function imprimirConsent() {
     const node = printRef.current; if (!node) return;
-    const w = window.open("", "_blank"); if (!w) return;
-    w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + (patient.name || "") + "</title>" +
+    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + (patient.name || "") + "</title>" +
       "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}img{max-height:70px}</style></head><body>" +
-      node.outerHTML + "<script>window.onload=function(){window.print();}<\/script></body></html>");
-    w.document.close();
+      node.outerHTML + "</body></html>";
+    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+  }
+
+  function imprimirConsentDoc(doc) {
+    const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const EU = esc(doc.prof || "____________________");
+    const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
+    let body = "";
+    if (doc.kind === "extra") {
+      if (doc.proc) body += p("", "Procedimiento: <b>" + esc(doc.proc) + "</b>.");
+      body += "<div style='white-space:pre-wrap;font-size:12px;line-height:1.6;margin-bottom:11px'>" + esc(doc.body || "—") + "</div>";
+      body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento descrito, habiéndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes clínicos.");
+    } else if (doc.kind === "toxina") {
+      body += p("1.-", "Por el presente documento, autorizo a EU <b>" + EU + "</b> a realizar el procedimiento conocido como \"tratamiento cosmético para arrugas\" mediante la aplicación de Toxina Botulínica tipo A, producto que al ser utilizado en la musculatura facial de manera adecuada, produce relajamiento de la expresión con la disminución de las arrugas de expresión. El procedimiento mencionado me ha sido totalmente explicado por el profesional, entendiendo la naturaleza y las consecuencias del mismo. Los siguientes puntos me han sido especialmente aclarados:");
+      body += "<p style='margin:0 0 8px 16px;font-size:12px;line-height:1.6'><b>a)</b> En los sitios de la(s) aplicación(es) pueden quedar pequeñas marcas transitorias, enrojecimiento de la piel, hematomas, inflamación y efectos no deseados descritos en el prospecto, los mismos son comunes y reversibles.</p>";
+      body += "<p style='margin:0 0 11px 16px;font-size:12px;line-height:1.6'><b>b)</b> Todos los pacientes que estén siendo tratados con antibióticos del tipo de espectinomicina o amino glucósidos, enfermedades neuromusculares, embarazadas, mujeres en periodos de lactancia, que presenten rellenos con biopolímeros, siliconas, así como infección o signos de inflamación en los sitios de aplicación no pueden ser sometidos a la aplicación de Toxina Botulínica.</p>";
+      body += p("2.-", "He entendido que la duración de los resultados es variable y reversible, siendo aproximadamente de entre 3 a 6 meses y me ha sido explicado que los efectos comenzarán a evidenciarse después del cuarto día de la aplicación.");
+      body += p("3.-", "Soy consciente que la práctica de la medicina no es una ciencia exacta y reconozco que a pesar de que el profesional me ha informado adecuadamente las posibilidades absolutas y relativas de lograr los objetivos indicados en el punto 1, los resultados no pueden ser predecibles.");
+      body += p("4.-", "Doy fe de no haber omitido o alterado datos al exponer mis antecedentes clínicos.");
+      body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Congresos, cursos, demostraciones, capacitaciones).");
+      body += p("6.-", "He leído detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional nombrado a realizarme el procedimiento antes explicado.");
+    } else {
+      body += p("1.-", "Por el presente documento, autorizo a EU <b>" + EU + "</b> a realizar el procedimiento <b>" + esc(doc.proc || "") + "</b>, el cual me fue claramente explicado.");
+      body += p("2.-", "Reconozco que pueden existir las siguientes complicaciones temporales: hematomas (moretones), inflamación, dolor leve transitorio, cambios de sensibilidad de la piel, enrojecimiento de la piel, asimetrías leves, los cuales son comunes y totalmente reversibles." + (doc.vascular ? " Aunque el riesgo es menor al 1% existe la posibilidad de complicaciones graves como: obstrucción u oclusión vascular, en dicho caso el profesional pondrá todos los medios a su disposición para resolver el cuadro clínico de forma eficaz." : ""));
+      body += p("3.-", "Estoy consciente que la práctica de la Medicina no es una ciencia exacta y estoy en conocimiento que los resultados del procedimiento no son totalmente predecibles.");
+      body += p("4.-", "Entiendo que no puedo ser tratada(o) con " + esc(doc.proc4 || doc.proc || "") + ", en los siguientes casos y confirmo que no padezco ninguno de ellos:");
+      body += "<ul style='margin:0 0 11px;padding-left:20px'>" + CONSENT_EXCL.map(e => "<li style='font-size:12px;line-height:1.6;margin-bottom:5px'>" + esc(e) + "</li>").join("") + "</ul>";
+      body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Demostraciones).");
+      body += p("6.-", "Doy fe de no haber omitido o alterado mis antecedentes clínicos. Leí detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.");
+    }
+    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + esc(patient.name || "") + "</title>" +
+      "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}img{max-height:70px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.sig-label{font-size:11px;color:#444;margin-bottom:4px}</style>" +
+      "</head><body>" +
+      "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>" +
+      "<h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2>" +
+      "<div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || "") + "</b></div>" +
+      "<div style='font-size:12px;margin-bottom:16px'>Identificado con CI N° <b>" + esc(doc.ci || "") + "</b> · Edad <b>" + esc(doc.edad || "") + "</b></div>" +
+      body +
+      "<div class='sigs'>" +
+        "<div><div class='sig-label'>Firma paciente</div>" + (doc.sigPac ? "<img src='" + doc.sigPac + "' style='height:60px;border:1px solid #ddd;border-radius:4px'/>" : "<div style='height:60px;border:1px dashed #ccc;border-radius:4px'></div>") + "</div>" +
+        "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div>" + (doc.sigPro ? "<img src='" + doc.sigPro + "' style='height:60px;border:1px solid #ddd;border-radius:4px'/>" : "<div style='height:60px;border:1px dashed #ccc;border-radius:4px'></div>") + "</div>" +
+      "</div></body></html>";
+    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
   }
 
   return (
@@ -814,15 +1000,18 @@ function ConsentTab({ T, patient, updatePatient }) {
       {consents.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "8px 0" }}>Aún no hay consentimientos firmados.</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {consents.map((doc, i) => (
-          <button key={doc.ts || i} onClick={() => setOpenDoc(doc)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "12px 14px", borderRadius: 9, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
+          <div key={doc.ts || i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 9, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }} onClick={() => setOpenDoc(doc)}>
             <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.accent, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap", flexShrink: 0 }}>{doc.cat || "Consent."}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.proc || doc.title}</div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{doc.fecha}{doc.ts ? " · " + fmtHora(doc.ts) : ""}</div>
             </div>
             <AdTag T={T} tone="ok">Firmado</AdTag>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>
-          </button>
+            <button onClick={e => { e.stopPropagation(); imprimirConsentDoc(doc); }} title="Imprimir consentimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+            </button>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ flexShrink: 0, pointerEvents: "none" }}><path d="M9 18l6-6-6-6" /></svg>
+          </div>
         ))}
       </div>
 
@@ -1032,7 +1221,7 @@ function CampanaTab({ T, patient, updatePatient }) {
 function AuditoriaIA({ T, patient, go }) {
   const issues = [];
   if (!patient.consent) issues.push({ tone: "danger", t: "Falta consentimiento firmado", d: "El paciente no tiene consentimiento informado registrado.", action: ["Ir a Consentimientos", () => go("consent")] });
-  if (!patient.clinica || Object.keys(patient.clinica || {}).length < 3) issues.push({ tone: "warn", t: "Antecedentes incompletos", d: "Faltan datos de antecedentes médicos, alergias o hábitos.", action: ["Completar antecedentes", () => go("antecedentes")] });
+  if (!patient.clinica || Object.keys(patient.clinica || {}).length < 3) issues.push({ tone: "warn", t: "Antecedentes incompletos", d: "Faltan datos de antecedentes médicos, alergias o hábitos.", action: ["Completar antecedentes", () => go("fichaclinica")] });
   if (!patient.campaign) issues.push({ tone: "warn", t: "Sin información de captación", d: "No se registró cómo llegó el paciente (campaña / orgánico / medio).", action: ["Registrar origen", () => go("campana")] });
   const bill = patient.billing;
   const saldo = bill ? bill.filter(b => !b.paid).reduce((s, b) => s + b.amount, 0) : 0;
@@ -1078,14 +1267,51 @@ function ResumenIA({ T, patient }) {
     const hist = (patient.history || []).map(h => h.date + ": " + h.proc + " (" + h.units + ") " + (h.note || "")).join("; ");
     return "Paciente " + patient.name + ", " + patient.age + " años. Tratamientos/tags: " + ((patient.tags || []).join(", ") || "—") + ". Notas: " + (patient.notes || "—") + ". Historial: " + (hist || "sin sesiones") + ". Consentimiento: " + (patient.consent ? "firmado" : "pendiente") + ".";
   }
+  // ── Resumen clínico LOCAL (sin servidor): redacta a partir de los datos del paciente.
+  // Funciona siempre; si hay IA conectada (window.claude) se usa esa en su lugar.
+  function localSummary() {
+    const hist = (patient.history || []);
+    const nombre = patient.name || "El paciente";
+    const edad = patient.age ? (", " + patient.age + " años") : "";
+    const tags = (patient.tags || []).filter(Boolean);
+    const lines = [];
+    lines.push(nombre + edad + ". " + (tags.length ? "Tratamientos asociados: " + tags.join(", ") + "." : "Sin tratamientos etiquetados aún."));
+    if (hist.length) {
+      const ultima = hist[0];
+      const procs = {};
+      hist.forEach(h => { const k = (h.proc || "").trim(); if (k) procs[k] = (procs[k] || 0) + 1; });
+      const detalle = Object.entries(procs).map(([p, n]) => p + (n > 1 ? " ×" + n : "")).join(", ");
+      lines.push("Registra " + hist.length + " sesión" + (hist.length === 1 ? "" : "es") + ": " + detalle + ".");
+      lines.push("Última sesión: " + (ultima.date || "—") + " · " + (ultima.proc || "—") + (ultima.units ? " (" + ultima.units + ")" : "") + (ultima.note ? ". Nota: " + ultima.note : "") + ".");
+    } else {
+      lines.push("Aún no hay sesiones registradas en la ficha.");
+    }
+    if (patient.notes) lines.push("Antecedentes/notas: " + patient.notes + ".");
+    lines.push("A vigilar: " + (patient.consent ? "consentimiento firmado; " : "⚠ consentimiento PENDIENTE de firma; ") + "confirmar evolución y reacciones en el control de seguimiento.");
+    return lines.join("\n");
+  }
+  function localAnswer(text) {
+    const t = text.toLowerCase();
+    const hist = patient.history || [];
+    if (/consent/.test(t)) return patient.consent ? "El consentimiento está firmado." : "El consentimiento está PENDIENTE de firma.";
+    if (/alerg/.test(t)) { const a = (patient.clinica && (patient.clinica.alergias)) || ""; return a ? "Alergias: " + a : "No hay alergias registradas en la ficha."; }
+    if (/última|ultima|reciente|last/.test(t) && hist[0]) return "Última sesión: " + (hist[0].date || "—") + " · " + (hist[0].proc || "—") + (hist[0].units ? " (" + hist[0].units + ")" : "") + (hist[0].note ? ". " + hist[0].note : "");
+    if (/cuánt|cuant|sesion|histor/.test(t)) return hist.length ? "Tiene " + hist.length + " sesión(es): " + hist.map(h => (h.date || "") + " " + (h.proc || "")).join("; ") : "Sin sesiones registradas.";
+    if (/edad|años|anos/.test(t)) return patient.age ? "Edad: " + patient.age + " años." : "Edad no registrada.";
+    if (/tratamiento|procedimiento|qué se|que se/.test(t)) { const ps = Array.from(new Set(hist.map(h => h.proc).filter(Boolean))); return ps.length ? "Tratamientos realizados: " + ps.join(", ") + "." : "Sin tratamientos registrados."; }
+    return "Según la ficha: " + localSummary().split("\n")[0];
+  }
   async function gen() {
     setLoading(true);
     try {
-      if (!window.claude || !window.claude.complete) throw new Error("no");
-      const r = await window.claude.complete({ messages: [{ role: "user", content: "Eres asistente clínico de una consulta de medicina estética en Chile. Redacta en español un resumen clínico breve (4-6 líneas) del paciente, basado SOLO en estos datos. Indica tratamientos realizados, evolución y puntos a vigilar. No inventes datos.\n\nDATOS: " + ctx() }] });
-      setSummary((r || "").trim() || "Sin información suficiente.");
+      if (window.claude && window.claude.complete) {
+        const r = await window.claude.complete({ messages: [{ role: "user", content: "Eres asistente clínico de una consulta de medicina estética en Chile. Redacta en español un resumen clínico breve (4-6 líneas) del paciente, basado SOLO en estos datos. Indica tratamientos realizados, evolución y puntos a vigilar. No inventes datos.\n\nDATOS: " + ctx() }] });
+        setSummary((r || "").trim() || localSummary());
+      } else {
+        setSummary(localSummary());
+      }
     } catch (e) {
-      setSummary("⚠️ El resumen con IA estará disponible cuando publiques el panel con tu cuenta conectada. Aquí se generará automáticamente a partir del historial del paciente.");
+      setSummary(localSummary());
     }
     setLoading(false);
   }
@@ -1093,10 +1319,13 @@ function ResumenIA({ T, patient }) {
     const text = q.trim(); if (!text || asking) return;
     setQ(""); setAns(a => [...a, { role: "user", content: text }]); setAsking(true);
     try {
-      if (!window.claude || !window.claude.complete) throw new Error("no");
-      const r = await window.claude.complete({ messages: [{ role: "user", content: "Responde en español, breve y clínico, SOLO con base en estos datos del paciente. Si no hay dato, dilo.\n\nDATOS: " + ctx() + "\n\nPREGUNTA: " + text }] });
-      setAns(a => [...a, { role: "ai", content: (r || "").trim() || "Sin datos." }]);
-    } catch (e) { setAns(a => [...a, { role: "ai", content: "⚠️ Disponible con tu cuenta conectada en producción." }]); }
+      if (window.claude && window.claude.complete) {
+        const r = await window.claude.complete({ messages: [{ role: "user", content: "Responde en español, breve y clínico, SOLO con base en estos datos del paciente. Si no hay dato, dilo.\n\nDATOS: " + ctx() + "\n\nPREGUNTA: " + text }] });
+        setAns(a => [...a, { role: "ai", content: (r || "").trim() || localAnswer(text) }]);
+      } else {
+        setAns(a => [...a, { role: "ai", content: localAnswer(text) }]);
+      }
+    } catch (e) { setAns(a => [...a, { role: "ai", content: localAnswer(text) }]); }
     setAsking(false);
   }
   return (

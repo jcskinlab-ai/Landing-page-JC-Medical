@@ -67,7 +67,9 @@ function AssistantScreen({ T, D, openBooking, onBack }) {
     if (topic) ctx.current = topic;
     let bq = q;
     if (!topic && ctx.current && /sesion|sesiones|cuantas veces|cuantas/.test(_norm(q))) bq = q + " " + (CTX_WORD[ctx.current] || "");
-    setResolved(n => n + 1);
+    const nextResolved = resolved + 1;
+    setResolved(nextResolved);
+    const showBook = nextResolved >= 2;
     const live = window.claude && typeof window.claude.complete === "function";
     if (live) {
       setBusy(true);
@@ -78,13 +80,13 @@ function AssistantScreen({ T, D, openBooking, onBack }) {
         const prices = window.jcmPriceList ? ("\n\nLISTA DE PRECIOS OFICIAL (CLP):\n" + window.jcmPriceList()) : "";
         const prompt = JCM_ASSISTANT_SYS + prices + "\n\nConversación previa:\n" + hist + "\nPaciente: " + bq + "\nAsistente:";
         const out = await window.claude.complete(prompt);
-        setMsgs(m => [...m.filter(x => !x.typing), { who: "bot", html: jcmMdToHtml(out), sugs: ["Agendar evaluación"] }]);
+        setMsgs(m => [...m.filter(x => !x.typing), { who: "bot", html: jcmMdToHtml(out), sugs: ["Agendar evaluación"], showBook }]);
       } catch (e) {
-        const r = safeBot(bq); setMsgs(m => [...m.filter(x => !x.typing), { who: "bot", html: r.html, sugs: r.sugs }]);
+        const r = safeBot(bq); setMsgs(m => [...m.filter(x => !x.typing), { who: "bot", html: r.html, sugs: r.sugs, showBook }]);
       }
       setBusy(false); scrollDown(); return;
     }
-    setTimeout(() => { const r = safeBot(bq); setMsgs(m => [...m, { who: "bot", html: r.html, sugs: r.sugs }]); scrollDown(); }, 240);
+    setTimeout(() => { const r = safeBot(bq); setMsgs(m => [...m, { who: "bot", html: r.html, sugs: r.sugs, showBook }]); scrollDown(); }, 240);
   }
   function escapeHtml(s) { return (s + "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
@@ -118,11 +120,16 @@ function AssistantScreen({ T, D, openBooking, onBack }) {
                 borderBottomRightRadius: m.who === "me" ? 4 : 14, borderBottomLeftRadius: m.who === "me" ? 14 : 4,
                 padding: "12px 15px"
               }} dangerouslySetInnerHTML={{ __html: m.html }} />
-              {m.sugs && m.sugs.length > 0 && (
+              {(m.sugs && m.sugs.length > 0 || m.showBook) && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                  {m.sugs.slice(0, 4).map(s => (
+                  {(m.sugs || []).slice(0, 3).map(s => (
                     <button key={s} onClick={() => ask(s)} style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: T.chipBg, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "7px 12px", cursor: "pointer" }}>{s}</button>
                   ))}
+                  {m.showBook && (
+                    <button onClick={() => openBooking && openBooking(null)} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#fff", background: T.gold, border: "none", borderRadius: 999, padding: "7px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>Agendar
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -149,18 +156,29 @@ function AssistantScreen({ T, D, openBooking, onBack }) {
    se alcanza la meta y se gana 1 TICKET de participación al sorteo. Los puntos NO
    se canjean por sesiones: se acumulan tickets y entre todos los usuarios se sortea. */
 const GLOW = {
-  CAP: 200,      // máximo de puntos por día
+  CAP: 200,      // máximo de puntos por día (necesita ~10 min de juego para llegar al tope)
+  GAME_CAP: 100, // máximo de puntos por juego por día (obliga a jugar 2+ juegos)
   GOAL: 3000,    // puntos para 1 ticket (~15 días al tope)
   todayKey() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); },
   load() {
     let s; try { s = JSON.parse(localStorage.getItem("jcm_glow") || "null"); } catch (e) { s = null; }
-    if (!s) s = { points: 0, tickets: 0, cyclePts: 0, lifetime: 0, day: this.todayKey(), today: 0 };
-    if (s.day !== this.todayKey()) { s.day = this.todayKey(); s.today = 0; }
+    if (!s) s = { points: 0, tickets: 0, cyclePts: 0, lifetime: 0, day: this.todayKey(), today: 0, perGame: {} };
+    if (s.day !== this.todayKey()) { s.day = this.todayKey(); s.today = 0; s.perGame = {}; }
+    if (!s.perGame) s.perGame = {};
     return s;
   },
   save(s) { try { localStorage.setItem("jcm_glow", JSON.stringify(s)); } catch (e) {} },
-  add(n) {
-    const s = this.load(); const room = Math.max(0, this.CAP - s.today); n = Math.min(n, room);
+  add(n, gameId) {
+    const s = this.load();
+    // Límite por juego: máx 100 pts/día por juego
+    if (gameId) {
+      const gamePts = s.perGame[gameId] || 0;
+      const gameRoom = Math.max(0, this.GAME_CAP - gamePts);
+      n = Math.min(n, gameRoom);
+      if (n > 0) s.perGame[gameId] = gamePts + n;
+    }
+    // Límite diario global
+    const room = Math.max(0, this.CAP - s.today); n = Math.min(n, room);
     if (n > 0) { s.today += n; s.points += n; s.cyclePts += n; s.lifetime += n; while (s.cyclePts >= this.GOAL) { s.cyclePts -= this.GOAL; s.tickets += 1; } }
     this.save(s); return s;
   }
@@ -173,21 +191,19 @@ const SORTEO_PREMIOS = [
 
 const JC_GAMES = [
   // ── Saber estético (set claro, con instrucciones) ──
-  { id: "trivia",    nm: "Consultorio Trivia", d: "Trivia de tratamientos", ic: "🧠", url: "arcade/games/jc/index.html?game=trivia", c: "#54707F", rk: "trivia_best", base: 920,
-    inst: "Responde 5 preguntas por ronda. Son 5 rondas y la dificultad sube. Aciertos rápidos dan más puntos. Solo temas de tratamientos estéticos." },
-  { id: "millonario", nm: "¿Quién quiere ser…?", d: "Escala de premios", ic: "💰", url: "arcade/games/jc/index.html?game=millonario", c: "#caa86a", rk: "mill_best", base: 0,
-    inst: "Sube por la escala de premios respondiendo bien. Tienes un comodín 50:50. Un error termina el juego, pero conservas el último premio asegurado." },
-  { id: "mv",        nm: "Mito o Verdad", d: "¿Verdad o mito?", ic: "⚖️", url: "arcade/games/jc/index.html?game=mito", c: "#9C8AB5", rk: "acc_mv", base: 120,
-    inst: "Te mostramos afirmaciones sobre estética. Decide si son Verdad o Mito. Son 10 afirmaciones; cada acierto suma." },
-  { id: "reflex",    nm: "Reflejo Glow", d: "Tiempo de reacción", ic: "⚡", url: "arcade/games/jc/index.html?game=reflejo", c: "#5E7A99", rk: "acc_reflex", base: 360,
-    inst: "Espera a que el círculo se ponga verde y toca lo más rápido que puedas. No toques antes. Son 5 rondas; mientras más rápido, más puntos." },
-  // ── Habilidad y palabras ──
+  { id: "trivia",    nm: "Consultorio Trivia", d: "3 rondas · 3 vidas", ic: "🧠", url: "arcade/games/jc/index.html?game=trivia", c: "#54707F", rk: "trivia_best", base: 920,
+    inst: "3 rondas de 3 preguntas. Tienes 3 vidas ❤️❤️❤️ — cada error te cuesta una. Responde rápido para ganar más puntos." },
+  { id: "millonario", nm: "¿Quién quiere ser…?", d: "15 preguntas · escala de premios", ic: "💰", url: "arcade/games/jc/index.html?game=millonario", c: "#caa86a", rk: "mill_best", base: 0,
+    inst: "Sube 15 escalones respondiendo correctamente. Hay premios asegurados en el camino. Un comodín 50:50 disponible. La selección de preguntas rota cada día." },
+  { id: "mv",        nm: "Mito o Verdad", d: "10 afirmaciones · 3 vidas", ic: "⚖️", url: "arcade/games/jc/index.html?game=mito", c: "#9C8AB5", rk: "acc_mv", base: 120,
+    inst: "¿Verdad o mito? 10 afirmaciones de medicina estética. Tienes 3 vidas ❤️❤️❤️ — cuidado con los mitos bien disfrazados." },
+  { id: "reflex",    nm: "Reflejo Glow", d: "Reacciona en < 400 ms", ic: "⚡", url: "arcade/games/jc/index.html?game=reflejo", c: "#5E7A99", rk: "acc_reflex", base: 360,
+    inst: "Toca en cuanto el círculo se ponga VERDE. Solo reacciones bajo 400 ms suman puntos. Son 5 rondas — más rápido, más puntos." },
+  // ── Habilidad ──
   { id: "mina",    nm: "Mapa de Punción", d: "Evita los nervios faciales", ic: "🧭", url: "arcade/games/jc/index.html?game=mina", c: "#54707F", rk: "acc_mina", base: 300,
-    inst: "Estás sobre un rostro en reposo: marca todas las zonas seguras de punción sin tocar un nervio facial. Cada número indica cuántos nervios hay alrededor. Cambia a modo bandera para señalar los nervios." },
-  { id: "glowlab",  nm: "Glow Lab", d: "Combina insumos (Match-3)", ic: "🧪", url: "arcade/games/jc/index.html?game=glowlab", c: "#9C8AB5", rk: "glowlab_best", base: 1500,
-    inst: "Toca dos fichas vecinas para intercambiarlas y alinear 3 o más insumos iguales. Cada combinación suma puntos; tienes movimientos limitados." },
-  { id: "glowsnake", nm: "Glow Snake", d: "Recolecta insumos", ic: "🐍", url: "arcade/games/jc/index.html?game=snake", c: "#B9C2CB", rk: "glowsnake_best", base: 540,
-    inst: "Desliza para girar la serpiente y recolecta insumos para crecer. No choques con los bordes ni contigo misma." }
+    inst: "Marca zonas seguras sin tocar un nervio facial. Cada número indica cuántos nervios hay cerca. Cambia a modo bandera para marcarlos." },
+  { id: "glowlab",  nm: "Glow Lab", d: "Arrastra para combinar insumos", ic: "🧪", url: "arcade/games/jc/index.html?game=glowlab", c: "#9C8AB5", rk: "glowlab_best", base: 1500,
+    inst: "Desliza el dedo sobre una ficha hacia una vecina para intercambiarlas. Alinea 3 o más iguales y ¡estallan! Tienes 25 movimientos — como Candy Crush." }
 ];
 const JC_TOP_IDS = ["trivia", "millonario", "mv", "reflex"];
 
@@ -224,7 +240,7 @@ function GameCard({ T, g, top, onOpen }) {
 function GamesScreen({ T, go, onBack }) {
   const [open, setOpen] = useState(null);
   const [pending, setPending] = useState(null); // juego seleccionado → muestra instrucciones antes de jugar
-  const [sorteo, setSorteo] = useState(false);
+  const [sorteo, setSorteo] = useState(() => { const f = !!window._jcmOpenSorteo; window._jcmOpenSorteo = false; return f; });
   const [glow, setGlow] = useState(() => GLOW.load());
   const [promo, setPromo] = useState(() => { try { return !sessionStorage.getItem("jcm_games_promo"); } catch (e) { return true; } });
   const topGames = JC_TOP_IDS.map(id => JC_GAMES.find(g => g.id === id)).filter(Boolean);
@@ -236,7 +252,7 @@ function GamesScreen({ T, go, onBack }) {
   function closeGame() { if (!glowAwarded.current) setGlow(GLOW.add(40)); glowAwarded.current = false; setOpen(null); }
   // Recibe puntos por postMessage desde el iframe (millonario + otros juegos arcade)
   React.useEffect(() => {
-    const h = e => { if (e.data && e.data.type === "jcm_glow" && e.data.pts > 0) { glowAwarded.current = true; setGlow(GLOW.add(e.data.pts)); } };
+    const h = e => { if (e.data && e.data.type === "jcm_glow" && e.data.pts > 0) { glowAwarded.current = true; setGlow(GLOW.add(e.data.pts, e.data.game)); } };
     window.addEventListener("message", h);
     return () => window.removeEventListener("message", h);
   }, []);
@@ -388,16 +404,39 @@ const JC_REWARDS = [
   { ic: "EX", n: "Sesión de Exosomas" }
 ];
 
-function ProfileScreen({ T, D, go, onBack }) {
+// Promos exclusivas rotativas semanales (semana del año mod 3 elige el orden)
+const EXCL_PROMOS = [
+  { name: "Botox Full Face (8 zonas)", tag: "Precio exclusivo app", price: 280000, orig: 350000, img: "assets/ad-botox-soft.png", desc: "Cara completa en una sola sesión. Ahorra $70.000 reservando desde aquí." },
+  { name: "Sculptra · 1 sesión", tag: "Precio exclusivo app", price: 400000, orig: 450000, img: "assets/ad-sculptra-soft.png", desc: "Bioestimulación de colágeno. Ahorra $50.000 reservando desde aquí." },
+  { name: "Rinomodelación", tag: "Precio exclusivo app", price: 170000, orig: 200000, img: "assets/ad-rino-soft.png", desc: "Con Juvéderm. Ahorra $30.000 reservando desde aquí." }
+];
+
+function ProfileScreen({ T, D, go, openBooking, onBack, onSessionChange }) {
   const [colab, setColab] = useState(null); // null | "cond" | "form" | "ok"
   const [session, setSession] = useState(() => (window.jcmGetSession ? window.jcmGetSession() : null));
   const cfg = (window.DB && window.DB.cfg) ? window.DB.cfg() : { pts_start: 500, reward_cost: 60000 };
   const [points, setPoints] = useState(session ? (session.points || 0) : (cfg.pts_start || 500));
-  const [mode, setMode] = useState("menu"); // menu | login | register
+  const [mode, setMode] = useState("menu"); // menu | login | register | editprofile
   const [form, setForm] = useState({ name: "", phone: "", email: "", pass: "", terms: false });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const rewardCost = cfg.reward_cost || 60000;
+
+  // Extra datos de perfil (RUT, edad, color avatar)
+  const extraKey = session ? "profile_extra_" + session.id : "profile_extra_guest";
+  const [extra, setExtra] = useState(() => { try { return window.DB.get(extraKey) || {}; } catch(e) { return {}; } });
+  const [editExtra, setEditExtra] = useState({ rut: extra.rut || "", age: extra.age || "", avatarColor: extra.avatarColor || "#8B7355" });
+  function saveExtra() { const d = { rut: editExtra.rut, age: editExtra.age, avatarColor: editExtra.avatarColor }; try { window.DB.set(extraKey, d); } catch(e) {} setExtra(d); setMode("menu"); }
+
+  // Procedimientos del paciente (desde bookings)
+  const myBookings = (() => { try { const bs = window.DB.get("bookings") || []; return bs.filter(b => session && (b.phone === session.phone || b.uid === session.id)); } catch(e) { return []; } })();
+  // Abonos del paciente
+  const myAbonos = (() => { try { const abs = window.DB.get("abonos") || []; return abs.filter(a => session && (a.phone === session.phone || a.uid === session.id)); } catch(e) { return []; } })();
+
+  // Promo semanal rotatoria
+  const weekPromo = (() => { const d = new Date(); const week = Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 6048e5); return EXCL_PROMOS.slice().sort((a, b) => (EXCL_PROMOS.indexOf(a) + week) % 3 - (EXCL_PROMOS.indexOf(b) + week) % 3); })();
+
+  function _notifySession(s) { setSession(s); if (onSessionChange) onSessionChange(s); }
 
   async function doRegister() {
     setErr(""); if (!form.terms) { setErr("Debes aceptar los términos y ser mayor de 18 años."); return; }
@@ -405,7 +444,7 @@ function ProfileScreen({ T, D, go, onBack }) {
     try {
       const r = await window.jcmRegister(form.name, form.phone, form.pass, form.email);
       if (!r.ok) { setErr(r.msg); setBusy(false); return; }
-      const s = window.jcmSaveSession(r.user); setSession(s); setPoints(r.user.points || cfg.pts_start); setMode("menu");
+      const s = window.jcmSaveSession(r.user); _notifySession(s); setPoints(r.user.points || cfg.pts_start); setMode("menu");
     } catch (e) { setErr("Error al registrar. Intenta de nuevo."); }
     setBusy(false);
   }
@@ -414,11 +453,11 @@ function ProfileScreen({ T, D, go, onBack }) {
     try {
       const r = await window.jcmLogin(form.phone, form.pass);
       if (!r.ok) { setErr(r.msg); setBusy(false); return; }
-      const s = window.jcmSaveSession(r.user); setSession(s); setPoints(r.user.points || 0); setMode("menu");
+      const s = window.jcmSaveSession(r.user); _notifySession(s); setPoints(r.user.points || 0); setMode("menu");
     } catch (e) { setErr("Error al iniciar sesión."); }
     setBusy(false);
   }
-  function doLogout() { if (window.jcmEndSession) window.jcmEndSession(); setSession(null); setPoints(cfg.pts_start || 500); setMode("menu"); }
+  function doLogout() { if (window.jcmEndSession) window.jcmEndSession(); _notifySession(null); setPoints(cfg.pts_start || 500); setMode("menu"); }
   function redeem() {
     if (points < rewardCost) return;
     try {
@@ -428,6 +467,30 @@ function ProfileScreen({ T, D, go, onBack }) {
       const np = points - rewardCost; setPoints(np);
       if (session) window.jcmUpdatePoints(session.id, np);
     } catch (e) {}
+  }
+
+  if (mode === "editprofile") {
+    const AVATAR_COLORS = ["#8B7355","#4A7C8E","#7C6B8B","#5A8A6A","#8A5A5A","#6B6B8A"];
+    return (
+      <div>
+        <ScreenTop T={T} eyebrow="Mi perfil" title="Editar datos" onBack={() => setMode("menu")} />
+        <div style={{ padding: "0 20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ textAlign: "center", marginBottom: 4 }}>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: editExtra.avatarColor, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 600, fontFamily: T.serif, marginBottom: 10 }}>
+              {(session ? session.name : "?")[0].toUpperCase()}
+            </div>
+            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Color de avatar</div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+              {AVATAR_COLORS.map(c => <button key={c} onClick={() => setEditExtra(e => ({...e, avatarColor: c}))} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: editExtra.avatarColor === c ? "2.5px solid " + T.text : "2.5px solid transparent", cursor: "pointer" }} />)}
+            </div>
+          </div>
+          <Field T={T} label="RUT" value={editExtra.rut} onChange={v => setEditExtra(e => ({...e, rut: v}))} placeholder="Ej: 12.345.678-9" />
+          <Field T={T} label="Edad" value={editExtra.age} onChange={v => setEditExtra(e => ({...e, age: v.replace(/\D/g, "")}))} placeholder="Ej: 32" inputMode="numeric" />
+          <PrimaryBtn T={T} full onClick={saveExtra}>Guardar cambios</PrimaryBtn>
+          <GhostBtn T={T} full onClick={() => setMode("menu")}>Cancelar</GhostBtn>
+        </div>
+      </div>
+    );
   }
 
   if (mode === "register" || mode === "login") {
@@ -455,16 +518,32 @@ function ProfileScreen({ T, D, go, onBack }) {
     );
   }
 
+  const avatarColor = extra.avatarColor || "#8B7355";
+  const firstName = session ? (session.name || "").split(" ")[0] : null;
+
   return (
     <div>
-      <ScreenTop T={T} eyebrow="Mi cuenta" title="Perfil" onBack={onBack} />
+      <ScreenTop T={T} eyebrow="Mi cuenta" title="Mi Perfil" onBack={onBack} />
       <div style={{ padding: "0 20px 24px" }}>
+
+        {/* Avatar + datos */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", background: avatarColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 600, fontFamily: T.serif, flexShrink: 0 }}>
+            {(session ? session.name : "?")[0].toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text, lineHeight: 1.1, marginBottom: 3 }}>{session ? session.name : "Invitada"}</div>
+            {session && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>{session.phone}{extra.rut ? " · " + extra.rut : ""}{extra.age ? " · " + extra.age + " años" : ""}</div>}
+          </div>
+          {session && <button onClick={() => { setEditExtra({ rut: extra.rut || "", age: extra.age || "", avatarColor }); setMode("editprofile"); }} style={{ flexShrink: 0, background: T.chipBg, border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>Editar</button>}
+        </div>
+
         {/* Balance */}
-        <div style={{ background: T.dark ? "#0a0f1c" : T.surface, border: "1px solid " + T.line, borderRadius: 6, padding: "26px 20px", textAlign: "center" }}>
+        <div style={{ background: T.dark ? "#0a0f1c" : T.surface, border: "1px solid " + T.line, borderRadius: 6, padding: "22px 20px", textAlign: "center" }}>
           <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent }}>Glow Points</div>
-          <div style={{ fontFamily: T.serif, fontSize: 56, fontWeight: 300, color: T.gold, lineHeight: 1, marginTop: 8 }}>{points.toLocaleString("es-CL")}</div>
-          <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 8 }}>
-            {session ? "Sesión iniciada · " + session.name : "Modo invitado · inicia sesión para guardar tus puntos"}
+          <div style={{ fontFamily: T.serif, fontSize: 52, fontWeight: 300, color: T.gold, lineHeight: 1, marginTop: 6 }}>{points.toLocaleString("es-CL")}</div>
+          <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 6 }}>
+            {session ? "Hola " + firstName + " · puntos acumulados" : "Modo invitado · inicia sesión para guardar tus puntos"}
           </div>
         </div>
 
@@ -474,12 +553,72 @@ function ProfileScreen({ T, D, go, onBack }) {
             <GhostBtn T={T} full onClick={() => setMode("login")}>Iniciar sesión</GhostBtn>
           </div>
         ) : (
-          <div style={{ marginTop: 16 }}><GhostBtn T={T} full onClick={doLogout}>Cerrar sesión</GhostBtn></div>
+          <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+            <button onClick={() => go && go("juegos")} style={{ flex: 1, fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "11px", borderRadius: 8, cursor: "pointer", background: T.surface2, color: T.gold, border: "1px solid " + T.gold }}>Jugar · ganar puntos</button>
+            <button onClick={doLogout} style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "11px 14px", borderRadius: 8, cursor: "pointer", background: "transparent", color: T.textMute, border: "1px solid " + T.chipBorder }}>Salir</button>
+          </div>
         )}
 
-        {/* Puntos → sorteo (sin canje directo) */}
+        {/* PROMOCIONES EXCLUSIVAS */}
+        <div style={{ marginTop: 28 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Precios exclusivos · solo en la app</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {weekPromo.map((p, i) => (
+              <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 12, background: i === 0 ? T.surface2 : T.surface, border: "1px solid " + (i === 0 ? T.gold + "55" : T.line), borderRadius: 10, padding: "12px 14px" }}>
+                <img src={p.img} alt={p.name} onError={e => { e.target.style.display = "none"; }} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0, background: T.bg }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, lineHeight: 1.1, marginBottom: 2 }}>{p.name}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 4 }}>{p.desc}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: T.serif, fontSize: 17, color: T.gold, fontWeight: 500 }}>${p.price.toLocaleString("es-CL")}</span>
+                    <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, textDecoration: "line-through" }}>${p.orig.toLocaleString("es-CL")}</span>
+                  </div>
+                </div>
+                <button onClick={() => openBooking && openBooking({ name: p.name, price: p.price })} style={{ flexShrink: 0, background: T.gold, color: "#fff", border: "none", borderRadius: 8, padding: "9px 12px", cursor: "pointer", fontFamily: T.sans, fontSize: 10, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase" }}>Agendar</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* PROCEDIMIENTOS REALIZADOS */}
+        {session && myBookings.length > 0 && (
+          <div style={{ marginTop: 28 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Tus procedimientos</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {myBookings.slice(0, 6).map((b, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: T.surface, border: "1px solid " + T.line, borderRadius: 8 }}>
+                  <div>
+                    <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{b.proc || b.name}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{b.date ? new Date(b.date).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" }) : (b.day === 0 ? "Hoy" : b.day === 1 ? "Mañana" : "Próximo")}</div>
+                  </div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: b.paid ? "#2A7A4B" : T.textMute, background: b.paid ? "#2A7A4B18" : T.chipBg, border: "1px solid " + (b.paid ? "#2A7A4B44" : T.chipBorder), borderRadius: 999, padding: "4px 10px" }}>{b.paid ? "Pagado" : "Pendiente"}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ABONOS */}
+        {session && myAbonos.length > 0 && (
+          <div style={{ marginTop: 28 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Tus abonos</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {myAbonos.map((a, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: T.surface, border: "1px solid " + T.line, borderRadius: 8 }}>
+                  <div>
+                    <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{a.concept || "Abono"}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.date ? new Date(a.date).toLocaleDateString("es-CL", { day: "numeric", month: "short" }) : ""}</div>
+                  </div>
+                  <div style={{ fontFamily: T.serif, fontSize: 15, color: "#2A7A4B" }}>+${(a.amount || 0).toLocaleString("es-CL")}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Puntos → sorteo (va directo a SorteoView seteando flag global) */}
         <div style={{ marginTop: 24 }}>
-          <button onClick={() => go && go("juegos")} style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, textAlign: "left", padding: "15px 16px", background: T.surface2, border: "1px solid " + T.gold, borderRadius: 8, cursor: "pointer" }}>
+          <button onClick={() => { window._jcmOpenSorteo = true; go && go("juegos"); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, textAlign: "left", padding: "15px 16px", background: T.surface2, border: "1px solid " + T.gold, borderRadius: 8, cursor: "pointer" }}>
             <span style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid " + T.line }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.gold} strokeWidth="1.6"><path d="M5 3h14v2h2v2.5a3.5 3.5 0 0 1-3.5 3.5h-.6A5 5 0 0 1 13 15.8V18h3v2H8v-2h3v-2.2A5 5 0 0 1 7.1 11H6.5A3.5 3.5 0 0 1 3 7.5V5h2V3z" /></svg>
             </span>
@@ -489,14 +628,11 @@ function ProfileScreen({ T, D, go, onBack }) {
             </span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.7"><path d="M9 6l6 6-6 6" /></svg>
           </button>
-          <p style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 12, lineHeight: 1.6 }}>
-            Los Glow Points se ganan jugando, con un tope diario. Al acumular suficientes consigues un <b style={{ color: T.gold }}>ticket de participación</b> al sorteo de tratamientos (no se canjean directamente).
-          </p>
         </div>
 
-        {/* Colabora con nosotros */}
-        <div style={{ marginTop: 24 }}>
-          <button onClick={() => setColab("cond")} style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, textAlign: "left", padding: "15px 16px", background: T.surface, border: "1px solid " + T.line, borderRadius: 8, cursor: "pointer" }}>
+        {/* Colabora */}
+        <div style={{ marginTop: 16 }}>
+          <button onClick={() => { const url = (window.JCSAAS && window.JCSAAS.collabLink) ? window.JCSAAS.collabLink() : "https://medique.cl/colaborar.html?c=jc-medical-qI9dePy"; window.open(url, "_blank", "noopener"); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, textAlign: "left", padding: "15px 16px", background: T.surface, border: "1px solid " + T.line, borderRadius: 8, cursor: "pointer" }}>
             <span style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid " + T.line }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><circle cx="9" cy="8" r="3" /><path d="M2 20a6 6 0 0 1 11 0M16 6a3 3 0 0 1 0 6M22 20a6 6 0 0 0-5-5.9" /></svg>
             </span>

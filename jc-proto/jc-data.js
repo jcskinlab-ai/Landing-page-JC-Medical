@@ -30,7 +30,7 @@
       id: "rino",
       name: "Rinomodelación",
       sub: "Sin cirugía",
-      price: 170000, priceLabel: "$170.000",
+      price: 200000, priceLabel: "$200.000",
       img: "assets/ad-rino-soft.png",
       photo: "assets/cat/page9.jpg",
       zone: "Dorso y punta nasal", chip: "Definido",
@@ -44,14 +44,14 @@
     { sec: "Facial", groups: [
       { cat: "Toxina botulínica", items: [
         { n: "Botox 3 zonas", t: "Tercio superior", d: "3–6 meses", price: 150000, x: "Toxina botulínica en frente, entrecejo y patas de gallo para un rostro más descansado conservando tu gesto." },
-        { n: "Botox tercio superior (4 zonas)", t: "4 zonas", d: "3–6 meses", price: 170000, x: "Frente, entrecejo, patas de gallo y arrugas de la nariz, conservando tu expresión natural." },
+        { n: "Botox 3 zonas + Lifting de ceja", t: "4 zonas", d: "3–6 meses", price: 170000, x: "Frente, entrecejo y patas de gallo más levantamiento de ceja para una mirada más descansada y abierta. Ideal para quienes tienen piel abundante en el párpado superior. Conserva tu expresión natural." },
         { n: "Botox Full Face (8 zonas)", t: "8 zonas", d: "3–6 meses", price: 350000, x: "Cara completa en una sola sesión. Incluye control y retoque al día 21." },
-        { n: "Tratamiento de bruxismo con toxina botulínica", t: "Funcional · masetero", d: "3–6 meses", price: 200000, x: "Alivia dolor de cabeza, desgaste dental y tensión mandibular, y afina el contorno." },
-        { n: "Hiperhidrosis facial", t: "Sudoración", d: "3–6 meses", price: 200000, x: "Controla la sudoración excesiva del rostro con resultados discretos y duraderos." },
+        { n: "Tratamiento de bruxismo con toxina botulínica", t: "Funcional · masetero", d: "3–6 meses", price: 240000, x: "Alivia dolor de cabeza, desgaste dental y tensión mandibular, y afina el contorno del rostro." },
+        { n: "Hiperhidrosis facial", t: "Sudoración", d: "3–6 meses", price: 240000, x: "Controla la sudoración excesiva del rostro con resultados discretos y duraderos." },
         { n: "Tratamiento sonrisa gingival", t: "Sonrisa", d: "6–12 meses", price: 150000, x: "Sonrisa más armoniosa reduciendo la exposición excesiva de encías." },
-        { n: "Mentón empedrado", t: "Mentón", d: "6–12 meses", price: 150000, x: "Alisa el mentón y eleva con sutileza la comisura caída." },
+        { n: "Mentón empedrado", t: "Mentón", d: "6–12 meses", price: 100000, x: "Alisa el mentón y eleva con sutileza la comisura caída." },
         { n: "Rejuvenecimiento de cuello · Nefertiti", t: "Cuello", d: "~6 meses", price: 250000, x: "Rejuvenece y estiliza el cuello y define la línea mandibular." },
-        { n: "Código de barras, tratamiento de arrugas", t: "Labio superior", d: "3–6 meses", price: 120000, x: "Atenúa las líneas verticales sobre el labio superior." }
+        { n: "Código de barras, tratamiento de arrugas", t: "Labio superior", d: "3–6 meses", price: 100000, x: "Atenúa las líneas verticales sobre el labio superior." }
       ]},
       { cat: "Bioestimulación de colágeno con Sculptra", items: [
         { n: "Bioestimulación de colágeno facial", t: "Full face", d: "~24 meses", price: 450000, opts: [["1 sesión — full face", 450000], ["Pack 3 sesiones", 1200000]], x: "Recupera volumen y contorno, mejora firmeza e hidratación de forma progresiva." },
@@ -59,11 +59,11 @@
         { n: "Bioestimulación de cuello", t: "Cuello", d: "~24 meses", price: 500000, opts: [["1 sesión", 500000], ["Pack 3 sesiones", 1450000]], x: "Mejora firmeza, textura y calidad de la piel del cuello." }
       ]},
       { cat: "Armonización facial", items: [
-        { n: "Rinomodelación", t: "Ácido hialurónico", d: "10–12 meses", price: 170000, x: "Equilibra el perfil sin cirugía: define el dorso o eleva la punta de la nariz." },
-        { n: "Proyección de mentón", t: "Ácido hialurónico", d: "10–12 meses", price: 150000, x: "Perfil más armonioso y simétrico aportando proyección al mentón." },
-        { n: "Definición de arco mandibular", t: "Ácido hialurónico", d: "10–12 meses", price: 200000, x: "Define el borde mandibular y la barbilla para un rostro más estructurado." },
-        { n: "Realce de pómulos", t: "Ácido hialurónico", d: "10–12 meses", price: 180000, x: "Eleva los tejidos, angula el rostro y atenúa los surcos nasogenianos." },
-        { n: "Código de barras con ácido hialurónico", t: "Ácido hialurónico", d: "10–12 meses", price: 150000, x: "Suaviza e hidrata las líneas verticales del labio superior." }
+        { n: "Rinomodelación", t: "Juvéderm · Ácido hialurónico", d: "10–12 meses", price: 200000, x: "Equilibra el perfil sin cirugía: define el dorso o eleva la punta de la nariz. Utilizamos Juvéderm, marca premium de ácido hialurónico, una de las mejores del mercado." },
+        { n: "Proyección de mentón", t: "Juvéderm · Ácido hialurónico", d: "10–12 meses", price: 180000, x: "Perfil más armonioso y simétrico aportando proyección al mentón. Realizado con Juvéderm, marca premium de ácido hialurónico." },
+        { n: "Definición de arco mandibular", t: "Juvéderm · Ácido hialurónico", d: "10–12 meses", price: 200000, opts: [["1 jeringa · $200.000", 200000], ["2 jeringas · $340.000", 340000]], x: "Define el borde mandibular y la barbilla para un rostro más estructurado. Con Juvéderm, ácido hialurónico de marca premium." },
+        { n: "Realce de pómulos", t: "Juvéderm · Ácido hialurónico", d: "10–12 meses", price: 180000, x: "Eleva los tejidos, angula el rostro y atenúa los surcos nasogenianos. Con Juvéderm, marca premium de ácido hialurónico." },
+        { n: "Código de barras con ácido hialurónico", t: "Juvéderm · Ácido hialurónico", d: "10–12 meses", price: 180000, x: "Suaviza e hidrata las líneas verticales del labio superior con Juvéderm, marca premium de ácido hialurónico." }
       ]},
       { cat: "Mesoterapia · vitaminas faciales", items: [
         { n: "NCTF 135 HA", t: "Biorevitalización", d: "6–12 meses", price: 150000, opts: [["1 sesión", 150000], ["Pack 3 sesiones", 420000]], x: "Revitaliza la piel: más luminosidad, hidratación y firmeza." },
@@ -75,7 +75,7 @@
         { n: "Quemadores de grasa localizada", t: "Lipolíticos", d: "Permanente", price: 300000, opts: [["Pack 3 sesiones", 300000], ["Pack 6 sesiones", 550000]], x: "Reduce grasa localizada en papada, brazos, abdomen, piernas y glúteos. Incluye celulitis." }
       ]},
       { cat: "Toxina botulínica", items: [
-        { n: "Hiperhidrosis axilar y palmar", t: "Sudoración", d: "3–6 meses", price: 200000, x: "Controla la sudoración excesiva en axilas y palmas, con resultados duraderos." }
+        { n: "Hiperhidrosis axilar y palmar", t: "Sudoración", d: "3–6 meses", price: 250000, x: "Controla la sudoración excesiva en axilas y palmas, con resultados duraderos." }
       ]},
       { cat: "Bioestimulación", items: [
         { n: "Bioestimulación de manos", t: "Corporal", d: "~24 meses", price: 450000, opts: [["1 sesión", 450000], ["Pack 3 sesiones", 1200000]], x: "Rejuvenece el dorso de las manos devolviendo densidad y firmeza." }
@@ -95,8 +95,8 @@
     { id: "botox1", t: "Toxina botulínica", img: "assets/ba-botox-1.png", note: "Frente y entrecejo · control a los 14 días", proc: "Toxina botulínica", price: 150000 },
     { id: "botox2", t: "Toxina botulínica", img: "assets/ba-botox-2.png", note: "Líneas de expresión · resultado natural", proc: "Toxina botulínica", price: 150000 },
     { id: "botox3", t: "Toxina botulínica", img: "assets/ba-botox-3.png", note: "Entrecejo · suavizado del ceño", proc: "Toxina botulínica", price: 150000 },
-    { id: "rino1", t: "Rinomodelación", img: "assets/ba-rino-1.png", note: "Dorso y punta · resultado inmediato", proc: "Rinomodelación", price: 170000 },
-    { id: "rino2", t: "Rinomodelación", img: "assets/ba-rino-2.png", note: "Perfil armónico · sin cirugía", proc: "Rinomodelación", price: 170000 },
+    { id: "rino1", t: "Rinomodelación", img: "assets/ba-rino-1.png", note: "Dorso y punta · resultado inmediato", proc: "Rinomodelación", price: 200000 },
+    { id: "rino2", t: "Rinomodelación", img: "assets/ba-rino-2.png", note: "Perfil armónico · sin cirugía", proc: "Rinomodelación", price: 200000 },
     { id: "sculptra", t: "Sculptra", img: "assets/ad-sculptra-soft.png", note: "Tercio medio · resultado progresivo", proc: "Sculptra", price: 450000 }
   ];
 
@@ -141,17 +141,29 @@
 
   function buildSchedule() {
     var days = [];
-    var base = new Date(); base.setHours(0, 0, 0, 0);
-    for (var i = 1; i <= 21; i++) {
+    var now = new Date();
+    var base = new Date(now); base.setHours(0, 0, 0, 0);
+    var nowMinutes = now.getHours() * 60 + now.getMinutes(); // minutos del día actual
+    for (var i = 0; i <= 21; i++) {  // i=0 incluye hoy
       var d = new Date(base); d.setDate(base.getDate() + i);
       var wd = d.getDay();
+      var isToday = (i === 0);
       var av = availForDate(d);
       if (!av.open || !av.slots.length) continue;
-      var slots = av.slots.map(function (time) {
-        var h = parseInt(time, 10);
-        var seed = (d.getDate() * 7 + h * 3 + (time.slice(3) === "45" ? 2 : 0)) % 10;
-        return { time: time, taken: seed < 3 };
-      });
+      var slots = av.slots
+        .filter(function (time) {
+          if (!isToday) return true;
+          // Para hoy: ocultar slots que ya pasaron (con 30 min de margen)
+          var parts = time.split(':');
+          var slotMinutes = parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10);
+          return slotMinutes > nowMinutes + 30;
+        })
+        .map(function (time) {
+          var h = parseInt(time, 10);
+          var seed = (d.getDate() * 7 + h * 3 + (time.slice(3) === "45" ? 2 : 0)) % 10;
+          return { time: time, taken: seed < 3 };
+        });
+      if (!slots.length) continue; // hoy sin horas disponibles → no mostrar
       days.push({
         date: dKey(d),   // fecha LOCAL (Chile), no UTC — evita desfase de día cerca de medianoche
         wd: DAYS_ES[wd], dd: d.getDate(), mm: MONTHS_ES[d.getMonth()],
@@ -203,7 +215,7 @@
     contact: {
       address: "1 Poniente 1258, Talca",
       region: "Maule, Chile",
-      ig: "@medique.cl",
+      ig: "@jcskinlab",
       email: "jc.skinlab@gmail.com",
       pro: "Juan Claudio Parra",
       role: "Enfermero Universitario · Medicina Estética",
@@ -232,16 +244,19 @@
     reminders: REMINDERS,
     fmt: function (n) { return "$" + n.toLocaleString("es-CL"); },
     // ── Duración de la cita en minutos (fuente de verdad para reservas, panel y mensajes) ──
-    // Por categoría: evaluación/toxina/meso 30 min · ácido hialurónico/bioestimulación/corporal 45 min. Editable aquí.
+    // Reglas: toxina 30 min · Botox Full Face 45 min · ácido hialurónico, Sculptra/bioestimulación
+    // y mesoterapia 60 min · quemador de grasa 30 min por defecto (se edita a 60 si son 2 zonas).
     procMin: function (name) {
       var n = (name || "").trim().toLowerCase();
       if (!n) return 30;
       if (n.indexOf("evaluaci") >= 0) return 30;
+      if (n.indexOf("full face") >= 0) return 45; // toxina cara completa
       var cat = "";
       try { CATALOG.forEach(function (sec) { (sec.groups || []).forEach(function (g) { (g.items || []).forEach(function (it) { if ((it.n || "").trim().toLowerCase() === n) cat = (g.cat || "").toLowerCase(); }); }); }); } catch (e) {}
-      if (/armoniz|hialur|sculptra|bioestim|col[aá]geno/.test(cat)) return 45;
-      if (/corporal|lipol/.test(cat)) return 45;
-      return 30; // toxina, mesoterapia, regeneración, evaluación, por defecto
+      var hay = cat + " " + n; // categoría + nombre (cubre servicios personalizados)
+      // Ácido hialurónico (armonización), Sculptra/bioestimulación de colágeno y mesoterapia → 1 hora
+      if (/armoniz|hialur|juv[eé]derm|sculptra|bioestim|col[aá]geno|mesoterap|vitamina|nctf|rejuran|salm[oó]n/.test(hay)) return 60;
+      return 30; // toxina, quemador de grasa y por defecto
     },
     procMinLabel: function (name) { return this.procMin(name) + " min"; },
     DAYS_ES: DAYS_ES, MONTHS_ES: MONTHS_ES,

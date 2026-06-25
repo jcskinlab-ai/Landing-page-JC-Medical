@@ -21,7 +21,7 @@ function navIcon(name, stroke) {
 const TABS = [
   { k: "home",      l: "Inicio",    icon: "home" },
   { k: "catalogo",  l: "Catálogo",  icon: "cat" },
-  { k: "feed",      l: "Feed",      icon: "feed" },
+  { k: "perfil",    l: "Mi Perfil", icon: "perfil" },
   { k: "asistente", l: "Asistente", icon: "asistente" },
   { k: "juegos",    l: "Juegos",    icon: "juegos" }
 ];
@@ -132,6 +132,8 @@ function App() {
   const [evalForm, setEvalForm] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const scrollMem = useRef({});
+  // Sesión del usuario: se re-lee al navegar a perfil para reflejar login/logout
+  const [session, setSession] = useState(() => window.jcmGetSession ? window.jcmGetSession() : null);
   const curKey = useRef("home");
   const progRef = useRef(null);
 
@@ -176,7 +178,9 @@ function App() {
     const curIdx = TABS.findIndex(x => x.k === tab);
     const nextIdx = TABS.findIndex(x => x.k === k);
     transDirRef.current = sub ? -1 : (nextIdx > curIdx ? 1 : nextIdx < curIdx ? -1 : 0);
-    saveScroll(); if (k !== tab) prevTab.current = tab; if (k === "feed") setFeedNonce(n => n + 1); setTab(k); setSub(null);
+    // Refrescar sesión al navegar (para que el botón del top bar se actualice tras login/logout)
+    if (window.jcmGetSession) setSession(window.jcmGetSession());
+    saveScroll(); if (k !== tab) prevTab.current = tab; setTab(k); setSub(null);
   }
   function goBack() { goTab(prevTab.current || "home"); }
 
@@ -189,10 +193,10 @@ function App() {
   else if (tab === "contacto")  screen = <ContactScreen  T={T} D={D} go={go} openBooking={openBooking} onBack={goBack} />;
   else if (tab === "asistente") screen = <AssistantScreen T={T} D={D} openBooking={openBooking} onBack={goBack} />;
   else if (tab === "juegos")    screen = <GamesScreen    T={T} go={go} onBack={goBack} />;
-  else if (tab === "perfil")    screen = <ProfileScreen  T={T} D={D} go={go} onBack={goBack} />;
+  else if (tab === "perfil")    screen = <ProfileScreen  T={T} D={D} go={go} openBooking={openBooking} onBack={goBack} onSessionChange={s => setSession(s)} />;
   else if (tab === "panel")     screen = <PanelScreen    T={T} D={D} />;
 
-  const screenKey = sub ? sub.type + (sub.proc ? sub.proc.id || sub.proc.name : "") : (tab === "feed" ? "feed" + feedNonce : tab);
+  const screenKey = sub ? sub.type + (sub.proc ? sub.proc.id || sub.proc.name : "") : tab;
 
   useEffect(() => {
     const el = scrollRef.current; if (!el) return;
@@ -231,7 +235,7 @@ function App() {
           borderBottom: heroMode ? "1px solid transparent" : "1px solid " + T.line,
           backdropFilter: heroMode ? "none" : "blur(14px)", WebkitBackdropFilter: heroMode ? "none" : "blur(14px)",
           transition: "background .35s " + T.ease + ", border-color .35s " + T.ease }}>
-          <a href="https://instagram.com/medique.cl" target="_blank" rel="noopener" title="Instagram" aria-label="Instagram de JC Medical"
+          <a href="https://instagram.com/jcskinlab" target="_blank" rel="noopener" title="@jcskinlab en Instagram" aria-label="Instagram de JC Medical"
             style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 999,
               border: "1px solid " + (heroMode ? "rgba(242,237,230,.4)" : T.chipBorder),
               color: heroMode ? "#F2EDE6" : T.text, textDecoration: "none",
@@ -241,12 +245,18 @@ function App() {
           <button onClick={() => goTab("perfil")}
             style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 10, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase",
               color: heroMode ? "#F2EDE6" : T.text,
-              background: heroMode ? "rgba(0,0,0,.3)" : T.chipBg,
-              border: "1px solid " + (heroMode ? "rgba(242,237,230,.35)" : T.chipBorder),
+              background: session ? (heroMode ? "rgba(255,255,255,.15)" : T.accent + "18") : (heroMode ? "rgba(0,0,0,.3)" : T.chipBg),
+              border: "1px solid " + (session ? (heroMode ? "rgba(242,237,230,.5)" : T.accent + "55") : (heroMode ? "rgba(242,237,230,.35)" : T.chipBorder)),
               borderRadius: 999, padding: "10px 14px", minHeight: 44, cursor: "pointer",
               transition: "color .35s " + T.ease + ", background .35s " + T.ease + ", border-color .35s " + T.ease }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="8" r="3.4" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
-            {tab === "perfil" ? "Mi cuenta" : "Ingresar a mi cuenta"}
+            {session
+              ? <span style={{ width: 20, height: 20, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{(session.name || "?")[0].toUpperCase()}</span>
+              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="8" r="3.4" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
+            }
+            {session
+              ? (session.name || "Mi cuenta").split(" ")[0]
+              : (tab === "perfil" ? "Mi cuenta" : "Ingresar")
+            }
           </button>
         </div>
 

@@ -57,6 +57,33 @@
     { id: "c-botox", title: "Toxina botulínica", kind: "toxina", proc: "Toxina botulínica", cat: "Toxina" },
     { id: "c-ah", title: "Relleno de Ácido Hialurónico", kind: "estandar", proc: "Relleno de Ácido Hialurónico", proc4: "relleno de ácido hialurónico", vascular: true, cat: "Relleno" },
     { id: "c-sculptra", title: "Bioestimulación con Sculptra", kind: "estandar", proc: "Bioestimulación de colágeno con Sculptra", proc4: "Sculptra", vascular: false, cat: "Bioestimulación" },
+    { id: "c-bruxismo", title: "Bruxismo", kind: "custom", proc: "Toxina Botulínica — Bruxismo", cat: "Toxina", paragraphs: [
+      { n: "1.-", t: "Por el presente documento, autorizo a EU {EU} a realizar el procedimiento de tratamiento del bruxismo y/o apretamiento dental mediante la aplicación de Toxina Botulínica tipo A en el músculo masetero y/o temporal, con el objetivo de reducir la hiperactividad muscular involuntaria. El procedimiento me ha sido totalmente explicado, entendiendo su naturaleza y consecuencias." },
+      { n: "2.-", t: "He entendido que los efectos son variables y reversibles, con una duración aproximada de 4 a 6 meses, comenzando a evidenciarse entre los 7 y 14 días posteriores a la aplicación." },
+      { n: "3.-", t: "Reconozco que pueden presentarse los siguientes efectos transitorios: hematomas en los sitios de punción, inflamación leve, sensación de tensión mandibular, dificultad temporal para masticar alimentos duros y asimetría leve. Todos son reversibles." },
+      { n: "4.-", t: "Soy consciente que la práctica de la medicina no es una ciencia exacta y que los resultados pueden ser variables entre pacientes." },
+      { n: "5.-", t: "Doy fe de no encontrarme en alguna de las siguientes condiciones: embarazo o lactancia, enfermedades neuromusculares (miastenia gravis, esclerosis lateral amiotrófica u otras), ni de estar en tratamiento con aminoglucósidos u otros medicamentos que interfieran con la transmisión neuromuscular." },
+      { n: "6.-", t: "Autorizo el registro del proceso mediante fotografías y vídeos con fines clínicos y académicos." },
+      { n: "7.-", t: "He leído detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional a realizarme el procedimiento antes descrito." }
+    ] },
+    { id: "c-hiperh-facial", title: "Hiperhidrosis facial", kind: "custom", proc: "Toxina Botulínica — Hiperhidrosis facial", cat: "Toxina", paragraphs: [
+      { n: "1.-", t: "Por el presente documento, autorizo a EU {EU} a realizar el tratamiento de hiperhidrosis facial (sudoración excesiva del rostro) mediante micro-infiltraciones intradérmicas de Toxina Botulínica tipo A en las zonas afectadas (frente, nariz, mentón u otras áreas indicadas). El procedimiento me ha sido totalmente explicado." },
+      { n: "2.-", t: "He entendido que la reducción de la sudoración es temporal y reversible, con una duración aproximada de 6 a 12 meses, comenzando a evidenciarse el efecto entre los 7 y 14 días posteriores al tratamiento." },
+      { n: "3.-", t: "Reconozco que pueden presentarse los siguientes efectos transitorios: pequeñas marcas en los sitios de punción, enrojecimiento leve, hematomas y sensación de tensión cutánea. Todos son reversibles." },
+      { n: "4.-", t: "Soy consciente que la práctica de la medicina no es una ciencia exacta y que los resultados pueden ser variables entre pacientes." },
+      { n: "5.-", t: "Doy fe de no encontrarme en alguna de las siguientes condiciones: embarazo o lactancia, enfermedades neuromusculares, ni de estar en tratamiento con medicamentos que interfieran con la transmisión neuromuscular. No presento infección activa ni inflamación en las zonas a tratar." },
+      { n: "6.-", t: "Autorizo el registro del proceso mediante fotografías y vídeos con fines clínicos y académicos." },
+      { n: "7.-", t: "He leído detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional a realizarme el procedimiento antes descrito." }
+    ] },
+    { id: "c-hiperh-corp", title: "Hiperhidrosis axilar y palmar", kind: "custom", proc: "Toxina Botulínica — Hiperhidrosis axilar y palmar", cat: "Toxina", paragraphs: [
+      { n: "1.-", t: "Por el presente documento, autorizo a EU {EU} a realizar el tratamiento de hiperhidrosis axilar y/o palmar (sudoración excesiva de axilas y/o palmas) mediante micro-infiltraciones intradérmicas múltiples de Toxina Botulínica tipo A. El procedimiento me ha sido totalmente explicado, entendiendo su naturaleza y consecuencias." },
+      { n: "2.-", t: "He entendido que los efectos son temporales y reversibles, con una duración aproximada de 6 a 12 meses para axilas y potencialmente menor para palmas. El beneficio comenzará a evidenciarse entre los 7 y 14 días post aplicación." },
+      { n: "3.-", t: "Reconozco que pueden presentarse los siguientes efectos: hematomas en los sitios de punción, inflamación leve, sensación de tensión en la zona, debilidad muscular transitoria en los dedos (hiperhidrosis palmar) y en casos poco frecuentes sudoración compensatoria en otras áreas del cuerpo. Todos son reversibles." },
+      { n: "4.-", t: "Soy consciente que la práctica de la medicina no es una ciencia exacta y que los resultados pueden ser variables entre pacientes." },
+      { n: "5.-", t: "Doy fe de no encontrarme en alguna de las siguientes condiciones: embarazo o lactancia, enfermedades neuromusculares, ni de estar en tratamiento con medicamentos que interfieran con la transmisión neuromuscular. No presento infección activa ni inflamación en las zonas a tratar." },
+      { n: "6.-", t: "Autorizo el registro del proceso mediante fotografías y vídeos con fines clínicos y académicos." },
+      { n: "7.-", t: "He leído detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional a realizarme el procedimiento antes descrito." }
+    ] },
     { id: "c-extra", title: "Consentimiento extraordinario", kind: "extra", proc: "", cat: "Extraordinario", body: "" }
   ];
 

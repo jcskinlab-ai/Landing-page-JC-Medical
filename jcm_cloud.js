@@ -20,7 +20,7 @@
   if (!window.DB) return;
 
   // Claves de negocio que se comparten entre dispositivos (NO la sesión ni la clave del panel).
-  var SHARED_KEYS = ['bookings', 'users', 'redeems', 'feedback', 'config', 'horarios_v1', 'records', 'action_pts', 'appointments'];
+  var SHARED_KEYS = ['bookings', 'users', 'redeems', 'feedback', 'config', 'horarios_v1', 'horarios_dates', 'records', 'action_pts', 'appointments'];
 
   function getCfg() {
     try {

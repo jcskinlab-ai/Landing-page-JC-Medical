@@ -635,6 +635,10 @@ const CONSENT_EXCL = [
 function ConsentDoc({ T, tpl, prof }) {
   const P = ({ n, children }) => <p style={{ margin: "0 0 11px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}><b>{n}</b> {children}</p>;
   const EU = prof || "____________________";
+  if (tpl.kind === "custom") {
+    const renderT = t => { const parts = t.split("{EU}"); if (parts.length === 1) return t; return parts.reduce((a, p, i) => i < parts.length - 1 ? [...a, p, <b key={i}>{EU}</b>] : [...a, p], []); };
+    return <div>{(tpl.paragraphs || []).map((p, i) => <P key={i} n={p.n}>{renderT(p.t)}</P>)}</div>;
+  }
   if (tpl.kind === "extra") return (
     <div>
       {tpl.proc && <P n="">Procedimiento: <b>{tpl.proc}</b>.</P>}

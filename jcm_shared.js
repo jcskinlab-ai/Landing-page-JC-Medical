@@ -107,9 +107,33 @@ function jcmValidRut(v) {
 }
 if (typeof window !== 'undefined') { window.jcmFmtRut = jcmFmtRut; window.jcmValidRut = jcmValidRut; }
 
-// ── IMPRESIÓN CONFIABLE (iframe oculto; evita bloqueadores de pop-ups) ───────
-// Recibe un documento HTML completo y lo imprime sin abrir una ventana nueva.
+// ── IMPRESIÓN CONFIABLE (imprime SIEMPRE el documento, nunca la pantalla) ─────
+// Recibe un documento HTML completo y lo imprime. En iOS/iPadOS un iframe oculto
+// hace que Safari imprima la PÁGINA PADRE (la app) en lugar del documento; por eso
+// en iOS abrimos el documento en una pestaña nueva (gesto del usuario) y disparamos
+// la impresión dentro de esa pestaña, que es lo único confiable en Safari móvil.
+function jcmIsIOS() {
+  try {
+    const ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS se reporta como Mac
+  } catch (e) { return false; }
+}
 function jcmPrintHTML(html) {
+  // iOS / iPadOS → pestaña nueva con auto-impresión (evita imprimir la app)
+  if (jcmIsIOS()) {
+    try {
+      const w = window.open('', '_blank');
+      if (w) {
+        const withPrint = /<\/body>/i.test(html)
+          ? html.replace(/<\/body>/i, "<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};<\/script></body>")
+          : html + "<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};<\/script>";
+        w.document.open(); w.document.write(withPrint); w.document.close();
+        return true;
+      }
+    } catch (e) {}
+    // si el navegador bloqueó la pestaña, cae al método iframe de abajo
+  }
   try {
     const clean = html.replace(/<script[\s\S]*?<\/script>/gi, ''); // el print lo disparamos nosotros
     const ifr = document.createElement('iframe');
@@ -127,7 +151,7 @@ function jcmPrintHTML(html) {
     return false;
   }
 }
-if (typeof window !== 'undefined') window.jcmPrintHTML = jcmPrintHTML;
+if (typeof window !== 'undefined') { window.jcmPrintHTML = jcmPrintHTML; window.jcmIsIOS = jcmIsIOS; }
 
 // ── IDs ÚNICOS (UUID) ────────────────────────────────────────────────────────
 // Identificador único y a prueba de colisiones para cada entidad (paciente, cita,

@@ -43,14 +43,14 @@ if (typeof window !== "undefined") window.CADMIN = CADMIN;
 // Catálogo FIJO de herramientas conectables (no es dato demo: nunca se vacía por clínica).
 // El estado de conexión se guarda por clínica en DB 'integrations_state'. Cada clínica conecta las suyas.
 const INTEGRATIONS_CATALOG = [
-  { id: "metaads", name: "Meta Ads", desc: "Campañas de Facebook e Instagram Ads", letter: "f", color: "#1877F2", stat: "Campañas conectadas" },
-  { id: "metabiz", name: "Meta Business Suite", desc: "Bandeja de Instagram y Facebook", letter: "B", color: "#0866FF", stat: "DM y comentarios" },
-  { id: "gmail", name: "Gmail", desc: "Recordatorios y confirmaciones por correo", letter: "M", color: "#EA4335", stat: "Correo conectado" },
-  { id: "drive", name: "Google Drive", desc: "Respaldo de fichas y consentimientos", letter: "▲", color: "#1FA463", stat: "Respaldo automático" },
-  { id: "gcal", name: "Google Calendar", desc: "Sincroniza tu agenda", letter: "31", color: "#4285F4", stat: "Sync bidireccional" },
-  { id: "groq", name: "Groq (Agente IA)", desc: "Asistente que responde por WhatsApp", letter: "✦", color: "#8B6FE0", stat: "Asistente activo" },
-  { id: "wa", name: "WhatsApp Business", desc: "Recordatorios y agenda por WhatsApp", letter: "✆", color: "#1F8A5B", stat: "WhatsApp conectado" },
-  { id: "landing", name: "Reserva online Medique", desc: "Reservas online conectadas a tu link", letter: "M", color: "#0a0f1c", stat: "Reservas en vivo" }
+  { id: "metaads", name: "Meta Ads", desc: "Campañas de Facebook e Instagram Ads", letter: "f", color: "#1877F2", stat: "Campañas conectadas", info: "Conecta tu cuenta de Meta Ads para ver tu inversión, leads y ROAS directamente en el panel de Medique. Requiere un token de lectura (ads_read) generado desde Meta Business Suite." },
+  { id: "metabiz", name: "Meta Business Suite", desc: "Bandeja de Instagram y Facebook", letter: "B", color: "#0866FF", stat: "DM y comentarios", info: "Centraliza los mensajes directos y comentarios de Instagram y Facebook en el panel. Responde y gestiona tu bandeja social sin salir de Medique." },
+  { id: "gmail", name: "Gmail", desc: "Recordatorios y confirmaciones por correo", letter: "M", color: "#EA4335", stat: "Correo conectado", info: "Envía recordatorios de cita, confirmaciones y seguimientos post-tratamiento automáticamente por correo electrónico a tus pacientes." },
+  { id: "drive", name: "Google Drive", desc: "Respaldo de fichas y consentimientos", letter: "▲", color: "#1FA463", stat: "Respaldo automático", info: "Respalda automáticamente fichas clínicas y consentimientos firmados en tu cuenta de Google Drive. El respaldo ocurre cada vez que hay cambios en las fichas." },
+  { id: "gcal", name: "Google Calendar", desc: "Sincroniza tu agenda", letter: "31", color: "#4285F4", stat: "Sync bidireccional", info: "Sincroniza la agenda del panel con Google Calendar en tiempo real. Las citas agendadas en Medique aparecen en tu calendario de Google y viceversa." },
+  { id: "groq", name: "Groq (Agente IA)", desc: "Asistente que responde por WhatsApp", letter: "✦", color: "#8B6FE0", stat: "Asistente activo", info: "Activa el agente de inteligencia artificial que responde automáticamente las consultas de tus pacientes por WhatsApp, con contexto de tu clínica y disponibilidad de agenda." },
+  { id: "wa", name: "WhatsApp Business", desc: "Recordatorios y agenda por WhatsApp", letter: "✆", color: "#1F8A5B", stat: "WhatsApp conectado", info: "Conecta tu número de WhatsApp Business para enviar recordatorios de cita, indicaciones post-tratamiento, campañas de re-cita y permitir que los pacientes agenden directamente por WhatsApp." },
+  { id: "landing", name: "Reserva online Medique", desc: "Reservas online conectadas a tu link", letter: "M", color: "#0a0f1c", stat: "Reservas en vivo", info: "Activa la integración con tu página de reservas en medique.cl. Las reservas que hagan tus pacientes desde el link público entran automáticamente a tu agenda del panel." }
 ];
 
 /* ─────────── MINI CALENDARIO (mensual) ─────────── */
@@ -254,7 +254,7 @@ function ServiciosView({ T }) {
                     <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 3 }}>{s.dur} min{s.pts ? " · " + s.pts + " pts" : ""}</div>
                   </div>
                   <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 }}>{D.fmt(s.price || 0)}</div>
-                  <button onClick={async e => { e.stopPropagation(); if (await (window.jcmConfirm || window.confirm)(`¿Eliminar el servicio “${s.name}”?`, {danger: true})) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  <button onClick={async e => { e.stopPropagation(); if (await (window.jcmConfirm || window.confirm)(`¿Eliminar el servicio "${s.name}"?`, {danger: true})) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
                 </div>
               ))}
             </div>
@@ -413,10 +413,16 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
 /* ─────────── FIDELIDAD ─────────── */
 function FidelidadView({ T }) {
   const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
-  // Sistema de fidelidad encendido/apagado por clínica (persiste en DB).
   const [on, setOn] = useState(() => { try { const v = window.DB && DB.get("fidelity_on"); return v == null ? seeded : !!v; } catch (e) { return seeded; } });
   function setFid(v) { setOn(v); try { if (window.DB) DB.set("fidelity_on", v); } catch (e) {} }
-  // Miembros: demo solo para la base/local; las clínicas nuevas parten sin miembros.
+  // Config de puntos: puntos por procedimiento y puntos para canjear
+  const [cfg, setCfg] = useState(() => { try { return DB.get("fidelity_cfg") || { ptsProc: 10, ptsCanje: 100 }; } catch (e) { return { ptsProc: 10, ptsCanje: 100 }; } });
+  const [editCfg, setEditCfg] = useState(false);
+  const [tmpCfg, setTmpCfg] = useState(cfg);
+  function saveCfg() { setCfg(tmpCfg); try { DB.set("fidelity_cfg", tmpCfg); } catch (e) {} setEditCfg(false); try { window.jcmToast && window.jcmToast("Configuración guardada.", "ok"); } catch(e){} }
+  // Popup primera visita
+  const [showWelcome, setShowWelcome] = useState(() => { try { return !DB.get("fidelity_seen"); } catch (e) { return true; } });
+  function closeWelcome() { setShowWelcome(false); try { DB.set("fidelity_seen", true); } catch (e) {} }
   const members = seeded ? CADMIN.fidelity : [];
   const oro = members.filter(m => m.tier === "Oro").length;
   const ptsActivos = members.reduce((s, m) => s + (m.pts || 0), 0);
@@ -431,6 +437,25 @@ function FidelidadView({ T }) {
         </div>
         <AdSwitch T={T} on={on} onClick={() => setFid(!on)} />
       </div>
+      {/* Config de puntos */}
+      {on && <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>Configuración de puntos</div>
+          <button onClick={() => { setTmpCfg(cfg); setEditCfg(!editCfg); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 11, color: T.accent, padding: 0 }}>{editCfg ? "Cancelar" : "Editar"}</button>
+        </div>
+        {editCfg ? (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+            <AdField T={T} label="Puntos por procedimiento (default por sesión)" value={String(tmpCfg.ptsProc)} onChange={v => setTmpCfg(c => ({ ...c, ptsProc: parseInt(v) || 0 }))} />
+            <AdField T={T} label="Puntos necesarios para canjear un beneficio" value={String(tmpCfg.ptsCanje)} onChange={v => setTmpCfg(c => ({ ...c, ptsCanje: parseInt(v) || 0 }))} />
+            <AdBtn T={T} primary onClick={saveCfg}>Guardar configuración</AdBtn>
+          </div>
+        ) : (
+          <div style={{ marginTop: 8, display: "flex", gap: 24 }}>
+            <div><span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Por procedimiento: </span><span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>{cfg.ptsProc} pts</span></div>
+            <div><span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Para canjear: </span><span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>{cfg.ptsCanje} pts</span></div>
+          </div>
+        )}
+      </div>}
       {on ? <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
           <AdStat T={T} n={members.length} l="Miembros" />
@@ -438,7 +463,7 @@ function FidelidadView({ T }) {
           <AdStat T={T} n={oro} l="Miembros Oro" />
         </div>
         <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>
-          Los puntos que otorga cada procedimiento se configuran en <b>Servicios</b> (campo “Puntos que otorga” al editar un servicio).
+          Los puntos por procedimiento específico se pueden ajustar en <b>Servicios</b> (campo "Puntos que otorga" al editar un servicio). El valor por defecto es <b>{cfg.ptsProc} puntos</b>.
         </div>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Pacientes</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -448,7 +473,7 @@ function FidelidadView({ T }) {
               <Avatar T={T} name={p.name} size={38} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{p.name}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.pts} puntos</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.pts} pts · canje a los {cfg.ptsCanje} pts</div>
               </div>
               <AdTag T={T} tone={p.tier === "Oro" ? "warn" : "muted"}>{p.tier}</AdTag>
             </div>
@@ -459,6 +484,38 @@ function FidelidadView({ T }) {
           <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 420, margin: "0 auto" }}>El programa de fidelidad está apagado. Actívalo arriba para que tus pacientes acumulen puntos por cada procedimiento y puedas premiar su preferencia.</div>
         </div>
       )}
+      {/* Popup de bienvenida — primera visita */}
+      {showWelcome && (
+        <AdModal T={T} title="Programa de Fidelidad" onClose={closeWelcome}
+          footer={<div style={{ display: "flex", gap: 10, width: "100%" }}>
+            <AdBtn T={T} full onClick={closeWelcome}>Cerrar</AdBtn>
+            <AdBtn T={T} primary full onClick={() => { setFid(true); closeWelcome(); }}>Activar ahora</AdBtn>
+          </div>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: T.accent, color: T.onAccent || "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>★</div>
+              <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, lineHeight: 1.55 }}>Retén y premia a tus pacientes más fieles con un sistema de puntos integrado en tu panel.</div>
+            </div>
+            <div style={{ background: T.surface2 || T.lineSoft, borderRadius: 8, padding: "14px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 8 }}>¿Cómo funciona?</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {[
+                  ["1", "Cada vez que registres una sesión, el paciente acumula puntos automáticamente."],
+                  ["2", "Tú defines cuántos puntos otorga cada procedimiento (por defecto: 10 pts)."],
+                  ["3", "Cuando un paciente alcanza el mínimo para canjear (por defecto: 100 pts), puede recibir un beneficio o descuento que tú elijas."],
+                  ["4", "Los pacientes más activos suben al nivel Oro y pueden recibir beneficios especiales."]
+                ].map(([n, t]) => (
+                  <div key={n} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{n}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>{t}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, lineHeight: 1.5 }}>Puedes cambiar los puntos por procedimiento y el umbral de canje en cualquier momento desde esta misma pantalla.</div>
+          </div>
+        </AdModal>
+      )}
     </div>
   );
 }
@@ -467,8 +524,9 @@ function FidelidadView({ T }) {
 function MarketingView({ T, go }) {
   const D = window.JCDATA;
   const [camps, setCamps] = useState(() => {
-    try { const saved = window.DB && window.DB.get("campaigns"); if (saved && saved.length) return saved; } catch (e) {}
-    return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? (CADMIN.campaigns || []) : [];
+    // Sólo campañas REALES sincronizadas desde Meta Ads. Sin datos ficticios sembrados.
+    try { const saved = window.DB && window.DB.get("campaigns"); if (saved && saved.length) return saved.filter(c => c.real); } catch (e) {}
+    return [];
   });
   function saveCamps(n) { setCamps(n); try { window.DB && window.DB.set("campaigns", n); } catch (e) {} }
   const totLeads = camps.reduce((a, c) => a + c.leads, 0);
@@ -488,7 +546,14 @@ function MarketingView({ T, go }) {
       </a>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Campañas</div>
-        <AdBtn T={T} small primary onClick={() => saveCamps([{ id: "c" + Date.now(), name: "Nueva campaña", net: "Meta Ads", reach: 0, leads: 0, spend: 0, active: true }, ...camps])}>+ Campaña</AdBtn>
+        {/* Sólo se crean campañas REALES desde Meta Ads (no ficticias). El botón abre Meta Ads Manager. */}
+        <a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=create" target="_blank" rel="noopener" title="Las campañas se crean en Meta Ads Manager y se sincronizan aquí" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, textDecoration: "none", background: T.accent, color: T.onAccent || "#fff" }}>
+          + Crear en Meta Ads
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M9 7h8v8" /></svg>
+        </a>
+      </div>
+      <div style={{ background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 13px", marginBottom: 12, fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5 }}>
+        Las campañas se crean y administran directamente en <b style={{ color: T.text }}>Meta Ads Manager</b>. Cuando conectes tu cuenta, las campañas reales aparecerán aquí automáticamente con su alcance, leads e inversión.
       </div>
       {/* Campañas activas */}
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
@@ -606,10 +671,16 @@ function IntegracionesView({ T }) {
   });
   const [metaModal, setMetaModal] = useState(false);
   const [metaOn, setMetaOn] = useState(metaConnected());
+  const [previewInteg, setPreviewInteg] = useState(null); // integración a previsualizar antes de conectar
   function toggle(id) {
     const n = list.map(i => i.id === id ? { ...i, connected: !i.connected } : i);
     setList(n);
     try { if (window.DB) { const map = {}; n.forEach(i => { map[i.id] = i.connected; }); DB.set("integrations_state", map); } } catch (e) {}
+  }
+  function handleConnectClick(it, connected) {
+    if (it.id === "metaads") { setMetaModal(true); return; }
+    if (!connected) { setPreviewInteg(it); return; } // mostrar popup antes de conectar
+    toggle(it.id); // desconectar directo sin popup
   }
   return (
     <div>
@@ -623,18 +694,36 @@ function IntegracionesView({ T }) {
             <div style={{ width: 42, height: 42, borderRadius: 10, background: it.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 500, flexShrink: 0 }}>{it.letter}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{it.name}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{isMeta ? (connected ? "Conectada · leyendo tu gasto real" : "Conecta tu cuenta para ver gasto y ROAS reales") : (connected ? it.stat : it.desc)}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{isMeta ? (connected ? "✓ Conectada · leyendo tu gasto real" : "Conecta tu cuenta para ver gasto y ROAS reales") : (connected ? "✓ " + it.stat : it.desc)}</div>
             </div>
-            <button onClick={() => isMeta ? setMetaModal(true) : toggle(it.id)} style={{
+            <button onClick={() => handleConnectClick(it, connected)} style={{
               fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "9px 14px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap",
-              background: connected ? "transparent" : T.primaryBg, color: connected ? "#1F8A5B" : T.primaryText, border: connected ? "1px solid #1F8A5B" : "none"
-            }}>{connected ? (isMeta ? "✓ Administrar" : "✓ Conectado") : "Conectar"}</button>
+              background: connected ? "transparent" : T.accent, color: connected ? "#1F8A5B" : (T.onAccent || "#fff"), border: connected ? "1px solid #1F8A5B" : "none"
+            }}>{connected ? (isMeta ? "Administrar" : "Conectado ✓") : "Conectar"}</button>
           </div>
           );
         })}
       </div>
       <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 14, lineHeight: 1.6 }}>Cada herramienta se conecta con el inicio de sesión oficial (OAuth) de la plataforma. Conecta solo las que uses en tu clínica.</p>
       {metaModal && <MetaConnectModal T={T} onClose={() => setMetaModal(false)} onSaved={() => { setMetaOn(metaConnected()); setMetaModal(false); }} />}
+      {previewInteg && (
+        <AdModal T={T} title={"Conectar " + previewInteg.name} onClose={() => setPreviewInteg(null)}
+          footer={<div style={{ display: "flex", gap: 10, width: "100%" }}>
+            <AdBtn T={T} full onClick={() => setPreviewInteg(null)}>Cancelar</AdBtn>
+            <AdBtn T={T} primary full onClick={() => { toggle(previewInteg.id); setPreviewInteg(null); try { window.jcmToast && window.jcmToast(previewInteg.name + " conectado.", "ok"); } catch(e){} }}>Confirmar conexión</AdBtn>
+          </div>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: previewInteg.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 20, fontWeight: 500, flexShrink: 0 }}>{previewInteg.letter}</div>
+              <div>
+                <div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{previewInteg.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{previewInteg.desc}</div>
+              </div>
+            </div>
+            <div style={{ background: T.surface2, borderRadius: 8, padding: "14px", fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.65 }}>{previewInteg.info}</div>
+          </div>
+        </AdModal>
+      )}
     </div>
   );
 }
@@ -643,6 +732,17 @@ function IntegracionesView({ T }) {
 function ReportesView({ T, patients, appts }) {
   const D = window.JCDATA;
   const [period, setPeriod] = useState("anio");
+  // Refresco en TIEMPO REAL: se vuelve a leer la caja al volver a la pestaña, al cambiar
+  // el almacenamiento y cada vez que se registra un movimiento (evento "jcm:cash").
+  const [, force] = useState(0);
+  useEffect(() => {
+    const tick = () => force(x => x + 1);
+    window.addEventListener("focus", tick);
+    window.addEventListener("jcm:cash", tick);
+    window.addEventListener("storage", tick);
+    const id = setInterval(tick, 4000);
+    return () => { window.removeEventListener("focus", tick); window.removeEventListener("jcm:cash", tick); window.removeEventListener("storage", tick); clearInterval(id); };
+  }, []);
   // ── Reportes con datos REALES de la clínica (caja, pacientes, citas). Sin demo: 0 hasta que haya movimientos. ──
   const moves = (() => { try { return (window.DB && window.DB.get("cash_moves")) || []; } catch (e) { return []; } })();
   const now = new Date();
@@ -673,7 +773,11 @@ function ReportesView({ T, patients, appts }) {
   // Ticket promedio real (ingresos / nº de ingresos).
   const ticketProm = ingresos.length ? Math.round(ingresos.reduce((s, m) => s + (m.amount || 0), 0) / ingresos.length) : 0;
   const t0 = new Date().toISOString().slice(0, 10);
-  const cashToday2 = ingresos.filter(m => (m.ts || "").slice(0, 10) === t0).reduce((s, m) => s + (m.amount || 0), 0);
+  // Ingresos de HOY y del MES en curso (en tiempo real con la caja; independientes del filtro de período).
+  const cashToday2 = moves.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 10) === t0).reduce((s, m) => s + (m.amount || 0), 0);
+  const m0 = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2);
+  const cashMonth = moves.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 7) === m0).reduce((s, m) => s + (m.amount || 0), 0);
+  const MES_NOMBRE = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][now.getMonth()];
   // No-show real (citas marcadas no asistió / total con estado).
   const conEstado = (appts || []).filter(a => a.status);
   const noShow = conEstado.length ? Math.round(conEstado.filter(a => a.status === "no_show" || a.status === "ausente").length / conEstado.length * 100) : 0;
@@ -720,6 +824,23 @@ function ReportesView({ T, patients, appts }) {
           </div>
         </div>
         <RevChart />
+      </div>
+      {/* Ingresos en tiempo real con la caja: HOY y MES en curso */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute }}>Ingresos hoy</span>
+            <span style={{ fontFamily: T.sans, fontSize: 9.5, color: green, display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: green }} />en vivo</span>
+          </div>
+          <div style={{ fontFamily: T.serif, fontSize: 26, color: T.text, marginTop: 6 }}>{D.fmt(cashToday2)}</div>
+        </div>
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute }}>Ingresos del mes</span>
+            <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, textTransform: "capitalize" }}>{MES_NOMBRE}</span>
+          </div>
+          <div style={{ fontFamily: T.serif, fontSize: 26, color: T.text, marginTop: 6 }}>{D.fmt(cashMonth)}</div>
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 }}>
         <AdStat T={T} n={D.fmt(ticketProm)} l="Ticket promedio" />
@@ -796,9 +917,15 @@ function ConfigView({ T }) {
   const bookUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.bookingLink)
     ? window.JCSAAS.bookingLink()
     : ((typeof window !== "undefined" ? (window.jcmPubBase ? window.jcmPubBase() : window.location.origin) : "") + "/reservar");
+  // Panel móvil del equipo: confirmar y crear citas directas desde el teléfono.
+  const mobileUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.mobileLink)
+    ? window.JCSAAS.mobileLink()
+    : ((typeof window !== "undefined" ? (window.jcmPubBase ? window.jcmPubBase() : window.location.origin) : "") + "/movil");
   const qr = "https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=0&data=" + encodeURIComponent(bookUrl);
   const [copied, setCopied] = useState(false);
+  const [copiedMob, setCopiedMob] = useState(false);
   function copyLink() { try { navigator.clipboard.writeText(bookUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (e) {} }
+  function copyMobile() { try { navigator.clipboard.writeText(mobileUrl); setCopiedMob(true); setTimeout(() => setCopiedMob(false), 1800); } catch (e) {} }
   return (
     <div>
       <SecHead T={T} title="Configuración de la clínica" sub="Administra la información pública y los detalles de tu clínica." />
@@ -825,6 +952,19 @@ function ConfigView({ T }) {
             {/* eslint-disable-next-line */}
             <img src={qr} alt="QR de reserva" width="150" height="150" style={{ display: "block" }} />
           </div>
+        </div>
+      </div>
+      {/* Panel móvil del equipo — confirmar y crear citas desde el teléfono */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
+        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><rect x="6" y="2" width="12" height="20" rx="3" /><path d="M11 18h2" /></svg>
+          Panel móvil del equipo
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px" }}>Página móvil para que tú o tu equipo <b style={{ color: T.text }}>confirmen y creen citas directas</b> desde el teléfono. Inicia sesión con tu cuenta del panel.</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input readOnly value={mobileUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220, fontFamily: T.sans, fontSize: 12.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" }} />
+          <button onClick={copyMobile} title="Copiar" style={{ flexShrink: 0, padding: "0 13px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{copiedMob ? "✓" : "Copiar"}</button>
+          <a href={mobileUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, color: T.text, textDecoration: "none", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "9px 13px" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>Abrir</a>
         </div>
       </div>
       <ClinicDataCard T={T} />
@@ -1103,7 +1243,7 @@ function CollabModal({ T, D, r, onClose, onStatus }) {
       </div>
       <div style={{ borderTop: "1px solid " + T.line, paddingTop: 16 }}>
         <div style={lblS2}>Mensajes predeterminados</div>
-        <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, fontStyle: "italic", lineHeight: 1.5, margin: "6px 0 13px" }}>Saludo base: “{saludo}”</div>
+        <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, fontStyle: "italic", lineHeight: 1.5, margin: "6px 0 13px" }}>Saludo base: "{saludo}"</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {tpl("Solicitud aceptada", msgOk, "#1F8A5B", () => { onStatus("aprobada"); wa(msgOk); })}
           {tpl("Solicitud rechazada", msgNo, "#C0285A", () => { onStatus("rechazada"); wa(msgNo); })}
@@ -1339,7 +1479,7 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
         </div>
       </div>
       <Group T={T} title={"Consentimientos por firmar (" + sinConsent.length + ")"}>
-        {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Abrir ficha" onClick={() => openP(p.id)} />)}
+        {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Ir a consentimientos" onClick={() => openP(p.id, "consent")} />)}
         {!sinConsent.length && <Empty2 T={T}>Todo firmado.</Empty2>}
       </Group>
       <Group T={T} title={"Re-citar · esquema en curso (" + recitas.length + ")"}>
@@ -1347,11 +1487,11 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
         {!recitas.length && <Empty2 T={T}>Sin re-citas por contactar hoy.</Empty2>}
       </Group>
       <Group T={T} title={"Mensajes de WhatsApp por responder (" + waMsgs.length + ")"}>
-        {waMsgs.map(m => <PendRow key={m.id} T={T} name={m.name} desc={'“' + m.msg + '” · ' + m.ago} action="Responder" href={"https://wa.me/" + D.wa} />)}
+        {waMsgs.map(m => <PendRow key={m.id} T={T} name={m.name} desc={'"' + m.msg + '" · ' + m.ago} action="Responder" href={"https://wa.me/" + D.wa} />)}
         {!waMsgs.length && <Empty2 T={T}>Bandeja al día.</Empty2>}
       </Group>
       <Group T={T} title={"Comentarios en Business Manager (" + bizC.length + ")"}>
-        {bizC.map(c => <PendRow key={c.id} T={T} name={c.name + " · " + c.net} desc={'“' + c.msg + '” · ' + c.ago} action="Responder" href="https://business.facebook.com/latest/inbox" />)}
+        {bizC.map(c => <PendRow key={c.id} T={T} name={c.name + " · " + c.net} desc={'"' + c.msg + '" · ' + c.ago} action="Responder" href="https://business.facebook.com/latest/inbox" />)}
         {!bizC.length && <Empty2 T={T}>Sin comentarios pendientes.</Empty2>}
       </Group>
       <Group T={T} title={"Seguimientos (" + segs.length + ")"}>
@@ -1378,7 +1518,7 @@ function PendRow({ T, name, desc, action, onClick, href }) {
 
 /* ─────────── SALA DE ESPERA (kanban) ─────────── */
 const WAIT_COLS = [["porllegar", "Por llegar"], ["espera", "En espera"], ["atencion", "En atención"], ["fin", "Finalizado"]];
-function SalaEsperaView({ T, appts, patients }) {
+function SalaEsperaView({ T, appts, patients, updatePatient }) {
   const hoy = appts.filter(a => a.day === 0);
   const [status, setStatus] = useState(() => { try { return DB.get("waiting_status") || {}; } catch (e) { return {}; } });
   function setS(id, st) { const n = { ...status, [id]: st }; setStatus(n); try { DB.set("waiting_status", n); } catch (e) {} }
@@ -1386,12 +1526,25 @@ function SalaEsperaView({ T, appts, patients }) {
   const next = st => ({ porllegar: "espera", espera: "atencion", atencion: "fin" })[st];
   const lbl = { porllegar: "Marcar llegada", espera: "Pasar a atención", atencion: "Finalizar" };
   const today = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  function eliminarDeSala(a) {
+    const st = stOf(a);
+    const n = { ...status, [a.id]: "eliminado" };
+    setStatus(n);
+    try { DB.set("waiting_status", n); } catch (e) {}
+    if (updatePatient && st !== "fin") {
+      const pat = patients && patients.find(p => p.name === a.name);
+      if (pat && pat.campaign) {
+        const meta_estado = st === "porllegar" ? "no_asistio" : "no_compro";
+        updatePatient(pat.id, { campaign: { ...pat.campaign, meta_estado } });
+      }
+    }
+  }
   return (
     <div>
       <SecHead T={T} title="Sala de espera" sub={"Pacientes de hoy, " + today + ". Actualiza el estado a medida que llegan y se atienden."} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
         {WAIT_COLS.map(([k, l]) => {
-          const items = hoy.filter(a => stOf(a) === k);
+          const items = hoy.filter(a => stOf(a) === k && status[a.id] !== "eliminado");
           return (
             <div key={k} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: 12, minHeight: 200 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -1401,11 +1554,16 @@ function SalaEsperaView({ T, appts, patients }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {items.map(a => (
                   <div key={a.id} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                      <span style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{a.name}</span>
-                      <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.time}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{a.name}</div>
+                        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.time}</div>
+                      </div>
+                      <button onClick={() => eliminarDeSala(a)} title="Quitar de sala de espera" style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: "2px 3px", display: "flex", borderRadius: 4, marginTop: -1 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                      </button>
                     </div>
-                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.proc}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 4 }}>{a.proc}</div>
                     {next(k) && <button onClick={() => setS(a.id, next(k))} style={{ marginTop: 8, width: "100%", fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, background: T.accentSoft || "rgba(84,112,127,.12)", border: "none", borderRadius: 6, padding: "7px", cursor: "pointer" }}>{lbl[k]} →</button>}
                   </div>
                 ))}
@@ -1438,6 +1596,47 @@ const AUTO_IC = {
   refresh: <><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></>
 };
 const AUTO_CH_COLOR = { WhatsApp: "#1F8A5B", Email: "#caa86a", SMS: "#9C8AB5" };
+// Popup de reseñas recibidas, separadas en "Potenciar" (4-5★) y "Mejorar" (≤3★).
+function ReviewsModal({ T, reviews, stars, onClose }) {
+  const top = reviews.filter(r => (r.stars || 0) >= 4);
+  const low = reviews.filter(r => (r.stars || 0) <= 3);
+  const fmtDate = ts => { try { return ts ? new Date(ts).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" }) : ""; } catch (e) { return ""; } };
+  const Card = ({ r, tone }) => (
+    <div style={{ background: T.surface2, border: "1px solid " + (tone === "low" ? "rgba(192,40,90,.28)" : "rgba(31,138,91,.25)"), borderRadius: 10, padding: "12px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+        <span style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{r.name || "Anónimo"}</span>
+        <span style={{ fontFamily: T.sans, fontSize: 13, color: T.gold, whiteSpace: "nowrap" }}>{stars(r.stars || 0)}</span>
+      </div>
+      {r.comment && <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 5, lineHeight: 1.55 }}>{r.comment}</div>}
+      {(r.ts || r.proc) && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>{[r.proc, fmtDate(r.ts)].filter(Boolean).join(" · ")}</div>}
+    </div>
+  );
+  const Col = ({ title, sub, color, list, tone }) => (
+    <div style={{ flex: 1, minWidth: 240 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
+        <span style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.text, fontWeight: 600 }}>{title}</span>
+        <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>({list.length})</span>
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 10 }}>{sub}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {list.length ? list.map(r => <Card key={r.id} r={r} tone={tone} />) : <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "10px 0" }}>Sin reseñas en este grupo.</div>}
+      </div>
+    </div>
+  );
+  return (
+    <AdModal T={T} wide title="Reseñas de pacientes" onClose={onClose}>
+      {reviews.length === 0 ? (
+        <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textFaint, padding: "16px 0" }}>Aún no has recibido reseñas. Comparte tu enlace para empezar a recibirlas.</div>
+      ) : (
+        <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+          <Col title="Potenciar" sub="4 y 5 estrellas — lo que más valoran tus pacientes." color="#1F8A5B" list={top} tone="top" />
+          <Col title="Mejorar" sub="3 estrellas o menos — oportunidades de mejora." color="#C0285A" list={low} tone="low" />
+        </div>
+      )}
+    </AdModal>
+  );
+}
 function AutomatizacionesView({ T }) {
   // Fusiona el estado guardado (solo on/off) con los metadatos del código, para que
   // textos/canales nuevos siempre se reflejen aunque haya reglas guardadas antes.
@@ -1457,6 +1656,7 @@ function AutomatizacionesView({ T }) {
   const reviews = (() => { try { return (window.DB && DB.get("reviews")) || []; } catch (e) { return []; } })();
   const avg = reviews.length ? (reviews.reduce((s, r) => s + (r.stars || 0), 0) / reviews.length) : 0;
   const stars = n => "★★★★★☆☆☆☆☆".slice(5 - Math.round(n), 10 - Math.round(n));
+  const [showReviews, setShowReviews] = useState(false);
   return (
     <div>
       <SecHead T={T} title="Automatizaciones" sub="Configura recordatorios y mensajes automáticos para tus pacientes." />
@@ -1467,8 +1667,12 @@ function AutomatizacionesView({ T }) {
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
           <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Formulario de reseñas de tu clínica</div>
-          {reviews.length > 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(avg)} <span style={{ color: T.textMute }}>{avg.toFixed(1)} · {reviews.length} reseña{reviews.length === 1 ? "" : "s"}</span></div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {reviews.length > 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(avg)} <span style={{ color: T.textMute }}>{avg.toFixed(1)} · {reviews.length} reseña{reviews.length === 1 ? "" : "s"}</span></div>}
+            <button onClick={() => setShowReviews(true)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, padding: "7px 13px", borderRadius: 8, cursor: "pointer", border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text }}>Ver reseñas{reviews.length ? " (" + reviews.length + ")" : ""}</button>
+          </div>
         </div>
+        {showReviews && <ReviewsModal T={T} reviews={reviews} stars={stars} onClose={() => setShowReviews(false)} />}
         <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Comparte este enlace con tus pacientes (se incluye al final del mensaje de indicaciones cuando "Solicitud de reseña" está activa). Las reseñas que dejen llegan a este panel.</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input readOnly value={reviewUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
@@ -1732,8 +1936,10 @@ const PROC_SEED = [
 ];
 /* ─────────── Caja: helpers compartidos (persisten en DB) ─────────── */
 function cashAll() { try { return (window.DB && DB.get("cash_moves")) || []; } catch (e) { return []; } }
-function cashSave(v) { try { if (window.DB) DB.set("cash_moves", v); } catch (e) {} }
+function cashNotify() { try { window.dispatchEvent(new Event("jcm:cash")); } catch (e) {} }
+function cashSave(v) { try { if (window.DB) DB.set("cash_moves", v); } catch (e) {} cashNotify(); }
 function cashAdd(mv) { const all = cashAll(); all.push({ id: "cm" + Date.now() + Math.random().toString(36).slice(2, 5), ts: new Date().toISOString(), ...mv }); cashSave(all); }
+function cashDelete(id) { cashSave(cashAll().filter(m => m.id !== id)); }
 function cashToday() { const t = new Date().toISOString().slice(0, 10); return cashAll().filter(m => (m.ts || "").slice(0, 10) === t); }
 /* inventario persistente — el seed (INV_SEED/PROC_SEED) solo aplica a la clínica base o modo local; las nuevas parten vacías */
 function invSeed() { return (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) ? INV_SEED : []; }
@@ -1744,8 +1950,9 @@ function procLoad() { try { var v = window.DB && DB.get("inv_procs"); return Arr
 function procSave(v) { try { if (window.DB) DB.set("inv_procs", v); } catch (e) {} }
 function procCost(p, items) { return (p.uses || []).reduce((s, u) => { const it = items.find(x => x.id === u[0]); return s + (it ? it.price * u[1] : 0); }, 0); }
 
-function InvKpiModal({ T, title, items, onClose }) {
+function InvKpiModal({ T, title, items, onClose, onAdjust }) {
   const D = window.JCDATA;
+  const [, forceUpdate] = useState(0);
   return (
     <AdModal T={T} title={title + " (" + items.length + ")"} onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1754,13 +1961,15 @@ function InvKpiModal({ T, title, items, onClose }) {
           const lo = i.stock > 0 && i.stock <= i.min;
           const out = i.stock <= 0;
           return (
-            <div key={i.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: "1px solid " + T.lineSoft }}>
+            <div key={i.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderBottom: "1px solid " + T.lineSoft }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{i.name}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{i.cat} · mín {i.min} {i.unit}{i.venc ? " · vence " + new Date(i.venc).toLocaleDateString("es-CL") : ""}</div>
               </div>
-              <div style={{ fontFamily: T.serif, fontSize: 20, color: out ? "#C0285A" : lo ? "#C9A227" : T.text }}>{i.stock}</div>
+              {onAdjust && <button onClick={() => { onAdjust(i.id, -1); forceUpdate(n => n + 1); }} style={invAdj(T)}>−</button>}
+              <div style={{ fontFamily: T.serif, fontSize: 20, color: out ? "#C0285A" : lo ? "#C9A227" : T.text, minWidth: 28, textAlign: "center" }}>{i.stock}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute }}>{i.unit}</div>
+              {onAdjust && <button onClick={() => { onAdjust(i.id, 1); forceUpdate(n => n + 1); }} style={invAdj(T)}>+</button>}
               <AdTag T={T} tone={out ? "danger" : lo ? "warn" : "ok"}>{out ? "Agotado" : lo ? "Bajo" : "OK"}</AdTag>
             </div>
           );
@@ -1832,10 +2041,10 @@ function InventarioView({ T }) {
         <div onClick={() => setInvKpi("vencer")} style={{ cursor: "pointer" }}><AdStat T={T} n={porVencer.length} l="Por vencer" accent={porVencer.length > 0} /></div>
         <div style={{ cursor: "default" }}><AdStat T={T} n={D.fmt(valor)} l="Valor inventario" /></div>
       </div>
-      {invKpi === "all" && <InvKpiModal T={T} title="Todos los productos" items={items} onClose={() => setInvKpi(null)} />}
-      {invKpi === "low" && <InvKpiModal T={T} title="Stock bajo" items={low} onClose={() => setInvKpi(null)} />}
-      {invKpi === "out" && <InvKpiModal T={T} title="Agotados" items={out} onClose={() => setInvKpi(null)} />}
-      {invKpi === "vencer" && <InvKpiModal T={T} title="Por vencer" items={porVencer} onClose={() => setInvKpi(null)} />}
+      {invKpi === "all" && <InvKpiModal T={T} title="Todos los productos" items={items} onClose={() => setInvKpi(null)} onAdjust={adjust} />}
+      {invKpi === "low" && <InvKpiModal T={T} title="Stock bajo" items={low} onClose={() => setInvKpi(null)} onAdjust={adjust} />}
+      {invKpi === "out" && <InvKpiModal T={T} title="Agotados" items={out} onClose={() => setInvKpi(null)} onAdjust={adjust} />}
+      {invKpi === "vencer" && <InvKpiModal T={T} title="Por vencer" items={porVencer} onClose={() => setInvKpi(null)} onAdjust={adjust} />}
       {low.length > 0 && (
         <div style={{ background: "rgba(192,40,90,.08)", border: "1px solid rgba(192,40,90,.35)", borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
           <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#C0285A", marginBottom: 4 }}>⚠ Reponer pronto</div>
@@ -1909,7 +2118,7 @@ function InventarioView({ T }) {
           );
         })}
       </div>
-      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>Define qué insumos consume cada procedimiento. Al tocar “Registrar realizado”, se descuentan automáticamente del stock.</p>
+      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>Define qué insumos consume cada procedimiento. Al tocar "Registrar realizado", se descuentan automáticamente del stock.</p>
       {scan && <InvScanModal T={T} onClose={() => setScan(false)} onApply={applyInvoice} />}
       {nuevo && <NewInvModal T={T} onClose={() => setNuevo(false)} onSave={it => { setItems([{ ...it, id: "i" + Date.now() }, ...items]); setNuevo(false); }} />}
       {edit && <NewInvModal T={T} initial={edit} onClose={() => setEdit(null)} onSave={it => { setItems(items.map(x => x.id === edit.id ? { ...x, ...it } : x)); setEdit(null); }} />}
@@ -2120,22 +2329,88 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
       window.jcmToast && window.jcmToast("Respaldo completo descargado.", "ok");
     } catch (e) { window.jcmError && window.jcmError("No se pudo generar el respaldo", e); }
   }
+  // Toma filas (arrays de celdas) ya parseadas y crea los pacientes nuevos. Sirve para CSV y Excel.
+  function ingestRows(rows) {
+    let headers = null, added = 0, dup = 0;
+    const cell = v => ("" + (v == null ? "" : v)).trim();
+    const seen = new Set((patients || []).map(p => (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase()).filter(Boolean));
+    for (const fields of rows) {
+      const lower = fields.map(v => cell(v).toLowerCase());
+      // Detectar fila de encabezados: contiene "nombre" entre sus campos
+      if (lower.includes("nombre") || lower.some(v => v === "nombre completo")) { headers = lower; continue; }
+      if (!headers) continue; // títulos de sección antes del encabezado → saltar
+      if (fields.every(v => !cell(v))) continue; // fila vacía
+      const r = {};
+      headers.forEach((h, i) => { r[h] = cell(fields[i]); });
+      const name = (r["nombre"] || r["nombre completo"] || r["nombre y apellido"] || r["name"] || "").trim();
+      if (!name || name.length < 2) continue;
+      const rut = (r["rut"] || r["dni"] || "").trim();
+      const rutNorm = rut.replace(/[^0-9kK]/g, "").toLowerCase();
+      const phone = (r["teléfono"] || r["telefono"] || r["phone"] || r["celular"] || r["whatsapp"] || r["fono"] || "").trim();
+      const email = (r["correo"] || r["email"] || r["e-mail"] || "").trim();
+      const isDup = (rutNorm.length >= 5 && seen.has(rutNorm)) || (patients || []).some(p => (p.name || "").toLowerCase() === name.toLowerCase());
+      if (isDup) { dup++; continue; }
+      if (rutNorm.length >= 5) seen.add(rutNorm);
+      if (addPatient) addPatient({ name, rut, phone, email }); added++;
+    }
+    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo)."); return; }
+    flash("Importación: " + added + " paciente(s) nuevo(s)" + (dup ? " · " + dup + " ya existían o duplicados" : "") + ".");
+  }
+  // Carga el lector de Excel (SheetJS) bajo demanda, solo cuando se importa un .xlsx/.xls.
+  function loadXLSX() {
+    return new Promise((res, rej) => {
+      if (window.XLSX) return res(window.XLSX);
+      const s = document.createElement("script");
+      s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+      s.onload = () => res(window.XLSX);
+      s.onerror = () => rej(new Error("xlsx load failed"));
+      document.head.appendChild(s);
+    });
+  }
   function onImport(e) {
     const f = e.target.files[0]; if (!f) return;
+    const ext = (f.name.split(".").pop() || "").toLowerCase();
+    e.target.value = "";
+    // .numbers es un paquete propietario de Apple: no se puede leer directo.
+    if (ext === "numbers") { flash("Los archivos .numbers no se leen directo. En Numbers: Archivo → Exportar a → Excel (o CSV) y sube ese archivo."); return; }
+    // Excel real (.xlsx/.xls): binario; se lee con SheetJS, no como texto.
+    if (ext === "xlsx" || ext === "xls") {
+      flash("Leyendo Excel…");
+      loadXLSX().then(XLSX => {
+        const rd = new FileReader();
+        rd.onload = () => {
+          try {
+            const wb = XLSX.read(rd.result, { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: "" });
+            ingestRows(rows);
+          } catch (err) { flash("No se pudo leer el Excel. Verifica que tenga una fila de encabezado con 'Nombre'."); }
+        };
+        rd.onerror = () => flash("No se pudo leer el archivo.");
+        rd.readAsArrayBuffer(f);
+      }).catch(() => flash("No se pudo cargar el lector de Excel. Revisa tu conexión, o exporta a CSV e inténtalo."));
+      return;
+    }
+    // CSV / texto plano.
     const rd = new FileReader();
     rd.onload = () => {
       try {
-        const rows = csvParse(rd.result); let added = 0, dup = 0;
-        rows.forEach(r => {
-          const name = (r.nombre || r.name || r["nombre completo"] || r["nombre y apellido"] || "").trim(); if (!name) return;
-          const rut = r.rut || r.dni || ""; const phone = r["teléfono"] || r.telefono || r.phone || r.celular || r.whatsapp || r.fono || ""; const email = r.correo || r.email || r["e-mail"] || "";
-          const exists = (patients || []).find(p => (rut && p.rut === rut) || (p.name || "").toLowerCase() === name.toLowerCase());
-          if (exists) dup++; else { if (addPatient) addPatient({ name, rut, phone, email }); added++; }
-        });
-        flash("Importación: " + added + " paciente(s) nuevo(s)" + (dup ? " · " + dup + " ya existían" : "") + ".");
-      } catch (err) { flash("No se pudo leer el archivo. Exporta desde Numbers/Excel a CSV e inténtalo."); }
+        const text = rd.result;
+        const splitLine = l => {
+          const out = []; let cur = "", q = false;
+          for (let i = 0; i < l.length; i++) {
+            const ch = l[i];
+            if (ch === '"') { if (q && l[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+            else if ((ch === "," || ch === ";") && !q) { out.push(cur.trim()); cur = ""; }
+            else cur += ch;
+          }
+          out.push(cur.trim()); return out;
+        };
+        const rows = text.replace(/\r/g, "").split("\n").map(l => l.trim() ? splitLine(l.trim()) : []).filter(r => r.length);
+        ingestRows(rows);
+      } catch (err) { flash("No se pudo leer el archivo. Exporta desde Numbers o Excel a CSV e inténtalo."); }
     };
-    rd.readAsText(f); e.target.value = "";
+    rd.readAsText(f, "utf-8");
   }
   const expCard = (title, sub, fn) => (
     <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px" }}>
@@ -2188,9 +2463,9 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
           {/* Importar base de pacientes */}
           <div style={{ marginTop: 18, background: T.surface, border: "1px dashed " + T.chipBorder, borderRadius: 12, padding: "18px 18px" }}>
             <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Importar base de pacientes</div>
-            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Sube un archivo <b>Excel o CSV</b> (en Numbers: Archivo → Exportar → CSV). Columnas reconocidas: nombre, RUT, teléfono, correo. Si el RUT ya existe, no se duplica.</div>
-            <AdBtn T={T} onClick={() => fileRef.current.click()}>Subir archivo (CSV / Excel)</AdBtn>
-            <input ref={fileRef} type="file" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx,.numbers" onChange={onImport} style={{ display: "none" }} />
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Sube un archivo <b>Excel (.xlsx) o CSV</b>. La primera fila debe tener los <b>encabezados</b> y una columna llamada <b>Nombre</b> (opcionales: RUT, Teléfono, Correo). Si el RUT ya existe, no se duplica. <i>(.numbers: en Numbers usa Archivo → Exportar a → Excel.)</i></div>
+            <AdBtn T={T} onClick={() => fileRef.current.click()}>Subir archivo (Excel / CSV)</AdBtn>
+            <input ref={fileRef} type="file" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.numbers" onChange={onImport} style={{ display: "none" }} />
           </div>
         </div>
       )}
@@ -2274,6 +2549,9 @@ function CajaView({ T }) {
                   <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{hora(m.ts)} · {m.method}</div>
                 </div>
                 <div style={{ fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" }}>{m.type === "ingreso" ? "" : "− "}{D.fmt(m.amount || 0)}</div>
+                <button onClick={async () => { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento?", { danger: true })) { cashDelete(m.id); setTick(t => t + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
+                </button>
               </div>
             ))}
         </div>
@@ -2354,4 +2632,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashToday });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday });
