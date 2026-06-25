@@ -908,11 +908,11 @@ function SignConsentModal({ T, data, onClose, onSign }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
           <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Firma paciente</div>
-          <SignaturePad T={T} onChange={setSigPac} height={140} />
+          <SignaturePad T={T} onChange={setSigPac} height={170} />
         </div>
         <div>
           <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Firma enfermero</div>
-          <SignaturePad T={T} onChange={setSigPro} height={140} />
+          <SignaturePad T={T} onChange={setSigPro} height={170} />
         </div>
       </div>
     </AdModal>
@@ -1038,6 +1038,10 @@ function ConsentTab({ T, patient, updatePatient }) {
         lista.unshift(nuevo);
         updatePatient(patient.id, { consent: true, consentSig: r.sigPac, consentSigPro: r.sigPro, consentInfo: r.tpl.title + " · " + r.fields.fecha, consentDoc: nuevo, consents: lista });
         setSigning(false);
+        try { window.jcmToast && window.jcmToast("Consentimiento guardado. Abriendo copia para guardar como PDF…", "ok"); } catch (e) {}
+        // Abre el consentimiento firmado en una pestaña nueva y lanza el diálogo de impresión,
+        // donde se puede "Guardar en Archivos" (PDF) como respaldo local en el dispositivo.
+        setTimeout(() => { try { imprimirConsentDoc(nuevo); } catch (e) {} }, 500);
       }} />}
     </div>
   );

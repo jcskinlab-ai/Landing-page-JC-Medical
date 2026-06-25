@@ -85,21 +85,35 @@
     state.bound = true;
   }
 
-  function pushKey(k, v) {
+  // Claves con escritura local pendiente o fallida: NO deben ser sobrescritas por
+  // la sincronización remota (evita perder datos como consentimientos si el push falla).
+  var pendingPush = {}; // k -> JSON del valor local más reciente aún no confirmado en la nube
+
+  function pushKey(k, v, attempt) {
     if (!db || !state.clinicId) return;
+    attempt = attempt || 0;
+    pendingPush[k] = JSON.stringify(v == null ? null : v); // marca: hay cambio local sin confirmar
     clearTimeout(pushTimers[k]);
     pushTimers[k] = setTimeout(function () {
       try {
+        var snapshot = pendingPush[k]; // valor que estamos intentando subir
         var ref = db.collection('tenants').doc(state.clinicId).collection('kv').doc(k);
         var op = v == null ? ref.delete() : ref.set({ v: JSON.stringify(v), _ts: Date.now() });
-        op.catch(function (e) {
+        op.then(function () {
+          // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
+          if (pendingPush[k] === snapshot) delete pendingPush[k];
+        }).catch(function (e) {
           noop(e);
-          // Avisa al usuario si hay problema de sincronización (sin spam: solo 1 toast por tipo de error).
           var code = (e && e.code) || 'unknown';
+          // La data sigue a salvo en localStorage y protegida de sobrescritura. Reintentamos.
+          if (attempt < 5) {
+            setTimeout(function () { if (pendingPush[k] === snapshot) pushKey(k, v, attempt + 1); }, Math.min(2000 * (attempt + 1), 15000));
+          }
+          // Avisa al usuario (sin spam: 1 toast por tipo de error). Aclara que NO se pierde.
           if (!pushKey._warnedCodes) pushKey._warnedCodes = {};
           if (!pushKey._warnedCodes[code]) {
             pushKey._warnedCodes[code] = true;
-            if (window.jcmError) window.jcmError('Error al sincronizar datos. Verifica tu conexión.');
+            if (window.jcmError) window.jcmError('Sin conexión con la nube: los datos quedaron guardados en este dispositivo y se sincronizarán al reconectar.');
             setTimeout(function () { if (pushKey._warnedCodes) delete pushKey._warnedCodes[code]; }, 30000);
           }
         });
@@ -114,6 +128,7 @@
       state.kvEmpty = snap.empty;
       applyingRemote = true;
       snap.forEach(function (doc) {
+        if (pendingPush[doc.id] != null) return; // conserva cambios locales sin sincronizar
         try {
           var data = doc.data();
           var val = data && data.v != null ? JSON.parse(data.v) : null;
@@ -134,6 +149,9 @@
         var changed = false;
         applyingRemote = true;
         snap.docChanges().forEach(function (ch) {
+          // No sobrescribir una clave con cambios locales pendientes (p. ej. un consentimiento
+          // recién firmado cuyo push aún no se confirma): evita perder datos por el rollback de Firestore.
+          if (pendingPush[ch.doc.id] != null) return;
           if (ch.type === 'removed') { localStorage.removeItem(nsKey(ch.doc.id)); changed = true; return; }
           try {
             var data = ch.doc.data();
