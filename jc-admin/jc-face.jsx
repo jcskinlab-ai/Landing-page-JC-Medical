@@ -43,22 +43,27 @@ function loadScriptOnce(src) {
   });
 }
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
-/* ── Fotos del rostro: almacén LOCAL de este equipo ──────────────────────────────
- * Las fotos en base64 NO se sincronizan a Firestore (superarían el límite de 1 MB por
- * documento). Se guardan en localStorage bajo una clave que la sincronización NUNCA toca,
- * así sobreviven a la recarga. Los RESULTADOS del análisis (números/sugerencias) sí se
- * guardan en el paciente y sincronizan. (Para que las fotos crucen dispositivos haría falta
- * Firebase Storage + Blaze; pendiente.) */
+/* ── Fotos del rostro: localStorage + Firebase Storage ───────────────────────────
+ * Se guardan en localStorage del equipo (rápido, offline). Si Firebase Storage está
+ * activo, también se suben a la nube y la URL se guarda en el kv sincronizado
+ * ("fpurl_<pid>"), así las fotos cruzan entre iPad, Mac y cualquier dispositivo. */
 function _faceKey() {
   var cid = "local";
   try { cid = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || "local"; } catch (e) {}
   return "jcm_facephotos_" + cid;
 }
+function _faceUrlKey(pid) { return "fpurl_" + pid; }
+
 function faceGetPhoto(pid, view) {
-  try { var all = JSON.parse(localStorage.getItem(_faceKey()) || "{}"); return (all[pid] || {})[view] || null; } catch (e) { return null; }
+  // 1. base64 local (rápido, funciona offline)
+  try { var all = JSON.parse(localStorage.getItem(_faceKey()) || "{}"); var loc = (all[pid] || {})[view]; if (loc) return loc; } catch (e) {}
+  // 2. URL de Storage guardada en kv sincronizado (cruz dispositivos)
+  try { var urls = window.DB && window.DB.get(_faceUrlKey(pid)); return (urls && urls[view]) || null; } catch (e) { return null; }
 }
+
 function faceSetPhoto(pid, view, url) {
   if (!pid) return;
+  // 1. Guardar localmente en localStorage
   try {
     var k = _faceKey(), all = JSON.parse(localStorage.getItem(k) || "{}");
     if (!all[pid]) all[pid] = {};
@@ -66,6 +71,16 @@ function faceSetPhoto(pid, view, url) {
     else all[pid][view] = url;
     localStorage.setItem(k, JSON.stringify(all));
   } catch (e) { try { window.jcmError && window.jcmError("No se pudo guardar la foto (almacenamiento del navegador lleno)."); } catch (_) {} }
+  // 2. Subir a Firebase Storage y guardar URL en kv (sincroniza en tiempo real)
+  if (url && url.startsWith("data:") && window.JCSAAS && typeof window.JCSAAS.uploadImage === "function") {
+    window.JCSAAS.uploadImage(url, "faces/" + pid + "/" + view + ".jpg").then(function(storUrl) {
+      try { var u = (window.DB && window.DB.get(_faceUrlKey(pid))) || {}; u[view] = storUrl; window.DB && window.DB.set(_faceUrlKey(pid), u); } catch (e) {}
+    }).catch(function() {}); // silencioso: la copia local sigue disponible
+  } else if (url == null) {
+    // Eliminar URL del kv y archivo de Storage
+    try { var u = (window.DB && window.DB.get(_faceUrlKey(pid))) || {}; delete u[view]; if (Object.keys(u).length) window.DB && window.DB.set(_faceUrlKey(pid), u); else window.DB && window.DB.del && window.DB.del(_faceUrlKey(pid)); } catch (e) {}
+    try { if (window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage("faces/" + pid + "/" + view + ".jpg"); } catch (e) {}
+  }
 }
 
 // Calidad de la foto: brillo medio y contraste (desviación estándar de luminancia).
@@ -320,6 +335,22 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
   const zones = view === "front" ? A.zonesFront : (mirror ? A.zonesSide.map(z => ({ ...z, x: 100 - z.x })) : A.zonesSide);
   const [photo, _setPhoto] = useState(() => faceGetPhoto(patient && patient.id, view));
   useEffect(() => { _setPhoto(faceGetPhoto(patient && patient.id, view)); }, [view, patient && patient.id]);
+
+  // Auto-migrar fotos base64 locales a Firebase Storage (solo la primera vez por dispositivo).
+  useEffect(() => {
+    if (!patient || !patient.id || !window.JCSAAS || typeof window.JCSAAS.uploadImage !== "function") return;
+    try {
+      var all = JSON.parse(localStorage.getItem(_faceKey()) || "{}");
+      var patPhotos = all[patient.id] || {};
+      Object.keys(patPhotos).forEach(function(v) {
+        var loc = patPhotos[v];
+        if (!loc || !loc.startsWith("data:")) return;
+        try { var existing = (window.DB && window.DB.get(_faceUrlKey(patient.id))) || {}; if (existing[v]) return; } catch (e) {}
+        faceSetPhoto(patient.id, v, loc); // sube a Storage y guarda URL en kv
+      });
+    } catch (e) {}
+  }, [patient && patient.id]);
+
   const [narrow, setNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 900);
   useEffect(() => { const h = () => setNarrow(window.innerWidth < 900); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
