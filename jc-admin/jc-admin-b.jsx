@@ -425,7 +425,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       {tab === "auditoria" && <AuditoriaIA T={T} patient={patient} go={setTab} />}
       {tab === "mapa" && (
         <div>
-          <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} />
+          <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} readOnly={true} />
         </div>
       )}
       {tab === "fichaclinica" && (
@@ -572,6 +572,14 @@ function NotasTab({ T, patient, updatePatient }) {
   );
 }
 
+function procMapType(proc) {
+  const p = (proc || "").toLowerCase();
+  if (/botox|toxina|botulín|botul/i.test(p)) return "botox";
+  if (/hialur|rino|armoniz|relleno/i.test(p)) return "ah";
+  if (/bio|sculptra|col[aá]g|estimul/i.test(p)) return "bio";
+  return null;
+}
+
 function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, startView }) {
   const today = new Date().toISOString().slice(0, 10);
   const team = (((window.CADMIN || {}).team) || []).filter(t => t.active !== false);
@@ -582,12 +590,13 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
     proId: entry.proId || (team[0] || {}).id || "", proName: entry.proName || (team[0] || {}).name || "",
     lote: entry.lote || "", venc: entry.venc || "", temp: (entry.temp || "").replace(/\s*°C\s*/g, "").trim(), dilucion: entry.dilucion || "", resumen: entry.resumen || "",
     recomendados: entry.recomendados || "", realizados: entry.realizados || "",
-    cobro: entry.cobro != null ? "" + entry.cobro : "", metodo: entry.metodo || "Efectivo"
+    cobro: entry.cobro != null ? "" + entry.cobro : "", metodo: entry.metodo || "Efectivo",
+    facePoints: entry.facePoints || []
   } : {
     date: today, proc: "", units: "", note: "",
     proId: (team[0] || {}).id || "", proName: (team[0] || {}).name || "",
     lote: "", venc: "", temp: "", dilucion: "", resumen: "", recomendados: "", realizados: "",
-    cobro: "", metodo: "Efectivo"
+    cobro: "", metodo: "Efectivo", facePoints: []
   });
   // Precio sugerido del servicio (para auto-rellenar el cobro al elegir el procedimiento).
   function svcPrice(name) { try { const s = (window.clinicServiceList ? window.clinicServiceList() : []).find(x => x.name === name); return s ? (s.price || 0) : 0; } catch (e) { return 0; } }
@@ -596,6 +605,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
   const origPro = isEdit ? (team.find(t => t.id === (entry.proId || f.proId)) || team.find(t => t.name === (entry.proName || f.proName)) || team[0]) : null;
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
+  const [sessionTool, setSessionTool] = useState("aureo");
 
   function submit() {
     if (!f.proc.trim()) { setErr("Indica el procedimiento."); return; }
@@ -726,6 +736,34 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             <span style={lblS}>Nota / observaciones</span>
             <TaF val={f.note} rows={2} onChange={e => setF({ ...f, note: e.target.value })} ph="" />
           </label>
+
+          {/* Mapa de punción (botox) o análisis estético (AH/bio) — condicional según procedimiento */}
+          {(() => {
+            const mt = procMapType(f.proc);
+            if (!mt) return null;
+            return (
+              <div style={{ border: "1px solid " + T.line, borderRadius: 10, padding: "14px", marginTop: 4 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>
+                  {mt === "botox" ? "Mapa de punción · Toxina botulínica" : "Análisis estético facial"}
+                </div>
+                {mt === "botox" && (
+                  <PuncionTool T={T} value={f.facePoints || []} onChange={pts => setF(prev => ({ ...prev, facePoints: pts }))} patient={patient} updatePatient={updatePatient} />
+                )}
+                {(mt === "ah" || mt === "bio") && (
+                  <div>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+                      {[["aureo", "Proporción áurea · IA"], ["ricketts", "Plano de Ricketts"], ["marquardt", "Máscara de Marquardt"]].map(([k, l]) => (
+                        <button key={k} onClick={() => setSessionTool(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "8px 13px", borderRadius: 999, cursor: "pointer", background: sessionTool === k ? T.text : T.surface, color: sessionTool === k ? T.bg : T.textMute, border: "1px solid " + (sessionTool === k ? T.text : T.line) }}>{l}</button>
+                      ))}
+                    </div>
+                    {sessionTool === "aureo" && <AureoTool T={T} patient={patient} updatePatient={updatePatient} />}
+                    {sessionTool === "ricketts" && <RickettsTool T={T} patient={patient} updatePatient={updatePatient} />}
+                    {sessionTool === "marquardt" && <MarquardtTool T={T} patient={patient} updatePatient={updatePatient} />}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {!ro && isEdit && (
             <div style={{ background: "rgba(201,162,39,.08)", border: "1px solid rgba(201,162,39,.4)", borderRadius: 8, padding: "13px 14px" }}>

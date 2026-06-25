@@ -319,7 +319,7 @@ function MarquardtMask({ color, scale, dy, opacity, fit }) {
 }
 
 /* ════════ HERRAMIENTA 1 · PUNCIÓN sobre foto en reposo ════════ */
-function PuncionTool({ T, value, onChange, patient, updatePatient }) {
+function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly }) {
   const A = window.JCADMIN;
   const [view, setView] = useState("front");
   const [product, setProduct] = useState(PUNCION_PRODUCTS[0]);
@@ -426,8 +426,8 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
         ))}
         <div style={{ flex: 1 }} />
         <input ref={fileRef} type="file" accept="image/*" onChange={onUpload} style={{ display: "none" }} />
-        <button onClick={() => fileRef.current.click()} style={ghostBtn(T)}>{photo ? "Cambiar foto" : "Subir foto en reposo"}</button>
-        {photo && <button onClick={() => setPhoto(null)} style={ghostBtn(T)}>Quitar foto</button>}
+        {!readOnly && <button onClick={() => fileRef.current.click()} style={ghostBtn(T)}>{photo ? "Cambiar foto" : "Subir foto en reposo"}</button>}
+        {!readOnly && photo && <button onClick={() => setPhoto(null)} style={ghostBtn(T)}>Quitar foto</button>}
         {photo && (
           <div style={{ display: "flex", borderRadius: 999, border: "1px solid " + T.line, overflow: "hidden" }}>
             {["foto", "anat"].map(m => (
@@ -436,6 +436,9 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
               </button>
             ))}
           </div>
+        )}
+        {!readOnly && viewPoints.length > 0 && (
+          <button onClick={() => { if (window.confirm("¿Borrar todos los puntos de esta vista?")) onChange(points.filter(p => p.view !== view)); }} style={{ ...ghostBtn(T), color: "#C0285A", borderColor: "#C0285A44" }}>Borrar todos</button>
         )}
       </div>
       )}
@@ -459,7 +462,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
             <div>
               <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{product.id === "ah" ? "Fotos antes / después · Rinomodelación" : "Fotos del paciente · Bioestimulación"}</div>
               {(() => {
-                const allImgs = (patient && patient.images) || [];
+                const allImgs = (window.DB && patient && window.DB.get("pimg_" + patient.id)) || (patient && patient.images) || [];
                 const kws = product.id === "ah" ? ["rino", "hialu", "armoniz", "relleno"] : ["bio", "sculptra", "colág", "estimul"];
                 const imgs = allImgs.length > 0 ? allImgs.filter(im => !im.proc || kws.some(k => (im.proc || "").toLowerCase().includes(k))) : [];
                 if (imgs.length === 0) return (
@@ -480,8 +483,8 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
           ) : (
           <>
           <div style={{ perspective: 900, maxWidth: "65%", margin: "0 auto" }}>
-            <div ref={areaRef} onClick={clickArea} style={{
-              position: "relative", aspectRatio: "200/260", background: (photo && photoMode === "foto") ? "#0c0f13" : "#fff", border: "1px solid " + T.line, borderRadius: 8, cursor: "crosshair", overflow: "hidden",
+            <div ref={areaRef} onClick={readOnly ? undefined : clickArea} style={{
+              position: "relative", aspectRatio: "200/260", background: (photo && photoMode === "foto") ? "#0c0f13" : "#fff", border: "1px solid " + T.line, borderRadius: 8, cursor: readOnly ? "default" : "crosshair", overflow: "hidden",
               transform: spin ? "rotateY(28deg)" : "rotateY(0deg)", transition: "transform .18s " + T.ease, transformStyle: "preserve-3d"
             }}>
               {/* Foto real: visible solo en modo "foto" */}
@@ -505,7 +508,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
                   Haz clic para reubicar el punto seleccionado
                 </div>
               )}
-              {zones.map(z => (
+              {!readOnly && zones.map(z => (
                 <button key={z.id} data-zone onClick={() => { if (photo && photoMode === "anat") { if (sel) { setAnatPos(sel, z.x, z.y); setSel(null); } } else { addPoint(z.x, z.y, z.label, z.def); } }} title={z.label}
                   style={{ position: "absolute", left: z.x + "%", top: z.y + "%", transform: "translate(-50%,-50%)", width: 11, height: 11, borderRadius: "50%", background: "transparent", border: "1px dashed " + ((photo && photoMode === "foto") ? "rgba(255,255,255,.7)" : T.chipBorder), cursor: "pointer", padding: 0 }} />
               ))}
@@ -991,11 +994,17 @@ function MarquardtTool({ T, patient, updatePatient }) {
 }
 
 /* ════════ CONTENEDOR · MAPEO FACIAL ════════ */
-function FaceMap({ T, value, onChange, patient, updatePatient }) {
+function FaceMap({ T, value, onChange, patient, updatePatient, readOnly }) {
   const [tool, setTool] = useState("punzar");
   const TOOLS = [["punzar", "Punción"], ["aureo", "Proporción áurea · IA"], ["ricketts", "Plano de Ricketts"], ["marquardt", "Máscara de Marquardt"]];
   return (
     <div>
+      {readOnly && (
+        <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+          Solo visualización · edita en cada sesión
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
         {TOOLS.map(([k, l]) => (
           <button key={k} onClick={() => setTool(k)} style={{
@@ -1004,7 +1013,7 @@ function FaceMap({ T, value, onChange, patient, updatePatient }) {
           }}>{l}</button>
         ))}
       </div>
-      {tool === "punzar" && <PuncionTool T={T} value={value} onChange={onChange} patient={patient} updatePatient={updatePatient} />}
+      {tool === "punzar" && <PuncionTool T={T} value={value} onChange={onChange} patient={patient} updatePatient={updatePatient} readOnly={readOnly} />}
       {tool === "aureo" && <AureoTool T={T} patient={patient} updatePatient={updatePatient} />}
       {tool === "ricketts" && <RickettsTool T={T} patient={patient} updatePatient={updatePatient} />}
       {tool === "marquardt" && <MarquardtTool T={T} patient={patient} updatePatient={updatePatient} />}
