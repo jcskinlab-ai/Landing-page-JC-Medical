@@ -288,37 +288,48 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       (h.note ? "<div class='sn'>" + esc(h.note) + "</div>" : "") +
       (h.proName ? "<div class='sp'>Realizado por " + esc(h.proName) + "</div>" : "") + "</div>";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Ficha clínica · " + esc(patient.name) + "</title>" +
-      "<style>@page{size:letter;margin:2cm 2.2cm}*{box-sizing:border-box}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a14;margin:0;font-size:12px;line-height:1.5}" +
-      "h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;margin:0;font-weight:400}" +
-      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1.5px solid #1a1a14}" +
-      ".hdr-right{text-align:right;font-size:11px;color:#444;line-height:1.6}" +
-      ".hdr-right b{font-size:12.5px;color:#1a1a14;display:block}" +
-      ".clinic-doc{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#aaa;margin:14px 0 2px;text-align:center}" +
-      ".doc-title{font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;text-align:center;margin:0 0 10px;color:#1a1a14}" +
-      ".doc-title em{font-style:italic}" +
-      ".pat-bar{background:#1a1a14;color:#fff;padding:10px 14px;border-radius:4px;margin:0 0 18px;display:flex;align-items:center;gap:0}" +
-      ".pat-bar .pb-name{font-family:Georgia,serif;font-size:15px;font-weight:400;flex:1}" +
-      ".pat-bar .pb-meta{font-size:10px;color:#ccc;display:flex;gap:16px;align-items:center;flex-wrap:wrap}" +
-      ".sec-hd{display:flex;align-items:baseline;gap:10px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin:20px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}" +
-      ".sec-hd em{font-style:italic;font-family:Georgia,serif;font-size:11px;color:#444;text-transform:none;letter-spacing:0}" +
-      ".grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 22px}" +
-      ".fld{padding:3px 0}.fl{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#bbb}.fv{font-size:12.5px;color:#1a1a14}" +
-      ".ses{padding:8px 0;border-bottom:1px dotted #ddd}.sd{font-size:13px;font-weight:600}.sd .u{font-weight:400;color:#666}.sm{font-size:10.5px;color:#888;margin-top:2px}.sn{font-size:11.5px;margin-top:3px;color:#333}.sp{font-size:10px;color:#999;font-style:italic;margin-top:3px}" +
-      ".footer{margin-top:36px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}" +
+      "<link rel='preconnect' href='https://fonts.googleapis.com'>" +
+      "<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
+      "<link href='https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
+      "<style>" +
+      "@page{size:letter;margin:2.2cm 2.4cm 2.8cm}" +
+      "*{box-sizing:border-box;margin:0;padding:0}" +
+      "body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}" +
+      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid #1a1a14;margin-bottom:8px}" +
+      ".hclinic{font-family:'Marcellus',Georgia,serif;font-size:22px;color:#1a1a14}" +
+      ".hinfo{font-size:10px;color:#888;margin-top:3px;line-height:1.5}" +
+      ".hright{text-align:right;font-size:10px;color:#888;padding-top:4px;line-height:1.6}" +
+      ".hright b{font-family:'Jost',sans-serif;font-size:11.5px;font-weight:500;color:#1a1a14;display:block}" +
+      ".clinic-doc{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:#c0b8a0;text-align:center;margin:14px 0 3px}" +
+      ".doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:26px;font-weight:400;font-style:italic;text-align:center;color:#1a1a14;margin-bottom:14px}" +
+      ".pat-bar{background:#1a1a14;color:#fff;padding:11px 16px;border-radius:3px;margin:0 0 18px;display:flex;align-items:center}" +
+      ".pb-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;flex:1;letter-spacing:.01em}" +
+      ".pb-meta{font-size:9.5px;color:#ccc;display:flex;gap:14px;align-items:center;flex-wrap:wrap;letter-spacing:.04em}" +
+      ".sec-hd{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#b0a890;margin:20px 0 7px;padding-bottom:5px;border-bottom:1px solid #e8e5de;display:flex;align-items:center;gap:8px}" +
+      ".sec-hd em{font-family:'Cormorant Garamond',serif;font-size:11px;font-style:italic;color:#888;text-transform:none;letter-spacing:0}" +
+      ".grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}" +
+      ".fld{padding:4px 0}.fl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#c0b8a8}.fv{font-size:12.5px;color:#1a1a14;margin-top:1px}" +
+      ".ses{padding:9px 0;border-bottom:1px solid #eeece6}" +
+      ".sd{font-size:13px;font-weight:500;color:#1a1a14}.sd .u{font-weight:400;color:#777}" +
+      ".sm{font-size:10px;color:#999;margin-top:2px}.sn{font-size:11.5px;margin-top:4px;color:#444;white-space:pre-wrap}" +
+      ".sp{font-size:10px;color:#aaa;font-style:italic;margin-top:3px}" +
+      ".footer-doc{position:fixed;bottom:1.8cm;left:2.4cm;right:2.4cm;display:flex;justify-content:space-between;font-size:9px;color:#bbb;border-top:1px solid #e8e5de;padding-top:6px}" +
       "</style></head><body>" +
-      "<div class='header'><div><h1>" + esc(clinName) + "</h1></div>" +
-      "<div class='hdr-right'><b>" + esc(proName || "—") + "</b>Medicina estética" + (clinAddr ? "<br>" + esc(clinAddr) : "") + "</div></div>" +
-      "<div class='clinic-doc'>Documento clínico</div><div class='doc-title'>Ficha <em>clínica</em></div>" +
+      "<div class='header'>" +
+        "<div><div class='hclinic'>" + esc(clinName) + "</div><div class='hinfo'>" + esc(proName || "") + (clinAddr ? " &nbsp;·&nbsp; " + esc(clinAddr) : "") + "</div></div>" +
+        "<div class='hright'><b>" + esc(proName || "—") + "</b>Medicina estética" + (clinAddr ? "<br>" + esc(clinAddr) : "") + "</div>" +
+      "</div>" +
+      "<div class='clinic-doc'>Documento clínico</div><div class='doc-title'>Ficha clínica</div>" +
       "<div class='pat-bar'><div class='pb-name'>" + esc(patient.name || "—") + "</div><div class='pb-meta'>" +
-        (patient.rut ? "<span>RUT " + esc(patient.rut) + "</span>" : "") +
+        (patient.rut ? "<span>CI " + esc(patient.rut) + "</span>" : "") +
         (patient.age ? "<span>" + esc(patient.age) + " años</span>" : "") +
         (patient.phone ? "<span>" + esc(patient.phone) + "</span>" : "") +
       "</div></div>" +
-      "<div class='sec-hd'><em>i</em> Antecedentes</div><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + field("Correo", patient.email) + "</div>" +
+      "<div class='sec-hd'><em>i</em> Antecedentes</div><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + field("Correo electrónico", patient.email) + "</div>" +
       "<div class='sec-hd'><em>ii</em> Hábitos y piel</div><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros/día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador solar", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
-      (patient.notes ? "<div class='sec-hd'>Notas internas</div><div class='fv' style='font-size:12px;color:#333'>" + esc(patient.notes) + "</div>" : "") +
-      "<div class='sec-hd'><em>iii</em> Historial de sesiones</div>" + (hist.length ? hist.map(sesion).join("") : "<div style='color:#aaa;font-size:11px;padding:6px 0'>Sin sesiones registradas.</div>") +
-      "<div class='footer'><span>" + esc(proName) + " · Medicina estética</span><span>" + esc(clinName) + "</span><span>" + hoy + "</span></div>" +
+      (patient.notes ? "<div class='sec-hd'>Notas internas</div><div class='fv' style='font-size:12px;color:#444;white-space:pre-wrap'>" + esc(patient.notes) + "</div>" : "") +
+      "<div class='sec-hd'><em>iii</em> Historial de sesiones</div>" + (hist.length ? hist.map(sesion).join("") : "<div style='color:#bbb;font-size:11px;padding:6px 0'>Sin sesiones registradas.</div>") +
+      "<div class='footer-doc'><span>" + esc(proName) + " &nbsp;·&nbsp; Medicina estética</span><span>" + esc(clinName) + "</span><span>" + esc(hoy) + "</span></div>" +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
@@ -1293,50 +1304,105 @@ function ImagenesTab({ T, patient, updatePatient }) {
 /* ─────────── FACTURACIÓN ─────────── */
 function FacturacionTab({ T, patient, updatePatient }) {
   const D = window.JCDATA;
-  const [verAt, setVerAt] = useState(null);
-  // Nombre del procedimiento: último de su historial → tag → genérico (para saber qué se realizó).
-  const procName = (patient.history && patient.history[0] && patient.history[0].proc) || (patient.tags && patient.tags[0]) || "Procedimiento";
-  const items = patient.billing || [
-    { id: "b1", concept: procName, date: patient.lastVisit || "—", amount: 150000, paid: true, metodo: "Transferencia" },
-    { id: "b2", concept: "Evaluación general", date: "—", amount: 10000, paid: true, metodo: "Efectivo" }
-  ];
-  const total = items.reduce((s, i) => s + i.amount, 0);
-  const pagado = items.filter(i => i.paid).reduce((s, i) => s + i.amount, 0);
+  const [editAt, setEditAt] = useState(null); // { idx: -1 (nuevo) | n, item: {...} }
+  const [delIdx, setDelIdx] = useState(null);
+  const metodos = ["Transferencia", "Efectivo", "Tarjeta débito", "Tarjeta crédito", "Otro"];
+
+  const items = patient.billing || [];
+  const total = items.reduce((s, i) => s + (i.amount || 0), 0);
+  const pagado = items.filter(i => i.paid).reduce((s, i) => s + (i.amount || 0), 0);
   const saldo = total - pagado;
-  const row = (k, v) => v ? <div style={{ display: "flex", gap: 10, padding: "9px 0", borderBottom: "1px solid " + T.lineSoft }}><div style={{ width: 150, flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute }}>{k}</div><div style={{ flex: 1, fontFamily: T.sans, fontSize: 13, color: T.text }}>{v}</div></div> : null;
+
+  function addNew() {
+    setEditAt({ idx: -1, item: { id: "b" + Date.now(), concept: "", date: new Date().toLocaleDateString("es-CL"), amount: 0, paid: false, metodo: "Transferencia", comprobante: "" } });
+  }
+  function saveEdit() {
+    const updated = [...items];
+    if (editAt.idx === -1) updated.unshift(editAt.item);
+    else updated[editAt.idx] = editAt.item;
+    updatePatient(patient.id, { billing: updated });
+    setEditAt(null);
+  }
+  function deleteAt(idx) {
+    updatePatient(patient.id, { billing: items.filter((_, i) => i !== idx) });
+    setDelIdx(null);
+  }
+  function setF(k, v) { setEditAt(prev => ({ ...prev, item: { ...prev.item, [k]: v } })); }
+
+  const iconEdit = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>;
+  const iconDel = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>;
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Atenciones y pagos</div>
-        <AdBtn T={T} small primary onClick={() => updatePatient(patient.id, { billing: [{ id: "b" + Date.now(), concept: "Nueva atención", date: new Date().toLocaleDateString("es-CL"), amount: 0, paid: false, metodo: "Transferencia" }, ...items] })}>+ Atención</AdBtn>
+        <AdBtn T={T} small primary onClick={addNew}>+ Atención</AdBtn>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
         <AdStat T={T} n={D.fmt(total)} l="Total" />
         <AdStat T={T} n={D.fmt(pagado)} l="Pagado" />
         <AdStat T={T} n={D.fmt(saldo)} l="Saldo" accent={saldo > 0} />
       </div>
+      {items.length === 0 && (
+        <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, textAlign: "center", padding: "24px 0" }}>
+          No hay atenciones registradas. Presiona "+ Atención" para agregar una.
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column" }}>
-        {items.map(b => (
-          <button key={b.id} onClick={() => setVerAt(b)} title="Ver detalle de la atención" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft, background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept}</div>
+        {items.map((b, idx) => (
+          <div key={b.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}>
+            <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setEditAt({ idx, item: { ...b } })}>
+              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept || "Sin descripción"}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.date}{b.metodo ? " · " + b.metodo : ""}</div>
             </div>
-            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text }}>{D.fmt(b.amount)}</div>
+            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 }}>{D.fmt(b.amount || 0)}</div>
             <AdTag T={T} tone={b.paid ? "ok" : "warn"}>{b.paid ? "Pagado" : "Pendiente"}</AdTag>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>
-          </button>
+            <button onClick={() => setEditAt({ idx, item: { ...b } })} title="Editar" style={{ background: "none", border: "none", cursor: "pointer", padding: 5, color: T.textMute, flexShrink: 0 }}>{iconEdit}</button>
+            <button onClick={() => setDelIdx(idx)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", padding: 5, color: T.textFaint, flexShrink: 0 }}>{iconDel}</button>
+          </div>
         ))}
       </div>
-      {verAt && (
-        <AdModal T={T} title="Detalle de la atención" onClose={() => setVerAt(null)} footer={<AdBtn T={T} primary full onClick={() => setVerAt(null)}>Cerrar</AdBtn>}>
-          <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text, marginBottom: 10 }}>{verAt.concept}</div>
-          {row("Fecha", verAt.date)}
-          {row("Monto", D.fmt(verAt.amount))}
-          {row("Estado", verAt.paid ? "Pagado" : "Pendiente")}
-          {row("Método de pago", verAt.metodo || "—")}
-          {row("Comprobante", verAt.comprobante || "—")}
-          {row("Profesional", verAt.proName || "—")}
+
+      {editAt && (
+        <AdModal T={T} title={editAt.idx === -1 ? "Nueva atención" : "Editar atención"} onClose={() => setEditAt(null)}
+          footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={() => setEditAt(null)}>Cancelar</AdBtn><AdBtn T={T} primary onClick={saveEdit}>Guardar</AdBtn></div>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <AdField T={T} label="Procedimiento / Concepto" value={editAt.item.concept} onChange={v => setF("concept", v)} placeholder="Ej: Toxina botulínica" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Monto ($)</span>
+                <input data-nocap data-only="num" value={editAt.item.amount || ""} onChange={e => setF("amount", parseInt(e.target.value.replace(/\D/g, ""), 10) || 0)} placeholder="0" style={{ width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <AdField T={T} label="Fecha" value={editAt.item.date} onChange={v => setF("date", v)} placeholder={new Date().toLocaleDateString("es-CL")} />
+            </div>
+            <div>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Método de pago</span>
+              <select value={editAt.item.metodo || "Transferencia"} onChange={e => setF("metodo", e.target.value)} style={{ width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}>
+                {metodos.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Estado de pago</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[["Pagado", true], ["Pendiente", false]].map(([l, v]) => (
+                  <button key={l} onClick={() => setF("paid", v)} style={{ flex: 1, padding: "11px", borderRadius: 6, cursor: "pointer", background: editAt.item.paid === v ? T.accent : T.surface, color: editAt.item.paid === v ? (T.onAccent || "#fff") : T.textMute, border: "1px solid " + (editAt.item.paid === v ? T.accent : T.line), fontFamily: T.sans, fontSize: 13 }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <AdField T={T} label="Comprobante / N° transferencia (opcional)" value={editAt.item.comprobante || ""} onChange={v => setF("comprobante", v)} placeholder="Ej: 0012345" />
+          </div>
+        </AdModal>
+      )}
+
+      {delIdx !== null && (
+        <AdModal T={T} title="Eliminar atención" onClose={() => setDelIdx(null)}
+          footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={() => setDelIdx(null)}>Cancelar</AdBtn><AdBtn T={T} primary onClick={() => deleteAt(delIdx)} style={{ background: "#b23535" }}>Eliminar</AdBtn></div>}>
+          <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>
+            ¿Eliminar <b>{items[delIdx] && (items[delIdx].concept || "esta atención")}</b>?
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>
+            {items[delIdx] && D.fmt(items[delIdx].amount || 0)} — Esta acción no se puede deshacer.
+          </div>
         </AdModal>
       )}
     </div>
@@ -1536,18 +1602,61 @@ function RecetaTab({ T, patient, updatePatient }) {
   function imprimir(r) {
     const pro = (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const dir = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
     const title = titleOf(r.tipo);
-    const rpHtml = r.rp.split("\n").map(l => "<div style='padding:4px 0;border-bottom:1px dotted #ccc'>" + (l || "&nbsp;") + "</div>").join("");
     const edad = patient.age ? patient.age + " años" : "";
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + title + "</title>" +
-      "<style>@page{size:letter;margin:2.2cm 2cm}body{font-family:Georgia,serif;color:#1a1a14;margin:0;line-height:1.5}h1{font-size:21px;margin:0;font-weight:400}.muted{color:#666;font-size:12px}.row{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1a14;padding-bottom:10px}.tt{font-size:15px;letter-spacing:.06em;text-transform:uppercase;text-align:center;margin:22px 0 4px;font-family:Helvetica,Arial,sans-serif}.lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#888;margin-top:16px}.grid{display:flex;gap:28px;flex-wrap:wrap}.rp{font-size:30px;font-style:italic;margin:12px 0 4px}.box{min-height:150px;font-size:15px;line-height:1.9;margin-top:6px}.firma{margin-top:90px}.firmaBox{max-width:320px}.line{border-top:1px solid #1a1a14;padding-top:6px;font-size:12px}</style></head><body>" +
-      "<div class='row'><div><h1>" + ((window.clinicName && window.clinicName()) || D.brand || "Medique") + "</h1><div class='muted'>" + pro + " · Medicina estética" + (dir ? " · " + dir : "") + "</div></div><div class='muted' style='text-align:right'>" + r.fecha + "</div></div>" +
-      "<div class='tt'>" + title + "</div>" +
-      "<div class='lbl'>Paciente</div><div class='grid' style='font-size:15px'><div><b>" + (patient.name || "") + "</b></div>" + (patient.rut ? "<div>RUT " + patient.rut + "</div>" : "") + (edad ? "<div>Edad: " + edad + "</div>" : "") + "</div>" +
-      (r.diag ? "<div class='lbl'>Diagnóstico</div><div>" + r.diag + "</div>" : "") +
-      (r.tipo === "indicaciones" ? "<div class='lbl' style='margin-top:20px'>Indicaciones</div><div class='box'>" + rpHtml + "</div>" : "<div class='rp'>Rp.</div><div class='box'>" + rpHtml + "</div>") +
-      (r.ind ? "<div class='lbl'>Notas adicionales</div><div>" + r.ind.replace(/\n/g, "<br>") + "</div>" : "") +
-      "<div class='firma'><div class='firmaBox'><div class='line'>Firma del profesional</div><div class='muted' style='margin-top:4px'>" + pro + "</div></div></div>" +
+    const rpHtml = r.rp.split("\n").map(l => l.trim() ? "<div class='ind-line'>" + l + "</div>" : "").join("");
+    const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + esc(title) + " · " + esc(patient.name || "") + "</title>" +
+      "<link rel='preconnect' href='https://fonts.googleapis.com'>" +
+      "<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
+      "<link href='https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
+      "<style>" +
+      "@page{size:letter;margin:2.4cm 2.4cm 2.8cm}" +
+      "*{box-sizing:border-box;margin:0;padding:0}" +
+      "body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.6;-webkit-font-smoothing:antialiased}" +
+      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #1a1a14;margin-bottom:10px}" +
+      ".hclinic{font-family:'Marcellus',Georgia,serif;font-size:20px;color:#1a1a14;letter-spacing:.01em}" +
+      ".hinfo{font-size:10px;color:#888;margin-top:3px;line-height:1.5}" +
+      ".hdate{font-family:'Jost',sans-serif;font-size:11px;color:#888;text-align:right;padding-top:4px}" +
+      ".doc-label{font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:#b0a890;text-align:center;margin:20px 0 4px}" +
+      ".doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:26px;font-weight:400;text-align:center;color:#1a1a14;margin-bottom:6px}" +
+      ".doc-sub{font-size:10px;color:#aaa;text-align:center;letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px}" +
+      ".divider{border:none;border-top:1px solid #e0ddd5;margin:16px 0}" +
+      ".lbl{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:4px;margin-top:14px}" +
+      ".pat-name{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:500;color:#1a1a14}" +
+      ".pat-meta{font-size:12px;color:#555;margin-top:2px}" +
+      ".diag{font-size:13px;color:#1a1a14;font-style:italic;margin-top:3px}" +
+      ".ind-section{margin-top:18px}" +
+      ".ind-line{padding:9px 0;border-bottom:1px solid #eeece6;font-size:13.5px;color:#1a1a14;line-height:1.5}" +
+      ".ind-line:first-child{border-top:1px solid #eeece6}" +
+      ".rp-sym{font-family:'Cormorant Garamond',serif;font-size:40px;font-style:italic;color:#1a1a14;line-height:1;margin:14px 0 4px}" +
+      ".rp-box{font-size:13.5px;line-height:2;color:#1a1a14}" +
+      ".notas{font-size:12px;color:#555;font-style:italic;margin-top:6px;padding:10px 14px;background:#f8f7f3;border-radius:4px}" +
+      ".firma{margin-top:64px;display:flex;justify-content:flex-start}" +
+      ".firma-inner{width:280px}" +
+      ".firma-line{border-top:1px solid #1a1a14;padding-top:7px}" +
+      ".firma-name{font-family:'Jost',sans-serif;font-size:11.5px;color:#333;font-weight:500}" +
+      ".firma-role{font-size:10px;color:#aaa;margin-top:1px}" +
+      ".footer-doc{position:fixed;bottom:1.8cm;left:2.4cm;right:2.4cm;display:flex;justify-content:space-between;font-size:9px;color:#bbb;border-top:1px solid #e8e5de;padding-top:6px}" +
+      "</style></head><body>" +
+      "<div class='header'>" +
+        "<div><div class='hclinic'>" + esc(clinName) + "</div><div class='hinfo'>" + esc(pro) + (dir ? " &nbsp;·&nbsp; " + esc(dir) : "") + "</div></div>" +
+        "<div class='hdate'>" + esc(r.fecha) + "</div>" +
+      "</div>" +
+      "<div class='doc-label'>Documento clínico</div>" +
+      "<div class='doc-title'>" + esc(title) + "</div>" +
+      "<hr class='divider'>" +
+      "<div class='lbl'>Paciente</div>" +
+      "<div class='pat-name'>" + esc(patient.name || "—") + "</div>" +
+      "<div class='pat-meta'>" + (patient.rut ? "CI " + esc(patient.rut) : "") + (patient.rut && edad ? " &nbsp;·&nbsp; " : "") + (edad ? esc(edad) : "") + "</div>" +
+      (r.diag ? "<div class='lbl'>Diagnóstico</div><div class='diag'>" + esc(r.diag) + "</div>" : "") +
+      (r.tipo === "indicaciones"
+        ? "<div class='ind-section'>" + (rpHtml || "<div class='ind-line' style='color:#aaa'>Sin indicaciones registradas.</div>") + "</div>"
+        : "<div class='rp-sym'>Rp.</div><div class='rp-box'>" + esc(r.rp).replace(/\n/g, "<br>") + "</div>") +
+      (r.ind ? "<div class='lbl'>Notas adicionales</div><div class='notas'>" + esc(r.ind).replace(/\n/g, "<br>") + "</div>" : "") +
+      "<div class='firma'><div class='firma-inner'><div class='firma-line'><div class='firma-name'>" + esc(pro) + "</div><div class='firma-role'>Firma del profesional</div></div></div></div>" +
+      "<div class='footer-doc'><span>" + esc(clinName) + " &nbsp;·&nbsp; Medicina estética</span><span>" + esc(r.fecha) + "</span></div>" +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
