@@ -129,11 +129,13 @@
           if (attempt < 5) {
             setTimeout(function () { if (pendingPush[k] === snapshot) pushKey(k, v, attempt + 1); }, Math.min(2000 * (attempt + 1), 15000));
           }
-          // Avisa al usuario (sin spam: 1 toast por tipo de error). Aclara que NO se pierde.
+          // Aviso suave y tranquilizador (sin spam: 1 por tipo de error). NO se pierde nada.
           if (!pushKey._warnedCodes) pushKey._warnedCodes = {};
           if (!pushKey._warnedCodes[code]) {
             pushKey._warnedCodes[code] = true;
-            if (window.jcmError) window.jcmError('Sin conexión con la nube: los datos quedaron guardados en este dispositivo y se sincronizarán al reconectar.');
+            var msg = 'Los datos están guardados en tu dispositivo local.';
+            if (window.jcmToast) window.jcmToast(msg, 'info');
+            else if (window.jcmError) window.jcmError(msg);
             setTimeout(function () { if (pushKey._warnedCodes) delete pushKey._warnedCodes[code]; }, 30000);
           }
         });
