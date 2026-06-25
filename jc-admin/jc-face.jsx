@@ -828,8 +828,8 @@ function MarquardtTool({ T, patient, updatePatient }) {
           {photo && comment && <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
             <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 7 }}>Rostro vs máscara</div>
             <div style={{ fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.55 }}>
-              El rostro coincide con la máscara áurea en un <b>{comment.harmony}%</b> de armonía.{" "}
-              {comment.harmony >= 75 ? "Buen ajuste general al trazado de Marquardt." : comment.harmony >= 55 ? "Ajuste moderado: el rostro sigue el trazado en lo general, con desviaciones puntuales." : "El rostro se aparta del trazado en varias zonas."}
+              El rostro sigue las proporciones de la máscara de Marquardt en un <b>{comment.harmony}%</b>.{" "}
+              {comment.harmony >= 85 ? "Buen ajuste al trazado áureo." : comment.harmony >= 70 ? "Ajuste parcial: sigue el trazado en lo general, con desviaciones marcadas en algunas zonas." : comment.harmony >= 55 ? "Ajuste moderado: varias zonas se apartan del trazado." : "Ajuste bajo: el rostro se aparta del trazado en la mayoría de las zonas."}
             </div>
             <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 6, lineHeight: 1.5 }}>
               Zonas que más se alejan de la máscara: <b>{(comment.low || []).join(" y ")}</b>.
