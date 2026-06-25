@@ -144,7 +144,9 @@ function aureoCompute(lm, W, H, opts) {
   const interEye = dist(eyeInL, eyeInR);
   const subToLip = dist(subnasale, stomion), lipToChin = dist(stomion, menton);
 
-  const sc = (val, ideal, tol) => Math.max(0, Math.min(1, 1 - Math.abs(val - ideal) / tol));
+  // Curva suave (cuadrática): desviaciones pequeñas/medias puntúan alto (rostros armónicos),
+  // solo las grandes caen a 0. Es más realista que la caída lineal para análisis estético.
+  const sc = (val, ideal, tol) => { const d = Math.min(1, Math.abs(val - ideal) / tol); return 1 - d * d; };
   // — SIMETRÍA respecto al eje medio real —
   const symPair = (l, r) => { const dl = Math.abs(sideOf(l)), dr = Math.abs(sideOf(r)); return 1 - Math.min(1, Math.abs(dl - dr) / (((dl + dr) / 2) || 1)); };
   const symmetry = (symPair(eyeOutL, eyeOutR) + symPair(eyeInL, eyeInR) + symPair(alarL, alarR) + symPair(mouthL, mouthR) + symPair(browL, browR)) / 5;
@@ -734,7 +736,7 @@ function MarquardtTool({ T, patient, updatePatient }) {
   const [photo, setPhoto] = useState(() => faceGetPhoto(patient && patient.id, "marquardt"));
   const [scale, setScale] = useState(1);
   const [dy, setDy] = useState(0);
-  const [op, setOp] = useState(0.85);
+  const [op, setOp] = useState(0.5);
   const [fit, setFit] = useState(null);   // encuadre auto {left,top,w,h} en % del contenedor
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -779,7 +781,20 @@ function MarquardtTool({ T, patient, updatePatient }) {
   useEffect(() => { if (photo) { const t = setTimeout(autoFit, 60); return () => clearTimeout(t); } else { setFit(null); setErr(""); } }, [photo]);
 
   function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { faceSetPhoto(patient && patient.id, "marquardt", u); setPhoto(u); }); e.target.value = ""; }
-  function clearPhoto() { faceSetPhoto(patient && patient.id, "marquardt", null); setPhoto(null); setFit(null); }
+  function clearPhoto() { faceSetPhoto(patient && patient.id, "marquardt", null); setPhoto(null); setFit(null); setComment(null); }
+  // Repite SOLO el análisis (comentario rostro vs máscara) sin reposicionar la máscara
+  // que el profesional ya ajustó manualmente.
+  async function reanalyze() {
+    if (!photo) return;
+    setBusy(true); setErr("");
+    try {
+      const { lm, W, H } = await detectFaceMesh(photo);
+      const a = aureoCompute(lm, W, H);
+      const low = a.metrics.slice().sort((x, y) => x.score - y.score).slice(0, 2).map(m => m.label.split(" · ")[0].split(" (")[0].trim());
+      setComment({ harmony: a.harmony, low: low });
+    } catch (e) { setErr(e.message || "No se pudo analizar."); }
+    setBusy(false);
+  }
   const rng = { width: "100%" };
   const rlbl = { display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 4 };
   return (
@@ -800,6 +815,7 @@ function MarquardtTool({ T, patient, updatePatient }) {
           <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
             <button onClick={() => fileRef.current.click()} style={ghostBtn(T)}>{photo ? "Cambiar foto" : "Subir frontal"}</button>
             {photo && <button onClick={autoFit} disabled={busy} style={{ ...ghostBtn(T), opacity: busy ? 0.5 : 1 }}>{busy ? "Ajustando…" : "Ajustar automáticamente"}</button>}
+            {photo && <button onClick={reanalyze} disabled={busy} style={{ ...ghostBtn(T), opacity: busy ? 0.5 : 1 }}>{busy ? "Analizando…" : "Repetir análisis"}</button>}
             {photo && <button onClick={clearPhoto} style={ghostBtn(T)}>Quitar foto</button>}
           </div>
           {err && <div style={{ fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 8 }}>{err} Ajusta manualmente con los controles.</div>}
