@@ -1312,13 +1312,14 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
       <button onClick={() => delTask(t.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
     </div>
   );
-  const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
   const sinConsent = patients.filter(p => !p.consent);
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
-  // WhatsApp/Business/seguimientos de ejemplo: solo la clínica base o el modo local. Las nuevas parten vacías.
-  const waMsgs = seeded ? (CADMIN.waMessages || []) : [];
-  const bizC = seeded ? (CADMIN.bizComments || []) : [];
-  const segs = seeded ? (D.reminders || []) : [];
+  // Mensajes/comentarios/seguimientos: ya NO se muestran datos de ejemplo del prototipo.
+  // Estas bandejas parten vacías para TODAS las clínicas (incluida la base JC Medical) y
+  // solo se llenan con datos reales. (Antes la base mostraba ejemplos del prototipo.)
+  const waMsgs = [];
+  const bizC = [];
+  const segs = [];
   return (
     <div>
       <SecHead T={T} title="Pendientes" sub="Tareas generales del equipo y seguimientos clínicos." />
@@ -1355,6 +1356,7 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
       </Group>
       <Group T={T} title={"Seguimientos (" + segs.length + ")"}>
         {segs.map(r => <PendRow key={r.id} T={T} name={r.name} desc={r.type + " · " + r.due} action="WhatsApp" href={"https://wa.me/" + D.wa} />)}
+        {!segs.length && <Empty2 T={T}>Sin seguimientos pendientes.</Empty2>}
       </Group>
     </div>
   );
