@@ -627,7 +627,13 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
   const sel = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
   const lblS = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
 
-  const ta = rows => ({ width: "100%", padding: "12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", minHeight: rows * 20 });
+  const ta = rows => ({ width: "100%", padding: "12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", minHeight: rows * 24 });
+  // En modo solo-lectura los textareas no pueden scrollearse (pointerEvents:none bloquea todo).
+  // Se renderizan como <div> con white-space:pre-wrap para mostrar TODO el contenido sin truncar.
+  const roDiv = { width: "100%", padding: "12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", boxSizing: "border-box" };
+  const TaF = ({ val, rows, onChange, ph }) => ro
+    ? <div style={roDiv}>{val || <span style={{ color: T.textFaint }}>—</span>}</div>
+    : <textarea value={val} onChange={onChange} rows={rows} placeholder={ph} style={ta(rows)} />;
   return (
     <AdModal T={T} wide title={ro ? "Detalle de la sesión" : (isEdit ? "Editar sesión" : "Nueva sesión")} onClose={onClose}
       footer={ro
@@ -708,9 +714,9 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
           {/* Procedimientos recomendados / realizados */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <label style={{ display: "block" }}><span style={lblS}>Procedimientos recomendados</span>
-              <textarea value={f.recomendados} onChange={e => setF({ ...f, recomendados: e.target.value })} rows={3} placeholder="Lo sugerido para próximas sesiones…" style={ta(3)} /></label>
+              <TaF val={f.recomendados} rows={3} onChange={e => setF({ ...f, recomendados: e.target.value })} ph="Lo sugerido para próximas sesiones…" /></label>
             <label style={{ display: "block" }}><span style={lblS}>Procedimientos realizados</span>
-              <textarea value={f.realizados} onChange={e => setF({ ...f, realizados: e.target.value })} rows={3} placeholder="Lo efectivamente realizado hoy…" style={ta(3)} /></label>
+              <TaF val={f.realizados} rows={3} onChange={e => setF({ ...f, realizados: e.target.value })} ph="Lo efectivamente realizado hoy…" /></label>
           </div>
 
           {/* Datos del producto */}
@@ -732,11 +738,11 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
 
           <label style={{ display: "block" }}>
             <span style={lblS}>Resumen de la aplicación</span>
-            <textarea value={f.resumen} onChange={e => setF({ ...f, resumen: e.target.value })} rows={3} placeholder="Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" style={ta(3)} />
+            <TaF val={f.resumen} rows={5} onChange={e => setF({ ...f, resumen: e.target.value })} ph="Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" />
           </label>
           <label style={{ display: "block" }}>
             <span style={lblS}>Nota / observaciones</span>
-            <textarea value={f.note} onChange={e => setF({ ...f, note: e.target.value })} rows={2} style={ta(2)} />
+            <TaF val={f.note} rows={2} onChange={e => setF({ ...f, note: e.target.value })} ph="" />
           </label>
 
           {!ro && isEdit && (
