@@ -1283,10 +1283,15 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
   const chipBtn = on => ({ fontFamily: T.sans, fontSize: 11.5, padding: "7px 12px", borderRadius: 999, cursor: "pointer", background: on ? T.accent : T.bg, color: on ? (T.onAccent || "#fff") : T.textMute, border: "1px solid " + (on ? T.accent : T.line) });
 
   // Helpers invocados como FUNCIONES (no como <Componentes/>) para no remontar inputs y perder el foco al escribir.
-  const text = (k, ph, only) => <input value={f[k] || ""} onChange={e => setVal(k, e.target.value)} placeholder={ph || "Escribe aquí…"} data-only={only} style={inp()} />;
+  // Atajo: escribe "N" y pulsa ESPACIO → se completa "No refiere" (sin escribirlo a mano).
+  const onNoRefiere = k => e => { if (e.key === " " && (f[k] || "").trim().toLowerCase() === "n") { e.preventDefault(); setVal(k, "No refiere"); } };
+  const text = (k, ph, only) => <input value={f[k] || ""} onChange={e => setVal(k, e.target.value)} onKeyDown={onNoRefiere(k)} placeholder={ph || "Escribe aquí…"} data-only={only} style={inp()} />;
   const sel = (k, options, ph) => <select value={f[k] || ""} onChange={e => setVal(k, e.target.value)} style={inp()}><option value="">{ph || "— Selecciona —"}</option>{options.map(o => <option key={o} value={o}>{o}</option>)}</select>;
-  const chips = (k, options) => <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>{options.map(o => <button key={o} type="button" onClick={() => tokenToggle(k, o)} style={chipBtn(chipActive(k, o))}>{o}</button>)}</div>;
+  const chips = (k, options) => <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>{options.map(o => <button key={o} type="button" onClick={() => tokenToggle(k, o)} style={chipBtn(chipActive(k, o))}>{o}</button>)}<button type="button" onClick={() => setVal(k, "No refiere")} style={chipBtn((f[k] || "").trim().toLowerCase() === "no refiere")}>No refiere</button></div>;
   const field = (label, node) => <label style={{ display: "block" }}><span style={lbl}>{label}</span>{node}</label>;
+  // Botón rápido "No refiere" para campos de texto libre (alergias, quirúrgicos, etc.).
+  const nrBtn = k => <button type="button" onClick={() => setVal(k, "No refiere")} style={{ ...chipBtn((f[k] || "").trim().toLowerCase() === "no refiere"), fontSize: 10.5, padding: "5px 11px", marginTop: 8 }}>No refiere</button>;
+  const nrField = (label, k, ph, only) => <div><span style={lbl}>{label}</span>{text(k, ph, only)}{nrBtn(k)}</div>;
   // Barra primero (alineada entre columnas) y los botones debajo, dentro del mismo parámetro.
   const chipField = (label, k, options, ph) => <div><span style={lbl}>{label}</span>{text(k, ph)}{chips(k, options)}</div>;
 
@@ -1302,11 +1307,11 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
         <div style={head}>Antecedentes médicos</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
           {chipField("Antecedentes mórbidos", "morbidos", ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
-          {field("Alergias", text("alergias", "Ej. Penicilina, AINEs…", "alpha"))}
-          {field("Antecedentes quirúrgicos", text("quirurgicos", "Cirugías previas…"))}
+          {nrField("Alergias", "alergias", "Ej. Penicilina, AINEs…", "alpha")}
+          {nrField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
           {chipField("Procedimientos estéticos previos", "esteticos", ["Botox", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
-          {field("Hospitalizaciones", text("hospital", "—"))}
-          {field("Medicamentos de uso diario", text("medicamentos", "—"))}
+          {nrField("Hospitalizaciones", "hospital", "—")}
+          {nrField("Medicamentos de uso diario", "medicamentos", "—")}
         </div>
       </div>
 

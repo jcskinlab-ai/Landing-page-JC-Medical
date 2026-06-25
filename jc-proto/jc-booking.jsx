@@ -26,7 +26,8 @@ function validate(form) {
   if (!form.age || isNaN(age) || age < 14 || age > 99) e.age = "Edad entre 14 y 99";
   const digits = (form.phone || "").replace(/\D/g, "");
   if (digits.length < 11) e.phone = "Teléfono incompleto (+56 9 ...)";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email || "")) e.email = "Correo no válido";
+  // El correo es OPCIONAL: solo se valida el formato si el paciente lo escribe.
+  if ((form.email || "").trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) e.email = "Revisa el formato del correo (o déjalo en blanco)";
   return e;
 }
 
@@ -311,7 +312,7 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
         <Field T={T} label="Nombre completo" value={form.name} err={touched && errs.name} onChange={v => setForm({ ...form, name: v.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "") })} placeholder="Ej: María González" />
         <Field T={T} label="Edad" value={form.age} err={touched && errs.age} onChange={v => setForm({ ...form, age: v.replace(/\D/g, "").slice(0, 2) })} placeholder="Ej: 32" inputMode="numeric" />
         <Field T={T} label="Teléfono (WhatsApp)" value={form.phone} err={touched && errs.phone} onChange={v => setForm({ ...form, phone: v.replace(/[^\d+\s]/g, "") })} placeholder="+56 9 XXXX XXXX" inputMode="tel" />
-        <Field T={T} label="Correo electrónico" value={form.email} err={touched && errs.email} onChange={v => setForm({ ...form, email: v })} placeholder="tucorreo@ejemplo.com" inputMode="email" />
+        <Field T={T} label="Correo electrónico (opcional)" value={form.email} err={touched && errs.email} onChange={v => setForm({ ...form, email: v })} placeholder="tucorreo@ejemplo.com" inputMode="email" />
       </div>
     </Section>
   );

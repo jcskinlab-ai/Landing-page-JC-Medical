@@ -1007,7 +1007,7 @@ function AdminApp() {
           </div>
         </div>
         <Copilot T={T} patients={patients} appts={appts} addAppt={addAppt} onDarCita={(pf) => setDarCita(pf)} />
-        {darCita && <NewCitaModal T={T} patients={patients} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} />}
+        {darCita && <NewCitaModal T={T} patients={patients} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />}
         {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
         {showTour && <WelcomeTour T={T} go={(k) => nav(k)} onClose={closeTour} />}
       </div>
@@ -1364,7 +1364,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         </div>
       )}
 
-      {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} />}
+      {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} onOpenPatient={onOpenPatient} />}
       {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
       {toast && <Toast T={T} data={toast} onClose={() => setToast(null)} />}
       {fichaConfirm && (
@@ -1601,9 +1601,10 @@ function Summ({ T, k, v }) {
   );
 }
 
-function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, prefill, appts }) {
+function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, prefill, appts, onOpenPatient }) {
   const D = window.JCDATA;
   const A = window.JCADMIN;
+  const [savedPatId, setSavedPatId] = useState(""); // ficha del paciente recién agendado (para "Ir a la ficha")
   const team = (window.CADMIN || { team: [] }).team;
   const especialidades = D.catalog.map(s => s.sec);
   // Prellenado por el copiloto (voz/texto): salta al paso 2 con la hora ya elegida.
@@ -1658,6 +1659,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           if (np && np.id) resolvedPatId = np.id;
         } catch (e) {}
       }
+      setSavedPatId(resolvedPatId || "");
       onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, recurso, camilla, dur, origen, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
       // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente
       try {
@@ -1703,37 +1705,28 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           "BEGIN:VALARM", "TRIGGER:-PT24H", "ACTION:DISPLAY", "DESCRIPTION:" + esc("Recordatorio: cita en " + clinicDisplayName() + " mañana"), "END:VALARM",
           "END:VEVENT", "END:VCALENDAR"
         ].join("\r\n");
+        // Calendario NATIVO del dispositivo (Apple Calendar en Mac/iPhone/iPad, o el
+        // calendario por defecto en otros equipos) mediante un archivo .ics estándar.
         const ua = navigator.userAgent || "";
         const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
         if (isMobile) {
-          // Móvil: abrir el .ics directamente → iOS/Android abren el calendario nativo
-          // con la hoja "Agregar evento", sin pasar por el gestor de descargas.
+          // Móvil: abrir el .ics directamente → iOS/Android muestran la hoja "Agregar evento".
           window.location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
           return;
         }
-        // Escritorio: abrir Google Calendar prellenado en pestaña nueva (sin descarga).
-        // Si el navegador lo bloquea, caemos al .ics descargable.
-        const gFmt = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "T" + pad(d.getHours()) + pad(d.getMinutes()) + "00";
-        const gcal = "https://calendar.google.com/calendar/render?action=TEMPLATE"
-          + "&text=" + encodeURIComponent("Cita " + clinicDisplayName() + " · " + proc)
-          + "&dates=" + gFmt(start) + "/" + gFmt(end)
-          + "&details=" + encodeURIComponent("Paciente: " + (finalName || "—") + "\nProfesional: " + prof + "\nProcedimiento: " + proc)
-          + "&location=" + encodeURIComponent(clinicDisplayName())
-          + "&ctz=America/Santiago";
-        const win = window.open(gcal, "_blank");
-        if (!win) {
-          const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url; a.download = "cita-jcmedical-" + apptFecha + ".ics";
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 4000);
-        }
+        // Escritorio (Mac, etc.): descargar el .ics → se abre en el calendario nativo (Apple Calendar).
+        const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "cita-" + apptFecha + ".ics";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
       } catch (e) { console.error("Error al crear evento de calendario:", e); }
     }
     return (
       <AdModal T={T} title="Cita agendada" onClose={onClose} wide footer={<div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <AdBtn T={T} onClick={onClose}>Cerrar</AdBtn>
+        {savedPatId && onOpenPatient && <AdBtn T={T} onClick={() => { onOpenPatient(savedPatId); onClose(); }}>👤 Ir a la ficha</AdBtn>}
         <AdBtn T={T} onClick={addToCalendar}>📅 Agregar al calendario</AdBtn>
         {waPhone && <AdBtn T={T} primary onClick={() => window.open(waUrl, "_blank")}>📱 Notificar por WhatsApp</AdBtn>}
       </div>}>
