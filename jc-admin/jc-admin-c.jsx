@@ -1319,13 +1319,13 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       <div style={card}>
         <div style={head}>Piel y factores de riesgo</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
-          {field("Cicatriz hipertrófica / queloides", text("cicatriz", "—"))}
-          {field("Patología dérmica", text("dermica", "—"))}
-          {field("Problemas de coagulación", text("coagulacion", "—"))}
-          {field("Enfermedades autoinmunes", text("autoinmune", "—"))}
-          {field("Historial de herpes labial", text("herpes", "—"))}
-          {field("Exposición solar", sel("expsolar", ["Alta", "Media", "Baja"]))}
-          {field("Uso de bloqueador", sel("bloqueador", ["Diario", "2 veces al día", "Cada 4 horas"]))}
+          {nrField("Cicatriz hipertrófica / queloides", "cicatriz", "—")}
+          {chipField("Patología dérmica", "dermica", ["Dermatitis atópica", "Rosácea", "Sensibilidad indeterminada"], "Otra patología…")}
+          {nrField("Problemas de coagulación", "coagulacion", "—")}
+          {nrField("Enfermedades autoinmunes", "autoinmune", "—")}
+          {nrField("Historial de herpes labial", "herpes", "—")}
+          {field("Exposición solar", sel("expsolar", ["Alta", "Media", "Baja", "No refiere"]))}
+          {field("Uso de bloqueador", sel("bloqueador", ["Diario", "2 veces al día", "Cada 4 horas", "No uso", "No refiere"]))}
         </div>
       </div>
 
