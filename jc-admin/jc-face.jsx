@@ -326,7 +326,8 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
   const [sel, setSel] = useState(null);
   const [spin, setSpin] = useState(false);
   const [model3d, setModel3d] = useState(MODELS_3D[0].id);
-  const [imgFail, setImgFail] = useState({}); // { front:true } si la imagen anatómica no carga → muestra el écorché de respaldo
+  const [imgFail, setImgFail] = useState({});
+  const [photoMode, setPhotoMode] = useState("foto"); // "foto" | "anat" — solo aplica cuando hay foto
   const fileRef = useRef(null);
   const areaRef = useRef(null);
   const points = value || [];
@@ -373,13 +374,18 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
     }));
   }
   function setNote(id, n) { onChange(points.map(p => p.id === id ? { ...p, note: n } : p)); }
+  function setAnatPos(id, x, y) { onChange(points.map(p => p.id === id ? { ...p, anatX: x, anatY: y } : p)); }
   function clickArea(e) {
     if (e.target.closest("[data-marker]") || e.target.closest("[data-zone]")) return;
     const r = areaRef.current.getBoundingClientRect();
     const x = Math.round(((e.clientX - r.left) / r.width) * 100);
     const y = Math.round(((e.clientY - r.top) / r.height) * 100);
     if (x < 2 || x > 98 || y < 1 || y > 99) return;
-    addPoint(x, y);
+    if (photo && photoMode === "anat") {
+      if (sel) { setAnatPos(sel, x, y); setSel(null); }
+    } else {
+      addPoint(x, y);
+    }
   }
   function setUnits(id, u) { onChange(points.map(p => p.id === id ? { ...p, units: u } : p)); }
   function remove(id) { onChange(points.filter(p => p.id !== id)); setSel(null); }
@@ -422,6 +428,15 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
         <input ref={fileRef} type="file" accept="image/*" onChange={onUpload} style={{ display: "none" }} />
         <button onClick={() => fileRef.current.click()} style={ghostBtn(T)}>{photo ? "Cambiar foto" : "Subir foto en reposo"}</button>
         {photo && <button onClick={() => setPhoto(null)} style={ghostBtn(T)}>Quitar foto</button>}
+        {photo && (
+          <div style={{ display: "flex", borderRadius: 999, border: "1px solid " + T.line, overflow: "hidden" }}>
+            {["foto", "anat"].map(m => (
+              <button key={m} onClick={() => setPhotoMode(m)} style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".06em", padding: "7px 13px", cursor: "pointer", border: "none", background: photoMode === m ? T.text : "transparent", color: photoMode === m ? (T.bg || "#fff") : T.textMute, transition: "background .15s" }}>
+                {m === "foto" ? "Foto real" : "Anatomía"}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       )}
 
@@ -466,35 +481,68 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
           <>
           <div style={{ perspective: 900, maxWidth: "65%", margin: "0 auto" }}>
             <div ref={areaRef} onClick={clickArea} style={{
-              position: "relative", aspectRatio: "200/260", background: photo ? "#0c0f13" : "#fff", border: "1px solid " + T.line, borderRadius: 8, cursor: "crosshair", overflow: "hidden",
+              position: "relative", aspectRatio: "200/260", background: (photo && photoMode === "foto") ? "#0c0f13" : "#fff", border: "1px solid " + T.line, borderRadius: 8, cursor: "crosshair", overflow: "hidden",
               transform: spin ? "rotateY(28deg)" : "rotateY(0deg)", transition: "transform .18s " + T.ease, transformStyle: "preserve-3d"
             }}>
-              {photo ? (
+              {/* Foto real: visible solo en modo "foto" */}
+              {photo && photoMode === "foto" && (
                 <img src={photo} alt="Rostro en reposo" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", transform: mirror ? "scaleX(-1)" : "none" }} />
-              ) : (() => {
+              )}
+              {/* Anatomía: visible cuando no hay foto O en modo "anat" */}
+              {(!photo || photoMode === "anat") && (() => {
                 const anatKey = view === "front" ? "front" : (view === "sider" ? "sideR" : "sideL");
                 const anatSrc = ANAT_IMG[anatKey];
                 return (
                   <>
-                    {/* écorché de respaldo: solo visible si la imagen anatómica realista no está disponible */}
                     {imgFail[anatKey] && <div style={{ position: "absolute", inset: "6%", transform: mirror ? "scaleX(-1)" : "none" }}><FaceSVG view={svgView} stroke={T.textMute} faint={T.line} /></div>}
-                    {/* modelo muscular 2D realista — frontal, perfil izquierdo y perfil derecho (cada imagen ya orientada) */}
                     <img src={anatSrc} alt="Musculatura facial" onError={() => setImgFail(f => ({ ...f, [anatKey]: true }))} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", pointerEvents: "none", display: imgFail[anatKey] ? "none" : "block" }} />
                   </>
                 );
               })()}
+              {/* Hint en modo anat con punto seleccionado */}
+              {photo && photoMode === "anat" && sel && (
+                <div style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", background: "rgba(20,20,15,.82)", color: "#fff", fontFamily: T.sans, fontSize: 9.5, padding: "5px 11px", borderRadius: 99, pointerEvents: "none", whiteSpace: "nowrap", letterSpacing: ".05em" }}>
+                  Haz clic para reubicar el punto seleccionado
+                </div>
+              )}
               {zones.map(z => (
-                <button key={z.id} data-zone onClick={() => addPoint(z.x, z.y, z.label, z.def)} title={z.label}
-                  style={{ position: "absolute", left: z.x + "%", top: z.y + "%", transform: "translate(-50%,-50%)", width: 11, height: 11, borderRadius: "50%", background: "transparent", border: "1px dashed " + (photo ? "rgba(255,255,255,.7)" : T.chipBorder), cursor: "pointer", padding: 0 }} />
+                <button key={z.id} data-zone onClick={() => { if (photo && photoMode === "anat") { if (sel) { setAnatPos(sel, z.x, z.y); setSel(null); } } else { addPoint(z.x, z.y, z.label, z.def); } }} title={z.label}
+                  style={{ position: "absolute", left: z.x + "%", top: z.y + "%", transform: "translate(-50%,-50%)", width: 11, height: 11, borderRadius: "50%", background: "transparent", border: "1px dashed " + ((photo && photoMode === "foto") ? "rgba(255,255,255,.7)" : T.chipBorder), cursor: "pointer", padding: 0 }} />
               ))}
               {carried.map(p => { const pr = prodOf(p.product); return (
                 <span key={"c" + p.id} title={pr.label + " · " + p.label + " (referencia de otra vista)"} style={{ position: "absolute", left: p._z.x + "%", top: p._z.y + "%", transform: "translate(-50%,-50%)", width: 14, height: 14, borderRadius: "50%", background: "transparent", border: "1.5px dashed " + pr.color, opacity: .6, pointerEvents: "none" }} />
               ); })}
               {viewPoints.map(p => {
-                const pr = prodOf(p.product); const active = sel === p.id;
+                const pr = prodOf(p.product);
+                const active = sel === p.id;
+                const isGlass = photo && photoMode === "foto";
+                const isAnat = photo && photoMode === "anat";
+                const px = isAnat ? (p.anatX != null ? p.anatX : p.x) : p.x;
+                const py = isAnat ? (p.anatY != null ? p.anatY : p.y) : p.y;
+                const hasAnatPos = p.anatX != null;
                 return (
-                  <button key={p.id} data-marker title={pr.label + " · clic para eliminar este punto"} onClick={e => { e.stopPropagation(); remove(p.id); }}
-                    style={{ position: "absolute", left: p.x + "%", top: p.y + "%", transform: "translate(-50%,-50%) scale(" + (active ? 1.3 : 1) + ")", width: 13, height: 13, borderRadius: "50%", background: "#16263A", border: "2px solid " + (active ? pr.color : "#fff"), color: "#fff", fontFamily: T.sans, fontSize: 7.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 1px 5px rgba(0,0,0,.45)", transition: "transform .15s", padding: 0, lineHeight: "9px" }}>
+                  <button key={p.id} data-marker
+                    title={pr.label + (isGlass ? " · clic para eliminar" : isAnat ? (active ? " · clic en el mapa para reubicar" : " · clic para seleccionar y reubicar") : " · clic para eliminar")}
+                    onClick={e => { e.stopPropagation(); if (isAnat) { setSel(p.id === sel ? null : p.id); } else { remove(p.id); } }}
+                    style={{ position: "absolute", left: px + "%", top: py + "%",
+                      transform: "translate(-50%,-50%) scale(" + (active ? 1.35 : 1) + ")",
+                      width: 20, height: 20, borderRadius: "50%",
+                      background: isGlass ? "rgba(255,255,255,0.12)" : (isAnat && !hasAnatPos) ? "rgba(22,38,58,.5)" : "#16263A",
+                      backdropFilter: isGlass ? "blur(8px)" : "none",
+                      WebkitBackdropFilter: isGlass ? "blur(8px)" : "none",
+                      border: isGlass
+                        ? ("1.5px solid " + (active ? pr.color : "rgba(255,255,255,0.6)"))
+                        : ("2px solid " + (active ? pr.color : (isAnat && !hasAnatPos ? "rgba(255,255,255,.4)" : "#fff"))),
+                      color: "#fff",
+                      fontFamily: T.sans, fontSize: 8.5, fontWeight: 600,
+                      cursor: "pointer",
+                      boxShadow: isGlass
+                        ? "0 2px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18)"
+                        : "0 1px 5px rgba(0,0,0,.45)",
+                      transition: "transform .15s, border-color .12s",
+                      padding: 0, lineHeight: "18px",
+                      opacity: (isAnat && !hasAnatPos) ? 0.55 : 1
+                    }}>
                     {points.indexOf(p) + 1}
                   </button>
                 );
@@ -502,7 +550,12 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
             </div>
           </div>
           {viewTabs}
-          <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5, textAlign: "center" }}>Haz clic en el rostro para marcar un punto de tratamiento; haz clic sobre un punto ya puesto para eliminarlo. Sube una <b>foto del rostro en reposo</b> o usa el esquema muscular 2D y el modelo 3D para planificar la sesión.</p>
+          <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5, textAlign: "center" }}>
+            {photo && photoMode === "anat"
+              ? "Vista anatómica — selecciona un punto y haz clic en el músculo correspondiente para ubicarlo con precisión."
+              : "Haz clic en el rostro para marcar un punto; haz clic sobre un punto para eliminarlo. Sube una <b>foto del rostro en reposo</b> o usa el esquema 2D y el modelo 3D."
+            }
+          </p>
           </>
           )}
           {/* Notas / Resultados */}
