@@ -952,6 +952,9 @@ function ConsentTab({ T, patient, updatePatient }) {
   const [signing, setSigning] = useState(false);
   const [tpl0, setTpl0] = useState(null);
   const [openDoc, setOpenDoc] = useState(null); // consentimiento abierto en popup
+  const [deleting, setDeleting] = useState(null); // { doc, idx } para eliminar con clave
+  const [delPin, setDelPin] = useState("");
+  const [delErr, setDelErr] = useState("");
   const A = window.JCADMIN;
   // Consentimientos en su propia clave (pcons_<id>) → suben a la nube y se ven en todos lados.
   const consKey = patConsKey(patient.id);
@@ -971,6 +974,24 @@ function ConsentTab({ T, patient, updatePatient }) {
   function commitConsents(next) { try { window.DB.set(consKey, next); } catch (e) {} setConsentsState(next); }
   const printRef = useRef(null);
   function start(t) { setTpl0(t); setSigning(true); }
+
+  function startDelete(doc, idx) { setDeleting({ doc, idx }); setDelPin(""); setDelErr(""); }
+  function cancelDelete() { setDeleting(null); setDelPin(""); setDelErr(""); }
+  function confirmDelete() {
+    if (!deleting) return;
+    const team = (((window.CADMIN || {}).team) || []).filter(t => t.active !== false);
+    const pro = team.find(t => t.name === deleting.doc.prof);
+    if (pro && pro.pin) {
+      if (delPin !== pro.pin) { setDelErr("Clave incorrecta."); return; }
+    } else if (delPin.length < 1) {
+      setDelErr("Ingresa una clave para confirmar."); return;
+    }
+    const next = consents.filter((_, i) => i !== deleting.idx);
+    commitConsents(next);
+    if (next.length === 0) updatePatient(patient.id, { consent: false, consentInfo: "" });
+    cancelDelete();
+    if (window.jcmToast) window.jcmToast("Consentimiento eliminado.", "ok");
+  }
   const fmtHora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
   // Imprime el consentimiento reutilizando el contenido ya renderizado en el popup (texto legal + firmas).
   function imprimirConsent() {
@@ -1047,16 +1068,41 @@ function ConsentTab({ T, patient, updatePatient }) {
             <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.accent, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap", flexShrink: 0 }}>{doc.cat || "Consent."}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.proc || doc.title}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{doc.fecha}{doc.ts ? " · " + fmtHora(doc.ts) : ""}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{doc.fecha}{doc.ts ? " · " + fmtHora(doc.ts) : ""}{doc.prof ? " · " + doc.prof : ""}</div>
             </div>
             <AdTag T={T} tone="ok">Firmado</AdTag>
             <button onClick={e => { e.stopPropagation(); imprimirConsentDoc(doc); }} title="Imprimir consentimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
             </button>
+            <button onClick={e => { e.stopPropagation(); startDelete(doc, i); }} title="Eliminar consentimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ flexShrink: 0, pointerEvents: "none" }}><path d="M9 18l6-6-6-6" /></svg>
           </div>
         ))}
       </div>
+
+      {/* Modal: eliminar consentimiento con clave del profesional */}
+      {deleting && (
+        <AdModal T={T} title="Eliminar consentimiento" onClose={cancelDelete}
+          footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={cancelDelete}>Cancelar</AdBtn><AdBtn T={T} primary onClick={confirmDelete}>Eliminar</AdBtn></div>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, lineHeight: 1.5 }}>
+              Vas a eliminar el consentimiento <b>{deleting.doc.proc || deleting.doc.title}</b> del <b>{deleting.doc.fecha}</b>. Esta acción no se puede deshacer.
+            </div>
+            <div style={{ background: "rgba(192,40,90,.07)", border: "1px solid rgba(192,40,90,.3)", borderRadius: 8, padding: "13px 14px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 12, color: T.text, marginBottom: 8 }}>
+                Ingresa la clave de <b>{deleting.doc.prof || "el profesional"}</b> para confirmar:
+              </div>
+              <input type="password" value={delPin} onChange={e => { setDelPin(e.target.value.replace(/\D/g, "").slice(0, 6)); setDelErr(""); }}
+                onKeyDown={e => e.key === "Enter" && confirmDelete()}
+                inputMode="numeric" placeholder="Clave del profesional"
+                style={{ width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (delErr ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, letterSpacing: ".3em", outline: "none", textAlign: "center" }} />
+              {delErr && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#C0285A", marginTop: 6 }}>{delErr}</div>}
+            </div>
+          </div>
+        </AdModal>
+      )}
 
       {/* Popup con el consentimiento completo */}
       {openDoc && (
