@@ -1168,7 +1168,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const hourOf = (t) => parseInt((t || "0").split(":")[0], 10);
   const atCell = (off, h) => appts.filter((a) => a.day === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
-  const WPX = typeof clinicSeeded === "function" && clinicSeeded() ? 54 : 70, WK_OPEN = 8, WK_CLOSE = 20;
+  const WPX = typeof clinicSeeded === "function" && clinicSeeded() ? 62 : 70, WK_OPEN = 8, WK_CLOSE = 20;
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX;
   const slots = adminSlots(), slotPx = WPX * adminSlotMins() / 60;
   const topW = (t) => (mins(t) - WK_OPEN * 60) * WPX / 60;
