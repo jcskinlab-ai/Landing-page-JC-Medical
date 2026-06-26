@@ -464,6 +464,50 @@ function MetaConnectModal({ T, onClose, onSaved }) {
   }
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Conectar Meta Ads", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, width: "100%" } }, metaConnected() && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: disconnect }, "Desconectar"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: save }, busy ? "Verificando\u2026" : "Conectar y verificar"))) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, "Conecta tu cuenta de Meta Ads para ver tu gasto, leads y ROAS reales en el panel. Usa un token de ", /* @__PURE__ */ React.createElement("b", null, "solo lectura"), " (", /* @__PURE__ */ React.createElement("code", null, "ads_read"), ")."), /* @__PURE__ */ React.createElement(AdField, { T, label: "ID de cuenta publicitaria", value: account, onChange: setAccount, placeholder: "act_1234567890" }), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Token de acceso (ads_read)"), /* @__PURE__ */ React.createElement("input", { type: "password", value: token, onChange: (e) => setToken(e.target.value), placeholder: "EAAB\u2026", autoComplete: "off", style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } })), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 } }, "El token se guarda solo en los datos privados de tu cl\xEDnica y se usa para leer tus estad\xEDsticas. Puedes desconectarlo cuando quieras. \xBFNo sabes generarlo? P\xEDdelo en business.facebook.com \u2192 Usuarios del sistema \u2192 Generar token (permiso ads_read).")));
 }
+function CorreoConnectModal({ T, onClose, onConnected }) {
+  const [dest, setDest] = useState(() => {
+    try {
+      return window.JCSAAS && window.JCSAAS.user && window.JCSAAS.user.email || "";
+    } catch (e) {
+      return "";
+    }
+  });
+  const [busy, setBusy] = useState(false);
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((dest || "").trim());
+  function enviarPrueba() {
+    if (!emailOk) {
+      window.jcmToast && window.jcmToast("Escribe un correo v\xE1lido para la prueba.", "error");
+      return;
+    }
+    setBusy(true);
+    const clinic = (() => {
+      try {
+        return DB.cfg().clinic_name || "tu cl\xEDnica";
+      } catch (e) {
+        return "tu cl\xEDnica";
+      }
+    })();
+    window.mediqueEmail({
+      to: dest.trim(),
+      subject: "Prueba de correo \xB7 Medique",
+      text: "\xA1Hola!\n\nEste es un correo de prueba enviado desde el panel de " + clinic + " con Medique.\n\nSi lo recibiste, el env\xEDo de correos qued\xF3 funcionando: ya puedes mandar confirmaciones y recordatorios a tus pacientes.\n\n\u2014 El equipo de Medique"
+    }).then((r) => {
+      setBusy(false);
+      if (r && r.ok) {
+        window.jcmToast && window.jcmToast("Correo de prueba enviado a " + dest.trim() + ". Revisa tu bandeja (y spam).", "ok");
+        onConnected && onConnected();
+      } else if (r && r.configured === false) {
+        window.jcmError && window.jcmError("Correo a\xFAn no configurado en el servidor (falta RESEND_API_KEY). P\xEDdelo al administrador.", r.error);
+      } else {
+        window.jcmError && window.jcmError("No se pudo enviar el correo de prueba", r && r.error || r);
+      }
+    }).catch((e) => {
+      setBusy(false);
+      window.jcmError && window.jcmError("No se pudo enviar el correo de prueba", e);
+    });
+  }
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Conectar Correo", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: enviarPrueba }, busy ? "Enviando\u2026" : "Enviar correo de prueba") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, "Env\xEDa un correo de prueba para confirmar que el canal funciona. Una vez verificado, podr\xE1s mandar confirmaciones y recordatorios a tus pacientes desde su ficha."), /* @__PURE__ */ React.createElement(AdField, { T, label: "Enviar prueba a", value: dest, onChange: setDest, placeholder: "tucorreo@ejemplo.com", inputMode: "email" }), dest.trim() && !emailOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C0285A" } }, "Correo inv\xE1lido."), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 } }, "Los correos se env\xEDan de forma segura desde el servidor de Medique. Si no llega, revisa la carpeta de spam.")));
+}
 function IntegracionesView({ T }) {
   const [list, setList] = useState(() => {
     let saved = {};
@@ -476,6 +520,7 @@ function IntegracionesView({ T }) {
   });
   const [metaModal, setMetaModal] = useState(false);
   const [metaOn, setMetaOn] = useState(metaConnected());
+  const [correoModal, setCorreoModal] = useState(false);
   const [previewInteg, setPreviewInteg] = useState(null);
   function toggle(id) {
     const n = list.map((i) => i.id === id ? { ...i, connected: !i.connected } : i);
@@ -491,9 +536,28 @@ function IntegracionesView({ T }) {
     } catch (e) {
     }
   }
+  function markConnected(id, val) {
+    const n = list.map((i) => i.id === id ? { ...i, connected: val } : i);
+    setList(n);
+    try {
+      if (window.DB) {
+        const map = {};
+        n.forEach((i) => {
+          map[i.id] = i.connected;
+        });
+        DB.set("integrations_state", map);
+      }
+    } catch (e) {
+    }
+  }
   function handleConnectClick(it, connected) {
     if (it.id === "metaads") {
       setMetaModal(true);
+      return;
+    }
+    if (it.id === "gmail") {
+      if (connected) toggle("gmail");
+      else setCorreoModal(true);
       return;
     }
     if (!connected) {
@@ -521,6 +585,9 @@ function IntegracionesView({ T }) {
   })), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 14, lineHeight: 1.6 } }, "Cada herramienta se conecta con el inicio de sesi\xF3n oficial (OAuth) de la plataforma. Conecta solo las que uses en tu cl\xEDnica."), metaModal && /* @__PURE__ */ React.createElement(MetaConnectModal, { T, onClose: () => setMetaModal(false), onSaved: () => {
     setMetaOn(metaConnected());
     setMetaModal(false);
+  } }), correoModal && /* @__PURE__ */ React.createElement(CorreoConnectModal, { T, onClose: () => setCorreoModal(false), onConnected: () => {
+    markConnected("gmail", true);
+    setCorreoModal(false);
   } }), previewInteg && /* @__PURE__ */ React.createElement(
     AdModal,
     {
