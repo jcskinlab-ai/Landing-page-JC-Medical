@@ -136,6 +136,54 @@ function patImages(p) {
 // documento de pacientes. Así cada uno es pequeño, SÍ sube a la nube y se ve en todos los
 // dispositivos en tiempo real, sin chocar con el límite de 1 MB por documento de Firestore.
 function patConsKey(id) { return "pcons_" + id; }
+// Recorta el espacio en blanco de una firma (deja solo el trazo) para que se vea grande
+// en el documento. Funciona con firmas ya guardadas. Async (carga la imagen en un canvas).
+function cropSignatureDataUrl(dataUrl) {
+  return new Promise(function (resolve) {
+    if (!dataUrl || typeof dataUrl !== "string") return resolve(dataUrl);
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) return resolve(dataUrl);
+        var c = document.createElement("canvas"); c.width = w; c.height = h;
+        var ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0);
+        var d = ctx.getImageData(0, 0, w, h).data;
+        var minX = w, minY = h, maxX = 0, maxY = 0, found = false;
+        for (var y = 0; y < h; y++) { for (var x = 0; x < w; x++) { var i = (y * w + x) * 4; var br = (d[i] + d[i + 1] + d[i + 2]) / 3; if (br < 185) { found = true; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; } } }
+        if (!found) return resolve(dataUrl);
+        var pad = Math.round(Math.max(w, h) * 0.04);
+        minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad); maxX = Math.min(w, maxX + pad); maxY = Math.min(h, maxY + pad);
+        var cw = maxX - minX, ch = maxY - minY;
+        if (cw < 4 || ch < 4) return resolve(dataUrl);
+        var oc = document.createElement("canvas"); oc.width = cw; oc.height = ch;
+        oc.getContext("2d").drawImage(img, minX, minY, cw, ch, 0, 0, cw, ch);
+        resolve(oc.toDataURL("image/jpeg", 0.9));
+      } catch (e) { resolve(dataUrl); }
+    };
+    img.onerror = function () { resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
+// Reduce el peso de una foto subida (consentimiento en papel) antes de guardarla.
+function compressImageDataUrl(dataUrl, maxW, q) {
+  return new Promise(function (resolve) {
+    if (!dataUrl || typeof dataUrl !== "string") return resolve(dataUrl);
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) return resolve(dataUrl);
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        var c = document.createElement("canvas"); c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL("image/jpeg", q || 0.62));
+      } catch (e) { resolve(dataUrl); }
+    };
+    img.onerror = function () { resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
 function patConsents(p) {
   if (!p) return [];
   try { const v = window.DB && window.DB.get(patConsKey(p.id)); if (Array.isArray(v)) return v; } catch (e) {}
@@ -1081,6 +1129,14 @@ function ConsentTab({ T, patient, updatePatient }) {
   const [deleting, setDeleting] = useState(null); // { doc, idx } para eliminar con clave
   const [delPin, setDelPin] = useState("");
   const [delErr, setDelErr] = useState("");
+  // Subir consentimiento ya firmado (archivo descargado o foto del consentimiento en papel).
+  const [uploading, setUploading] = useState(false);     // modal abierto
+  const [upDataUrl, setUpDataUrl] = useState(null);      // archivo elegido (dataURL)
+  const [upIsPdf, setUpIsPdf] = useState(false);
+  const [upTitle, setUpTitle] = useState("");
+  const [upFecha, setUpFecha] = useState(() => { const d = new Date(); return ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2); });
+  const [upBusy, setUpBusy] = useState(false);
+  const upInputRef = useRef(null);
   const A = window.JCADMIN;
   // Consentimientos en su propia clave (pcons_<id>) → suben a la nube y se ven en todos lados.
   const consKey = patConsKey(patient.id);
@@ -1100,6 +1156,49 @@ function ConsentTab({ T, patient, updatePatient }) {
   function commitConsents(next) { try { window.DB.set(consKey, next); } catch (e) {} setConsentsState(next); }
   const printRef = useRef(null);
   function start(t) { setTpl0(t); setSigning(true); }
+
+  // Marca el consentimiento como firmado en papel (sin archivo): quita la notificación de pendiente.
+  function markPaper() {
+    if (!window.confirm("Marcar el consentimiento de este paciente como firmado en papel. Se quitará de las notificaciones de \"consentimiento pendiente\". ¿Continuar?")) return;
+    const d = new Date();
+    const f = ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2);
+    updatePatient(patient.id, { consent: true, consentInfo: "Firmado en papel · " + f, paperConsent: true });
+    try { window.jcmToast && window.jcmToast("Marcado como firmado en papel.", "ok"); } catch (e) {}
+  }
+
+  // ── Subir un consentimiento ya firmado (archivo descargado o foto del papel) ──
+  function openUpload() { setUpDataUrl(null); setUpIsPdf(false); setUpTitle(""); setUploading(true); }
+  function onUpFile(e) {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const isPdf = f.type === "application/pdf" || /\.pdf$/i.test(f.name || "");
+    const reader = new FileReader();
+    reader.onload = () => { setUpIsPdf(isPdf); setUpDataUrl(reader.result); };
+    reader.readAsDataURL(f);
+    try { e.target.value = ""; } catch (_) {}
+  }
+  function saveUpload() {
+    if (!upDataUrl || upBusy) return;
+    setUpBusy(true);
+    const ts = Date.now();
+    const path = "consents/" + patient.id + "/" + ts + (upIsPdf ? ".pdf" : ".jpg");
+    const prep = upIsPdf ? Promise.resolve(upDataUrl) : compressImageDataUrl(upDataUrl, 1600, 0.6);
+    prep.then(data => {
+      const tryStorage = (window.JCSAAS && typeof window.JCSAAS.uploadImage === "function")
+        ? window.JCSAAS.uploadImage(data, path).then(url => url || data).catch(() => data)
+        : Promise.resolve(data);
+      return tryStorage.then(imgVal => {
+        const viaStorage = typeof imgVal === "string" && !imgVal.startsWith("data:");
+        const nuevo = { kind: "upload", cat: "Subido", title: (upTitle.trim() || "Consentimiento (subido)"), proc: (upTitle.trim() || "Consentimiento subido"), fecha: upFecha, img: imgVal, fileType: upIsPdf ? "pdf" : "img", uploaded: true, ts };
+        const lista = patConsents(patient).slice();
+        lista.unshift(nuevo);
+        commitConsents(lista);
+        updatePatient(patient.id, { consent: true, consentInfo: nuevo.title + " · " + upFecha });
+        try { window.jcmToast && window.jcmToast(viaStorage ? "Consentimiento subido y sincronizado." : "Consentimiento subido en este dispositivo.", "ok"); } catch (e) {}
+        setUploading(false); setUpDataUrl(null); setUpTitle("");
+      });
+    }).catch(() => { try { window.jcmToast && window.jcmToast("No se pudo subir el archivo.", "error"); } catch (e) {} })
+      .then(() => setUpBusy(false));
+  }
 
   function startDelete(doc, idx) { setDeleting({ doc, idx }); setDelPin(""); setDelErr(""); }
   function cancelDelete() { setDeleting(null); setDelPin(""); setDelErr(""); }
@@ -1130,6 +1229,16 @@ function ConsentTab({ T, patient, updatePatient }) {
   }
 
   function imprimirConsentDoc(doc, openOnly) {
+    // Consentimiento subido (foto/archivo): se abre/imprime directamente el archivo.
+    if (doc && doc.kind === "upload") {
+      if (doc.img) {
+        if (doc.fileType === "pdf") { window.open(doc.img, "_blank"); return; }
+        const ih = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento</title></head><body style='margin:0'><img src='" + doc.img + "' style='max-width:100%;display:block;margin:0 auto'/></body></html>";
+        if (openOnly || !window.jcmPrintHTML) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(ih); w.document.close(); } }
+        else window.jcmPrintHTML(ih);
+      }
+      return;
+    }
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const EU = esc(doc.prof || "____________________");
     const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
@@ -1156,33 +1265,44 @@ function ConsentTab({ T, patient, updatePatient }) {
       body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Demostraciones).");
       body += p("6.-", "Doy fe de no haber omitido o alterado mis antecedentes clínicos. Leí detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.");
     }
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + esc(patient.name || "") + "</title>" +
-      "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:150px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff}.sig-box img{max-height:142px;max-width:96%}</style>" +
-      "</head><body>" +
-      "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>" +
-      "<h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2>" +
-      "<div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || "") + "</b></div>" +
-      "<div style='font-size:12px;margin-bottom:16px'>Identificado con CI N° <b>" + esc(doc.ci || "") + "</b> · Edad <b>" + esc(doc.edad || "") + "</b></div>" +
-      body +
-      "<div class='sigs'>" +
-        "<div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (doc.sigPac ? "<img src='" + doc.sigPac + "'/>" : "") + "</div></div>" +
-        "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (doc.sigPro ? "<img src='" + doc.sigPro + "'/>" : "") + "</div></div>" +
-      "</div></body></html>";
-    if (openOnly) {
-      // Solo ABRIR el consentimiento en una pestaña nueva (sin lanzar el diálogo de impresión).
-      const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); }
-      return;
-    }
-    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
-    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+    // En iOS, la pestaña debe abrirse DENTRO del gesto del usuario; se rellena al recortar las firmas.
+    const winIOS = openOnly ? window.open("", "_blank") : null;
+    if (winIOS) { try { winIOS.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento…</body>"); } catch (e) {} }
+    Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
+      const sp = crops[0], spr = crops[1];
+      const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + esc(patient.name || "") + "</title>" +
+        "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:175px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px}.sig-box img{max-height:100%;max-width:100%;object-fit:contain}</style>" +
+        "</head><body>" +
+        "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>" +
+        "<h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2>" +
+        "<div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || "") + "</b></div>" +
+        "<div style='font-size:12px;margin-bottom:16px'>Identificado con CI N° <b>" + esc(doc.ci || "") + "</b> · Edad <b>" + esc(doc.edad || "") + "</b></div>" +
+        body +
+        "<div class='sigs'>" +
+          "<div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (sp ? "<img src='" + sp + "'/>" : "") + "</div></div>" +
+          "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (spr ? "<img src='" + spr + "'/>" : "") + "</div></div>" +
+        "</div></body></html>";
+      if (openOnly) {
+        if (winIOS) { try { winIOS.document.open(); winIOS.document.write(html); winIOS.document.close(); } catch (e) {} }
+        else { const w2 = window.open("", "_blank"); if (w2) { w2.document.open(); w2.document.write(html); w2.document.close(); } }
+        return;
+      }
+      if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+      else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+    });
   }
 
   return (
     <div>
       {/* Crear consentimiento (4 plantillas, incl. extraordinario) */}
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Crear consentimiento</div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
         {A.consents.map(c => <AdBtn key={c.id} T={T} small primary onClick={() => start(c)}>{c.title}</AdBtn>)}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
+        <AdBtn T={T} small onClick={openUpload}>↑ Subir consentimiento (foto o archivo)</AdBtn>
+        {!patient.consent && <AdBtn T={T} small onClick={markPaper}>✓ Consentimiento firmado en papel</AdBtn>}
+        <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint }}>Para consentimientos firmados en papel o respaldados.</span>
       </div>
 
       {/* Listado compacto · clickeable */}
@@ -1208,6 +1328,35 @@ function ConsentTab({ T, patient, updatePatient }) {
         ))}
       </div>
 
+      {/* Modal: subir un consentimiento (foto / archivo) */}
+      {uploading && (
+        <AdModal T={T} title="Subir consentimiento" onClose={() => !upBusy && setUploading(false)}
+          footer={<div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}><AdBtn T={T} onClick={() => !upBusy && setUploading(false)}>Cancelar</AdBtn><AdBtn T={T} primary onClick={saveUpload}>{upBusy ? "Subiendo…" : "Guardar consentimiento"}</AdBtn></div>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5 }}>
+              Sube una <b>foto</b> del consentimiento firmado en papel o un <b>archivo</b> (imagen o PDF) que tengas respaldado. Queda guardado en la ficha del paciente y se sincroniza.
+            </div>
+            <div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 5 }}>Procedimiento / título (opcional)</div>
+              <input value={upTitle} onChange={e => setUpTitle(e.target.value)} placeholder="Ej.: Toxina botulínica"
+                style={{ width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 14, outline: "none" }} />
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 130 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 5 }}>Fecha</div>
+                <input value={upFecha} onChange={e => setUpFecha(e.target.value)} placeholder="DD-MM-AA"
+                  style={{ width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 14, outline: "none" }} />
+              </div>
+            </div>
+            <input ref={upInputRef} type="file" accept="image/*,application/pdf" onChange={onUpFile} style={{ display: "none" }} />
+            <AdBtn T={T} onClick={() => upInputRef.current && upInputRef.current.click()}>{upDataUrl ? "Cambiar archivo / foto" : "Elegir foto o archivo"}</AdBtn>
+            {upDataUrl && (upIsPdf
+              ? <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px" }}>📄 Archivo PDF listo para subir.</div>
+              : <img src={upDataUrl} alt="vista previa" style={{ width: "100%", maxHeight: 320, objectFit: "contain", background: "#fff", border: "1px solid " + T.line, borderRadius: 8 }} />)}
+          </div>
+        </AdModal>
+      )}
+
       {/* Modal: eliminar consentimiento con clave del profesional */}
       {deleting && (
         <AdModal T={T} title="Eliminar consentimiento" onClose={cancelDelete}
@@ -1232,7 +1381,15 @@ function ConsentTab({ T, patient, updatePatient }) {
 
       {/* Popup con el consentimiento completo */}
       {openDoc && (
-        <AdModal T={T} title={openDoc.title || "Consentimiento"} onClose={() => setOpenDoc(null)} wide footer={<div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}><AdBtn T={T} onClick={() => setOpenDoc(null)}>Cerrar</AdBtn><AdBtn T={T} primary onClick={imprimirConsent}>Imprimir</AdBtn></div>}>
+        <AdModal T={T} title={openDoc.title || "Consentimiento"} onClose={() => setOpenDoc(null)} wide footer={<div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}><AdBtn T={T} onClick={() => setOpenDoc(null)}>Cerrar</AdBtn>{openDoc.kind === "upload" ? <AdBtn T={T} primary onClick={() => { if (openDoc.img) window.open(openDoc.img, "_blank"); }}>Abrir / descargar</AdBtn> : <AdBtn T={T} primary onClick={imprimirConsent}>Imprimir</AdBtn>}</div>}>
+          {openDoc.kind === "upload" ? (
+            <div style={{ background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "16px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 12, color: "#444", marginBottom: 10 }}>Consentimiento subido · {openDoc.fecha}{openDoc.fileType === "pdf" ? " · PDF" : ""}</div>
+              {openDoc.fileType === "pdf"
+                ? <a href={openDoc.img} target="_blank" rel="noopener" style={{ fontFamily: T.sans, fontSize: 14, color: T.accent }}>📄 Abrir el PDF del consentimiento</a>
+                : <img src={openDoc.img} alt="consentimiento subido" style={{ width: "100%", maxHeight: "70vh", objectFit: "contain", display: "block" }} />}
+            </div>
+          ) : (
           <div ref={printRef} style={{ background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px" }}>
             <div style={{ textAlign: "right", fontFamily: T.sans, fontSize: 11, color: "#444" }}>Fecha: {openDoc.fecha}</div>
             <h2 style={{ textAlign: "center", fontFamily: T.serif, fontWeight: 400, fontSize: 20, color: "#111", margin: "2px 0 14px" }}>Consentimiento informado</h2>
@@ -1240,10 +1397,11 @@ function ConsentTab({ T, patient, updatePatient }) {
             <div style={{ fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 14 }}>Identificado con CI N° <b>{openDoc.ci}</b> · Edad <b>{openDoc.edad}</b></div>
             <ConsentDocDark T={T} tpl={openDoc} prof={openDoc.prof} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
-              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma paciente</div>{openDoc.sigPac && <img src={openDoc.sigPac} alt="firma paciente" style={{ height: 60, background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
-              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma profesional · {openDoc.prof}</div>{openDoc.sigPro && <img src={openDoc.sigPro} alt="firma profesional" style={{ height: 60, background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
+              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma paciente</div>{openDoc.sigPac && <img src={openDoc.sigPac} alt="firma paciente" style={{ width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
+              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma profesional · {openDoc.prof}</div>{openDoc.sigPro && <img src={openDoc.sigPro} alt="firma profesional" style={{ width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
             </div>
           </div>
+          )}
         </AdModal>
       )}
 

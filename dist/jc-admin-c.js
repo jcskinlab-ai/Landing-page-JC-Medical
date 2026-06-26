@@ -1782,6 +1782,122 @@ function csvParse(text) {
   });
 }
 const ADMIN_TABS = [["datos", "Datos / facturaci\xF3n"], ["registro", "Registro de actividad"], ["equipo", "Equipo y permisos"], ["respaldo", "Respaldo / exportar"]];
+function optimizePatientsBlock() {
+  const DB2 = window.DB;
+  if (!DB2) return { ok: false, movedImg: 0, movedCons: 0 };
+  let list;
+  try {
+    list = DB2.get("patients");
+  } catch (e) {
+    return { ok: false, movedImg: 0, movedCons: 0 };
+  }
+  if (!Array.isArray(list)) return { ok: false, movedImg: 0, movedCons: 0 };
+  let movedImg = 0, movedCons = 0, changed = false;
+  const next = list.map((p) => {
+    if (!p || p.id == null) return p;
+    let np = p;
+    if (Array.isArray(p.images) && p.images.length) {
+      try {
+        const key = "pimg_" + p.id;
+        const own = DB2.get(key);
+        let merged;
+        if (Array.isArray(own)) {
+          merged = own.slice();
+          p.images.forEach((im) => {
+            if (im && (im.id == null || !own.some((o) => o && o.id === im.id))) merged.push(im);
+          });
+        } else {
+          merged = p.images;
+        }
+        DB2.set(key, merged);
+        if (Array.isArray(DB2.get(key))) {
+          np = Object.assign({}, np, { images: [] });
+          movedImg++;
+          changed = true;
+        }
+      } catch (e) {
+      }
+    }
+    let legacy = p.consents || (p.consentDoc ? [p.consentDoc] : []);
+    if ((!legacy || !legacy.length) && (p.consentSig || p.consentSigPro)) {
+      legacy = [{ title: p.consentInfo || "Consentimiento", sigPac: p.consentSig || null, sigPro: p.consentSigPro || null, ts: Date.now(), recovered: true }];
+    }
+    const hasHeavy = legacy && legacy.length || p.consentSig || p.consentSigPro || p.consentDoc || p.consents;
+    if (hasHeavy) {
+      try {
+        const key = "pcons_" + p.id;
+        const own = DB2.get(key);
+        let target = Array.isArray(own) ? own.slice() : [];
+        (legacy || []).forEach((d) => {
+          if (d && !target.some((t) => t && t.ts === d.ts)) target.push(d);
+        });
+        if (target.length) DB2.set(key, target);
+        np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+        movedCons++;
+        changed = true;
+      } catch (e) {
+      }
+    }
+    try {
+      const own = DB2.get("pcons_" + p.id);
+      if (Array.isArray(own) && own.length && !np.consent) {
+        np = Object.assign({}, np, { consent: true, consentInfo: np.consentInfo || (own[own.length - 1] && own[own.length - 1].title || "Consentimiento firmado") });
+        changed = true;
+      }
+    } catch (e) {
+    }
+    return np;
+  });
+  if (changed) {
+    try {
+      DB2.set("patients", next);
+    } catch (e) {
+      return { ok: false, movedImg, movedCons };
+    }
+  }
+  return { ok: true, movedImg, movedCons };
+}
+function SyncStatusCard({ T }) {
+  const [, force] = useState(0);
+  const s = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.syncStatus ? window.JCSAAS.syncStatus() : null;
+  if (!s) return null;
+  const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB";
+  const dirtySet = {};
+  (s.dirty || []).forEach((k) => {
+    dirtySet[k] = true;
+  });
+  const labelOf = (k) => k.indexOf("pcons_") === 0 ? "Consentimientos \xB7 un paciente" : { patients: "Pacientes", appointments: "Agenda", cash_moves: "Caja", inv_items: "Inventario", inv_procs: "Procedimientos", config: "Configuraci\xF3n", team: "Equipo", services_custom: "Servicios", horarios_v1: "Horarios", bookings: "Reservas web", admin_tasks: "Pendientes" }[k] || k;
+  const errMsg = { "resource-exhausted": "Supera 1 MB (l\xEDmite de la nube) \u2014 no puede subir.", "permission-denied": "Permiso denegado (reglas o plan).", "unavailable": "Sin conexi\xF3n con la nube.", "unauthenticated": "Sesi\xF3n sin autenticar.", "failed-precondition": "Verificaci\xF3n (App Check) fall\xF3.", "invalid-argument": "Documento demasiado grande (supera 1 MB)." };
+  const keys = Object.keys(s.sizes).sort((a, b) => s.sizes[b] - s.sizes[a]);
+  const shown = keys.filter((k) => dirtySet[k] || s.sizes[k] > 700 * 1024).slice(0, 14);
+  const pend = (s.dirty || []).length;
+  const hace = s.lastOk ? Math.round((Date.now() - s.lastOk) / 1e3) : null;
+  const patErr = s.errors && s.errors.patients ? s.errors.patients.code : null;
+  const patHeavy = (s.sizes.patients || 0) > 920 * 1024 || patErr === "resource-exhausted" || patErr === "invalid-argument";
+  return /* @__PURE__ */ React.createElement("div", { style: { background: pend ? "rgba(192,40,90,.06)" : T.surface, border: "1px solid " + (pend ? "#C0285A55" : T.line), borderRadius: 12, padding: "18px 18px", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Estado de sincronizaci\xF3n"), /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, onClick: () => {
+    try {
+      window.JCSAAS.retrySync();
+    } catch (e) {
+    }
+    window.jcmToast && window.jcmToast("Reintentando subir lo pendiente\u2026", "info");
+    setTimeout(() => force((x) => x + 1), 3500);
+  } }, "Reintentar ahora")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 } }, s.online ? "En l\xEDnea" : "Sin conexi\xF3n", " \xB7 ", pend === 0 ? "todo sincronizado \u2713" : pend + " bloque(s) pendientes de subir", hace != null ? " \xB7 \xFAltima subida hace " + (hace < 60 ? hace + " s" : Math.round(hace / 60) + " min") : "", "."), patHeavy && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(192,40,90,.07)", border: "1px solid #C0285A44", borderRadius: 10, padding: "14px 14px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text, fontWeight: 600, marginBottom: 4 } }, 'El bloque "Pacientes" no sube porque pesa demasiado'), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 } }, "Hay im\xE1genes y firmas guardadas dentro de los pacientes que lo inflan. Esto las mueve a su propio espacio (sin perder nada) para que el bloque baje de 1 MB y vuelva a sincronizar. Ten tu respaldo descargado antes de continuar."), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => {
+    if (!window.confirm("Se mover\xE1n las im\xE1genes y firmas que est\xE1n dentro de los pacientes a su propio espacio, para que la sincronizaci\xF3n vuelva a funcionar. No se borra ning\xFAn dato. \xBFContinuar?")) return;
+    const before = s.sizes.patients || 0;
+    const r = optimizePatientsBlock();
+    try {
+      window.JCSAAS.retrySync();
+    } catch (e) {
+    }
+    setTimeout(() => {
+      const ns = window.JCSAAS && window.JCSAAS.syncStatus ? window.JCSAAS.syncStatus() : null;
+      const after = ns && ns.sizes ? ns.sizes.patients || 0 : before;
+      const kb = (b) => Math.round(b / 1024) + " KB";
+      window.jcmToast && window.jcmToast(r.ok ? "Listo: bloque de " + kb(before) + " \u2192 " + kb(after) + ". Subiendo a la nube\u2026" : "No se pudo optimizar; revisa el respaldo.", r.ok ? "ok" : "error");
+      force((x) => x + 1);
+    }, 2500);
+  } }, "Optimizar pacientes ahora")), shown.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Todo al d\xEDa, sin bloques pesados.") : shown.map((k) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, labelOf(k), dirtySet[k] ? " \xB7 pendiente" : ""), s.errors[k] && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 2 } }, errMsg[s.errors[k].code] || "Error: " + s.errors[k].code)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: s.sizes[k] > 1048576 ? "#C0285A" : s.sizes[k] > 900 * 1024 ? T.gold || "#C9A227" : T.textMute, fontWeight: s.sizes[k] > 900 * 1024 ? 600 : 400, whiteSpace: "nowrap" } }, fmtSize(s.sizes[k])))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 } }, "Un bloque en ", /* @__PURE__ */ React.createElement("b", { style: { color: "#C0285A" } }, "rojo"), " cerca o sobre 1 MB es el que no logra subir a la nube. Abre esta pantalla en cada dispositivo para comparar."));
+}
 function AdministracionView({ T, go, patients, appts, addPatient, updatePatient, markAllPaperConsent }) {
   const D = window.JCDATA;
   const [tab, setTab] = useState("datos");
@@ -1991,7 +2107,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
     rd.readAsText(f, "utf-8");
   }
   const expCard = (title, sub, fn) => /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, title), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px" } }, sub), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: fn }, "\u2193 Descargar CSV"));
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Administraci\xF3n", sub: "Equipo y permisos, registro de actividad, datos de la cl\xEDnica y respaldo de informaci\xF3n." }), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { display: "flex", gap: 7, overflowX: "auto", marginBottom: 18, paddingBottom: 2 } }, ADMIN_TABS.map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setTab(k), style: { flexShrink: 0, fontFamily: T.sans, fontSize: 12, fontWeight: 500, padding: "9px 15px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (tab === k ? T.accent : T.chipBorder), background: tab === k ? T.accent : T.chipBg, color: tab === k ? T.onAccent || "#fff" : T.textMute } }, l))), msg && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(31,138,91,.10)", border: "1px solid rgba(31,138,91,.4)", borderRadius: 8, padding: "10px 13px", marginBottom: 14, fontFamily: T.sans, fontSize: 12, color: "#1F8A5B" } }, "\u2713 ", msg), tab === "datos" && /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, maxWidth: 560 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 13 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Raz\xF3n social", value: biz.razon, onChange: (v) => setBiz({ ...biz, razon: v }), placeholder: "Ej: Nombre SpA" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "RUT empresa", value: biz.rut, onChange: (v) => setBiz({ ...biz, rut: window.jcmFmtRut ? window.jcmFmtRut(v) : v }), placeholder: "xx.xxx.xxx-x" })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 13 } }, /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Plan / suscripci\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface2, color: T.textMute, fontFamily: T.sans, fontSize: 13.5, boxSizing: "border-box" } }, autoPlan || biz.plan || "\u2014"), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 } }, "Se asigna autom\xE1ticamente seg\xFAn tu suscripci\xF3n en Medique."))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16, textAlign: "right" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: saveBiz }, "Guardar"))), tab === "respaldo" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 14 } }, expCard("Pacientes", "Nombre, RUT, contacto y estado.", expPac), expCard("Citas", "Fecha, paciente, servicio, estado y precio.", expCitas), expCard("Caja", "Movimientos de ingreso y egreso.", expCaja)), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, background: T.surface, border: "1px solid " + T.accent + "55", borderRadius: 12, padding: "18px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Respaldo completo"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 } }, "Descarga ", /* @__PURE__ */ React.createElement("b", null, "todos los datos de tu cl\xEDnica"), " (pacientes, agenda, caja, inventario, servicios, configuraci\xF3n\u2026) en un solo archivo JSON. Gu\xE1rdalo en un lugar seguro como respaldo peri\xF3dico."), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: expFull }, "\u2193 Descargar respaldo completo (JSON)")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 18, background: T.surface, border: "1px dashed " + T.chipBorder, borderRadius: 12, padding: "18px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Importar base de pacientes"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 } }, "Sube un archivo ", /* @__PURE__ */ React.createElement("b", null, "Excel (.xlsx) o CSV"), ". La primera fila debe tener los ", /* @__PURE__ */ React.createElement("b", null, "encabezados"), " y una columna llamada ", /* @__PURE__ */ React.createElement("b", null, "Nombre"), " (opcionales: RUT, Tel\xE9fono, Correo). Si el RUT ya existe, no se duplica. ", /* @__PURE__ */ React.createElement("i", null, "(.numbers: en Numbers usa Archivo \u2192 Exportar a \u2192 Excel.)")), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => fileRef.current.click() }, "Subir archivo (Excel / CSV)"), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: ".csv,text/csv,application/vnd.ms-excel,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.numbers", onChange: onImport, style: { display: "none" } }), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, margin: "12px 0 0", lineHeight: 1.5 } }, "Los pacientes importados quedan con ", /* @__PURE__ */ React.createElement("b", null, "consentimiento firmado en papel"), " (no aparecen como pendientes de firma). Si tu Excel trae una columna ", /* @__PURE__ */ React.createElement("b", null, "Fecha"), ", podr\xE1s ordenarlos por fecha con el filtro ", /* @__PURE__ */ React.createElement("b", null, "Calendario"), " en Pacientes.")), markAllPaperConsent && (patients || []).some((p) => !p.consent) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text } }, "Consentimientos en papel"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 } }, "Tienes ", /* @__PURE__ */ React.createElement("b", null, (patients || []).filter((p) => !p.consent).length), ' paciente(s) marcados como "consentimiento pendiente". Si ya tienen su consentimiento firmado en papel (p. ej. tu base importada), m\xE1rcalos todos como firmados para quitarlos de las notificaciones.'), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: async () => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Administraci\xF3n", sub: "Equipo y permisos, registro de actividad, datos de la cl\xEDnica y respaldo de informaci\xF3n." }), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { display: "flex", gap: 7, overflowX: "auto", marginBottom: 18, paddingBottom: 2 } }, ADMIN_TABS.map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setTab(k), style: { flexShrink: 0, fontFamily: T.sans, fontSize: 12, fontWeight: 500, padding: "9px 15px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (tab === k ? T.accent : T.chipBorder), background: tab === k ? T.accent : T.chipBg, color: tab === k ? T.onAccent || "#fff" : T.textMute } }, l))), msg && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(31,138,91,.10)", border: "1px solid rgba(31,138,91,.4)", borderRadius: 8, padding: "10px 13px", marginBottom: 14, fontFamily: T.sans, fontSize: 12, color: "#1F8A5B" } }, "\u2713 ", msg), tab === "datos" && /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, maxWidth: 560 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 13 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Raz\xF3n social", value: biz.razon, onChange: (v) => setBiz({ ...biz, razon: v }), placeholder: "Ej: Nombre SpA" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "RUT empresa", value: biz.rut, onChange: (v) => setBiz({ ...biz, rut: window.jcmFmtRut ? window.jcmFmtRut(v) : v }), placeholder: "xx.xxx.xxx-x" })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 13 } }, /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Plan / suscripci\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface2, color: T.textMute, fontFamily: T.sans, fontSize: 13.5, boxSizing: "border-box" } }, autoPlan || biz.plan || "\u2014"), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 } }, "Se asigna autom\xE1ticamente seg\xFAn tu suscripci\xF3n en Medique."))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16, textAlign: "right" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: saveBiz }, "Guardar"))), tab === "respaldo" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SyncStatusCard, { T }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 14 } }, expCard("Pacientes", "Nombre, RUT, contacto y estado.", expPac), expCard("Citas", "Fecha, paciente, servicio, estado y precio.", expCitas), expCard("Caja", "Movimientos de ingreso y egreso.", expCaja)), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, background: T.surface, border: "1px solid " + T.accent + "55", borderRadius: 12, padding: "18px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Respaldo completo"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 } }, "Descarga ", /* @__PURE__ */ React.createElement("b", null, "todos los datos de tu cl\xEDnica"), " (pacientes, agenda, caja, inventario, servicios, configuraci\xF3n\u2026) en un solo archivo JSON. Gu\xE1rdalo en un lugar seguro como respaldo peri\xF3dico."), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: expFull }, "\u2193 Descargar respaldo completo (JSON)")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 18, background: T.surface, border: "1px dashed " + T.chipBorder, borderRadius: 12, padding: "18px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Importar base de pacientes"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 } }, "Sube un archivo ", /* @__PURE__ */ React.createElement("b", null, "Excel (.xlsx) o CSV"), ". La primera fila debe tener los ", /* @__PURE__ */ React.createElement("b", null, "encabezados"), " y una columna llamada ", /* @__PURE__ */ React.createElement("b", null, "Nombre"), " (opcionales: RUT, Tel\xE9fono, Correo). Si el RUT ya existe, no se duplica. ", /* @__PURE__ */ React.createElement("i", null, "(.numbers: en Numbers usa Archivo \u2192 Exportar a \u2192 Excel.)")), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => fileRef.current.click() }, "Subir archivo (Excel / CSV)"), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: ".csv,text/csv,application/vnd.ms-excel,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.numbers", onChange: onImport, style: { display: "none" } }), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, margin: "12px 0 0", lineHeight: 1.5 } }, "Los pacientes importados quedan con ", /* @__PURE__ */ React.createElement("b", null, "consentimiento firmado en papel"), " (no aparecen como pendientes de firma). Si tu Excel trae una columna ", /* @__PURE__ */ React.createElement("b", null, "Fecha"), ", podr\xE1s ordenarlos por fecha con el filtro ", /* @__PURE__ */ React.createElement("b", null, "Calendario"), " en Pacientes.")), markAllPaperConsent && (patients || []).some((p) => !p.consent) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text } }, "Consentimientos en papel"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 } }, "Tienes ", /* @__PURE__ */ React.createElement("b", null, (patients || []).filter((p) => !p.consent).length), ' paciente(s) marcados como "consentimiento pendiente". Si ya tienen su consentimiento firmado en papel (p. ej. tu base importada), m\xE1rcalos todos como firmados para quitarlos de las notificaciones.'), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: async () => {
     const n = (patients || []).filter((p) => !p.consent).length;
     const ok = await (window.jcmConfirm ? window.jcmConfirm("\xBFMarcar " + n + ' paciente(s) sin consentimiento como "firmado en papel"? \xDAsalo solo si efectivamente tienen el consentimiento f\xEDsico.') : Promise.resolve(window.confirm("\xBFMarcar " + n + " paciente(s) como consentimiento en papel?")));
     if (!ok) return;
