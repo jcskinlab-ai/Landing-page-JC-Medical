@@ -1782,6 +1782,81 @@ function csvParse(text) {
   });
 }
 const ADMIN_TABS = [["datos", "Datos / facturaci\xF3n"], ["registro", "Registro de actividad"], ["equipo", "Equipo y permisos"], ["respaldo", "Respaldo / exportar"]];
+function optimizePatientsBlock() {
+  const DB2 = window.DB;
+  if (!DB2) return { ok: false, movedImg: 0, movedCons: 0 };
+  let list;
+  try {
+    list = DB2.get("patients");
+  } catch (e) {
+    return { ok: false, movedImg: 0, movedCons: 0 };
+  }
+  if (!Array.isArray(list)) return { ok: false, movedImg: 0, movedCons: 0 };
+  let movedImg = 0, movedCons = 0, changed = false;
+  const next = list.map((p) => {
+    if (!p || p.id == null) return p;
+    let np = p;
+    if (Array.isArray(p.images) && p.images.length) {
+      try {
+        const key = "pimg_" + p.id;
+        const own = DB2.get(key);
+        let merged;
+        if (Array.isArray(own)) {
+          merged = own.slice();
+          p.images.forEach((im) => {
+            if (im && (im.id == null || !own.some((o) => o && o.id === im.id))) merged.push(im);
+          });
+        } else {
+          merged = p.images;
+        }
+        DB2.set(key, merged);
+        if (Array.isArray(DB2.get(key))) {
+          np = Object.assign({}, np, { images: [] });
+          movedImg++;
+          changed = true;
+        }
+      } catch (e) {
+      }
+    }
+    let legacy = p.consents || (p.consentDoc ? [p.consentDoc] : []);
+    if ((!legacy || !legacy.length) && (p.consentSig || p.consentSigPro)) {
+      legacy = [{ title: p.consentInfo || "Consentimiento", sigPac: p.consentSig || null, sigPro: p.consentSigPro || null, ts: Date.now(), recovered: true }];
+    }
+    const hasHeavy = legacy && legacy.length || p.consentSig || p.consentSigPro || p.consentDoc || p.consents;
+    if (hasHeavy) {
+      try {
+        const key = "pcons_" + p.id;
+        const own = DB2.get(key);
+        let target = Array.isArray(own) ? own.slice() : [];
+        (legacy || []).forEach((d) => {
+          if (d && !target.some((t) => t && t.ts === d.ts)) target.push(d);
+        });
+        if (target.length) DB2.set(key, target);
+        np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+        movedCons++;
+        changed = true;
+      } catch (e) {
+      }
+    }
+    try {
+      const own = DB2.get("pcons_" + p.id);
+      if (Array.isArray(own) && own.length && !np.consent) {
+        np = Object.assign({}, np, { consent: true, consentInfo: np.consentInfo || (own[own.length - 1] && own[own.length - 1].title || "Consentimiento firmado") });
+        changed = true;
+      }
+    } catch (e) {
+    }
+    return np;
+  });
+  if (changed) {
+    try {
+      DB2.set("patients", next);
+    } catch (e) {
+      return { ok: false, movedImg, movedCons };
+    }
+  }
+  return { ok: true, movedImg, movedCons };
+}
 function SyncStatusCard({ T }) {
   const [, force] = useState(0);
   const s = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.syncStatus ? window.JCSAAS.syncStatus() : null;
@@ -1797,6 +1872,8 @@ function SyncStatusCard({ T }) {
   const shown = keys.filter((k) => dirtySet[k] || s.sizes[k] > 700 * 1024).slice(0, 14);
   const pend = (s.dirty || []).length;
   const hace = s.lastOk ? Math.round((Date.now() - s.lastOk) / 1e3) : null;
+  const patErr = s.errors && s.errors.patients ? s.errors.patients.code : null;
+  const patHeavy = (s.sizes.patients || 0) > 920 * 1024 || patErr === "resource-exhausted" || patErr === "invalid-argument";
   return /* @__PURE__ */ React.createElement("div", { style: { background: pend ? "rgba(192,40,90,.06)" : T.surface, border: "1px solid " + (pend ? "#C0285A55" : T.line), borderRadius: 12, padding: "18px 18px", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Estado de sincronizaci\xF3n"), /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, onClick: () => {
     try {
       window.JCSAAS.retrySync();
@@ -1804,7 +1881,22 @@ function SyncStatusCard({ T }) {
     }
     window.jcmToast && window.jcmToast("Reintentando subir lo pendiente\u2026", "info");
     setTimeout(() => force((x) => x + 1), 3500);
-  } }, "Reintentar ahora")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 } }, s.online ? "En l\xEDnea" : "Sin conexi\xF3n", " \xB7 ", pend === 0 ? "todo sincronizado \u2713" : pend + " bloque(s) pendientes de subir", hace != null ? " \xB7 \xFAltima subida hace " + (hace < 60 ? hace + " s" : Math.round(hace / 60) + " min") : "", "."), shown.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Todo al d\xEDa, sin bloques pesados.") : shown.map((k) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, labelOf(k), dirtySet[k] ? " \xB7 pendiente" : ""), s.errors[k] && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 2 } }, errMsg[s.errors[k].code] || "Error: " + s.errors[k].code)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: s.sizes[k] > 1048576 ? "#C0285A" : s.sizes[k] > 900 * 1024 ? T.gold || "#C9A227" : T.textMute, fontWeight: s.sizes[k] > 900 * 1024 ? 600 : 400, whiteSpace: "nowrap" } }, fmtSize(s.sizes[k])))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 } }, "Un bloque en ", /* @__PURE__ */ React.createElement("b", { style: { color: "#C0285A" } }, "rojo"), " cerca o sobre 1 MB es el que no logra subir a la nube. Abre esta pantalla en cada dispositivo para comparar."));
+  } }, "Reintentar ahora")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 } }, s.online ? "En l\xEDnea" : "Sin conexi\xF3n", " \xB7 ", pend === 0 ? "todo sincronizado \u2713" : pend + " bloque(s) pendientes de subir", hace != null ? " \xB7 \xFAltima subida hace " + (hace < 60 ? hace + " s" : Math.round(hace / 60) + " min") : "", "."), patHeavy && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(192,40,90,.07)", border: "1px solid #C0285A44", borderRadius: 10, padding: "14px 14px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text, fontWeight: 600, marginBottom: 4 } }, 'El bloque "Pacientes" no sube porque pesa demasiado'), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 } }, "Hay im\xE1genes y firmas guardadas dentro de los pacientes que lo inflan. Esto las mueve a su propio espacio (sin perder nada) para que el bloque baje de 1 MB y vuelva a sincronizar. Ten tu respaldo descargado antes de continuar."), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => {
+    if (!window.confirm("Se mover\xE1n las im\xE1genes y firmas que est\xE1n dentro de los pacientes a su propio espacio, para que la sincronizaci\xF3n vuelva a funcionar. No se borra ning\xFAn dato. \xBFContinuar?")) return;
+    const before = s.sizes.patients || 0;
+    const r = optimizePatientsBlock();
+    try {
+      window.JCSAAS.retrySync();
+    } catch (e) {
+    }
+    setTimeout(() => {
+      const ns = window.JCSAAS && window.JCSAAS.syncStatus ? window.JCSAAS.syncStatus() : null;
+      const after = ns && ns.sizes ? ns.sizes.patients || 0 : before;
+      const kb = (b) => Math.round(b / 1024) + " KB";
+      window.jcmToast && window.jcmToast(r.ok ? "Listo: bloque de " + kb(before) + " \u2192 " + kb(after) + ". Subiendo a la nube\u2026" : "No se pudo optimizar; revisa el respaldo.", r.ok ? "ok" : "error");
+      force((x) => x + 1);
+    }, 2500);
+  } }, "Optimizar pacientes ahora")), shown.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Todo al d\xEDa, sin bloques pesados.") : shown.map((k) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, labelOf(k), dirtySet[k] ? " \xB7 pendiente" : ""), s.errors[k] && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 2 } }, errMsg[s.errors[k].code] || "Error: " + s.errors[k].code)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: s.sizes[k] > 1048576 ? "#C0285A" : s.sizes[k] > 900 * 1024 ? T.gold || "#C9A227" : T.textMute, fontWeight: s.sizes[k] > 900 * 1024 ? 600 : 400, whiteSpace: "nowrap" } }, fmtSize(s.sizes[k])))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 } }, "Un bloque en ", /* @__PURE__ */ React.createElement("b", { style: { color: "#C0285A" } }, "rojo"), " cerca o sobre 1 MB es el que no logra subir a la nube. Abre esta pantalla en cada dispositivo para comparar."));
 }
 function AdministracionView({ T, go, patients, appts, addPatient, updatePatient, markAllPaperConsent }) {
   const D = window.JCDATA;
