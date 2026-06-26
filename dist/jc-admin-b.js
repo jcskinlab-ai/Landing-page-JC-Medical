@@ -215,7 +215,7 @@ function recitaFor(p) {
   const fmtP = (n) => "$" + (n || 0).toLocaleString("es-CL");
   const tag = (p.tags && p.tags[0] || "").toLowerCase();
   const hist = p.history || [];
-  const toxRe = /botox|toxina|botul|bruxismo|hiperhidro|gingival|nefertiti|empedrado/i;
+  const toxRe = /botox|toxina|botul|bruxismo|hiperhidro|gingival|nefertiti|empedrado|\bb3z\b|\bbff\b|full\s*face/i;
   const scuRe = /sculptra|bioestim|col[aá]g|estimul/i;
   const fechado = hist.filter((h) => h && _recitaTs(h.date || h.fecha)).sort((a, b) => _recitaTs(b.date || b.fecha) - _recitaTs(a.date || a.fecha));
   const lastTox = fechado.find((h) => toxRe.test(h.proc || h.title || ""));
@@ -545,7 +545,7 @@ function NotasTab({ T, patient, updatePatient }) {
 }
 function procMapType(proc) {
   const p = (proc || "").toLowerCase();
-  if (/botox|toxina|botulín|botul/i.test(p)) return "botox";
+  if (/botox|toxina|botulín|botul|\bb3z\b|\bbff\b|full\s*face/i.test(p)) return "botox";
   if (/hialur|rino|armoniz|relleno/i.test(p)) return "ah";
   if (/bio|sculptra|col[aá]g|estimul/i.test(p)) return "bio";
   return null;
