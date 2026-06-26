@@ -1463,6 +1463,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
 }
 
 const PROC_LIST = () => { const D = window.JCDATA; const p = []; D.catalog.forEach(s => s.groups.forEach(g => g.items.forEach(it => p.push(it.n)))); return p; };
+// Genera <optgroup> agrupando los procedimientos por su categoría (desde los servicios de la clínica).
+function procOptionsByCat(names) {
+  const catOf = {};
+  try { (window.clinicServiceList ? window.clinicServiceList() : []).forEach(s => { if (s && s.name) catOf[s.name] = s.cat || "Otros"; }); } catch (e) {}
+  const byCat = {};
+  (names || []).forEach(n => { const c = catOf[n] || "Otros"; (byCat[c] = byCat[c] || []).push(n); });
+  return Object.keys(byCat).sort().map(c => React.createElement("optgroup", { key: c, label: c }, byCat[c].map(n => React.createElement("option", { key: n, value: n }, n))));
+}
 const selS = T => ({ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" });
 const lblS = T => ({ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 });
 // Slots de 30 min usados en el panel (8:00–19:30)
@@ -1924,7 +1932,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 18, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           <div><span style={lbl}>Especialidad</span><select value={esp} onChange={e => { setEsp(e.target.value); }} style={selStyle}><option>Todas</option>{especialidades.map(s => <option key={s}>{s}</option>)}</select></div>
-          <div><span style={lbl}>Procedimiento</span><select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}><option value="Evaluación general">Evaluación general</option>{procsByEsp.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+          <div><span style={lbl}>Procedimiento</span><select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}><option value="Evaluación general">Evaluación general</option>{procOptionsByCat(procsByEsp)}</select></div>
           <div><span style={lbl}>Profesional</span><select value={prof} onChange={e => setProf(e.target.value)} style={selStyle}>{team.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
           <div><span style={lbl}>Recurso</span><select value={recurso} onChange={e => setRecurso(e.target.value)} style={selStyle}><option>No especificado</option><option>Sala de procedimientos</option><option>Sala de evaluación</option></select></div>
           <div><span style={lbl}>Box / Camilla</span><select value={camilla} onChange={e => setCamilla(e.target.value)} style={selStyle}><option>Box 1</option><option>Box 2</option><option>Camilla 1</option></select></div>
@@ -1960,7 +1968,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
 
 function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
   const D = window.JCDATA;
-  const procs = PROC_LIST();
+  const procs = (window.clinicServiceList ? Array.from(new Set(window.clinicServiceList().map(s => s.name))) : PROC_LIST());
   const [proc, setProc] = useState(appt.proc);
   const [fecha, setFecha] = useState(appt.fecha || new Date().toISOString().slice(0, 10));
   const [t, setT] = useState(appt.time);
@@ -2011,7 +2019,7 @@ function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
         <div><span style={lblS(T)}>Procedimiento</span>
           <select value={proc} onChange={e => setProc(e.target.value)} style={selS(T)}>
             <option value="Evaluación general">Evaluación general</option>
-            {procs.map(p => <option key={p} value={p}>{p}</option>)}
+            {procOptionsByCat(procs)}
           </select>
         </div>
         <div><span style={lblS(T)}>Fecha</span><MiniCalendar T={T} selected={fecha} onSelect={setFecha} /></div>
