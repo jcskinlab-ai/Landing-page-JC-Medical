@@ -623,7 +623,10 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
   // En modo solo-lectura los textareas no pueden scrollearse (pointerEvents:none bloquea todo).
   // Se renderizan como <div> con white-space:pre-wrap para mostrar TODO el contenido sin truncar.
   const roDiv = { width: "100%", padding: "12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", boxSizing: "border-box" };
-  const TaF = ({ val, rows, onChange, ph }) => ro
+  // IMPORTANTE: es una FUNCIÓN que retorna JSX, NO un componente <TaF/>. Si se usa como
+  // componente y se redefine en cada render, React remonta el <textarea> en cada tecla y se
+  // pierde el foco. Llamada como función ({taField(...)}), el textarea conserva su identidad.
+  const taField = ({ val, rows, onChange, ph }) => ro
     ? <div style={roDiv}>{val || <span style={{ color: T.textFaint }}>—</span>}</div>
     : <textarea value={val} onChange={onChange} rows={rows} placeholder={ph} style={ta(rows)} />;
   return (
@@ -738,11 +741,11 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
 
           <label style={{ display: "block" }}>
             <span style={lblS}>Resumen de la aplicación</span>
-            <TaF val={f.resumen} rows={5} onChange={e => setF({ ...f, resumen: e.target.value })} ph="Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" />
+            {taField({ val: f.resumen, rows: 5, onChange: e => setF({ ...f, resumen: e.target.value }), ph: "Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" })}
           </label>
           <label style={{ display: "block" }}>
             <span style={lblS}>Nota / observaciones</span>
-            <TaF val={f.note} rows={2} onChange={e => setF({ ...f, note: e.target.value })} ph="" />
+            {taField({ val: f.note, rows: 2, onChange: e => setF({ ...f, note: e.target.value }), ph: "" })}
           </label>
 
           {/* Mapa de punción (botox) — solo en sesiones de toxina */}
