@@ -507,6 +507,23 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <FAct T={T} href={wa} icon={<><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></>}>WhatsApp</FAct>
           <FAct T={T} href={"mailto:" + (patient.email || "")} icon={<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>}>Correo</FAct>
+          <FAct T={T} onClick={async () => {
+            const email = (patient.email || "").trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { window.jcmToast && window.jcmToast("Este paciente no tiene un correo válido en su ficha.", "error"); return; }
+            if (!window.mediqueEmail) { window.jcmError && window.jcmError("El correo no está disponible."); return; }
+            let appts = []; try { appts = (window.DB && window.DB.get("appointments")) || []; } catch (e) {}
+            const d0 = new Date(); const isoT = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
+            const next = appts.filter(a => a.patId === patient.id && a.fecha && a.fecha >= isoT).sort((a, b) => ((a.fecha || "") + (a.time || "")).localeCompare((b.fecha || "") + (b.time || "")))[0];
+            const clinic = (() => { try { return window.DB.cfg().clinic_name || "tu clínica"; } catch (e) { return "tu clínica"; } })();
+            const nombre = ((patient.name || "").split(" ")[0]) || "";
+            const cuando = next ? ("el " + new Date(next.fecha + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }) + (next.time ? " a las " + next.time : "") + (next.proc ? " (" + next.proc + ")" : "")) : "tu próxima cita";
+            const text = "Hola " + nombre + ",\n\nTe recordamos " + cuando + " en " + clinic + ".\n\nSi necesitas reprogramar, respóndenos este correo.\n\n— " + clinic;
+            window.jcmToast && window.jcmToast("Enviando recordatorio…", "info");
+            const r = await window.mediqueEmail({ to: email, subject: "Recordatorio de tu cita · " + clinic, text: text });
+            if (r && r.ok) window.jcmToast && window.jcmToast("Recordatorio enviado a " + email + ". Revisa la bandeja (y spam).", "ok");
+            else if (r && r.configured === false) window.jcmError && window.jcmError("Correo no configurado en el servidor (falta RESEND_API_KEY).", r.error);
+            else window.jcmError && window.jcmError("No se pudo enviar el recordatorio", (r && r.error) || r);
+          }} icon={<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>}>Recordatorio</FAct>
           <FAct T={T} onClick={() => setEditD(true)} icon={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></>}>Editar datos</FAct>
           <FAct T={T} onClick={imprimirFicha} icon={<><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></>}>Imprimir ficha</FAct>
           <FAct T={T} primary onClick={() => onAgendar && onAgendar()} icon={<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>}>Agendar cita</FAct>
