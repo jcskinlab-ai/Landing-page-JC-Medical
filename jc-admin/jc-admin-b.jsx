@@ -195,7 +195,9 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
               </div>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-              {(filt === "calendario" || p.fechaImport) && (p.fechaTs || p.fechaImport) && <span style={{ fontFamily: T.sans, fontSize: 11, color: filt === "calendario" ? T.accent : T.textMute, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport}</span>}
+              {filt === "calendario"
+                ? <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: (p.fechaTs || p.fechaImport) ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport || "Sin fecha"}</span>
+                : (p.fechaImport ? <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport}</span> : null)}
               {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
               {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
             </div>
@@ -584,6 +586,16 @@ function procMapType(proc) {
   return null;
 }
 
+/* Plantillas reutilizables para el "Resumen de la aplicación" (dosis que se repiten entre pacientes). */
+const SESION_TPL_SEED = [
+  { id: "stpl_tox3", name: "Toxina botulínica · 3 zonas", body: "Zonas tratadas: frente, entrecejo y patas de gallo.\n16u frontal\n10u procerus\n10u corrugadores\n10u orbiculares\n\nSin incidentes, no se evidencian hematomas ni reacciones alérgicas inmediatas." }
+];
+function sesionTplLoad() {
+  try { const v = window.DB && DB.get("sesion_resumen_tpls"); if (Array.isArray(v)) return v; } catch (e) {}
+  return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? SESION_TPL_SEED : [];
+}
+function sesionTplSave(v) { try { window.DB && DB.set("sesion_resumen_tpls", v); } catch (e) {} }
+
 function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, startView }) {
   const today = new Date().toISOString().slice(0, 10);
   const team = (((window.CADMIN || {}).team) || []).filter(t => t.active !== false);
@@ -610,6 +622,17 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
   const [sessionTool, setSessionTool] = useState("aureo");
+  const [resTpls, setResTpls] = useState(sesionTplLoad); // plantillas del resumen de la aplicación
+  function aplicarTpl(body) { setF(prev => ({ ...prev, resumen: prev.resumen && prev.resumen.trim() ? prev.resumen.replace(/\s*$/, "") + "\n\n" + body : body })); }
+  async function guardarTpl() {
+    const txt = (f.resumen || "").trim();
+    if (!txt) { setErr("Escribe el resumen antes de guardarlo como plantilla."); return; }
+    const nombre = await (window.jcmPrompt ? window.jcmPrompt("Nombre de la plantilla:", "") : Promise.resolve(window.prompt("Nombre de la plantilla:")));
+    if (!nombre || !nombre.trim()) return;
+    const next = resTpls.concat([{ id: "stpl_" + Date.now(), name: nombre.trim(), body: txt }]);
+    setResTpls(next); sesionTplSave(next);
+    try { window.jcmToast && window.jcmToast("Plantilla guardada.", "ok"); } catch (e) {}
+  }
 
   function submit() {
     if (!f.proc.trim()) { setErr("Indica el procedimiento."); return; }
@@ -744,7 +767,19 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
           </div>
 
           <label style={{ display: "block" }}>
-            <span style={lblS}>Resumen de la aplicación</span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+              <span style={{ ...lblS, marginBottom: 0 }}>Resumen de la aplicación</span>
+              {!ro && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <select value="" onChange={e => { const t = resTpls.find(x => x.id === e.target.value); if (t) aplicarTpl(t.body); e.target.value = ""; }}
+                    style={{ fontFamily: T.sans, fontSize: 11, padding: "5px 8px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.textMute, outline: "none", maxWidth: 200 }}>
+                    <option value="">Insertar plantilla…</option>
+                    {resTpls.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <button type="button" onClick={guardarTpl} title="Guardar el resumen actual como plantilla" style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 6, padding: "5px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>Guardar plantilla</button>
+                </div>
+              )}
+            </div>
             {taField({ val: f.resumen, rows: 5, onChange: e => setF({ ...f, resumen: e.target.value }), ph: "Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" })}
           </label>
           <label style={{ display: "block" }}>
