@@ -2568,7 +2568,7 @@ function SaasGate() {
     if (a.status === "pending") {
       return wrap("Cuenta en revisión", "¡Gracias por registrar tu clínica! Tu cuenta quedó creada y está pendiente de aprobación. Te avisaremos apenas la activemos (suele ser muy rápido).",
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-          <a href={"https://wa.me/56997880877?text=" + encodeURIComponent("Hola, acabo de registrar mi clínica en Medique y quiero que aprueben mi cuenta.")} target="_blank" rel="noopener" style={{ textDecoration: "none" }}>{pBtn("Apurar por WhatsApp", () => {}, false)}</a>
+          <a href={"https://wa.me/56997880877?text=" + encodeURIComponent("Hola, acabo de registrar mi clínica en Medique y quiero solicitar acceso a mi cuenta.")} target="_blank" rel="noopener" style={{ textDecoration: "none", display: "block", textAlign: "center" }}>{pBtn("Solicitar acceso por WhatsApp", () => {}, false)}</a>
           {link("Cerrar sesión", () => window.JCSAAS.logout())}
         </div>, null);
     }

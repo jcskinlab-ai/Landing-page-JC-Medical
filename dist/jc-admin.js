@@ -2016,7 +2016,7 @@ function SaasGate() {
       return wrap(
         "Cuenta en revisi\xF3n",
         "\xA1Gracias por registrar tu cl\xEDnica! Tu cuenta qued\xF3 creada y est\xE1 pendiente de aprobaci\xF3n. Te avisaremos apenas la activemos (suele ser muy r\xE1pido).",
-        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("a", { href: "https://wa.me/56997880877?text=" + encodeURIComponent("Hola, acabo de registrar mi cl\xEDnica en Medique y quiero que aprueben mi cuenta."), target: "_blank", rel: "noopener", style: { textDecoration: "none" } }, pBtn("Apurar por WhatsApp", () => {
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("a", { href: "https://wa.me/56997880877?text=" + encodeURIComponent("Hola, acabo de registrar mi cl\xEDnica en Medique y quiero solicitar acceso a mi cuenta."), target: "_blank", rel: "noopener", style: { textDecoration: "none", display: "block", textAlign: "center" } }, pBtn("Solicitar acceso por WhatsApp", () => {
         }, false)), link("Cerrar sesi\xF3n", () => window.JCSAAS.logout())),
         null
       );
