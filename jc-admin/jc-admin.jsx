@@ -796,6 +796,7 @@ function AdminApp() {
   const [navOpen, setNavOpen] = useState(false);
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifVer, setNotifVer] = useState(0); // se incrementa al marcar notificaciones como leídas
   const [profileOpen, setProfileOpen] = useState(false);
   const [profilePic, setProfilePic] = useState(() => { try { return localStorage.getItem("jcm_admin_photo") || null; } catch (e) { return null; } });
   const profileRef = useRef(null);
@@ -874,6 +875,8 @@ function AdminApp() {
 
   const current = patients.find(p => p.id === openPatient);
   const pendCount = patients.filter(p => !p.consent).length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
+  // La campana cuenta solo lo NO leído (se actualiza al pulsar "Leer todas"); notifVer fuerza el recálculo.
+  const notifCount = (notifVer, unreadNotifCount(patients));
 
   let body;
   if (section === "dashboard") body = <DashboardView T={T} D={D} A={A} appts={appts} patients={patients} go={nav} />;
@@ -991,7 +994,7 @@ function AdminApp() {
             </div>
             <button onClick={() => setNotifOpen(true)} title="Notificaciones" style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
-              {pendCount > 0 && <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: "#C0285A", color: "#fff", fontFamily: T.sans, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>{pendCount}</span>}
+              {notifCount > 0 && <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: "#C0285A", color: "#fff", fontFamily: T.sans, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>{notifCount}</span>}
             </button>
             <button onClick={() => { const nk = T.dark ? "cielo" : "azul"; themeForced.current = true; setThemeKey(nk); try { localStorage.setItem("jcm_theme_pref", JSON.stringify({ key: nk, period: autoPeriod() })); } catch (e) {} }} title={T.dark ? "Modo día" : "Modo noche"} style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">{T.dark ? <><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" /></> : <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />}</svg>
@@ -1017,7 +1020,7 @@ function AdminApp() {
         </div>
         <Copilot T={T} patients={patients} appts={appts} addAppt={addAppt} onDarCita={(pf) => setDarCita(pf)} />
         {darCita && <NewCitaModal T={T} patients={patients} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />}
-        {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
+        {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} onChanged={() => setNotifVer(v => v + 1)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
         {showTour && <WelcomeTour T={T} go={(k) => nav(k)} onClose={closeTour} />}
       </div>
     </div>
@@ -1025,15 +1028,42 @@ function AdminApp() {
 }
 
 /* ─────────── NOTIFICACIONES (popup desde la campana) ─────────── */
-function NotifPopup({ T, patients, appts, onClose, go, openP }) {
+// Las notificaciones se derivan del estado (pacientes sin consentimiento, etc.).
+// "Leer todas" guarda las claves vistas en notif_read para que no reaparezcan en la campana.
+function notifReadList() { try { var v = window.DB && DB.get("notif_read"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function notifMarkAllRead(keys) { try { var set = {}; notifReadList().forEach(function (k) { set[k] = 1; }); (keys || []).forEach(function (k) { set[k] = 1; }); window.DB && DB.set("notif_read", Object.keys(set)); } catch (e) {} }
+function unreadNotifCount(patients) {
+  var read = {}; notifReadList().forEach(function (k) { read[k] = 1; });
+  var n = 0;
+  (patients || []).forEach(function (p) { if (!p.consent && !read["c" + p.id]) n++; });
+  (((window.CADMIN || {}).waMessages) || []).forEach(function (m) { if (!read["w" + m.id]) n++; });
+  (((window.CADMIN || {}).bizComments) || []).forEach(function (b) { if (!read["b" + b.id]) n++; });
+  var recitas = (window.recitaDue ? window.recitaDue(patients) : []);
+  recitas.forEach(function (x) { if (!read["re" + x.p.id]) n++; });
+  var tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(function (t) { return !t.done; }); } catch (e) {}
+  tasks.forEach(function (t) { if (!read["t" + t.id]) n++; });
+  return n;
+}
+function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   const D = window.JCDATA;
-  const wa = ((window.CADMIN || {}).waMessages) || [];
-  const biz = ((window.CADMIN || {}).bizComments) || [];
-  const sinConsent = patients.filter(p => !p.consent);
+  // Excluye las notificaciones ya marcadas como leídas (botón "Leer todas").
+  const read = {}; notifReadList().forEach(k => { read[k] = 1; });
+  const wa = (((window.CADMIN || {}).waMessages) || []).filter(m => !read["w" + m.id]);
+  const biz = (((window.CADMIN || {}).bizComments) || []).filter(b => !read["b" + b.id]);
+  const sinConsent = patients.filter(p => !p.consent && !read["c" + p.id]);
   // Pacientes que ya cumplieron el plazo para su próxima aplicación (re-cita).
-  const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
-  let tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(t => !t.done); } catch (e) {}
+  const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter(x => !read["re" + x.p.id]);
+  let tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(t => !t.done && !read["t" + t.id]); } catch (e) {}
   const total = wa.length + biz.length + sinConsent.length + recitas.length + tasks.length;
+  function leerTodas() {
+    const keys = [].concat(
+      sinConsent.map(p => "c" + p.id), recitas.map(x => "re" + x.p.id),
+      wa.map(m => "w" + m.id), biz.map(b => "b" + b.id), tasks.map(t => "t" + t.id)
+    );
+    notifMarkAllRead(keys);
+    if (onChanged) onChanged();
+    onClose();
+  }
   const row = (key, color, ic, title, sub, action, fn) => (
     <div key={key} style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 14px", borderBottom: "1px solid " + T.lineSoft }}>
       <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: color + "1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1059,7 +1089,10 @@ function NotifPopup({ T, patients, appts, onClose, go, openP }) {
             <span style={{ fontFamily: T.serif, fontSize: 18, color: T.text }}>Notificaciones</span>
             {total > 0 && <span style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 8px" }}>{total}</span>}
           </div>
-          <button onClick={onClose} title="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 2 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {total > 0 && <button onClick={leerTodas} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 500, color: T.accent, background: "none", border: "none", cursor: "pointer", padding: "4px 6px" }}>Leer todas</button>}
+            <button onClick={onClose} title="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 2 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+          </div>
         </div>
         <div style={{ flex: 1, overflowY: "auto" }}>
           {total === 0 && <div style={{ padding: "34px 18px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Todo al día. Sin notificaciones.</div>}
@@ -2157,7 +2190,7 @@ function WelcomeTour({ T, go, onClose }) {
   const [tN, setTN] = useState(""), [tR, setTR] = useState("");
   const SVC_CATS = ["Toxina botulínica", "Ácido hialurónico", "Bioestimulación de colágeno", "Mesoterapia", "Lipolíticos inyectables"];
   const [sN, setSN] = useState(""), [sP, setSP] = useState(""), [sD, setSD] = useState("30"), [sC, setSC] = useState(SVC_CATS[0]), [sCustom, setSCustom] = useState("");
-  const [iN, setIN] = useState(""), [iS, setIS] = useState(""), [iU, setIU] = useState("unidades");
+  const [iN, setIN] = useState(""), [iS, setIS] = useState(""), [iU, setIU] = useState("unidades"), [iP, setIP] = useState("");
   const uid = pre => (window.jcmUid ? window.jcmUid(pre) : pre + Date.now());
   function saveClinic() { try { var c = DB.get("config") || {}; c.clinic_name = name.trim(); c.clinic_addr = addr.trim(); c.wa_number = wa ? ("569" + wa) : ""; DB.set("config", c); } catch (e) {} }
   function saveRut() { try { var b = DB.get("clinic_biz") || { razon: "", rut: "", plan: "" }; b.rut = rut.trim(); DB.set("clinic_biz", b); } catch (e) {} }
@@ -2178,7 +2211,7 @@ function WelcomeTour({ T, go, onClose }) {
     setSvcs(n); try { DB.set("services_custom", n); } catch (e) {}
     setSN(""); setSP(""); setSD("30"); // se mantiene la categoría para agregar varios de la misma
   }
-  function addInv() { if (iN.trim().length < 2) return; var n = freshList("inv_items", inv).concat([{ id: uid("i"), name: iN.trim(), cat: "Insumo clínico", stock: parseInt((iS + "").replace(/\D/g, ""), 10) || 0, min: 0, unit: iU || "unidades", price: 0 }]); setInv(n); try { DB.set("inv_items", n); } catch (e) {} setIN(""); setIS(""); }
+  function addInv() { if (iN.trim().length < 2) return; var n = freshList("inv_items", inv).concat([{ id: uid("i"), name: iN.trim(), cat: "Insumo clínico", stock: parseInt((iS + "").replace(/\D/g, ""), 10) || 0, min: 0, unit: iU || "unidades", price: parseInt((iP + "").replace(/\D/g, ""), 10) || 0 }]); setInv(n); try { DB.set("inv_items", n); } catch (e) {} setIN(""); setIS(""); setIP(""); }
   function onWa(v) { var d = (v || "").replace(/\D/g, ""); if (d.indexOf("56") === 0) d = d.slice(2); if (d.charAt(0) === "9") d = d.slice(1); setWa(d.slice(0, 8)); }
   function rmFrom(list, setList, key, id) { var n = list.filter(x => x.id !== id); setList(n); try { DB.set(key, n); } catch (e) {} if (key === "team" && window.CADMIN) window.CADMIN.team = n; }
   const kind = STEPS[step];
@@ -2264,13 +2297,16 @@ function WelcomeTour({ T, go, onClose }) {
           {kind === "inventario" && (<>
             <div style={titleS}>Inventario</div>
             <div style={subS}>Tus insumos y su stock. Opcional, pero te ayuda a controlar lo que usas.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: inv.length ? 12 : 0 }}>{inv.map(it => <div key={it.id}>{rowItem(it.name, it.stock + " " + it.unit, () => rmFrom(inv, setInv, "inv_items", it.id))}</div>)}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: inv.length ? 12 : 0 }}>{inv.map(it => <div key={it.id}>{rowItem(it.name, it.stock + " " + it.unit + (it.price ? " · $" + Number(it.price).toLocaleString("es-CL") : ""), () => rmFrom(inv, setInv, "inv_items", it.id))}</div>)}</div>
             <input value={iN} onChange={e => setIN(e.target.value)} placeholder="Nombre del insumo" style={{ ...inp, marginBottom: 8 }} />
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <input value={iS} onChange={e => setIS(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Stock" style={inp} />
               <select value={iU} onChange={e => setIU(e.target.value)} style={{ ...inp, width: 120 }}>
                 {["unidades", "viales", "jeringas", "tubos", "cajas", "paquetes", "rollos"].map(u => <option key={u} value={u}>{u}</option>)}
               </select>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={iP ? Number(iP).toLocaleString("es-CL") : ""} onChange={e => setIP(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Costo por unidad $" style={inp} />
               {addBtn(addInv)}
             </div>
           </>)}
