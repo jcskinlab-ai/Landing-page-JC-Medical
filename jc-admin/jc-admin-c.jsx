@@ -706,6 +706,53 @@ function CorreoConnectModal({ T, onClose, onConnected }) {
   );
 }
 
+/* ─── Respaldo descargable + export .ics (alternativas reales sin OAuth de Google) ─── */
+function jcmDownloadFile(name, content, mime) {
+  try {
+    var blob = new Blob([content], { type: mime || "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a"); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch (e) {} }, 600);
+    return true;
+  } catch (e) { return false; }
+}
+function jcmClinicName() { try { return (window.DB && DB.cfg().clinic_name) || "Medique"; } catch (e) { return "Medique"; } }
+function jcmSlug(s) { return (s || "medique").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+// Respaldo de todas las fichas/pacientes/citas en un JSON descargable.
+function jcmBackupFichas() {
+  var patients = [], appts = [];
+  try { patients = (window.DB && DB.get("patients")) || []; } catch (e) {}
+  try { appts = (window.DB && DB.get("appointments")) || []; } catch (e) {}
+  var clinica = jcmClinicName(), now = new Date();
+  var fecha = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
+  var data = { clinica: clinica, generado: now.toISOString(), total_pacientes: patients.length, total_citas: appts.length, pacientes: patients, citas: appts };
+  var ok = jcmDownloadFile("respaldo-" + jcmSlug(clinica) + "-" + fecha + ".json", JSON.stringify(data, null, 2), "application/json");
+  try { window.jcmToast && window.jcmToast(ok ? ("Respaldo descargado · " + patients.length + " paciente(s).") : "No se pudo generar el respaldo.", ok ? "ok" : "error"); } catch (e) {}
+}
+// Exporta las citas futuras a un archivo .ics (se importa en Google Calendar, Apple Calendar, Outlook).
+function jcmExportICS() {
+  var appts = [];
+  try { appts = (window.DB && DB.get("appointments")) || []; } catch (e) {}
+  var clinica = jcmClinicName();
+  var pad = function (n) { return ("0" + n).slice(-2); };
+  var esc = function (s) { return ("" + (s == null ? "" : s)).replace(/([\\;,])/g, "\\$1").replace(/\n/g, "\\n"); };
+  var fmt = function (fecha, time) { var t = (time || "09:00").split(":"); return (fecha || "").replace(/-/g, "") + "T" + pad(parseInt(t[0] || 9, 10)) + pad(parseInt(t[1] || 0, 10)) + "00"; };
+  var fmtEnd = function (fecha, time, min) { try { var d = new Date(fecha + "T" + (time || "09:00") + ":00"); d.setMinutes(d.getMinutes() + (min || 30)); return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "T" + pad(d.getHours()) + pad(d.getMinutes()) + "00"; } catch (e) { return fmt(fecha, time); } };
+  var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  var fut = appts.filter(function (a) { return a.fecha && new Date(a.fecha + "T00:00:00") >= hoy; });
+  var stamp = new Date().getFullYear() + pad(new Date().getMonth() + 1) + pad(new Date().getDate()) + "T000000";
+  var ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Medique//Agenda//ES\r\nCALSCALE:GREGORIAN\r\n";
+  fut.forEach(function (a, i) {
+    var dur = parseInt(a.dur, 10) || a.durMin || 30;
+    ics += "BEGIN:VEVENT\r\nUID:" + (a.id || ("apt" + i)) + "@medique.cl\r\nDTSTAMP:" + stamp + "\r\nDTSTART:" + fmt(a.fecha, a.time) + "\r\nDTEND:" + fmtEnd(a.fecha, a.time, dur) +
+      "\r\nSUMMARY:" + esc((a.proc || "Cita") + (a.name ? " · " + a.name : "")) + "\r\nDESCRIPTION:" + esc("Cita en " + clinica + (a.phone ? " · " + a.phone : "")) + "\r\nEND:VEVENT\r\n";
+  });
+  ics += "END:VCALENDAR\r\n";
+  var ok = jcmDownloadFile("agenda-" + jcmSlug(clinica) + ".ics", ics, "text/calendar;charset=utf-8");
+  try { window.jcmToast && window.jcmToast(ok ? (fut.length + " cita(s) exportada(s). Impórtalo en Google Calendar.") : "No hay citas o no se pudo exportar.", ok && fut.length ? "ok" : "info"); } catch (e) {}
+}
+
 function IntegracionesView({ T }) {
   const [list, setList] = useState(() => {
     let saved = {};
@@ -730,6 +777,9 @@ function IntegracionesView({ T }) {
     if (it.id === "metaads") { setMetaModal(true); return; }
     // Correo: conexión REAL (envía un correo de prueba). Desconectar es directo.
     if (it.id === "gmail") { if (connected) toggle("gmail"); else setCorreoModal(true); return; }
+    // Drive / Calendar: alternativas reales sin OAuth → acción de descarga directa (no es "conexión").
+    if (it.id === "drive") { jcmBackupFichas(); return; }
+    if (it.id === "gcal") { jcmExportICS(); return; }
     if (!connected) { setPreviewInteg(it); return; } // mostrar popup antes de conectar
     toggle(it.id); // desconectar directo sin popup
   }
@@ -740,17 +790,20 @@ function IntegracionesView({ T }) {
         {list.map(it => {
           const isMeta = it.id === "metaads";
           const connected = isMeta ? metaOn : it.connected;
+          // Drive/Calendar son ACCIONES de descarga reales (no "conexión" OAuth).
+          const action = it.id === "drive" ? { label: "Descargar respaldo", desc: "Descarga todas las fichas y citas en un archivo (.json) para guardarlo donde quieras." }
+            : it.id === "gcal" ? { label: "Exportar .ics", desc: "Exporta tus citas en un archivo .ics para importarlo en Google Calendar." } : null;
           return (
           <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (connected ? T.line : T.lineSoft) }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: it.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 500, flexShrink: 0 }}>{it.letter}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{it.name}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{isMeta ? (connected ? "✓ Conectada · leyendo tu gasto real" : "Conecta tu cuenta para ver gasto y ROAS reales") : (connected ? "✓ " + it.stat : it.desc)}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{action ? action.desc : (isMeta ? (connected ? "✓ Conectada · leyendo tu gasto real" : "Conecta tu cuenta para ver gasto y ROAS reales") : (connected ? "✓ " + it.stat : it.desc))}</div>
             </div>
             <button onClick={() => handleConnectClick(it, connected)} style={{
               fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "9px 14px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap",
-              background: connected ? "transparent" : T.accent, color: connected ? "#1F8A5B" : (T.onAccent || "#fff"), border: connected ? "1px solid #1F8A5B" : "none"
-            }}>{connected ? (isMeta ? "Administrar" : "Conectado ✓") : "Conectar"}</button>
+              background: (action || !connected) ? T.accent : "transparent", color: (action || !connected) ? (T.onAccent || "#fff") : "#1F8A5B", border: (action || !connected) ? "none" : "1px solid #1F8A5B"
+            }}>{action ? action.label : (connected ? (isMeta ? "Administrar" : "Conectado ✓") : "Conectar")}</button>
           </div>
           );
         })}
