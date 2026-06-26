@@ -597,3 +597,42 @@ function jcmSeedIfEmpty() {
 
 // Exponer DB en window para los componentes React (const no se adjunta solo).
 try { window.DB = DB; } catch (e) {}
+
+// ── Antiautocompletado de contactos de Chrome ─────────────────────────────
+// Chrome rellena solo el correo/contacto en campos de texto sueltos (notas, montos,
+// concepto…). Apagamos su autofill en TODO input/textarea, salvo los que declaran
+// explícitamente su autocomplete (login/registro: usuario, correo, contraseña) y los
+// de tipo password. Cubre los campos que React monta dinámicamente vía MutationObserver.
+(function () {
+  function harden(el) {
+    if (!el || el.nodeType !== 1) return;
+    var tag = el.tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return;
+    if (el.type === 'password') return;            // credenciales: las gestiona el navegador
+    if (el.hasAttribute('autocomplete')) return;   // ya lo define el componente (login/correo)
+    el.setAttribute('autocomplete', 'off');
+    el.setAttribute('autocorrect', 'off');
+    el.setAttribute('autocapitalize', el.getAttribute('autocapitalize') || 'off');
+  }
+  function scan(root) {
+    try {
+      if (!root) return;
+      harden(root);
+      if (root.querySelectorAll) { var ns = root.querySelectorAll('input,textarea'); for (var i = 0; i < ns.length; i++) harden(ns[i]); }
+    } catch (e) {}
+  }
+  function start() {
+    scan(document.body || document.documentElement);
+    try {
+      var mo = new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var an = muts[i].addedNodes; if (!an) continue;
+          for (var j = 0; j < an.length; j++) scan(an[j]);
+        }
+      });
+      mo.observe(document.documentElement, { childList: true, subtree: true });
+    } catch (e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
