@@ -111,7 +111,7 @@ function recitaWa(p, r) {
 function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }) {
   const [q, setQ] = useState("");
   const [nuevo, setNuevo] = useState(false);
-  const [filt, setFilt] = useState("todos");
+  const [filt, setFilt] = useState("calendario");
   const [openCamp, setOpenCamp] = useState(false);
   const opened = (() => {
     try {
