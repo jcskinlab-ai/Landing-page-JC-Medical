@@ -305,9 +305,9 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     const c = patient.clinica || {};
     const cv = k => (window.clinVal ? window.clinVal(c, k) : (c[k] || ""));
     const hist = patient.history || [];
-    const proName = (hist.find(h => h.proName) || {}).proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
+    const proName = (hist.find(h => h.proName) || {}).proName || (window.clinicPro && window.clinicPro()) || "";
     const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
-    const clinAddr = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const clinAddr = (window.clinicAddr && window.clinicAddr()) || "";
     const team = (window.CADMIN && window.CADMIN.team) || [];
     const proMember = team.find(function(t){ return t.name === proName; });
     const proRole = (proMember && proMember.role) || "Medicina estética";
@@ -351,9 +351,9 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   // Imprime UNA sesión/procedimiento en formato clínico con identidad de la clínica.
   function imprimirProc(h) {
     const D = window.JCDATA || {};
-    const proName = h.proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
+    const proName = h.proName || (window.clinicPro && window.clinicPro()) || "";
     const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
-    const clinAddr = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const clinAddr = (window.clinicAddr && window.clinicAddr()) || "";
     const team = (window.CADMIN && window.CADMIN.team) || [];
     const proMember = team.find(function(t){ return t.name === proName; });
     const proRole = (proMember && proMember.role) || "Medicina estética";
@@ -1724,8 +1724,8 @@ function RecetaTab({ T, patient, updatePatient }) {
     setDiag(""); setRp(""); setInd("");
   }
   function imprimir(r) {
-    const pro = (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
-    const dir = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const pro = (window.clinicPro && window.clinicPro()) || "";
+    const dir = (window.clinicAddr && window.clinicAddr()) || "";
     const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
     const team = (window.CADMIN && window.CADMIN.team) || [];
     const proMember = team.find(function(t){ return t.name === pro; });
@@ -1770,7 +1770,7 @@ function RecetaTab({ T, patient, updatePatient }) {
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
   }
   function enviarWa(r) {
-    const pro = (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
+    const pro = (window.clinicPro && window.clinicPro()) || "";
     const L = ["*" + titleOf(r.tipo) + " — " + ((window.clinicName && window.clinicName()) || D.brand || "Medique") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " años)" : "")];
     if (r.diag) L.push("Diagnóstico: " + r.diag);
     L.push((r.tipo === "indicaciones" ? "Indicaciones:" : "Rp.:"), r.rp);
