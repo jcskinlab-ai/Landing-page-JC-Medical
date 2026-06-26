@@ -157,6 +157,33 @@ function cropSignatureDataUrl(dataUrl) {
     img.src = dataUrl;
   });
 }
+function compressImageDataUrl(dataUrl, maxW, q) {
+  return new Promise(function(resolve) {
+    if (!dataUrl || typeof dataUrl !== "string") return resolve(dataUrl);
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) return resolve(dataUrl);
+        if (w > maxW) {
+          h = Math.round(h * maxW / w);
+          w = maxW;
+        }
+        var c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL("image/jpeg", q || 0.62));
+      } catch (e) {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = function() {
+      resolve(dataUrl);
+    };
+    img.src = dataUrl;
+  });
+}
 function patConsents(p) {
   if (!p) return [];
   try {
@@ -754,6 +781,16 @@ function ConsentTab({ T, patient, updatePatient }) {
   const [deleting, setDeleting] = useState(null);
   const [delPin, setDelPin] = useState("");
   const [delErr, setDelErr] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [upDataUrl, setUpDataUrl] = useState(null);
+  const [upIsPdf, setUpIsPdf] = useState(false);
+  const [upTitle, setUpTitle] = useState("");
+  const [upFecha, setUpFecha] = useState(() => {
+    const d = /* @__PURE__ */ new Date();
+    return ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2);
+  });
+  const [upBusy, setUpBusy] = useState(false);
+  const upInputRef = useRef(null);
   const A = window.JCADMIN;
   const consKey = patConsKey(patient.id);
   const [consents, setConsentsState] = useState(() => patConsents(patient));
@@ -780,6 +817,57 @@ function ConsentTab({ T, patient, updatePatient }) {
   function start(t) {
     setTpl0(t);
     setSigning(true);
+  }
+  function openUpload() {
+    setUpDataUrl(null);
+    setUpIsPdf(false);
+    setUpTitle("");
+    setUploading(true);
+  }
+  function onUpFile(e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const isPdf = f.type === "application/pdf" || /\.pdf$/i.test(f.name || "");
+    const reader = new FileReader();
+    reader.onload = () => {
+      setUpIsPdf(isPdf);
+      setUpDataUrl(reader.result);
+    };
+    reader.readAsDataURL(f);
+    try {
+      e.target.value = "";
+    } catch (_) {
+    }
+  }
+  function saveUpload() {
+    if (!upDataUrl || upBusy) return;
+    setUpBusy(true);
+    const ts = Date.now();
+    const path = "consents/" + patient.id + "/" + ts + (upIsPdf ? ".pdf" : ".jpg");
+    const prep = upIsPdf ? Promise.resolve(upDataUrl) : compressImageDataUrl(upDataUrl, 1600, 0.6);
+    prep.then((data) => {
+      const tryStorage = window.JCSAAS && typeof window.JCSAAS.uploadImage === "function" ? window.JCSAAS.uploadImage(data, path).then((url) => url || data).catch(() => data) : Promise.resolve(data);
+      return tryStorage.then((imgVal) => {
+        const viaStorage = typeof imgVal === "string" && !imgVal.startsWith("data:");
+        const nuevo = { kind: "upload", cat: "Subido", title: upTitle.trim() || "Consentimiento (subido)", proc: upTitle.trim() || "Consentimiento subido", fecha: upFecha, img: imgVal, fileType: upIsPdf ? "pdf" : "img", uploaded: true, ts };
+        const lista = patConsents(patient).slice();
+        lista.unshift(nuevo);
+        commitConsents(lista);
+        updatePatient(patient.id, { consent: true, consentInfo: nuevo.title + " \xB7 " + upFecha });
+        try {
+          window.jcmToast && window.jcmToast(viaStorage ? "Consentimiento subido y sincronizado." : "Consentimiento subido en este dispositivo.", "ok");
+        } catch (e) {
+        }
+        setUploading(false);
+        setUpDataUrl(null);
+        setUpTitle("");
+      });
+    }).catch(() => {
+      try {
+        window.jcmToast && window.jcmToast("No se pudo subir el archivo.", "error");
+      } catch (e) {
+      }
+    }).then(() => setUpBusy(false));
   }
   function startDelete(doc, idx) {
     setDeleting({ doc, idx });
@@ -831,6 +919,24 @@ function ConsentTab({ T, patient, updatePatient }) {
     }
   }
   function imprimirConsentDoc(doc, openOnly) {
+    if (doc && doc.kind === "upload") {
+      if (doc.img) {
+        if (doc.fileType === "pdf") {
+          window.open(doc.img, "_blank");
+          return;
+        }
+        const ih = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento</title></head><body style='margin:0'><img src='" + doc.img + "' style='max-width:100%;display:block;margin:0 auto'/></body></html>";
+        if (openOnly || !window.jcmPrintHTML) {
+          const w = window.open("", "_blank");
+          if (w) {
+            w.document.open();
+            w.document.write(ih);
+            w.document.close();
+          }
+        } else window.jcmPrintHTML(ih);
+      }
+      return;
+    }
     const esc = (s) => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const EU = esc(doc.prof || "____________________");
     const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
@@ -895,13 +1001,38 @@ function ConsentTab({ T, patient, updatePatient }) {
       }
     });
   }
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Crear consentimiento"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 } }, A.consents.map((c) => /* @__PURE__ */ React.createElement(AdBtn, { key: c.id, T, small: true, primary: true, onClick: () => start(c) }, c.title))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Consentimientos firmados (", consents.length, ")"), consents.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "8px 0" } }, "A\xFAn no hay consentimientos firmados."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, consents.map((doc, i) => /* @__PURE__ */ React.createElement("div", { key: doc.ts || i, style: { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 9, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }, onClick: () => setOpenDoc(doc) }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.accent, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap", flexShrink: 0 } }, doc.cat || "Consent."), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, doc.proc || doc.title), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, doc.fecha, doc.ts ? " \xB7 " + fmtHora(doc.ts) : "", doc.prof ? " \xB7 " + doc.prof : "")), /* @__PURE__ */ React.createElement(AdTag, { T, tone: "ok" }, "Firmado"), /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Crear consentimiento"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 } }, A.consents.map((c) => /* @__PURE__ */ React.createElement(AdBtn, { key: c.id, T, small: true, primary: true, onClick: () => start(c) }, c.title))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 18 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, onClick: openUpload }, "\u2191 Subir consentimiento (foto o archivo)"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint } }, "Para consentimientos firmados en papel o respaldados.")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Consentimientos firmados (", consents.length, ")"), consents.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "8px 0" } }, "A\xFAn no hay consentimientos firmados."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, consents.map((doc, i) => /* @__PURE__ */ React.createElement("div", { key: doc.ts || i, style: { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 9, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }, onClick: () => setOpenDoc(doc) }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.accent, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap", flexShrink: 0 } }, doc.cat || "Consent."), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, doc.proc || doc.title), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, doc.fecha, doc.ts ? " \xB7 " + fmtHora(doc.ts) : "", doc.prof ? " \xB7 " + doc.prof : "")), /* @__PURE__ */ React.createElement(AdTag, { T, tone: "ok" }, "Firmado"), /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
     e.stopPropagation();
     imprimirConsentDoc(doc);
   }, title: "Imprimir consentimiento", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9V2h12v7" }), /* @__PURE__ */ React.createElement("path", { d: "M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" }), /* @__PURE__ */ React.createElement("path", { d: "M6 14h12v8H6z" }))), /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
     e.stopPropagation();
     startDelete(doc, i);
-  }, title: "Eliminar consentimiento", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, /* @__PURE__ */ React.createElement("polyline", { points: "3 6 5 6 21 6" }), /* @__PURE__ */ React.createElement("path", { d: "M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" }), /* @__PURE__ */ React.createElement("path", { d: "M10 11v6M14 11v6" }), /* @__PURE__ */ React.createElement("path", { d: "M9 6V4h6v2" }))), /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "1.6", style: { flexShrink: 0, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" }))))), deleting && /* @__PURE__ */ React.createElement(
+  }, title: "Eliminar consentimiento", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, /* @__PURE__ */ React.createElement("polyline", { points: "3 6 5 6 21 6" }), /* @__PURE__ */ React.createElement("path", { d: "M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" }), /* @__PURE__ */ React.createElement("path", { d: "M10 11v6M14 11v6" }), /* @__PURE__ */ React.createElement("path", { d: "M9 6V4h6v2" }))), /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "1.6", style: { flexShrink: 0, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" }))))), uploading && /* @__PURE__ */ React.createElement(
+    AdModal,
+    {
+      T,
+      title: "Subir consentimiento",
+      onClose: () => !upBusy && setUploading(false),
+      footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => !upBusy && setUploading(false) }, "Cancelar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: saveUpload }, upBusy ? "Subiendo\u2026" : "Guardar consentimiento"))
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5 } }, "Sube una ", /* @__PURE__ */ React.createElement("b", null, "foto"), " del consentimiento firmado en papel o un ", /* @__PURE__ */ React.createElement("b", null, "archivo"), " (imagen o PDF) que tengas respaldado. Queda guardado en la ficha del paciente y se sincroniza."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 5 } }, "Procedimiento / t\xEDtulo (opcional)"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        value: upTitle,
+        onChange: (e) => setUpTitle(e.target.value),
+        placeholder: "Ej.: Toxina botul\xEDnica",
+        style: { width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 14, outline: "none" }
+      }
+    )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 130 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 5 } }, "Fecha"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        value: upFecha,
+        onChange: (e) => setUpFecha(e.target.value),
+        placeholder: "DD-MM-AA",
+        style: { width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 14, outline: "none" }
+      }
+    ))), /* @__PURE__ */ React.createElement("input", { ref: upInputRef, type: "file", accept: "image/*,application/pdf", onChange: onUpFile, style: { display: "none" } }), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => upInputRef.current && upInputRef.current.click() }, upDataUrl ? "Cambiar archivo / foto" : "Elegir foto o archivo"), upDataUrl && (upIsPdf ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px" } }, "\u{1F4C4} Archivo PDF listo para subir.") : /* @__PURE__ */ React.createElement("img", { src: upDataUrl, alt: "vista previa", style: { width: "100%", maxHeight: 320, objectFit: "contain", background: "#fff", border: "1px solid " + T.line, borderRadius: 8 } })))
+  ), deleting && /* @__PURE__ */ React.createElement(
     AdModal,
     {
       T,
@@ -924,7 +1055,9 @@ function ConsentTab({ T, patient, updatePatient }) {
         style: { width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (delErr ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, letterSpacing: ".3em", outline: "none", textAlign: "center" }
       }
     ), delErr && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#C0285A", marginTop: 6 } }, delErr)))
-  ), openDoc && /* @__PURE__ */ React.createElement(AdModal, { T, title: openDoc.title || "Consentimiento", onClose: () => setOpenDoc(null), wide: true, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setOpenDoc(null) }, "Cerrar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: imprimirConsent }, "Imprimir")) }, /* @__PURE__ */ React.createElement("div", { ref: printRef, style: { background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", fontFamily: T.sans, fontSize: 11, color: "#444" } }, "Fecha: ", openDoc.fecha), /* @__PURE__ */ React.createElement("h2", { style: { textAlign: "center", fontFamily: T.serif, fontWeight: 400, fontSize: 20, color: "#111", margin: "2px 0 14px" } }, "Consentimiento informado"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 } }, "Yo ", /* @__PURE__ */ React.createElement("b", null, openDoc.nombre)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 14 } }, "Identificado con CI N\xB0 ", /* @__PURE__ */ React.createElement("b", null, openDoc.ci), " \xB7 Edad ", /* @__PURE__ */ React.createElement("b", null, openDoc.edad)), /* @__PURE__ */ React.createElement(ConsentDocDark, { T, tpl: openDoc, prof: openDoc.prof }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma paciente"), openDoc.sigPac && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPac, alt: "firma paciente", style: { width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma profesional \xB7 ", openDoc.prof), openDoc.sigPro && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPro, alt: "firma profesional", style: { width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } }))))), signing && /* @__PURE__ */ React.createElement(SignConsentModal, { T, data: { patient, template: tpl0 || A.consents[0] }, onClose: () => setSigning(false), onSign: (r) => {
+  ), openDoc && /* @__PURE__ */ React.createElement(AdModal, { T, title: openDoc.title || "Consentimiento", onClose: () => setOpenDoc(null), wide: true, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setOpenDoc(null) }, "Cerrar"), openDoc.kind === "upload" ? /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => {
+    if (openDoc.img) window.open(openDoc.img, "_blank");
+  } }, "Abrir / descargar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: imprimirConsent }, "Imprimir")) }, openDoc.kind === "upload" ? /* @__PURE__ */ React.createElement("div", { style: { background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "16px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#444", marginBottom: 10 } }, "Consentimiento subido \xB7 ", openDoc.fecha, openDoc.fileType === "pdf" ? " \xB7 PDF" : ""), openDoc.fileType === "pdf" ? /* @__PURE__ */ React.createElement("a", { href: openDoc.img, target: "_blank", rel: "noopener", style: { fontFamily: T.sans, fontSize: 14, color: T.accent } }, "\u{1F4C4} Abrir el PDF del consentimiento") : /* @__PURE__ */ React.createElement("img", { src: openDoc.img, alt: "consentimiento subido", style: { width: "100%", maxHeight: "70vh", objectFit: "contain", display: "block" } })) : /* @__PURE__ */ React.createElement("div", { ref: printRef, style: { background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", fontFamily: T.sans, fontSize: 11, color: "#444" } }, "Fecha: ", openDoc.fecha), /* @__PURE__ */ React.createElement("h2", { style: { textAlign: "center", fontFamily: T.serif, fontWeight: 400, fontSize: 20, color: "#111", margin: "2px 0 14px" } }, "Consentimiento informado"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 } }, "Yo ", /* @__PURE__ */ React.createElement("b", null, openDoc.nombre)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 14 } }, "Identificado con CI N\xB0 ", /* @__PURE__ */ React.createElement("b", null, openDoc.ci), " \xB7 Edad ", /* @__PURE__ */ React.createElement("b", null, openDoc.edad)), /* @__PURE__ */ React.createElement(ConsentDocDark, { T, tpl: openDoc, prof: openDoc.prof }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma paciente"), openDoc.sigPac && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPac, alt: "firma paciente", style: { width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma profesional \xB7 ", openDoc.prof), openDoc.sigPro && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPro, alt: "firma profesional", style: { width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } }))))), signing && /* @__PURE__ */ React.createElement(SignConsentModal, { T, data: { patient, template: tpl0 || A.consents[0] }, onClose: () => setSigning(false), onSign: (r) => {
     const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
     const lista = patConsents(patient).slice();
     lista.unshift(nuevo);
