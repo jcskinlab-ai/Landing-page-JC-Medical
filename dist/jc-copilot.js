@@ -143,11 +143,41 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (/eval/.test(t)) return "Evaluaci\xF3n general";
     return null;
   }
+  function extractPatientName(text) {
+    const m = (text || "").match(/(?:agenda(?:r|me|le)?|ag[eé]nda\w*|reserva(?:r|me|le)?|res[eé]rva\w*|anota(?:r|me|le)?|an[oó]ta\w*|cita)\s+(?:a\s+|para\s+|al\s+)?([a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,3})/i);
+    if (!m) return "";
+    const STOP = ["para", "el", "la", "los", "las", "manana", "hoy", "pasado", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo", "las", "con", "procedimiento", "proc", "botox", "toxina", "relleno", "rino", "rinomodelacion", "sculptra", "bioestim", "bioestimulacion", "colageno", "evaluacion", "hialuronico", "labio", "pomulo", "menton", "de", "del", "y", "una", "un"];
+    const out = [];
+    for (const w of m[1].split(/\s+/)) {
+      const wn = _facialNorm(w);
+      if (STOP.indexOf(wn) >= 0) break;
+      out.push(w);
+    }
+    return out.join(" ").trim();
+  }
+  function matchPatient(name) {
+    const dn = (name || "").toLowerCase().trim();
+    if (dn.length < 3) return null;
+    let p = patients.find((x) => {
+      const pn = x.name.toLowerCase();
+      return pn === dn || pn.indexOf(dn) >= 0 || dn.indexOf(pn) >= 0;
+    });
+    if (p) return p;
+    const parts = dn.split(/\s+/);
+    if (parts.length >= 2) {
+      p = patients.find((x) => {
+        const pp = x.name.toLowerCase().split(/\s+/);
+        return pp[0] === parts[0] && pp.indexOf(parts[1]) >= 0;
+      });
+    }
+    return p || null;
+  }
   function trySchedule(text) {
     const t = text.toLowerCase();
     if (!/\b(agenda|agendar|agéndame|agendame|cita|reserva|res[ée]rvame|anota|an[óo]tame)\b/.test(t)) return null;
     const proc = procFromText(t);
-    let pat = patients.find((p) => t.indexOf(p.name.toLowerCase().split(" ")[0]) >= 0);
+    const dictName = extractPatientName(text);
+    let pat = matchPatient(dictName);
     let day = 0, dayLbl = "hoy";
     if (/mañana|manana/.test(t)) {
       day = 1;
@@ -180,7 +210,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (!proc && !time) return null;
     if (!proc) return "Entend\xED que quieres agendar, pero no detect\xE9 el procedimiento. Ejemplo: \xABAgenda a " + (pat ? pat.name.split(" ")[0] : "Mar\xEDa") + " botox ma\xF1ana a las 11\xBB.";
     if (!time) return "Detect\xE9 el procedimiento (" + proc + ") pero no la hora. Dime la hora, por ejemplo: \xAB\u2026 a las 11:30\xBB.";
-    const name = pat ? pat.name : "";
+    const name = pat ? pat.name : dictName;
     if (onDarCita) onDarCita({ proc, time, day, patId: pat ? pat.id : "", patName: name });
     return "Abr\xED el formulario \xABDar cita\xBB con lo que entend\xED: " + proc + (name ? " \xB7 " + name : "") + " \xB7 " + dayLbl + " a las " + time + ".\nRevisa y completa los datos que falten para confirmar \u{1F447}";
   }
@@ -290,8 +320,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
           const target = /* @__PURE__ */ new Date((a.fecha || "") + "T00:00:00");
           let day = Math.round((target - t0) / 864e5);
           if (!(day >= 0)) day = 0;
-          const first = String(a.paciente || "").toLowerCase().split(" ")[0];
-          const pat = first ? patients.find((p) => p.name.toLowerCase().indexOf(first) >= 0) : null;
+          const pat = matchPatient(a.paciente);
           if (onDarCita) onDarCita({ proc: a.proc || "", time: a.hora || "", day, patId: pat ? pat.id : "", patName: pat ? pat.name : a.paciente || "" });
           reply = (reply ? reply + "\n\n" : "") + "\u{1F4C5} Te dej\xE9 la cita lista en el formulario \xABDar cita\xBB \u2014 revisa la fecha y conf\xEDrmala para que entre a la agenda \u{1F447}";
         } catch (e) {
