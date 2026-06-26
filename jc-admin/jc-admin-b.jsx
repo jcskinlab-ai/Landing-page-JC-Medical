@@ -560,7 +560,9 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             // Al registrar una sesión NUEVA con cobro, se suma automáticamente a Caja (ingreso por atención),
             // de modo que el procedimiento de la ficha aparece en Caja, Reportes y el Dashboard.
             if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
-              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name }); } catch (e3) {}
+              // Descuenta el costo de insumos del procedimiento (config de inventario) para el líquido.
+              const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
+              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name }); } catch (e3) {}
             }
             try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : ((e.cobro || 0) > 0 ? "Sesión registrada · " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesión registrada."), "ok"); } catch (e2) {}
           }} />}

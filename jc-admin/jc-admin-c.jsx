@@ -2047,6 +2047,19 @@ function invSave(v) { try { if (window.DB) DB.set("inv_items", v); } catch (e) {
 function procLoad() { try { var v = window.DB && DB.get("inv_procs"); return Array.isArray(v) ? v : procSeed(); } catch (e) { return procSeed(); } }
 function procSave(v) { try { if (window.DB) DB.set("inv_procs", v); } catch (e) {} }
 function procCost(p, items) { return (p.uses || []).reduce((s, u) => { const it = items.find(x => x.id === u[0]); return s + (it ? it.price * u[1] : 0); }, 0); }
+// Costo de insumos de un procedimiento por su NOMBRE (según la config de inventario).
+// Se descuenta automáticamente al cobrar para obtener el líquido. Solo JC Medical (clínica base).
+function jcmInsumoCost(procName) {
+  try {
+    if (!(typeof clinicSeeded === "function" && clinicSeeded())) return 0; // solo mi clínica
+    const n = (procName || "").toLowerCase().trim(); if (!n) return 0;
+    const procs = procLoad(); const items = invLoad();
+    const p = procs.find(x => (x.name || "").toLowerCase().trim() === n);
+    return p ? procCost(p, items) : 0;
+  } catch (e) { return 0; }
+}
+// Costo de publicidad por paciente atendido (solo JC Medical). Editable a futuro; por ahora fijo.
+function jcmAdCostPerPatient() { try { return (typeof clinicSeeded === "function" && clinicSeeded()) ? 5000 : 0; } catch (e) { return 0; } }
 
 function InvKpiModal({ T, title, items, onClose, onAdjust }) {
   const D = window.JCDATA;
@@ -2722,9 +2735,13 @@ function CajaView({ T }) {
   const ingresos = movs.filter(m => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
   const egresos = movs.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
   const costoIns = movs.reduce((s, m) => s + (m.cost || 0), 0);
-  const neto = ingresos - egresos - costoIns;
   const atenciones = movs.filter(m => m.kind === "atencion");
   const manuales = movs.filter(m => m.kind !== "atencion");
+  // Costo de publicidad por paciente atendido (solo JC Medical: $5.000 c/u). El líquido lo descuenta.
+  const adCost = (typeof jcmAdCostPerPatient === "function") ? jcmAdCostPerPatient() : 0;
+  const costoPub = atenciones.length * adCost;
+  const liqDe = m => (m.amount || 0) - (m.cost || 0) - (m.kind === "atencion" ? adCost : 0); // líquido de un movimiento
+  const neto = ingresos - egresos - costoIns - costoPub;
   const porMetodo = {};
   movs.filter(m => m.type === "ingreso").forEach(m => { const k = m.method || "Otro"; porMetodo[k] = (porMetodo[k] || 0) + (m.amount || 0); });
   const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
@@ -2745,11 +2762,12 @@ function CajaView({ T }) {
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>{chip("hoy", "Hoy")}{chip("semana", "Esta semana")}{chip("mes", "Este mes")}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 5 : 4) + ",1fr)", gap: 10, marginBottom: 18 }}>
         <CajaCard T={T} l="Ingresos (bruto)" v={D.fmt(ingresos)} c="#1F8A5B" />
         <CajaCard T={T} l="Costo insumos" v={D.fmt(costoIns)} c={T.gold || "#C9A227"} />
+        {adCost > 0 && <CajaCard T={T} l="Publicidad" v={D.fmt(costoPub)} c="#B8860B" />}
         <CajaCard T={T} l="Egresos" v={D.fmt(egresos)} c="#C0285A" />
-        <CajaCard T={T} l="Neto (ganancia)" v={D.fmt(neto)} c={T.accent} strong />
+        <CajaCard T={T} l={adCost > 0 ? "Líquido (ganancia)" : "Neto (ganancia)"} v={D.fmt(neto)} c={T.accent} strong />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" }}>
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
@@ -2759,9 +2777,12 @@ function CajaView({ T }) {
               <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method} · insumos {D.fmt(m.cost || 0)}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method} · insumos {D.fmt(m.cost || 0)}{adCost > 0 ? " · publicidad " + D.fmt(adCost) : ""}</div>
                 </div>
-                <div style={{ fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" }}>{D.fmt(m.amount || 0)}</div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" }}>{D.fmt(m.amount || 0)}</div>
+                  {(adCost > 0 || (m.cost || 0) > 0) && <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 1 }}>líquido {D.fmt(liqDe(m))}</div>}
+                </div>
               </div>
             ))}
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" }}>Movimientos manuales</div>
@@ -2876,4 +2897,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
