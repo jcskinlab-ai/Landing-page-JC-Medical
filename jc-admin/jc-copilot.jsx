@@ -180,11 +180,11 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (cmd) { setMsgs(m => [...m, { role: "assistant", content: cmd }]); return; }
     setBusy(true);
     try {
-      if (!window.claude || !window.claude.complete) throw new Error("nohost");
-      const convo = next.map(m => (m.role === "user" ? "Profesional: " : "Copiloto: ") + m.content).join("\n");
-      const prompt = FACIAL_SYS + "\n\nDATOS DEL PANEL (úsalos solo si ayudan): " + ctx() + "\n\nCONVERSACIÓN:\n" + convo + "\n\nResponde como Copiloto al último mensaje del profesional:";
-      const res = await window.claude.complete({ messages: [{ role: "user", content: prompt }] });
-      setMsgs(m => [...m, { role: "assistant", content: (res || "").trim() || "No pude generar respuesta, intenta de nuevo." }]);
+      if (!window.mediqueAI) throw new Error("nohost");
+      const system = FACIAL_SYS + "\n\nDATOS DEL PANEL (úsalos solo si ayudan): " + ctx();
+      const res = await window.mediqueAI(next, {}, { system: system, max_tokens: 700 });
+      if (!res || !res.ok || !res.reply) throw new Error((res && res.error) || "sin respuesta");
+      setMsgs(m => [...m, { role: "assistant", content: res.reply.trim() }]);
     } catch (e) {
       // Sin IA en vivo (vista previa / panel sin cuenta): respondemos con la base de conocimiento facial.
       const kb = facialAnswer(text);

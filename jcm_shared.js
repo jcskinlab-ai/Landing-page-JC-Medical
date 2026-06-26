@@ -266,15 +266,21 @@ if (typeof window !== 'undefined') window.jcmConfirm = jcmConfirm;
 // ── CLIENTE DEL AGENTE IA (Groq vía /api/ai; la key vive en el servidor) ─────
 // Devuelve una promesa con la respuesta sugerida del asistente. Si no está configurado
 // (sin GROQ_API_KEY en el servidor) resuelve { ok:false, configured:false }.
-function mediqueAI(messages, clinic) {
+// opts (opcional): { system: '<prompt propio>', max_tokens: <n> } — p.ej. el Copiloto de evaluación facial.
+function mediqueAI(messages, clinic, opts) {
   try {
+    opts = opts || {};
+    if (typeof opts === 'string') opts = { system: opts }; // permite pasar el system directo como 3er arg
     var headers = { 'Content-Type': 'application/json' };
     if (typeof window !== 'undefined' && window.JCM_API_KEY) headers['x-jcm-key'] = window.JCM_API_KEY;
     // El endpoint exige el ID token de Firebase del usuario logueado (no es secreto, dura 1h).
     var tokP = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
     return Promise.resolve(tokP).then(function (tok) {
       if (tok) headers['Authorization'] = 'Bearer ' + tok;
-      return fetch('/api/ai', { method: 'POST', headers: headers, body: JSON.stringify({ messages: messages || [], clinic: clinic || {} }) });
+      var payload = { messages: messages || [], clinic: clinic || {} };
+      if (opts.system) payload.system = opts.system;
+      if (opts.max_tokens) payload.max_tokens = opts.max_tokens;
+      return fetch('/api/ai', { method: 'POST', headers: headers, body: JSON.stringify(payload) });
     }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
       .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
   } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }

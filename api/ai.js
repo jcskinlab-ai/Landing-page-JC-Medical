@@ -168,7 +168,7 @@ export default async function handler(req, res) {
   if (!userMessages.length) return res.status(400).json({ ok: false, error: "Faltan mensajes." });
 
   const clinic = body.clinic || {};
-  const system = [
+  const defaultSystem = [
     "Eres el asistente de WhatsApp de " + (clinic.name || "una clínica de medicina estética") + ".",
     "Responde en español de Chile, con cercanía y profesionalismo, mensajes breves.",
     clinic.address ? "Dirección: " + clinic.address + "." : "",
@@ -180,6 +180,8 @@ export default async function handler(req, res) {
     "Nunca des diagnósticos ni dosis. Si te piden algo clínico delicado, ofrece agendar una evaluación.",
     "Si el paciente quiere agendar, pide su nombre y propón coordinar día y hora."
   ].filter(Boolean).join("\n");
+  // El llamador puede enviar su propio system (ej: el Copiloto de evaluación facial, Resumen/Auditoría IA).
+  const system = (typeof body.system === "string" && body.system.trim()) ? body.system.trim().slice(0, 6000) : defaultSystem;
 
   const MAX_CONTENT = 4000;
   const messages = [{ role: "system", content: system }].concat(
@@ -197,7 +199,7 @@ export default async function handler(req, res) {
         model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
         messages: messages,
         temperature: 0.6,
-        max_tokens: 400
+        max_tokens: Math.min(1000, parseInt(body.max_tokens, 10) || 400)
       })
     });
     if (!r.ok) {
