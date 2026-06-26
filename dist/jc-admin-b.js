@@ -197,31 +197,58 @@ function AdTag({ T, tone, children }) {
   const c = { ok: "#1F8A5B", warn: T.gold, danger: "#C0285A", muted: T.textFaint }[tone] || T.accent;
   return /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: c, border: "1px solid " + c, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap" } }, children);
 }
+function _recitaTs(s) {
+  if (!s) return 0;
+  s = ("" + s).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (m) {
+    let y = +m[3];
+    if (y < 100) y += 2e3;
+    return new Date(y, +m[2] - 1, +m[1]).getTime();
+  }
+  const t = Date.parse(s);
+  return isNaN(t) ? 0 : t;
+}
 function recitaFor(p) {
-  const tag = (p.tags && p.tags[0] || "").toLowerCase();
-  const lv = p.lastVisit ? /* @__PURE__ */ new Date(p.lastVisit + "T00:00:00") : null;
-  if (!lv || isNaN(lv)) return null;
-  const meses = (Date.now() - lv.getTime()) / (1e3 * 60 * 60 * 24 * 30.44);
   const fmtP = (n) => "$" + (n || 0).toLocaleString("es-CL");
+  const tag = (p.tags && p.tags[0] || "").toLowerCase();
   const hist = p.history || [];
-  let umbral, motivo, msg, precio, fam;
-  if (/botox|toxina|bruxismo|hiperhidro|gingival|nefertiti|empedrado/.test(tag)) {
+  const toxRe = /botox|toxina|botul|bruxismo|hiperhidro|gingival|nefertiti|empedrado/i;
+  const scuRe = /sculptra|bioestim|col[aá]g|estimul/i;
+  const fechado = hist.filter((h) => h && _recitaTs(h.date || h.fecha)).sort((a, b) => _recitaTs(b.date || b.fecha) - _recitaTs(a.date || a.fecha));
+  const lastTox = fechado.find((h) => toxRe.test(h.proc || h.title || ""));
+  const lastScu = fechado.find((h) => scuRe.test(h.proc || h.title || ""));
+  let pick = null;
+  if (lastTox && lastScu) pick = _recitaTs(lastTox.date || lastTox.fecha) >= _recitaTs(lastScu.date || lastScu.fecha) ? "toxina" : "sculptra";
+  else if (lastTox) pick = "toxina";
+  else if (lastScu) pick = "sculptra";
+  else if (toxRe.test(tag)) pick = "toxina";
+  else if (scuRe.test(tag)) pick = "sculptra";
+  if (!pick) return null;
+  let umbral, motivo, msg, precio, fam, refTs;
+  if (pick === "toxina") {
     fam = "toxina";
     umbral = 3;
     precio = 15e4;
     motivo = "Toxina \xB7 refuerzo a 3 meses";
     msg = "ya es momento de renovar tu toxina botul\xEDnica para mantener tu resultado natural";
-  } else if (/sculptra|bioestim|colágeno|colageno/.test(tag)) {
+    refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
+  } else {
     fam = "sculptra";
     umbral = 2;
     precio = 28e4;
-    const ses = hist.filter((h) => /sculptra|bioestim|colágeno|colageno/i.test(h.proc || "")).length || 1;
+    const ses = hist.filter((h) => scuRe.test(h.proc || h.title || "")).length || 1;
     if (ses >= 3) return null;
     motivo = "Sculptra \xB7 sesi\xF3n " + (ses + 1) + " de 3 (a 2 meses)";
     msg = "tu siguiente sesi\xF3n de Sculptra potencia y prolonga tu col\xE1geno (vas en la sesi\xF3n " + (ses + 1) + " de 3)";
-  } else return null;
+    refTs = lastScu ? _recitaTs(lastScu.date || lastScu.fecha) : _recitaTs(p.lastVisit);
+  }
+  if (!refTs) return null;
+  const meses = (Date.now() - refTs) / (1e3 * 60 * 60 * 24 * 30.44);
   const desc = Math.round(precio * 0.9 / 1e3) * 1e3;
-  const due = new Date(lv.getTime() + umbral * 30.44 * 24 * 60 * 60 * 1e3);
+  const due = new Date(refTs + umbral * 30.44 * 24 * 60 * 60 * 1e3);
   return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
 function recitaDue(patients) {

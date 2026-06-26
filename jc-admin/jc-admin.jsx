@@ -1096,7 +1096,7 @@ function notifMarkAllRead(keys) { try { var set = {}; notifReadList().forEach(fu
 function unreadNotifCount(patients) {
   var read = {}; notifReadList().forEach(function (k) { read[k] = 1; });
   var n = 0;
-  (patients || []).forEach(function (p) { if (!p.consent && !read["c" + p.id]) n++; });
+  (patients || []).forEach(function (p) { if (!p.consent) n++; });
   (((window.CADMIN || {}).waMessages) || []).forEach(function (m) { if (!read["w" + m.id]) n++; });
   (((window.CADMIN || {}).bizComments) || []).forEach(function (b) { if (!read["b" + b.id]) n++; });
   var recitas = (window.recitaDue ? window.recitaDue(patients) : []);
@@ -1111,7 +1111,9 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   const read = {}; notifReadList().forEach(k => { read[k] = 1; });
   const wa = (((window.CADMIN || {}).waMessages) || []).filter(m => !read["w" + m.id]);
   const biz = (((window.CADMIN || {}).bizComments) || []).filter(b => !read["b" + b.id]);
-  const sinConsent = patients.filter(p => !p.consent && !read["c" + p.id]);
+  // Los consentimientos pendientes son un estado real (no una notificación transitoria):
+  // se muestran SIEMPRE en la campana y solo desaparecen al firmarse o marcarse como firmados.
+  const sinConsent = patients.filter(p => !p.consent);
   // Pacientes que ya cumplieron el plazo para su próxima aplicación (re-cita).
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter(x => !read["re" + x.p.id]);
   let tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(t => !t.done && !read["t" + t.id]); } catch (e) {}

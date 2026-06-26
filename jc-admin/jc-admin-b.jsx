@@ -200,28 +200,52 @@ function AdTag({ T, tone, children }) {
 //   · Toxina botulínica → refuerzo a los 3 meses.
 //   · Sculptra → siguiente dosis a los 2 meses, hasta completar el esquema de 3 sesiones.
 // No aplica a pacientes nuevos cuyo recordatorio recién será en algunos meses.
+// Convierte una fecha (ISO "YYYY-MM-DD" o "DD-MM-AA") a timestamp; 0 si no se puede.
+function _recitaTs(s) {
+  if (!s) return 0;
+  s = ("" + s).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (m) { let y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]).getTime(); }
+  const t = Date.parse(s); return isNaN(t) ? 0 : t;
+}
 function recitaFor(p) {
-  const tag = ((p.tags && p.tags[0]) || "").toLowerCase();
-  const lv = p.lastVisit ? new Date(p.lastVisit + "T00:00:00") : null;
-  if (!lv || isNaN(lv)) return null;
-  const meses = (Date.now() - lv.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
   const fmtP = n => "$" + (n || 0).toLocaleString("es-CL");
-  // Nº de sesiones ya realizadas de esa familia (para el esquema de Sculptra).
+  const tag = ((p.tags && p.tags[0]) || "").toLowerCase();
   const hist = p.history || [];
-  let umbral, motivo, msg, precio, fam;
-  if (/botox|toxina|bruxismo|hiperhidro|gingival|nefertiti|empedrado/.test(tag)) {
+  const toxRe = /botox|toxina|botul|bruxismo|hiperhidro|gingival|nefertiti|empedrado/i;
+  const scuRe = /sculptra|bioestim|col[aá]g|estimul/i;
+  // Última sesión de cada familia según el HISTORIAL CLÍNICO (no solo los tags).
+  const fechado = hist.filter(h => h && _recitaTs(h.date || h.fecha)).sort((a, b) => _recitaTs(b.date || b.fecha) - _recitaTs(a.date || a.fecha));
+  const lastTox = fechado.find(h => toxRe.test(h.proc || h.title || ""));
+  const lastScu = fechado.find(h => scuRe.test(h.proc || h.title || ""));
+  // Elige la familia de la sesión más reciente; si no hay historial, cae al tag.
+  let pick = null;
+  if (lastTox && lastScu) pick = _recitaTs(lastTox.date || lastTox.fecha) >= _recitaTs(lastScu.date || lastScu.fecha) ? "toxina" : "sculptra";
+  else if (lastTox) pick = "toxina";
+  else if (lastScu) pick = "sculptra";
+  else if (toxRe.test(tag)) pick = "toxina";
+  else if (scuRe.test(tag)) pick = "sculptra";
+  if (!pick) return null;
+  let umbral, motivo, msg, precio, fam, refTs;
+  if (pick === "toxina") {
     fam = "toxina"; umbral = 3; precio = 150000;
     motivo = "Toxina · refuerzo a 3 meses";
     msg = "ya es momento de renovar tu toxina botulínica para mantener tu resultado natural";
-  } else if (/sculptra|bioestim|colágeno|colageno/.test(tag)) {
+    refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
+  } else {
     fam = "sculptra"; umbral = 2; precio = 280000;
-    const ses = hist.filter(h => /sculptra|bioestim|colágeno|colageno/i.test(h.proc || "")).length || 1;
+    const ses = hist.filter(h => scuRe.test(h.proc || h.title || "")).length || 1;
     if (ses >= 3) return null; // esquema de 3 sesiones completo
     motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a 2 meses)";
     msg = "tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión " + (ses + 1) + " de 3)";
-  } else return null;
+    refTs = lastScu ? _recitaTs(lastScu.date || lastScu.fecha) : _recitaTs(p.lastVisit);
+  }
+  if (!refTs) return null;
+  const meses = (Date.now() - refTs) / (1000 * 60 * 60 * 24 * 30.44);
   const desc = Math.round(precio * 0.9 / 1000) * 1000; // 10% pero comunicado en pesos
-  const due = new Date(lv.getTime() + umbral * 30.44 * 24 * 60 * 60 * 1000);
+  const due = new Date(refTs + umbral * 30.44 * 24 * 60 * 60 * 1000);
   return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
 // Lista de pacientes cuyo plazo de re-cita ya se cumplió (para notificaciones / pendientes).
