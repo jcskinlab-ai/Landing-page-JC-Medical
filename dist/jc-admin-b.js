@@ -106,6 +106,57 @@ function patImages(p) {
 function patConsKey(id) {
   return "pcons_" + id;
 }
+function cropSignatureDataUrl(dataUrl) {
+  return new Promise(function(resolve) {
+    if (!dataUrl || typeof dataUrl !== "string") return resolve(dataUrl);
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) return resolve(dataUrl);
+        var c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        var ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+        var d = ctx.getImageData(0, 0, w, h).data;
+        var minX = w, minY = h, maxX = 0, maxY = 0, found = false;
+        for (var y = 0; y < h; y++) {
+          for (var x = 0; x < w; x++) {
+            var i = (y * w + x) * 4;
+            var br = (d[i] + d[i + 1] + d[i + 2]) / 3;
+            if (br < 185) {
+              found = true;
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        if (!found) return resolve(dataUrl);
+        var pad = Math.round(Math.max(w, h) * 0.04);
+        minX = Math.max(0, minX - pad);
+        minY = Math.max(0, minY - pad);
+        maxX = Math.min(w, maxX + pad);
+        maxY = Math.min(h, maxY + pad);
+        var cw = maxX - minX, ch = maxY - minY;
+        if (cw < 4 || ch < 4) return resolve(dataUrl);
+        var oc = document.createElement("canvas");
+        oc.width = cw;
+        oc.height = ch;
+        oc.getContext("2d").drawImage(img, minX, minY, cw, ch, 0, 0, cw, ch);
+        resolve(oc.toDataURL("image/jpeg", 0.9));
+      } catch (e) {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = function() {
+      resolve(dataUrl);
+    };
+    img.src = dataUrl;
+  });
+}
 function patConsents(p) {
   if (!p) return [];
   try {
@@ -806,24 +857,43 @@ function ConsentTab({ T, patient, updatePatient }) {
       body += p("5.-", "Autorizo el registro del proceso mediante fotograf\xEDas, v\xEDdeos, modelos de estudios y ex\xE1menes complementarios. Los cuales pueden ser utilizados con fines acad\xE9micos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Demostraciones).");
       body += p("6.-", "Doy fe de no haber omitido o alterado mis antecedentes cl\xEDnicos. Le\xED detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.");
     }
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento \xB7 " + esc(patient.name || "") + "</title><style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:150px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff}.sig-box img{max-height:142px;max-width:96%}</style></head><body><div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div><h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2><div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || "") + "</b></div><div style='font-size:12px;margin-bottom:16px'>Identificado con CI N\xB0 <b>" + esc(doc.ci || "") + "</b> \xB7 Edad <b>" + esc(doc.edad || "") + "</b></div>" + body + "<div class='sigs'><div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (doc.sigPac ? "<img src='" + doc.sigPac + "'/>" : "") + "</div></div><div><div class='sig-label'>Firma profesional \xB7 " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (doc.sigPro ? "<img src='" + doc.sigPro + "'/>" : "") + "</div></div></div></body></html>";
-    if (openOnly) {
-      const w = window.open("", "_blank");
-      if (w) {
-        w.document.open();
-        w.document.write(html);
-        w.document.close();
-      }
-      return;
-    }
-    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
-    else {
-      const w = window.open("", "_blank");
-      if (w) {
-        w.document.write(html + "<script>window.print()<\/script>");
-        w.document.close();
+    const winIOS = openOnly ? window.open("", "_blank") : null;
+    if (winIOS) {
+      try {
+        winIOS.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento\u2026</body>");
+      } catch (e) {
       }
     }
+    Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function(crops) {
+      const sp = crops[0], spr = crops[1];
+      const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento \xB7 " + esc(patient.name || "") + "</title><style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:175px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px}.sig-box img{max-height:100%;max-width:100%;object-fit:contain}</style></head><body><div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div><h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2><div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || "") + "</b></div><div style='font-size:12px;margin-bottom:16px'>Identificado con CI N\xB0 <b>" + esc(doc.ci || "") + "</b> \xB7 Edad <b>" + esc(doc.edad || "") + "</b></div>" + body + "<div class='sigs'><div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (sp ? "<img src='" + sp + "'/>" : "") + "</div></div><div><div class='sig-label'>Firma profesional \xB7 " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (spr ? "<img src='" + spr + "'/>" : "") + "</div></div></div></body></html>";
+      if (openOnly) {
+        if (winIOS) {
+          try {
+            winIOS.document.open();
+            winIOS.document.write(html);
+            winIOS.document.close();
+          } catch (e) {
+          }
+        } else {
+          const w2 = window.open("", "_blank");
+          if (w2) {
+            w2.document.open();
+            w2.document.write(html);
+            w2.document.close();
+          }
+        }
+        return;
+      }
+      if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+      else {
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(html + "<script>window.print()<\/script>");
+          w.document.close();
+        }
+      }
+    });
   }
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Crear consentimiento"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 } }, A.consents.map((c) => /* @__PURE__ */ React.createElement(AdBtn, { key: c.id, T, small: true, primary: true, onClick: () => start(c) }, c.title))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Consentimientos firmados (", consents.length, ")"), consents.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "8px 0" } }, "A\xFAn no hay consentimientos firmados."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, consents.map((doc, i) => /* @__PURE__ */ React.createElement("div", { key: doc.ts || i, style: { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 9, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }, onClick: () => setOpenDoc(doc) }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.accent, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap", flexShrink: 0 } }, doc.cat || "Consent."), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, doc.proc || doc.title), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, doc.fecha, doc.ts ? " \xB7 " + fmtHora(doc.ts) : "", doc.prof ? " \xB7 " + doc.prof : "")), /* @__PURE__ */ React.createElement(AdTag, { T, tone: "ok" }, "Firmado"), /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
     e.stopPropagation();
@@ -854,7 +924,7 @@ function ConsentTab({ T, patient, updatePatient }) {
         style: { width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (delErr ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, letterSpacing: ".3em", outline: "none", textAlign: "center" }
       }
     ), delErr && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#C0285A", marginTop: 6 } }, delErr)))
-  ), openDoc && /* @__PURE__ */ React.createElement(AdModal, { T, title: openDoc.title || "Consentimiento", onClose: () => setOpenDoc(null), wide: true, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setOpenDoc(null) }, "Cerrar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: imprimirConsent }, "Imprimir")) }, /* @__PURE__ */ React.createElement("div", { ref: printRef, style: { background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", fontFamily: T.sans, fontSize: 11, color: "#444" } }, "Fecha: ", openDoc.fecha), /* @__PURE__ */ React.createElement("h2", { style: { textAlign: "center", fontFamily: T.serif, fontWeight: 400, fontSize: 20, color: "#111", margin: "2px 0 14px" } }, "Consentimiento informado"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 } }, "Yo ", /* @__PURE__ */ React.createElement("b", null, openDoc.nombre)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 14 } }, "Identificado con CI N\xB0 ", /* @__PURE__ */ React.createElement("b", null, openDoc.ci), " \xB7 Edad ", /* @__PURE__ */ React.createElement("b", null, openDoc.edad)), /* @__PURE__ */ React.createElement(ConsentDocDark, { T, tpl: openDoc, prof: openDoc.prof }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma paciente"), openDoc.sigPac && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPac, alt: "firma paciente", style: { height: 60, background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma profesional \xB7 ", openDoc.prof), openDoc.sigPro && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPro, alt: "firma profesional", style: { height: 60, background: "#fff", border: "1px solid #ddd", borderRadius: 6 } }))))), signing && /* @__PURE__ */ React.createElement(SignConsentModal, { T, data: { patient, template: tpl0 || A.consents[0] }, onClose: () => setSigning(false), onSign: (r) => {
+  ), openDoc && /* @__PURE__ */ React.createElement(AdModal, { T, title: openDoc.title || "Consentimiento", onClose: () => setOpenDoc(null), wide: true, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setOpenDoc(null) }, "Cerrar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: imprimirConsent }, "Imprimir")) }, /* @__PURE__ */ React.createElement("div", { ref: printRef, style: { background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", fontFamily: T.sans, fontSize: 11, color: "#444" } }, "Fecha: ", openDoc.fecha), /* @__PURE__ */ React.createElement("h2", { style: { textAlign: "center", fontFamily: T.serif, fontWeight: 400, fontSize: 20, color: "#111", margin: "2px 0 14px" } }, "Consentimiento informado"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 } }, "Yo ", /* @__PURE__ */ React.createElement("b", null, openDoc.nombre)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 14 } }, "Identificado con CI N\xB0 ", /* @__PURE__ */ React.createElement("b", null, openDoc.ci), " \xB7 Edad ", /* @__PURE__ */ React.createElement("b", null, openDoc.edad)), /* @__PURE__ */ React.createElement(ConsentDocDark, { T, tpl: openDoc, prof: openDoc.prof }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma paciente"), openDoc.sigPac && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPac, alt: "firma paciente", style: { width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma profesional \xB7 ", openDoc.prof), openDoc.sigPro && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPro, alt: "firma profesional", style: { width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } }))))), signing && /* @__PURE__ */ React.createElement(SignConsentModal, { T, data: { patient, template: tpl0 || A.consents[0] }, onClose: () => setSigning(false), onSign: (r) => {
     const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
     const lista = patConsents(patient).slice();
     lista.unshift(nuevo);

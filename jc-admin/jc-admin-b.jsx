@@ -136,6 +136,35 @@ function patImages(p) {
 // documento de pacientes. Así cada uno es pequeño, SÍ sube a la nube y se ve en todos los
 // dispositivos en tiempo real, sin chocar con el límite de 1 MB por documento de Firestore.
 function patConsKey(id) { return "pcons_" + id; }
+// Recorta el espacio en blanco de una firma (deja solo el trazo) para que se vea grande
+// en el documento. Funciona con firmas ya guardadas. Async (carga la imagen en un canvas).
+function cropSignatureDataUrl(dataUrl) {
+  return new Promise(function (resolve) {
+    if (!dataUrl || typeof dataUrl !== "string") return resolve(dataUrl);
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) return resolve(dataUrl);
+        var c = document.createElement("canvas"); c.width = w; c.height = h;
+        var ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0);
+        var d = ctx.getImageData(0, 0, w, h).data;
+        var minX = w, minY = h, maxX = 0, maxY = 0, found = false;
+        for (var y = 0; y < h; y++) { for (var x = 0; x < w; x++) { var i = (y * w + x) * 4; var br = (d[i] + d[i + 1] + d[i + 2]) / 3; if (br < 185) { found = true; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; } } }
+        if (!found) return resolve(dataUrl);
+        var pad = Math.round(Math.max(w, h) * 0.04);
+        minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad); maxX = Math.min(w, maxX + pad); maxY = Math.min(h, maxY + pad);
+        var cw = maxX - minX, ch = maxY - minY;
+        if (cw < 4 || ch < 4) return resolve(dataUrl);
+        var oc = document.createElement("canvas"); oc.width = cw; oc.height = ch;
+        oc.getContext("2d").drawImage(img, minX, minY, cw, ch, 0, 0, cw, ch);
+        resolve(oc.toDataURL("image/jpeg", 0.9));
+      } catch (e) { resolve(dataUrl); }
+    };
+    img.onerror = function () { resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
 function patConsents(p) {
   if (!p) return [];
   try { const v = window.DB && window.DB.get(patConsKey(p.id)); if (Array.isArray(v)) return v; } catch (e) {}
@@ -1156,25 +1185,31 @@ function ConsentTab({ T, patient, updatePatient }) {
       body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Demostraciones).");
       body += p("6.-", "Doy fe de no haber omitido o alterado mis antecedentes clínicos. Leí detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.");
     }
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + esc(patient.name || "") + "</title>" +
-      "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:150px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff}.sig-box img{max-height:142px;max-width:96%}</style>" +
-      "</head><body>" +
-      "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>" +
-      "<h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2>" +
-      "<div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || "") + "</b></div>" +
-      "<div style='font-size:12px;margin-bottom:16px'>Identificado con CI N° <b>" + esc(doc.ci || "") + "</b> · Edad <b>" + esc(doc.edad || "") + "</b></div>" +
-      body +
-      "<div class='sigs'>" +
-        "<div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (doc.sigPac ? "<img src='" + doc.sigPac + "'/>" : "") + "</div></div>" +
-        "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (doc.sigPro ? "<img src='" + doc.sigPro + "'/>" : "") + "</div></div>" +
-      "</div></body></html>";
-    if (openOnly) {
-      // Solo ABRIR el consentimiento en una pestaña nueva (sin lanzar el diálogo de impresión).
-      const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); }
-      return;
-    }
-    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
-    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+    // En iOS, la pestaña debe abrirse DENTRO del gesto del usuario; se rellena al recortar las firmas.
+    const winIOS = openOnly ? window.open("", "_blank") : null;
+    if (winIOS) { try { winIOS.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento…</body>"); } catch (e) {} }
+    Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
+      const sp = crops[0], spr = crops[1];
+      const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + esc(patient.name || "") + "</title>" +
+        "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:175px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px}.sig-box img{max-height:100%;max-width:100%;object-fit:contain}</style>" +
+        "</head><body>" +
+        "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>" +
+        "<h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2>" +
+        "<div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || "") + "</b></div>" +
+        "<div style='font-size:12px;margin-bottom:16px'>Identificado con CI N° <b>" + esc(doc.ci || "") + "</b> · Edad <b>" + esc(doc.edad || "") + "</b></div>" +
+        body +
+        "<div class='sigs'>" +
+          "<div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (sp ? "<img src='" + sp + "'/>" : "") + "</div></div>" +
+          "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (spr ? "<img src='" + spr + "'/>" : "") + "</div></div>" +
+        "</div></body></html>";
+      if (openOnly) {
+        if (winIOS) { try { winIOS.document.open(); winIOS.document.write(html); winIOS.document.close(); } catch (e) {} }
+        else { const w2 = window.open("", "_blank"); if (w2) { w2.document.open(); w2.document.write(html); w2.document.close(); } }
+        return;
+      }
+      if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+      else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+    });
   }
 
   return (
@@ -1240,8 +1275,8 @@ function ConsentTab({ T, patient, updatePatient }) {
             <div style={{ fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 14 }}>Identificado con CI N° <b>{openDoc.ci}</b> · Edad <b>{openDoc.edad}</b></div>
             <ConsentDocDark T={T} tpl={openDoc} prof={openDoc.prof} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
-              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma paciente</div>{openDoc.sigPac && <img src={openDoc.sigPac} alt="firma paciente" style={{ height: 60, background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
-              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma profesional · {openDoc.prof}</div>{openDoc.sigPro && <img src={openDoc.sigPro} alt="firma profesional" style={{ height: 60, background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
+              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma paciente</div>{openDoc.sigPac && <img src={openDoc.sigPac} alt="firma paciente" style={{ width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
+              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma profesional · {openDoc.prof}</div>{openDoc.sigPro && <img src={openDoc.sigPro} alt="firma profesional" style={{ width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
             </div>
           </div>
         </AdModal>
