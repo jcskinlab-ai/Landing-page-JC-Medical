@@ -824,11 +824,12 @@ function ReportesView({ T, patients, appts }) {
   const pop = Object.entries(procCount).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => [n, totalCitas ? c / totalCitas : 0]);
   // Ticket promedio real (ingresos / nº de ingresos).
   const ticketProm = ingresos.length ? Math.round(ingresos.reduce((s, m) => s + (m.amount || 0), 0) / ingresos.length) : 0;
-  const t0 = new Date().toISOString().slice(0, 10);
+  const t0 = (typeof _localDay === "function") ? _localDay() : new Date().toISOString().slice(0, 10);
+  const _dayOf = ts => (typeof _localDay === "function") ? _localDay(ts) : (ts || "").slice(0, 10);
   // Ingresos de HOY y del MES en curso (en tiempo real con la caja; independientes del filtro de período).
-  const cashToday2 = moves.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 10) === t0).reduce((s, m) => s + (m.amount || 0), 0);
+  const cashToday2 = moves.filter(m => m.type === "ingreso" && _dayOf(m.ts) === t0).reduce((s, m) => s + (m.amount || 0), 0);
   const m0 = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2);
-  const cashMonth = moves.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 7) === m0).reduce((s, m) => s + (m.amount || 0), 0);
+  const cashMonth = moves.filter(m => m.type === "ingreso" && _dayOf(m.ts).slice(0, 7) === m0).reduce((s, m) => s + (m.amount || 0), 0);
   const MES_NOMBRE = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][now.getMonth()];
   // No-show real (citas marcadas no asistió / total con estado).
   const conEstado = (appts || []).filter(a => a.status);
@@ -1997,7 +1998,31 @@ function cashNotify() { try { window.dispatchEvent(new Event("jcm:cash")); } cat
 function cashSave(v) { try { if (window.DB) DB.set("cash_moves", v); } catch (e) {} cashNotify(); }
 function cashAdd(mv) { const all = cashAll(); all.push({ id: "cm" + Date.now() + Math.random().toString(36).slice(2, 5), ts: new Date().toISOString(), ...mv }); cashSave(all); }
 function cashDelete(id) { cashSave(cashAll().filter(m => m.id !== id)); }
-function cashToday() { const t = new Date().toISOString().slice(0, 10); return cashAll().filter(m => (m.ts || "").slice(0, 10) === t); }
+// Día LOCAL (no UTC): evita que un cobro de las 23:00 de Chile cuente como del día siguiente.
+function _localDay(d) { d = d ? new Date(d) : new Date(); if (isNaN(d)) return ""; return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function cashToday() { const t = _localDay(); return cashAll().filter(m => _localDay(m.ts) === t); }
+// Día (YYYY-MM-DD) de una atención de la ficha (patient.billing): acepta DD-MM-AAAA, DD/MM/AAAA o ISO.
+function _billDay(dateStr) {
+  const s = ("" + (dateStr || "")).trim().replace(/[.\s]+$/, "");
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) { let yy = +m[3]; if (yy < 100) yy += 2000; return yy + "-" + String(+m[2]).padStart(2, "0") + "-" + String(+m[1]).padStart(2, "0"); }
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (iso) return iso[1] + "-" + iso[2] + "-" + iso[3];
+  const t = Date.parse(s); return isNaN(t) ? "" : _localDay(t);
+}
+// Movimientos de caja del período + las atenciones PAGADAS de las fichas (que no pasan por "sesión con cobro").
+function cashMovimientos() {
+  const out = cashAll().map(m => ({ ...m, _day: _localDay(m.ts), _src: "caja" }));
+  let pts = []; try { pts = (window.DB && DB.get("patients")) || []; } catch (e) {}
+  (pts || []).forEach(p => {
+    (p.billing || []).forEach(b => {
+      if (!b.paid || !(b.amount > 0)) return; // solo pagadas con monto
+      out.push({ id: "bill_" + p.id + "_" + (b.id || ""), type: "ingreso", kind: "atencion", amount: b.amount || 0, cost: 0,
+        method: b.metodo || "Otro", concept: (b.concept || "Atención") + " · " + (p.name || ""), _day: _billDay(b.date),
+        ts: (_billDay(b.date) || _localDay()) + "T12:00:00", _src: "billing" });
+    });
+  });
+  return out;
+}
 /* inventario persistente — el seed (INV_SEED/PROC_SEED) solo aplica a la clínica base o modo local; las nuevas parten vacías */
 function invSeed() { return (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) ? INV_SEED : []; }
 function procSeed() { return (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) ? PROC_SEED : []; }
@@ -2662,27 +2687,47 @@ function CajaView({ T }) {
   const [tick, setTick] = useState(0);
   const [mov, setMov] = useState(false);
   const [cierre, setCierre] = useState(false);
-  const today = cashToday();
-  const ingresos = today.filter(m => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
-  const egresos = today.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
-  const costoIns = today.reduce((s, m) => s + (m.cost || 0), 0);
+  const [periodo, setPeriodo] = useState("hoy"); // hoy | semana | mes
+  const now = new Date();
+  const hoyDay = _localDay(now);
+  // Rango de la semana actual (lunes a domingo, en hora local).
+  const dow = (now.getDay() + 6) % 7;
+  const lun = new Date(now); lun.setDate(now.getDate() - dow);
+  const dom = new Date(lun); dom.setDate(lun.getDate() + 6);
+  const wkStart = _localDay(lun), wkEnd = _localDay(dom);
+  const inPeriodo = day => {
+    if (!day) return false;
+    if (periodo === "hoy") return day === hoyDay;
+    if (periodo === "mes") return day.slice(0, 7) === hoyDay.slice(0, 7);
+    return day >= wkStart && day <= wkEnd; // semana
+  };
+  const movs = cashMovimientos().filter(m => inPeriodo(m._day)).sort((a, b) => (a.ts < b.ts ? 1 : -1));
+  const ingresos = movs.filter(m => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
+  const egresos = movs.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+  const costoIns = movs.reduce((s, m) => s + (m.cost || 0), 0);
   const neto = ingresos - egresos - costoIns;
-  const atenciones = today.filter(m => m.kind === "atencion");
-  const manuales = today.filter(m => m.kind !== "atencion");
+  const atenciones = movs.filter(m => m.kind === "atencion");
+  const manuales = movs.filter(m => m.kind !== "atencion");
   const porMetodo = {};
-  today.filter(m => m.type === "ingreso").forEach(m => { const k = m.method || "Otro"; porMetodo[k] = (porMetodo[k] || 0) + (m.amount || 0); });
-  const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } }
-  const fechaTxt = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  movs.filter(m => m.type === "ingreso").forEach(m => { const k = m.method || "Otro"; porMetodo[k] = (porMetodo[k] || 0) + (m.amount || 0); });
+  const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  const fechaTxt = now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  const periodoLbl = periodo === "hoy" ? ("de hoy · " + fechaTxt) : periodo === "semana" ? "de esta semana" : "de este mes";
+  const subLbl = periodo === "hoy" ? "hoy" : periodo === "semana" ? "esta semana" : "este mes";
+  // En semana/mes, antepone la fecha (día/mes) a la hora para distinguir entre días.
+  const cuando = m => (periodo !== "hoy" && m._day ? m._day.slice(8) + "/" + m._day.slice(5, 7) + " · " : "") + hora(m.ts);
+  const chip = (k, l) => <button key={k} onClick={() => setPeriodo(k)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "7px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (periodo === k ? T.accent : T.line), background: periodo === k ? T.surface2 : T.surface, color: periodo === k ? T.text : T.textMute }}>{l}</button>;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <SecHead T={T} title="Caja" sub={"Resumen de caja de hoy · " + fechaTxt} />
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Caja" sub={"Resumen de caja " + periodoLbl} />
         <div style={{ display: "flex", gap: 8 }}>
           <AdBtn T={T} onClick={() => setCierre(true)}>Cierre del día</AdBtn>
           <AdBtn T={T} primary onClick={() => setMov(true)}>+ Movimiento</AdBtn>
         </div>
       </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>{chip("hoy", "Hoy")}{chip("semana", "Esta semana")}{chip("mes", "Este mes")}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
         <CajaCard T={T} l="Ingresos (bruto)" v={D.fmt(ingresos)} c="#1F8A5B" />
         <CajaCard T={T} l="Costo insumos" v={D.fmt(costoIns)} c={T.gold || "#C9A227"} />
@@ -2691,29 +2736,29 @@ function CajaView({ T }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" }}>
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Atenciones cobradas hoy</div>
-          {atenciones.length === 0 ? <Empty2 T={T}>Aún no hay atenciones cobradas hoy.</Empty2>
+          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Atenciones cobradas {subLbl}</div>
+          {atenciones.length === 0 ? <Empty2 T={T}>Sin atenciones cobradas {subLbl}.</Empty2>
             : atenciones.map(m => (
               <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{hora(m.ts)} · {m.method} · insumos {D.fmt(m.cost || 0)}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method} · insumos {D.fmt(m.cost || 0)}</div>
                 </div>
                 <div style={{ fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" }}>{D.fmt(m.amount || 0)}</div>
               </div>
             ))}
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" }}>Movimientos manuales</div>
-          {manuales.length === 0 ? <Empty2 T={T}>Sin movimientos manuales hoy.</Empty2>
+          {manuales.length === 0 ? <Empty2 T={T}>Sin movimientos manuales {subLbl}.</Empty2>
             : manuales.map(m => (
               <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{hora(m.ts)} · {m.method}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method}</div>
                 </div>
                 <div style={{ fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" }}>{m.type === "ingreso" ? "" : "− "}{D.fmt(m.amount || 0)}</div>
-                <button onClick={async () => { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento?", { danger: true })) { cashDelete(m.id); setTick(t => t + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                {m._src === "caja" && <button onClick={async () => { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento?", { danger: true })) { cashDelete(m.id); setTick(t => t + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
-                </button>
+                </button>}
               </div>
             ))}
         </div>

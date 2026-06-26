@@ -661,10 +661,11 @@ function ReportesView({ T, patients, appts }) {
   const totalCitas = Object.values(procCount).reduce((a, b) => a + b, 0);
   const pop = Object.entries(procCount).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => [n, totalCitas ? c / totalCitas : 0]);
   const ticketProm = ingresos.length ? Math.round(ingresos.reduce((s, m) => s + (m.amount || 0), 0) / ingresos.length) : 0;
-  const t0 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const cashToday2 = moves.filter((m) => m.type === "ingreso" && (m.ts || "").slice(0, 10) === t0).reduce((s, m) => s + (m.amount || 0), 0);
+  const t0 = typeof _localDay === "function" ? _localDay() : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const _dayOf = (ts) => typeof _localDay === "function" ? _localDay(ts) : (ts || "").slice(0, 10);
+  const cashToday2 = moves.filter((m) => m.type === "ingreso" && _dayOf(m.ts) === t0).reduce((s, m) => s + (m.amount || 0), 0);
   const m0 = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2);
-  const cashMonth = moves.filter((m) => m.type === "ingreso" && (m.ts || "").slice(0, 7) === m0).reduce((s, m) => s + (m.amount || 0), 0);
+  const cashMonth = moves.filter((m) => m.type === "ingreso" && _dayOf(m.ts).slice(0, 7) === m0).reduce((s, m) => s + (m.amount || 0), 0);
   const MES_NOMBRE = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][now.getMonth()];
   const conEstado = (appts || []).filter((a) => a.status);
   const noShow = conEstado.length ? Math.round(conEstado.filter((a) => a.status === "no_show" || a.status === "ausente").length / conEstado.length * 100) : 0;
@@ -1374,9 +1375,53 @@ function cashAdd(mv) {
 function cashDelete(id) {
   cashSave(cashAll().filter((m) => m.id !== id));
 }
+function _localDay(d) {
+  d = d ? new Date(d) : /* @__PURE__ */ new Date();
+  if (isNaN(d)) return "";
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
 function cashToday() {
-  const t = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  return cashAll().filter((m) => (m.ts || "").slice(0, 10) === t);
+  const t = _localDay();
+  return cashAll().filter((m) => _localDay(m.ts) === t);
+}
+function _billDay(dateStr) {
+  const s = ("" + (dateStr || "")).trim().replace(/[.\s]+$/, "");
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) {
+    let yy = +m[3];
+    if (yy < 100) yy += 2e3;
+    return yy + "-" + String(+m[2]).padStart(2, "0") + "-" + String(+m[1]).padStart(2, "0");
+  }
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[1] + "-" + iso[2] + "-" + iso[3];
+  const t = Date.parse(s);
+  return isNaN(t) ? "" : _localDay(t);
+}
+function cashMovimientos() {
+  const out = cashAll().map((m) => ({ ...m, _day: _localDay(m.ts), _src: "caja" }));
+  let pts = [];
+  try {
+    pts = window.DB && DB.get("patients") || [];
+  } catch (e) {
+  }
+  (pts || []).forEach((p) => {
+    (p.billing || []).forEach((b) => {
+      if (!b.paid || !(b.amount > 0)) return;
+      out.push({
+        id: "bill_" + p.id + "_" + (b.id || ""),
+        type: "ingreso",
+        kind: "atencion",
+        amount: b.amount || 0,
+        cost: 0,
+        method: b.metodo || "Otro",
+        concept: (b.concept || "Atenci\xF3n") + " \xB7 " + (p.name || ""),
+        _day: _billDay(b.date),
+        ts: (_billDay(b.date) || _localDay()) + "T12:00:00",
+        _src: "billing"
+      });
+    });
+  });
+  return out;
 }
 function invSeed() {
   return window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled) ? INV_SEED : [];
@@ -1926,15 +1971,30 @@ function CajaView({ T }) {
   const [tick, setTick] = useState(0);
   const [mov, setMov] = useState(false);
   const [cierre, setCierre] = useState(false);
-  const today = cashToday();
-  const ingresos = today.filter((m) => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
-  const egresos = today.filter((m) => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
-  const costoIns = today.reduce((s, m) => s + (m.cost || 0), 0);
+  const [periodo, setPeriodo] = useState("hoy");
+  const now = /* @__PURE__ */ new Date();
+  const hoyDay = _localDay(now);
+  const dow = (now.getDay() + 6) % 7;
+  const lun = new Date(now);
+  lun.setDate(now.getDate() - dow);
+  const dom = new Date(lun);
+  dom.setDate(lun.getDate() + 6);
+  const wkStart = _localDay(lun), wkEnd = _localDay(dom);
+  const inPeriodo = (day) => {
+    if (!day) return false;
+    if (periodo === "hoy") return day === hoyDay;
+    if (periodo === "mes") return day.slice(0, 7) === hoyDay.slice(0, 7);
+    return day >= wkStart && day <= wkEnd;
+  };
+  const movs = cashMovimientos().filter((m) => inPeriodo(m._day)).sort((a, b) => a.ts < b.ts ? 1 : -1);
+  const ingresos = movs.filter((m) => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
+  const egresos = movs.filter((m) => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+  const costoIns = movs.reduce((s, m) => s + (m.cost || 0), 0);
   const neto = ingresos - egresos - costoIns;
-  const atenciones = today.filter((m) => m.kind === "atencion");
-  const manuales = today.filter((m) => m.kind !== "atencion");
+  const atenciones = movs.filter((m) => m.kind === "atencion");
+  const manuales = movs.filter((m) => m.kind !== "atencion");
   const porMetodo = {};
-  today.filter((m) => m.type === "ingreso").forEach((m) => {
+  movs.filter((m) => m.type === "ingreso").forEach((m) => {
     const k = m.method || "Otro";
     porMetodo[k] = (porMetodo[k] || 0) + (m.amount || 0);
   });
@@ -1945,8 +2005,12 @@ function CajaView({ T }) {
       return "";
     }
   };
-  const fechaTxt = (/* @__PURE__ */ new Date()).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Caja", sub: "Resumen de caja de hoy \xB7 " + fechaTxt }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setCierre(true) }, "Cierre del d\xEDa"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setMov(true) }, "+ Movimiento"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Ingresos (bruto)", v: D.fmt(ingresos), c: "#1F8A5B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Costo insumos", v: D.fmt(costoIns), c: T.gold || "#C9A227" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Egresos", v: D.fmt(egresos), c: "#C0285A" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Neto (ganancia)", v: D.fmt(neto), c: T.accent, strong: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 } }, "Atenciones cobradas hoy"), atenciones.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "A\xFAn no hay atenciones cobradas hoy.") : atenciones.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, hora(m.ts), " \xB7 ", m.method, " \xB7 insumos ", D.fmt(m.cost || 0))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" } }, D.fmt(m.amount || 0)))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" } }, "Movimientos manuales"), manuales.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin movimientos manuales hoy.") : manuales.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, hora(m.ts), " \xB7 ", m.method)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" } }, m.type === "ingreso" ? "" : "\u2212 ", D.fmt(m.amount || 0)), /* @__PURE__ */ React.createElement("button", { onClick: async () => {
+  const fechaTxt = now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  const periodoLbl = periodo === "hoy" ? "de hoy \xB7 " + fechaTxt : periodo === "semana" ? "de esta semana" : "de este mes";
+  const subLbl = periodo === "hoy" ? "hoy" : periodo === "semana" ? "esta semana" : "este mes";
+  const cuando = (m) => (periodo !== "hoy" && m._day ? m._day.slice(8) + "/" + m._day.slice(5, 7) + " \xB7 " : "") + hora(m.ts);
+  const chip = (k, l) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setPeriodo(k), style: { fontFamily: T.sans, fontSize: 11.5, padding: "7px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (periodo === k ? T.accent : T.line), background: periodo === k ? T.surface2 : T.surface, color: periodo === k ? T.text : T.textMute } }, l);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Caja", sub: "Resumen de caja " + periodoLbl }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setCierre(true) }, "Cierre del d\xEDa"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setMov(true) }, "+ Movimiento"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } }, chip("hoy", "Hoy"), chip("semana", "Esta semana"), chip("mes", "Este mes")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Ingresos (bruto)", v: D.fmt(ingresos), c: "#1F8A5B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Costo insumos", v: D.fmt(costoIns), c: T.gold || "#C9A227" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Egresos", v: D.fmt(egresos), c: "#C0285A" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Neto (ganancia)", v: D.fmt(neto), c: T.accent, strong: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 } }, "Atenciones cobradas ", subLbl), atenciones.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin atenciones cobradas ", subLbl, ".") : atenciones.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method, " \xB7 insumos ", D.fmt(m.cost || 0))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" } }, D.fmt(m.amount || 0)))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" } }, "Movimientos manuales"), manuales.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin movimientos manuales ", subLbl, ".") : manuales.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" } }, m.type === "ingreso" ? "" : "\u2212 ", D.fmt(m.amount || 0)), m._src === "caja" && /* @__PURE__ */ React.createElement("button", { onClick: async () => {
     if (await (window.jcmConfirm || window.confirm)("\xBFEliminar este movimiento?", { danger: true })) {
       cashDelete(m.id);
       setTick((t) => t + 1);
