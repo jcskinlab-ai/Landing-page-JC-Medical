@@ -22,8 +22,13 @@
     .jc-admin-frame{width:100%;max-width:100%;height:100dvh;border-radius:0}
   }
   .jc-scroll{-webkit-overflow-scrolling:touch}
-  .jc-scroll::-webkit-scrollbar{width:8px}
-  .jc-scroll::-webkit-scrollbar-thumb{background:rgba(140,140,140,.3);border-radius:8px}
+  /* Scrollbars delgadas tipo glass — translúcidas, se notan menos (tema claro y oscuro) */
+  *{scrollbar-width:thin;scrollbar-color:rgba(150,150,150,.22) transparent}
+  ::-webkit-scrollbar{width:5px;height:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(150,150,150,.22);border-radius:999px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(150,150,150,.4)}
+  ::-webkit-scrollbar-corner{background:transparent}
   button{font-family:inherit}input,select,textarea{font-family:inherit}
   @keyframes jcFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes jcSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
