@@ -1882,7 +1882,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
             </div>
           : <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
               <AdField T={T} label="Nombre completo" value={nombre} onChange={setNombre} placeholder="Ej: Paciente nuevo" />
-              <AdField T={T} label="RUT" value={rut} onChange={setRut} placeholder="12.345.678-9" />
+              <AdField T={T} label="RUT" value={rut} onChange={v => setRut(window.jcmFmtRut ? window.jcmFmtRut(v) : v)} placeholder="12.345.678-9" />
               <AdField T={T} label="Teléfono móvil (WhatsApp)" value={phone} onChange={setPhone} inputMode="tel" />
               <AdField T={T} label="Correo" value={email} onChange={setEmail} inputMode="email" placeholder="correo@ejemplo.com" />
             </div>}

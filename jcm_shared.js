@@ -83,7 +83,8 @@ function jcmSanitize(s) {
 // ── RUT CHILENO (formato 20.090.534-2 + validación módulo 11) ───────────────
 // Formatea progresivamente mientras se escribe: solo dígitos + K como verificador.
 function jcmFmtRut(v) {
-  let s = (v || '').toString().toUpperCase().replace(/[^0-9K]/g, '');
+  // Solo dígitos y las letras K y X (dígito verificador K · X para RUT provisorio/extranjero).
+  let s = (v || '').toString().toUpperCase().replace(/[^0-9KX]/g, '');
   if (!s) return '';
   if (s.length > 9) s = s.slice(0, 9); // 8 dígitos cuerpo + 1 verificador
   const dv = s.slice(-1);
