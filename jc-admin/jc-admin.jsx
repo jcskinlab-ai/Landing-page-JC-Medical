@@ -1500,7 +1500,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const hourOf = t => parseInt((t || "0").split(":")[0], 10);
   const atCell = (off, h) => appts.filter(a => a.day === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
-  const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
+  // JC Medical: jornada más compacta (54 px/hora) para ver casi todo el día sin scroll. Otras clínicas: 70.
+  const WPX = (typeof clinicSeeded === "function" && clinicSeeded()) ? 54 : 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
   const slots = adminSlots(), slotPx = WPX * adminSlotMins() / 60; // 15 min (JC Medical) o 30 min (otras clínicas)
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
@@ -1534,7 +1535,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         <button onClick={() => setWkOff(wkOff + 1)} title="Semana siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
       </div>
 
-      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "74vh", border: "1px solid " + T.line, borderRadius: 12 }}>
+      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "82vh", border: "1px solid " + T.line, borderRadius: 12 }}>
         <div style={{ minWidth: 900 }}>
           {/* Encabezado días */}
           <div style={{ display: "grid", gridTemplateColumns: "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
