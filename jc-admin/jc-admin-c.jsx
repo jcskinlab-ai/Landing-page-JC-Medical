@@ -1637,8 +1637,8 @@ function SalaEsperaView({ T, appts, patients, updatePatient }) {
 
 /* ─────────── AUTOMATIZACIONES ─────────── */
 const AUTO_SEED = [
-  { id: "r24", t: "Recordatorio de cita (24 h antes)", d: "Envía un mensaje a los pacientes 24 horas antes de su cita para confirmar asistencia.", on: true, ch: "WhatsApp", ic: "clock" },
-  { id: "rmorning", t: "Recordatorio el día del tratamiento (08:30)", d: "Mensaje por WhatsApp a las 08:30 del día del tratamiento para recordar la hora.", on: true, ch: "WhatsApp", ic: "sun" },
+  { id: "r24", t: "Recordatorio de cita (24 h antes)", d: "Envía un correo a los pacientes (con email) 24 h antes de su cita para confirmar asistencia. WhatsApp próximamente.", on: true, ch: "Email", ic: "clock", email: true },
+  { id: "rmorning", t: "Recordatorio el día de la cita", d: "El día de la cita, envía un correo recordando la hora a los pacientes con email. WhatsApp próximamente.", on: true, ch: "Email", ic: "sun", email: true },
   { id: "rind", t: "Indicaciones post tratamiento", d: "Al finalizar la atención, envía por WhatsApp las indicaciones y cuidados del procedimiento realizado.", on: true, ch: "WhatsApp", ic: "chat" },
   { id: "rpost", t: "Seguimiento de tratamiento (14 días)", d: "Mensaje automático a los 14 días para control de resultados.", on: false, ch: "WhatsApp", ic: "chat" },
   { id: "rbday", t: "Saludo de cumpleaños", d: "Envía un mensaje felicitando al paciente en su cumpleaños.", on: false, ch: "Email", ic: "gift" },
@@ -1770,9 +1770,10 @@ function AutomatizacionesView({ T }) {
                 </button>
               </div>
               <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 12, lineHeight: 1.5 }}>{r.d}</p>
-              {r.on && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid " + T.lineSoft }}>
-                <span style={{ fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1F8A5B" }} /> Activo y funcionando</span>
-                <span style={{ fontFamily: T.sans, fontSize: 11, color: T.accent }}>Editar mensaje</span>
+              {r.on && <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid " + T.lineSoft }}>
+                {r.email
+                  ? <span style={{ fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1F8A5B" }} /> Activo · por correo</span>
+                  : <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#caa86a" }} /> Pendiente · requiere WhatsApp</span>}
               </div>}
             </div>
           );
