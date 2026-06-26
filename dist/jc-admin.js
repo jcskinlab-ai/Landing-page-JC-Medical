@@ -643,6 +643,7 @@ function AdminApp() {
   }
   function addPatient(p) {
     const np = { ...p, id: window.jcmUid ? window.jcmUid("p") : "p" + Date.now(), tags: p.tags || [], consent: p.consent === true, points: p.points || [], history: p.history || [] };
+    if (np.fechaTs == null && !np.imported) np.fechaTs = Date.now();
     setPatients((ps) => savePatients([np, ...ps]));
     try {
       window.jcmToast && window.jcmToast('Paciente "' + (np.name || "") + '" guardado.', "ok");

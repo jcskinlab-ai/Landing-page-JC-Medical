@@ -819,6 +819,9 @@ function AdminApp() {
     // consent/tags/points/history por defecto vacíos, pero la importación puede traerlos
     // (p.ej. pacientes de Excel con consentimiento ya firmado en papel → consent:true).
     const np = { ...p, id: (window.jcmUid ? window.jcmUid("p") : "p" + Date.now()), tags: p.tags || [], consent: p.consent === true, points: p.points || [], history: p.history || [] };
+    // Pacientes creados manualmente (Agenda / "+ Paciente") reciben la fecha de hoy para que
+    // aparezcan ordenados en el filtro "Calendario". Los importados conservan la del Excel.
+    if (np.fechaTs == null && !np.imported) np.fechaTs = Date.now();
     setPatients(ps => savePatients([np, ...ps]));
     try { window.jcmToast && window.jcmToast("Paciente \"" + (np.name || "") + "\" guardado.", "ok"); } catch (e) {}
     return np;
