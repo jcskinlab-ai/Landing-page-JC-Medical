@@ -302,7 +302,7 @@
 <script src="jc-proto/jc-data.js?v=75"></script>
 <!-- Multi-clínica: si la URL trae ?c=clinicId, carga la marca/datos de esa clínica -->
 <script src="jcm_saas_config.js?v=7"></script>
-<script src="jcm_saas.js?v=14"></script>
+<script src="jcm_saas.js?v=20"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -698,9 +698,17 @@
       if(window.JCSAAS && window.JCSAAS.enabled && CLINIC && window.JCSAAS.submitBooking){
         window.JCSAAS.submitBooking({ name:name, phone:phone, email:email, proc:procLabel,
           fecha:selDate.date, time:selTime, dur:totalMin+' min',
-          procs: procsArr.map(function(p){ return p.name+(p.qty>1?' x'+p.qty:''); }), source:'web' });
+          procs: procsArr.map(function(p){ return p.name+(p.qty>1?' x'+p.qty:''); }), source:'web' })
+          .then(function(){ try{ console.log('Reserva registrada en la clínica.'); }catch(_){ } })
+          .catch(function(err){
+            var code = (err && (err.code || err.message)) || 'error';
+            try{ console.error('submitBooking falló:', code, err); }catch(_){}
+            try{ showToast('Tu hora se envió por WhatsApp. (Aviso interno: ' + code + ')'); }catch(_){}
+          });
+      } else {
+        try{ console.warn('submitBooking no disponible', { enabled: !!(window.JCSAAS && window.JCSAAS.enabled), clinic: !!CLINIC }); }catch(_){}
       }
-    }catch(e){}
+    }catch(e){ try{ console.error('submitBooking excepción', e); }catch(_){ } }
 
     // Mensaje WhatsApp con todos los procedimientos + duración total
     var clinicPhone = (CLINIC && CLINIC.wa) ? (''+CLINIC.wa).replace(/\D/g,'') : '56997880877';
