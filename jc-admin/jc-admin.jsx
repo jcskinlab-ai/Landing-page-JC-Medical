@@ -2268,7 +2268,9 @@ function WelcomeTour({ T, go, onClose }) {
             <input value={iN} onChange={e => setIN(e.target.value)} placeholder="Nombre del insumo" style={{ ...inp, marginBottom: 8 }} />
             <div style={{ display: "flex", gap: 8 }}>
               <input value={iS} onChange={e => setIS(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Stock" style={inp} />
-              <input value={iU} onChange={e => setIU(e.target.value)} placeholder="Unidad" style={{ ...inp, width: 110 }} />
+              <select value={iU} onChange={e => setIU(e.target.value)} style={{ ...inp, width: 120 }}>
+                {["unidades", "viales", "jeringas", "tubos", "cajas", "paquetes", "rollos"].map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
               {addBtn(addInv)}
             </div>
           </>)}

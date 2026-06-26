@@ -2027,6 +2027,12 @@ function InventarioView({ T }) {
     .filter(i => !ql || i.name.toLowerCase().includes(ql) || (i.cat || "").toLowerCase().includes(ql));
   const valor = items.reduce((s, i) => s + i.stock * i.price, 0);
   function adjust(id, d) { setItems(items.map(i => i.id === id ? { ...i, stock: Math.max(0, i.stock + d) } : i)); }
+  async function delItem(it) {
+    const ok = await (window.jcmConfirm ? window.jcmConfirm('¿Eliminar "' + it.name + '" del inventario? Esta acción no se puede deshacer.', { danger: true }) : Promise.resolve(window.confirm('¿Eliminar "' + it.name + '" del inventario?')));
+    if (!ok) return;
+    setItems(items.filter(x => x.id !== it.id));
+    setMsg('"' + it.name + '" eliminado del inventario.'); setTimeout(() => setMsg(""), 3000);
+  }
   const invName = id => { const it = items.find(x => x.id === id); return it ? it.name : id; };
   // Descuenta del stock los insumos del procedimiento y registra el cobro en Caja.
   function aplicarProc(p) {
@@ -2085,6 +2091,9 @@ function InventarioView({ T }) {
                 <button onClick={() => adjust(i.id, 1)} style={invAdj(T)}>+</button>
               </div>
               {i.stock <= 0 ? <AdTag T={T} tone="danger">Agotado</AdTag> : lo ? <AdTag T={T} tone="warn">Bajo</AdTag> : <AdTag T={T} tone="ok">OK</AdTag>}
+              <button onClick={() => delItem(i)} title="Eliminar producto" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" /></svg>
+              </button>
             </div>
           );
         })}
