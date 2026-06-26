@@ -5,10 +5,9 @@
 // Variables de entorno (Vercel → Settings → Environment Variables):
 //   RESEND_API_KEY  = clave de https://resend.com/api-keys (free: 3.000 correos/mes)
 // Opcional:
-//   MAIL_FROM       = remitente, p.ej. "Medique <hola@medique.cl>".
-//                     Por defecto usa "Medique <onboarding@resend.dev>" (dominio sandbox de
-//                     Resend que funciona sin verificar dominio, ideal para pruebas).
-//                     Para producción: verifica medique.cl en Resend y pon tu remitente aquí.
+//   MAIL_FROM       = remitente, p.ej. "Medique <hola@medique.cl>". Por defecto reusa OTP_FROM
+//                     o "Medique <noreply@medique.cl>" (dominio ya verificado del 2FA), así envía
+//                     a cualquier destinatario. (onboarding@resend.dev solo sirve en sandbox.)
 
 import crypto from "node:crypto";
 
@@ -109,7 +108,9 @@ export default async function handler(req, res) {
   if (!key) {
     return res.status(503).json({ ok: false, error: "Correo no configurado: falta RESEND_API_KEY en el servidor.", configured: false });
   }
-  const from = process.env.MAIL_FROM || "Medique <onboarding@resend.dev>";
+  // Reusa el remitente del dominio verificado (el mismo del 2FA), así envía a cualquier paciente.
+  // onboarding@resend.dev solo sirve en sandbox (solo al dueño de la cuenta), por eso NO se usa por defecto.
+  const from = process.env.MAIL_FROM || process.env.OTP_FROM || "Medique <noreply@medique.cl>";
 
   const body = req.body || {};
   const to = (body.to || "").toString().trim();
