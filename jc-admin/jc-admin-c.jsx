@@ -663,6 +663,49 @@ function MetaConnectModal({ T, onClose, onSaved }) {
     </AdModal>
   );
 }
+
+/* Modal para conectar el Correo: envía un correo de prueba REAL vía /api/email (Resend).
+   La conexión se marca solo si el envío funcionó de verdad (no es un toggle cosmético). */
+function CorreoConnectModal({ T, onClose, onConnected }) {
+  const [dest, setDest] = useState(() => {
+    try { return (window.JCSAAS && window.JCSAAS.user && window.JCSAAS.user.email) || ""; } catch (e) { return ""; }
+  });
+  const [busy, setBusy] = useState(false);
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((dest || "").trim());
+  function enviarPrueba() {
+    if (!emailOk) { window.jcmToast && window.jcmToast("Escribe un correo válido para la prueba.", "error"); return; }
+    setBusy(true);
+    const clinic = (() => { try { return DB.cfg().clinic_name || "tu clínica"; } catch (e) { return "tu clínica"; } })();
+    window.mediqueEmail({
+      to: dest.trim(),
+      subject: "Prueba de correo · Medique",
+      text: "¡Hola!\n\nEste es un correo de prueba enviado desde el panel de " + clinic + " con Medique.\n\nSi lo recibiste, el envío de correos quedó funcionando: ya puedes mandar confirmaciones y recordatorios a tus pacientes.\n\n— El equipo de Medique"
+    }).then(r => {
+      setBusy(false);
+      if (r && r.ok) {
+        window.jcmToast && window.jcmToast("Correo de prueba enviado a " + dest.trim() + ". Revisa tu bandeja (y spam).", "ok");
+        onConnected && onConnected();
+      } else if (r && r.configured === false) {
+        window.jcmError && window.jcmError("Correo aún no configurado en el servidor (falta RESEND_API_KEY). Pídelo al administrador.", r.error);
+      } else {
+        window.jcmError && window.jcmError("No se pudo enviar el correo de prueba", (r && r.error) || r);
+      }
+    }).catch(e => { setBusy(false); window.jcmError && window.jcmError("No se pudo enviar el correo de prueba", e); });
+  }
+  return (
+    <AdModal T={T} title="Conectar Correo" onClose={onClose} footer={
+      <AdBtn T={T} primary full onClick={enviarPrueba}>{busy ? "Enviando…" : "Enviar correo de prueba"}</AdBtn>
+    }>
+      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>Envía un correo de prueba para confirmar que el canal funciona. Una vez verificado, podrás mandar confirmaciones y recordatorios a tus pacientes desde su ficha.</p>
+        <AdField T={T} label="Enviar prueba a" value={dest} onChange={setDest} placeholder="tucorreo@ejemplo.com" inputMode="email" />
+        {dest.trim() && !emailOk && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C0285A" }}>Correo inválido.</div>}
+        <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>Los correos se envían de forma segura desde el servidor de Medique. Si no llega, revisa la carpeta de spam.</p>
+      </div>
+    </AdModal>
+  );
+}
+
 function IntegracionesView({ T }) {
   const [list, setList] = useState(() => {
     let saved = {};
@@ -671,14 +714,22 @@ function IntegracionesView({ T }) {
   });
   const [metaModal, setMetaModal] = useState(false);
   const [metaOn, setMetaOn] = useState(metaConnected());
+  const [correoModal, setCorreoModal] = useState(false); // conexión REAL de correo (envío de prueba)
   const [previewInteg, setPreviewInteg] = useState(null); // integración a previsualizar antes de conectar
   function toggle(id) {
     const n = list.map(i => i.id === id ? { ...i, connected: !i.connected } : i);
     setList(n);
     try { if (window.DB) { const map = {}; n.forEach(i => { map[i.id] = i.connected; }); DB.set("integrations_state", map); } } catch (e) {}
   }
+  function markConnected(id, val) {
+    const n = list.map(i => i.id === id ? { ...i, connected: val } : i);
+    setList(n);
+    try { if (window.DB) { const map = {}; n.forEach(i => { map[i.id] = i.connected; }); DB.set("integrations_state", map); } } catch (e) {}
+  }
   function handleConnectClick(it, connected) {
     if (it.id === "metaads") { setMetaModal(true); return; }
+    // Correo: conexión REAL (envía un correo de prueba). Desconectar es directo.
+    if (it.id === "gmail") { if (connected) toggle("gmail"); else setCorreoModal(true); return; }
     if (!connected) { setPreviewInteg(it); return; } // mostrar popup antes de conectar
     toggle(it.id); // desconectar directo sin popup
   }
@@ -706,6 +757,7 @@ function IntegracionesView({ T }) {
       </div>
       <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 14, lineHeight: 1.6 }}>Cada herramienta se conecta con el inicio de sesión oficial (OAuth) de la plataforma. Conecta solo las que uses en tu clínica.</p>
       {metaModal && <MetaConnectModal T={T} onClose={() => setMetaModal(false)} onSaved={() => { setMetaOn(metaConnected()); setMetaModal(false); }} />}
+      {correoModal && <CorreoConnectModal T={T} onClose={() => setCorreoModal(false)} onConnected={() => { markConnected("gmail", true); setCorreoModal(false); }} />}
       {previewInteg && (
         <AdModal T={T} title={"Conectar " + previewInteg.name} onClose={() => setPreviewInteg(null)}
           footer={<div style={{ display: "flex", gap: 10, width: "100%" }}>

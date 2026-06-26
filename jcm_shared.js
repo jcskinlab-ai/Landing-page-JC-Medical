@@ -280,6 +280,27 @@ function mediqueAI(messages, clinic) {
 }
 if (typeof window !== 'undefined') window.mediqueAI = mediqueAI;
 
+// ── CLIENTE DE CORREO (/api/email; envío real vía Resend, key en el servidor) ──
+// mediqueEmail({ to, subject, text, replyTo?, clinic? }) → Promise { ok, id } | { ok:false, error, configured? }
+// Si no está configurado (sin RESEND_API_KEY) resuelve { ok:false, configured:false }.
+function mediqueEmail(opts) {
+  try {
+    opts = opts || {};
+    var tokP = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
+    return Promise.resolve(tokP).then(function (tok) {
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+      if (typeof window !== 'undefined' && window.JCM_API_KEY) headers['x-jcm-key'] = window.JCM_API_KEY;
+      // Adjunta el nombre de la clínica para la plantilla, si está disponible.
+      var clinic = opts.clinic || (function () { try { return { name: (window.DB && DB.cfg().clinic_name) || '' }; } catch (e) { return {}; } })();
+      var body = { to: opts.to, subject: opts.subject, text: opts.text, replyTo: opts.replyTo, clinic: clinic };
+      return fetch('/api/email', { method: 'POST', headers: headers, body: JSON.stringify(body) });
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
+      .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
+  } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }
+}
+if (typeof window !== 'undefined') window.mediqueEmail = mediqueEmail;
+
 // ── CLIENTE 2FA por email (/api/otp). Envía el ID token de Firebase del usuario. ──
 function mediqueOtp(action, extra) {
   try {
