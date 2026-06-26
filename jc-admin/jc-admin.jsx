@@ -882,6 +882,58 @@ function AdminApp() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // ── Motor de recordatorios por CORREO ─────────────────────────────────────
+  // Se ejecuta al abrir el panel (1 vez al día). Manda el recordatorio de cita por correo a los
+  // pacientes que tengan email: r24 = cita de mañana, rmorning = cita de hoy. Dedup por cita+fecha
+  // (sincronizado por DB→Firestore) para no reenviar. WhatsApp queda pendiente del canal Cloud API.
+  useEffect(() => {
+    try {
+      var iso = function (d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); };
+      var hoy = new Date(), hoyISO = iso(hoy);
+      var lastRun = ""; try { lastRun = DB.get("auto_email_lastrun"); } catch (e) {}
+      if (lastRun === hoyISO) return;
+      if (!window.mediqueEmail) return;
+      var rules = {}; try { (DB.get("automations") || []).forEach(function (r) { rules[r.id] = r.on; }); } catch (e) {}
+      var r24on = rules.r24 !== false, rmornOn = rules.rmorning !== false;
+      if (!r24on && !rmornOn) { try { DB.set("auto_email_lastrun", hoyISO); } catch (e) {} return; }
+      var manana = new Date(hoy); manana.setDate(hoy.getDate() + 1); var manISO = iso(manana);
+      var clinic = (function () { try { return DB.cfg().clinic_name || "tu clínica"; } catch (e) { return "tu clínica"; } })();
+      var valido = function (e) { return e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); };
+      var sent = {}; try { sent = DB.get("auto_email_sent") || {}; } catch (e) {}
+      var timer = setTimeout(function () {
+        var jobs = [];
+        (appts || []).forEach(function (a) {
+          var esMan = a.fecha === manISO, esHoy = a.fecha === hoyISO;
+          if (!(r24on && esMan) && !(rmornOn && esHoy)) return;
+          var p = patients.find(function (x) { return x.id === a.patId; });
+          var email = (p && p.email) || a.email; if (!valido(email)) return;
+          var ruleId = esMan ? "r24" : "rmorning";
+          var key = ruleId + ":" + (a.id || (a.patId + "" + a.fecha + a.time)) + ":" + a.fecha;
+          if (sent[key]) return;
+          var nombre = (((p && p.name) || a.name || "").split(" ")[0]) || "";
+          var cuando = esMan ? "mañana" : "hoy";
+          var text = "Hola " + nombre + ",\n\nTe recordamos tu cita en " + clinic + " " + cuando + (a.time ? " a las " + a.time : "") + (a.proc ? " (" + a.proc + ")" : "") + ".\n\nSi necesitas reprogramar, respóndenos este correo.\n\n— " + clinic;
+          jobs.push({ key: key, email: email, text: text });
+        });
+        if (!jobs.length) { try { DB.set("auto_email_lastrun", hoyISO); } catch (e) {} return; }
+        var ok = 0;
+        var run = function (i) {
+          if (i >= jobs.length) {
+            try { DB.set("auto_email_sent", sent); DB.set("auto_email_lastrun", hoyISO); } catch (e) {}
+            if (ok) { try { window.jcmToast && window.jcmToast(ok + " recordatorio(s) de cita enviado(s) por correo.", "ok"); } catch (e) {} }
+            return;
+          }
+          var j = jobs[i];
+          window.mediqueEmail({ to: j.email, subject: "Recordatorio de tu cita · " + clinic, text: j.text })
+            .then(function (r) { if (r && r.ok) { sent[j.key] = true; ok++; } run(i + 1); })
+            .catch(function () { run(i + 1); });
+        };
+        run(0);
+      }, 5000);
+      return function () { clearTimeout(timer); };
+    } catch (e) {}
+  }, []);
+
   const current = patients.find(p => p.id === openPatient);
   const pendCount = patients.filter(p => !p.consent).length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
   // La campana cuenta solo lo NO leído (se actualiza al pulsar "Leer todas"); notifVer fuerza el recálculo.
