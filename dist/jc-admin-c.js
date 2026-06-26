@@ -1397,8 +1397,24 @@ function _billDay(dateStr) {
   const t = Date.parse(s);
   return isNaN(t) ? "" : _localDay(t);
 }
+function cashUpdate(id, patch) {
+  cashSave(cashAll().map((m) => m.id === id ? { ...m, ...patch } : m));
+}
+function billingUpdateMethod(patId, billId, metodo) {
+  try {
+    const pts = window.DB && DB.get("patients") || [];
+    DB.set("patients", pts.map((p) => p.id === patId ? { ...p, billing: (p.billing || []).map((b) => b.id === billId ? { ...b, metodo } : b) } : p));
+    cashNotify();
+  } catch (e) {
+  }
+}
 function cashMovimientos() {
-  const out = cashAll().map((m) => ({ ...m, _day: _localDay(m.ts), _src: "caja" }));
+  const cashMoves = cashAll().map((m) => ({ ...m, _day: _localDay(m.ts), _src: "caja" }));
+  const seen = {};
+  cashMoves.forEach((m) => {
+    if (m.kind === "atencion") seen[(m.patient || "").toLowerCase().trim() + "|" + (m.amount || 0) + "|" + m._day] = true;
+  });
+  const out = cashMoves.slice();
   let pts = [];
   try {
     pts = window.DB && DB.get("patients") || [];
@@ -1407,6 +1423,8 @@ function cashMovimientos() {
   (pts || []).forEach((p) => {
     (p.billing || []).forEach((b) => {
       if (!b.paid || !(b.amount > 0)) return;
+      const day = _billDay(b.date);
+      if (seen[(p.name || "").toLowerCase().trim() + "|" + (b.amount || 0) + "|" + day]) return;
       out.push({
         id: "bill_" + p.id + "_" + (b.id || ""),
         type: "ingreso",
@@ -1415,9 +1433,11 @@ function cashMovimientos() {
         cost: 0,
         method: b.metodo || "Otro",
         concept: (b.concept || "Atenci\xF3n") + " \xB7 " + (p.name || ""),
-        _day: _billDay(b.date),
-        ts: (_billDay(b.date) || _localDay()) + "T12:00:00",
-        _src: "billing"
+        _day: day,
+        ts: (day || _localDay()) + "T12:00:00",
+        _src: "billing",
+        _patId: p.id,
+        _billId: b.id
       });
     });
   });
@@ -1970,6 +1990,7 @@ function CajaView({ T }) {
   const D = window.JCDATA;
   const [tick, setTick] = useState(0);
   const [mov, setMov] = useState(false);
+  const [editMov, setEditMov] = useState(null);
   const [cierre, setCierre] = useState(false);
   const [periodo, setPeriodo] = useState("hoy");
   const now = /* @__PURE__ */ new Date();
@@ -2010,7 +2031,8 @@ function CajaView({ T }) {
   const subLbl = periodo === "hoy" ? "hoy" : periodo === "semana" ? "esta semana" : "este mes";
   const cuando = (m) => (periodo !== "hoy" && m._day ? m._day.slice(8) + "/" + m._day.slice(5, 7) + " \xB7 " : "") + hora(m.ts);
   const chip = (k, l) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setPeriodo(k), style: { fontFamily: T.sans, fontSize: 11.5, padding: "7px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (periodo === k ? T.accent : T.line), background: periodo === k ? T.surface2 : T.surface, color: periodo === k ? T.text : T.textMute } }, l);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Caja", sub: "Resumen de caja " + periodoLbl }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setCierre(true) }, "Cierre del d\xEDa"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setMov(true) }, "+ Movimiento"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } }, chip("hoy", "Hoy"), chip("semana", "Esta semana"), chip("mes", "Este mes")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Ingresos (bruto)", v: D.fmt(ingresos), c: "#1F8A5B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Costo insumos", v: D.fmt(costoIns), c: T.gold || "#C9A227" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Egresos", v: D.fmt(egresos), c: "#C0285A" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Neto (ganancia)", v: D.fmt(neto), c: T.accent, strong: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 } }, "Atenciones cobradas ", subLbl), atenciones.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin atenciones cobradas ", subLbl, ".") : atenciones.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method, " \xB7 insumos ", D.fmt(m.cost || 0))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" } }, D.fmt(m.amount || 0)))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" } }, "Movimientos manuales"), manuales.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin movimientos manuales ", subLbl, ".") : manuales.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" } }, m.type === "ingreso" ? "" : "\u2212 ", D.fmt(m.amount || 0)), m._src === "caja" && /* @__PURE__ */ React.createElement("button", { onClick: async () => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Caja", sub: "Resumen de caja " + periodoLbl }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setCierre(true) }, "Cierre del d\xEDa"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setMov(true) }, "+ Movimiento"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } }, chip("hoy", "Hoy"), chip("semana", "Esta semana"), chip("mes", "Este mes")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Ingresos (bruto)", v: D.fmt(ingresos), c: "#1F8A5B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Costo insumos", v: D.fmt(costoIns), c: T.gold || "#C9A227" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Egresos", v: D.fmt(egresos), c: "#C0285A" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Neto (ganancia)", v: D.fmt(neto), c: T.accent, strong: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 } }, "Atenciones cobradas ", subLbl), atenciones.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin atenciones cobradas ", subLbl, ".") : atenciones.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, onClick: () => setEditMov(m), title: "Cambiar m\xE9todo de pago", style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method, " \xB7 insumos ", D.fmt(m.cost || 0))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" } }, D.fmt(m.amount || 0)))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" } }, "Movimientos manuales"), manuales.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin movimientos manuales ", subLbl, ".") : manuales.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, onClick: () => setEditMov(m), title: "Cambiar m\xE9todo de pago", style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" } }, m.type === "ingreso" ? "" : "\u2212 ", D.fmt(m.amount || 0)), m._src === "caja" && /* @__PURE__ */ React.createElement("button", { onClick: async (ev) => {
+    ev.stopPropagation();
     if (await (window.jcmConfirm || window.confirm)("\xBFEliminar este movimiento?", { danger: true })) {
       cashDelete(m.id);
       setTick((t) => t + 1);
@@ -2019,7 +2041,16 @@ function CajaView({ T }) {
     cashAdd({ ...mv, kind: "manual" });
     setMov(false);
     setTick(tick + 1);
-  } }), cierre && /* @__PURE__ */ React.createElement(CierreModal, { T, ingresos, egresos, costoIns, neto, fecha: fechaTxt, onClose: () => setCierre(false) }));
+  } }), cierre && /* @__PURE__ */ React.createElement(CierreModal, { T, ingresos, egresos, costoIns, neto, fecha: fechaTxt, onClose: () => setCierre(false) }), editMov && /* @__PURE__ */ React.createElement(MetodoPagoModal, { T, mov: editMov, onClose: () => setEditMov(null), onSave: (metodo) => {
+    if (editMov._src === "billing") billingUpdateMethod(editMov._patId, editMov._billId, metodo);
+    else cashUpdate(editMov.id, { method: metodo });
+    setEditMov(null);
+    setTick((t) => t + 1);
+  } }));
+}
+function MetodoPagoModal({ T, mov, onClose, onSave }) {
+  const METODOS = ["Efectivo", "Transferencia", "D\xE9bito", "Cr\xE9dito", "Otro"];
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "M\xE9todo de pago", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cerrar") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 } }, mov.concept, " \xB7 ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, window.JCDATA ? window.JCDATA.fmt(mov.amount || 0) : "$" + (mov.amount || 0)), /* @__PURE__ */ React.createElement("br", null), "Elige el m\xE9todo de pago correcto:"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, METODOS.map((mt) => /* @__PURE__ */ React.createElement("button", { key: mt, onClick: () => onSave(mt), style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 8, cursor: "pointer", fontFamily: T.sans, fontSize: 13.5, background: mov.method === mt ? T.surface2 : T.surface, border: "1px solid " + (mov.method === mt ? T.accent : T.line), color: T.text } }, mt, mov.method === mt && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.accent, letterSpacing: ".1em", textTransform: "uppercase" } }, "Actual")))));
 }
 function CajaCard({ T, l, v, c, strong }) {
   return /* @__PURE__ */ React.createElement("div", { style: { background: strong ? T.surface2 : T.surface, border: "1px solid " + (strong ? T.accent : T.line), borderRadius: 10, padding: "14px 16px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: c } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute } }, l)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, fontWeight: 300, color: T.text } }, v));

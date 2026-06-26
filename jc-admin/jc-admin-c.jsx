@@ -2009,16 +2009,32 @@ function _billDay(dateStr) {
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (iso) return iso[1] + "-" + iso[2] + "-" + iso[3];
   const t = Date.parse(s); return isNaN(t) ? "" : _localDay(t);
 }
+// Actualiza un movimiento de caja (p.ej. cambiar el método de pago).
+function cashUpdate(id, patch) { cashSave(cashAll().map(m => m.id === id ? { ...m, ...patch } : m)); }
+// Cambia el método de pago de una atención de la ficha (patient.billing) desde Caja.
+function billingUpdateMethod(patId, billId, metodo) {
+  try {
+    const pts = (window.DB && DB.get("patients")) || [];
+    DB.set("patients", pts.map(p => p.id === patId ? { ...p, billing: (p.billing || []).map(b => b.id === billId ? { ...b, metodo: metodo } : b) } : p));
+    cashNotify();
+  } catch (e) {}
+}
 // Movimientos de caja del período + las atenciones PAGADAS de las fichas (que no pasan por "sesión con cobro").
+// Deduplica: si una atención de ficha ya está cobrada en caja (misma persona, monto y día), no se repite.
 function cashMovimientos() {
-  const out = cashAll().map(m => ({ ...m, _day: _localDay(m.ts), _src: "caja" }));
+  const cashMoves = cashAll().map(m => ({ ...m, _day: _localDay(m.ts), _src: "caja" }));
+  const seen = {};
+  cashMoves.forEach(m => { if (m.kind === "atencion") seen[(m.patient || "").toLowerCase().trim() + "|" + (m.amount || 0) + "|" + m._day] = true; });
+  const out = cashMoves.slice();
   let pts = []; try { pts = (window.DB && DB.get("patients")) || []; } catch (e) {}
   (pts || []).forEach(p => {
     (p.billing || []).forEach(b => {
       if (!b.paid || !(b.amount > 0)) return; // solo pagadas con monto
+      const day = _billDay(b.date);
+      if (seen[(p.name || "").toLowerCase().trim() + "|" + (b.amount || 0) + "|" + day]) return; // ya registrado en caja (sesión)
       out.push({ id: "bill_" + p.id + "_" + (b.id || ""), type: "ingreso", kind: "atencion", amount: b.amount || 0, cost: 0,
-        method: b.metodo || "Otro", concept: (b.concept || "Atención") + " · " + (p.name || ""), _day: _billDay(b.date),
-        ts: (_billDay(b.date) || _localDay()) + "T12:00:00", _src: "billing" });
+        method: b.metodo || "Otro", concept: (b.concept || "Atención") + " · " + (p.name || ""), _day: day,
+        ts: (day || _localDay()) + "T12:00:00", _src: "billing", _patId: p.id, _billId: b.id });
     });
   });
   return out;
@@ -2686,6 +2702,7 @@ function CajaView({ T }) {
   const D = window.JCDATA;
   const [tick, setTick] = useState(0);
   const [mov, setMov] = useState(false);
+  const [editMov, setEditMov] = useState(null); // movimiento al que se le cambia el método de pago
   const [cierre, setCierre] = useState(false);
   const [periodo, setPeriodo] = useState("hoy"); // hoy | semana | mes
   const now = new Date();
@@ -2739,7 +2756,7 @@ function CajaView({ T }) {
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Atenciones cobradas {subLbl}</div>
           {atenciones.length === 0 ? <Empty2 T={T}>Sin atenciones cobradas {subLbl}.</Empty2>
             : atenciones.map(m => (
-              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
+              <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div>
                   <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method} · insumos {D.fmt(m.cost || 0)}</div>
@@ -2750,13 +2767,13 @@ function CajaView({ T }) {
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" }}>Movimientos manuales</div>
           {manuales.length === 0 ? <Empty2 T={T}>Sin movimientos manuales {subLbl}.</Empty2>
             : manuales.map(m => (
-              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
+              <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")}</div>
                   <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method}</div>
                 </div>
                 <div style={{ fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" }}>{m.type === "ingreso" ? "" : "− "}{D.fmt(m.amount || 0)}</div>
-                {m._src === "caja" && <button onClick={async () => { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento?", { danger: true })) { cashDelete(m.id); setTick(t => t + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                {m._src === "caja" && <button onClick={async (ev) => { ev.stopPropagation(); if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento?", { danger: true })) { cashDelete(m.id); setTick(t => t + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
                 </button>}
               </div>
@@ -2778,7 +2795,27 @@ function CajaView({ T }) {
       </div>
       {mov && <NuevoMovModal T={T} onClose={() => setMov(false)} onSave={mv => { cashAdd({ ...mv, kind: "manual" }); setMov(false); setTick(tick + 1); }} />}
       {cierre && <CierreModal T={T} ingresos={ingresos} egresos={egresos} costoIns={costoIns} neto={neto} fecha={fechaTxt} onClose={() => setCierre(false)} />}
+      {editMov && <MetodoPagoModal T={T} mov={editMov} onClose={() => setEditMov(null)} onSave={metodo => {
+        if (editMov._src === "billing") billingUpdateMethod(editMov._patId, editMov._billId, metodo);
+        else cashUpdate(editMov.id, { method: metodo });
+        setEditMov(null); setTick(t => t + 1);
+      }} />}
     </div>
+  );
+}
+function MetodoPagoModal({ T, mov, onClose, onSave }) {
+  const METODOS = ["Efectivo", "Transferencia", "Débito", "Crédito", "Otro"];
+  return (
+    <AdModal T={T} title="Método de pago" onClose={onClose} footer={<AdBtn T={T} onClick={onClose}>Cerrar</AdBtn>}>
+      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>{mov.concept} · <b style={{ color: T.text }}>{(window.JCDATA ? window.JCDATA.fmt(mov.amount || 0) : "$" + (mov.amount || 0))}</b><br />Elige el método de pago correcto:</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {METODOS.map(mt => (
+          <button key={mt} onClick={() => onSave(mt)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 8, cursor: "pointer", fontFamily: T.sans, fontSize: 13.5, background: mov.method === mt ? T.surface2 : T.surface, border: "1px solid " + (mov.method === mt ? T.accent : T.line), color: T.text }}>
+            {mt}{mov.method === mt && <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.accent, letterSpacing: ".1em", textTransform: "uppercase" }}>Actual</span>}
+          </button>
+        ))}
+      </div>
+    </AdModal>
   );
 }
 function CajaCard({ T, l, v, c, strong }) {
