@@ -107,6 +107,8 @@
   // Claves con escritura local pendiente o fallida: NO deben ser sobrescritas por
   // la sincronización remota (evita perder datos como consentimientos si el push falla).
   var pendingPush = {}; // k -> JSON del valor local más reciente aún no confirmado en la nube
+  var syncErrors = {};  // k -> { code, at } del último error de subida (para el diagnóstico)
+  var lastSyncOk = 0;   // timestamp del último push confirmado
 
   function pushKey(k, v, attempt) {
     if (!db || !state.clinicId) return;
@@ -122,9 +124,11 @@
         op.then(function () {
           // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
           if (pendingPush[k] === snapshot) { delete pendingPush[k]; setDirty(k, false); }
+          lastSyncOk = Date.now(); delete syncErrors[k];
         }).catch(function (e) {
           noop(e);
           var code = (e && e.code) || 'unknown';
+          syncErrors[k] = { code: code, at: Date.now() };
           // La data sigue a salvo en localStorage y protegida de sobrescritura. Reintentamos.
           if (attempt < 5) {
             setTimeout(function () { if (pendingPush[k] === snapshot) pushKey(k, v, attempt + 1); }, Math.min(2000 * (attempt + 1), 15000));
@@ -471,6 +475,24 @@
     access: access,
     migrateLocal: migrateLocal,
     hasLegacyData: hasLegacyData,
+    // ── Diagnóstico de sincronización ──────────────────────────────────────────
+    // Tamaño de cada bloque de datos, cuáles están pendientes de subir y por qué.
+    syncStatus: function () {
+      var pre = 'jcm_' + (state.clinicId ? state.clinicId + '_' : '');
+      var sizes = {}, errors = {};
+      try {
+        Object.keys(localStorage).forEach(function (full) {
+          if (full.indexOf(pre) !== 0) return;
+          var k = full.slice(pre.length);
+          if (NO_SYNC[k] || k.indexOf('__dirty__') === 0) return;
+          sizes[k] = (localStorage.getItem(full) || '').length; // bytes aprox (1 char ≈ 1 byte)
+        });
+      } catch (e) {}
+      Object.keys(syncErrors).forEach(function (k) { errors[k] = syncErrors[k]; });
+      return { clinicId: state.clinicId, dirty: Object.keys(dirtyAll()), errors: errors, sizes: sizes, lastOk: lastSyncOk, online: (typeof navigator !== 'undefined' ? navigator.onLine : true), limit: 1048576 };
+    },
+    // Reintenta subir TODO lo que quedó pendiente (seguro: solo empuja, no borra).
+    retrySync: function () { try { flushDirty(); return true; } catch (e) { return false; } },
     isFreshClinic: function () { return state.kvEmpty; },
     getPublic: function () { return state.publicProfile || null; },
     publishProfile: publishProfile,

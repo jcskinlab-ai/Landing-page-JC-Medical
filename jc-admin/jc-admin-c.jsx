@@ -2464,6 +2464,42 @@ function csvParse(text) {
 }
 
 const ADMIN_TABS = [["datos", "Datos / facturación"], ["registro", "Registro de actividad"], ["equipo", "Equipo y permisos"], ["respaldo", "Respaldo / exportar"]];
+// Diagnóstico de sincronización con la nube: tamaño de cada bloque, qué falta subir y por qué.
+function SyncStatusCard({ T }) {
+  const [, force] = useState(0);
+  const s = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.syncStatus) ? window.JCSAAS.syncStatus() : null;
+  if (!s) return null; // solo en modo nube
+  const fmtSize = b => b >= 1048576 ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB";
+  const dirtySet = {}; (s.dirty || []).forEach(k => { dirtySet[k] = true; });
+  const labelOf = k => k.indexOf("pcons_") === 0 ? "Consentimientos · un paciente" : ({ patients: "Pacientes", appointments: "Agenda", cash_moves: "Caja", inv_items: "Inventario", inv_procs: "Procedimientos", config: "Configuración", team: "Equipo", services_custom: "Servicios", horarios_v1: "Horarios", bookings: "Reservas web", admin_tasks: "Pendientes" })[k] || k;
+  const errMsg = { "resource-exhausted": "Supera 1 MB (límite de la nube) — no puede subir.", "permission-denied": "Permiso denegado (reglas o plan).", "unavailable": "Sin conexión con la nube.", "unauthenticated": "Sesión sin autenticar.", "failed-precondition": "Verificación (App Check) falló.", "invalid-argument": "Documento demasiado grande (supera 1 MB)." };
+  const keys = Object.keys(s.sizes).sort((a, b) => s.sizes[b] - s.sizes[a]);
+  const shown = keys.filter(k => dirtySet[k] || s.sizes[k] > 700 * 1024).slice(0, 14);
+  const pend = (s.dirty || []).length;
+  const hace = s.lastOk ? Math.round((Date.now() - s.lastOk) / 1000) : null;
+  return (
+    <div style={{ background: pend ? "rgba(192,40,90,.06)" : T.surface, border: "1px solid " + (pend ? "#C0285A55" : T.line), borderRadius: 12, padding: "18px 18px", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Estado de sincronización</div>
+        <AdBtn T={T} small onClick={() => { try { window.JCSAAS.retrySync(); } catch (e) {} window.jcmToast && window.jcmToast("Reintentando subir lo pendiente…", "info"); setTimeout(() => force(x => x + 1), 3500); }}>Reintentar ahora</AdBtn>
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 }}>
+        {s.online ? "En línea" : "Sin conexión"} · {pend === 0 ? "todo sincronizado ✓" : pend + " bloque(s) pendientes de subir"}{hace != null ? " · última subida hace " + (hace < 60 ? hace + " s" : Math.round(hace / 60) + " min") : ""}.
+      </div>
+      {shown.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Todo al día, sin bloques pesados.</div>
+        : shown.map(k => (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid " + T.lineSoft }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{labelOf(k)}{dirtySet[k] ? " · pendiente" : ""}</div>
+              {s.errors[k] && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 2 }}>{errMsg[s.errors[k].code] || ("Error: " + s.errors[k].code)}</div>}
+            </div>
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: s.sizes[k] > 1048576 ? "#C0285A" : (s.sizes[k] > 900 * 1024 ? (T.gold || "#C9A227") : T.textMute), fontWeight: s.sizes[k] > 900 * 1024 ? 600 : 400, whiteSpace: "nowrap" }}>{fmtSize(s.sizes[k])}</div>
+          </div>
+        ))}
+      <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>Un bloque en <b style={{ color: "#C0285A" }}>rojo</b> cerca o sobre 1 MB es el que no logra subir a la nube. Abre esta pantalla en cada dispositivo para comparar.</div>
+    </div>
+  );
+}
 function AdministracionView({ T, go, patients, appts, addPatient, updatePatient, markAllPaperConsent }) {
   const D = window.JCDATA;
   const [tab, setTab] = useState("datos");
@@ -2650,6 +2686,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
 
       {tab === "respaldo" && (
         <div>
+          <SyncStatusCard T={T} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 14 }}>
             {expCard("Pacientes", "Nombre, RUT, contacto y estado.", expPac)}
             {expCard("Citas", "Fecha, paciente, servicio, estado y precio.", expCitas)}
