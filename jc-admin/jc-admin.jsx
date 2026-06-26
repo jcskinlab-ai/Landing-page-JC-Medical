@@ -1067,6 +1067,8 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
     if (onChanged) onChanged();
     onClose();
   }
+  // Descarta UNA notificación: la marca como leída y refresca, sin cerrar el panel.
+  function leerUna(key) { notifMarkAllRead([key]); if (onChanged) onChanged(); }
   const row = (key, color, ic, title, sub, action, fn) => (
     <div key={key} style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 14px", borderBottom: "1px solid " + T.lineSoft }}>
       <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: color + "1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1077,6 +1079,9 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
         <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
       </div>
       {action && <button onClick={fn} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>{action}</button>}
+      <button onClick={() => leerUna(key)} title="Descartar esta notificación" style={{ flexShrink: 0, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 0 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
     </div>
   );
   const ICb = <><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></>;
