@@ -181,10 +181,34 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     setBusy(true);
     try {
       if (!window.mediqueAI) throw new Error("nohost");
-      const system = FACIAL_SYS + "\n\nDATOS DEL PANEL (úsalos solo si ayudan): " + ctx();
+      // Contexto de fecha real (para que NO invente el día de la semana) + capacidad de agendar de verdad.
+      const hoy = new Date();
+      const hoyStr = hoy.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      const hoyISO = hoy.getFullYear() + "-" + ("0" + (hoy.getMonth() + 1)).slice(-2) + "-" + ("0" + hoy.getDate()).slice(-2);
+      const sched = "\n\nAGENDAR CITAS — hoy es " + hoyStr + " (" + hoyISO + "). Calcula las fechas reales a partir de HOY; nunca inventes el día de la semana. " +
+        "Cuando el profesional pida reservar/agendar y tengas PACIENTE, PROCEDIMIENTO, FECHA y HORA, agrega al FINAL de tu respuesta UNA sola línea EXACTA:\n" +
+        "@@AGENDAR {\"paciente\":\"<nombre>\",\"proc\":\"<procedimiento>\",\"fecha\":\"YYYY-MM-DD\",\"hora\":\"HH:MM\"}\n" +
+        "Si falta algún dato, NO pongas esa línea: pídelo de forma breve. NUNCA afirmes que agendaste si no incluiste la línea @@AGENDAR.";
+      const system = FACIAL_SYS + sched + "\n\nDATOS DEL PANEL: " + ctx();
       const res = await window.mediqueAI(next, {}, { system: system, max_tokens: 700 });
       if (!res || !res.ok || !res.reply) throw new Error((res && res.error) || "sin respuesta");
-      setMsgs(m => [...m, { role: "assistant", content: res.reply.trim() }]);
+      let reply = res.reply.trim();
+      // ¿La IA pidió agendar? → ejecuta la acción REAL: abre el formulario «Dar cita» prellenado.
+      const mAg = reply.match(/@@AGENDAR\s*(\{[\s\S]*?\})/);
+      if (mAg) {
+        reply = reply.replace(/@@AGENDAR\s*\{[\s\S]*?\}/, "").trim();
+        try {
+          const a = JSON.parse(mAg[1]);
+          const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+          const target = new Date((a.fecha || "") + "T00:00:00");
+          let day = Math.round((target - t0) / 86400000); if (!(day >= 0)) day = 0;
+          const first = String(a.paciente || "").toLowerCase().split(" ")[0];
+          const pat = first ? patients.find(p => p.name.toLowerCase().indexOf(first) >= 0) : null;
+          if (onDarCita) onDarCita({ proc: a.proc || "", time: a.hora || "", day: day, patId: pat ? pat.id : "", patName: pat ? pat.name : (a.paciente || "") });
+          reply = (reply ? reply + "\n\n" : "") + "📅 Te dejé la cita lista en el formulario «Dar cita» — revisa la fecha y confírmala para que entre a la agenda 👇";
+        } catch (e) {}
+      }
+      setMsgs(m => [...m, { role: "assistant", content: reply }]);
     } catch (e) {
       // Sin IA en vivo (vista previa / panel sin cuenta): respondemos con la base de conocimiento facial.
       const kb = facialAnswer(text);
