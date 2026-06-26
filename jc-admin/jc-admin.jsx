@@ -123,9 +123,12 @@ function clinicAvatarSrc(pic) {
 function clinicSeeded() { return window.JCM_BASE === true || !(window.JCSAAS && window.JCSAAS.enabled); }
 window.clinicSeeded = clinicSeeded;
 // Identidad para impresiones/mensajes: datos propios de la clínica activa (config), con respaldo al catálogo base.
-function clinicName() { try { var n = window.DB && DB.cfg().clinic_name; if (n) return n; } catch (e) {} return ((window.JCDATA || {}).brand) || "Medique"; }
-function clinicAddr() { try { var a = window.DB && DB.cfg().clinic_addr; if (a) return a; } catch (e) {} return (((window.JCDATA || {}).contact) || {}).address || ""; }
-function clinicPro() { try { var p = window.DB && DB.cfg().professional; if (p) return p; } catch (e) {} return (((window.JCDATA || {}).contact) || {}).pro || ""; }
+// IMPORTANTE (multi-clínica): el respaldo a los datos sembrados (JCDATA = JC Medical) SOLO aplica a la
+// clínica base. Una clínica nueva que no configuró su dato NO debe heredar el nombre/dirección/profesional
+// de JC Medical en consentimientos e impresiones — usa su propia config, o queda en blanco/genérico.
+function clinicName() { try { var n = window.DB && DB.cfg().clinic_name; if (n) return n; } catch (e) {} return clinicSeeded() ? (((window.JCDATA || {}).brand) || "Medique") : "Medique"; }
+function clinicAddr() { try { var a = window.DB && DB.cfg().clinic_addr; if (a) return a; } catch (e) {} return clinicSeeded() ? ((((window.JCDATA || {}).contact) || {}).address || "") : ""; }
+function clinicPro() { try { var p = window.DB && DB.cfg().professional; if (p) return p; } catch (e) {} return clinicSeeded() ? ((((window.JCDATA || {}).contact) || {}).pro || "") : ""; }
 window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro;
 // Importa TODAS las bandejas web (reservas + colaboraciones + reseñas) al panel de la clínica.
 function importAllWeb() {
