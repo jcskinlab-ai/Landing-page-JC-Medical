@@ -704,11 +704,19 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
           </label>
 
           {/* Procedimientos recomendados / realizados */}
+          {/* Nota: NO usar el wrapper TaF aquí — está definido dentro del render y React lo
+              desmonta en cada keystroke perdiendo el foco. Se renderiza directamente. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <label style={{ display: "block" }}><span style={lblS}>Procedimientos recomendados</span>
-              <TaF val={f.recomendados} rows={3} onChange={e => setF({ ...f, recomendados: e.target.value })} ph="Lo sugerido para próximas sesiones…" /></label>
+              {ro
+                ? <div style={roDiv}>{f.recomendados || <span style={{ color: T.textFaint }}>—</span>}</div>
+                : <textarea value={f.recomendados} onChange={e => setF({ ...f, recomendados: e.target.value })} rows={3} placeholder="Lo sugerido para próximas sesiones…" style={ta(3)} />}
+            </label>
             <label style={{ display: "block" }}><span style={lblS}>Procedimientos realizados</span>
-              <TaF val={f.realizados} rows={3} onChange={e => setF({ ...f, realizados: e.target.value })} ph="Lo efectivamente realizado hoy…" /></label>
+              {ro
+                ? <div style={roDiv}>{f.realizados || <span style={{ color: T.textFaint }}>—</span>}</div>
+                : <textarea value={f.realizados} onChange={e => setF({ ...f, realizados: e.target.value })} rows={3} placeholder="Lo efectivamente realizado hoy…" style={ta(3)} />}
+            </label>
           </div>
 
           {/* Datos del producto */}
@@ -737,33 +745,13 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             <TaF val={f.note} rows={2} onChange={e => setF({ ...f, note: e.target.value })} ph="" />
           </label>
 
-          {/* Mapa de punción (botox) o análisis estético (AH/bio) — condicional según procedimiento */}
-          {(() => {
-            const mt = procMapType(f.proc);
-            if (!mt) return null;
-            return (
-              <div style={{ border: "1px solid " + T.line, borderRadius: 10, padding: "14px", marginTop: 4 }}>
-                <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>
-                  {mt === "botox" ? "Mapa de punción · Toxina botulínica" : "Análisis estético facial"}
-                </div>
-                {mt === "botox" && (
-                  <PuncionTool T={T} value={f.facePoints || []} onChange={pts => setF(prev => ({ ...prev, facePoints: pts }))} patient={patient} updatePatient={updatePatient} />
-                )}
-                {(mt === "ah" || mt === "bio") && (
-                  <div>
-                    <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-                      {[["aureo", "Proporción áurea · IA"], ["ricketts", "Plano de Ricketts"], ["marquardt", "Máscara de Marquardt"]].map(([k, l]) => (
-                        <button key={k} onClick={() => setSessionTool(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "8px 13px", borderRadius: 999, cursor: "pointer", background: sessionTool === k ? T.text : T.surface, color: sessionTool === k ? T.bg : T.textMute, border: "1px solid " + (sessionTool === k ? T.text : T.line) }}>{l}</button>
-                      ))}
-                    </div>
-                    {sessionTool === "aureo" && <AureoTool T={T} patient={patient} updatePatient={updatePatient} />}
-                    {sessionTool === "ricketts" && <RickettsTool T={T} patient={patient} updatePatient={updatePatient} />}
-                    {sessionTool === "marquardt" && <MarquardtTool T={T} patient={patient} updatePatient={updatePatient} />}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {/* Mapa de punción (botox) — solo en sesiones de toxina */}
+          {procMapType(f.proc) === "botox" && (
+            <div style={{ border: "1px solid " + T.line, borderRadius: 10, padding: "14px", marginTop: 4 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Mapa de punción · Toxina botulínica</div>
+              <PuncionTool T={T} value={f.facePoints || []} onChange={pts => setF(prev => ({ ...prev, facePoints: pts }))} patient={patient} updatePatient={updatePatient} />
+            </div>
+          )}
 
           {!ro && isEdit && (
             <div style={{ background: "rgba(201,162,39,.08)", border: "1px solid rgba(201,162,39,.4)", borderRadius: 8, padding: "13px 14px" }}>
@@ -1376,7 +1364,29 @@ function FacturacionTab({ T, patient, updatePatient }) {
         <AdModal T={T} title={editAt.idx === -1 ? "Nueva atención" : "Editar atención"} onClose={() => setEditAt(null)}
           footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={() => setEditAt(null)}>Cancelar</AdBtn><AdBtn T={T} primary onClick={saveEdit}>Guardar</AdBtn></div>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AdField T={T} label="Procedimiento / Concepto" value={editAt.item.concept} onChange={v => setF("concept", v)} placeholder="Ej: Toxina botulínica" />
+            {(() => {
+              const svcs = (window.clinicServiceList ? window.clinicServiceList() : []);
+              const byCat = {}; svcs.forEach(s => { (byCat[s.cat] = byCat[s.cat] || []).push(s); });
+              const cats = Object.keys(byCat);
+              const known = svcs.some(s => s.name === editAt.item.concept);
+              const isOther = editAt.item.concept && !known;
+              const sel2 = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+              const lbl2 = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+              if (!svcs.length) return <AdField T={T} label="Procedimiento / Concepto" value={editAt.item.concept} onChange={v => setF("concept", v)} placeholder="Ej: Toxina botulínica" />;
+              return (
+                <div>
+                  <label style={{ display: "block" }}>
+                    <span style={lbl2}>Procedimiento / Concepto</span>
+                    <select value={isOther ? "__other__" : (editAt.item.concept || "")} onChange={e => { const v = e.target.value; setF("concept", v === "__other__" ? " " : v); }} style={sel2}>
+                      <option value="">Selecciona un servicio…</option>
+                      {cats.map(c => <optgroup key={c} label={c}>{byCat[c].map((s, i) => <option key={c+i} value={s.name}>{s.name}</option>)}</optgroup>)}
+                      <option value="__other__">Otro (especificar)…</option>
+                    </select>
+                  </label>
+                  {isOther && <div style={{ marginTop: 8 }}><AdField T={T} value={editAt.item.concept.trim()} onChange={v => setF("concept", v)} placeholder="Concepto o procedimiento" /></div>}
+                </div>
+              );
+            })()}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div>
                 <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Monto ($)</span>

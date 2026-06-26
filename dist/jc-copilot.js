@@ -96,8 +96,33 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [pos, setPos] = useState({ bottom: 20, right: 20 });
   const scRef = useRef(null);
   const recRef = useRef(null);
+  function onFabDown(e) {
+    const isTouch = e.type === "touchstart";
+    const startX = isTouch ? e.touches[0].clientX : e.clientX;
+    const startY = isTouch ? e.touches[0].clientY : e.clientY;
+    const startRight = pos.right, startBottom = pos.bottom;
+    let moved = false;
+    function onMove(ev) {
+      const cx = isTouch ? ev.touches[0].clientX : ev.clientX;
+      const cy = isTouch ? ev.touches[0].clientY : ev.clientY;
+      if (Math.abs(cx - startX) > 4 || Math.abs(cy - startY) > 4) moved = true;
+      if (moved) {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        setPos({ right: Math.min(vw - 64, Math.max(8, startRight - (cx - startX))), bottom: Math.min(vh - 64, Math.max(8, startBottom - (cy - startY))) });
+      }
+    }
+    function onUp() {
+      document.removeEventListener(isTouch ? "touchmove" : "mousemove", onMove);
+      document.removeEventListener(isTouch ? "touchend" : "mouseup", onUp);
+      if (!moved) setOpen((o) => !o);
+    }
+    document.addEventListener(isTouch ? "touchmove" : "mousemove", onMove, { passive: false });
+    document.addEventListener(isTouch ? "touchend" : "mouseup", onUp);
+    e.preventDefault();
+  }
   function ctx() {
     let n = 0;
     D.catalog.forEach((s) => s.groups.forEach((g) => n += g.items.length));
@@ -264,22 +289,26 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     "\xBFC\xF3mo diferencio ptosis palpebral de descenso de ceja?",
     "\xBFC\xF3mo estandarizo la foto antes/despu\xE9s?"
   ];
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen(!open), title: "Copiloto \xB7 Evaluaci\xF3n facial", style: {
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    zIndex: 45,
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onMouseDown: onFabDown, onTouchStart: onFabDown, title: "Copiloto \xB7 Evaluaci\xF3n facial", style: {
+    position: "fixed",
+    right: pos.right,
+    bottom: pos.bottom,
+    zIndex: 200,
     width: 56,
     height: 56,
     borderRadius: "50%",
-    cursor: "pointer",
-    border: "none",
-    background: "linear-gradient(135deg," + T.accent + "," + T.accentDeep + ")",
-    boxShadow: "0 10px 30px -8px rgba(0,0,0,.5)",
+    cursor: "grab",
+    border: "1px solid rgba(255,255,255,.22)",
+    background: "rgba(20,20,16,.55)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+    boxShadow: "0 8px 28px -6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12)",
     display: "flex",
     alignItems: "center",
-    justifyContent: "center"
-  } }, /* @__PURE__ */ React.createElement("svg", { width: "26", height: "26", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, open ? /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "4.5", y: "8", width: "15", height: "10", rx: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M12 4.5V8" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "3.4", r: "1.3" }), /* @__PURE__ */ React.createElement("path", { d: "M2.5 12v3M21.5 12v3" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "13", r: "1.3", fill: "#fff", stroke: "none" }), /* @__PURE__ */ React.createElement("circle", { cx: "15", cy: "13", r: "1.3", fill: "#fff", stroke: "none" })))), open && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", right: 20, bottom: 86, zIndex: 45, width: "min(360px, calc(100% - 40px))", height: "min(520px, 72%)", background: T.bg, border: "1px solid " + T.line, borderRadius: 16, boxShadow: "0 24px 60px -16px rgba(0,0,0,.6)", display: "flex", flexDirection: "column", overflow: "hidden", animation: "jcSlideUp .28s " + T.ease } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, height: 30, borderRadius: 9, background: "linear-gradient(135deg," + T.accent + "," + T.accentDeep + ")", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "18", height: "18", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "4.5", y: "8", width: "15", height: "10", rx: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M12 4.5V8" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "3.4", r: "1.3" }), /* @__PURE__ */ React.createElement("path", { d: "M2.5 12v3M21.5 12v3" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "13", r: "1.3", fill: "#fff", stroke: "none" }), /* @__PURE__ */ React.createElement("circle", { cx: "15", cy: "13", r: "1.3", fill: "#fff", stroke: "none" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text } }, "Copiloto JC"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".06em", color: T.accent } }, "Evaluaci\xF3n facial \xB7 IA")), /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen(false), style: { background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("div", { ref: scRef, className: "jc-scroll", style: { flex: 1, overflowY: "auto", padding: "14px 14px", display: "flex", flexDirection: "column", gap: 10 } }, msgs.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+    justifyContent: "center",
+    userSelect: "none",
+    touchAction: "none"
+  } }, /* @__PURE__ */ React.createElement("svg", { width: "26", height: "26", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, open ? /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "4.5", y: "8", width: "15", height: "10", rx: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M12 4.5V8" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "3.4", r: "1.3" }), /* @__PURE__ */ React.createElement("path", { d: "M2.5 12v3M21.5 12v3" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "13", r: "1.3", fill: "#fff", stroke: "none" }), /* @__PURE__ */ React.createElement("circle", { cx: "15", cy: "13", r: "1.3", fill: "#fff", stroke: "none" })))), open && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", right: pos.right, bottom: pos.bottom + 66, zIndex: 199, width: "min(360px, calc(100vw - 40px))", height: "min(520px, 72vh)", background: T.bg, border: "1px solid " + T.line, borderRadius: 16, boxShadow: "0 24px 60px -16px rgba(0,0,0,.6)", display: "flex", flexDirection: "column", overflow: "hidden", animation: "jcSlideUp .28s " + T.ease } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, height: 30, borderRadius: 9, background: "linear-gradient(135deg," + T.accent + "," + T.accentDeep + ")", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "18", height: "18", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "4.5", y: "8", width: "15", height: "10", rx: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M12 4.5V8" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "3.4", r: "1.3" }), /* @__PURE__ */ React.createElement("path", { d: "M2.5 12v3M21.5 12v3" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "13", r: "1.3", fill: "#fff", stroke: "none" }), /* @__PURE__ */ React.createElement("circle", { cx: "15", cy: "13", r: "1.3", fill: "#fff", stroke: "none" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text } }, "Copiloto JC"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".06em", color: T.accent } }, "Evaluaci\xF3n facial \xB7 IA")), /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen(false), style: { background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("div", { ref: scRef, className: "jc-scroll", style: { flex: 1, overflowY: "auto", padding: "14px 14px", display: "flex", flexDirection: "column", gap: 10 } }, msgs.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
     alignSelf: m.role === "user" ? "flex-end" : "flex-start",
     maxWidth: "85%",
     padding: "10px 13px",
