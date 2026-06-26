@@ -131,8 +131,21 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
     if (filt === "interesado" && !m.inte) return false;
     return true;
   });
-  // Modo "Calendario": ordenado por la fecha del paciente (Excel/cita), más reciente primero.
-  if (filt === "calendario") list = list.slice().sort((a, b) => (b.fechaTs || 0) - (a.fechaTs || 0));
+  // Fecha del paciente "según la agenda": la de su cita más reciente en el panel. Si no tiene
+  // cita, usa la fecha guardada (Excel importado o creación). Así Calendario respeta la agenda oficial.
+  const apptFechaTs = p => {
+    let best = 0;
+    (ax).forEach(a => {
+      if (!((a.patId && a.patId === p.id) || a.name === p.name)) return;
+      if (!a.fecha) return;
+      const ts = new Date(a.fecha + "T00:00:00").getTime();
+      if (!isNaN(ts) && ts > best) best = ts;
+    });
+    return best;
+  };
+  const calTs = p => apptFechaTs(p) || p.fechaTs || 0;
+  // Modo "Calendario": ordenado por la fecha de la agenda (o Excel/creación), más reciente primero.
+  if (filt === "calendario") list = list.slice().sort((a, b) => calTs(b) - calTs(a));
   // Modo "Recientes": ordenado por cuándo se abrió la ficha por última vez (sin importar la fecha de registro).
   if (filt === "recientes") list = list.slice().sort((a, b) => (opened[b.id] || 0) - (opened[a.id] || 0));
   const fmtFecha = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" }) : "";
@@ -205,7 +218,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
               {filt === "calendario"
-                ? <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: (p.fechaTs || p.fechaImport) ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport || "Sin fecha"}</span>
+                ? <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: calTs(p) ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p)) || p.fechaImport || "Sin fecha"}</span>
                 : filt === "recientes"
                 ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
                 : (p.fechaImport ? <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport}</span> : null)}
@@ -1777,8 +1790,20 @@ function RecetaTab({ T, patient, updatePatient }) {
       </div>
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, marginBottom: 18 }}>
         <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Diagnóstico (opcional)</span>
-          <input style={inp} list="jc-diag-opts" value={diag} onChange={e => setDiag(e.target.value)} placeholder="Ej. Neuromodulación con Toxina botulínica" />
-          <datalist id="jc-diag-opts">{["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"].map(o => <option key={o} value={o} />)}</datalist></label>
+          {(() => {
+            const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"];
+            const isOther = diag && !DIAG_OPTS.includes(diag);
+            return (
+              <div>
+                <select value={isOther ? "__other__" : diag} onChange={e => { const v = e.target.value; setDiag(v === "__other__" ? " " : v); }} style={inp}>
+                  <option value="">Selecciona un diagnóstico…</option>
+                  {DIAG_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+                  <option value="__other__">Otro (escribir)…</option>
+                </select>
+                {isOther && <div style={{ marginTop: 8 }}><input style={inp} value={diag.trim()} onChange={e => setDiag(e.target.value)} placeholder="Escribe el diagnóstico" autoFocus /></div>}
+              </div>
+            );
+          })()}</label>
         <label style={{ display: "block", marginTop: 13 }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{rpLabelOf(tipo)}</span>
           {tipo === "indicaciones" && (() => { const tpls = (window.getIndTemplates ? window.getIndTemplates() : []); return tpls.length ? (
