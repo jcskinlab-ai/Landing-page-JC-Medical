@@ -1157,6 +1157,15 @@ function ConsentTab({ T, patient, updatePatient }) {
   const printRef = useRef(null);
   function start(t) { setTpl0(t); setSigning(true); }
 
+  // Marca el consentimiento como firmado en papel (sin archivo): quita la notificación de pendiente.
+  function markPaper() {
+    if (!window.confirm("Marcar el consentimiento de este paciente como firmado en papel. Se quitará de las notificaciones de \"consentimiento pendiente\". ¿Continuar?")) return;
+    const d = new Date();
+    const f = ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2);
+    updatePatient(patient.id, { consent: true, consentInfo: "Firmado en papel · " + f, paperConsent: true });
+    try { window.jcmToast && window.jcmToast("Marcado como firmado en papel.", "ok"); } catch (e) {}
+  }
+
   // ── Subir un consentimiento ya firmado (archivo descargado o foto del papel) ──
   function openUpload() { setUpDataUrl(null); setUpIsPdf(false); setUpTitle(""); setUploading(true); }
   function onUpFile(e) {
@@ -1292,6 +1301,7 @@ function ConsentTab({ T, patient, updatePatient }) {
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
         <AdBtn T={T} small onClick={openUpload}>↑ Subir consentimiento (foto o archivo)</AdBtn>
+        {!patient.consent && <AdBtn T={T} small onClick={markPaper}>✓ Consentimiento firmado en papel</AdBtn>}
         <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint }}>Para consentimientos firmados en papel o respaldados.</span>
       </div>
 
