@@ -2137,16 +2137,32 @@ function WelcomeTour({ T, go, onClose }) {
   const [svcs, setSvcs] = useState(() => { try { return DB.get("services_custom") || []; } catch (e) { return []; } });
   const [inv, setInv] = useState(() => { try { return DB.get("inv_items") || []; } catch (e) { return []; } });
   const [tN, setTN] = useState(""), [tR, setTR] = useState("");
-  const [sN, setSN] = useState(""), [sP, setSP] = useState(""), [sD, setSD] = useState("30");
+  const SVC_CATS = ["Toxina botulínica", "Ácido hialurónico", "Bioestimulación de colágeno", "Mesoterapia", "Lipolíticos inyectables"];
+  const [sN, setSN] = useState(""), [sP, setSP] = useState(""), [sD, setSD] = useState("30"), [sC, setSC] = useState(SVC_CATS[0]), [sCustom, setSCustom] = useState("");
   const [iN, setIN] = useState(""), [iS, setIS] = useState(""), [iU, setIU] = useState("unidades");
   const uid = pre => (window.jcmUid ? window.jcmUid(pre) : pre + Date.now());
   function saveClinic() { try { var c = DB.get("config") || {}; c.clinic_name = name.trim(); c.clinic_addr = addr.trim(); c.wa_number = wa ? ("569" + wa) : ""; DB.set("config", c); } catch (e) {} }
   function saveRut() { try { var b = DB.get("clinic_biz") || { razon: "", rut: "", plan: "" }; b.rut = rut.trim(); DB.set("clinic_biz", b); } catch (e) {} }
-  function addTeam() { if (tN.trim().length < 2) return; var n = team.concat([{ id: uid("t"), name: tN.trim(), role: tR.trim() || "Profesional", active: true, color: "#8B9EB0" }]); setTeam(n); try { DB.set("team", n); } catch (e) {} setTN(""); setTR(""); }
-  function addSvc() { if (sN.trim().length < 2) return; var n = [{ id: uid("svc"), name: sN.trim(), cat: "Otro", price: parseInt((sP + "").replace(/\D/g, ""), 10) || 0, dur: parseInt(sD, 10) || 30, pts: 0, desc: "" }].concat(svcs); setSvcs(n); try { DB.set("services_custom", n); } catch (e) {} setSN(""); setSP(""); setSD("30"); }
-  function addInv() { if (iN.trim().length < 2) return; var n = inv.concat([{ id: uid("i"), name: iN.trim(), cat: "Insumo clínico", stock: parseInt((iS + "").replace(/\D/g, ""), 10) || 0, min: 0, unit: iU || "unidades", price: 0 }]); setInv(n); try { DB.set("inv_items", n); } catch (e) {} setIN(""); setIS(""); }
+  // Lee el valor más reciente desde la BD (no el estado capturado al montar): evita pisar
+  // miembros/servicios agregados por el onboarding previo o por clics rápidos.
+  function freshList(key, fallback) { try { var v = DB.get(key); return Array.isArray(v) ? v : fallback; } catch (e) { return fallback; } }
+  function addTeam() {
+    if (tN.trim().length < 2) return;
+    var n = freshList("team", team).concat([{ id: uid("t"), name: tN.trim(), role: tR.trim() || "Profesional", active: true, color: "#8B9EB0" }]);
+    setTeam(n); try { DB.set("team", n); } catch (e) {}
+    if (window.CADMIN) window.CADMIN.team = n; // fuente en vivo que lee el resto del panel
+    setTN(""); setTR("");
+  }
+  function addSvc() {
+    if (sN.trim().length < 2) return;
+    var catVal = (sC === "__other__") ? (sCustom.trim() || "Otro") : sC;
+    var n = [{ id: uid("svc"), name: sN.trim(), cat: catVal, price: parseInt((sP + "").replace(/\D/g, ""), 10) || 0, dur: parseInt(sD, 10) || 30, pts: 0, desc: "" }].concat(freshList("services_custom", svcs));
+    setSvcs(n); try { DB.set("services_custom", n); } catch (e) {}
+    setSN(""); setSP(""); setSD("30"); // se mantiene la categoría para agregar varios de la misma
+  }
+  function addInv() { if (iN.trim().length < 2) return; var n = freshList("inv_items", inv).concat([{ id: uid("i"), name: iN.trim(), cat: "Insumo clínico", stock: parseInt((iS + "").replace(/\D/g, ""), 10) || 0, min: 0, unit: iU || "unidades", price: 0 }]); setInv(n); try { DB.set("inv_items", n); } catch (e) {} setIN(""); setIS(""); }
   function onWa(v) { var d = (v || "").replace(/\D/g, ""); if (d.indexOf("56") === 0) d = d.slice(2); if (d.charAt(0) === "9") d = d.slice(1); setWa(d.slice(0, 8)); }
-  function rmFrom(list, setList, key, id) { var n = list.filter(x => x.id !== id); setList(n); try { DB.set(key, n); } catch (e) {} }
+  function rmFrom(list, setList, key, id) { var n = list.filter(x => x.id !== id); setList(n); try { DB.set(key, n); } catch (e) {} if (key === "team" && window.CADMIN) window.CADMIN.team = n; }
   const kind = STEPS[step];
   function next() { if (kind === "clinica") saveClinic(); if (kind === "rut") saveRut(); setStep(s => Math.min(s + 1, STEPS.length - 1)); }
   function back() { setStep(s => Math.max(s - 1, 0)); }
@@ -2213,9 +2229,14 @@ function WelcomeTour({ T, go, onClose }) {
           </>)}
           {kind === "servicios" && (<>
             <div style={titleS}>Servicios</div>
-            <div style={subS}>Tus procedimientos con precio y duración. Aparecen en la agenda y en tu reserva online.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: svcs.length ? 12 : 0 }}>{svcs.map(s => <div key={s.id}>{rowItem(s.name, (s.price ? "$" + s.price.toLocaleString("es-CL") : "") + " · " + s.dur + "min", () => rmFrom(svcs, setSvcs, "services_custom", s.id))}</div>)}</div>
+            <div style={subS}>Tus procedimientos con categoría, precio y duración. Aparecen en la agenda y en tu reserva online.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: svcs.length ? 12 : 0 }}>{svcs.map(s => <div key={s.id}>{rowItem(s.name, [s.cat, (s.price ? "$" + s.price.toLocaleString("es-CL") : ""), s.dur + "min"].filter(Boolean).join(" · "), () => rmFrom(svcs, setSvcs, "services_custom", s.id))}</div>)}</div>
             <input value={sN} onChange={e => setSN(e.target.value)} placeholder="Nombre del servicio" style={{ ...inp, marginBottom: 8 }} />
+            <select value={sC} onChange={e => setSC(e.target.value)} style={{ ...inp, marginBottom: 8 }}>
+              {SVC_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="__other__">Otra categoría (escribir)…</option>
+            </select>
+            {sC === "__other__" && <input value={sCustom} onChange={e => setSCustom(e.target.value)} placeholder="Nombre de la categoría" style={{ ...inp, marginBottom: 8 }} />}
             <div style={{ display: "flex", gap: 8 }}>
               <input value={sP} onChange={e => setSP(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Precio $" style={inp} />
               <select value={sD} onChange={e => setSD(e.target.value)} style={{ ...inp, width: 100 }}>{[15, 30, 45, 60, 90].map(d => <option key={d} value={String(d)}>{d} min</option>)}</select>
