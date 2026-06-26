@@ -272,10 +272,32 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     setBusy(true);
     try {
       if (!window.mediqueAI) throw new Error("nohost");
-      const system = FACIAL_SYS + "\n\nDATOS DEL PANEL (\xFAsalos solo si ayudan): " + ctx();
+      const hoy = /* @__PURE__ */ new Date();
+      const hoyStr = hoy.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      const hoyISO = hoy.getFullYear() + "-" + ("0" + (hoy.getMonth() + 1)).slice(-2) + "-" + ("0" + hoy.getDate()).slice(-2);
+      const sched = "\n\nAGENDAR CITAS \u2014 hoy es " + hoyStr + " (" + hoyISO + '). Calcula las fechas reales a partir de HOY; nunca inventes el d\xEDa de la semana. Cuando el profesional pida reservar/agendar y tengas PACIENTE, PROCEDIMIENTO, FECHA y HORA, agrega al FINAL de tu respuesta UNA sola l\xEDnea EXACTA:\n@@AGENDAR {"paciente":"<nombre>","proc":"<procedimiento>","fecha":"YYYY-MM-DD","hora":"HH:MM"}\nSi falta alg\xFAn dato, NO pongas esa l\xEDnea: p\xEDdelo de forma breve. NUNCA afirmes que agendaste si no incluiste la l\xEDnea @@AGENDAR.';
+      const system = FACIAL_SYS + sched + "\n\nDATOS DEL PANEL: " + ctx();
       const res = await window.mediqueAI(next, {}, { system, max_tokens: 700 });
       if (!res || !res.ok || !res.reply) throw new Error(res && res.error || "sin respuesta");
-      setMsgs((m) => [...m, { role: "assistant", content: res.reply.trim() }]);
+      let reply = res.reply.trim();
+      const mAg = reply.match(/@@AGENDAR\s*(\{[\s\S]*?\})/);
+      if (mAg) {
+        reply = reply.replace(/@@AGENDAR\s*\{[\s\S]*?\}/, "").trim();
+        try {
+          const a = JSON.parse(mAg[1]);
+          const t0 = /* @__PURE__ */ new Date();
+          t0.setHours(0, 0, 0, 0);
+          const target = /* @__PURE__ */ new Date((a.fecha || "") + "T00:00:00");
+          let day = Math.round((target - t0) / 864e5);
+          if (!(day >= 0)) day = 0;
+          const first = String(a.paciente || "").toLowerCase().split(" ")[0];
+          const pat = first ? patients.find((p) => p.name.toLowerCase().indexOf(first) >= 0) : null;
+          if (onDarCita) onDarCita({ proc: a.proc || "", time: a.hora || "", day, patId: pat ? pat.id : "", patName: pat ? pat.name : a.paciente || "" });
+          reply = (reply ? reply + "\n\n" : "") + "\u{1F4C5} Te dej\xE9 la cita lista en el formulario \xABDar cita\xBB \u2014 revisa la fecha y conf\xEDrmala para que entre a la agenda \u{1F447}";
+        } catch (e) {
+        }
+      }
+      setMsgs((m) => [...m, { role: "assistant", content: reply }]);
     } catch (e) {
       const kb = facialAnswer(text);
       const fallback = kb ? kb + "\n\n\u2014 Respuesta de la base de conocimiento de evaluaci\xF3n facial. Con la cuenta de IA conectada, adem\xE1s analizo tus fotos antes/despu\xE9s." : "Soy tu copiloto de evaluaci\xF3n facial. Aqu\xED en la vista previa respondo dudas puntuales (MRD1/MRD2, ptosis vs descenso de ceja, pseudoptosis, c\xF3mo estandarizar la foto, cu\xE1ndo evaluar el resultado, manejo de ptosis por toxina). Con la cuenta de IA conectada, tambi\xE9n analizo fotos completas antes/despu\xE9s.\n\n\xBFSobre cu\xE1l de esos temas quieres que te oriente?";
