@@ -2,6 +2,83 @@
 
 function initials(n) { return n.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase(); }
 
+/* ═══════════ DOCUMENTOS IMPRESOS · diseño editorial multi-clínica ═══════════
+   El logo, el profesional, la clínica y la marca de agua se toman de la clínica
+   ACTIVA (no hay nada fijo a JC Medical): cada clínica imprime con lo suyo. */
+function jcmDocEsc(s) { return ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function jcmDocBrand(proNameOverride) {
+  const D = window.JCDATA || {};
+  // Multi-clínica: NO heredar el profesional/dirección de JC Medical (JCDATA). clinicPro()/clinicAddr()
+  // ya respetan la clínica activa (base usa su seed; nuevas usan su config o queda en blanco).
+  const proName = proNameOverride || (window.clinicPro && window.clinicPro()) || "";
+  const clinName = (window.clinicName && window.clinicName()) || "Medique";
+  const clinAddr = (window.clinicAddr && window.clinicAddr()) || "";
+  const team = (window.CADMIN && window.CADMIN.team) || [];
+  const proMember = team.find(t => t.name === proName);
+  const proRole = (proMember && proMember.role) || "Medicina estética";
+  // Marca / handle por clínica: usa cfg.clinic_handle si existe; si no, deriva del nombre.
+  let cfg = {}; try { cfg = (window.DB && window.DB.get("cfg")) || {}; } catch (e) {}
+  const handle = (cfg.clinic_handle || clinName.toLowerCase().replace(/[^a-z0-9.]/g, "")).replace(/^@/, "");
+  const wm = (clinName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("") || "jc").toLowerCase();
+  return { proName, clinName, clinAddr, proRole, handle, wm, logoUrl: cfg.clinic_logo || "", markUrl: cfg.clinic_mark || "" };
+}
+const JCM_DOC_CSS = "@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}"
+  + "html{-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+  + "body{font-family:'Jost',system-ui,-apple-system,'Segoe UI',sans-serif;color:#121A26;background:#fff;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}"
+  + ".sheet{width:210mm;min-height:297mm;background:#fff;position:relative;overflow:hidden;padding:17mm 18mm 16mm;display:flex;flex-direction:column}"
+  + ".wm{position:absolute;right:-14mm;bottom:-30mm;font-family:'Cormorant Garamond',serif;font-weight:500;font-style:italic;font-size:340px;line-height:1;color:#121A26;opacity:.030;pointer-events:none;letter-spacing:-.04em}"
+  + ".masthead{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:13px;border-bottom:1px solid rgba(18,26,38,.30);position:relative;z-index:1}"
+  + ".brand{display:flex;flex-direction:column;gap:3px}.brand .mono{font-family:'Cormorant Garamond',serif;font-weight:500;font-style:italic;font-size:34px;line-height:.9;color:#121A26;letter-spacing:-.01em}.brand .mh-logo{height:50px;width:auto;max-width:62mm;object-fit:contain}.brand .wordmark{font-family:'Jost',sans-serif;font-weight:400;font-size:9.5px;letter-spacing:.32em;text-transform:lowercase;color:#646A72;padding-left:2px}"
+  + ".clinic{text-align:right;display:flex;flex-direction:column;gap:3px;padding-top:4px}.clinic .name{font-family:'Jost',sans-serif;font-weight:500;font-size:11px;letter-spacing:.09em;color:#121A26}.clinic .line{font-family:'Jost',sans-serif;font-weight:300;font-size:9.5px;color:#646A72;line-height:1.5}.clinic .accent-tag{margin-top:2px;font-size:8px;letter-spacing:.20em;text-transform:uppercase;color:#5A748C;font-weight:500}"
+  + ".titleblock{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-top:18px;position:relative;z-index:1}.eyebrow{font-family:'Jost',sans-serif;font-weight:500;font-size:9px;letter-spacing:.34em;text-transform:uppercase;color:#5A748C;margin-bottom:8px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-weight:500;font-size:40px;line-height:.95;color:#121A26;letter-spacing:-.005em;margin:0}.doc-title .it{font-style:italic;font-weight:400}.folio{text-align:right;font-family:'Jost',sans-serif;flex-shrink:0}.folio .k{font-size:8px;letter-spacing:.20em;text-transform:uppercase;color:#8B9197;font-weight:500;display:block;margin-bottom:4px}.folio .v{font-size:12px;letter-spacing:.09em;color:#474D56;font-weight:400;font-variant-numeric:tabular-nums}.folio .vbig{font-family:'Jost',sans-serif;font-size:22px;font-weight:300;color:#121A26;letter-spacing:.05em;line-height:1}"
+  + ".pband{margin-top:20px;background:#121A26;color:#F5F6F7;padding:18px 22px;display:flex;align-items:center;gap:26px;position:relative;z-index:1}.pband .pname{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:25px;line-height:1}.pband .pdivider{width:1px;align-self:stretch;background:rgba(245,246,247,.22)}.pband .pfields{display:flex;gap:24px;flex-wrap:wrap}.pfield .k{font-family:'Jost',sans-serif;font-size:7.5px;letter-spacing:.20em;text-transform:uppercase;color:#A4B6C6;font-weight:500;display:block;margin-bottom:4px}.pfield .v{font-family:'Jost',sans-serif;font-size:12px;font-weight:300;color:#F5F6F7;letter-spacing:.09em;font-variant-numeric:tabular-nums}.pband .status{margin-left:auto;display:flex;align-items:center;gap:7px}.pband .status .dot{width:6px;height:6px;border-radius:50%;background:#A4B6C6;box-shadow:0 0 0 3px rgba(164,182,198,.18)}.pband .status .lbl{font-family:'Jost',sans-serif;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#F5F6F7;font-weight:400}"
+  + ".body{flex:1;position:relative;z-index:1}.section{margin-top:22px}.section-head{display:flex;align-items:center;gap:12px;margin-bottom:13px}.section-head .sh-label{font-family:'Jost',sans-serif;font-weight:500;font-size:10px;letter-spacing:.20em;text-transform:uppercase;color:#121A26;white-space:nowrap}.section-head .sh-num{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:15px;color:#5A748C}.section-head .sh-rule{flex:1;height:1px;background:rgba(18,26,38,.14)}"
+  + ".dgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 40px}.dgrid.cols3{grid-template-columns:1fr 1fr 1fr;gap:0 32px}.drow{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid rgba(18,26,38,.14)}.drow .dk{font-family:'Jost',sans-serif;font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:#8B9197;font-weight:500;white-space:nowrap}.drow .dv{font-family:'Jost',sans-serif;font-size:12.5px;font-weight:300;color:#121A26;text-align:right;letter-spacing:.09em;min-width:30px}.drow .dv.tag{color:#5A748C;font-weight:400}"
+  + ".dfull{padding:11px 0;border-bottom:1px solid rgba(18,26,38,.14);display:flex;align-items:baseline;justify-content:space-between;gap:18px}.dfull .dk{font-family:'Jost',sans-serif;font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:#8B9197;font-weight:500;white-space:nowrap}.dfull .dv{font-family:'Jost',sans-serif;font-size:12.5px;font-weight:300;color:#121A26;text-align:right}"
+  + ".empty-note{border:1px solid rgba(18,26,38,.14);border-left:2px solid #6E8CA6;background:#F1F2F4;padding:14px 18px;font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:400;font-size:15px;color:#646A72}"
+  + ".diag{margin-top:20px;display:flex;align-items:center;gap:18px;padding:16px 20px;border:1px solid rgba(18,26,38,.30);position:relative;z-index:1}.diag .dx-k{font-family:'Jost',sans-serif;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#5A748C;font-weight:500}.diag .dx-v{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:23px;color:#121A26;margin-left:auto;text-align:right}.diag .dx-tick{width:3px;align-self:stretch;background:#6E8CA6;flex-shrink:0}"
+  + ".indlist{list-style:none;margin:6px 0 0;padding:0;counter-reset:ind}.indlist li{display:flex;gap:18px;padding:15px 0;border-bottom:1px solid rgba(18,26,38,.14);counter-increment:ind;align-items:flex-start}.indlist li:last-child{border-bottom:none}.indlist .num{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:22px;color:#5A748C;line-height:1;min-width:26px;flex-shrink:0;font-variant-numeric:tabular-nums;padding-top:2px}.indlist .num:before{content:counter(ind)}.indlist .txt{font-family:'Jost',sans-serif;font-weight:300;font-size:13.5px;line-height:1.5;color:#121A26;padding-top:3px;flex:1}.indlist .txt strong{font-weight:500}"
+  + ".control-note{margin-top:22px;background:#121A26;color:#F5F6F7;padding:18px 22px;display:flex;align-items:center;gap:18px;position:relative;z-index:1}.control-note .cn-icon{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:30px;color:#A4B6C6;line-height:1}.control-note .cn-k{font-family:'Jost',sans-serif;font-size:8px;letter-spacing:.20em;text-transform:uppercase;color:#A4B6C6;font-weight:500;display:block;margin-bottom:5px}.control-note .cn-v{font-family:'Jost',sans-serif;font-weight:300;font-size:13px;color:#F5F6F7;line-height:1.45}.control-note .cn-v b{font-weight:500}"
+  + ".proc-head{margin-top:20px;display:flex;align-items:center;gap:18px;padding:16px 20px;border:1px solid rgba(18,26,38,.30);position:relative;z-index:1}.proc-head .ph-tick{width:3px;align-self:stretch;background:#6E8CA6;flex-shrink:0}.proc-head .ph-main{display:flex;flex-direction:column;gap:5px;flex:1}.proc-head .ph-k{font-family:'Jost',sans-serif;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#5A748C;font-weight:500}.proc-head .ph-name{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:24px;color:#121A26;line-height:1}.proc-head .ph-name .z{color:#8B9197;font-style:italic;font-size:18px}.proc-head .ph-dose{margin-left:auto;text-align:right;flex-shrink:0}.proc-head .ph-dose .k{display:block;font-family:'Jost',sans-serif;font-size:8px;letter-spacing:.20em;text-transform:uppercase;color:#8B9197;font-weight:500;margin-bottom:4px}.proc-head .ph-dose .v{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:19px;color:#121A26;font-variant-numeric:tabular-nums}"
+  + ".trio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}.trio .cell{border:1px solid rgba(18,26,38,.14);padding:12px 15px}.trio .ck{display:block;font-family:'Jost',sans-serif;font-size:8px;letter-spacing:.20em;text-transform:uppercase;color:#8B9197;font-weight:500;margin-bottom:6px}.trio .cv{font-family:'Jost',sans-serif;font-size:12.5px;font-weight:300;color:#121A26;letter-spacing:.09em}"
+  + ".textbox{font-family:'Jost',sans-serif;font-size:13px;font-weight:300;color:#3a414b;white-space:pre-wrap;line-height:1.7;margin-top:6px;min-height:40px}"
+  + ".zgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:0 32px}.zrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(18,26,38,.14)}.zrow .zk{font-family:'Jost',sans-serif;font-size:11.5px;font-weight:300;color:#121A26;letter-spacing:.09em}.zrow .zv{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:15px;color:#5A748C;font-variant-numeric:tabular-nums}.totline{display:flex;justify-content:flex-end;align-items:baseline;gap:12px;margin-top:16px}.totline .tk{font-family:'Jost',sans-serif;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#8B9197;font-weight:500}.totline .tv{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:22px;color:#121A26;font-variant-numeric:tabular-nums}.totline .tv b{color:#5A748C;font-weight:600}"
+  + ".signature{margin-top:34px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;position:relative;z-index:1}.sign-block{min-width:230px}.sign-line{height:1px;background:rgba(18,26,38,.30);margin-bottom:9px}.sign-name{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:18px;color:#121A26}.sign-role{font-family:'Jost',sans-serif;font-weight:400;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#646A72;margin-top:3px}.sign-stamp{text-align:right}.sign-stamp .mark{height:30px;width:auto;opacity:.7}.sign-stamp .mono{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:30px;color:#D3D7DC;line-height:.8;letter-spacing:-.02em}"
+  + ".docfooter{margin-top:14px;padding-top:11px;border-top:1px solid rgba(18,26,38,.14);display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;z-index:1}.docfooter .f-l,.docfooter .f-r{font-family:'Jost',sans-serif;font-weight:300;font-size:8.5px;letter-spacing:.09em;color:#8B9197}.docfooter .f-r{text-transform:uppercase;letter-spacing:.20em}.docfooter .f-l .fdate{color:#646A72}";
+function jcmMasthead(b) {
+  const e = jcmDocEsc;
+  const logoEl = b.logoUrl ? "<img class='mh-logo' src='" + b.logoUrl + "' alt=''>" : "<div class='mono'>" + e(b.clinName) + "</div>";
+  return "<header class='masthead'><div class='brand'>" + logoEl + (b.handle ? "<div class='wordmark'>" + e(b.handle) + "</div>" : "") + "</div>"
+    + "<div class='clinic'><div class='name'>" + e(b.proName || b.clinName) + "</div>"
+    + (b.proRole ? "<div class='line'>" + e(b.proRole) + "</div>" : "")
+    + (b.clinAddr ? "<div class='line'>" + e(b.clinAddr) + "</div>" : "")
+    + (b.handle ? "<div class='accent-tag'>@" + e(b.handle) + "</div>" : "")
+    + "</div></header>";
+}
+function jcmPband(patient, fields, estado) {
+  const e = jcmDocEsc;
+  const fl = (fields || []).filter(f => f[1]).map(f => "<div class='pfield'><span class='k'>" + f[0] + "</span><span class='v'>" + e(f[1]) + "</span></div>").join("");
+  return "<div class='pband'><div class='pname'>" + e(patient.name || "—") + "</div><div class='pdivider'></div><div class='pfields'>" + fl + "</div>"
+    + (estado ? "<div class='status'><span class='dot'></span><span class='lbl'>" + e(estado) + "</span></div>" : "") + "</div>";
+}
+function jcmSignFoot(b, proName, docLabel, patientName, fechaLarga) {
+  const e = jcmDocEsc;
+  const stamp = b.markUrl ? "<img class='mark' src='" + b.markUrl + "' alt=''>" : "<div class='mono'>" + e(b.wm) + "</div>";
+  return "<div class='signature'><div class='sign-block'><div class='sign-line'></div><div class='sign-name'>" + e(proName || b.clinName) + "</div>"
+    + "<div class='sign-role'>" + e(b.proRole) + "</div></div><div class='sign-stamp'>" + stamp + "</div></div>"
+    + "<footer class='docfooter'><span class='f-l'>" + e(docLabel) + " · " + e(patientName) + " · Emitida <span class='fdate'>" + e(fechaLarga) + "</span></span><span class='f-r'>" + e(b.handle || b.clinName) + "</span></footer>";
+}
+// Envuelve el cuerpo en una hoja A4 completa y lo manda a imprimir.
+function jcmPrintDoc(title, b, inner) {
+  const e = jcmDocEsc;
+  const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + e(title) + "</title>"
+    + "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
+    + "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap' rel='stylesheet'>"
+    + "<style>" + JCM_DOC_CSS + "</style></head><body><div class='sheet'><div class='wm'>" + e(b.wm) + "</div>" + inner + "</div></body></html>";
+  if (window.jcmPrintHTML) window.jcmPrintHTML(html);
+  else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+}
+
 function Avatar({ T, name, src, size }) {
   const s = size || 40;
   if (src) return <img src={src} alt={name} style={{ width: s, height: s, borderRadius: "50%", objectFit: "cover", objectPosition: "center 20%", flexShrink: 0 }} />;
@@ -301,96 +378,63 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
 
   // Imprime la ficha clínica completa en formato clínico con identidad de la clínica.
   function imprimirFicha() {
-    const D = window.JCDATA || {};
     const c = patient.clinica || {};
     const cv = k => (window.clinVal ? window.clinVal(c, k) : (c[k] || ""));
     const hist = patient.history || [];
-    const proName = (hist.find(h => h.proName) || {}).proName || (window.clinicPro && window.clinicPro()) || "";
-    const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
-    const clinAddr = (window.clinicAddr && window.clinicAddr()) || "";
-    const team = (window.CADMIN && window.CADMIN.team) || [];
-    const proMember = team.find(function(t){ return t.name === proName; });
-    const proRole = (proMember && proMember.role) || "Medicina estética";
-    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
-    const now = new Date();
-    const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
-    const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const cfg = (window.DB && window.DB.get("cfg")) || {};
-    const logoUrl = cfg.clinic_logo || "";
-    const markUrl = cfg.clinic_mark || "";
-    const logoEl = logoUrl ? "<img class='hdr-logo' src='" + logoUrl + "'>" : "<div class='hdr-logo-txt'><span class='hdr-clinic-nm'>" + esc(clinName) + "</span></div>";
-    const markEl = markUrl ? "<img src='" + markUrl + "' style='height:30px;width:auto;opacity:.65'>" : "";
-    const field = (l, v) => "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + (v ? esc(v) : "") + "</div></div>";
-    const sesion = h => "<div class='ses'><div class='sd'>" + esc(h.date || "") + " &nbsp;·&nbsp; " + esc(h.proc || "") + (h.units ? " <span class='u'>(" + esc(h.units) + ")</span>" : "") + "</div>" +
-      ((h.lote || h.venc || h.temp || h.dilucion) ? "<div class='sm'>" + [h.lote && ("Lote " + esc(h.lote)), h.venc && ("Vence " + esc(h.venc)), h.temp && ("Temp. " + esc(h.temp)), h.dilucion && ("Dilución " + esc(h.dilucion))].filter(Boolean).join(" · ") + "</div>" : "") +
-      (h.resumen ? "<div class='sn'>" + esc(h.resumen) + "</div>" : "") +
-      (h.note ? "<div class='sn'>" + esc(h.note) + "</div>" : "") +
-      (h.proName ? "<div class='sp'>Realizado por " + esc(h.proName) + "</div>" : "") + "</div>";
-    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4;margin-bottom:0}.hdr-logo{height:52px;width:auto}.hdr-logo-txt{display:flex;align-items:center;height:52px}.hdr-clinic-nm{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:#1a1a14;letter-spacing:-.01em}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:46px;font-weight:300;color:#1a1a14;line-height:1;letter-spacing:-.01em;margin-bottom:20px}.doc-title em{font-style:italic}.exp-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c8c2b4;float:right;margin-top:6px}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 18px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.pat-dot{width:8px;height:8px;border-radius:50%;border:1px solid rgba(255,255,255,.35);flex-shrink:0}.sec-hd{display:flex;align-items:center;gap:10px;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:22px 0 8px;border-bottom:1px solid #e8e5de;padding-bottom:5px}.sec-hd em{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:#999;text-transform:none;letter-spacing:0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.fld{padding:6px 0;border-bottom:1px solid #f2efe8}.fl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#ccc;margin-bottom:3px}.fv{font-size:12.5px;color:#1a1a14;min-height:16px}.ses{padding:10px 0;border-bottom:1px solid #eeece6}.sd{font-size:13px;font-weight:500}.sd .u{font-weight:400;color:#888}.sm{font-size:10px;color:#999;margin-top:2px}.sn{font-size:12px;margin-top:5px;color:#444;white-space:pre-wrap;line-height:1.6}.sp{font-size:10px;color:#aaa;font-style:italic;margin-top:3px}.sig{margin-top:60px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
-    const header = "<div class='hdr'>" + logoEl + "<div class='hdr-r'><span class='hdr-name'>" + esc(proName || clinName) + "</span>" + esc(proRole) + "<br>" + esc(clinAddr) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>";
-    const patBar = "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + (patient.phone ? "<span>Tel. &nbsp;" + esc(patient.phone) + "</span>" : "") + "</div><div class='pat-dot'></div></div>";
-    const footer = "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(proName) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div>" + (markEl ? "<div class='sig-mark'>" + markEl + "</div>" : "") + "</div><div class='strip'><span>Ficha clínica &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>";
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Ficha clínica · " + esc(patient.name) + "</title>" +
-      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
-      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
-      "<style>" + css + "</style></head><body>" +
-      header +
-      "<div class='doc-type'>Documento clínico</div>" +
-      "<div style='position:relative'><div class='doc-title'>Ficha <em>clínica</em></div><div class='exp-lbl'>Expediente</div></div>" +
-      patBar +
-      "<div class='sec-hd'><em>i</em>&nbsp; Antecedentes</div><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + field("Correo electrónico", patient.email) + "</div>" +
-      "<div class='sec-hd'><em>ii</em>&nbsp; Hábitos y piel</div><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros/día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador solar", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
-      (patient.notes ? "<div class='sec-hd'>Notas internas</div><div style='font-size:12px;color:#444;white-space:pre-wrap;margin-top:4px'>" + esc(patient.notes) + "</div>" : "") +
-      "<div class='sec-hd'><em>iii</em>&nbsp; Historial de sesiones</div>" + (hist.length ? hist.map(sesion).join("") : "<div style='color:#bbb;font-size:11px;padding:8px 0'>Sin sesiones registradas.</div>") +
-      footer +
-      "</body></html>";
-    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
-    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+    const e = jcmDocEsc;
+    const b = jcmDocBrand((hist.find(h => h.proName) || {}).proName);
+    const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const drow = (k, v, tag) => "<div class='drow'><span class='dk'>" + k + "</span><span class='dv" + (tag ? " tag" : "") + "'>" + (v ? e(v) : "—") + "</span></div>";
+    const sesion = h => "<div class='dfull' style='flex-direction:column;align-items:stretch;gap:5px'>"
+      + "<div style='display:flex;justify-content:space-between;gap:14px;align-items:baseline'><span class='dk'>" + e(h.date || "") + "</span><span class='dv' style='font-weight:400'>" + e(h.proc || "") + (h.units ? " · " + e(h.units) : "") + "</span></div>"
+      + (h.resumen ? "<div class='textbox' style='min-height:0;margin-top:0'>" + e(h.resumen) + "</div>" : "")
+      + (h.proName ? "<div style=\"font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:#8B9197\">Realizado por " + e(h.proName) + "</div>" : "")
+      + "</div>";
+    const inner = jcmMasthead(b)
+      + "<div class='titleblock'><div><div class='eyebrow'>Documento clínico</div><h1 class='doc-title'>Ficha <span class='it'>clínica</span></h1></div>"
+      + "<div class='folio'><span class='k'>Expediente</span><span class='v'>" + (e((patient.id || "").replace(/[^a-z0-9]/gi, "").slice(-8).toUpperCase()) || "—") + "</span></div></div>"
+      + jcmPband(patient, [["RUT", patient.rut], ["Edad", patient.age ? patient.age + " años" : ""], ["Teléfono", patient.phone]], patient.estado || "Activo")
+      + "<div class='body'>"
+      + "<div class='section'><div class='section-head'><span class='sh-num'>i</span><span class='sh-label'>Antecedentes</span><span class='sh-rule'></span></div><div class='dgrid'>"
+      + drow("Alergias", cv("alergias")) + drow("Antecedentes mórbidos", cv("morbidos")) + drow("Proc. estéticos previos", cv("esteticos"), true) + drow("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + drow("Medicamentos", cv("medicamentos")) + drow("Correo", patient.email)
+      + "</div></div>"
+      + "<div class='section'><div class='section-head'><span class='sh-num'>ii</span><span class='sh-label'>Hábitos y piel</span><span class='sh-rule'></span></div><div class='dgrid cols3'>"
+      + drow("Tabaco", c.tabaco ? c.tabaco + " cig/día" : "") + drow("Alcohol", c.alcohol) + drow("Actividad física", c.actividad) + drow("Consumo de agua", c.agua) + drow("Exposición solar", c.expsolar) + drow("Bloqueador", c.bloqueador) + drow("Embarazo / lactancia", c.embarazo)
+      + "</div><div class='dfull'><span class='dk'>Cuidados de la piel</span><span class='dv'>" + (cv("skincare") ? e(cv("skincare")) : "—") + "</span></div></div>"
+      + (patient.notes ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas internas</span><span class='sh-rule'></span></div><div class='textbox'>" + e(patient.notes) + "</div></div>" : "")
+      + "<div class='section'><div class='section-head'><span class='sh-num'>iii</span><span class='sh-label'>Historial de sesiones</span><span class='sh-rule'></span></div>"
+      + (hist.length ? hist.map(sesion).join("") : "<div class='empty-note'>Sin sesiones registradas a la fecha.</div>") + "</div>"
+      + "</div>"
+      + jcmSignFoot(b, b.proName, "Ficha clínica", patient.name, hoy);
+    jcmPrintDoc("Ficha clínica · " + e(patient.name), b, inner);
   }
 
   // Imprime UNA sesión/procedimiento en formato clínico con identidad de la clínica.
   function imprimirProc(h) {
-    const D = window.JCDATA || {};
-    const proName = h.proName || (window.clinicPro && window.clinicPro()) || "";
-    const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
-    const clinAddr = (window.clinicAddr && window.clinicAddr()) || "";
-    const team = (window.CADMIN && window.CADMIN.team) || [];
-    const proMember = team.find(function(t){ return t.name === proName; });
-    const proRole = (proMember && proMember.role) || "Medicina estética";
-    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
+    const e = jcmDocEsc;
+    const b = jcmDocBrand(h.proName);
     const now = new Date();
     const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
-    const sesDate = h.date || now.toISOString().slice(0, 10);
-    const [sy, sm, sd] = sesDate.split("-");
-    const dotDate = (sd||"—") + " &middot; " + (sm||"—") + " &middot; " + (sy||"—");
-    const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const cfg = (window.DB && window.DB.get("cfg")) || {};
-    const logoUrl = cfg.clinic_logo || "";
-    const markUrl = cfg.clinic_mark || "";
-    const logoEl = logoUrl ? "<img class='hdr-logo' src='" + logoUrl + "'>" : "<div class='hdr-logo-txt'><span class='hdr-clinic-nm'>" + esc(clinName) + "</span></div>";
-    const markEl = markUrl ? "<img src='" + markUrl + "' style='height:30px;width:auto;opacity:.65'>" : "";
-    const insBx = (l, v) => v ? "<div class='ibx'><div class='ibxl'>" + l + "</div><div class='ibxv'>" + esc(v) + "</div></div>" : "<div class='ibx'><div class='ibxl'>" + l + "</div><div class='ibxv' style='color:#ccc'>—</div></div>";
-    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4}.hdr-logo{height:52px;width:auto}.hdr-logo-txt{display:flex;align-items:center;height:52px}.hdr-clinic-nm{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:#1a1a14;letter-spacing:-.01em}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:46px;font-weight:300;color:#1a1a14;line-height:1;letter-spacing:-.01em}.doc-title em{font-style:italic}.date-box{text-align:right;padding-top:2px}.date-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.date-val{font-family:'Jost',sans-serif;font-size:22px;font-weight:300;color:#1a1a14;letter-spacing:.05em;line-height:1}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 18px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.info-box{border:1px solid #e0ddd5;border-left:3px solid #1a1a14;padding:12px 18px;margin:0 0 20px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.info-col{flex:1}.info-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-bottom:5px}.info-val{font-size:16px;color:#1a1a14;font-weight:400;font-family:'Cormorant Garamond',serif}.sec-hd{display:flex;align-items:center;gap:10px;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:22px 0 10px;border-bottom:1px solid #e8e5de;padding-bottom:5px}.sec-hd em{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:#999;text-transform:none;letter-spacing:0}.insumo-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.ibx{border:1px solid #e8e5de;padding:10px 13px}.ibxl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.ibxv{font-size:13px;color:#1a1a14}.text-box{font-size:13px;color:#444;white-space:pre-wrap;line-height:1.7;margin-top:6px;min-height:60px}.total-row{text-align:right;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-top:10px}.sig{margin-top:60px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Procedimiento · " + esc(patient.name) + "</title>" +
-      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
-      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
-      "<style>" + css + "</style></head><body>" +
-      "<div class='hdr'>" + logoEl + "<div class='hdr-r'><span class='hdr-name'>" + esc(proName || clinName) + "</span>" + esc(proRole) + "<br>" + esc(clinAddr) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>" +
-      "<div class='doc-type'>Registro de tratamiento</div>" +
-      "<div class='title-row'><div class='doc-title'>Procedimiento <em>realizado</em></div><div class='date-box'><div class='date-lbl'>Fecha</div><div class='date-val'>" + dotDate + "</div></div></div>" +
-      "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + "</div></div>" +
-      "<div class='info-box'><div class='info-col'><div class='info-lbl'>Tratamiento</div><div class='info-val'>" + esc(h.proc || "—") + "</div></div><div style='text-align:right'><div class='info-lbl'>Unidades / Dosis</div><div class='info-val'>" + esc(h.units || "—") + "</div></div></div>" +
-      "<div class='sec-hd'><em>i</em>&nbsp; Insumo</div>" +
-      "<div class='insumo-grid'>" + insBx("Lote", h.lote) + insBx("Vencimiento", h.venc) + insBx("Dilución", h.dilucion) + "</div>" +
-      (h.temp ? "<div style='font-size:10px;color:#999;margin-top:8px'>Temperatura: " + esc(h.temp) + "</div>" : "") +
-      "<div class='sec-hd'><em>ii</em>&nbsp; Resumen de la aplicación</div><div class='text-box'>" + esc(h.resumen || "") + "</div>" +
-      (h.note ? "<div class='sec-hd'>Notas</div><div class='text-box'>" + esc(h.note) + "</div>" : "") +
-      (h.units ? "<div class='total-row'>Total aplicado &nbsp;&nbsp;" + esc(h.units) + "</div>" : "") +
-      "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(proName) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div>" + (markEl ? "<div class='sig-mark'>" + markEl + "</div>" : "") + "</div>" +
-      "<div class='strip'><span>Procedimiento realizado &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>" +
-      "</body></html>";
-    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
-    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+    const parts = (h.date || now.toISOString().slice(0, 10)).split("-"); // [AAAA, MM, DD]
+    const dotDate = (parts[2] || "—") + " · " + (parts[1] || "—") + " · " + (parts[0] || "—");
+    const cell = (l, v) => "<div class='cell'><span class='ck'>" + l + "</span><span class='cv'>" + (v ? e(v) : "—") + "</span></div>";
+    const inner = jcmMasthead(b)
+      + "<div class='titleblock'><div><div class='eyebrow'>Registro de tratamiento</div><h1 class='doc-title'>Procedimiento <span class='it'>realizado</span></h1></div>"
+      + "<div class='folio'><span class='k'>Fecha</span><span class='v vbig'>" + e(dotDate) + "</span></div></div>"
+      + jcmPband(patient, [["RUT", patient.rut], ["Edad", patient.age ? patient.age + " años" : ""]])
+      + "<div class='proc-head'><div class='ph-tick'></div><div class='ph-main'><span class='ph-k'>Tratamiento</span><div class='ph-name'>" + e(h.proc || "—") + "</div></div>"
+      + "<div class='ph-dose'><span class='k'>Unidades / Dosis</span><span class='v'>" + e(h.units || "—") + "</span></div></div>"
+      + "<div class='body'>"
+      + "<div class='section'><div class='section-head'><span class='sh-num'>i</span><span class='sh-label'>Insumo</span><span class='sh-rule'></span></div>"
+      + "<div class='trio'>" + cell("Lote", h.lote) + cell("Vencimiento", h.venc) + cell("Dilución", h.dilucion) + "</div>"
+      + (h.temp ? "<div style=\"font-family:'Jost',sans-serif;font-size:10px;color:#8B9197;margin-top:8px\">Temperatura de conservación: " + e(h.temp) + "</div>" : "") + "</div>"
+      + "<div class='section'><div class='section-head'><span class='sh-num'>ii</span><span class='sh-label'>Resumen de la aplicación</span><span class='sh-rule'></span></div>"
+      + "<div class='textbox' style='min-height:60px'>" + (h.resumen ? e(h.resumen) : "—") + "</div>"
+      + (h.units ? "<div class='totline'><span class='tk'>Total aplicado</span><span class='tv'>" + e(h.units) + "</span></div>" : "") + "</div>"
+      + (h.note ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas</span><span class='sh-rule'></span></div><div class='textbox'>" + e(h.note) + "</div></div>" : "")
+      + "</div>"
+      + jcmSignFoot(b, b.proName, "Procedimiento realizado", patient.name, hoy);
+    jcmPrintDoc("Procedimiento · " + e(patient.name), b, inner);
   }
 
   return (
@@ -518,7 +562,9 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             // Al registrar una sesión NUEVA con cobro, se suma automáticamente a Caja (ingreso por atención),
             // de modo que el procedimiento de la ficha aparece en Caja, Reportes y el Dashboard.
             if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
-              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name }); } catch (e3) {}
+              // Descuenta el costo de insumos del procedimiento (config de inventario) para el líquido.
+              const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
+              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name }); } catch (e3) {}
             }
             try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : ((e.cobro || 0) > 0 ? "Sesión registrada · " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesión registrada."), "ok"); } catch (e2) {}
           }} />}
@@ -1724,54 +1770,36 @@ function RecetaTab({ T, patient, updatePatient }) {
     setDiag(""); setRp(""); setInd("");
   }
   function imprimir(r) {
-    const pro = (window.clinicPro && window.clinicPro()) || "";
-    const dir = (window.clinicAddr && window.clinicAddr()) || "";
-    const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
-    const team = (window.CADMIN && window.CADMIN.team) || [];
-    const proMember = team.find(function(t){ return t.name === pro; });
-    const proRole = (proMember && proMember.role) || "Medicina estética";
-    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
+    const e = jcmDocEsc;
+    const b = jcmDocBrand();
     const now = new Date();
     const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    const dotDate = dd + " &middot; " + mm + " &middot; " + now.getFullYear();
+    const dotDate = String(now.getDate()).padStart(2, "0") + " · " + String(now.getMonth() + 1).padStart(2, "0") + " · " + now.getFullYear();
     const isInd = r.tipo === "indicaciones";
-    const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const cfg = (window.DB && window.DB.get("cfg")) || {};
-    const logoUrl = cfg.clinic_logo || "";
-    const markUrl = cfg.clinic_mark || "";
-    const logoEl = logoUrl ? "<img class='hdr-logo' src='" + logoUrl + "'>" : "<div class='hdr-logo-txt'><span class='hdr-clinic-nm'>" + esc(clinName) + "</span></div>";
-    const markEl = markUrl ? "<img src='" + markUrl + "' style='height:30px;width:auto;opacity:.65'>" : "";
     const lines = r.rp.split("\n").map(l => l.replace(/^[•\-\*]\s*/, "").trim()).filter(Boolean);
-    const indHtml = lines.map(function(l, i){ return "<div class='ind-item'><div class='ind-num'>" + (i+1) + "</div><div class='ind-text'>" + esc(l) + "</div></div>"; }).join("");
-    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4}.hdr-logo{height:52px;width:auto}.hdr-logo-txt{display:flex;align-items:center;height:52px}.hdr-clinic-nm{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:#1a1a14;letter-spacing:-.01em}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:44px;font-weight:300;color:#1a1a14;line-height:1.02;letter-spacing:-.01em}.doc-title em{font-style:italic}.date-box{text-align:right;padding-top:2px;flex-shrink:0;margin-left:16px}.date-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.date-val{font-family:'Jost',sans-serif;font-size:22px;font-weight:300;color:#1a1a14;letter-spacing:.05em;line-height:1}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 16px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.info-box{border:1px solid #e0ddd5;border-left:3px solid #1a1a14;padding:12px 18px;margin:0 0 20px}.info-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-bottom:5px}.info-val{font-size:15px;color:#1a1a14;font-family:'Cormorant Garamond',serif;font-style:italic}.sec-hd{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:20px 0 0;border-bottom:1px solid #e8e5de;padding-bottom:5px}.ind-item{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #f0ede6;align-items:flex-start}.ind-num{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:19px;color:#c8c2b4;min-width:22px;flex-shrink:0;padding-top:1px}.ind-text{font-size:13px;color:#1a1a14;line-height:1.6;flex:1}.rp-sym{font-family:'Cormorant Garamond',serif;font-size:40px;font-style:italic;color:#1a1a14;line-height:1;margin:14px 0 4px}.text-box{font-size:13px;color:#444;white-space:pre-wrap;line-height:1.7;margin-top:6px}.ctrl-bar{background:#1a1a14;color:#fff;padding:10px 18px;margin-top:24px;display:flex;align-items:center;gap:12px}.ctrl-plus{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;opacity:.5}.ctrl-txt{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase}.notas{font-size:12px;color:#555;padding:10px 14px;background:#f8f7f4;border-left:3px solid #d0cdc4;margin-top:8px;line-height:1.6}.sig{margin-top:56px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
-    const docType = isInd ? "Cuidados posteriores" : "Prescripción médica";
-    const titleHtml = isInd ? "Indicaciones <em>post tratamiento</em>" : "Receta <em>médica</em>";
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + esc(titleOf(r.tipo)) + " · " + esc(patient.name || "") + "</title>" +
-      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
-      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
-      "<style>" + css + "</style></head><body>" +
-      "<div class='hdr'>" + logoEl + "<div class='hdr-r'><span class='hdr-name'>" + esc(pro || clinName) + "</span>" + esc(proRole) + "<br>" + esc(dir) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>" +
-      "<div class='doc-type'>" + docType + "</div>" +
-      "<div class='title-row'><div class='doc-title'>" + titleHtml + "</div><div class='date-box'><div class='date-lbl'>Fecha</div><div class='date-val'>" + dotDate + "</div></div></div>" +
-      "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + "</div></div>" +
-      (r.diag ? "<div class='info-box'><div class='info-lbl'>Diagnóstico / Procedimiento</div><div class='info-val'>" + esc(r.diag) + "</div></div>" : "") +
-      "<div class='sec-hd'>" + (isInd ? "Indicaciones" : "Prescripción") + "</div>" +
-      (isInd
-        ? (lines.length ? indHtml : "<div class='ind-item'><div class='ind-num'>1</div><div class='ind-text' style='color:#ccc'>Sin indicaciones registradas.</div></div>")
-        : "<div class='rp-sym'>Rp.</div><div class='text-box'>" + esc(r.rp).replace(/\n/g, "<br>") + "</div>") +
-      (r.ind ? "<div class='notas'>" + esc(r.ind).replace(/\n/g, "<br>") + "</div>" : "") +
-      (isInd ? "<div class='ctrl-bar'><div class='ctrl-plus'>+</div><div class='ctrl-txt'>Control de evaluación</div></div>" : "") +
-      "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(pro) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div>" + (markEl ? "<div class='sig-mark'>" + markEl + "</div>" : "") + "</div>" +
-      "<div class='strip'><span>" + esc(titleOf(r.tipo)) + " &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>" +
-      "</body></html>";
-    if (window.jcmPrintHTML) window.jcmPrintHTML(html);
-    else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
+    const indHtml = lines.map(l => "<li><span class='num'></span><span class='txt'>" + e(l) + "</span></li>").join("");
+    const eyebrow = isInd ? "Cuidados posteriores" : "Prescripción médica";
+    const titleHtml = isInd ? "Indicaciones <span class='it'>post tratamiento</span>" : "Receta <span class='it'>médica</span>";
+    const inner = jcmMasthead(b)
+      + "<div class='titleblock'><div><div class='eyebrow'>" + eyebrow + "</div><h1 class='doc-title'>" + titleHtml + "</h1></div>"
+      + "<div class='folio'><span class='k'>Fecha</span><span class='v vbig'>" + e(dotDate) + "</span></div></div>"
+      + jcmPband(patient, [["RUT", patient.rut], ["Edad", patient.age ? patient.age + " años" : ""]])
+      + (r.diag ? "<div class='diag'><div class='dx-tick'></div><div><span class='dx-k'>Diagnóstico / Procedimiento</span></div><div class='dx-v'>" + e(r.diag) + "</div></div>" : "")
+      + "<div class='body'>"
+      + "<div class='section' style='margin-top:24px'><div class='section-head'><span class='sh-label'>" + (isInd ? "Indicaciones" : "Prescripción") + "</span><span class='sh-rule'></span></div>"
+      + (isInd
+        ? "<ol class='indlist'>" + (lines.length ? indHtml : "<li><span class='num'></span><span class='txt' style='color:#8B9197'>Sin indicaciones registradas.</span></li>") + "</ol>"
+        : "<div style=\"font-family:'Cormorant Garamond',serif;font-style:italic;font-size:34px;color:#121A26;line-height:1;margin:8px 0 6px\">Rp.</div><div class='textbox'>" + e(r.rp).replace(/\n/g, "<br>") + "</div>")
+      + "</div>"
+      + (r.ind ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas adicionales</span><span class='sh-rule'></span></div><div class='textbox'>" + e(r.ind).replace(/\n/g, "<br>") + "</div></div>" : "")
+      + (isInd ? "<div class='control-note'><span class='cn-icon'>+</span><div><span class='cn-k'>Control de evaluación</span><span class='cn-v'>Agenda tu control para evaluar el resultado y realizar los ajustes que sean necesarios.</span></div></div>" : "")
+      + "</div>"
+      + jcmSignFoot(b, b.proName, titleOf(r.tipo), patient.name || "", hoy);
+    jcmPrintDoc(titleOf(r.tipo) + " · " + e(patient.name || ""), b, inner);
   }
   function enviarWa(r) {
     const pro = (window.clinicPro && window.clinicPro()) || "";
-    const L = ["*" + titleOf(r.tipo) + " — " + ((window.clinicName && window.clinicName()) || D.brand || "Medique") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " años)" : "")];
+    const L = ["*" + titleOf(r.tipo) + " — " + ((window.clinicName && window.clinicName()) || "Medique") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " años)" : "")];
     if (r.diag) L.push("Diagnóstico: " + r.diag);
     L.push((r.tipo === "indicaciones" ? "Indicaciones:" : "Rp.:"), r.rp);
     if (r.ind) L.push("Notas: " + r.ind);

@@ -824,11 +824,12 @@ function ReportesView({ T, patients, appts }) {
   const pop = Object.entries(procCount).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => [n, totalCitas ? c / totalCitas : 0]);
   // Ticket promedio real (ingresos / nº de ingresos).
   const ticketProm = ingresos.length ? Math.round(ingresos.reduce((s, m) => s + (m.amount || 0), 0) / ingresos.length) : 0;
-  const t0 = new Date().toISOString().slice(0, 10);
+  const t0 = (typeof _localDay === "function") ? _localDay() : new Date().toISOString().slice(0, 10);
+  const _dayOf = ts => (typeof _localDay === "function") ? _localDay(ts) : (ts || "").slice(0, 10);
   // Ingresos de HOY y del MES en curso (en tiempo real con la caja; independientes del filtro de período).
-  const cashToday2 = moves.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 10) === t0).reduce((s, m) => s + (m.amount || 0), 0);
+  const cashToday2 = moves.filter(m => m.type === "ingreso" && _dayOf(m.ts) === t0).reduce((s, m) => s + (m.amount || 0), 0);
   const m0 = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2);
-  const cashMonth = moves.filter(m => m.type === "ingreso" && (m.ts || "").slice(0, 7) === m0).reduce((s, m) => s + (m.amount || 0), 0);
+  const cashMonth = moves.filter(m => m.type === "ingreso" && _dayOf(m.ts).slice(0, 7) === m0).reduce((s, m) => s + (m.amount || 0), 0);
   const MES_NOMBRE = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][now.getMonth()];
   // No-show real (citas marcadas no asistió / total con estado).
   const conEstado = (appts || []).filter(a => a.status);
@@ -1997,7 +1998,47 @@ function cashNotify() { try { window.dispatchEvent(new Event("jcm:cash")); } cat
 function cashSave(v) { try { if (window.DB) DB.set("cash_moves", v); } catch (e) {} cashNotify(); }
 function cashAdd(mv) { const all = cashAll(); all.push({ id: "cm" + Date.now() + Math.random().toString(36).slice(2, 5), ts: new Date().toISOString(), ...mv }); cashSave(all); }
 function cashDelete(id) { cashSave(cashAll().filter(m => m.id !== id)); }
-function cashToday() { const t = new Date().toISOString().slice(0, 10); return cashAll().filter(m => (m.ts || "").slice(0, 10) === t); }
+// Día LOCAL (no UTC): evita que un cobro de las 23:00 de Chile cuente como del día siguiente.
+function _localDay(d) { d = d ? new Date(d) : new Date(); if (isNaN(d)) return ""; return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function cashToday() { const t = _localDay(); return cashAll().filter(m => _localDay(m.ts) === t); }
+// Día (YYYY-MM-DD) de una atención de la ficha (patient.billing): acepta DD-MM-AAAA, DD/MM/AAAA o ISO.
+function _billDay(dateStr) {
+  const s = ("" + (dateStr || "")).trim().replace(/[.\s]+$/, "");
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) { let yy = +m[3]; if (yy < 100) yy += 2000; return yy + "-" + String(+m[2]).padStart(2, "0") + "-" + String(+m[1]).padStart(2, "0"); }
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (iso) return iso[1] + "-" + iso[2] + "-" + iso[3];
+  const t = Date.parse(s); return isNaN(t) ? "" : _localDay(t);
+}
+// Actualiza un movimiento de caja (p.ej. cambiar el método de pago).
+function cashUpdate(id, patch) { cashSave(cashAll().map(m => m.id === id ? { ...m, ...patch } : m)); }
+// Cambia el método de pago de una atención de la ficha (patient.billing) desde Caja.
+function billingUpdateMethod(patId, billId, metodo) {
+  try {
+    const pts = (window.DB && DB.get("patients")) || [];
+    DB.set("patients", pts.map(p => p.id === patId ? { ...p, billing: (p.billing || []).map(b => b.id === billId ? { ...b, metodo: metodo } : b) } : p));
+    cashNotify();
+  } catch (e) {}
+}
+// Movimientos de caja del período + las atenciones PAGADAS de las fichas (que no pasan por "sesión con cobro").
+// Deduplica: si una atención de ficha ya está cobrada en caja (misma persona, monto y día), no se repite.
+function cashMovimientos() {
+  const cashMoves = cashAll().map(m => ({ ...m, _day: _localDay(m.ts), _src: "caja" }));
+  const seen = {};
+  cashMoves.forEach(m => { if (m.kind === "atencion") seen[(m.patient || "").toLowerCase().trim() + "|" + (m.amount || 0) + "|" + m._day] = true; });
+  const out = cashMoves.slice();
+  let pts = []; try { pts = (window.DB && DB.get("patients")) || []; } catch (e) {}
+  (pts || []).forEach(p => {
+    (p.billing || []).forEach(b => {
+      if (!b.paid || !(b.amount > 0)) return; // solo pagadas con monto
+      const day = _billDay(b.date);
+      if (seen[(p.name || "").toLowerCase().trim() + "|" + (b.amount || 0) + "|" + day]) return; // ya registrado en caja (sesión)
+      out.push({ id: "bill_" + p.id + "_" + (b.id || ""), type: "ingreso", kind: "atencion", amount: b.amount || 0, cost: 0,
+        method: b.metodo || "Otro", concept: (b.concept || "Atención") + " · " + (p.name || ""), _day: day,
+        ts: (day || _localDay()) + "T12:00:00", _src: "billing", _patId: p.id, _billId: b.id });
+    });
+  });
+  return out;
+}
 /* inventario persistente — el seed (INV_SEED/PROC_SEED) solo aplica a la clínica base o modo local; las nuevas parten vacías */
 function invSeed() { return (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) ? INV_SEED : []; }
 function procSeed() { return (window.JCM_BASE || !(window.JCSAAS && window.JCSAAS.enabled)) ? PROC_SEED : []; }
@@ -2006,6 +2047,19 @@ function invSave(v) { try { if (window.DB) DB.set("inv_items", v); } catch (e) {
 function procLoad() { try { var v = window.DB && DB.get("inv_procs"); return Array.isArray(v) ? v : procSeed(); } catch (e) { return procSeed(); } }
 function procSave(v) { try { if (window.DB) DB.set("inv_procs", v); } catch (e) {} }
 function procCost(p, items) { return (p.uses || []).reduce((s, u) => { const it = items.find(x => x.id === u[0]); return s + (it ? it.price * u[1] : 0); }, 0); }
+// Costo de insumos de un procedimiento por su NOMBRE (según la config de inventario).
+// Se descuenta automáticamente al cobrar para obtener el líquido. Solo JC Medical (clínica base).
+function jcmInsumoCost(procName) {
+  try {
+    if (!(typeof clinicSeeded === "function" && clinicSeeded())) return 0; // solo mi clínica
+    const n = (procName || "").toLowerCase().trim(); if (!n) return 0;
+    const procs = procLoad(); const items = invLoad();
+    const p = procs.find(x => (x.name || "").toLowerCase().trim() === n);
+    return p ? procCost(p, items) : 0;
+  } catch (e) { return 0; }
+}
+// Costo de publicidad por paciente atendido (solo JC Medical). Editable a futuro; por ahora fijo.
+function jcmAdCostPerPatient() { try { return (typeof clinicSeeded === "function" && clinicSeeded()) ? 5000 : 0; } catch (e) { return 0; } }
 
 function InvKpiModal({ T, title, items, onClose, onAdjust }) {
   const D = window.JCDATA;
@@ -2661,59 +2715,88 @@ function CajaView({ T }) {
   const D = window.JCDATA;
   const [tick, setTick] = useState(0);
   const [mov, setMov] = useState(false);
+  const [editMov, setEditMov] = useState(null); // movimiento al que se le cambia el método de pago
   const [cierre, setCierre] = useState(false);
-  const today = cashToday();
-  const ingresos = today.filter(m => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
-  const egresos = today.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
-  const costoIns = today.reduce((s, m) => s + (m.cost || 0), 0);
-  const neto = ingresos - egresos - costoIns;
-  const atenciones = today.filter(m => m.kind === "atencion");
-  const manuales = today.filter(m => m.kind !== "atencion");
+  const [periodo, setPeriodo] = useState("hoy"); // hoy | semana | mes
+  const now = new Date();
+  const hoyDay = _localDay(now);
+  // Rango de la semana actual (lunes a domingo, en hora local).
+  const dow = (now.getDay() + 6) % 7;
+  const lun = new Date(now); lun.setDate(now.getDate() - dow);
+  const dom = new Date(lun); dom.setDate(lun.getDate() + 6);
+  const wkStart = _localDay(lun), wkEnd = _localDay(dom);
+  const inPeriodo = day => {
+    if (!day) return false;
+    if (periodo === "hoy") return day === hoyDay;
+    if (periodo === "mes") return day.slice(0, 7) === hoyDay.slice(0, 7);
+    return day >= wkStart && day <= wkEnd; // semana
+  };
+  const movs = cashMovimientos().filter(m => inPeriodo(m._day)).sort((a, b) => (a.ts < b.ts ? 1 : -1));
+  const ingresos = movs.filter(m => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
+  const egresos = movs.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+  const costoIns = movs.reduce((s, m) => s + (m.cost || 0), 0);
+  const atenciones = movs.filter(m => m.kind === "atencion");
+  const manuales = movs.filter(m => m.kind !== "atencion");
+  // Costo de publicidad por paciente atendido (solo JC Medical: $5.000 c/u). El líquido lo descuenta.
+  const adCost = (typeof jcmAdCostPerPatient === "function") ? jcmAdCostPerPatient() : 0;
+  const costoPub = atenciones.length * adCost;
+  const liqDe = m => (m.amount || 0) - (m.cost || 0) - (m.kind === "atencion" ? adCost : 0); // líquido de un movimiento
+  const neto = ingresos - egresos - costoIns - costoPub;
   const porMetodo = {};
-  today.filter(m => m.type === "ingreso").forEach(m => { const k = m.method || "Otro"; porMetodo[k] = (porMetodo[k] || 0) + (m.amount || 0); });
-  const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } }
-  const fechaTxt = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  movs.filter(m => m.type === "ingreso").forEach(m => { const k = m.method || "Otro"; porMetodo[k] = (porMetodo[k] || 0) + (m.amount || 0); });
+  const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  const fechaTxt = now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  const periodoLbl = periodo === "hoy" ? ("de hoy · " + fechaTxt) : periodo === "semana" ? "de esta semana" : "de este mes";
+  const subLbl = periodo === "hoy" ? "hoy" : periodo === "semana" ? "esta semana" : "este mes";
+  // En semana/mes, antepone la fecha (día/mes) a la hora para distinguir entre días.
+  const cuando = m => (periodo !== "hoy" && m._day ? m._day.slice(8) + "/" + m._day.slice(5, 7) + " · " : "") + hora(m.ts);
+  const chip = (k, l) => <button key={k} onClick={() => setPeriodo(k)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "7px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (periodo === k ? T.accent : T.line), background: periodo === k ? T.surface2 : T.surface, color: periodo === k ? T.text : T.textMute }}>{l}</button>;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <SecHead T={T} title="Caja" sub={"Resumen de caja de hoy · " + fechaTxt} />
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Caja" sub={"Resumen de caja " + periodoLbl} />
         <div style={{ display: "flex", gap: 8 }}>
           <AdBtn T={T} onClick={() => setCierre(true)}>Cierre del día</AdBtn>
           <AdBtn T={T} primary onClick={() => setMov(true)}>+ Movimiento</AdBtn>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>{chip("hoy", "Hoy")}{chip("semana", "Esta semana")}{chip("mes", "Este mes")}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 5 : 4) + ",1fr)", gap: 10, marginBottom: 18 }}>
         <CajaCard T={T} l="Ingresos (bruto)" v={D.fmt(ingresos)} c="#1F8A5B" />
         <CajaCard T={T} l="Costo insumos" v={D.fmt(costoIns)} c={T.gold || "#C9A227"} />
+        {adCost > 0 && <CajaCard T={T} l="Publicidad" v={D.fmt(costoPub)} c="#B8860B" />}
         <CajaCard T={T} l="Egresos" v={D.fmt(egresos)} c="#C0285A" />
-        <CajaCard T={T} l="Neto (ganancia)" v={D.fmt(neto)} c={T.accent} strong />
+        <CajaCard T={T} l={adCost > 0 ? "Líquido (ganancia)" : "Neto (ganancia)"} v={D.fmt(neto)} c={T.accent} strong />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" }}>
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Atenciones cobradas hoy</div>
-          {atenciones.length === 0 ? <Empty2 T={T}>Aún no hay atenciones cobradas hoy.</Empty2>
+          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Atenciones cobradas {subLbl}</div>
+          {atenciones.length === 0 ? <Empty2 T={T}>Sin atenciones cobradas {subLbl}.</Empty2>
             : atenciones.map(m => (
-              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
+              <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{hora(m.ts)} · {m.method} · insumos {D.fmt(m.cost || 0)}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method} · insumos {D.fmt(m.cost || 0)}{adCost > 0 ? " · publicidad " + D.fmt(adCost) : ""}</div>
                 </div>
-                <div style={{ fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" }}>{D.fmt(m.amount || 0)}</div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" }}>{D.fmt(m.amount || 0)}</div>
+                  {(adCost > 0 || (m.cost || 0) > 0) && <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 1 }}>líquido {D.fmt(liqDe(m))}</div>}
+                </div>
               </div>
             ))}
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" }}>Movimientos manuales</div>
-          {manuales.length === 0 ? <Empty2 T={T}>Sin movimientos manuales hoy.</Empty2>
+          {manuales.length === 0 ? <Empty2 T={T}>Sin movimientos manuales {subLbl}.</Empty2>
             : manuales.map(m => (
-              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
+              <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{hora(m.ts)} · {m.method}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method}</div>
                 </div>
                 <div style={{ fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" }}>{m.type === "ingreso" ? "" : "− "}{D.fmt(m.amount || 0)}</div>
-                <button onClick={async () => { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento?", { danger: true })) { cashDelete(m.id); setTick(t => t + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                {m._src === "caja" && <button onClick={async (ev) => { ev.stopPropagation(); if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento?", { danger: true })) { cashDelete(m.id); setTick(t => t + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
-                </button>
+                </button>}
               </div>
             ))}
         </div>
@@ -2733,7 +2816,27 @@ function CajaView({ T }) {
       </div>
       {mov && <NuevoMovModal T={T} onClose={() => setMov(false)} onSave={mv => { cashAdd({ ...mv, kind: "manual" }); setMov(false); setTick(tick + 1); }} />}
       {cierre && <CierreModal T={T} ingresos={ingresos} egresos={egresos} costoIns={costoIns} neto={neto} fecha={fechaTxt} onClose={() => setCierre(false)} />}
+      {editMov && <MetodoPagoModal T={T} mov={editMov} onClose={() => setEditMov(null)} onSave={metodo => {
+        if (editMov._src === "billing") billingUpdateMethod(editMov._patId, editMov._billId, metodo);
+        else cashUpdate(editMov.id, { method: metodo });
+        setEditMov(null); setTick(t => t + 1);
+      }} />}
     </div>
+  );
+}
+function MetodoPagoModal({ T, mov, onClose, onSave }) {
+  const METODOS = ["Efectivo", "Transferencia", "Débito", "Crédito", "Otro"];
+  return (
+    <AdModal T={T} title="Método de pago" onClose={onClose} footer={<AdBtn T={T} onClick={onClose}>Cerrar</AdBtn>}>
+      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>{mov.concept} · <b style={{ color: T.text }}>{(window.JCDATA ? window.JCDATA.fmt(mov.amount || 0) : "$" + (mov.amount || 0))}</b><br />Elige el método de pago correcto:</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {METODOS.map(mt => (
+          <button key={mt} onClick={() => onSave(mt)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 8, cursor: "pointer", fontFamily: T.sans, fontSize: 13.5, background: mov.method === mt ? T.surface2 : T.surface, border: "1px solid " + (mov.method === mt ? T.accent : T.line), color: T.text }}>
+            {mt}{mov.method === mt && <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.accent, letterSpacing: ".1em", textTransform: "uppercase" }}>Actual</span>}
+          </button>
+        ))}
+      </div>
+    </AdModal>
   );
 }
 function CajaCard({ T, l, v, c, strong }) {
@@ -2794,4 +2897,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
