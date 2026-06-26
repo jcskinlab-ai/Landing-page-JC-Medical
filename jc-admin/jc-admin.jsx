@@ -1452,7 +1452,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const atCell = (off, h) => appts.filter(a => a.day === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
   const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
-  const wkHours = []; for (let h = WK_OPEN; h <= WK_CLOSE; h++) wkHours.push(h); // etiquetas 08:00 … 20:00
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
 
@@ -1501,13 +1500,16 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           </div>
           {/* Timeline continuo por columna */}
           <div style={{ display: "flex", position: "relative" }}>
-            {/* Etiquetas de hora */}
+            {/* Etiquetas de hora (en punto y media hora) */}
             <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
-              {wkHours.map((h, i) => (
-                <div key={h} style={{ position: "absolute", top: i * WPX + 2, right: 6, fontFamily: T.sans, fontSize: 10, color: T.textFaint, pointerEvents: "none", userSelect: "none" }}>
-                  {(h < 10 ? "0" : "") + h}:00
-                </div>
-              ))}
+              {ADMIN_HALF_HOURS.map((hhmm, i) => {
+                const half = hhmm.endsWith(":30"); // las medias horas, más pequeñas y tenues
+                return (
+                  <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 8.5 : 10, color: T.textFaint, opacity: half ? 0.5 : 1, pointerEvents: "none", userSelect: "none" }}>
+                    {hhmm}
+                  </div>
+                );
+              })}
             </div>
             {/* Columnas de días */}
             {days.map((d, ci) => {
@@ -1931,18 +1933,25 @@ function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
   const metaCamps = ((window.CADMIN || { campaigns: [] }).campaigns || []).filter(c => c.active);
   const horas = D.availability(new Date(fecha + "T00:00:00").getDay()).slots;
   const pat = patients.find(p => p.name === appt.name);
+  // La agenda ubica las citas por "day" (offset de días respecto a hoy), no por "fecha".
+  // Al reprogramar hay que recalcular ese offset desde la fecha elegida, o la cita no se mueve.
+  function buildPatch(extra) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const day = Math.round((new Date(fecha + "T00:00:00") - today) / 86400000);
+    return Object.assign({ proc, fecha, time: t, status, comentario, origen, dur, day }, extra || {});
+  }
   return (
     <AdModal T={T} title="Editar cita" onClose={onClose}
       footer={
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {appt.status === "pendiente_pago" && (
-            <button onClick={() => onSave({ proc, fecha, time: t, status: "confirmada", comentario, origen, dur })}
+            <button onClick={() => onSave(buildPatch({ status: "confirmada" }))}
               style={{ width: "100%", fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", padding: "14px", borderRadius: 4, border: "none", background: "#1F8A5B", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M20 6 9 17l-5-5" /></svg>
               Confirmar transferencia · bloquear hora
             </button>
           )}
-          <AdBtn T={T} primary full onClick={() => onSave({ proc, fecha, time: t, status, comentario, origen, dur })}>Guardar cambios</AdBtn>
+          <AdBtn T={T} primary full onClick={() => onSave(buildPatch())}>Guardar cambios</AdBtn>
           {confirmCancel
             ? <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setConfirmCancel(false)} style={{ flex: 1, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".12em", textTransform: "uppercase", padding: "13px", borderRadius: 4, border: "1px solid " + T.chipBorder, background: "transparent", color: T.textMute, cursor: "pointer" }}>Volver</button>
