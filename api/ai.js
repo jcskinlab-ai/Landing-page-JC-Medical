@@ -109,6 +109,61 @@ export default async function handler(req, res) {
   }
 
   const body = req.body || {};
+
+  // ── Modo VISIÓN: leer una factura/boleta y extraer sus productos ──────────────
+  // El cliente envía { task:'scan_invoice', image:<dataURL base64 de la foto> }.
+  // Usa un modelo de visión de Groq (Llama 4 Scout) y devuelve { ok, items:[...] }.
+  if (body.task === "scan_invoice" && typeof body.image === "string" && body.image.startsWith("data:image")) {
+    const visionModel = process.env.GROQ_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
+    const prompt = [
+      "Eres un lector experto de facturas y boletas chilenas (formato SII). Analiza la imagen y extrae SOLO los productos del DETALLE de la compra.",
+      "NO incluyas como producto: despachos, fletes, descuentos, ni los totales de la factura (Monto Neto, IVA, Total).",
+      "El IVA en Chile es 19%. Necesito el COSTO UNITARIO CON IVA INCLUIDO de cada producto.",
+      "Para cada producto entrega exactamente: name (nombre del producto tal como aparece), qty (cantidad, número entero), priceUnit (costo de UNA unidad CON IVA incluido, en pesos chilenos enteros, sin puntos, comas ni símbolos), cat ('Insumo clínico', 'Fungible', 'Medicamento' u 'Otro').",
+      "Cálculo de priceUnit: el detalle suele mostrar valores NETOS. Toma el total NETO de la línea, divídelo por la cantidad y multiplícalo por 1.19 para incluir el IVA. Si la factura ya muestra precios con IVA, úsalos directamente. Redondea a entero.",
+      "Responde ÚNICAMENTE con JSON válido, sin texto extra ni markdown, con esta forma EXACTA:",
+      '{"items":[{"name":"Botox 100 UI","qty":15,"priceUnit":140000,"cat":"Insumo clínico"}]}'
+    ].join("\n");
+    try {
+      const r = await fetch(GROQ_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+        body: JSON.stringify({
+          model: visionModel,
+          messages: [{ role: "user", content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: body.image } }
+          ] }],
+          temperature: 0.1,
+          max_tokens: 1500
+        })
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => "");
+        console.error("Groq vision error", r.status, txt);
+        return res.status(502).json({ ok: false, error: "No se pudo leer la factura (IA " + r.status + "). Intenta con una foto más nítida." });
+      }
+      const data = await r.json();
+      let content = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
+      let parsed = null;
+      try { parsed = JSON.parse(content); } catch (e) {
+        const m = content.match(/\{[\s\S]*\}/); // por si vino con texto alrededor
+        if (m) { try { parsed = JSON.parse(m[0]); } catch (_) {} }
+      }
+      let items = parsed && Array.isArray(parsed.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
+      items = (items || []).map(it => ({
+        name: String(it.name || it.nombre || "").trim().slice(0, 120),
+        qty: parseInt(String(it.qty != null ? it.qty : (it.cantidad != null ? it.cantidad : "1")).replace(/[^\d]/g, ""), 10) || 1,
+        price: parseInt(String(it.priceUnit != null ? it.priceUnit : (it.price != null ? it.price : "0")).replace(/[^\d]/g, ""), 10) || 0,
+        cat: String(it.cat || it.categoria || "Insumo clínico").trim().slice(0, 40)
+      })).filter(it => it.name.length > 1);
+      return res.status(200).json({ ok: true, items: items });
+    } catch (e) {
+      console.error("Error visión Groq:", e);
+      return res.status(502).json({ ok: false, error: "No se pudo contactar al lector de facturas." });
+    }
+  }
+
   const userMessages = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
   if (!userMessages.length) return res.status(400).json({ ok: false, error: "Faltan mensajes." });
 

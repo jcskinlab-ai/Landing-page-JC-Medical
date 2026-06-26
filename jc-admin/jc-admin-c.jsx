@@ -2133,19 +2133,66 @@ function InventarioView({ T }) {
   );
 }
 function invAdj(T) { return { width: 28, height: 28, borderRadius: 6, border: "1px solid " + T.chipBorder, background: T.surface, color: T.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }; }
-/* Escanear factura → revisar/editar productos → aplicar al stock.
-   Demo local: la lectura real con IA (Llama Scout visión) corre en el servidor (Medique).
-   Aquí se sube la factura y se confirman los productos manualmente. */
-const INVSCAN_DEMO = [
-  { name: "Toxina botulínica 100U", cat: "Insumo clínico", qty: "5", price: "95000", unit: "viales" },
-  { name: "Ácido hialurónico (jeringa)", cat: "Insumo clínico", qty: "10", price: "70000", unit: "jeringas" },
-  { name: "Agujas 30G", cat: "Fungible", qty: "100", price: "120", unit: "unidades" }
-];
+/* Escanear factura → leer con IA (visión, en el servidor) → revisar/editar → aplicar al stock. */
+// Reduce la foto a un JPEG pequeño (máx ~1600px) para que quepa en el límite de subida y la IA la lea bien.
+function invFileToDataURL(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) { if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; } else { w = Math.round(w * maxDim / h); h = maxDim; } }
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL("image/jpeg", quality || 0.82));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 function InvScanModal({ T, onClose, onApply }) {
   const [file, setFile] = useState(null);
   const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const fileRef = useRef(null);
-  function onFile(e) { const f = e.target.files[0]; if (!f) return; setFile(f.name); setRows(INVSCAN_DEMO.map(r => ({ ...r }))); e.target.value = ""; }
+  const oneEmpty = () => [{ name: "", cat: "Insumo clínico", qty: "1", price: "0", unit: "unidades" }];
+  async function onFile(e) {
+    const f = e.target.files[0]; if (!f) return; e.target.value = "";
+    setFile(f.name); setErr("");
+    // La visión de IA lee imágenes; un PDF hay que fotografiarlo o capturarlo.
+    if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
+      setErr("La lectura automática funciona con FOTOS (JPG/PNG). Para un PDF, toma una captura de pantalla de la factura y súbela, o agrega los productos a mano abajo.");
+      setRows(oneEmpty()); return;
+    }
+    setBusy(true); setRows([]);
+    try {
+      const dataUrl = await invFileToDataURL(f, 1600, 0.82);
+      const idt = (window.JCSAAS && window.JCSAAS.idToken) ? await window.JCSAAS.idToken() : null;
+      const headers = { "Content-Type": "application/json" };
+      if (idt) headers["Authorization"] = "Bearer " + idt;
+      const resp = await fetch("/api/ai", { method: "POST", headers: headers, body: JSON.stringify({ task: "scan_invoice", image: dataUrl }) });
+      const d = await resp.json().catch(() => ({}));
+      setBusy(false);
+      if (d && d.ok && Array.isArray(d.items) && d.items.length) {
+        setRows(d.items.map(it => ({ name: it.name || "", cat: it.cat || "Insumo clínico", qty: String(it.qty || 1), price: String(it.price || 0), unit: "unidades" })));
+      } else if (d && d.ok) {
+        setErr("No detecté productos en la imagen. Revisa que se vea el detalle de la factura, o agrégalos a mano abajo.");
+        setRows(oneEmpty());
+      } else {
+        setErr((d && d.error) || "No se pudo leer la factura. Agrega los productos a mano abajo.");
+        setRows(oneEmpty());
+      }
+    } catch (e2) {
+      setBusy(false);
+      setErr("No se pudo procesar la imagen. Agrega los productos a mano abajo.");
+      setRows(oneEmpty());
+    }
+  }
   function setRow(i, k, v) { setRows(rows.map((r, j) => j === i ? { ...r, [k]: v } : r)); }
   function addRow() { setRows([...rows, { name: "", cat: "Insumo clínico", qty: "1", price: "0", unit: "unidades" }]); }
   function delRow(i) { setRows(rows.filter((_, j) => j !== i)); }
@@ -2158,17 +2205,27 @@ function InvScanModal({ T, onClose, onApply }) {
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex" }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
         </div>
         <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 13px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
-          Sube la foto o PDF de la boleta/factura. La <b>lectura automática con IA</b> corre en el servidor (Medique); aquí revisas y confirmas los productos antes de sumarlos al stock.
+          Sube una <b>foto nítida</b> de la boleta/factura. La <b>lectura automática con IA</b> lee el nombre, la cantidad y el costo con IVA de cada producto; aquí los revisas antes de sumarlos al stock.
         </div>
         {!file ? (
           <button onClick={() => fileRef.current.click()} style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "40px 20px", border: "1.5px dashed " + T.chipBorder, borderRadius: 12, background: T.surface, cursor: "pointer" }}>
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.5"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
-            <span style={{ fontFamily: T.serif, fontSize: 18, color: T.text }}>Subir factura o boleta (foto o PDF)</span>
-            <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>JPG, PNG o PDF de la compra · arrastra el archivo o haz clic</span>
+            <span style={{ fontFamily: T.serif, fontSize: 18, color: T.text }}>Subir factura o boleta (foto)</span>
+            <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>JPG o PNG de la compra · arrastra el archivo o haz clic</span>
           </button>
+        ) : busy ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "44px 20px" }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" style={{ animation: "jcSpin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.2-8.6" /></svg>
+            <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>Leyendo la factura con IA…</span>
+            <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>📄 {file}</span>
+          </div>
         ) : (
           <>
-            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.accent, marginBottom: 10 }}>📄 {file} · productos detectados (edítalos si es necesario):</div>
+            {err && <div style={{ background: "rgba(192,40,90,.08)", border: "1px solid rgba(192,40,90,.35)", borderRadius: 8, padding: "10px 13px", marginBottom: 12, fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", lineHeight: 1.5 }}>{err}</div>}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.accent }}>📄 {file} · productos detectados (edítalos si es necesario):</span>
+              <button onClick={() => fileRef.current.click()} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Otra foto</button>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "2.4fr 1.4fr .8fr 1fr 28px", gap: 6, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>
               <span>Producto</span><span>Categoría</span><span>Cant.</span><span>Costo c/u</span><span /></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

@@ -1461,21 +1461,77 @@ function InventarioView({ T }) {
 function invAdj(T) {
   return { width: 28, height: 28, borderRadius: 6, border: "1px solid " + T.chipBorder, background: T.surface, color: T.text, cursor: "pointer", fontSize: 16, lineHeight: 1 };
 }
-const INVSCAN_DEMO = [
-  { name: "Toxina botul\xEDnica 100U", cat: "Insumo cl\xEDnico", qty: "5", price: "95000", unit: "viales" },
-  { name: "\xC1cido hialur\xF3nico (jeringa)", cat: "Insumo cl\xEDnico", qty: "10", price: "70000", unit: "jeringas" },
-  { name: "Agujas 30G", cat: "Fungible", qty: "100", price: "120", unit: "unidades" }
-];
+function invFileToDataURL(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) {
+            h = Math.round(h * maxDim / w);
+            w = maxDim;
+          } else {
+            w = Math.round(w * maxDim / h);
+            h = maxDim;
+          }
+        }
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL("image/jpeg", quality || 0.82));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 function InvScanModal({ T, onClose, onApply }) {
   const [file, setFile] = useState(null);
   const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const fileRef = useRef(null);
-  function onFile(e) {
+  const oneEmpty = () => [{ name: "", cat: "Insumo cl\xEDnico", qty: "1", price: "0", unit: "unidades" }];
+  async function onFile(e) {
     const f = e.target.files[0];
     if (!f) return;
-    setFile(f.name);
-    setRows(INVSCAN_DEMO.map((r) => ({ ...r })));
     e.target.value = "";
+    setFile(f.name);
+    setErr("");
+    if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
+      setErr("La lectura autom\xE1tica funciona con FOTOS (JPG/PNG). Para un PDF, toma una captura de pantalla de la factura y s\xFAbela, o agrega los productos a mano abajo.");
+      setRows(oneEmpty());
+      return;
+    }
+    setBusy(true);
+    setRows([]);
+    try {
+      const dataUrl = await invFileToDataURL(f, 1600, 0.82);
+      const idt = window.JCSAAS && window.JCSAAS.idToken ? await window.JCSAAS.idToken() : null;
+      const headers = { "Content-Type": "application/json" };
+      if (idt) headers["Authorization"] = "Bearer " + idt;
+      const resp = await fetch("/api/ai", { method: "POST", headers, body: JSON.stringify({ task: "scan_invoice", image: dataUrl }) });
+      const d = await resp.json().catch(() => ({}));
+      setBusy(false);
+      if (d && d.ok && Array.isArray(d.items) && d.items.length) {
+        setRows(d.items.map((it) => ({ name: it.name || "", cat: it.cat || "Insumo cl\xEDnico", qty: String(it.qty || 1), price: String(it.price || 0), unit: "unidades" })));
+      } else if (d && d.ok) {
+        setErr("No detect\xE9 productos en la imagen. Revisa que se vea el detalle de la factura, o agr\xE9galos a mano abajo.");
+        setRows(oneEmpty());
+      } else {
+        setErr(d && d.error || "No se pudo leer la factura. Agrega los productos a mano abajo.");
+        setRows(oneEmpty());
+      }
+    } catch (e2) {
+      setBusy(false);
+      setErr("No se pudo procesar la imagen. Agrega los productos a mano abajo.");
+      setRows(oneEmpty());
+    }
   }
   function setRow(i, k, v) {
     setRows(rows.map((r, j) => j === i ? { ...r, [k]: v } : r));
@@ -1487,7 +1543,7 @@ function InvScanModal({ T, onClose, onApply }) {
     setRows(rows.filter((_, j) => j !== i));
   }
   const inp = { fontFamily: T.sans, fontSize: 12.5, padding: "8px 10px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", width: "100%" };
-  return /* @__PURE__ */ React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.5)", backdropFilter: "blur(5px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { width: "100%", maxWidth: 680, maxHeight: "88vh", overflowY: "auto", background: T.bg, border: "1px solid " + T.line, borderRadius: 14, padding: "22px 22px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 24, color: T.text, margin: 0 } }, "Escanear factura o boleta"), /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 13px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "Sube la foto o PDF de la boleta/factura. La ", /* @__PURE__ */ React.createElement("b", null, "lectura autom\xE1tica con IA"), " corre en el servidor (Medique); aqu\xED revisas y confirmas los productos antes de sumarlos al stock."), !file ? /* @__PURE__ */ React.createElement("button", { onClick: () => fileRef.current.click(), style: { width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "40px 20px", border: "1.5px dashed " + T.chipBorder, borderRadius: 12, background: T.surface, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "34", height: "34", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.5" }, /* @__PURE__ */ React.createElement("path", { d: "M12 16V4M7 9l5-5 5 5M5 20h14" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 18, color: T.text } }, "Subir factura o boleta (foto o PDF)"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "JPG, PNG o PDF de la compra \xB7 arrastra el archivo o haz clic")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.accent, marginBottom: 10 } }, "\u{1F4C4} ", file, " \xB7 productos detectados (ed\xEDtalos si es necesario):"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "2.4fr 1.4fr .8fr 1fr 28px", gap: 6, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", null, "Producto"), /* @__PURE__ */ React.createElement("span", null, "Categor\xEDa"), /* @__PURE__ */ React.createElement("span", null, "Cant."), /* @__PURE__ */ React.createElement("span", null, "Costo c/u"), /* @__PURE__ */ React.createElement("span", null)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, rows.map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "grid", gridTemplateColumns: "2.4fr 1.4fr .8fr 1fr 28px", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement("input", { style: inp, value: r.name, onChange: (e) => setRow(i, "name", e.target.value), placeholder: "Producto" }), /* @__PURE__ */ React.createElement("input", { style: inp, value: r.cat, onChange: (e) => setRow(i, "cat", e.target.value) }), /* @__PURE__ */ React.createElement("input", { style: inp, value: r.qty, onChange: (e) => setRow(i, "qty", e.target.value.replace(/[^\d]/g, "")) }), /* @__PURE__ */ React.createElement("input", { style: inp, value: r.price, onChange: (e) => setRow(i, "price", e.target.value.replace(/[^\d]/g, "")) }), /* @__PURE__ */ React.createElement("button", { onClick: () => delRow(i), style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))))), /* @__PURE__ */ React.createElement("button", { onClick: addRow, style: { marginTop: 10, fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "1px dashed " + T.chipBorder, borderRadius: 7, padding: "8px 12px", cursor: "pointer" } }, "+ Agregar l\xEDnea"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 } }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text, background: "transparent", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "10px 16px", cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: () => onApply(rows), style: { fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "10px 18px", cursor: "pointer" } }, "Agregar al stock (", rows.length, ")"))), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: "image/*,application/pdf", onChange: onFile, style: { display: "none" } })));
+  return /* @__PURE__ */ React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.5)", backdropFilter: "blur(5px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { width: "100%", maxWidth: 680, maxHeight: "88vh", overflowY: "auto", background: T.bg, border: "1px solid " + T.line, borderRadius: 14, padding: "22px 22px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 24, color: T.text, margin: 0 } }, "Escanear factura o boleta"), /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 13px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "Sube una ", /* @__PURE__ */ React.createElement("b", null, "foto n\xEDtida"), " de la boleta/factura. La ", /* @__PURE__ */ React.createElement("b", null, "lectura autom\xE1tica con IA"), " lee el nombre, la cantidad y el costo con IVA de cada producto; aqu\xED los revisas antes de sumarlos al stock."), !file ? /* @__PURE__ */ React.createElement("button", { onClick: () => fileRef.current.click(), style: { width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "40px 20px", border: "1.5px dashed " + T.chipBorder, borderRadius: 12, background: T.surface, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "34", height: "34", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.5" }, /* @__PURE__ */ React.createElement("path", { d: "M12 16V4M7 9l5-5 5 5M5 20h14" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 18, color: T.text } }, "Subir factura o boleta (foto)"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "JPG o PNG de la compra \xB7 arrastra el archivo o haz clic")) : busy ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "44px 20px" } }, /* @__PURE__ */ React.createElement("svg", { width: "30", height: "30", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "2", style: { animation: "jcSpin 1s linear infinite" } }, /* @__PURE__ */ React.createElement("path", { d: "M21 12a9 9 0 1 1-6.2-8.6" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, "Leyendo la factura con IA\u2026"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "\u{1F4C4} ", file)) : /* @__PURE__ */ React.createElement(React.Fragment, null, err && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(192,40,90,.08)", border: "1px solid rgba(192,40,90,.35)", borderRadius: 8, padding: "10px 13px", marginBottom: 12, fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", lineHeight: 1.5 } }, err), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.accent } }, "\u{1F4C4} ", file, " \xB7 productos detectados (ed\xEDtalos si es necesario):"), /* @__PURE__ */ React.createElement("button", { onClick: () => fileRef.current.click(), style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" } }, "Otra foto")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "2.4fr 1.4fr .8fr 1fr 28px", gap: 6, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", null, "Producto"), /* @__PURE__ */ React.createElement("span", null, "Categor\xEDa"), /* @__PURE__ */ React.createElement("span", null, "Cant."), /* @__PURE__ */ React.createElement("span", null, "Costo c/u"), /* @__PURE__ */ React.createElement("span", null)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, rows.map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "grid", gridTemplateColumns: "2.4fr 1.4fr .8fr 1fr 28px", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement("input", { style: inp, value: r.name, onChange: (e) => setRow(i, "name", e.target.value), placeholder: "Producto" }), /* @__PURE__ */ React.createElement("input", { style: inp, value: r.cat, onChange: (e) => setRow(i, "cat", e.target.value) }), /* @__PURE__ */ React.createElement("input", { style: inp, value: r.qty, onChange: (e) => setRow(i, "qty", e.target.value.replace(/[^\d]/g, "")) }), /* @__PURE__ */ React.createElement("input", { style: inp, value: r.price, onChange: (e) => setRow(i, "price", e.target.value.replace(/[^\d]/g, "")) }), /* @__PURE__ */ React.createElement("button", { onClick: () => delRow(i), style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))))), /* @__PURE__ */ React.createElement("button", { onClick: addRow, style: { marginTop: 10, fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "1px dashed " + T.chipBorder, borderRadius: 7, padding: "8px 12px", cursor: "pointer" } }, "+ Agregar l\xEDnea"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 } }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text, background: "transparent", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "10px 16px", cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: () => onApply(rows), style: { fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "10px 18px", cursor: "pointer" } }, "Agregar al stock (", rows.length, ")"))), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: "image/*,application/pdf", onChange: onFile, style: { display: "none" } })));
 }
 function NewInvModal({ T, onClose, onSave, initial }) {
   const [f, setF] = useState(initial ? { name: initial.name, cat: initial.cat, stock: "" + initial.stock, min: "" + initial.min, unit: initial.unit, price: "" + (initial.price || ""), boxSize: initial.boxSize ? "" + initial.boxSize : "", venc: initial.venc || "" } : { name: "", cat: "Insumo cl\xEDnico", stock: "", min: "", unit: "unidades", price: "", boxSize: "", venc: "" });
