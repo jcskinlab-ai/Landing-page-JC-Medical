@@ -1167,9 +1167,10 @@ function ResumenIA({ T, patient }) {
   async function gen() {
     setLoading(true);
     try {
-      if (window.claude && window.claude.complete) {
-        const r = await window.claude.complete({ messages: [{ role: "user", content: "Eres asistente cl\xEDnico de una consulta de medicina est\xE9tica en Chile. Redacta en espa\xF1ol un resumen cl\xEDnico breve (4-6 l\xEDneas) del paciente, basado SOLO en estos datos. Indica tratamientos realizados, evoluci\xF3n y puntos a vigilar. No inventes datos.\n\nDATOS: " + ctx() }] });
-        setSummary((r || "").trim() || localSummary());
+      if (window.mediqueAI) {
+        const system = "Eres asistente cl\xEDnico de una consulta de medicina est\xE9tica en Chile. Redacta en espa\xF1ol un resumen cl\xEDnico breve (4-6 l\xEDneas) del paciente, basado SOLO en estos datos. Indica tratamientos realizados, evoluci\xF3n y puntos a vigilar. No inventes datos.";
+        const res = await window.mediqueAI([{ role: "user", content: "DATOS: " + ctx() + "\n\nGenera el resumen cl\xEDnico." }], {}, { system, max_tokens: 500 });
+        setSummary((res && res.ok && res.reply ? res.reply.trim() : "") || localSummary());
       } else {
         setSummary(localSummary());
       }
@@ -1185,9 +1186,10 @@ function ResumenIA({ T, patient }) {
     setAns((a) => [...a, { role: "user", content: text }]);
     setAsking(true);
     try {
-      if (window.claude && window.claude.complete) {
-        const r = await window.claude.complete({ messages: [{ role: "user", content: "Responde en espa\xF1ol, breve y cl\xEDnico, SOLO con base en estos datos del paciente. Si no hay dato, dilo.\n\nDATOS: " + ctx() + "\n\nPREGUNTA: " + text }] });
-        setAns((a) => [...a, { role: "ai", content: (r || "").trim() || localAnswer(text) }]);
+      if (window.mediqueAI) {
+        const system = "Responde en espa\xF1ol, breve y cl\xEDnico, SOLO con base en los datos del paciente que te dan. Si no hay dato, dilo.";
+        const res = await window.mediqueAI([{ role: "user", content: "DATOS: " + ctx() + "\n\nPREGUNTA: " + text }], {}, { system, max_tokens: 500 });
+        setAns((a) => [...a, { role: "ai", content: (res && res.ok && res.reply ? res.reply.trim() : "") || localAnswer(text) }]);
       } else {
         setAns((a) => [...a, { role: "ai", content: localAnswer(text) }]);
       }

@@ -271,11 +271,11 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     }
     setBusy(true);
     try {
-      if (!window.claude || !window.claude.complete) throw new Error("nohost");
-      const convo = next.map((m) => (m.role === "user" ? "Profesional: " : "Copiloto: ") + m.content).join("\n");
-      const prompt = FACIAL_SYS + "\n\nDATOS DEL PANEL (\xFAsalos solo si ayudan): " + ctx() + "\n\nCONVERSACI\xD3N:\n" + convo + "\n\nResponde como Copiloto al \xFAltimo mensaje del profesional:";
-      const res = await window.claude.complete({ messages: [{ role: "user", content: prompt }] });
-      setMsgs((m) => [...m, { role: "assistant", content: (res || "").trim() || "No pude generar respuesta, intenta de nuevo." }]);
+      if (!window.mediqueAI) throw new Error("nohost");
+      const system = FACIAL_SYS + "\n\nDATOS DEL PANEL (\xFAsalos solo si ayudan): " + ctx();
+      const res = await window.mediqueAI(next, {}, { system, max_tokens: 700 });
+      if (!res || !res.ok || !res.reply) throw new Error(res && res.error || "sin respuesta");
+      setMsgs((m) => [...m, { role: "assistant", content: res.reply.trim() }]);
     } catch (e) {
       const kb = facialAnswer(text);
       const fallback = kb ? kb + "\n\n\u2014 Respuesta de la base de conocimiento de evaluaci\xF3n facial. Con la cuenta de IA conectada, adem\xE1s analizo tus fotos antes/despu\xE9s." : "Soy tu copiloto de evaluaci\xF3n facial. Aqu\xED en la vista previa respondo dudas puntuales (MRD1/MRD2, ptosis vs descenso de ceja, pseudoptosis, c\xF3mo estandarizar la foto, cu\xE1ndo evaluar el resultado, manejo de ptosis por toxina). Con la cuenta de IA conectada, tambi\xE9n analizo fotos completas antes/despu\xE9s.\n\n\xBFSobre cu\xE1l de esos temas quieres que te oriente?";
