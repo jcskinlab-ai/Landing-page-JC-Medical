@@ -115,11 +115,40 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (/eval/.test(t)) return "Evaluación general";
     return null;
   }
+  // Extrae el nombre dictado tras el verbo: «agenda a Juan Parra para el domingo…» → "Juan Parra".
+  // Corta en palabras de fecha/hora/procedimiento para no arrastrar "botox", "domingo", etc.
+  function extractPatientName(text) {
+    const m = (text || "").match(/(?:agenda(?:r|me|le)?|ag[eé]nda\w*|reserva(?:r|me|le)?|res[eé]rva\w*|anota(?:r|me|le)?|an[oó]ta\w*|cita)\s+(?:a\s+|para\s+|al\s+)?([a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,3})/i);
+    if (!m) return "";
+    const STOP = ["para", "el", "la", "los", "las", "manana", "hoy", "pasado", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo", "las", "con", "procedimiento", "proc", "botox", "toxina", "relleno", "rino", "rinomodelacion", "sculptra", "bioestim", "bioestimulacion", "colageno", "evaluacion", "hialuronico", "labio", "pomulo", "menton", "de", "del", "y", "una", "un"];
+    const out = [];
+    for (const w of m[1].split(/\s+/)) {
+      const wn = _facialNorm(w);
+      if (STOP.indexOf(wn) >= 0) break;
+      out.push(w);
+    }
+    return out.join(" ").trim();
+  }
+  // Empareja un nombre dictado con un paciente existente, ESTRICTO por nombre (no por palabras
+  // sueltas que puedan ser un procedimiento, como "botox"). Si no hay match → null (= paciente nuevo).
+  function matchPatient(name) {
+    const dn = (name || "").toLowerCase().trim();
+    if (dn.length < 3) return null;
+    let p = patients.find(x => { const pn = x.name.toLowerCase(); return pn === dn || pn.indexOf(dn) >= 0 || dn.indexOf(pn) >= 0; });
+    if (p) return p;
+    const parts = dn.split(/\s+/);
+    if (parts.length >= 2) {
+      p = patients.find(x => { const pp = x.name.toLowerCase().split(/\s+/); return pp[0] === parts[0] && pp.indexOf(parts[1]) >= 0; });
+    }
+    return p || null;
+  }
   function trySchedule(text) {
     const t = text.toLowerCase();
     if (!/\b(agenda|agendar|agéndame|agendame|cita|reserva|res[ée]rvame|anota|an[óo]tame)\b/.test(t)) return null;
     const proc = procFromText(t);
-    let pat = patients.find(p => t.indexOf(p.name.toLowerCase().split(" ")[0]) >= 0);
+    // Emparejar SOLO contra el nombre dictado (no contra palabras del texto como "botox").
+    const dictName = extractPatientName(text);
+    let pat = matchPatient(dictName);
     let day = 0, dayLbl = "hoy";
     if (/mañana|manana/.test(t)) { day = 1; dayLbl = "mañana"; }
     else if (/pasado/.test(t)) { day = 2; dayLbl = "pasado mañana"; }
@@ -129,7 +158,8 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (!proc && !time) return null;
     if (!proc) return "Entendí que quieres agendar, pero no detecté el procedimiento. Ejemplo: «Agenda a " + (pat ? pat.name.split(" ")[0] : "María") + " botox mañana a las 11».";
     if (!time) return "Detecté el procedimiento (" + proc + ") pero no la hora. Dime la hora, por ejemplo: «… a las 11:30».";
-    const name = pat ? pat.name : "";
+    // Si no hay paciente existente, se usa el nombre dictado → el formulario lo abre como paciente NUEVO.
+    const name = pat ? pat.name : dictName;
     // Abre el formulario "Dar cita" prellenado para confirmar y completar lo que falte.
     if (onDarCita) onDarCita({ proc, time, day, patId: pat ? pat.id : "", patName: name });
     return "Abrí el formulario «Dar cita» con lo que entendí: " + proc + (name ? " · " + name : "") + " · " + dayLbl + " a las " + time + ".\nRevisa y completa los datos que falten para confirmar 👇";
@@ -202,8 +232,8 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
           const t0 = new Date(); t0.setHours(0, 0, 0, 0);
           const target = new Date((a.fecha || "") + "T00:00:00");
           let day = Math.round((target - t0) / 86400000); if (!(day >= 0)) day = 0;
-          const first = String(a.paciente || "").toLowerCase().split(" ")[0];
-          const pat = first ? patients.find(p => p.name.toLowerCase().indexOf(first) >= 0) : null;
+          // Emparejar estricto por nombre; si no existe, se crea como paciente NUEVO con el nombre dictado.
+          const pat = matchPatient(a.paciente);
           if (onDarCita) onDarCita({ proc: a.proc || "", time: a.hora || "", day: day, patId: pat ? pat.id : "", patName: pat ? pat.name : (a.paciente || "") });
           reply = (reply ? reply + "\n\n" : "") + "📅 Te dejé la cita lista en el formulario «Dar cita» — revisa la fecha y confírmala para que entre a la agenda 👇";
         } catch (e) {}
