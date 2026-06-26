@@ -2691,6 +2691,8 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
   function ingestRows(rows) {
     let headers = null, added = 0, dup = 0, updated = 0;
     const cell = v => ("" + (v == null ? "" : v)).trim();
+    const isoFromTs = ts => { if (!ts) return ""; const d = new Date(ts); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); };
+    const newSid = () => (window.jcmUid ? window.jcmUid("s") : "s" + Date.now() + Math.random().toString(36).slice(2, 6));
     const seen = new Set((patients || []).map(p => (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase()).filter(Boolean));
     for (const fields of rows) {
       const lower = fields.map(v => cell(v).toLowerCase());
@@ -2709,23 +2711,35 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
       // Fecha del paciente en el Excel (ingreso / primera consulta / atención). Para ordenar en "Calendario".
       const fechaRaw = (r["fecha"] || r["fecha de ingreso"] || r["fecha ingreso"] || r["fecha primera consulta"] || r["fecha de registro"] || r["fecha de atención"] || r["fecha atencion"] || r["ingreso"] || r["date"] || "").trim();
       const fechaTs = parseFechaImp(fechaRaw);
+      const fechaISO = isoFromTs(fechaTs);
+      // Procedimiento realizado (para crear la sesión y reactivar la campaña de re-cita).
+      const proc = (r["procedimiento"] || r["procedimientos"] || r["tratamiento"] || r["tratamientos"] || r["servicio"] || r["proc"] || "").trim();
+      // Sesión de historial a partir del Excel (solo si trae procedimiento).
+      const importHist = proc ? [{ id: newSid(), date: fechaISO || isoFromTs(Date.now()), proc: proc, note: "Importado del Excel", imported: true }] : null;
       // ¿Ya existe? (por RUT o por nombre). Conserva el registro, pero le completa la fecha si le falta.
       const existing = (patients || []).find(p =>
         (rutNorm.length >= 5 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase() === rutNorm) ||
         (p.name || "").toLowerCase() === name.toLowerCase());
       if (existing) {
         dup++;
-        // Re-importar para arreglar bases antiguas: si el paciente no tenía fecha y el Excel la trae, se la ponemos.
-        if (fechaTs && !existing.fechaTs && updatePatient) { updatePatient(existing.id, { fechaImport: fechaRaw, fechaTs: fechaTs }); updated++; }
+        // Re-importar para arreglar bases antiguas: completa fecha y/o el procedimiento si faltan.
+        const patch = {};
+        if (fechaTs && !existing.fechaTs) { patch.fechaImport = fechaRaw; patch.fechaTs = fechaTs; }
+        if (importHist && (!existing.history || !existing.history.length)) {
+          patch.history = importHist;
+          if (fechaISO && !existing.lastVisit) patch.lastVisit = fechaISO;
+          if (proc && (!existing.tags || !existing.tags.length)) patch.tags = [proc];
+        }
+        if (Object.keys(patch).length && updatePatient) { updatePatient(existing.id, patch); updated++; }
         continue;
       }
       if (rutNorm.length >= 5) seen.add(rutNorm);
       // Importados: consentimiento ya firmado en papel → consent:true (no entran a "Consent. pend.").
-      if (addPatient) addPatient({ name, rut, phone, email, consent: true, consentInfo: "Consentimiento firmado en papel (importado)", imported: true, fechaImport: fechaRaw, fechaTs: fechaTs });
+      if (addPatient) addPatient({ name, rut, phone, email, consent: true, consentInfo: "Consentimiento firmado en papel (importado)", imported: true, fechaImport: fechaRaw, fechaTs: fechaTs, history: importHist || [], tags: importHist ? [proc] : [], lastVisit: (importHist && fechaISO) ? fechaISO : undefined });
       added++;
     }
-    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo, Fecha)."); return; }
-    flash("Importación: " + added + " nuevo(s)" + (updated ? " · " + updated + " actualizados con su fecha" : "") + (dup ? " · " + dup + " ya existían" : "") + ".");
+    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo, Fecha, Procedimiento)."); return; }
+    flash("Importación: " + added + " nuevo(s)" + (updated ? " · " + updated + " actualizados (fecha/procedimiento)" : "") + (dup ? " · " + dup + " ya existían" : "") + ".");
   }
   // Carga el lector de Excel (SheetJS) bajo demanda, solo cuando se importa un .xlsx/.xls.
   function loadXLSX() {
@@ -2835,7 +2849,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
           {/* Importar base de pacientes */}
           <div style={{ marginTop: 18, background: T.surface, border: "1px dashed " + T.chipBorder, borderRadius: 12, padding: "18px 18px" }}>
             <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Importar base de pacientes</div>
-            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Sube un archivo <b>Excel (.xlsx) o CSV</b>. La primera fila debe tener los <b>encabezados</b> y una columna llamada <b>Nombre</b> (opcionales: RUT, Teléfono, Correo). Si el RUT ya existe, no se duplica. <i>(.numbers: en Numbers usa Archivo → Exportar a → Excel.)</i></div>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Sube un archivo <b>Excel (.xlsx) o CSV</b>. La primera fila debe tener los <b>encabezados</b> y una columna llamada <b>Nombre</b> (opcionales: RUT, Teléfono, Correo, <b>Fecha</b> y <b>Procedimiento</b>). Si agregas <b>Fecha</b> y <b>Procedimiento</b>, se crea la sesión en el historial y se <b>reactiva la campaña de re-cita</b> automáticamente. Si el RUT ya existe, no se duplica (y se le completa el procedimiento si le faltaba). <i>(.numbers: en Numbers usa Archivo → Exportar a → Excel.)</i></div>
             <AdBtn T={T} onClick={() => fileRef.current.click()}>Subir archivo (Excel / CSV)</AdBtn>
             <input ref={fileRef} type="file" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.numbers" onChange={onImport} style={{ display: "none" }} />
             <p style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, margin: "12px 0 0", lineHeight: 1.5 }}>Los pacientes importados quedan con <b>consentimiento firmado en papel</b> (no aparecen como pendientes de firma). Si tu Excel trae una columna <b>Fecha</b>, podrás ordenarlos por fecha con el filtro <b>Calendario</b> en Pacientes.</p>
