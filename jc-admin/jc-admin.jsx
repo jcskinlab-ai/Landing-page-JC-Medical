@@ -1702,7 +1702,8 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       let resolvedPatId = pat ? pat.id : "";
       if (tipo === "nuevo" && typeof addPatient === "function") {
         try {
-          const np = addPatient({ name: nombre.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
+          // La fecha del paciente nuevo = la fecha de la cita que se está agendando (no la de hoy).
+          const np = addPatient({ name: nombre.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0, fechaTs: new Date(apptFecha + "T00:00:00").getTime() });
           if (np && np.id) resolvedPatId = np.id;
         } catch (e) {}
       }

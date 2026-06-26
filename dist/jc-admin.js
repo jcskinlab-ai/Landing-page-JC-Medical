@@ -1295,7 +1295,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       let resolvedPatId = pat ? pat.id : "";
       if (tipo === "nuevo" && typeof addPatient === "function") {
         try {
-          const np = addPatient({ name: nombre.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
+          const np = addPatient({ name: nombre.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0, fechaTs: (/* @__PURE__ */ new Date(apptFecha + "T00:00:00")).getTime() });
           if (np && np.id) resolvedPatId = np.id;
         } catch (e) {
         }
