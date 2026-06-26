@@ -894,7 +894,7 @@ function AdminApp() {
   else if (section === "equipo") body = <EquipoView T={T} />;
   else if (section === "fidelidad") body = <FidelidadView T={T} />;
   else if (section === "marketing") body = <MarketingView T={T} go={nav} />;
-  else if (section === "administracion") body = <AdministracionView T={T} go={nav} patients={patients} appts={appts} addPatient={addPatient} markAllPaperConsent={markAllPaperConsent} />;
+  else if (section === "administracion") body = <AdministracionView T={T} go={nav} patients={patients} appts={appts} addPatient={addPatient} updatePatient={updatePatient} markAllPaperConsent={markAllPaperConsent} />;
   else if (section === "inventario") body = <InventarioView T={T} />;
   else if (section === "caja") body = <CajaView T={T} />;
   else if (section === "integraciones") body = <IntegracionesView T={T} />;

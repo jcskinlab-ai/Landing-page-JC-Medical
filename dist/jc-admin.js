@@ -747,7 +747,7 @@ function AdminApp() {
   else if (section === "equipo") body = /* @__PURE__ */ React.createElement(EquipoView, { T });
   else if (section === "fidelidad") body = /* @__PURE__ */ React.createElement(FidelidadView, { T });
   else if (section === "marketing") body = /* @__PURE__ */ React.createElement(MarketingView, { T, go: nav });
-  else if (section === "administracion") body = /* @__PURE__ */ React.createElement(AdministracionView, { T, go: nav, patients, appts, addPatient, markAllPaperConsent });
+  else if (section === "administracion") body = /* @__PURE__ */ React.createElement(AdministracionView, { T, go: nav, patients, appts, addPatient, updatePatient, markAllPaperConsent });
   else if (section === "inventario") body = /* @__PURE__ */ React.createElement(InventarioView, { T });
   else if (section === "caja") body = /* @__PURE__ */ React.createElement(CajaView, { T });
   else if (section === "integraciones") body = /* @__PURE__ */ React.createElement(IntegracionesView, { T });

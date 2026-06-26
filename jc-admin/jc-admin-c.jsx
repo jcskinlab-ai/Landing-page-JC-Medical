@@ -2358,7 +2358,7 @@ function csvParse(text) {
 }
 
 const ADMIN_TABS = [["datos", "Datos / facturación"], ["registro", "Registro de actividad"], ["equipo", "Equipo y permisos"], ["respaldo", "Respaldo / exportar"]];
-function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperConsent }) {
+function AdministracionView({ T, go, patients, appts, addPatient, updatePatient, markAllPaperConsent }) {
   const D = window.JCDATA;
   const [tab, setTab] = useState("datos");
   // Plan/suscripción se autocompleta desde la clínica del SaaS (trial → "Demo").
@@ -2413,7 +2413,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperCo
   }
   // Toma filas (arrays de celdas) ya parseadas y crea los pacientes nuevos. Sirve para CSV y Excel.
   function ingestRows(rows) {
-    let headers = null, added = 0, dup = 0;
+    let headers = null, added = 0, dup = 0, updated = 0;
     const cell = v => ("" + (v == null ? "" : v)).trim();
     const seen = new Set((patients || []).map(p => (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase()).filter(Boolean));
     for (const fields of rows) {
@@ -2433,15 +2433,23 @@ function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperCo
       // Fecha del paciente en el Excel (ingreso / primera consulta / atención). Para ordenar en "Calendario".
       const fechaRaw = (r["fecha"] || r["fecha de ingreso"] || r["fecha ingreso"] || r["fecha primera consulta"] || r["fecha de registro"] || r["fecha de atención"] || r["fecha atencion"] || r["ingreso"] || r["date"] || "").trim();
       const fechaTs = parseFechaImp(fechaRaw);
-      const isDup = (rutNorm.length >= 5 && seen.has(rutNorm)) || (patients || []).some(p => (p.name || "").toLowerCase() === name.toLowerCase());
-      if (isDup) { dup++; continue; }
+      // ¿Ya existe? (por RUT o por nombre). Conserva el registro, pero le completa la fecha si le falta.
+      const existing = (patients || []).find(p =>
+        (rutNorm.length >= 5 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase() === rutNorm) ||
+        (p.name || "").toLowerCase() === name.toLowerCase());
+      if (existing) {
+        dup++;
+        // Re-importar para arreglar bases antiguas: si el paciente no tenía fecha y el Excel la trae, se la ponemos.
+        if (fechaTs && !existing.fechaTs && updatePatient) { updatePatient(existing.id, { fechaImport: fechaRaw, fechaTs: fechaTs }); updated++; }
+        continue;
+      }
       if (rutNorm.length >= 5) seen.add(rutNorm);
       // Importados: consentimiento ya firmado en papel → consent:true (no entran a "Consent. pend.").
       if (addPatient) addPatient({ name, rut, phone, email, consent: true, consentInfo: "Consentimiento firmado en papel (importado)", imported: true, fechaImport: fechaRaw, fechaTs: fechaTs });
       added++;
     }
     if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo, Fecha)."); return; }
-    flash("Importación: " + added + " paciente(s) nuevo(s)" + (dup ? " · " + dup + " ya existían o duplicados" : "") + ". Quedan con consentimiento en papel.");
+    flash("Importación: " + added + " nuevo(s)" + (updated ? " · " + updated + " actualizados con su fecha" : "") + (dup ? " · " + dup + " ya existían" : "") + ".");
   }
   // Carga el lector de Excel (SheetJS) bajo demanda, solo cuando se importa un .xlsx/.xls.
   function loadXLSX() {

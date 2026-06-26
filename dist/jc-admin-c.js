@@ -1630,7 +1630,7 @@ function csvParse(text) {
   });
 }
 const ADMIN_TABS = [["datos", "Datos / facturaci\xF3n"], ["registro", "Registro de actividad"], ["equipo", "Equipo y permisos"], ["respaldo", "Respaldo / exportar"]];
-function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperConsent }) {
+function AdministracionView({ T, go, patients, appts, addPatient, updatePatient, markAllPaperConsent }) {
   const D = window.JCDATA;
   const [tab, setTab] = useState("datos");
   const autoPlan = (() => {
@@ -1728,7 +1728,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperCo
     return isNaN(t) ? null : t;
   }
   function ingestRows(rows) {
-    let headers = null, added = 0, dup = 0;
+    let headers = null, added = 0, dup = 0, updated = 0;
     const cell = (v) => ("" + (v == null ? "" : v)).trim();
     const seen = new Set((patients || []).map((p) => (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase()).filter(Boolean));
     for (const fields of rows) {
@@ -1751,9 +1751,13 @@ function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperCo
       const email = (r["correo"] || r["email"] || r["e-mail"] || "").trim();
       const fechaRaw = (r["fecha"] || r["fecha de ingreso"] || r["fecha ingreso"] || r["fecha primera consulta"] || r["fecha de registro"] || r["fecha de atenci\xF3n"] || r["fecha atencion"] || r["ingreso"] || r["date"] || "").trim();
       const fechaTs = parseFechaImp(fechaRaw);
-      const isDup = rutNorm.length >= 5 && seen.has(rutNorm) || (patients || []).some((p) => (p.name || "").toLowerCase() === name.toLowerCase());
-      if (isDup) {
+      const existing = (patients || []).find((p) => rutNorm.length >= 5 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase() === rutNorm || (p.name || "").toLowerCase() === name.toLowerCase());
+      if (existing) {
         dup++;
+        if (fechaTs && !existing.fechaTs && updatePatient) {
+          updatePatient(existing.id, { fechaImport: fechaRaw, fechaTs });
+          updated++;
+        }
         continue;
       }
       if (rutNorm.length >= 5) seen.add(rutNorm);
@@ -1764,7 +1768,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperCo
       flash("No encontr\xE9 la fila de encabezados. Aseg\xFArate de que una fila tenga la columna 'Nombre' (y opcional RUT, Tel\xE9fono, Correo, Fecha).");
       return;
     }
-    flash("Importaci\xF3n: " + added + " paciente(s) nuevo(s)" + (dup ? " \xB7 " + dup + " ya exist\xEDan o duplicados" : "") + ". Quedan con consentimiento en papel.");
+    flash("Importaci\xF3n: " + added + " nuevo(s)" + (updated ? " \xB7 " + updated + " actualizados con su fecha" : "") + (dup ? " \xB7 " + dup + " ya exist\xEDan" : "") + ".");
   }
   function loadXLSX() {
     return new Promise((res, rej) => {
