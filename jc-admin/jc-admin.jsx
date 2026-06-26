@@ -185,22 +185,25 @@ function MovimientosCajaModal({ T, onClose }) {
     window.addEventListener("jcm:cash", tick); window.addEventListener("focus", tick);
     return () => { window.removeEventListener("jcm:cash", tick); window.removeEventListener("focus", tick); };
   }, []);
-  let all = []; try { all = (typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || []); } catch (e) {}
+  // Incluye los movimientos de caja Y las atenciones pagadas de las fichas (igual que la vista Caja).
+  let all = []; try { all = (typeof window.cashMovimientos === "function") ? (window.cashMovimientos() || []) : ((typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || [])); } catch (e) {}
+  // Día LOCAL (no UTC): un cobro de las 23:00 cuenta en su día real, no en el siguiente.
+  const dayOf = ts => (typeof window._localDay === "function") ? window._localDay(ts) : (ts || "").slice(0, 10);
   // Saldo corrido cronológico (más antiguo → más nuevo): cada movimiento guarda saldo antes y después.
   const asc = all.slice().sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
   let run = 0;
-  const withBal = asc.map(m => { const delta = m.type === "egreso" ? -(m.amount || 0) : (m.amount || 0); const antes = run; run += delta; return { ...m, _antes: antes, _despues: run }; });
+  const withBal = asc.map(m => { const delta = m.type === "egreso" ? -(m.amount || 0) : (m.amount || 0); const antes = run; run += delta; return { ...m, _antes: antes, _despues: run, _day: dayOf(m.ts) }; });
   const saldoActual = run;
   // Rango del período seleccionado.
   const now = new Date();
-  const hoyKey = now.toISOString().slice(0, 10);
-  const mesKey = now.toISOString().slice(0, 7);
-  const lunes = (() => { const d = new Date(now); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); d.setHours(0, 0, 0, 0); return d.toISOString().slice(0, 10); })();
-  const inPeriod = ts => { const day = (ts || "").slice(0, 10); if (period === "dia") return day === hoyKey; if (period === "semana") return day >= lunes; return (ts || "").slice(0, 7) === mesKey; };
-  const moves = withBal.filter(m => inPeriod(m.ts)).reverse(); // más nuevo primero para mostrar
+  const hoyKey = dayOf(now);
+  const mesKey = hoyKey.slice(0, 7);
+  const lunes = (() => { const d = new Date(now); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); d.setHours(0, 0, 0, 0); return dayOf(d); })();
+  const inPeriod = m => { const day = m._day; if (period === "dia") return day === hoyKey; if (period === "semana") return day >= lunes; return day.slice(0, 7) === mesKey; };
+  const moves = withBal.filter(inPeriod).reverse(); // más nuevo primero para mostrar
   const ingP = moves.filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0);
   const egrP = moves.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
-  const byDay = {}; moves.forEach(m => { const d = (m.ts || "").slice(0, 10); (byDay[d] = byDay[d] || []).push(m); });
+  const byDay = {}; moves.forEach(m => { const d = m._day; (byDay[d] = byDay[d] || []).push(m); });
   const days = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
   const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
   const diaTxt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }); } catch (e) { return d; } };
@@ -246,9 +249,9 @@ function MovimientosCajaModal({ T, onClose }) {
                       <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 3 }}>Saldo: {fmt(m._antes)} <span style={{ color: T.textMute }}>→</span> <b style={{ color: T.textMute }}>{fmt(m._despues)}</b></div>
                     </div>
                     <span style={{ fontFamily: T.serif, fontSize: 15, color: esEgreso ? red : green, whiteSpace: "nowrap" }}>{esEgreso ? "− " : "+ "}{fmt(m.amount || 0)}</span>
-                    <button onClick={() => del(m.id)} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                    {m._src !== "billing" && <button onClick={() => del(m.id)} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
-                    </button>
+                    </button>}
                   </div>
                 );
               })}
