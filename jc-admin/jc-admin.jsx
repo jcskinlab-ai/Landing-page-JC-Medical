@@ -1477,6 +1477,9 @@ const lblS = T => ({ display: "block", fontFamily: T.sans, fontSize: 9.5, letter
 const ADMIN_HALF_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++) { s.push((h<10?"0":"")+h+":00"); s.push((h<10?"0":"")+h+":30"); } return s; })();
 // Slots cada 15 min para agendar (permite citas de 15/45 min: p.ej. agendar a las 17:15 tras una de 15 min).
 const ADMIN_QUARTER_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++) { ["00", "15", "30", "45"].forEach(m => s.push((h < 10 ? "0" : "") + h + ":" + m)); } return s; })();
+// Granularidad de la agenda: 15 min solo para JC Medical (clínica base / modo local); 30 min para el resto.
+function adminSlotMins() { try { return (typeof clinicSeeded === "function" && clinicSeeded()) ? 15 : 30; } catch (e) { return 30; } }
+function adminSlots() { return adminSlotMins() === 15 ? ADMIN_QUARTER_HOURS : ADMIN_HALF_HOURS; }
 
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha }) {
   const D = window.JCDATA;
@@ -1499,6 +1502,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
   const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
+  const slots = adminSlots(), slotPx = WPX * adminSlotMins() / 60; // 15 min (JC Medical) o 30 min (otras clínicas)
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
 
   // Apila citas solapadas verticalmente (ancho completo, empuja las siguientes hacia abajo)
@@ -1562,13 +1566,13 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
-                  {/* Zonas clicables cada 15 min; bloqueadas si hay una cita que cubre ese tramo */}
-                  {ADMIN_QUARTER_HOURS.map((hhmm, i) => {
+                  {/* Zonas clicables (15 o 30 min según la clínica); bloqueadas si hay una cita que cubre ese tramo */}
+                  {slots.map((hhmm, i) => {
                     const isHourLine = hhmm.endsWith(":00"); // borde marcado en la hora en punto
                     const isHalfLine = hhmm.endsWith(":30"); // borde sutil en la media hora
                     const blocked = appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
                     return (
-                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/4), height: WPX/4, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none" }}>
+                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * slotPx, height: slotPx, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none" }}>
                         {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
                           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
                           <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1945,7 +1949,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                 <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".06em", textTransform: "uppercase", color: T.textMute, paddingBottom: 4 }}>{w.wd}</div>
                 <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, paddingBottom: 8 }}>{w.dd} {w.mm}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {ADMIN_QUARTER_HOURS.map(h => {
+                  {adminSlots().map(h => {
                     const sel = pick && pick.dayOff === w.off && pick.time === h;
                     const blk = (appts || []).some(a => { if (a.day !== w.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(h); return ts >= as && ts < as + ad; });
                     return <button key={h} disabled={blk} onClick={() => !blk && setPick({ dayOff: w.off, time: h })}
@@ -2024,10 +2028,10 @@ function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
         </div>
         <div><span style={lblS(T)}>Fecha</span><MiniCalendar T={T} selected={fecha} onSelect={setFecha} /></div>
         <div><span style={lblS(T)}>Hora</span>
-          <input type="time" value={t} onChange={e => setT(e.target.value)} step="900"
+          <input type="time" value={t} onChange={e => setT(e.target.value)} step={adminSlotMins() * 60}
             list="jcm-edit-hour-list" style={{ ...selS(T), cursor: "pointer" }} />
           <datalist id="jcm-edit-hour-list">
-            {ADMIN_QUARTER_HOURS.map(h => <option key={h} value={h} />)}
+            {adminSlots().map(h => <option key={h} value={h} />)}
           </datalist>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
