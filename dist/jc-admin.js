@@ -979,7 +979,7 @@ function unreadNotifCount(patients) {
   });
   var n = 0;
   (patients || []).forEach(function(p) {
-    if (!p.consent && !read["c" + p.id]) n++;
+    if (!p.consent) n++;
   });
   ((window.CADMIN || {}).waMessages || []).forEach(function(m) {
     if (!read["w" + m.id]) n++;
@@ -1011,7 +1011,7 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   });
   const wa = ((window.CADMIN || {}).waMessages || []).filter((m) => !read["w" + m.id]);
   const biz = ((window.CADMIN || {}).bizComments || []).filter((b) => !read["b" + b.id]);
-  const sinConsent = patients.filter((p) => !p.consent && !read["c" + p.id]);
+  const sinConsent = patients.filter((p) => !p.consent);
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter((x) => !read["re" + x.p.id]);
   let tasks = [];
   try {
