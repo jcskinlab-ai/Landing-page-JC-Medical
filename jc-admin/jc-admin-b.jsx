@@ -117,7 +117,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const meta = p => { const ag = ax.some(a => a.name === p.name); const comp = (p.history || []).length > 0; return { ag, comp, inte: !comp && !ag }; };
   const ql = q.trim().toLowerCase();
   const qlNorm = ql.replace(/[^0-9k]/g, "");
-  const list = patients.filter(p => {
+  let list = patients.filter(p => {
     if (ql && !(p.name.toLowerCase().includes(ql) || (p.rut || "").toLowerCase().includes(ql) || (qlNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qlNorm)))) return false;
     const m = meta(p);
     if (filt === "agendado" && !m.ag) return false;
@@ -125,6 +125,9 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
     if (filt === "interesado" && !m.inte) return false;
     return true;
   });
+  // Modo "Calendario": muestra todos ordenados por su fecha (la del Excel importado), más reciente primero.
+  if (filt === "calendario") list = list.slice().sort((a, b) => (b.fechaTs || 0) - (a.fechaTs || 0));
+  const fmtFecha = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" }) : "";
   const recitas = patients.map(p => ({ p, r: recitaFor(p) })).filter(x => x.r);
   const recitasDue = recitas.filter(x => x.r.vence);
   const waLink = (p, r) => recitaWa(p, r);
@@ -141,7 +144,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       </div>
       {/* filtros */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
-        {chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
+        {chip("calendario", "Calendario", setFilt, filt)}{chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
       </div>
       {/* campañas de re-cita */}
       <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasDue.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasDue.length ? "rgba(31,138,91,.35)" : T.line) }}>
@@ -192,6 +195,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
               </div>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+              {(filt === "calendario" || p.fechaImport) && (p.fechaTs || p.fechaImport) && <span style={{ fontFamily: T.sans, fontSize: 11, color: filt === "calendario" ? T.accent : T.textMute, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport}</span>}
               {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
               {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
             </div>

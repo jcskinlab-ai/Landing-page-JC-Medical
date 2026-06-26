@@ -807,8 +807,17 @@ function AdminApp() {
   }, []);
 
   function updatePatient(id, patch) { setPatients(ps => savePatients(ps.map(p => p.id === id ? { ...p, ...patch } : p))); }
+  // Marca de una sola vez todos los pacientes sin consentimiento como "firmado en papel"
+  // (para la base importada de Excel, que ya tiene el consentimiento físico). Devuelve cuántos cambió.
+  function markAllPaperConsent() {
+    let n = 0;
+    setPatients(ps => savePatients(ps.map(p => { if (!p.consent) { n++; return { ...p, consent: true, consentInfo: "Consentimiento firmado en papel" }; } return p; })));
+    return n;
+  }
   function addPatient(p) {
-    const np = { ...p, id: (window.jcmUid ? window.jcmUid("p") : "p" + Date.now()), tags: [], consent: false, points: [], history: [] };
+    // consent/tags/points/history por defecto vacíos, pero la importación puede traerlos
+    // (p.ej. pacientes de Excel con consentimiento ya firmado en papel → consent:true).
+    const np = { ...p, id: (window.jcmUid ? window.jcmUid("p") : "p" + Date.now()), tags: p.tags || [], consent: p.consent === true, points: p.points || [], history: p.history || [] };
     setPatients(ps => savePatients([np, ...ps]));
     try { window.jcmToast && window.jcmToast("Paciente \"" + (np.name || "") + "\" guardado.", "ok"); } catch (e) {}
     return np;
@@ -882,7 +891,7 @@ function AdminApp() {
   else if (section === "equipo") body = <EquipoView T={T} />;
   else if (section === "fidelidad") body = <FidelidadView T={T} />;
   else if (section === "marketing") body = <MarketingView T={T} go={nav} />;
-  else if (section === "administracion") body = <AdministracionView T={T} go={nav} patients={patients} appts={appts} addPatient={addPatient} />;
+  else if (section === "administracion") body = <AdministracionView T={T} go={nav} patients={patients} appts={appts} addPatient={addPatient} markAllPaperConsent={markAllPaperConsent} />;
   else if (section === "inventario") body = <InventarioView T={T} />;
   else if (section === "caja") body = <CajaView T={T} />;
   else if (section === "integraciones") body = <IntegracionesView T={T} />;

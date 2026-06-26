@@ -629,8 +629,19 @@ function AdminApp() {
   function updatePatient(id, patch) {
     setPatients((ps) => savePatients(ps.map((p) => p.id === id ? { ...p, ...patch } : p)));
   }
+  function markAllPaperConsent() {
+    let n = 0;
+    setPatients((ps) => savePatients(ps.map((p) => {
+      if (!p.consent) {
+        n++;
+        return { ...p, consent: true, consentInfo: "Consentimiento firmado en papel" };
+      }
+      return p;
+    })));
+    return n;
+  }
   function addPatient(p) {
-    const np = { ...p, id: window.jcmUid ? window.jcmUid("p") : "p" + Date.now(), tags: [], consent: false, points: [], history: [] };
+    const np = { ...p, id: window.jcmUid ? window.jcmUid("p") : "p" + Date.now(), tags: p.tags || [], consent: p.consent === true, points: p.points || [], history: p.history || [] };
     setPatients((ps) => savePatients([np, ...ps]));
     try {
       window.jcmToast && window.jcmToast('Paciente "' + (np.name || "") + '" guardado.', "ok");
@@ -734,7 +745,7 @@ function AdminApp() {
   else if (section === "equipo") body = /* @__PURE__ */ React.createElement(EquipoView, { T });
   else if (section === "fidelidad") body = /* @__PURE__ */ React.createElement(FidelidadView, { T });
   else if (section === "marketing") body = /* @__PURE__ */ React.createElement(MarketingView, { T, go: nav });
-  else if (section === "administracion") body = /* @__PURE__ */ React.createElement(AdministracionView, { T, go: nav, patients, appts, addPatient });
+  else if (section === "administracion") body = /* @__PURE__ */ React.createElement(AdministracionView, { T, go: nav, patients, appts, addPatient, markAllPaperConsent });
   else if (section === "inventario") body = /* @__PURE__ */ React.createElement(InventarioView, { T });
   else if (section === "caja") body = /* @__PURE__ */ React.createElement(CajaView, { T });
   else if (section === "integraciones") body = /* @__PURE__ */ React.createElement(IntegracionesView, { T });

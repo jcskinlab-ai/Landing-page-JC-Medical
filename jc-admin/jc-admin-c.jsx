@@ -2292,7 +2292,7 @@ function csvParse(text) {
 }
 
 const ADMIN_TABS = [["datos", "Datos / facturación"], ["registro", "Registro de actividad"], ["equipo", "Equipo y permisos"], ["respaldo", "Respaldo / exportar"]];
-function AdministracionView({ T, go, patients, appts, addPatient }) {
+function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperConsent }) {
   const D = window.JCDATA;
   const [tab, setTab] = useState("datos");
   // Plan/suscripción se autocompleta desde la clínica del SaaS (trial → "Demo").
@@ -2334,6 +2334,14 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
       window.jcmToast && window.jcmToast("Respaldo completo descargado.", "ok");
     } catch (e) { window.jcmError && window.jcmError("No se pudo generar el respaldo", e); }
   }
+  // Convierte un valor de fecha del Excel/CSV (serial Excel, DD/MM/AAAA, ISO…) a timestamp.
+  function parseFechaImp(s) {
+    s = ("" + (s == null ? "" : s)).trim(); if (!s) return null;
+    if (/^\d{5}$/.test(s)) { const d = new Date(Date.UTC(1899, 11, 30) + parseInt(s, 10) * 86400000); return isNaN(d) ? null : d.getTime(); } // serial Excel
+    const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/); // DD/MM/AAAA (formato chileno)
+    if (m) { let yy = +m[3]; if (yy < 100) yy += 2000; const d = new Date(yy, +m[2] - 1, +m[1]); return isNaN(d) ? null : d.getTime(); }
+    const t = Date.parse(s); return isNaN(t) ? null : t; // ISO u otros
+  }
   // Toma filas (arrays de celdas) ya parseadas y crea los pacientes nuevos. Sirve para CSV y Excel.
   function ingestRows(rows) {
     let headers = null, added = 0, dup = 0;
@@ -2353,13 +2361,18 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
       const rutNorm = rut.replace(/[^0-9kK]/g, "").toLowerCase();
       const phone = (r["teléfono"] || r["telefono"] || r["phone"] || r["celular"] || r["whatsapp"] || r["fono"] || "").trim();
       const email = (r["correo"] || r["email"] || r["e-mail"] || "").trim();
+      // Fecha del paciente en el Excel (ingreso / primera consulta / atención). Para ordenar en "Calendario".
+      const fechaRaw = (r["fecha"] || r["fecha de ingreso"] || r["fecha ingreso"] || r["fecha primera consulta"] || r["fecha de registro"] || r["fecha de atención"] || r["fecha atencion"] || r["ingreso"] || r["date"] || "").trim();
+      const fechaTs = parseFechaImp(fechaRaw);
       const isDup = (rutNorm.length >= 5 && seen.has(rutNorm)) || (patients || []).some(p => (p.name || "").toLowerCase() === name.toLowerCase());
       if (isDup) { dup++; continue; }
       if (rutNorm.length >= 5) seen.add(rutNorm);
-      if (addPatient) addPatient({ name, rut, phone, email }); added++;
+      // Importados: consentimiento ya firmado en papel → consent:true (no entran a "Consent. pend.").
+      if (addPatient) addPatient({ name, rut, phone, email, consent: true, consentInfo: "Consentimiento firmado en papel (importado)", imported: true, fechaImport: fechaRaw, fechaTs: fechaTs });
+      added++;
     }
-    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo)."); return; }
-    flash("Importación: " + added + " paciente(s) nuevo(s)" + (dup ? " · " + dup + " ya existían o duplicados" : "") + ".");
+    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo, Fecha)."); return; }
+    flash("Importación: " + added + " paciente(s) nuevo(s)" + (dup ? " · " + dup + " ya existían o duplicados" : "") + ". Quedan con consentimiento en papel.");
   }
   // Carga el lector de Excel (SheetJS) bajo demanda, solo cuando se importa un .xlsx/.xls.
   function loadXLSX() {
@@ -2471,7 +2484,22 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
             <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Sube un archivo <b>Excel (.xlsx) o CSV</b>. La primera fila debe tener los <b>encabezados</b> y una columna llamada <b>Nombre</b> (opcionales: RUT, Teléfono, Correo). Si el RUT ya existe, no se duplica. <i>(.numbers: en Numbers usa Archivo → Exportar a → Excel.)</i></div>
             <AdBtn T={T} onClick={() => fileRef.current.click()}>Subir archivo (Excel / CSV)</AdBtn>
             <input ref={fileRef} type="file" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.numbers" onChange={onImport} style={{ display: "none" }} />
+            <p style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, margin: "12px 0 0", lineHeight: 1.5 }}>Los pacientes importados quedan con <b>consentimiento firmado en papel</b> (no aparecen como pendientes de firma). Si tu Excel trae una columna <b>Fecha</b>, podrás ordenarlos por fecha con el filtro <b>Calendario</b> en Pacientes.</p>
           </div>
+          {/* Arreglo para bases importadas antes de esta mejora: marcar lo ya cargado como consentimiento en papel */}
+          {markAllPaperConsent && (patients || []).some(p => !p.consent) && (
+            <div style={{ marginTop: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+              <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text }}>Consentimientos en papel</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 }}>Tienes <b>{(patients || []).filter(p => !p.consent).length}</b> paciente(s) marcados como "consentimiento pendiente". Si ya tienen su consentimiento firmado en papel (p. ej. tu base importada), márcalos todos como firmados para quitarlos de las notificaciones.</div>
+              <AdBtn T={T} onClick={async () => {
+                const n = (patients || []).filter(p => !p.consent).length;
+                const ok = await (window.jcmConfirm ? window.jcmConfirm("¿Marcar " + n + " paciente(s) sin consentimiento como \"firmado en papel\"? Úsalo solo si efectivamente tienen el consentimiento físico.") : Promise.resolve(window.confirm("¿Marcar " + n + " paciente(s) como consentimiento en papel?")));
+                if (!ok) return;
+                markAllPaperConsent();
+                flash(n + " paciente(s) marcados con consentimiento en papel.");
+              }}>Marcar pacientes existentes como consentimiento en papel</AdBtn>
+            </div>
+          )}
         </div>
       )}
 
