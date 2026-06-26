@@ -1957,16 +1957,19 @@ function RecetaTab({ T, patient, updatePatient }) {
   const [diag, setDiag] = useState("");
   const [rp, setRp] = useState("");
   const [ind, setInd] = useState("");
+  const [ctrl, setCtrl] = useState(""); // fecha de control (solo indicaciones)
   const [preview, setPreview] = useState(null); // documento abierto en popup
+  // Formatea "YYYY-MM-DD" a fecha larga en español para el documento.
+  const fmtCtrl = s => { if (!s) return ""; const m = ("" + s).match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return s; const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d) ? s : d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); };
   const recetas = patient.recetas || [];
   const titleOf = t => t === "indicaciones" ? "Indicaciones post tratamiento" : "Receta médica";
   const rpLabelOf = t => t === "indicaciones" ? "Indicaciones / cuidados" : "Rp. (medicamentos)";
 
   function guardar() {
     if (!rp.trim()) return;
-    const r = { id: "rx" + Date.now(), tipo, fecha: hoy, diag: diag.trim(), rp: rp.trim(), ind: ind.trim() };
+    const r = { id: "rx" + Date.now(), tipo, fecha: hoy, diag: diag.trim(), rp: rp.trim(), ind: ind.trim(), ctrl: tipo === "indicaciones" ? ctrl : "" };
     updatePatient(patient.id, { recetas: [r, ...recetas] });
-    setDiag(""); setRp(""); setInd("");
+    setDiag(""); setRp(""); setInd(""); setCtrl("");
   }
   function imprimir(r) {
     const e = jcmDocEsc;
@@ -1991,7 +1994,7 @@ function RecetaTab({ T, patient, updatePatient }) {
         : "<div style=\"font-family:'Cormorant Garamond',serif;font-style:italic;font-size:34px;color:#121A26;line-height:1;margin:8px 0 6px\">Rp.</div><div class='textbox'>" + e(r.rp).replace(/\n/g, "<br>") + "</div>")
       + "</div>"
       + (r.ind ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas adicionales</span><span class='sh-rule'></span></div><div class='textbox'>" + e(r.ind).replace(/\n/g, "<br>") + "</div></div>" : "")
-      + (isInd ? "<div class='control-note'><span class='cn-icon'>+</span><div><span class='cn-k'>Control de evaluación</span><span class='cn-v'>Agenda tu control para evaluar el resultado y realizar los ajustes que sean necesarios.</span></div></div>" : "")
+      + (isInd ? "<div class='control-note'><span class='cn-icon'>+</span><div><span class='cn-k'>Control de evaluación</span><span class='cn-v'>" + (r.ctrl ? "Tu control está agendado para el <b>" + e(fmtCtrl(r.ctrl)) + "</b>. Asiste para evaluar el resultado y realizar los ajustes que sean necesarios." : "Agenda tu control para evaluar el resultado y realizar los ajustes que sean necesarios.") + "</span></div></div>" : "")
       + "</div>"
       + jcmSignFoot(b, b.proName, titleOf(r.tipo), patient.name || "", hoy);
     jcmPrintDoc(titleOf(r.tipo) + " · " + e(patient.name || ""), b, inner);
@@ -2002,6 +2005,7 @@ function RecetaTab({ T, patient, updatePatient }) {
     if (r.diag) L.push("Diagnóstico: " + r.diag);
     L.push((r.tipo === "indicaciones" ? "Indicaciones:" : "Rp.:"), r.rp);
     if (r.ind) L.push("Notas: " + r.ind);
+    if (r.ctrl) L.push("Control de evaluación: " + fmtCtrl(r.ctrl));
     L.push("— " + pro);
     window.open("https://wa.me/" + (patient.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener");
   }
@@ -2044,6 +2048,12 @@ function RecetaTab({ T, patient, updatePatient }) {
           <textarea style={{ ...inp, minHeight: 120, resize: "vertical" }} value={rp} onChange={e => setRp(e.target.value)} placeholder={tipo === "indicaciones" ? "Elige una plantilla arriba o escribe aquí…" : "Ej.\nParacetamol 500 mg — 1 comprimido cada 8 h por 3 días\nÁrnica tópica — aplicar 2 veces al día"} /></label>
         <label style={{ display: "block", marginTop: 13 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Notas adicionales (opcional)</span>
           <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={ind} onChange={e => setInd(e.target.value)} placeholder="Reposo relativo, control en 7 días…" /></label>
+        {tipo === "indicaciones" && (
+          <label style={{ display: "block", marginTop: 13 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Fecha de control (opcional)</span>
+            <input type="date" style={{ ...inp, maxWidth: 260 }} value={ctrl} onChange={e => setCtrl(e.target.value)} />
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 5 }}>Si la indicas, aparece en la sección "Control de evaluación" del documento.</span>
+          </label>
+        )}
         <div style={{ marginTop: 16, textAlign: "right" }}><AdBtn T={T} primary onClick={guardar}>Guardar {tipo === "indicaciones" ? "indicaciones" : "receta"}</AdBtn></div>
       </div>
       <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Documentos del paciente ({recetas.length})</div>
@@ -2080,6 +2090,10 @@ function RecetaTab({ T, patient, updatePatient }) {
           {preview.ind && <div>
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>Notas adicionales</div>
             <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{preview.ind}</div>
+          </div>}
+          {preview.ctrl && <div style={{ marginTop: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>Control de evaluación</div>
+            <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text, textTransform: "capitalize" }}>{fmtCtrl(preview.ctrl)}</div>
           </div>}
         </AdModal>
       )}
