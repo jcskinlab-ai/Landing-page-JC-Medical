@@ -319,10 +319,13 @@ function MarquardtMask({ color, scale, dy, opacity, fit }) {
 }
 
 /* ════════ HERRAMIENTA 1 · PUNCIÓN sobre foto en reposo ════════ */
-function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly }) {
+function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly, lockProduct }) {
   const A = window.JCADMIN;
   const [view, setView] = useState("front");
-  const [product, setProduct] = useState(PUNCION_PRODUCTS[0]);
+  // lockProduct fija el producto a uno solo (p.ej. en una sesión de toxina: solo "botox",
+  // sin las pestañas de Rinomodelación ni Bioestimulación).
+  const _prodList = lockProduct ? PUNCION_PRODUCTS.filter(p => p.id === lockProduct) : PUNCION_PRODUCTS;
+  const [product, setProduct] = useState(lockProduct ? prodOf(lockProduct) : PUNCION_PRODUCTS[0]);
   const [sel, setSel] = useState(null);
   const [spin, setSpin] = useState(false);
   const [model3d, setModel3d] = useState(MODELS_3D[0].id);
@@ -418,7 +421,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly }) {
     <div>
       {view !== "3d" && (
       <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
-        {PUNCION_PRODUCTS.map(pr => (
+        {_prodList.map(pr => (
           <button key={pr.id} onClick={() => setProduct(pr)} style={{
             display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".04em", padding: "8px 12px", borderRadius: 999, cursor: "pointer",
             background: product.id === pr.id ? T.surface2 : T.surface, color: product.id === pr.id ? T.text : T.textMute, border: "1px solid " + (product.id === pr.id ? pr.color : T.line)

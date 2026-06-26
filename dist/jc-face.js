@@ -301,10 +301,11 @@ function MarquardtMask({ color, scale, dy, opacity, fit }) {
   const pos = fit ? { position: "absolute", left: fit.left + "%", top: fit.top + "%", width: fit.w + "%", height: fit.h + "%" } : { position: "absolute", inset: 0 };
   return /* @__PURE__ */ React.createElement("div", { style: { ...pos, ...base } });
 }
-function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly }) {
+function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly, lockProduct }) {
   const A = window.JCADMIN;
   const [view, setView] = useState("front");
-  const [product, setProduct] = useState(PUNCION_PRODUCTS[0]);
+  const _prodList = lockProduct ? PUNCION_PRODUCTS.filter((p) => p.id === lockProduct) : PUNCION_PRODUCTS;
+  const [product, setProduct] = useState(lockProduct ? prodOf(lockProduct) : PUNCION_PRODUCTS[0]);
   const [sel, setSel] = useState(null);
   const [spin, setSpin] = useState(false);
   const [model3d, setModel3d] = useState(MODELS_3D[0].id);
@@ -432,7 +433,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly }) {
   const unitWord = (u) => u === "U" ? "U" : u === "ml" ? "ml" : u === "vial" ? "viales" : u || "";
   const rnd = (n) => Math.round(n * 100) / 100;
   const viewTabs = /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(ViewTab, { T, active: view === "front", onClick: () => flip("front") }, "Frontal"), /* @__PURE__ */ React.createElement(ViewTab, { T, active: view === "side", onClick: () => flip("side") }, "Perfil izq."), /* @__PURE__ */ React.createElement(ViewTab, { T, active: view === "sider", onClick: () => flip("sider") }, "Perfil der."), /* @__PURE__ */ React.createElement(ViewTab, { T, active: view === "3d", onClick: () => flip("3d") }, "Modelo 3D 360\xB0"));
-  return /* @__PURE__ */ React.createElement("div", null, view !== "3d" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 12, alignItems: "center" } }, PUNCION_PRODUCTS.map((pr) => /* @__PURE__ */ React.createElement("button", { key: pr.id, onClick: () => setProduct(pr), style: {
+  return /* @__PURE__ */ React.createElement("div", null, view !== "3d" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 12, alignItems: "center" } }, _prodList.map((pr) => /* @__PURE__ */ React.createElement("button", { key: pr.id, onClick: () => setProduct(pr), style: {
     display: "inline-flex",
     alignItems: "center",
     gap: 7,

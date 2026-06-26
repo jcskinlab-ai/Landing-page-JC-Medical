@@ -113,6 +113,12 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const [nuevo, setNuevo] = useState(false);
   const [filt, setFilt] = useState("todos");
   const [openCamp, setOpenCamp] = useState(false);
+  // Mapa id→timestamp de la última vez que se abrió la ficha (para el filtro "Recientes").
+  const opened = (() => { try { return (window.DB && DB.get("pat_opened")) || {}; } catch (e) { return {}; } })();
+  function openPatient(id) {
+    try { const m = (window.DB && DB.get("pat_opened")) || {}; m[id] = Date.now(); window.DB && DB.set("pat_opened", m); } catch (e) {}
+    onOpen(id);
+  }
   const ax = appts || [];
   const meta = p => { const ag = ax.some(a => a.name === p.name); const comp = (p.history || []).length > 0; return { ag, comp, inte: !comp && !ag }; };
   const ql = q.trim().toLowerCase();
@@ -125,9 +131,12 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
     if (filt === "interesado" && !m.inte) return false;
     return true;
   });
-  // Modo "Calendario": muestra todos ordenados por su fecha (la del Excel importado), más reciente primero.
+  // Modo "Calendario": ordenado por la fecha del paciente (Excel/cita), más reciente primero.
   if (filt === "calendario") list = list.slice().sort((a, b) => (b.fechaTs || 0) - (a.fechaTs || 0));
+  // Modo "Recientes": ordenado por cuándo se abrió la ficha por última vez (sin importar la fecha de registro).
+  if (filt === "recientes") list = list.slice().sort((a, b) => (opened[b.id] || 0) - (opened[a.id] || 0));
   const fmtFecha = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" }) : "";
+  const fmtVisto = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) + ", " + new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "Sin abrir";
   const recitas = patients.map(p => ({ p, r: recitaFor(p) })).filter(x => x.r);
   const recitasDue = recitas.filter(x => x.r.vence);
   const waLink = (p, r) => recitaWa(p, r);
@@ -144,7 +153,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       </div>
       {/* filtros */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
-        {chip("calendario", "Calendario", setFilt, filt)}{chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
+        {chip("calendario", "Calendario", setFilt, filt)}{chip("recientes", "Recientes", setFilt, filt)}{chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
       </div>
       {/* campañas de re-cita */}
       <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasDue.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasDue.length ? "rgba(31,138,91,.35)" : T.line) }}>
@@ -176,7 +185,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       )}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {list.map(p => (
-          <button key={p.id} onClick={() => onOpen(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}>
+          <button key={p.id} onClick={() => openPatient(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}>
             <Avatar T={T} name={p.name} size={44} />
             {/* Nombre y RUT, uno arriba del otro */}
             <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>
@@ -197,6 +206,8 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
               {filt === "calendario"
                 ? <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: (p.fechaTs || p.fechaImport) ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport || "Sin fecha"}</span>
+                : filt === "recientes"
+                ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
                 : (p.fechaImport ? <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport}</span> : null)}
               {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
               {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
@@ -791,7 +802,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
           {procMapType(f.proc) === "botox" && (
             <div style={{ border: "1px solid " + T.line, borderRadius: 10, padding: "14px", marginTop: 4 }}>
               <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Mapa de punción · Toxina botulínica</div>
-              <PuncionTool T={T} value={f.facePoints || []} onChange={pts => setF(prev => ({ ...prev, facePoints: pts }))} patient={patient} updatePatient={updatePatient} />
+              <PuncionTool T={T} value={f.facePoints || []} onChange={pts => setF(prev => ({ ...prev, facePoints: pts }))} patient={patient} updatePatient={updatePatient} lockProduct="botox" />
             </div>
           )}
 
