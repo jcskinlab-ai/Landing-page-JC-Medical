@@ -6,9 +6,9 @@ function jcmDocEsc(s) {
 }
 function jcmDocBrand(proNameOverride) {
   const D = window.JCDATA || {};
-  const proName = proNameOverride || window.clinicPro && window.clinicPro() || D.contact && D.contact.pro || "";
-  const clinName = window.clinicName && window.clinicName() || D.brand || "Medique";
-  const clinAddr = window.clinicAddr && window.clinicAddr() || D.contact && D.contact.address || "";
+  const proName = proNameOverride || window.clinicPro && window.clinicPro() || "";
+  const clinName = window.clinicName && window.clinicName() || "Medique";
+  const clinAddr = window.clinicAddr && window.clinicAddr() || "";
   const team = window.CADMIN && window.CADMIN.team || [];
   const proMember = team.find((t) => t.name === proName);
   const proRole = proMember && proMember.role || "Medicina est\xE9tica";
@@ -1237,8 +1237,8 @@ function RecetaTab({ T, patient, updatePatient }) {
     jcmPrintDoc(titleOf(r.tipo) + " \xB7 " + e(patient.name || ""), b, inner);
   }
   function enviarWa(r) {
-    const pro = window.clinicPro && window.clinicPro() || D.contact && D.contact.pro || "";
-    const L = ["*" + titleOf(r.tipo) + " \u2014 " + (window.clinicName && window.clinicName() || D.brand || "Medique") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " a\xF1os)" : "")];
+    const pro = window.clinicPro && window.clinicPro() || "";
+    const L = ["*" + titleOf(r.tipo) + " \u2014 " + (window.clinicName && window.clinicName() || "Medique") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " a\xF1os)" : "")];
     if (r.diag) L.push("Diagn\xF3stico: " + r.diag);
     L.push(r.tipo === "indicaciones" ? "Indicaciones:" : "Rp.:", r.rp);
     if (r.ind) L.push("Notas: " + r.ind);

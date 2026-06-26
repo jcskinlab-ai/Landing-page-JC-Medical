@@ -130,7 +130,7 @@ function clinicName() {
     if (n) return n;
   } catch (e) {
   }
-  return (window.JCDATA || {}).brand || "Medique";
+  return clinicSeeded() ? (window.JCDATA || {}).brand || "Medique" : "Medique";
 }
 function clinicAddr() {
   try {
@@ -138,7 +138,7 @@ function clinicAddr() {
     if (a) return a;
   } catch (e) {
   }
-  return ((window.JCDATA || {}).contact || {}).address || "";
+  return clinicSeeded() ? ((window.JCDATA || {}).contact || {}).address || "" : "";
 }
 function clinicPro() {
   try {
@@ -146,7 +146,7 @@ function clinicPro() {
     if (p) return p;
   } catch (e) {
   }
-  return ((window.JCDATA || {}).contact || {}).pro || "";
+  return clinicSeeded() ? ((window.JCDATA || {}).contact || {}).pro || "" : "";
 }
 window.clinicName = clinicName;
 window.clinicAddr = clinicAddr;
