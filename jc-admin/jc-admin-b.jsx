@@ -217,11 +217,11 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
               </div>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-              {filt === "calendario"
-                ? <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: calTs(p) ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p)) || p.fechaImport || "Sin fecha"}</span>
-                : filt === "recientes"
+              {filt === "recientes"
                 ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
-                : (p.fechaImport ? <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{fmtFecha(p.fechaTs) || p.fechaImport}</span> : null)}
+                : (calTs(p)
+                  ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span>
+                  : (filt === "calendario" ? <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" }}>Sin fecha</span> : null))}
               {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
               {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
             </div>
