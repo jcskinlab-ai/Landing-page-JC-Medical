@@ -2400,11 +2400,14 @@ function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperCo
       window.jcmToast && window.jcmToast("Respaldo completo descargado.", "ok");
     } catch (e) { window.jcmError && window.jcmError("No se pudo generar el respaldo", e); }
   }
-  // Convierte un valor de fecha del Excel/CSV (serial Excel, DD/MM/AAAA, ISO…) a timestamp.
+  // Convierte un valor de fecha del Excel/CSV (serial Excel, DD-MM-AA, DD/MM/AAAA, ISO…) a timestamp.
   function parseFechaImp(s) {
-    s = ("" + (s == null ? "" : s)).trim(); if (!s) return null;
+    s = ("" + (s == null ? "" : s)).trim();
+    s = s.replace(/[.\s]+$/, "").trim(); // quita el punto/espacios finales (formato "01-06-26.")
+    if (!s) return null;
     if (/^\d{5}$/.test(s)) { const d = new Date(Date.UTC(1899, 11, 30) + parseInt(s, 10) * 86400000); return isNaN(d) ? null : d.getTime(); } // serial Excel
-    const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/); // DD/MM/AAAA (formato chileno)
+    // DD-MM-AA · DD/MM/AAAA · DD.MM.AA (formato chileno: día, mes, año). Tolera punto final.
+    const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\.?$/);
     if (m) { let yy = +m[3]; if (yy < 100) yy += 2000; const d = new Date(yy, +m[2] - 1, +m[1]); return isNaN(d) ? null : d.getTime(); }
     const t = Date.parse(s); return isNaN(t) ? null : t; // ISO u otros
   }

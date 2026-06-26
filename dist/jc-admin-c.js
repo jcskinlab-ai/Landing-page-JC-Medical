@@ -1711,12 +1711,13 @@ function AdministracionView({ T, go, patients, appts, addPatient, markAllPaperCo
   }
   function parseFechaImp(s) {
     s = ("" + (s == null ? "" : s)).trim();
+    s = s.replace(/[.\s]+$/, "").trim();
     if (!s) return null;
     if (/^\d{5}$/.test(s)) {
       const d = new Date(Date.UTC(1899, 11, 30) + parseInt(s, 10) * 864e5);
       return isNaN(d) ? null : d.getTime();
     }
-    const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+    const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\.?$/);
     if (m) {
       let yy = +m[3];
       if (yy < 100) yy += 2e3;
