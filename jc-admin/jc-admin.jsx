@@ -1467,6 +1467,8 @@ const selS = T => ({ width: "100%", padding: "12px 13px", borderRadius: 4, borde
 const lblS = T => ({ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 });
 // Slots de 30 min usados en el panel (8:00–19:30)
 const ADMIN_HALF_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++) { s.push((h<10?"0":"")+h+":00"); s.push((h<10?"0":"")+h+":30"); } return s; })();
+// Slots cada 15 min para agendar (permite citas de 15/45 min: p.ej. agendar a las 17:15 tras una de 15 min).
+const ADMIN_QUARTER_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++) { ["00", "15", "30", "45"].forEach(m => s.push((h < 10 ? "0" : "") + h + ":" + m)); } return s; })();
 
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha }) {
   const D = window.JCDATA;
@@ -1552,16 +1554,17 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
-                  {/* Líneas de 30 min + zonas clicables; bloqueadas si hay cita que cubre ese slot */}
-                  {ADMIN_HALF_HOURS.map((hhmm, i) => {
-                    const isHourLine = hhmm.endsWith(":30"); // el borde inferior de la media (:30) cae en la hora siguiente en punto
+                  {/* Zonas clicables cada 15 min; bloqueadas si hay una cita que cubre ese tramo */}
+                  {ADMIN_QUARTER_HOURS.map((hhmm, i) => {
+                    const isHourLine = hhmm.endsWith(":00"); // borde marcado en la hora en punto
+                    const isHalfLine = hhmm.endsWith(":30"); // borde sutil en la media hora
                     const blocked = appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
                     return (
-                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/2), height: WPX/2, borderBottom: isHourLine ? "1px solid " + T.lineSoft : "none" }}>
+                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/4), height: WPX/4, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none" }}>
                         {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
                           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
-                          <span className="jc-cell-add" style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                          <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                           </span>
                         </button>}
                       </div>
@@ -1934,7 +1937,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                 <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".06em", textTransform: "uppercase", color: T.textMute, paddingBottom: 4 }}>{w.wd}</div>
                 <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, paddingBottom: 8 }}>{w.dd} {w.mm}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {ADMIN_HALF_HOURS.map(h => {
+                  {ADMIN_QUARTER_HOURS.map(h => {
                     const sel = pick && pick.dayOff === w.off && pick.time === h;
                     const blk = (appts || []).some(a => { if (a.day !== w.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(h); return ts >= as && ts < as + ad; });
                     return <button key={h} disabled={blk} onClick={() => !blk && setPick({ dayOff: w.off, time: h })}
@@ -2013,10 +2016,10 @@ function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
         </div>
         <div><span style={lblS(T)}>Fecha</span><MiniCalendar T={T} selected={fecha} onSelect={setFecha} /></div>
         <div><span style={lblS(T)}>Hora</span>
-          <input type="time" value={t} onChange={e => setT(e.target.value)} step="1800"
+          <input type="time" value={t} onChange={e => setT(e.target.value)} step="900"
             list="jcm-edit-hour-list" style={{ ...selS(T), cursor: "pointer" }} />
           <datalist id="jcm-edit-hour-list">
-            {ADMIN_HALF_HOURS.map(h => <option key={h} value={h} />)}
+            {ADMIN_QUARTER_HOURS.map(h => <option key={h} value={h} />)}
           </datalist>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
