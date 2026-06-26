@@ -11,7 +11,7 @@
 //   WHATSAPP_VERIFY_TOKEN   = una palabra secreta que tú inventas (la misma que pongas en Meta al verificar el webhook)
 //   GROQ_API_KEY            = clave de Groq (el cerebro IA)
 // Opcionales:
-//   GROQ_MODEL              = modelo (default "llama-3.3-70b-versatile")
+//   GROQ_MODEL              = modelo (default "openai/gpt-oss-120b")
 //   WA_CLINIC_ID            = clínica a la que entran las reservas de este número (default abajo)
 //   WA_CLINIC_NAME          = nombre de la clínica para el contexto del bot
 //   FIREBASE_PROJECT_ID     = (default "medique-8dbf6")
@@ -53,7 +53,7 @@ async function askGroq(messages) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
       messages, temperature: 0.4, max_tokens: 350,
       response_format: { type: "json_object" }
     })

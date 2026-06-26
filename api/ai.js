@@ -6,7 +6,7 @@
 // Variable de entorno requerida (Vercel → Settings → Environment Variables):
 //   GROQ_API_KEY = la clave que genera el dueño en su cuenta de Groq (https://console.groq.com/keys)
 // Opcional:
-//   GROQ_MODEL   = modelo a usar (por defecto "llama-3.3-70b-versatile")
+//   GROQ_MODEL   = modelo a usar (por defecto "openai/gpt-oss-120b"; llama-3.3-70b-versatile quedó deprecado en jun-2026)
 
 import crypto from "node:crypto";
 
@@ -139,7 +139,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+        model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
         messages: messages,
         temperature: 0.6,
         max_tokens: 400
