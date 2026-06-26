@@ -11,10 +11,12 @@
 //   N8N_OTP_URL       = (opcional) webhook n8n que envía el email {type:'otp', email, code}
 //   FIREBASE_PROJECT_ID = (opcional) por defecto 'medique-8dbf6'
 //
-// NOTA de seguridad: la verificación es sin estado (no limita reintentos por sí sola). El código
-// vence en 5 min y el endpoint exige token de Firebase + CORS propio; App Check (cuando se active)
-// bloquea peticiones que no vengan de la app. Para límite de reintentos estricto, se puede migrar
-// a almacenar el OTP en Firestore con Admin SDK (mejora futura).
+// NOTA de seguridad: la verificación es sin estado, pero AHORA limita los reintentos del código
+// en memoria (8 intentos / 10 min por uid) para frenar el brute-force de los 6 dígitos. El código
+// vence en 5 min y el endpoint exige token de Firebase + CORS propio; App Check bloquea peticiones
+// que no vengan de la app. El contador en memoria se reinicia en cold starts (aceptable: cada 'send'
+// genera un código nuevo). Para un tope estricto a prueba de multi-instancia, migrar el OTP a
+// Firestore con Admin SDK (mejora futura).
 
 import crypto from "node:crypto";
 
@@ -51,6 +53,25 @@ async function verifyFirebaseToken(token, projectId) {
 }
 
 function hmac(secret, msg) { return crypto.createHmac('sha256', secret).update(msg).digest('hex'); }
+
+// ── Límite de reintentos del código (en memoria) ──────────────────────────────
+// Mitiga el brute-force del código de 6 dígitos (1.000.000 combinaciones): sin esto,
+// la verificación sin estado permite probar códigos sin tope dentro de la ventana de 5 min.
+// Mapa: uid → { ts, count }. Se reinicia en cold starts (suficiente combinado con el
+// vencimiento de 5 min: cada 'send' genera un código nuevo). Tope: 8 intentos / 10 min por uid.
+const _otpAtt = new Map();
+const OTP_MAX_TRIES = 8;
+const OTP_WINDOW = 10 * 60 * 1000;
+function otpTooMany(uid) {
+  const now = Date.now();
+  let r = _otpAtt.get(uid);
+  if (!r || now - r.ts > OTP_WINDOW) { r = { ts: now, count: 0 }; }
+  r.count++;
+  _otpAtt.set(uid, r);
+  if (_otpAtt.size > 5000) { for (const [k, v] of _otpAtt) { if (now - v.ts > OTP_WINDOW) _otpAtt.delete(k); } }
+  return r.count > OTP_MAX_TRIES;
+}
+function otpResetAtt(uid) { _otpAtt.delete(uid); }
 
 async function sendEmail(to, code) {
   // Preferir Resend si está configurado; si no, usar n8n.
@@ -121,6 +142,7 @@ export default async function handler(req, res) {
 
   // Verificar el código → emitir device token de confianza.
   if (action === 'verify') {
+    if (otpTooMany(uid)) return res.status(429).json({ ok: false, error: "Demasiados intentos. Pide un código nuevo en unos minutos." });
     const code = String(body.code || '').trim();
     const exp = parseInt(body.exp, 10) || 0;
     const sig = String(body.sig || '');
@@ -131,6 +153,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: "Código incorrecto." });
     }
     if (sig !== expected) return res.status(400).json({ ok: false, error: "Código incorrecto." });
+    otpResetAtt(uid); // éxito: limpia el contador de intentos
     const dexp = now + 30 * 24 * 60 * 60 * 1000; // confianza por 30 días
     const device = hmac(SECRET, uid + '|device|' + dexp) + '.' + dexp;
     return res.status(200).json({ ok: true, device: device });
