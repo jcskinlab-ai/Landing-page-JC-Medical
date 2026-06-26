@@ -43,22 +43,27 @@ function loadScriptOnce(src) {
   });
 }
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
-/* ── Fotos del rostro: almacén LOCAL de este equipo ──────────────────────────────
- * Las fotos en base64 NO se sincronizan a Firestore (superarían el límite de 1 MB por
- * documento). Se guardan en localStorage bajo una clave que la sincronización NUNCA toca,
- * así sobreviven a la recarga. Los RESULTADOS del análisis (números/sugerencias) sí se
- * guardan en el paciente y sincronizan. (Para que las fotos crucen dispositivos haría falta
- * Firebase Storage + Blaze; pendiente.) */
+/* ── Fotos del rostro: localStorage + Firebase Storage ───────────────────────────
+ * Se guardan en localStorage del equipo (rápido, offline). Si Firebase Storage está
+ * activo, también se suben a la nube y la URL se guarda en el kv sincronizado
+ * ("fpurl_<pid>"), así las fotos cruzan entre iPad, Mac y cualquier dispositivo. */
 function _faceKey() {
   var cid = "local";
   try { cid = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || "local"; } catch (e) {}
   return "jcm_facephotos_" + cid;
 }
+function _faceUrlKey(pid) { return "fpurl_" + pid; }
+
 function faceGetPhoto(pid, view) {
-  try { var all = JSON.parse(localStorage.getItem(_faceKey()) || "{}"); return (all[pid] || {})[view] || null; } catch (e) { return null; }
+  // 1. base64 local (rápido, funciona offline)
+  try { var all = JSON.parse(localStorage.getItem(_faceKey()) || "{}"); var loc = (all[pid] || {})[view]; if (loc) return loc; } catch (e) {}
+  // 2. URL de Storage guardada en kv sincronizado (cruz dispositivos)
+  try { var urls = window.DB && window.DB.get(_faceUrlKey(pid)); return (urls && urls[view]) || null; } catch (e) { return null; }
 }
+
 function faceSetPhoto(pid, view, url) {
   if (!pid) return;
+  // 1. Guardar localmente en localStorage
   try {
     var k = _faceKey(), all = JSON.parse(localStorage.getItem(k) || "{}");
     if (!all[pid]) all[pid] = {};
@@ -66,6 +71,16 @@ function faceSetPhoto(pid, view, url) {
     else all[pid][view] = url;
     localStorage.setItem(k, JSON.stringify(all));
   } catch (e) { try { window.jcmError && window.jcmError("No se pudo guardar la foto (almacenamiento del navegador lleno)."); } catch (_) {} }
+  // 2. Subir a Firebase Storage y guardar URL en kv (sincroniza en tiempo real)
+  if (url && url.startsWith("data:") && window.JCSAAS && typeof window.JCSAAS.uploadImage === "function") {
+    window.JCSAAS.uploadImage(url, "faces/" + pid + "/" + view + ".jpg").then(function(storUrl) {
+      try { var u = (window.DB && window.DB.get(_faceUrlKey(pid))) || {}; u[view] = storUrl; window.DB && window.DB.set(_faceUrlKey(pid), u); } catch (e) {}
+    }).catch(function() {}); // silencioso: la copia local sigue disponible
+  } else if (url == null) {
+    // Eliminar URL del kv y archivo de Storage
+    try { var u = (window.DB && window.DB.get(_faceUrlKey(pid))) || {}; delete u[view]; if (Object.keys(u).length) window.DB && window.DB.set(_faceUrlKey(pid), u); else window.DB && window.DB.del && window.DB.del(_faceUrlKey(pid)); } catch (e) {}
+    try { if (window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage("faces/" + pid + "/" + view + ".jpg"); } catch (e) {}
+  }
 }
 
 // Calidad de la foto: brillo medio y contraste (desviación estándar de luminancia).
@@ -304,14 +319,18 @@ function MarquardtMask({ color, scale, dy, opacity, fit }) {
 }
 
 /* ════════ HERRAMIENTA 1 · PUNCIÓN sobre foto en reposo ════════ */
-function PuncionTool({ T, value, onChange, patient, updatePatient }) {
+function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly, lockProduct }) {
   const A = window.JCADMIN;
   const [view, setView] = useState("front");
-  const [product, setProduct] = useState(PUNCION_PRODUCTS[0]);
+  // lockProduct fija el producto a uno solo (p.ej. en una sesión de toxina: solo "botox",
+  // sin las pestañas de Rinomodelación ni Bioestimulación).
+  const _prodList = lockProduct ? PUNCION_PRODUCTS.filter(p => p.id === lockProduct) : PUNCION_PRODUCTS;
+  const [product, setProduct] = useState(lockProduct ? prodOf(lockProduct) : PUNCION_PRODUCTS[0]);
   const [sel, setSel] = useState(null);
   const [spin, setSpin] = useState(false);
   const [model3d, setModel3d] = useState(MODELS_3D[0].id);
-  const [imgFail, setImgFail] = useState({}); // { front:true } si la imagen anatómica no carga → muestra el écorché de respaldo
+  const [imgFail, setImgFail] = useState({});
+  const [photoMode, setPhotoMode] = useState("foto"); // "foto" | "anat" — solo aplica cuando hay foto
   const fileRef = useRef(null);
   const areaRef = useRef(null);
   const points = value || [];
@@ -320,6 +339,22 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
   const zones = view === "front" ? A.zonesFront : (mirror ? A.zonesSide.map(z => ({ ...z, x: 100 - z.x })) : A.zonesSide);
   const [photo, _setPhoto] = useState(() => faceGetPhoto(patient && patient.id, view));
   useEffect(() => { _setPhoto(faceGetPhoto(patient && patient.id, view)); }, [view, patient && patient.id]);
+
+  // Auto-migrar fotos base64 locales a Firebase Storage (solo la primera vez por dispositivo).
+  useEffect(() => {
+    if (!patient || !patient.id || !window.JCSAAS || typeof window.JCSAAS.uploadImage !== "function") return;
+    try {
+      var all = JSON.parse(localStorage.getItem(_faceKey()) || "{}");
+      var patPhotos = all[patient.id] || {};
+      Object.keys(patPhotos).forEach(function(v) {
+        var loc = patPhotos[v];
+        if (!loc || !loc.startsWith("data:")) return;
+        try { var existing = (window.DB && window.DB.get(_faceUrlKey(patient.id))) || {}; if (existing[v]) return; } catch (e) {}
+        faceSetPhoto(patient.id, v, loc); // sube a Storage y guarda URL en kv
+      });
+    } catch (e) {}
+  }, [patient && patient.id]);
+
   const [narrow, setNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 900);
   useEffect(() => { const h = () => setNarrow(window.innerWidth < 900); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
@@ -342,13 +377,18 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
     }));
   }
   function setNote(id, n) { onChange(points.map(p => p.id === id ? { ...p, note: n } : p)); }
+  function setAnatPos(id, x, y) { onChange(points.map(p => p.id === id ? { ...p, anatX: x, anatY: y } : p)); }
   function clickArea(e) {
     if (e.target.closest("[data-marker]") || e.target.closest("[data-zone]")) return;
     const r = areaRef.current.getBoundingClientRect();
     const x = Math.round(((e.clientX - r.left) / r.width) * 100);
     const y = Math.round(((e.clientY - r.top) / r.height) * 100);
     if (x < 2 || x > 98 || y < 1 || y > 99) return;
-    addPoint(x, y);
+    if (photo && photoMode === "anat") {
+      if (sel) { setAnatPos(sel, x, y); setSel(null); }
+    } else {
+      addPoint(x, y);
+    }
   }
   function setUnits(id, u) { onChange(points.map(p => p.id === id ? { ...p, units: u } : p)); }
   function remove(id) { onChange(points.filter(p => p.id !== id)); setSel(null); }
@@ -381,7 +421,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
     <div>
       {view !== "3d" && (
       <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
-        {PUNCION_PRODUCTS.map(pr => (
+        {_prodList.map(pr => (
           <button key={pr.id} onClick={() => setProduct(pr)} style={{
             display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".04em", padding: "8px 12px", borderRadius: 999, cursor: "pointer",
             background: product.id === pr.id ? T.surface2 : T.surface, color: product.id === pr.id ? T.text : T.textMute, border: "1px solid " + (product.id === pr.id ? pr.color : T.line)
@@ -389,8 +429,20 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
         ))}
         <div style={{ flex: 1 }} />
         <input ref={fileRef} type="file" accept="image/*" onChange={onUpload} style={{ display: "none" }} />
-        <button onClick={() => fileRef.current.click()} style={ghostBtn(T)}>{photo ? "Cambiar foto" : "Subir foto en reposo"}</button>
-        {photo && <button onClick={() => setPhoto(null)} style={ghostBtn(T)}>Quitar foto</button>}
+        {!readOnly && <button onClick={() => fileRef.current.click()} style={ghostBtn(T)}>{photo ? "Cambiar foto" : "Subir foto en reposo"}</button>}
+        {!readOnly && photo && <button onClick={() => setPhoto(null)} style={ghostBtn(T)}>Quitar foto</button>}
+        {photo && (
+          <div style={{ display: "flex", borderRadius: 999, border: "1px solid " + T.line, overflow: "hidden" }}>
+            {["foto", "anat"].map(m => (
+              <button key={m} onClick={() => setPhotoMode(m)} style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".06em", padding: "7px 13px", cursor: "pointer", border: "none", background: photoMode === m ? T.text : "transparent", color: photoMode === m ? (T.bg || "#fff") : T.textMute, transition: "background .15s" }}>
+                {m === "foto" ? "Foto real" : "Anatomía"}
+              </button>
+            ))}
+          </div>
+        )}
+        {!readOnly && viewPoints.length > 0 && (
+          <button onClick={() => { if (window.confirm("¿Borrar todos los puntos de esta vista?")) onChange(points.filter(p => p.view !== view)); }} style={{ ...ghostBtn(T), color: "#C0285A", borderColor: "#C0285A44" }}>Borrar todos</button>
+        )}
       </div>
       )}
 
@@ -413,7 +465,7 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
             <div>
               <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{product.id === "ah" ? "Fotos antes / después · Rinomodelación" : "Fotos del paciente · Bioestimulación"}</div>
               {(() => {
-                const allImgs = (patient && patient.images) || [];
+                const allImgs = (window.DB && patient && window.DB.get("pimg_" + patient.id)) || (patient && patient.images) || [];
                 const kws = product.id === "ah" ? ["rino", "hialu", "armoniz", "relleno"] : ["bio", "sculptra", "colág", "estimul"];
                 const imgs = allImgs.length > 0 ? allImgs.filter(im => !im.proc || kws.some(k => (im.proc || "").toLowerCase().includes(k))) : [];
                 if (imgs.length === 0) return (
@@ -434,36 +486,69 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
           ) : (
           <>
           <div style={{ perspective: 900, maxWidth: "65%", margin: "0 auto" }}>
-            <div ref={areaRef} onClick={clickArea} style={{
-              position: "relative", aspectRatio: "200/260", background: photo ? "#0c0f13" : "#fff", border: "1px solid " + T.line, borderRadius: 8, cursor: "crosshair", overflow: "hidden",
+            <div ref={areaRef} onClick={readOnly ? undefined : clickArea} style={{
+              position: "relative", aspectRatio: "200/260", background: (photo && photoMode === "foto") ? "#0c0f13" : "#fff", border: "1px solid " + T.line, borderRadius: 8, cursor: readOnly ? "default" : "crosshair", overflow: "hidden",
               transform: spin ? "rotateY(28deg)" : "rotateY(0deg)", transition: "transform .18s " + T.ease, transformStyle: "preserve-3d"
             }}>
-              {photo ? (
+              {/* Foto real: visible solo en modo "foto" */}
+              {photo && photoMode === "foto" && (
                 <img src={photo} alt="Rostro en reposo" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", transform: mirror ? "scaleX(-1)" : "none" }} />
-              ) : (() => {
+              )}
+              {/* Anatomía: visible cuando no hay foto O en modo "anat" */}
+              {(!photo || photoMode === "anat") && (() => {
                 const anatKey = view === "front" ? "front" : (view === "sider" ? "sideR" : "sideL");
                 const anatSrc = ANAT_IMG[anatKey];
                 return (
                   <>
-                    {/* écorché de respaldo: solo visible si la imagen anatómica realista no está disponible */}
                     {imgFail[anatKey] && <div style={{ position: "absolute", inset: "6%", transform: mirror ? "scaleX(-1)" : "none" }}><FaceSVG view={svgView} stroke={T.textMute} faint={T.line} /></div>}
-                    {/* modelo muscular 2D realista — frontal, perfil izquierdo y perfil derecho (cada imagen ya orientada) */}
                     <img src={anatSrc} alt="Musculatura facial" onError={() => setImgFail(f => ({ ...f, [anatKey]: true }))} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", pointerEvents: "none", display: imgFail[anatKey] ? "none" : "block" }} />
                   </>
                 );
               })()}
-              {zones.map(z => (
-                <button key={z.id} data-zone onClick={() => addPoint(z.x, z.y, z.label, z.def)} title={z.label}
-                  style={{ position: "absolute", left: z.x + "%", top: z.y + "%", transform: "translate(-50%,-50%)", width: 11, height: 11, borderRadius: "50%", background: "transparent", border: "1px dashed " + (photo ? "rgba(255,255,255,.7)" : T.chipBorder), cursor: "pointer", padding: 0 }} />
+              {/* Hint en modo anat con punto seleccionado */}
+              {photo && photoMode === "anat" && sel && (
+                <div style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", background: "rgba(20,20,15,.82)", color: "#fff", fontFamily: T.sans, fontSize: 9.5, padding: "5px 11px", borderRadius: 99, pointerEvents: "none", whiteSpace: "nowrap", letterSpacing: ".05em" }}>
+                  Haz clic para reubicar el punto seleccionado
+                </div>
+              )}
+              {!readOnly && zones.map(z => (
+                <button key={z.id} data-zone onClick={() => { if (photo && photoMode === "anat") { if (sel) { setAnatPos(sel, z.x, z.y); setSel(null); } } else { addPoint(z.x, z.y, z.label, z.def); } }} title={z.label}
+                  style={{ position: "absolute", left: z.x + "%", top: z.y + "%", transform: "translate(-50%,-50%)", width: 11, height: 11, borderRadius: "50%", background: "transparent", border: "1px dashed " + ((photo && photoMode === "foto") ? "rgba(255,255,255,.7)" : T.chipBorder), cursor: "pointer", padding: 0 }} />
               ))}
               {carried.map(p => { const pr = prodOf(p.product); return (
                 <span key={"c" + p.id} title={pr.label + " · " + p.label + " (referencia de otra vista)"} style={{ position: "absolute", left: p._z.x + "%", top: p._z.y + "%", transform: "translate(-50%,-50%)", width: 14, height: 14, borderRadius: "50%", background: "transparent", border: "1.5px dashed " + pr.color, opacity: .6, pointerEvents: "none" }} />
               ); })}
               {viewPoints.map(p => {
-                const pr = prodOf(p.product); const active = sel === p.id;
+                const pr = prodOf(p.product);
+                const active = sel === p.id;
+                const isGlass = photo && photoMode === "foto";
+                const isAnat = photo && photoMode === "anat";
+                const px = isAnat ? (p.anatX != null ? p.anatX : p.x) : p.x;
+                const py = isAnat ? (p.anatY != null ? p.anatY : p.y) : p.y;
+                const hasAnatPos = p.anatX != null;
                 return (
-                  <button key={p.id} data-marker title={pr.label + " · clic para eliminar este punto"} onClick={e => { e.stopPropagation(); remove(p.id); }}
-                    style={{ position: "absolute", left: p.x + "%", top: p.y + "%", transform: "translate(-50%,-50%) scale(" + (active ? 1.3 : 1) + ")", width: 13, height: 13, borderRadius: "50%", background: "#16263A", border: "2px solid " + (active ? pr.color : "#fff"), color: "#fff", fontFamily: T.sans, fontSize: 7.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 1px 5px rgba(0,0,0,.45)", transition: "transform .15s", padding: 0, lineHeight: "9px" }}>
+                  <button key={p.id} data-marker
+                    title={pr.label + (isGlass ? " · clic para eliminar" : isAnat ? (active ? " · clic en el mapa para reubicar" : " · clic para seleccionar y reubicar") : " · clic para eliminar")}
+                    onClick={e => { e.stopPropagation(); if (isAnat) { setSel(p.id === sel ? null : p.id); } else { remove(p.id); } }}
+                    style={{ position: "absolute", left: px + "%", top: py + "%",
+                      transform: "translate(-50%,-50%) scale(" + (active ? 1.35 : 1) + ")",
+                      width: 20, height: 20, borderRadius: "50%",
+                      background: isGlass ? "rgba(255,255,255,0.12)" : (isAnat && !hasAnatPos) ? "rgba(22,38,58,.5)" : "#16263A",
+                      backdropFilter: isGlass ? "blur(8px)" : "none",
+                      WebkitBackdropFilter: isGlass ? "blur(8px)" : "none",
+                      border: isGlass
+                        ? ("1.5px solid " + (active ? pr.color : "rgba(255,255,255,0.6)"))
+                        : ("2px solid " + (active ? pr.color : (isAnat && !hasAnatPos ? "rgba(255,255,255,.4)" : "#fff"))),
+                      color: "#fff",
+                      fontFamily: T.sans, fontSize: 8.5, fontWeight: 600,
+                      cursor: "pointer",
+                      boxShadow: isGlass
+                        ? "0 2px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18)"
+                        : "0 1px 5px rgba(0,0,0,.45)",
+                      transition: "transform .15s, border-color .12s",
+                      padding: 0, lineHeight: "18px",
+                      opacity: (isAnat && !hasAnatPos) ? 0.55 : 1
+                    }}>
                     {points.indexOf(p) + 1}
                   </button>
                 );
@@ -471,7 +556,12 @@ function PuncionTool({ T, value, onChange, patient, updatePatient }) {
             </div>
           </div>
           {viewTabs}
-          <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5, textAlign: "center" }}>Haz clic en el rostro para marcar un punto de tratamiento; haz clic sobre un punto ya puesto para eliminarlo. Sube una <b>foto del rostro en reposo</b> o usa el esquema muscular 2D y el modelo 3D para planificar la sesión.</p>
+          <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5, textAlign: "center" }}>
+            {photo && photoMode === "anat"
+              ? "Vista anatómica — selecciona un punto y haz clic en el músculo correspondiente para ubicarlo con precisión."
+              : "Haz clic en el rostro para marcar un punto; haz clic sobre un punto para eliminarlo. Sube una <b>foto del rostro en reposo</b> o usa el esquema 2D y el modelo 3D."
+            }
+          </p>
           </>
           )}
           {/* Notas / Resultados */}
@@ -907,11 +997,17 @@ function MarquardtTool({ T, patient, updatePatient }) {
 }
 
 /* ════════ CONTENEDOR · MAPEO FACIAL ════════ */
-function FaceMap({ T, value, onChange, patient, updatePatient }) {
+function FaceMap({ T, value, onChange, patient, updatePatient, readOnly }) {
   const [tool, setTool] = useState("punzar");
   const TOOLS = [["punzar", "Punción"], ["aureo", "Proporción áurea · IA"], ["ricketts", "Plano de Ricketts"], ["marquardt", "Máscara de Marquardt"]];
   return (
     <div>
+      {readOnly && (
+        <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+          Solo visualización · edita en cada sesión
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
         {TOOLS.map(([k, l]) => (
           <button key={k} onClick={() => setTool(k)} style={{
@@ -920,7 +1016,7 @@ function FaceMap({ T, value, onChange, patient, updatePatient }) {
           }}>{l}</button>
         ))}
       </div>
-      {tool === "punzar" && <PuncionTool T={T} value={value} onChange={onChange} patient={patient} updatePatient={updatePatient} />}
+      {tool === "punzar" && <PuncionTool T={T} value={value} onChange={onChange} patient={patient} updatePatient={updatePatient} readOnly={readOnly} />}
       {tool === "aureo" && <AureoTool T={T} patient={patient} updatePatient={updatePatient} />}
       {tool === "ricketts" && <RickettsTool T={T} patient={patient} updatePatient={updatePatient} />}
       {tool === "marquardt" && <MarquardtTool T={T} patient={patient} updatePatient={updatePatient} />}

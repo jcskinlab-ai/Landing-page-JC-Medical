@@ -111,13 +111,19 @@ function recitaWa(p, r) { return "https://wa.me/" + (p.phone || "").replace(/\D/
 function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }) {
   const [q, setQ] = useState("");
   const [nuevo, setNuevo] = useState(false);
-  const [filt, setFilt] = useState("todos");
+  const [filt, setFilt] = useState("calendario");
   const [openCamp, setOpenCamp] = useState(false);
+  // Mapa id→timestamp de la última vez que se abrió la ficha (para el filtro "Recientes").
+  const opened = (() => { try { return (window.DB && DB.get("pat_opened")) || {}; } catch (e) { return {}; } })();
+  function openPatient(id) {
+    try { const m = (window.DB && DB.get("pat_opened")) || {}; m[id] = Date.now(); window.DB && DB.set("pat_opened", m); } catch (e) {}
+    onOpen(id);
+  }
   const ax = appts || [];
   const meta = p => { const ag = ax.some(a => a.name === p.name); const comp = (p.history || []).length > 0; return { ag, comp, inte: !comp && !ag }; };
   const ql = q.trim().toLowerCase();
   const qlNorm = ql.replace(/[^0-9k]/g, "");
-  const list = patients.filter(p => {
+  let list = patients.filter(p => {
     if (ql && !(p.name.toLowerCase().includes(ql) || (p.rut || "").toLowerCase().includes(ql) || (qlNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qlNorm)))) return false;
     const m = meta(p);
     if (filt === "agendado" && !m.ag) return false;
@@ -125,6 +131,25 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
     if (filt === "interesado" && !m.inte) return false;
     return true;
   });
+  // Fecha del paciente "según la agenda": la de su cita más reciente en el panel. Si no tiene
+  // cita, usa la fecha guardada (Excel importado o creación). Así Calendario respeta la agenda oficial.
+  const apptFechaTs = p => {
+    let best = 0;
+    (ax).forEach(a => {
+      if (!((a.patId && a.patId === p.id) || a.name === p.name)) return;
+      if (!a.fecha) return;
+      const ts = new Date(a.fecha + "T00:00:00").getTime();
+      if (!isNaN(ts) && ts > best) best = ts;
+    });
+    return best;
+  };
+  const calTs = p => apptFechaTs(p) || p.fechaTs || 0;
+  // Modo "Calendario": ordenado por la fecha de la agenda (o Excel/creación), más reciente primero.
+  if (filt === "calendario") list = list.slice().sort((a, b) => calTs(b) - calTs(a));
+  // Modo "Recientes": ordenado por cuándo se abrió la ficha por última vez (sin importar la fecha de registro).
+  if (filt === "recientes") list = list.slice().sort((a, b) => (opened[b.id] || 0) - (opened[a.id] || 0));
+  const fmtFecha = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" }) : "";
+  const fmtVisto = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) + ", " + new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "Sin abrir";
   const recitas = patients.map(p => ({ p, r: recitaFor(p) })).filter(x => x.r);
   const recitasDue = recitas.filter(x => x.r.vence);
   const waLink = (p, r) => recitaWa(p, r);
@@ -141,7 +166,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       </div>
       {/* filtros */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
-        {chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
+        {chip("calendario", "Calendario", setFilt, filt)}{chip("recientes", "Recientes", setFilt, filt)}{chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
       </div>
       {/* campañas de re-cita */}
       <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasDue.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasDue.length ? "rgba(31,138,91,.35)" : T.line) }}>
@@ -173,7 +198,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       )}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {list.map(p => (
-          <button key={p.id} onClick={() => onOpen(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}>
+          <button key={p.id} onClick={() => openPatient(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}>
             <Avatar T={T} name={p.name} size={44} />
             {/* Nombre y RUT, uno arriba del otro */}
             <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>
@@ -192,6 +217,11 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
               </div>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+              {filt === "recientes"
+                ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
+                : (calTs(p)
+                  ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span>
+                  : (filt === "calendario" ? <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" }}>Sin fecha</span> : null))}
               {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
               {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
             </div>
@@ -278,47 +308,41 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     const proName = (hist.find(h => h.proName) || {}).proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
     const clinAddr = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const team = (window.CADMIN && window.CADMIN.team) || [];
+    const proMember = team.find(function(t){ return t.name === proName; });
+    const proRole = (proMember && proMember.role) || "Medicina estética";
+    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
     const now = new Date();
     const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const field = (l, v) => "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + (v ? esc(v) : "—") + "</div></div>";
-    const sesion = h => "<div class='ses'><div class='sd'>" + esc(h.date || "") + " · " + esc(h.proc || "") + (h.units ? " <span class='u'>(" + esc(h.units) + ")</span>" : "") + "</div>" +
+    const cfg = (window.DB && window.DB.get("cfg")) || {};
+    const logoUrl = cfg.clinic_logo || "";
+    const markUrl = cfg.clinic_mark || "";
+    const logoEl = logoUrl ? "<img class='hdr-logo' src='" + logoUrl + "'>" : "<div class='hdr-logo-txt'><span class='hdr-clinic-nm'>" + esc(clinName) + "</span></div>";
+    const markEl = markUrl ? "<img src='" + markUrl + "' style='height:30px;width:auto;opacity:.65'>" : "";
+    const field = (l, v) => "<div class='fld'><div class='fl'>" + l + "</div><div class='fv'>" + (v ? esc(v) : "") + "</div></div>";
+    const sesion = h => "<div class='ses'><div class='sd'>" + esc(h.date || "") + " &nbsp;·&nbsp; " + esc(h.proc || "") + (h.units ? " <span class='u'>(" + esc(h.units) + ")</span>" : "") + "</div>" +
       ((h.lote || h.venc || h.temp || h.dilucion) ? "<div class='sm'>" + [h.lote && ("Lote " + esc(h.lote)), h.venc && ("Vence " + esc(h.venc)), h.temp && ("Temp. " + esc(h.temp)), h.dilucion && ("Dilución " + esc(h.dilucion))].filter(Boolean).join(" · ") + "</div>" : "") +
       (h.resumen ? "<div class='sn'>" + esc(h.resumen) + "</div>" : "") +
       (h.note ? "<div class='sn'>" + esc(h.note) + "</div>" : "") +
       (h.proName ? "<div class='sp'>Realizado por " + esc(h.proName) + "</div>" : "") + "</div>";
+    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4;margin-bottom:0}.hdr-logo{height:52px;width:auto}.hdr-logo-txt{display:flex;align-items:center;height:52px}.hdr-clinic-nm{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:#1a1a14;letter-spacing:-.01em}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:46px;font-weight:300;color:#1a1a14;line-height:1;letter-spacing:-.01em;margin-bottom:20px}.doc-title em{font-style:italic}.exp-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c8c2b4;float:right;margin-top:6px}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 18px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.pat-dot{width:8px;height:8px;border-radius:50%;border:1px solid rgba(255,255,255,.35);flex-shrink:0}.sec-hd{display:flex;align-items:center;gap:10px;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:22px 0 8px;border-bottom:1px solid #e8e5de;padding-bottom:5px}.sec-hd em{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:#999;text-transform:none;letter-spacing:0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.fld{padding:6px 0;border-bottom:1px solid #f2efe8}.fl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#ccc;margin-bottom:3px}.fv{font-size:12.5px;color:#1a1a14;min-height:16px}.ses{padding:10px 0;border-bottom:1px solid #eeece6}.sd{font-size:13px;font-weight:500}.sd .u{font-weight:400;color:#888}.sm{font-size:10px;color:#999;margin-top:2px}.sn{font-size:12px;margin-top:5px;color:#444;white-space:pre-wrap;line-height:1.6}.sp{font-size:10px;color:#aaa;font-style:italic;margin-top:3px}.sig{margin-top:60px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
+    const header = "<div class='hdr'>" + logoEl + "<div class='hdr-r'><span class='hdr-name'>" + esc(proName || clinName) + "</span>" + esc(proRole) + "<br>" + esc(clinAddr) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>";
+    const patBar = "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + (patient.phone ? "<span>Tel. &nbsp;" + esc(patient.phone) + "</span>" : "") + "</div><div class='pat-dot'></div></div>";
+    const footer = "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(proName) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div>" + (markEl ? "<div class='sig-mark'>" + markEl + "</div>" : "") + "</div><div class='strip'><span>Ficha clínica &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Ficha clínica · " + esc(patient.name) + "</title>" +
-      "<style>@page{size:letter;margin:2cm 2.2cm}*{box-sizing:border-box}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a14;margin:0;font-size:12px;line-height:1.5}" +
-      "h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;margin:0;font-weight:400}" +
-      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1.5px solid #1a1a14}" +
-      ".hdr-right{text-align:right;font-size:11px;color:#444;line-height:1.6}" +
-      ".hdr-right b{font-size:12.5px;color:#1a1a14;display:block}" +
-      ".clinic-doc{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#aaa;margin:14px 0 2px;text-align:center}" +
-      ".doc-title{font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;text-align:center;margin:0 0 10px;color:#1a1a14}" +
-      ".doc-title em{font-style:italic}" +
-      ".pat-bar{background:#1a1a14;color:#fff;padding:10px 14px;border-radius:4px;margin:0 0 18px;display:flex;align-items:center;gap:0}" +
-      ".pat-bar .pb-name{font-family:Georgia,serif;font-size:15px;font-weight:400;flex:1}" +
-      ".pat-bar .pb-meta{font-size:10px;color:#ccc;display:flex;gap:16px;align-items:center;flex-wrap:wrap}" +
-      ".sec-hd{display:flex;align-items:baseline;gap:10px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin:20px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}" +
-      ".sec-hd em{font-style:italic;font-family:Georgia,serif;font-size:11px;color:#444;text-transform:none;letter-spacing:0}" +
-      ".grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 22px}" +
-      ".fld{padding:3px 0}.fl{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#bbb}.fv{font-size:12.5px;color:#1a1a14}" +
-      ".ses{padding:8px 0;border-bottom:1px dotted #ddd}.sd{font-size:13px;font-weight:600}.sd .u{font-weight:400;color:#666}.sm{font-size:10.5px;color:#888;margin-top:2px}.sn{font-size:11.5px;margin-top:3px;color:#333}.sp{font-size:10px;color:#999;font-style:italic;margin-top:3px}" +
-      ".footer{margin-top:36px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}" +
-      "</style></head><body>" +
-      "<div class='header'><div><h1>" + esc(clinName) + "</h1></div>" +
-      "<div class='hdr-right'><b>" + esc(proName || "—") + "</b>Medicina estética" + (clinAddr ? "<br>" + esc(clinAddr) : "") + "</div></div>" +
-      "<div class='clinic-doc'>Documento clínico</div><div class='doc-title'>Ficha <em>clínica</em></div>" +
-      "<div class='pat-bar'><div class='pb-name'>" + esc(patient.name || "—") + "</div><div class='pb-meta'>" +
-        (patient.rut ? "<span>RUT " + esc(patient.rut) + "</span>" : "") +
-        (patient.age ? "<span>" + esc(patient.age) + " años</span>" : "") +
-        (patient.phone ? "<span>" + esc(patient.phone) + "</span>" : "") +
-      "</div></div>" +
-      "<div class='sec-hd'><em>i</em> Antecedentes</div><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + field("Correo", patient.email) + "</div>" +
-      "<div class='sec-hd'><em>ii</em> Hábitos y piel</div><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros/día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador solar", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
-      (patient.notes ? "<div class='sec-hd'>Notas internas</div><div class='fv' style='font-size:12px;color:#333'>" + esc(patient.notes) + "</div>" : "") +
-      "<div class='sec-hd'><em>iii</em> Historial de sesiones</div>" + (hist.length ? hist.map(sesion).join("") : "<div style='color:#aaa;font-size:11px;padding:6px 0'>Sin sesiones registradas.</div>") +
-      "<div class='footer'><span>" + esc(proName) + " · Medicina estética</span><span>" + esc(clinName) + "</span><span>" + hoy + "</span></div>" +
+      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
+      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
+      "<style>" + css + "</style></head><body>" +
+      header +
+      "<div class='doc-type'>Documento clínico</div>" +
+      "<div style='position:relative'><div class='doc-title'>Ficha <em>clínica</em></div><div class='exp-lbl'>Expediente</div></div>" +
+      patBar +
+      "<div class='sec-hd'><em>i</em>&nbsp; Antecedentes</div><div class='grid'>" + field("Alergias", cv("alergias")) + field("Antecedentes mórbidos", cv("morbidos")) + field("Procedimientos estéticos previos", cv("esteticos")) + field("Medicamentos", cv("medicamentos")) + field("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + field("Correo electrónico", patient.email) + "</div>" +
+      "<div class='sec-hd'><em>ii</em>&nbsp; Hábitos y piel</div><div class='grid'>" + field("Tabaco", c.tabaco ? c.tabaco + " cigarros/día" : "") + field("Alcohol", c.alcohol) + field("Actividad física", c.actividad) + field("Consumo de agua", c.agua) + field("Exposición solar", c.expsolar) + field("Bloqueador solar", c.bloqueador) + field("Embarazo / lactancia", c.embarazo) + field("Cuidados de la piel", cv("skincare")) + "</div>" +
+      (patient.notes ? "<div class='sec-hd'>Notas internas</div><div style='font-size:12px;color:#444;white-space:pre-wrap;margin-top:4px'>" + esc(patient.notes) + "</div>" : "") +
+      "<div class='sec-hd'><em>iii</em>&nbsp; Historial de sesiones</div>" + (hist.length ? hist.map(sesion).join("") : "<div style='color:#bbb;font-size:11px;padding:8px 0'>Sin sesiones registradas.</div>") +
+      footer +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
@@ -330,52 +354,40 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     const proName = h.proName || (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
     const clinAddr = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
+    const team = (window.CADMIN && window.CADMIN.team) || [];
+    const proMember = team.find(function(t){ return t.name === proName; });
+    const proRole = (proMember && proMember.role) || "Medicina estética";
+    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
     const now = new Date();
     const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const sesDate = h.date || now.toISOString().slice(0, 10);
     const [sy, sm, sd] = sesDate.split("-");
-    const hoyDot = (sd||"—") + " · " + (sm||"—") + " · " + (sy||"—");
+    const dotDate = (sd||"—") + " &middot; " + (sm||"—") + " &middot; " + (sy||"—");
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const bx = (l, v) => v ? "<div class='insumo-bx'><div class='ibxl'>" + l + "</div><div class='ibxv'>" + esc(v) + "</div></div>" : "";
+    const cfg = (window.DB && window.DB.get("cfg")) || {};
+    const logoUrl = cfg.clinic_logo || "";
+    const markUrl = cfg.clinic_mark || "";
+    const logoEl = logoUrl ? "<img class='hdr-logo' src='" + logoUrl + "'>" : "<div class='hdr-logo-txt'><span class='hdr-clinic-nm'>" + esc(clinName) + "</span></div>";
+    const markEl = markUrl ? "<img src='" + markUrl + "' style='height:30px;width:auto;opacity:.65'>" : "";
+    const insBx = (l, v) => v ? "<div class='ibx'><div class='ibxl'>" + l + "</div><div class='ibxv'>" + esc(v) + "</div></div>" : "<div class='ibx'><div class='ibxl'>" + l + "</div><div class='ibxv' style='color:#ccc'>—</div></div>";
+    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4}.hdr-logo{height:52px;width:auto}.hdr-logo-txt{display:flex;align-items:center;height:52px}.hdr-clinic-nm{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:#1a1a14;letter-spacing:-.01em}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:46px;font-weight:300;color:#1a1a14;line-height:1;letter-spacing:-.01em}.doc-title em{font-style:italic}.date-box{text-align:right;padding-top:2px}.date-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.date-val{font-family:'Jost',sans-serif;font-size:22px;font-weight:300;color:#1a1a14;letter-spacing:.05em;line-height:1}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 18px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.info-box{border:1px solid #e0ddd5;border-left:3px solid #1a1a14;padding:12px 18px;margin:0 0 20px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.info-col{flex:1}.info-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-bottom:5px}.info-val{font-size:16px;color:#1a1a14;font-weight:400;font-family:'Cormorant Garamond',serif}.sec-hd{display:flex;align-items:center;gap:10px;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:22px 0 10px;border-bottom:1px solid #e8e5de;padding-bottom:5px}.sec-hd em{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:#999;text-transform:none;letter-spacing:0}.insumo-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.ibx{border:1px solid #e8e5de;padding:10px 13px}.ibxl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.ibxv{font-size:13px;color:#1a1a14}.text-box{font-size:13px;color:#444;white-space:pre-wrap;line-height:1.7;margin-top:6px;min-height:60px}.total-row{text-align:right;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-top:10px}.sig{margin-top:60px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
     const html = "<!doctype html><html><head><meta charset='utf-8'><title>Procedimiento · " + esc(patient.name) + "</title>" +
-      "<style>@page{size:letter;margin:2cm 2.2cm}*{box-sizing:border-box}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a14;margin:0;font-size:12px;line-height:1.5}" +
-      "h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;margin:0;font-weight:400}" +
-      ".header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1.5px solid #1a1a14}" +
-      ".hdr-right{text-align:right;font-size:11px;color:#444;line-height:1.6}" +
-      ".hdr-right b{font-size:12.5px;color:#1a1a14;display:block}" +
-      ".clinic-doc{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#aaa;margin:14px 0 2px;text-align:center}" +
-      ".doc-title{font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;text-align:center;margin:0 0 4px;color:#1a1a14}" +
-      ".doc-date{text-align:center;font-size:11px;color:#aaa;letter-spacing:.12em;margin-bottom:10px}" +
-      ".pat-bar{background:#1a1a14;color:#fff;padding:10px 14px;border-radius:4px;margin:0 0 18px;display:flex;align-items:center}" +
-      ".pb-name{font-family:Georgia,serif;font-size:15px;font-weight:400;flex:1}" +
-      ".pb-meta{font-size:10px;color:#ccc;display:flex;gap:16px;align-items:center;flex-wrap:wrap}" +
-      ".sec-hd{display:flex;align-items:baseline;gap:10px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin:18px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}" +
-      ".sec-hd em{font-style:italic;font-family:Georgia,serif;font-size:11px;color:#444;text-transform:none;letter-spacing:0}" +
-      ".proc-box{border:1px solid #ddd;border-radius:6px;padding:12px 16px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}" +
-      ".pbxl{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#bbb;margin-bottom:2px}.pbxv{font-size:15px;color:#1a1a14;font-weight:500}" +
-      ".insumos{display:flex;gap:10px;margin-top:4px}" +
-      ".insumo-bx{flex:1;border:1px solid #eee;border-radius:5px;padding:8px 11px;text-align:center}" +
-      ".ibxl{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:#bbb;margin-bottom:3px}" +
-      ".ibxv{font-size:12.5px;color:#1a1a14}" +
-      ".box{font-size:12px;line-height:1.75;margin-top:4px;white-space:pre-wrap;color:#333}" +
-      ".footer{margin-top:50px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}" +
-      "</style></head><body>" +
-      "<div class='header'><div><h1>" + esc(clinName) + "</h1></div>" +
-      "<div class='hdr-right'><b>" + esc(proName || "—") + "</b>Medicina estética" + (clinAddr ? "<br>" + esc(clinAddr) : "") + "</div></div>" +
-      "<div class='clinic-doc'>Documento clínico</div><div class='doc-title'>Procedimiento realizado</div><div class='doc-date'>" + hoyDot + "</div>" +
-      "<div class='pat-bar'><div class='pb-name'>" + esc(patient.name || "—") + "</div><div class='pb-meta'>" +
-        (patient.rut ? "<span>RUT " + esc(patient.rut) + "</span>" : "") +
-        (patient.age ? "<span>" + esc(patient.age) + " años</span>" : "") +
-        (patient.phone ? "<span>" + esc(patient.phone) + "</span>" : "") +
-      "</div></div>" +
-      "<div class='proc-box'><div><div class='pbxl'>Tratamiento</div><div class='pbxv'>" + esc(h.proc || "—") + "</div></div>" +
-      "<div><div class='pbxl'>Unidades / Dosis</div><div class='pbxv'>" + esc(h.units || "—") + "</div></div></div>" +
-      "<div class='sec-hd'><em>i</em> Insumo</div><div class='insumos'>" +
-        bx("Lote", h.lote) + bx("Vencimiento", h.venc) + bx("Temp.", h.temp) + bx("Dilución", h.dilucion) +
-      "</div>" +
-      (h.resumen ? "<div class='sec-hd'><em>ii</em> Resumen de la aplicación</div><div class='box'>" + esc(h.resumen) + "</div>" : "") +
-      (h.note ? "<div class='sec-hd'>Notas</div><div class='box'>" + esc(h.note) + "</div>" : "") +
-      "<div class='footer'><span>" + esc(proName) + " · Medicina estética</span><span>" + esc(clinName) + "</span><span>" + hoy + "</span></div>" +
+      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
+      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
+      "<style>" + css + "</style></head><body>" +
+      "<div class='hdr'>" + logoEl + "<div class='hdr-r'><span class='hdr-name'>" + esc(proName || clinName) + "</span>" + esc(proRole) + "<br>" + esc(clinAddr) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>" +
+      "<div class='doc-type'>Registro de tratamiento</div>" +
+      "<div class='title-row'><div class='doc-title'>Procedimiento <em>realizado</em></div><div class='date-box'><div class='date-lbl'>Fecha</div><div class='date-val'>" + dotDate + "</div></div></div>" +
+      "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + "</div></div>" +
+      "<div class='info-box'><div class='info-col'><div class='info-lbl'>Tratamiento</div><div class='info-val'>" + esc(h.proc || "—") + "</div></div><div style='text-align:right'><div class='info-lbl'>Unidades / Dosis</div><div class='info-val'>" + esc(h.units || "—") + "</div></div></div>" +
+      "<div class='sec-hd'><em>i</em>&nbsp; Insumo</div>" +
+      "<div class='insumo-grid'>" + insBx("Lote", h.lote) + insBx("Vencimiento", h.venc) + insBx("Dilución", h.dilucion) + "</div>" +
+      (h.temp ? "<div style='font-size:10px;color:#999;margin-top:8px'>Temperatura: " + esc(h.temp) + "</div>" : "") +
+      "<div class='sec-hd'><em>ii</em>&nbsp; Resumen de la aplicación</div><div class='text-box'>" + esc(h.resumen || "") + "</div>" +
+      (h.note ? "<div class='sec-hd'>Notas</div><div class='text-box'>" + esc(h.note) + "</div>" : "") +
+      (h.units ? "<div class='total-row'>Total aplicado &nbsp;&nbsp;" + esc(h.units) + "</div>" : "") +
+      "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(proName) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div>" + (markEl ? "<div class='sig-mark'>" + markEl + "</div>" : "") + "</div>" +
+      "<div class='strip'><span>Procedimiento realizado &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>" +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
@@ -443,7 +455,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       {tab === "auditoria" && <AuditoriaIA T={T} patient={patient} go={setTab} />}
       {tab === "mapa" && (
         <div>
-          <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} />
+          <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} readOnly={true} />
         </div>
       )}
       {tab === "fichaclinica" && (
@@ -590,6 +602,24 @@ function NotasTab({ T, patient, updatePatient }) {
   );
 }
 
+function procMapType(proc) {
+  const p = (proc || "").toLowerCase();
+  if (/botox|toxina|botulín|botul/i.test(p)) return "botox";
+  if (/hialur|rino|armoniz|relleno/i.test(p)) return "ah";
+  if (/bio|sculptra|col[aá]g|estimul/i.test(p)) return "bio";
+  return null;
+}
+
+/* Plantillas reutilizables para el "Resumen de la aplicación" (dosis que se repiten entre pacientes). */
+const SESION_TPL_SEED = [
+  { id: "stpl_tox3", name: "Toxina botulínica · 3 zonas", body: "Zonas tratadas: frente, entrecejo y patas de gallo.\n16u frontal\n10u procerus\n10u corrugadores\n10u orbiculares\n\nSin incidentes, no se evidencian hematomas ni reacciones alérgicas inmediatas." }
+];
+function sesionTplLoad() {
+  try { const v = window.DB && DB.get("sesion_resumen_tpls"); if (Array.isArray(v)) return v; } catch (e) {}
+  return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? SESION_TPL_SEED : [];
+}
+function sesionTplSave(v) { try { window.DB && DB.set("sesion_resumen_tpls", v); } catch (e) {} }
+
 function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, startView }) {
   const today = new Date().toISOString().slice(0, 10);
   const team = (((window.CADMIN || {}).team) || []).filter(t => t.active !== false);
@@ -600,24 +630,33 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
     proId: entry.proId || (team[0] || {}).id || "", proName: entry.proName || (team[0] || {}).name || "",
     lote: entry.lote || "", venc: entry.venc || "", temp: (entry.temp || "").replace(/\s*°C\s*/g, "").trim(), dilucion: entry.dilucion || "", resumen: entry.resumen || "",
     recomendados: entry.recomendados || "", realizados: entry.realizados || "",
-    cobro: entry.cobro != null ? "" + entry.cobro : "", metodo: entry.metodo || "Efectivo"
+    cobro: entry.cobro != null ? "" + entry.cobro : "", metodo: entry.metodo || "Efectivo",
+    facePoints: entry.facePoints || []
   } : {
     date: today, proc: "", units: "", note: "",
     proId: (team[0] || {}).id || "", proName: (team[0] || {}).name || "",
     lote: "", venc: "", temp: "", dilucion: "", resumen: "", recomendados: "", realizados: "",
-    cobro: "", metodo: "Efectivo"
+    cobro: "", metodo: "Efectivo", facePoints: []
   });
   // Precio sugerido del servicio (para auto-rellenar el cobro al elegir el procedimiento).
   function svcPrice(name) { try { const s = (window.clinicServiceList ? window.clinicServiceList() : []).find(x => x.name === name); return s ? (s.price || 0) : 0; } catch (e) { return 0; } }
-  const points = (patient && patient.points) || [];
-  const savePoints = pts => { if (patient && updatePatient) updatePatient(patient.id, { points: pts }); };
   // En edición, el profesional que REALIZÓ el tratamiento no cambia: se confirma con su clave.
   // (Sesiones antiguas sin proId quedan asociadas al profesional mostrado, con respaldo al primero del equipo.)
   const origPro = isEdit ? (team.find(t => t.id === (entry.proId || f.proId)) || team.find(t => t.name === (entry.proName || f.proName)) || team[0]) : null;
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
-  const [narrow, setNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 900);
-  useEffect(() => { const h = () => setNarrow(window.innerWidth < 900); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
+  const [sessionTool, setSessionTool] = useState("aureo");
+  const [resTpls, setResTpls] = useState(sesionTplLoad); // plantillas del resumen de la aplicación
+  function aplicarTpl(body) { setF(prev => ({ ...prev, resumen: prev.resumen && prev.resumen.trim() ? prev.resumen.replace(/\s*$/, "") + "\n\n" + body : body })); }
+  async function guardarTpl() {
+    const txt = (f.resumen || "").trim();
+    if (!txt) { setErr("Escribe el resumen antes de guardarlo como plantilla."); return; }
+    const nombre = await (window.jcmPrompt ? window.jcmPrompt("Nombre de la plantilla:", "") : Promise.resolve(window.prompt("Nombre de la plantilla:")));
+    if (!nombre || !nombre.trim()) return;
+    const next = resTpls.concat([{ id: "stpl_" + Date.now(), name: nombre.trim(), body: txt }]);
+    setResTpls(next); sesionTplSave(next);
+    try { window.jcmToast && window.jcmToast("Plantilla guardada.", "ok"); } catch (e) {}
+  }
 
   function submit() {
     if (!f.proc.trim()) { setErr("Indica el procedimiento."); return; }
@@ -631,15 +670,22 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
   const sel = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
   const lblS = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
 
-  const ta = rows => ({ width: "100%", padding: "12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", minHeight: rows * 20 });
+  const ta = rows => ({ width: "100%", padding: "12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", minHeight: rows * 24 });
+  // En modo solo-lectura los textareas no pueden scrollearse (pointerEvents:none bloquea todo).
+  // Se renderizan como <div> con white-space:pre-wrap para mostrar TODO el contenido sin truncar.
+  const roDiv = { width: "100%", padding: "12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", boxSizing: "border-box" };
+  // IMPORTANTE: es una FUNCIÓN que retorna JSX, NO un componente <TaF/>. Si se usa como
+  // componente y se redefine en cada render, React remonta el <textarea> en cada tecla y se
+  // pierde el foco. Llamada como función ({taField(...)}), el textarea conserva su identidad.
+  const taField = ({ val, rows, onChange, ph }) => ro
+    ? <div style={roDiv}>{val || <span style={{ color: T.textFaint }}>—</span>}</div>
+    : <textarea value={val} onChange={onChange} rows={rows} placeholder={ph} style={ta(rows)} />;
   return (
-    <AdModal T={T} huge title={ro ? "Detalle de la sesión" : (isEdit ? "Editar sesión" : "Nueva sesión")} onClose={onClose}
+    <AdModal T={T} wide title={ro ? "Detalle de la sesión" : (isEdit ? "Editar sesión" : "Nueva sesión")} onClose={onClose}
       footer={ro
         ? <AdBtn T={T} primary full onClick={() => setRo(false)}>Editar sesión</AdBtn>
         : <AdBtn T={T} primary full onClick={submit}>{isEdit ? "Confirmar cambios" : "Registrar sesión"}</AdBtn>}>
-      <div style={{ display: narrow ? "flex" : "grid", flexDirection: narrow ? "column" : undefined, gridTemplateColumns: narrow ? undefined : "minmax(0,1fr) minmax(0,1.05fr)", gap: 22, alignItems: "start" }}>
-        {/* Columna izquierda · datos de la sesión (solo-lectura cuando ro) */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 13, pointerEvents: ro ? "none" : "auto", opacity: ro ? .97 : 1 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 13, pointerEvents: ro ? "none" : "auto", opacity: ro ? .97 : 1 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <AdField T={T} label="Fecha" value={f.date} onChange={v => setF({ ...f, date: v })} />
             <label style={{ display: "block" }}>
@@ -712,11 +758,19 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
           </label>
 
           {/* Procedimientos recomendados / realizados */}
+          {/* Nota: NO usar el wrapper TaF aquí — está definido dentro del render y React lo
+              desmonta en cada keystroke perdiendo el foco. Se renderiza directamente. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <label style={{ display: "block" }}><span style={lblS}>Procedimientos recomendados</span>
-              <textarea value={f.recomendados} onChange={e => setF({ ...f, recomendados: e.target.value })} rows={3} placeholder="Lo sugerido para próximas sesiones…" style={ta(3)} /></label>
+              {ro
+                ? <div style={roDiv}>{f.recomendados || <span style={{ color: T.textFaint }}>—</span>}</div>
+                : <textarea value={f.recomendados} onChange={e => setF({ ...f, recomendados: e.target.value })} rows={3} placeholder="Lo sugerido para próximas sesiones…" style={ta(3)} />}
+            </label>
             <label style={{ display: "block" }}><span style={lblS}>Procedimientos realizados</span>
-              <textarea value={f.realizados} onChange={e => setF({ ...f, realizados: e.target.value })} rows={3} placeholder="Lo efectivamente realizado hoy…" style={ta(3)} /></label>
+              {ro
+                ? <div style={roDiv}>{f.realizados || <span style={{ color: T.textFaint }}>—</span>}</div>
+                : <textarea value={f.realizados} onChange={e => setF({ ...f, realizados: e.target.value })} rows={3} placeholder="Lo efectivamente realizado hoy…" style={ta(3)} />}
+            </label>
           </div>
 
           {/* Datos del producto */}
@@ -737,13 +791,33 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
           </div>
 
           <label style={{ display: "block" }}>
-            <span style={lblS}>Resumen de la aplicación</span>
-            <textarea value={f.resumen} onChange={e => setF({ ...f, resumen: e.target.value })} rows={3} placeholder="Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" style={ta(3)} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+              <span style={{ ...lblS, marginBottom: 0 }}>Resumen de la aplicación</span>
+              {!ro && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <select value="" onChange={e => { const t = resTpls.find(x => x.id === e.target.value); if (t) aplicarTpl(t.body); e.target.value = ""; }}
+                    style={{ fontFamily: T.sans, fontSize: 11, padding: "5px 8px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.textMute, outline: "none", maxWidth: 200 }}>
+                    <option value="">Insertar plantilla…</option>
+                    {resTpls.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <button type="button" onClick={guardarTpl} title="Guardar el resumen actual como plantilla" style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 6, padding: "5px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>Guardar plantilla</button>
+                </div>
+              )}
+            </div>
+            {taField({ val: f.resumen, rows: 5, onChange: e => setF({ ...f, resumen: e.target.value }), ph: "Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" })}
           </label>
           <label style={{ display: "block" }}>
             <span style={lblS}>Nota / observaciones</span>
-            <textarea value={f.note} onChange={e => setF({ ...f, note: e.target.value })} rows={2} style={ta(2)} />
+            {taField({ val: f.note, rows: 2, onChange: e => setF({ ...f, note: e.target.value }), ph: "" })}
           </label>
+
+          {/* Mapa de punción (botox) — solo en sesiones de toxina */}
+          {procMapType(f.proc) === "botox" && (
+            <div style={{ border: "1px solid " + T.line, borderRadius: 10, padding: "14px", marginTop: 4 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Mapa de punción · Toxina botulínica</div>
+              <PuncionTool T={T} value={f.facePoints || []} onChange={pts => setF(prev => ({ ...prev, facePoints: pts }))} patient={patient} updatePatient={updatePatient} lockProduct="botox" />
+            </div>
+          )}
 
           {!ro && isEdit && (
             <div style={{ background: "rgba(201,162,39,.08)", border: "1px solid rgba(201,162,39,.4)", borderRadius: 8, padding: "13px 14px" }}>
@@ -752,15 +826,6 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             </div>
           )}
           {err && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#C0285A" }}>{err}</div>}
-        </div>
-
-        {/* Columna derecha · mapa facial y antropometría */}
-        <div style={{ minWidth: 0, borderLeft: narrow ? "none" : ("1px solid " + T.lineSoft), borderTop: narrow ? ("1px solid " + T.lineSoft) : "none", paddingLeft: narrow ? 0 : 22, paddingTop: narrow ? 18 : 0 }}>
-          <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Mapa facial y antropometría</div>
-          {patient
-            ? <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} />
-            : <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Abre la sesión desde la ficha del paciente para registrar el mapa facial.</div>}
-        </div>
       </div>
     </AdModal>
   );
@@ -967,6 +1032,9 @@ function ConsentTab({ T, patient, updatePatient }) {
   const [signing, setSigning] = useState(false);
   const [tpl0, setTpl0] = useState(null);
   const [openDoc, setOpenDoc] = useState(null); // consentimiento abierto en popup
+  const [deleting, setDeleting] = useState(null); // { doc, idx } para eliminar con clave
+  const [delPin, setDelPin] = useState("");
+  const [delErr, setDelErr] = useState("");
   const A = window.JCADMIN;
   // Consentimientos en su propia clave (pcons_<id>) → suben a la nube y se ven en todos lados.
   const consKey = patConsKey(patient.id);
@@ -986,6 +1054,24 @@ function ConsentTab({ T, patient, updatePatient }) {
   function commitConsents(next) { try { window.DB.set(consKey, next); } catch (e) {} setConsentsState(next); }
   const printRef = useRef(null);
   function start(t) { setTpl0(t); setSigning(true); }
+
+  function startDelete(doc, idx) { setDeleting({ doc, idx }); setDelPin(""); setDelErr(""); }
+  function cancelDelete() { setDeleting(null); setDelPin(""); setDelErr(""); }
+  function confirmDelete() {
+    if (!deleting) return;
+    const team = (((window.CADMIN || {}).team) || []).filter(t => t.active !== false);
+    const pro = team.find(t => t.name === deleting.doc.prof);
+    if (pro && pro.pin) {
+      if (delPin !== pro.pin) { setDelErr("Clave incorrecta."); return; }
+    } else if (delPin.length < 1) {
+      setDelErr("Ingresa una clave para confirmar."); return;
+    }
+    const next = consents.filter((_, i) => i !== deleting.idx);
+    commitConsents(next);
+    if (next.length === 0) updatePatient(patient.id, { consent: false, consentInfo: "" });
+    cancelDelete();
+    if (window.jcmToast) window.jcmToast("Consentimiento eliminado.", "ok");
+  }
   const fmtHora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
   // Imprime el consentimiento reutilizando el contenido ya renderizado en el popup (texto legal + firmas).
   function imprimirConsent() {
@@ -1062,16 +1148,41 @@ function ConsentTab({ T, patient, updatePatient }) {
             <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.accent, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap", flexShrink: 0 }}>{doc.cat || "Consent."}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.proc || doc.title}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{doc.fecha}{doc.ts ? " · " + fmtHora(doc.ts) : ""}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{doc.fecha}{doc.ts ? " · " + fmtHora(doc.ts) : ""}{doc.prof ? " · " + doc.prof : ""}</div>
             </div>
             <AdTag T={T} tone="ok">Firmado</AdTag>
             <button onClick={e => { e.stopPropagation(); imprimirConsentDoc(doc); }} title="Imprimir consentimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
             </button>
+            <button onClick={e => { e.stopPropagation(); startDelete(doc, i); }} title="Eliminar consentimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ flexShrink: 0, pointerEvents: "none" }}><path d="M9 18l6-6-6-6" /></svg>
           </div>
         ))}
       </div>
+
+      {/* Modal: eliminar consentimiento con clave del profesional */}
+      {deleting && (
+        <AdModal T={T} title="Eliminar consentimiento" onClose={cancelDelete}
+          footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={cancelDelete}>Cancelar</AdBtn><AdBtn T={T} primary onClick={confirmDelete}>Eliminar</AdBtn></div>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, lineHeight: 1.5 }}>
+              Vas a eliminar el consentimiento <b>{deleting.doc.proc || deleting.doc.title}</b> del <b>{deleting.doc.fecha}</b>. Esta acción no se puede deshacer.
+            </div>
+            <div style={{ background: "rgba(192,40,90,.07)", border: "1px solid rgba(192,40,90,.3)", borderRadius: 8, padding: "13px 14px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 12, color: T.text, marginBottom: 8 }}>
+                Ingresa la clave de <b>{deleting.doc.prof || "el profesional"}</b> para confirmar:
+              </div>
+              <input type="password" value={delPin} onChange={e => { setDelPin(e.target.value.replace(/\D/g, "").slice(0, 6)); setDelErr(""); }}
+                onKeyDown={e => e.key === "Enter" && confirmDelete()}
+                inputMode="numeric" placeholder="Clave del profesional"
+                style={{ width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (delErr ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, letterSpacing: ".3em", outline: "none", textAlign: "center" }} />
+              {delErr && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#C0285A", marginTop: 6 }}>{delErr}</div>}
+            </div>
+          </div>
+        </AdModal>
+      )}
 
       {/* Popup con el consentimiento completo */}
       {openDoc && (
@@ -1132,6 +1243,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
   const [proc, setProc] = useState(IMG_PROCS[0]);
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [src, setSrc] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [viewer, setViewer] = useState(null); // imagen abierta a pantalla completa
   const fileRef = useRef(null);
 
@@ -1157,10 +1269,28 @@ function ImagenesTab({ T, patient, updatePatient }) {
     if (patient.images && patient.images.length) { try { updatePatient(patient.id, { images: [] }); } catch (e) {} }
   }
 
+  function resetForm() { setAdding(false); setSrc(null); setProc(IMG_PROCS[0]); setFecha(new Date().toISOString().slice(0, 10)); }
+
   function save() {
-    const item = { id: "im" + Date.now(), proc, date: fecha, label: proc, src: src || null };
-    commitImgs([item, ...imgs]);
-    setAdding(false); setSrc(null); setProc(IMG_PROCS[0]); setFecha(new Date().toISOString().slice(0, 10));
+    if (!src) { if (window.jcmError) window.jcmError("Selecciona una imagen."); return; }
+    const id = "im" + Date.now();
+    const item = { id, proc, date: fecha, label: proc };
+    const canUpload = window.JCSAAS && typeof window.JCSAAS.uploadImage === "function";
+    if (canUpload) {
+      const storPath = patient.id + "/" + id + ".jpg";
+      setUploading(true);
+      window.JCSAAS.uploadImage(src, storPath)
+        .then(url => { setUploading(false); commitImgs([{ ...item, src: url, storPath }, ...imgs]); resetForm(); })
+        .catch(() => { setUploading(false); commitImgs([{ ...item, src }, ...imgs]); resetForm(); });
+    } else {
+      commitImgs([{ ...item, src }, ...imgs]);
+      resetForm();
+    }
+  }
+
+  function deleteImg(im) {
+    commitImgs(imgs.filter(x => x.id !== im.id));
+    if (im.storPath && window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage(im.storPath);
   }
   // Agrupa por procedimiento y, dentro, ordena por fecha (más reciente primero).
   const groups = {};
@@ -1192,7 +1322,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
                   : <div style={{ aspectRatio: "4/5", display: "flex", alignItems: "center", justifyContent: "center", background: T.surface2 }}><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.4"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg></div>}
                 <figcaption style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, padding: "8px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                   <span>{fmtDate(im.date)}</span>
-                  <button onClick={() => commitImgs(imgs.filter(x => x.id !== im.id))} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  <button onClick={() => deleteImg(im)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
                 </figcaption>
               </figure>
             ))}
@@ -1201,7 +1331,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
       ))}
 
       {adding && (
-        <AdModal T={T} title="Subir imagen clínica" onClose={() => { setAdding(false); setSrc(null); }} footer={<AdBtn T={T} primary full onClick={save}>Guardar imagen</AdBtn>}>
+        <AdModal T={T} title="Subir imagen clínica" onClose={() => { setAdding(false); setSrc(null); }} footer={<AdBtn T={T} primary full onClick={save} disabled={uploading}>{uploading ? "Subiendo…" : "Guardar imagen"}</AdBtn>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <input ref={fileRef} type="file" accept="image/*" onChange={e => { const f = e.target.files && e.target.files[0]; if (f) readImageResized(f, setSrc); }} style={{ display: "none" }} />
             <button onClick={() => fileRef.current && fileRef.current.click()} style={{ aspectRatio: src ? "auto" : "16/9", border: "1px dashed " + T.chipBorder, borderRadius: 10, background: T.surface, cursor: "pointer", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 14, overflow: "hidden" }}>
@@ -1237,50 +1367,127 @@ function ImagenesTab({ T, patient, updatePatient }) {
 /* ─────────── FACTURACIÓN ─────────── */
 function FacturacionTab({ T, patient, updatePatient }) {
   const D = window.JCDATA;
-  const [verAt, setVerAt] = useState(null);
-  // Nombre del procedimiento: último de su historial → tag → genérico (para saber qué se realizó).
-  const procName = (patient.history && patient.history[0] && patient.history[0].proc) || (patient.tags && patient.tags[0]) || "Procedimiento";
-  const items = patient.billing || [
-    { id: "b1", concept: procName, date: patient.lastVisit || "—", amount: 150000, paid: true, metodo: "Transferencia" },
-    { id: "b2", concept: "Evaluación general", date: "—", amount: 10000, paid: true, metodo: "Efectivo" }
-  ];
-  const total = items.reduce((s, i) => s + i.amount, 0);
-  const pagado = items.filter(i => i.paid).reduce((s, i) => s + i.amount, 0);
+  const [editAt, setEditAt] = useState(null); // { idx: -1 (nuevo) | n, item: {...} }
+  const [delIdx, setDelIdx] = useState(null);
+  const metodos = ["Transferencia", "Efectivo", "Tarjeta débito", "Tarjeta crédito", "Otro"];
+
+  const items = patient.billing || [];
+  const total = items.reduce((s, i) => s + (i.amount || 0), 0);
+  const pagado = items.filter(i => i.paid).reduce((s, i) => s + (i.amount || 0), 0);
   const saldo = total - pagado;
-  const row = (k, v) => v ? <div style={{ display: "flex", gap: 10, padding: "9px 0", borderBottom: "1px solid " + T.lineSoft }}><div style={{ width: 150, flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute }}>{k}</div><div style={{ flex: 1, fontFamily: T.sans, fontSize: 13, color: T.text }}>{v}</div></div> : null;
+
+  function addNew() {
+    setEditAt({ idx: -1, item: { id: "b" + Date.now(), concept: "", date: new Date().toLocaleDateString("es-CL"), amount: 0, paid: false, metodo: "Transferencia", comprobante: "" } });
+  }
+  function saveEdit() {
+    const updated = [...items];
+    if (editAt.idx === -1) updated.unshift(editAt.item);
+    else updated[editAt.idx] = editAt.item;
+    updatePatient(patient.id, { billing: updated });
+    setEditAt(null);
+  }
+  function deleteAt(idx) {
+    updatePatient(patient.id, { billing: items.filter((_, i) => i !== idx) });
+    setDelIdx(null);
+  }
+  function setF(k, v) { setEditAt(prev => ({ ...prev, item: { ...prev.item, [k]: v } })); }
+
+  const iconEdit = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>;
+  const iconDel = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>;
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Atenciones y pagos</div>
-        <AdBtn T={T} small primary onClick={() => updatePatient(patient.id, { billing: [{ id: "b" + Date.now(), concept: "Nueva atención", date: new Date().toLocaleDateString("es-CL"), amount: 0, paid: false, metodo: "Transferencia" }, ...items] })}>+ Atención</AdBtn>
+        <AdBtn T={T} small primary onClick={addNew}>+ Atención</AdBtn>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
         <AdStat T={T} n={D.fmt(total)} l="Total" />
         <AdStat T={T} n={D.fmt(pagado)} l="Pagado" />
         <AdStat T={T} n={D.fmt(saldo)} l="Saldo" accent={saldo > 0} />
       </div>
+      {items.length === 0 && (
+        <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, textAlign: "center", padding: "24px 0" }}>
+          No hay atenciones registradas. Presiona "+ Atención" para agregar una.
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column" }}>
-        {items.map(b => (
-          <button key={b.id} onClick={() => setVerAt(b)} title="Ver detalle de la atención" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft, background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept}</div>
+        {items.map((b, idx) => (
+          <div key={b.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}>
+            <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setEditAt({ idx, item: { ...b } })}>
+              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept || "Sin descripción"}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.date}{b.metodo ? " · " + b.metodo : ""}</div>
             </div>
-            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text }}>{D.fmt(b.amount)}</div>
+            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 }}>{D.fmt(b.amount || 0)}</div>
             <AdTag T={T} tone={b.paid ? "ok" : "warn"}>{b.paid ? "Pagado" : "Pendiente"}</AdTag>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>
-          </button>
+            <button onClick={() => setEditAt({ idx, item: { ...b } })} title="Editar" style={{ background: "none", border: "none", cursor: "pointer", padding: 5, color: T.textMute, flexShrink: 0 }}>{iconEdit}</button>
+            <button onClick={() => setDelIdx(idx)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", padding: 5, color: T.textFaint, flexShrink: 0 }}>{iconDel}</button>
+          </div>
         ))}
       </div>
-      {verAt && (
-        <AdModal T={T} title="Detalle de la atención" onClose={() => setVerAt(null)} footer={<AdBtn T={T} primary full onClick={() => setVerAt(null)}>Cerrar</AdBtn>}>
-          <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text, marginBottom: 10 }}>{verAt.concept}</div>
-          {row("Fecha", verAt.date)}
-          {row("Monto", D.fmt(verAt.amount))}
-          {row("Estado", verAt.paid ? "Pagado" : "Pendiente")}
-          {row("Método de pago", verAt.metodo || "—")}
-          {row("Comprobante", verAt.comprobante || "—")}
-          {row("Profesional", verAt.proName || "—")}
+
+      {editAt && (
+        <AdModal T={T} title={editAt.idx === -1 ? "Nueva atención" : "Editar atención"} onClose={() => setEditAt(null)}
+          footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={() => setEditAt(null)}>Cancelar</AdBtn><AdBtn T={T} primary onClick={saveEdit}>Guardar</AdBtn></div>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {(() => {
+              const svcs = (window.clinicServiceList ? window.clinicServiceList() : []);
+              const byCat = {}; svcs.forEach(s => { (byCat[s.cat] = byCat[s.cat] || []).push(s); });
+              const cats = Object.keys(byCat);
+              const known = svcs.some(s => s.name === editAt.item.concept);
+              const isOther = editAt.item.concept && !known;
+              const sel2 = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+              const lbl2 = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+              if (!svcs.length) return <AdField T={T} label="Procedimiento / Concepto" value={editAt.item.concept} onChange={v => setF("concept", v)} placeholder="Ej: Toxina botulínica" />;
+              return (
+                <div>
+                  <label style={{ display: "block" }}>
+                    <span style={lbl2}>Procedimiento / Concepto</span>
+                    <select value={isOther ? "__other__" : (editAt.item.concept || "")} onChange={e => { const v = e.target.value; setF("concept", v === "__other__" ? " " : v); }} style={sel2}>
+                      <option value="">Selecciona un servicio…</option>
+                      {cats.map(c => <optgroup key={c} label={c}>{byCat[c].map((s, i) => <option key={c+i} value={s.name}>{s.name}</option>)}</optgroup>)}
+                      <option value="__other__">Otro (especificar)…</option>
+                    </select>
+                  </label>
+                  {isOther && <div style={{ marginTop: 8 }}><AdField T={T} value={editAt.item.concept.trim()} onChange={v => setF("concept", v)} placeholder="Concepto o procedimiento" /></div>}
+                </div>
+              );
+            })()}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Monto ($)</span>
+                <input data-nocap data-only="num" value={editAt.item.amount || ""} onChange={e => setF("amount", parseInt(e.target.value.replace(/\D/g, ""), 10) || 0)} placeholder="0" style={{ width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <AdField T={T} label="Fecha" value={editAt.item.date} onChange={v => setF("date", v)} placeholder={new Date().toLocaleDateString("es-CL")} />
+            </div>
+            <div>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Método de pago</span>
+              <select value={editAt.item.metodo || "Transferencia"} onChange={e => setF("metodo", e.target.value)} style={{ width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}>
+                {metodos.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Estado de pago</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[["Pagado", true], ["Pendiente", false]].map(([l, v]) => (
+                  <button key={l} onClick={() => setF("paid", v)} style={{ flex: 1, padding: "11px", borderRadius: 6, cursor: "pointer", background: editAt.item.paid === v ? T.accent : T.surface, color: editAt.item.paid === v ? (T.onAccent || "#fff") : T.textMute, border: "1px solid " + (editAt.item.paid === v ? T.accent : T.line), fontFamily: T.sans, fontSize: 13 }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <AdField T={T} label="Comprobante / N° transferencia (opcional)" value={editAt.item.comprobante || ""} onChange={v => setF("comprobante", v)} placeholder="Ej: 0012345" />
+          </div>
+        </AdModal>
+      )}
+
+      {delIdx !== null && (
+        <AdModal T={T} title="Eliminar atención" onClose={() => setDelIdx(null)}
+          footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={() => setDelIdx(null)}>Cancelar</AdBtn><AdBtn T={T} primary onClick={() => deleteAt(delIdx)} style={{ background: "#b23535" }}>Eliminar</AdBtn></div>}>
+          <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>
+            ¿Eliminar <b>{items[delIdx] && (items[delIdx].concept || "esta atención")}</b>?
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>
+            {items[delIdx] && D.fmt(items[delIdx].amount || 0)} — Esta acción no se puede deshacer.
+          </div>
         </AdModal>
       )}
     </div>
@@ -1364,8 +1571,32 @@ function ResumenIA({ T, patient }) {
   const [asking, setAsking] = useState(false);
 
   function ctx() {
-    const hist = (patient.history || []).map(h => h.date + ": " + h.proc + " (" + h.units + ") " + (h.note || "")).join("; ");
-    return "Paciente " + patient.name + ", " + patient.age + " años. Tratamientos/tags: " + ((patient.tags || []).join(", ") || "—") + ". Notas: " + (patient.notes || "—") + ". Historial: " + (hist || "sin sesiones") + ". Consentimiento: " + (patient.consent ? "firmado" : "pendiente") + ".";
+    const c = patient.clinica || {};
+    const hist = (patient.history || []).map(h => [h.date, h.proc, h.units && ("(" + h.units + ")"), h.proName && ("por " + h.proName), h.note].filter(Boolean).join(" ")).join("; ");
+    const billing = (patient.billing || []).map(b => (b.date || "") + " " + (b.concept || "") + " $" + (b.amount || 0) + " " + (b.paid ? "pagado" : "pendiente")).join("; ");
+    const clinFields = [
+      c.alergias && ("Alergias: " + c.alergias),
+      c.morbidos && ("Antecedentes mórbidos: " + c.morbidos),
+      c.medicamentos && ("Medicamentos: " + c.medicamentos),
+      c.esteticos && ("Procedimientos estéticos previos: " + c.esteticos),
+      c.quirurgicos && ("Antecedentes quirúrgicos: " + c.quirurgicos),
+      c.tabaco && ("Tabaco: " + c.tabaco + " cigarros/día"),
+      c.alcohol && ("Alcohol: " + c.alcohol),
+      c.actividad && ("Actividad física: " + c.actividad),
+      c.embarazo && ("Embarazo/lactancia: " + c.embarazo),
+      c.skincare && ("Skincare: " + c.skincare),
+    ].filter(Boolean).join(". ");
+    return [
+      "Paciente: " + patient.name + (patient.age ? ", " + patient.age + " años" : "") + (patient.rut ? ", RUT " + patient.rut : ""),
+      patient.phone && ("Teléfono: " + patient.phone),
+      patient.email && ("Correo: " + patient.email),
+      "Tratamientos etiquetados: " + ((patient.tags || []).join(", ") || "ninguno"),
+      clinFields && ("Clínica: " + clinFields),
+      "Historial de sesiones (" + (patient.history || []).length + "): " + (hist || "sin sesiones"),
+      billing && ("Facturación: " + billing),
+      patient.notes && ("Notas internas: " + patient.notes),
+      "Consentimiento: " + (patient.consent ? "firmado" : "PENDIENTE"),
+    ].filter(Boolean).join(". ");
   }
   // ── Resumen clínico LOCAL (sin servidor): redacta a partir de los datos del paciente.
   // Funciona siempre; si hay IA conectada (window.claude) se usa esa en su lugar.
@@ -1393,13 +1624,26 @@ function ResumenIA({ T, patient }) {
   function localAnswer(text) {
     const t = text.toLowerCase();
     const hist = patient.history || [];
+    const c = patient.clinica || {};
     if (/consent/.test(t)) return patient.consent ? "El consentimiento está firmado." : "El consentimiento está PENDIENTE de firma.";
-    if (/alerg/.test(t)) { const a = (patient.clinica && (patient.clinica.alergias)) || ""; return a ? "Alergias: " + a : "No hay alergias registradas en la ficha."; }
-    if (/última|ultima|reciente|last/.test(t) && hist[0]) return "Última sesión: " + (hist[0].date || "—") + " · " + (hist[0].proc || "—") + (hist[0].units ? " (" + hist[0].units + ")" : "") + (hist[0].note ? ". " + hist[0].note : "");
-    if (/cuánt|cuant|sesion|histor/.test(t)) return hist.length ? "Tiene " + hist.length + " sesión(es): " + hist.map(h => (h.date || "") + " " + (h.proc || "")).join("; ") : "Sin sesiones registradas.";
+    if (/tel[eé]fono|fono|celular|whatsapp|contacto/.test(t)) return patient.phone ? "Teléfono: " + patient.phone : "No hay teléfono registrado en la ficha.";
+    if (/correo|email|mail/.test(t)) return patient.email ? "Correo: " + patient.email : "No hay correo registrado en la ficha.";
+    if (/\brut\b|c[eé]dula/.test(t)) return patient.rut ? "RUT: " + patient.rut : "RUT no registrado.";
     if (/edad|años|anos/.test(t)) return patient.age ? "Edad: " + patient.age + " años." : "Edad no registrada.";
-    if (/tratamiento|procedimiento|qué se|que se/.test(t)) { const ps = Array.from(new Set(hist.map(h => h.proc).filter(Boolean))); return ps.length ? "Tratamientos realizados: " + ps.join(", ") + "." : "Sin tratamientos registrados."; }
-    return "Según la ficha: " + localSummary().split("\n")[0];
+    if (/alerg/.test(t)) return c.alergias ? "Alergias: " + c.alergias : "Sin alergias registradas en la ficha.";
+    if (/antecedente|m[oó]rbido|enfermedad|patolog/.test(t)) return c.morbidos ? "Antecedentes mórbidos: " + c.morbidos : "Sin antecedentes mórbidos registrados.";
+    if (/medicamento|f[aá]rmaco/.test(t)) return c.medicamentos ? "Medicamentos: " + c.medicamentos : "Sin medicamentos registrados.";
+    if (/tabaco|cigarro|fum/.test(t)) return c.tabaco ? "Tabaco: " + c.tabaco + " cigarros/día." : "No se registra consumo de tabaco.";
+    if (/alcohol|bebi/.test(t)) return c.alcohol ? "Alcohol: " + c.alcohol : "No se registra consumo de alcohol.";
+    if (/embaraz|lactan/.test(t)) return c.embarazo ? "Embarazo/lactancia: " + c.embarazo : "No registra embarazo ni lactancia.";
+    if (/quirúrg|cirugía|operaci/.test(t)) return c.quirurgicos || c.cirugias ? "Antecedentes quirúrgicos: " + (c.quirurgicos || c.cirugias) : "Sin antecedentes quirúrgicos.";
+    if (/est[eé]tico|prev[io]*|antes/.test(t)) return c.esteticos ? "Procedimientos estéticos previos: " + c.esteticos : "Sin procedimientos estéticos previos registrados.";
+    if (/última|ultima|reciente/.test(t) && hist[0]) return "Última sesión: " + (hist[0].date || "—") + " · " + (hist[0].proc || "—") + (hist[0].units ? " (" + hist[0].units + ")" : "") + (hist[0].proName ? " · " + hist[0].proName : "") + (hist[0].note ? ". " + hist[0].note : "");
+    if (/cu[aá]nt|sesion|histor/.test(t)) return hist.length ? "Tiene " + hist.length + " sesión(es): " + hist.map(h => (h.date || "") + " " + (h.proc || "")).join("; ") : "Sin sesiones registradas.";
+    if (/tratamiento|procedimiento|qu[eé] se|que le/.test(t)) { const ps = Array.from(new Set(hist.map(h => h.proc).filter(Boolean))); return ps.length ? "Tratamientos realizados: " + ps.join(", ") + "." : "Sin tratamientos registrados."; }
+    if (/pag|cobr|factur|deuda|balan/.test(t)) { const bl = patient.billing || []; const pend = bl.filter(b => !b.paid); return bl.length ? "Facturación: " + bl.length + " registro(s). " + (pend.length ? pend.length + " pendiente(s) de pago." : "Todos pagados.") : "Sin registros de facturación."; }
+    if (/nota|observ|intern/.test(t)) return patient.notes ? "Notas internas: " + patient.notes : "Sin notas internas registradas.";
+    return localSummary();
   }
   async function gen() {
     setLoading(true);
@@ -1480,18 +1724,45 @@ function RecetaTab({ T, patient, updatePatient }) {
   function imprimir(r) {
     const pro = (window.clinicPro && window.clinicPro()) || (D.contact && D.contact.pro) || "";
     const dir = (window.clinicAddr && window.clinicAddr()) || (D.contact && D.contact.address) || "";
-    const title = titleOf(r.tipo);
-    const rpHtml = r.rp.split("\n").map(l => "<div style='padding:4px 0;border-bottom:1px dotted #ccc'>" + (l || "&nbsp;") + "</div>").join("");
-    const edad = patient.age ? patient.age + " años" : "";
-    const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + title + "</title>" +
-      "<style>@page{size:letter;margin:2.2cm 2cm}body{font-family:Georgia,serif;color:#1a1a14;margin:0;line-height:1.5}h1{font-size:21px;margin:0;font-weight:400}.muted{color:#666;font-size:12px}.row{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1a1a14;padding-bottom:10px}.tt{font-size:15px;letter-spacing:.06em;text-transform:uppercase;text-align:center;margin:22px 0 4px;font-family:Helvetica,Arial,sans-serif}.lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#888;margin-top:16px}.grid{display:flex;gap:28px;flex-wrap:wrap}.rp{font-size:30px;font-style:italic;margin:12px 0 4px}.box{min-height:150px;font-size:15px;line-height:1.9;margin-top:6px}.firma{margin-top:90px}.firmaBox{max-width:320px}.line{border-top:1px solid #1a1a14;padding-top:6px;font-size:12px}</style></head><body>" +
-      "<div class='row'><div><h1>" + ((window.clinicName && window.clinicName()) || D.brand || "Medique") + "</h1><div class='muted'>" + pro + " · Medicina estética" + (dir ? " · " + dir : "") + "</div></div><div class='muted' style='text-align:right'>" + r.fecha + "</div></div>" +
-      "<div class='tt'>" + title + "</div>" +
-      "<div class='lbl'>Paciente</div><div class='grid' style='font-size:15px'><div><b>" + (patient.name || "") + "</b></div>" + (patient.rut ? "<div>RUT " + patient.rut + "</div>" : "") + (edad ? "<div>Edad: " + edad + "</div>" : "") + "</div>" +
-      (r.diag ? "<div class='lbl'>Diagnóstico</div><div>" + r.diag + "</div>" : "") +
-      (r.tipo === "indicaciones" ? "<div class='lbl' style='margin-top:20px'>Indicaciones</div><div class='box'>" + rpHtml + "</div>" : "<div class='rp'>Rp.</div><div class='box'>" + rpHtml + "</div>") +
-      (r.ind ? "<div class='lbl'>Notas adicionales</div><div>" + r.ind.replace(/\n/g, "<br>") + "</div>" : "") +
-      "<div class='firma'><div class='firmaBox'><div class='line'>Firma del profesional</div><div class='muted' style='margin-top:4px'>" + pro + "</div></div></div>" +
+    const clinName = (window.clinicName && window.clinicName()) || D.brand || "Medique";
+    const team = (window.CADMIN && window.CADMIN.team) || [];
+    const proMember = team.find(function(t){ return t.name === pro; });
+    const proRole = (proMember && proMember.role) || "Medicina estética";
+    const clinHandle = "@" + clinName.toUpperCase().replace(/\s+/g, "");
+    const now = new Date();
+    const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const dotDate = dd + " &middot; " + mm + " &middot; " + now.getFullYear();
+    const isInd = r.tipo === "indicaciones";
+    const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const cfg = (window.DB && window.DB.get("cfg")) || {};
+    const logoUrl = cfg.clinic_logo || "";
+    const markUrl = cfg.clinic_mark || "";
+    const logoEl = logoUrl ? "<img class='hdr-logo' src='" + logoUrl + "'>" : "<div class='hdr-logo-txt'><span class='hdr-clinic-nm'>" + esc(clinName) + "</span></div>";
+    const markEl = markUrl ? "<img src='" + markUrl + "' style='height:30px;width:auto;opacity:.65'>" : "";
+    const lines = r.rp.split("\n").map(l => l.replace(/^[•\-\*]\s*/, "").trim()).filter(Boolean);
+    const indHtml = lines.map(function(l, i){ return "<div class='ind-item'><div class='ind-num'>" + (i+1) + "</div><div class='ind-text'>" + esc(l) + "</div></div>"; }).join("");
+    const css = "@page{size:letter;margin:2.4cm 2.6cm 3.2cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Jost',Helvetica,sans-serif;color:#1a1a14;background:#fff;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #d0cdc4}.hdr-logo{height:52px;width:auto}.hdr-logo-txt{display:flex;align-items:center;height:52px}.hdr-clinic-nm{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:#1a1a14;letter-spacing:-.01em}.hdr-r{text-align:right;line-height:1.72;font-size:10.5px;color:#888}.hdr-name{font-weight:600;font-size:12px;color:#1a1a14;display:block}.hdr-handle{font-size:9px;letter-spacing:.1em;color:#b8b2a0;margin-top:3px}.doc-type{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:#b8b2a0;margin:18px 0 3px}.title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.doc-title{font-family:'Cormorant Garamond','Times New Roman',serif;font-size:44px;font-weight:300;color:#1a1a14;line-height:1.02;letter-spacing:-.01em}.doc-title em{font-style:italic}.date-box{text-align:right;padding-top:2px;flex-shrink:0;margin-left:16px}.date-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c0b8a8;margin-bottom:4px}.date-val{font-family:'Jost',sans-serif;font-size:22px;font-weight:300;color:#1a1a14;letter-spacing:.05em;line-height:1}.pat-bar{background:#1a1a14;color:#fff;padding:12px 18px;margin:0 0 16px;display:flex;align-items:center;gap:14px}.pat-accent{width:3px;height:22px;background:rgba(255,255,255,.2);border-radius:2px;flex-shrink:0}.pat-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;flex:1;letter-spacing:.01em}.pat-meta{display:flex;gap:18px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#ccc;align-items:center}.info-box{border:1px solid #e0ddd5;border-left:3px solid #1a1a14;padding:12px 18px;margin:0 0 20px}.info-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#b8b2a0;margin-bottom:5px}.info-val{font-size:15px;color:#1a1a14;font-family:'Cormorant Garamond',serif;font-style:italic}.sec-hd{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#b8b2a0;margin:20px 0 0;border-bottom:1px solid #e8e5de;padding-bottom:5px}.ind-item{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #f0ede6;align-items:flex-start}.ind-num{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:19px;color:#c8c2b4;min-width:22px;flex-shrink:0;padding-top:1px}.ind-text{font-size:13px;color:#1a1a14;line-height:1.6;flex:1}.rp-sym{font-family:'Cormorant Garamond',serif;font-size:40px;font-style:italic;color:#1a1a14;line-height:1;margin:14px 0 4px}.text-box{font-size:13px;color:#444;white-space:pre-wrap;line-height:1.7;margin-top:6px}.ctrl-bar{background:#1a1a14;color:#fff;padding:10px 18px;margin-top:24px;display:flex;align-items:center;gap:12px}.ctrl-plus{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;opacity:.5}.ctrl-txt{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase}.notas{font-size:12px;color:#555;padding:10px 14px;background:#f8f7f4;border-left:3px solid #d0cdc4;margin-top:8px;line-height:1.6}.sig{margin-top:56px;display:flex;justify-content:space-between;align-items:flex-end}.sig-l{max-width:300px}.sig-line{border-top:1px solid #1a1a14;padding-top:8px;margin-top:6px}.sig-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:#1a1a14}.sig-role{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-top:4px}.sig-mark img{height:30px;width:auto;opacity:.65}.strip{position:fixed;bottom:2.1cm;left:2.6cm;right:2.6cm;display:flex;justify-content:space-between;font-size:9px;color:#c0b8a0;border-top:1px solid #e8e5de;padding-top:6px}";
+    const docType = isInd ? "Cuidados posteriores" : "Prescripción médica";
+    const titleHtml = isInd ? "Indicaciones <em>post tratamiento</em>" : "Receta <em>médica</em>";
+    const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + esc(titleOf(r.tipo)) + " · " + esc(patient.name || "") + "</title>" +
+      "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>" +
+      "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap' rel='stylesheet'>" +
+      "<style>" + css + "</style></head><body>" +
+      "<div class='hdr'>" + logoEl + "<div class='hdr-r'><span class='hdr-name'>" + esc(pro || clinName) + "</span>" + esc(proRole) + "<br>" + esc(dir) + "<span class='hdr-handle'>" + clinHandle + "</span></div></div>" +
+      "<div class='doc-type'>" + docType + "</div>" +
+      "<div class='title-row'><div class='doc-title'>" + titleHtml + "</div><div class='date-box'><div class='date-lbl'>Fecha</div><div class='date-val'>" + dotDate + "</div></div></div>" +
+      "<div class='pat-bar'><div class='pat-accent'></div><div class='pat-name'>" + esc(patient.name || "—") + "</div><div class='pat-meta'>" + (patient.rut ? "<span>RUT &nbsp;" + esc(patient.rut) + "</span>" : "") + (patient.age ? "<span>Edad &nbsp;" + esc(patient.age) + " a.</span>" : "") + "</div></div>" +
+      (r.diag ? "<div class='info-box'><div class='info-lbl'>Diagnóstico / Procedimiento</div><div class='info-val'>" + esc(r.diag) + "</div></div>" : "") +
+      "<div class='sec-hd'>" + (isInd ? "Indicaciones" : "Prescripción") + "</div>" +
+      (isInd
+        ? (lines.length ? indHtml : "<div class='ind-item'><div class='ind-num'>1</div><div class='ind-text' style='color:#ccc'>Sin indicaciones registradas.</div></div>")
+        : "<div class='rp-sym'>Rp.</div><div class='text-box'>" + esc(r.rp).replace(/\n/g, "<br>") + "</div>") +
+      (r.ind ? "<div class='notas'>" + esc(r.ind).replace(/\n/g, "<br>") + "</div>" : "") +
+      (isInd ? "<div class='ctrl-bar'><div class='ctrl-plus'>+</div><div class='ctrl-txt'>Control de evaluación</div></div>" : "") +
+      "<div class='sig'><div class='sig-l'><div class='sig-line'><div class='sig-name'>" + esc(pro) + "</div><div class='sig-role'>" + esc(proRole) + " &nbsp;·&nbsp; Medicina estética</div></div></div>" + (markEl ? "<div class='sig-mark'>" + markEl + "</div>" : "") + "</div>" +
+      "<div class='strip'><span>" + esc(titleOf(r.tipo)) + " &nbsp;·&nbsp; Emitida " + esc(hoy) + "</span><span>" + clinHandle + ".CL</span></div>" +
       "</body></html>";
     if (window.jcmPrintHTML) window.jcmPrintHTML(html);
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
@@ -1519,8 +1790,20 @@ function RecetaTab({ T, patient, updatePatient }) {
       </div>
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, marginBottom: 18 }}>
         <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Diagnóstico (opcional)</span>
-          <input style={inp} list="jc-diag-opts" value={diag} onChange={e => setDiag(e.target.value)} placeholder="Ej. Neuromodulación con Toxina botulínica" />
-          <datalist id="jc-diag-opts">{["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"].map(o => <option key={o} value={o} />)}</datalist></label>
+          {(() => {
+            const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"];
+            const isOther = diag && !DIAG_OPTS.includes(diag);
+            return (
+              <div>
+                <select value={isOther ? "__other__" : diag} onChange={e => { const v = e.target.value; setDiag(v === "__other__" ? " " : v); }} style={inp}>
+                  <option value="">Selecciona un diagnóstico…</option>
+                  {DIAG_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+                  <option value="__other__">Otro (escribir)…</option>
+                </select>
+                {isOther && <div style={{ marginTop: 8 }}><input style={inp} value={diag.trim()} onChange={e => setDiag(e.target.value)} placeholder="Escribe el diagnóstico" autoFocus /></div>}
+              </div>
+            );
+          })()}</label>
         <label style={{ display: "block", marginTop: 13 }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{rpLabelOf(tipo)}</span>
           {tipo === "indicaciones" && (() => { const tpls = (window.getIndTemplates ? window.getIndTemplates() : []); return tpls.length ? (

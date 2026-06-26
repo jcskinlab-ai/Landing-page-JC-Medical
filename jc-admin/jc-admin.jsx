@@ -796,6 +796,7 @@ function AdminApp() {
   const [navOpen, setNavOpen] = useState(false);
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifVer, setNotifVer] = useState(0); // se incrementa al marcar notificaciones como leídas
   const [profileOpen, setProfileOpen] = useState(false);
   const [profilePic, setProfilePic] = useState(() => { try { return localStorage.getItem("jcm_admin_photo") || null; } catch (e) { return null; } });
   const profileRef = useRef(null);
@@ -807,8 +808,20 @@ function AdminApp() {
   }, []);
 
   function updatePatient(id, patch) { setPatients(ps => savePatients(ps.map(p => p.id === id ? { ...p, ...patch } : p))); }
+  // Marca de una sola vez todos los pacientes sin consentimiento como "firmado en papel"
+  // (para la base importada de Excel, que ya tiene el consentimiento físico). Devuelve cuántos cambió.
+  function markAllPaperConsent() {
+    let n = 0;
+    setPatients(ps => savePatients(ps.map(p => { if (!p.consent) { n++; return { ...p, consent: true, consentInfo: "Consentimiento firmado en papel" }; } return p; })));
+    return n;
+  }
   function addPatient(p) {
-    const np = { ...p, id: (window.jcmUid ? window.jcmUid("p") : "p" + Date.now()), tags: [], consent: false, points: [], history: [] };
+    // consent/tags/points/history por defecto vacíos, pero la importación puede traerlos
+    // (p.ej. pacientes de Excel con consentimiento ya firmado en papel → consent:true).
+    const np = { ...p, id: (window.jcmUid ? window.jcmUid("p") : "p" + Date.now()), tags: p.tags || [], consent: p.consent === true, points: p.points || [], history: p.history || [] };
+    // Pacientes creados manualmente (Agenda / "+ Paciente") reciben la fecha de hoy para que
+    // aparezcan ordenados en el filtro "Calendario". Los importados conservan la del Excel.
+    if (np.fechaTs == null && !np.imported) np.fechaTs = Date.now();
     setPatients(ps => savePatients([np, ...ps]));
     try { window.jcmToast && window.jcmToast("Paciente \"" + (np.name || "") + "\" guardado.", "ok"); } catch (e) {}
     return np;
@@ -865,6 +878,8 @@ function AdminApp() {
 
   const current = patients.find(p => p.id === openPatient);
   const pendCount = patients.filter(p => !p.consent).length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
+  // La campana cuenta solo lo NO leído (se actualiza al pulsar "Leer todas"); notifVer fuerza el recálculo.
+  const notifCount = (notifVer, unreadNotifCount(patients));
 
   let body;
   if (section === "dashboard") body = <DashboardView T={T} D={D} A={A} appts={appts} patients={patients} go={nav} />;
@@ -882,7 +897,7 @@ function AdminApp() {
   else if (section === "equipo") body = <EquipoView T={T} />;
   else if (section === "fidelidad") body = <FidelidadView T={T} />;
   else if (section === "marketing") body = <MarketingView T={T} go={nav} />;
-  else if (section === "administracion") body = <AdministracionView T={T} go={nav} patients={patients} appts={appts} addPatient={addPatient} />;
+  else if (section === "administracion") body = <AdministracionView T={T} go={nav} patients={patients} appts={appts} addPatient={addPatient} updatePatient={updatePatient} markAllPaperConsent={markAllPaperConsent} />;
   else if (section === "inventario") body = <InventarioView T={T} />;
   else if (section === "caja") body = <CajaView T={T} />;
   else if (section === "integraciones") body = <IntegracionesView T={T} />;
@@ -982,7 +997,7 @@ function AdminApp() {
             </div>
             <button onClick={() => setNotifOpen(true)} title="Notificaciones" style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
-              {pendCount > 0 && <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: "#C0285A", color: "#fff", fontFamily: T.sans, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>{pendCount}</span>}
+              {notifCount > 0 && <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: "#C0285A", color: "#fff", fontFamily: T.sans, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>{notifCount}</span>}
             </button>
             <button onClick={() => { const nk = T.dark ? "cielo" : "azul"; themeForced.current = true; setThemeKey(nk); try { localStorage.setItem("jcm_theme_pref", JSON.stringify({ key: nk, period: autoPeriod() })); } catch (e) {} }} title={T.dark ? "Modo día" : "Modo noche"} style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">{T.dark ? <><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" /></> : <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />}</svg>
@@ -1008,7 +1023,7 @@ function AdminApp() {
         </div>
         <Copilot T={T} patients={patients} appts={appts} addAppt={addAppt} onDarCita={(pf) => setDarCita(pf)} />
         {darCita && <NewCitaModal T={T} patients={patients} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />}
-        {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
+        {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} onChanged={() => setNotifVer(v => v + 1)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
         {showTour && <WelcomeTour T={T} go={(k) => nav(k)} onClose={closeTour} />}
       </div>
     </div>
@@ -1016,15 +1031,42 @@ function AdminApp() {
 }
 
 /* ─────────── NOTIFICACIONES (popup desde la campana) ─────────── */
-function NotifPopup({ T, patients, appts, onClose, go, openP }) {
+// Las notificaciones se derivan del estado (pacientes sin consentimiento, etc.).
+// "Leer todas" guarda las claves vistas en notif_read para que no reaparezcan en la campana.
+function notifReadList() { try { var v = window.DB && DB.get("notif_read"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function notifMarkAllRead(keys) { try { var set = {}; notifReadList().forEach(function (k) { set[k] = 1; }); (keys || []).forEach(function (k) { set[k] = 1; }); window.DB && DB.set("notif_read", Object.keys(set)); } catch (e) {} }
+function unreadNotifCount(patients) {
+  var read = {}; notifReadList().forEach(function (k) { read[k] = 1; });
+  var n = 0;
+  (patients || []).forEach(function (p) { if (!p.consent && !read["c" + p.id]) n++; });
+  (((window.CADMIN || {}).waMessages) || []).forEach(function (m) { if (!read["w" + m.id]) n++; });
+  (((window.CADMIN || {}).bizComments) || []).forEach(function (b) { if (!read["b" + b.id]) n++; });
+  var recitas = (window.recitaDue ? window.recitaDue(patients) : []);
+  recitas.forEach(function (x) { if (!read["re" + x.p.id]) n++; });
+  var tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(function (t) { return !t.done; }); } catch (e) {}
+  tasks.forEach(function (t) { if (!read["t" + t.id]) n++; });
+  return n;
+}
+function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   const D = window.JCDATA;
-  const wa = ((window.CADMIN || {}).waMessages) || [];
-  const biz = ((window.CADMIN || {}).bizComments) || [];
-  const sinConsent = patients.filter(p => !p.consent);
+  // Excluye las notificaciones ya marcadas como leídas (botón "Leer todas").
+  const read = {}; notifReadList().forEach(k => { read[k] = 1; });
+  const wa = (((window.CADMIN || {}).waMessages) || []).filter(m => !read["w" + m.id]);
+  const biz = (((window.CADMIN || {}).bizComments) || []).filter(b => !read["b" + b.id]);
+  const sinConsent = patients.filter(p => !p.consent && !read["c" + p.id]);
   // Pacientes que ya cumplieron el plazo para su próxima aplicación (re-cita).
-  const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
-  let tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(t => !t.done); } catch (e) {}
+  const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter(x => !read["re" + x.p.id]);
+  let tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(t => !t.done && !read["t" + t.id]); } catch (e) {}
   const total = wa.length + biz.length + sinConsent.length + recitas.length + tasks.length;
+  function leerTodas() {
+    const keys = [].concat(
+      sinConsent.map(p => "c" + p.id), recitas.map(x => "re" + x.p.id),
+      wa.map(m => "w" + m.id), biz.map(b => "b" + b.id), tasks.map(t => "t" + t.id)
+    );
+    notifMarkAllRead(keys);
+    if (onChanged) onChanged();
+    onClose();
+  }
   const row = (key, color, ic, title, sub, action, fn) => (
     <div key={key} style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 14px", borderBottom: "1px solid " + T.lineSoft }}>
       <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: color + "1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1050,7 +1092,10 @@ function NotifPopup({ T, patients, appts, onClose, go, openP }) {
             <span style={{ fontFamily: T.serif, fontSize: 18, color: T.text }}>Notificaciones</span>
             {total > 0 && <span style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 8px" }}>{total}</span>}
           </div>
-          <button onClick={onClose} title="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 2 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {total > 0 && <button onClick={leerTodas} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 500, color: T.accent, background: "none", border: "none", cursor: "pointer", padding: "4px 6px" }}>Leer todas</button>}
+            <button onClick={onClose} title="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 2 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+          </div>
         </div>
         <div style={{ flex: 1, overflowY: "auto" }}>
           {total === 0 && <div style={{ padding: "34px 18px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Todo al día. Sin notificaciones.</div>}
@@ -1418,10 +1463,20 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
 }
 
 const PROC_LIST = () => { const D = window.JCDATA; const p = []; D.catalog.forEach(s => s.groups.forEach(g => g.items.forEach(it => p.push(it.n)))); return p; };
+// Genera <optgroup> agrupando los procedimientos por su categoría (desde los servicios de la clínica).
+function procOptionsByCat(names) {
+  const catOf = {};
+  try { (window.clinicServiceList ? window.clinicServiceList() : []).forEach(s => { if (s && s.name) catOf[s.name] = s.cat || "Otros"; }); } catch (e) {}
+  const byCat = {};
+  (names || []).forEach(n => { const c = catOf[n] || "Otros"; (byCat[c] = byCat[c] || []).push(n); });
+  return Object.keys(byCat).sort().map(c => React.createElement("optgroup", { key: c, label: c }, byCat[c].map(n => React.createElement("option", { key: n, value: n }, n))));
+}
 const selS = T => ({ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" });
 const lblS = T => ({ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 });
 // Slots de 30 min usados en el panel (8:00–19:30)
 const ADMIN_HALF_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++) { s.push((h<10?"0":"")+h+":00"); s.push((h<10?"0":"")+h+":30"); } return s; })();
+// Slots cada 15 min para agendar (permite citas de 15/45 min: p.ej. agendar a las 17:15 tras una de 15 min).
+const ADMIN_QUARTER_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++) { ["00", "15", "30", "45"].forEach(m => s.push((h < 10 ? "0" : "") + h + ":" + m)); } return s; })();
 
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha }) {
   const D = window.JCDATA;
@@ -1443,7 +1498,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const atCell = (off, h) => appts.filter(a => a.day === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
   const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
-  const wkHours = []; for (let h = WK_OPEN; h <= WK_CLOSE; h++) wkHours.push(h); // etiquetas 08:00 … 20:00
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
 
@@ -1492,29 +1546,33 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           </div>
           {/* Timeline continuo por columna */}
           <div style={{ display: "flex", position: "relative" }}>
-            {/* Etiquetas de hora */}
+            {/* Etiquetas de hora (en punto y media hora) */}
             <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
-              {wkHours.map((h, i) => (
-                <div key={h} style={{ position: "absolute", top: i * WPX + 2, right: 6, fontFamily: T.sans, fontSize: 10, color: T.textFaint, pointerEvents: "none", userSelect: "none" }}>
-                  {(h < 10 ? "0" : "") + h}:00
-                </div>
-              ))}
+              {ADMIN_HALF_HOURS.map((hhmm, i) => {
+                const half = hhmm.endsWith(":30"); // las medias horas, más pequeñas y tenues
+                return (
+                  <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 8.5 : 10, color: T.textFaint, opacity: half ? 0.5 : 1, pointerEvents: "none", userSelect: "none" }}>
+                    {hhmm}
+                  </div>
+                );
+              })}
             </div>
             {/* Columnas de días */}
             {days.map((d, ci) => {
               const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
-                  {/* Líneas de 30 min + zonas clicables; bloqueadas si hay cita que cubre ese slot */}
-                  {ADMIN_HALF_HOURS.map((hhmm, i) => {
-                    const isHourLine = hhmm.endsWith(":30"); // el borde inferior de la media (:30) cae en la hora siguiente en punto
+                  {/* Zonas clicables cada 15 min; bloqueadas si hay una cita que cubre ese tramo */}
+                  {ADMIN_QUARTER_HOURS.map((hhmm, i) => {
+                    const isHourLine = hhmm.endsWith(":00"); // borde marcado en la hora en punto
+                    const isHalfLine = hhmm.endsWith(":30"); // borde sutil en la media hora
                     const blocked = appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
                     return (
-                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/2), height: WPX/2, borderBottom: isHourLine ? "1px solid " + T.lineSoft : "none" }}>
+                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * (WPX/4), height: WPX/4, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none" }}>
                         {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
                           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
-                          <span className="jc-cell-add" style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                          <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                           </span>
                         </button>}
                       </div>
@@ -1655,7 +1713,8 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       let resolvedPatId = pat ? pat.id : "";
       if (tipo === "nuevo" && typeof addPatient === "function") {
         try {
-          const np = addPatient({ name: nombre.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
+          // La fecha del paciente nuevo = la fecha de la cita que se está agendando (no la de hoy).
+          const np = addPatient({ name: nombre.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0, fechaTs: new Date(apptFecha + "T00:00:00").getTime() });
           if (np && np.id) resolvedPatId = np.id;
         } catch (e) {}
       }
@@ -1838,7 +1897,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
             </div>
           : <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
               <AdField T={T} label="Nombre completo" value={nombre} onChange={setNombre} placeholder="Ej: Paciente nuevo" />
-              <AdField T={T} label="RUT" value={rut} onChange={setRut} placeholder="12.345.678-9" />
+              <AdField T={T} label="RUT" value={rut} onChange={v => setRut(window.jcmFmtRut ? window.jcmFmtRut(v) : v)} placeholder="12.345.678-9" />
               <AdField T={T} label="Teléfono móvil (WhatsApp)" value={phone} onChange={setPhone} inputMode="tel" />
               <AdField T={T} label="Correo" value={email} onChange={setEmail} inputMode="email" placeholder="correo@ejemplo.com" />
             </div>}
@@ -1873,7 +1932,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 18, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           <div><span style={lbl}>Especialidad</span><select value={esp} onChange={e => { setEsp(e.target.value); }} style={selStyle}><option>Todas</option>{especialidades.map(s => <option key={s}>{s}</option>)}</select></div>
-          <div><span style={lbl}>Procedimiento</span><select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}><option value="Evaluación general">Evaluación general</option>{procsByEsp.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+          <div><span style={lbl}>Procedimiento</span><select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}><option value="Evaluación general">Evaluación general</option>{procOptionsByCat(procsByEsp)}</select></div>
           <div><span style={lbl}>Profesional</span><select value={prof} onChange={e => setProf(e.target.value)} style={selStyle}>{team.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
           <div><span style={lbl}>Recurso</span><select value={recurso} onChange={e => setRecurso(e.target.value)} style={selStyle}><option>No especificado</option><option>Sala de procedimientos</option><option>Sala de evaluación</option></select></div>
           <div><span style={lbl}>Box / Camilla</span><select value={camilla} onChange={e => setCamilla(e.target.value)} style={selStyle}><option>Box 1</option><option>Box 2</option><option>Camilla 1</option></select></div>
@@ -1886,7 +1945,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                 <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".06em", textTransform: "uppercase", color: T.textMute, paddingBottom: 4 }}>{w.wd}</div>
                 <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, paddingBottom: 8 }}>{w.dd} {w.mm}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {ADMIN_HALF_HOURS.map(h => {
+                  {ADMIN_QUARTER_HOURS.map(h => {
                     const sel = pick && pick.dayOff === w.off && pick.time === h;
                     const blk = (appts || []).some(a => { if (a.day !== w.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(h); return ts >= as && ts < as + ad; });
                     return <button key={h} disabled={blk} onClick={() => !blk && setPick({ dayOff: w.off, time: h })}
@@ -1909,7 +1968,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
 
 function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
   const D = window.JCDATA;
-  const procs = PROC_LIST();
+  const procs = (window.clinicServiceList ? Array.from(new Set(window.clinicServiceList().map(s => s.name))) : PROC_LIST());
   const [proc, setProc] = useState(appt.proc);
   const [fecha, setFecha] = useState(appt.fecha || new Date().toISOString().slice(0, 10));
   const [t, setT] = useState(appt.time);
@@ -1922,18 +1981,25 @@ function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
   const metaCamps = ((window.CADMIN || { campaigns: [] }).campaigns || []).filter(c => c.active);
   const horas = D.availability(new Date(fecha + "T00:00:00").getDay()).slots;
   const pat = patients.find(p => p.name === appt.name);
+  // La agenda ubica las citas por "day" (offset de días respecto a hoy), no por "fecha".
+  // Al reprogramar hay que recalcular ese offset desde la fecha elegida, o la cita no se mueve.
+  function buildPatch(extra) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const day = Math.round((new Date(fecha + "T00:00:00") - today) / 86400000);
+    return Object.assign({ proc, fecha, time: t, status, comentario, origen, dur, day }, extra || {});
+  }
   return (
     <AdModal T={T} title="Editar cita" onClose={onClose}
       footer={
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {appt.status === "pendiente_pago" && (
-            <button onClick={() => onSave({ proc, fecha, time: t, status: "confirmada", comentario, origen, dur })}
+            <button onClick={() => onSave(buildPatch({ status: "confirmada" }))}
               style={{ width: "100%", fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", padding: "14px", borderRadius: 4, border: "none", background: "#1F8A5B", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M20 6 9 17l-5-5" /></svg>
               Confirmar transferencia · bloquear hora
             </button>
           )}
-          <AdBtn T={T} primary full onClick={() => onSave({ proc, fecha, time: t, status, comentario, origen, dur })}>Guardar cambios</AdBtn>
+          <AdBtn T={T} primary full onClick={() => onSave(buildPatch())}>Guardar cambios</AdBtn>
           {confirmCancel
             ? <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setConfirmCancel(false)} style={{ flex: 1, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".12em", textTransform: "uppercase", padding: "13px", borderRadius: 4, border: "1px solid " + T.chipBorder, background: "transparent", color: T.textMute, cursor: "pointer" }}>Volver</button>
@@ -1953,15 +2019,15 @@ function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
         <div><span style={lblS(T)}>Procedimiento</span>
           <select value={proc} onChange={e => setProc(e.target.value)} style={selS(T)}>
             <option value="Evaluación general">Evaluación general</option>
-            {procs.map(p => <option key={p} value={p}>{p}</option>)}
+            {procOptionsByCat(procs)}
           </select>
         </div>
         <div><span style={lblS(T)}>Fecha</span><MiniCalendar T={T} selected={fecha} onSelect={setFecha} /></div>
         <div><span style={lblS(T)}>Hora</span>
-          <input type="time" value={t} onChange={e => setT(e.target.value)} step="1800"
+          <input type="time" value={t} onChange={e => setT(e.target.value)} step="900"
             list="jcm-edit-hour-list" style={{ ...selS(T), cursor: "pointer" }} />
           <datalist id="jcm-edit-hour-list">
-            {ADMIN_HALF_HOURS.map(h => <option key={h} value={h} />)}
+            {ADMIN_QUARTER_HOURS.map(h => <option key={h} value={h} />)}
           </datalist>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -2137,16 +2203,32 @@ function WelcomeTour({ T, go, onClose }) {
   const [svcs, setSvcs] = useState(() => { try { return DB.get("services_custom") || []; } catch (e) { return []; } });
   const [inv, setInv] = useState(() => { try { return DB.get("inv_items") || []; } catch (e) { return []; } });
   const [tN, setTN] = useState(""), [tR, setTR] = useState("");
-  const [sN, setSN] = useState(""), [sP, setSP] = useState(""), [sD, setSD] = useState("30");
-  const [iN, setIN] = useState(""), [iS, setIS] = useState(""), [iU, setIU] = useState("unidades");
+  const SVC_CATS = ["Toxina botulínica", "Ácido hialurónico", "Bioestimulación de colágeno", "Mesoterapia", "Lipolíticos inyectables"];
+  const [sN, setSN] = useState(""), [sP, setSP] = useState(""), [sD, setSD] = useState("30"), [sC, setSC] = useState(SVC_CATS[0]), [sCustom, setSCustom] = useState("");
+  const [iN, setIN] = useState(""), [iS, setIS] = useState(""), [iU, setIU] = useState("unidades"), [iP, setIP] = useState("");
   const uid = pre => (window.jcmUid ? window.jcmUid(pre) : pre + Date.now());
   function saveClinic() { try { var c = DB.get("config") || {}; c.clinic_name = name.trim(); c.clinic_addr = addr.trim(); c.wa_number = wa ? ("569" + wa) : ""; DB.set("config", c); } catch (e) {} }
   function saveRut() { try { var b = DB.get("clinic_biz") || { razon: "", rut: "", plan: "" }; b.rut = rut.trim(); DB.set("clinic_biz", b); } catch (e) {} }
-  function addTeam() { if (tN.trim().length < 2) return; var n = team.concat([{ id: uid("t"), name: tN.trim(), role: tR.trim() || "Profesional", active: true, color: "#8B9EB0" }]); setTeam(n); try { DB.set("team", n); } catch (e) {} setTN(""); setTR(""); }
-  function addSvc() { if (sN.trim().length < 2) return; var n = [{ id: uid("svc"), name: sN.trim(), cat: "Otro", price: parseInt((sP + "").replace(/\D/g, ""), 10) || 0, dur: parseInt(sD, 10) || 30, pts: 0, desc: "" }].concat(svcs); setSvcs(n); try { DB.set("services_custom", n); } catch (e) {} setSN(""); setSP(""); setSD("30"); }
-  function addInv() { if (iN.trim().length < 2) return; var n = inv.concat([{ id: uid("i"), name: iN.trim(), cat: "Insumo clínico", stock: parseInt((iS + "").replace(/\D/g, ""), 10) || 0, min: 0, unit: iU || "unidades", price: 0 }]); setInv(n); try { DB.set("inv_items", n); } catch (e) {} setIN(""); setIS(""); }
+  // Lee el valor más reciente desde la BD (no el estado capturado al montar): evita pisar
+  // miembros/servicios agregados por el onboarding previo o por clics rápidos.
+  function freshList(key, fallback) { try { var v = DB.get(key); return Array.isArray(v) ? v : fallback; } catch (e) { return fallback; } }
+  function addTeam() {
+    if (tN.trim().length < 2) return;
+    var n = freshList("team", team).concat([{ id: uid("t"), name: tN.trim(), role: tR.trim() || "Profesional", active: true, color: "#8B9EB0" }]);
+    setTeam(n); try { DB.set("team", n); } catch (e) {}
+    if (window.CADMIN) window.CADMIN.team = n; // fuente en vivo que lee el resto del panel
+    setTN(""); setTR("");
+  }
+  function addSvc() {
+    if (sN.trim().length < 2) return;
+    var catVal = (sC === "__other__") ? (sCustom.trim() || "Otro") : sC;
+    var n = [{ id: uid("svc"), name: sN.trim(), cat: catVal, price: parseInt((sP + "").replace(/\D/g, ""), 10) || 0, dur: parseInt(sD, 10) || 30, pts: 0, desc: "" }].concat(freshList("services_custom", svcs));
+    setSvcs(n); try { DB.set("services_custom", n); } catch (e) {}
+    setSN(""); setSP(""); setSD("30"); // se mantiene la categoría para agregar varios de la misma
+  }
+  function addInv() { if (iN.trim().length < 2) return; var n = freshList("inv_items", inv).concat([{ id: uid("i"), name: iN.trim(), cat: "Insumo clínico", stock: parseInt((iS + "").replace(/\D/g, ""), 10) || 0, min: 0, unit: iU || "unidades", price: parseInt((iP + "").replace(/\D/g, ""), 10) || 0 }]); setInv(n); try { DB.set("inv_items", n); } catch (e) {} setIN(""); setIS(""); setIP(""); }
   function onWa(v) { var d = (v || "").replace(/\D/g, ""); if (d.indexOf("56") === 0) d = d.slice(2); if (d.charAt(0) === "9") d = d.slice(1); setWa(d.slice(0, 8)); }
-  function rmFrom(list, setList, key, id) { var n = list.filter(x => x.id !== id); setList(n); try { DB.set(key, n); } catch (e) {} }
+  function rmFrom(list, setList, key, id) { var n = list.filter(x => x.id !== id); setList(n); try { DB.set(key, n); } catch (e) {} if (key === "team" && window.CADMIN) window.CADMIN.team = n; }
   const kind = STEPS[step];
   function next() { if (kind === "clinica") saveClinic(); if (kind === "rut") saveRut(); setStep(s => Math.min(s + 1, STEPS.length - 1)); }
   function back() { setStep(s => Math.max(s - 1, 0)); }
@@ -2213,9 +2295,14 @@ function WelcomeTour({ T, go, onClose }) {
           </>)}
           {kind === "servicios" && (<>
             <div style={titleS}>Servicios</div>
-            <div style={subS}>Tus procedimientos con precio y duración. Aparecen en la agenda y en tu reserva online.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: svcs.length ? 12 : 0 }}>{svcs.map(s => <div key={s.id}>{rowItem(s.name, (s.price ? "$" + s.price.toLocaleString("es-CL") : "") + " · " + s.dur + "min", () => rmFrom(svcs, setSvcs, "services_custom", s.id))}</div>)}</div>
+            <div style={subS}>Tus procedimientos con categoría, precio y duración. Aparecen en la agenda y en tu reserva online.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: svcs.length ? 12 : 0 }}>{svcs.map(s => <div key={s.id}>{rowItem(s.name, [s.cat, (s.price ? "$" + s.price.toLocaleString("es-CL") : ""), s.dur + "min"].filter(Boolean).join(" · "), () => rmFrom(svcs, setSvcs, "services_custom", s.id))}</div>)}</div>
             <input value={sN} onChange={e => setSN(e.target.value)} placeholder="Nombre del servicio" style={{ ...inp, marginBottom: 8 }} />
+            <select value={sC} onChange={e => setSC(e.target.value)} style={{ ...inp, marginBottom: 8 }}>
+              {SVC_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="__other__">Otra categoría (escribir)…</option>
+            </select>
+            {sC === "__other__" && <input value={sCustom} onChange={e => setSCustom(e.target.value)} placeholder="Nombre de la categoría" style={{ ...inp, marginBottom: 8 }} />}
             <div style={{ display: "flex", gap: 8 }}>
               <input value={sP} onChange={e => setSP(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Precio $" style={inp} />
               <select value={sD} onChange={e => setSD(e.target.value)} style={{ ...inp, width: 100 }}>{[15, 30, 45, 60, 90].map(d => <option key={d} value={String(d)}>{d} min</option>)}</select>
@@ -2225,11 +2312,16 @@ function WelcomeTour({ T, go, onClose }) {
           {kind === "inventario" && (<>
             <div style={titleS}>Inventario</div>
             <div style={subS}>Tus insumos y su stock. Opcional, pero te ayuda a controlar lo que usas.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: inv.length ? 12 : 0 }}>{inv.map(it => <div key={it.id}>{rowItem(it.name, it.stock + " " + it.unit, () => rmFrom(inv, setInv, "inv_items", it.id))}</div>)}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: inv.length ? 12 : 0 }}>{inv.map(it => <div key={it.id}>{rowItem(it.name, it.stock + " " + it.unit + (it.price ? " · $" + Number(it.price).toLocaleString("es-CL") : ""), () => rmFrom(inv, setInv, "inv_items", it.id))}</div>)}</div>
             <input value={iN} onChange={e => setIN(e.target.value)} placeholder="Nombre del insumo" style={{ ...inp, marginBottom: 8 }} />
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <input value={iS} onChange={e => setIS(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Stock" style={inp} />
-              <input value={iU} onChange={e => setIU(e.target.value)} placeholder="Unidad" style={{ ...inp, width: 110 }} />
+              <select value={iU} onChange={e => setIU(e.target.value)} style={{ ...inp, width: 120 }}>
+                {["unidades", "viales", "jeringas", "tubos", "cajas", "paquetes", "rollos"].map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={iP ? Number(iP).toLocaleString("es-CL") : ""} onChange={e => setIP(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Costo por unidad $" style={inp} />
               {addBtn(addInv)}
             </div>
           </>)}
@@ -2568,7 +2660,7 @@ function SaasGate() {
     if (a.status === "pending") {
       return wrap("Cuenta en revisión", "¡Gracias por registrar tu clínica! Tu cuenta quedó creada y está pendiente de aprobación. Te avisaremos apenas la activemos (suele ser muy rápido).",
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-          <a href={"https://wa.me/56997880877?text=" + encodeURIComponent("Hola, acabo de registrar mi clínica en Medique y quiero que aprueben mi cuenta.")} target="_blank" rel="noopener" style={{ textDecoration: "none" }}>{pBtn("Apurar por WhatsApp", () => {}, false)}</a>
+          <a href={"https://wa.me/56997880877?text=" + encodeURIComponent("Hola, acabo de registrar mi clínica en Medique y quiero solicitar acceso a mi cuenta.")} target="_blank" rel="noopener" style={{ textDecoration: "none", display: "block", textAlign: "center" }}>{pBtn("Solicitar acceso por WhatsApp", () => {}, false)}</a>
           {link("Cerrar sesión", () => window.JCSAAS.logout())}
         </div>, null);
     }

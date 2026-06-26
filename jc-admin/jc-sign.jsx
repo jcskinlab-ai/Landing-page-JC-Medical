@@ -25,8 +25,8 @@ function jcSetupCanvas(c) {
   c.width = rect.width * ratio; c.height = rect.height * ratio;
   var ctx = c.getContext("2d");
   ctx.scale(ratio, ratio);
-  ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 2.4;
-  ctx.strokeStyle = "#17170F";
+  ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 1.3;
+  ctx.strokeStyle = "#1a1914";
   c._ctx = ctx;
 }
 function jcPos(c, e) { var r = c.getBoundingClientRect(); var t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; }

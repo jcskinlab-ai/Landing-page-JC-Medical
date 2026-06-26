@@ -2079,6 +2079,12 @@ function InventarioView({ T }) {
     .filter(i => !ql || i.name.toLowerCase().includes(ql) || (i.cat || "").toLowerCase().includes(ql));
   const valor = items.reduce((s, i) => s + i.stock * i.price, 0);
   function adjust(id, d) { setItems(items.map(i => i.id === id ? { ...i, stock: Math.max(0, i.stock + d) } : i)); }
+  async function delItem(it) {
+    const ok = await (window.jcmConfirm ? window.jcmConfirm('¿Eliminar "' + it.name + '" del inventario? Esta acción no se puede deshacer.', { danger: true }) : Promise.resolve(window.confirm('¿Eliminar "' + it.name + '" del inventario?')));
+    if (!ok) return;
+    setItems(items.filter(x => x.id !== it.id));
+    setMsg('"' + it.name + '" eliminado del inventario.'); setTimeout(() => setMsg(""), 3000);
+  }
   const invName = id => { const it = items.find(x => x.id === id); return it ? it.name : id; };
   // Descuenta del stock los insumos del procedimiento y registra el cobro en Caja.
   function aplicarProc(p) {
@@ -2137,6 +2143,9 @@ function InventarioView({ T }) {
                 <button onClick={() => adjust(i.id, 1)} style={invAdj(T)}>+</button>
               </div>
               {i.stock <= 0 ? <AdTag T={T} tone="danger">Agotado</AdTag> : lo ? <AdTag T={T} tone="warn">Bajo</AdTag> : <AdTag T={T} tone="ok">OK</AdTag>}
+              <button onClick={() => delItem(i)} title="Eliminar producto" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" /></svg>
+              </button>
             </div>
           );
         })}
@@ -2185,19 +2194,66 @@ function InventarioView({ T }) {
   );
 }
 function invAdj(T) { return { width: 28, height: 28, borderRadius: 6, border: "1px solid " + T.chipBorder, background: T.surface, color: T.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }; }
-/* Escanear factura → revisar/editar productos → aplicar al stock.
-   Demo local: la lectura real con IA (Llama Scout visión) corre en el servidor (Medique).
-   Aquí se sube la factura y se confirman los productos manualmente. */
-const INVSCAN_DEMO = [
-  { name: "Toxina botulínica 100U", cat: "Insumo clínico", qty: "5", price: "95000", unit: "viales" },
-  { name: "Ácido hialurónico (jeringa)", cat: "Insumo clínico", qty: "10", price: "70000", unit: "jeringas" },
-  { name: "Agujas 30G", cat: "Fungible", qty: "100", price: "120", unit: "unidades" }
-];
+/* Escanear factura → leer con IA (visión, en el servidor) → revisar/editar → aplicar al stock. */
+// Reduce la foto a un JPEG pequeño (máx ~1600px) para que quepa en el límite de subida y la IA la lea bien.
+function invFileToDataURL(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) { if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; } else { w = Math.round(w * maxDim / h); h = maxDim; } }
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL("image/jpeg", quality || 0.82));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 function InvScanModal({ T, onClose, onApply }) {
   const [file, setFile] = useState(null);
   const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const fileRef = useRef(null);
-  function onFile(e) { const f = e.target.files[0]; if (!f) return; setFile(f.name); setRows(INVSCAN_DEMO.map(r => ({ ...r }))); e.target.value = ""; }
+  const oneEmpty = () => [{ name: "", cat: "Insumo clínico", qty: "1", price: "0", unit: "unidades" }];
+  async function onFile(e) {
+    const f = e.target.files[0]; if (!f) return; e.target.value = "";
+    setFile(f.name); setErr("");
+    // La visión de IA lee imágenes; un PDF hay que fotografiarlo o capturarlo.
+    if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
+      setErr("La lectura automática funciona con FOTOS (JPG/PNG). Para un PDF, toma una captura de pantalla de la factura y súbela, o agrega los productos a mano abajo.");
+      setRows(oneEmpty()); return;
+    }
+    setBusy(true); setRows([]);
+    try {
+      const dataUrl = await invFileToDataURL(f, 1600, 0.82);
+      const idt = (window.JCSAAS && window.JCSAAS.idToken) ? await window.JCSAAS.idToken() : null;
+      const headers = { "Content-Type": "application/json" };
+      if (idt) headers["Authorization"] = "Bearer " + idt;
+      const resp = await fetch("/api/ai", { method: "POST", headers: headers, body: JSON.stringify({ task: "scan_invoice", image: dataUrl }) });
+      const d = await resp.json().catch(() => ({}));
+      setBusy(false);
+      if (d && d.ok && Array.isArray(d.items) && d.items.length) {
+        setRows(d.items.map(it => ({ name: it.name || "", cat: it.cat || "Insumo clínico", qty: String(it.qty || 1), price: String(it.price || 0), unit: "unidades" })));
+      } else if (d && d.ok) {
+        setErr("No detecté productos en la imagen. Revisa que se vea el detalle de la factura, o agrégalos a mano abajo.");
+        setRows(oneEmpty());
+      } else {
+        setErr((d && d.error) || "No se pudo leer la factura. Agrega los productos a mano abajo.");
+        setRows(oneEmpty());
+      }
+    } catch (e2) {
+      setBusy(false);
+      setErr("No se pudo procesar la imagen. Agrega los productos a mano abajo.");
+      setRows(oneEmpty());
+    }
+  }
   function setRow(i, k, v) { setRows(rows.map((r, j) => j === i ? { ...r, [k]: v } : r)); }
   function addRow() { setRows([...rows, { name: "", cat: "Insumo clínico", qty: "1", price: "0", unit: "unidades" }]); }
   function delRow(i) { setRows(rows.filter((_, j) => j !== i)); }
@@ -2210,17 +2266,27 @@ function InvScanModal({ T, onClose, onApply }) {
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex" }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
         </div>
         <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 13px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
-          Sube la foto o PDF de la boleta/factura. La <b>lectura automática con IA</b> corre en el servidor (Medique); aquí revisas y confirmas los productos antes de sumarlos al stock.
+          Sube una <b>foto nítida</b> de la boleta/factura. La <b>lectura automática con IA</b> lee el nombre, la cantidad y el costo con IVA de cada producto; aquí los revisas antes de sumarlos al stock.
         </div>
         {!file ? (
           <button onClick={() => fileRef.current.click()} style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "40px 20px", border: "1.5px dashed " + T.chipBorder, borderRadius: 12, background: T.surface, cursor: "pointer" }}>
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.5"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
-            <span style={{ fontFamily: T.serif, fontSize: 18, color: T.text }}>Subir factura o boleta (foto o PDF)</span>
-            <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>JPG, PNG o PDF de la compra · arrastra el archivo o haz clic</span>
+            <span style={{ fontFamily: T.serif, fontSize: 18, color: T.text }}>Subir factura o boleta (foto)</span>
+            <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>JPG o PNG de la compra · arrastra el archivo o haz clic</span>
           </button>
+        ) : busy ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "44px 20px" }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" style={{ animation: "jcSpin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.2-8.6" /></svg>
+            <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>Leyendo la factura con IA…</span>
+            <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>📄 {file}</span>
+          </div>
         ) : (
           <>
-            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.accent, marginBottom: 10 }}>📄 {file} · productos detectados (edítalos si es necesario):</div>
+            {err && <div style={{ background: "rgba(192,40,90,.08)", border: "1px solid rgba(192,40,90,.35)", borderRadius: 8, padding: "10px 13px", marginBottom: 12, fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", lineHeight: 1.5 }}>{err}</div>}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.accent }}>📄 {file} · productos detectados (edítalos si es necesario):</span>
+              <button onClick={() => fileRef.current.click()} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Otra foto</button>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "2.4fr 1.4fr .8fr 1fr 28px", gap: 6, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>
               <span>Producto</span><span>Categoría</span><span>Cant.</span><span>Costo c/u</span><span /></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -2344,7 +2410,7 @@ function csvParse(text) {
 }
 
 const ADMIN_TABS = [["datos", "Datos / facturación"], ["registro", "Registro de actividad"], ["equipo", "Equipo y permisos"], ["respaldo", "Respaldo / exportar"]];
-function AdministracionView({ T, go, patients, appts, addPatient }) {
+function AdministracionView({ T, go, patients, appts, addPatient, updatePatient, markAllPaperConsent }) {
   const D = window.JCDATA;
   const [tab, setTab] = useState("datos");
   // Plan/suscripción se autocompleta desde la clínica del SaaS (trial → "Demo").
@@ -2386,9 +2452,20 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
       window.jcmToast && window.jcmToast("Respaldo completo descargado.", "ok");
     } catch (e) { window.jcmError && window.jcmError("No se pudo generar el respaldo", e); }
   }
+  // Convierte un valor de fecha del Excel/CSV (serial Excel, DD-MM-AA, DD/MM/AAAA, ISO…) a timestamp.
+  function parseFechaImp(s) {
+    s = ("" + (s == null ? "" : s)).trim();
+    s = s.replace(/[.\s]+$/, "").trim(); // quita el punto/espacios finales (formato "01-06-26.")
+    if (!s) return null;
+    if (/^\d{5}$/.test(s)) { const d = new Date(Date.UTC(1899, 11, 30) + parseInt(s, 10) * 86400000); return isNaN(d) ? null : d.getTime(); } // serial Excel
+    // DD-MM-AA · DD/MM/AAAA · DD.MM.AA (formato chileno: día, mes, año). Tolera punto final.
+    const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\.?$/);
+    if (m) { let yy = +m[3]; if (yy < 100) yy += 2000; const d = new Date(yy, +m[2] - 1, +m[1]); return isNaN(d) ? null : d.getTime(); }
+    const t = Date.parse(s); return isNaN(t) ? null : t; // ISO u otros
+  }
   // Toma filas (arrays de celdas) ya parseadas y crea los pacientes nuevos. Sirve para CSV y Excel.
   function ingestRows(rows) {
-    let headers = null, added = 0, dup = 0;
+    let headers = null, added = 0, dup = 0, updated = 0;
     const cell = v => ("" + (v == null ? "" : v)).trim();
     const seen = new Set((patients || []).map(p => (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase()).filter(Boolean));
     for (const fields of rows) {
@@ -2405,13 +2482,26 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
       const rutNorm = rut.replace(/[^0-9kK]/g, "").toLowerCase();
       const phone = (r["teléfono"] || r["telefono"] || r["phone"] || r["celular"] || r["whatsapp"] || r["fono"] || "").trim();
       const email = (r["correo"] || r["email"] || r["e-mail"] || "").trim();
-      const isDup = (rutNorm.length >= 5 && seen.has(rutNorm)) || (patients || []).some(p => (p.name || "").toLowerCase() === name.toLowerCase());
-      if (isDup) { dup++; continue; }
+      // Fecha del paciente en el Excel (ingreso / primera consulta / atención). Para ordenar en "Calendario".
+      const fechaRaw = (r["fecha"] || r["fecha de ingreso"] || r["fecha ingreso"] || r["fecha primera consulta"] || r["fecha de registro"] || r["fecha de atención"] || r["fecha atencion"] || r["ingreso"] || r["date"] || "").trim();
+      const fechaTs = parseFechaImp(fechaRaw);
+      // ¿Ya existe? (por RUT o por nombre). Conserva el registro, pero le completa la fecha si le falta.
+      const existing = (patients || []).find(p =>
+        (rutNorm.length >= 5 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase() === rutNorm) ||
+        (p.name || "").toLowerCase() === name.toLowerCase());
+      if (existing) {
+        dup++;
+        // Re-importar para arreglar bases antiguas: si el paciente no tenía fecha y el Excel la trae, se la ponemos.
+        if (fechaTs && !existing.fechaTs && updatePatient) { updatePatient(existing.id, { fechaImport: fechaRaw, fechaTs: fechaTs }); updated++; }
+        continue;
+      }
       if (rutNorm.length >= 5) seen.add(rutNorm);
-      if (addPatient) addPatient({ name, rut, phone, email }); added++;
+      // Importados: consentimiento ya firmado en papel → consent:true (no entran a "Consent. pend.").
+      if (addPatient) addPatient({ name, rut, phone, email, consent: true, consentInfo: "Consentimiento firmado en papel (importado)", imported: true, fechaImport: fechaRaw, fechaTs: fechaTs });
+      added++;
     }
-    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo)."); return; }
-    flash("Importación: " + added + " paciente(s) nuevo(s)" + (dup ? " · " + dup + " ya existían o duplicados" : "") + ".");
+    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo, Fecha)."); return; }
+    flash("Importación: " + added + " nuevo(s)" + (updated ? " · " + updated + " actualizados con su fecha" : "") + (dup ? " · " + dup + " ya existían" : "") + ".");
   }
   // Carga el lector de Excel (SheetJS) bajo demanda, solo cuando se importa un .xlsx/.xls.
   function loadXLSX() {
@@ -2523,7 +2613,22 @@ function AdministracionView({ T, go, patients, appts, addPatient }) {
             <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Sube un archivo <b>Excel (.xlsx) o CSV</b>. La primera fila debe tener los <b>encabezados</b> y una columna llamada <b>Nombre</b> (opcionales: RUT, Teléfono, Correo). Si el RUT ya existe, no se duplica. <i>(.numbers: en Numbers usa Archivo → Exportar a → Excel.)</i></div>
             <AdBtn T={T} onClick={() => fileRef.current.click()}>Subir archivo (Excel / CSV)</AdBtn>
             <input ref={fileRef} type="file" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.numbers" onChange={onImport} style={{ display: "none" }} />
+            <p style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, margin: "12px 0 0", lineHeight: 1.5 }}>Los pacientes importados quedan con <b>consentimiento firmado en papel</b> (no aparecen como pendientes de firma). Si tu Excel trae una columna <b>Fecha</b>, podrás ordenarlos por fecha con el filtro <b>Calendario</b> en Pacientes.</p>
           </div>
+          {/* Arreglo para bases importadas antes de esta mejora: marcar lo ya cargado como consentimiento en papel */}
+          {markAllPaperConsent && (patients || []).some(p => !p.consent) && (
+            <div style={{ marginTop: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+              <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text }}>Consentimientos en papel</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 }}>Tienes <b>{(patients || []).filter(p => !p.consent).length}</b> paciente(s) marcados como "consentimiento pendiente". Si ya tienen su consentimiento firmado en papel (p. ej. tu base importada), márcalos todos como firmados para quitarlos de las notificaciones.</div>
+              <AdBtn T={T} onClick={async () => {
+                const n = (patients || []).filter(p => !p.consent).length;
+                const ok = await (window.jcmConfirm ? window.jcmConfirm("¿Marcar " + n + " paciente(s) sin consentimiento como \"firmado en papel\"? Úsalo solo si efectivamente tienen el consentimiento físico.") : Promise.resolve(window.confirm("¿Marcar " + n + " paciente(s) como consentimiento en papel?")));
+                if (!ok) return;
+                markAllPaperConsent();
+                flash(n + " paciente(s) marcados con consentimiento en papel.");
+              }}>Marcar pacientes existentes como consentimiento en papel</AdBtn>
+            </div>
+          )}
         </div>
       )}
 

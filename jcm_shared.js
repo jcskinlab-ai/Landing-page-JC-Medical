@@ -83,7 +83,8 @@ function jcmSanitize(s) {
 // ── RUT CHILENO (formato 20.090.534-2 + validación módulo 11) ───────────────
 // Formatea progresivamente mientras se escribe: solo dígitos + K como verificador.
 function jcmFmtRut(v) {
-  let s = (v || '').toString().toUpperCase().replace(/[^0-9K]/g, '');
+  // Solo dígitos y las letras K y X (dígito verificador K · X para RUT provisorio/extranjero).
+  let s = (v || '').toString().toUpperCase().replace(/[^0-9KX]/g, '');
   if (!s) return '';
   if (s.length > 9) s = s.slice(0, 9); // 8 dígitos cuerpo + 1 verificador
   const dv = s.slice(-1);
@@ -339,7 +340,18 @@ function jcmSaveSession(user) {
 function jcmEndSession() { sessionStorage.removeItem(_SESS_KEY); }
 
 // ── AUTENTICACIÓN ──────────────────────────────────────────────────────────
+// Contador en sessionStorage: persiste a través de refrescos del tab (evita bypass
+// trivial de brute-force reiniciando la página). Se limpia al cerrar el navegador.
 const _loginAttempts = {};
+function _attGet(key) {
+  try { return JSON.parse(sessionStorage.getItem('jcm_att_' + key) || 'null') || { n: 0, t: 0 }; } catch (e) { return { n: 0, t: 0 }; }
+}
+function _attSet(key, v) {
+  try { sessionStorage.setItem('jcm_att_' + key, JSON.stringify(v)); } catch (e) { _loginAttempts[key] = v; }
+}
+function _attReset(key) {
+  try { sessionStorage.removeItem('jcm_att_' + key); } catch (e) {} delete _loginAttempts[key];
+}
 
 // Normaliza un teléfono a solo dígitos (identificador de cuenta).
 function jcmPhoneKey(p) { return (p || '').replace(/\D/g, ''); }
@@ -383,7 +395,7 @@ async function jcmLogin(phone, password) {
   const ph  = jcmPhoneKey(phone);
   const em  = (phone || '').toLowerCase().trim();
   const key = ph || em;
-  const att = _loginAttempts[key] || { n:0, t:0 };
+  const att = _attGet(key);
 
   if (att.n >= 5 && Date.now() - att.t < 15 * 60 * 1000)
     return { ok:false, msg:'Demasiados intentos fallidos. Espera 15 minutos.' };
@@ -391,17 +403,17 @@ async function jcmLogin(phone, password) {
   const users = DB.get('users') || [];
   const user  = users.find(u => (ph && jcmPhoneKey(u.phone) === ph) || (em && u.email === em));
   if (!user) {
-    att.n++; att.t = Date.now(); _loginAttempts[key] = att;
+    _attSet(key, { n: att.n + 1, t: Date.now() });
     return { ok:false, msg:'Teléfono no registrado.' };
   }
 
   const hash = await jcmHash(password, user.v === 2 ? user.salt : null);
   if (!hash || hash !== user.hash) {
-    att.n++; att.t = Date.now(); _loginAttempts[key] = att;
+    _attSet(key, { n: att.n + 1, t: Date.now() });
     return { ok:false, msg:'Contraseña incorrecta.' };
   }
 
-  _loginAttempts[key] = { n:0, t:0 };
+  _attReset(key);
   return { ok:true, user };
 }
 
@@ -416,7 +428,10 @@ function jcmUpdatePoints(userId, newPoints) {
 // La primera vez que se abre el panel se pide crear la contraseña (mín. 8).
 const _ADMIN_SESS_KEY = 'jcm_admin_sess';
 const _ADMIN_SESS_TTL = 4 * 3600 * 1000;   // 4 h
-let _adminAtt = { n: 0, t: 0 };
+const _ADMIN_ATT_KEY  = 'jcm_adm_att';
+function _adminAttGet() { try { return JSON.parse(sessionStorage.getItem(_ADMIN_ATT_KEY) || 'null') || { n: 0, t: 0 }; } catch (e) { return { n: 0, t: 0 }; } }
+function _adminAttSet(v) { try { sessionStorage.setItem(_ADMIN_ATT_KEY, JSON.stringify(v)); } catch (e) {} }
+function _adminAttReset() { try { sessionStorage.removeItem(_ADMIN_ATT_KEY); } catch (e) {} }
 
 function jcmAdminHasPass() { try { return !!DB.get('admin_pass'); } catch (e) { return false; } }
 function jcmAdminUser() { try { const r = DB.get('admin_pass'); return (r && r.user) || ''; } catch (e) { return ''; } }
@@ -433,16 +448,17 @@ async function jcmAdminSetPass(pass, user) {
 }
 
 async function jcmAdminCheck(user, pass) {
-  if (_adminAtt.n >= 5 && Date.now() - _adminAtt.t < 15 * 60 * 1000)
+  const att = _adminAttGet();
+  if (att.n >= 5 && Date.now() - att.t < 15 * 60 * 1000)
     return { ok: false, msg: 'Demasiados intentos. Espera 15 minutos.' };
   const rec = DB.get('admin_pass');
   const hash = await jcmHash(pass || '', (rec && rec.v === 2) ? rec.salt : null);
   const userOk = !rec || !rec.user || (user || '').trim().toLowerCase() === (rec.user || '').toLowerCase();
   if (!rec || !hash || hash !== rec.hash || !userOk) {
-    _adminAtt.n++; _adminAtt.t = Date.now();
+    _adminAttSet({ n: att.n + 1, t: Date.now() });
     return { ok: false, msg: 'Usuario o contraseña incorrectos.' };
   }
-  _adminAtt = { n: 0, t: 0 };
+  _adminAttReset();
   jcmAdminStartSession();
   return { ok: true };
 }
@@ -492,7 +508,10 @@ async function jcmFetchNews() {
         link: item.link || '#',
         img:  item.thumbnail || item.enclosure?.link ||
               ((item.description||'').match(/<img[^>]+src=["']([^"']+)["']/)||[])[1] || null
-      })).filter(it => it.h);
+      }))
+      .filter(it => it.h)
+      // bloquear hrefs con esquemas peligrosos (javascript:, data:, vbscript:)
+      .map(it => ({ ...it, link: /^https?:\/\//i.test(it.link || '') ? it.link : '#' }));
 
       if (items.length) {
         DB.set('news_cache', { ts: Date.now(), items });
@@ -600,3 +619,42 @@ function jcmSeedIfEmpty() {
 
 // Exponer DB en window para los componentes React (const no se adjunta solo).
 try { window.DB = DB; } catch (e) {}
+
+// ── Antiautocompletado de contactos de Chrome ─────────────────────────────
+// Chrome rellena solo el correo/contacto en campos de texto sueltos (notas, montos,
+// concepto…). Apagamos su autofill en TODO input/textarea, salvo los que declaran
+// explícitamente su autocomplete (login/registro: usuario, correo, contraseña) y los
+// de tipo password. Cubre los campos que React monta dinámicamente vía MutationObserver.
+(function () {
+  function harden(el) {
+    if (!el || el.nodeType !== 1) return;
+    var tag = el.tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return;
+    if (el.type === 'password') return;            // credenciales: las gestiona el navegador
+    if (el.hasAttribute('autocomplete')) return;   // ya lo define el componente (login/correo)
+    el.setAttribute('autocomplete', 'off');
+    el.setAttribute('autocorrect', 'off');
+    el.setAttribute('autocapitalize', el.getAttribute('autocapitalize') || 'off');
+  }
+  function scan(root) {
+    try {
+      if (!root) return;
+      harden(root);
+      if (root.querySelectorAll) { var ns = root.querySelectorAll('input,textarea'); for (var i = 0; i < ns.length; i++) harden(ns[i]); }
+    } catch (e) {}
+  }
+  function start() {
+    scan(document.body || document.documentElement);
+    try {
+      var mo = new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var an = muts[i].addedNodes; if (!an) continue;
+          for (var j = 0; j < an.length; j++) scan(an[j]);
+        }
+      });
+      mo.observe(document.documentElement, { childList: true, subtree: true });
+    } catch (e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
