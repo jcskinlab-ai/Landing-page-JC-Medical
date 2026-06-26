@@ -218,15 +218,18 @@ function recitaFor(p) {
   const scuRe = /sculptra|bioestim|col[aá]g|estimul/i;
   // Última sesión de cada familia según el HISTORIAL CLÍNICO (no solo los tags).
   const fechado = hist.filter(h => h && _recitaTs(h.date || h.fecha)).sort((a, b) => _recitaTs(b.date || b.fecha) - _recitaTs(a.date || a.fecha));
+  const ahRe = /rino|hialur|armoniz|relleno/i;
   const lastTox = fechado.find(h => toxRe.test(h.proc || h.title || ""));
   const lastScu = fechado.find(h => scuRe.test(h.proc || h.title || ""));
-  // Elige la familia de la sesión más reciente; si no hay historial, cae al tag.
-  let pick = null;
-  if (lastTox && lastScu) pick = _recitaTs(lastTox.date || lastTox.fecha) >= _recitaTs(lastScu.date || lastScu.fecha) ? "toxina" : "sculptra";
-  else if (lastTox) pick = "toxina";
-  else if (lastScu) pick = "sculptra";
-  else if (toxRe.test(tag)) pick = "toxina";
-  else if (scuRe.test(tag)) pick = "sculptra";
+  const lastAh = fechado.find(h => ahRe.test(h.proc || h.title || ""));
+  // Elige la familia de la sesión MÁS reciente; si no hay historial, cae al tag.
+  const cand = [
+    lastTox && { fam: "toxina", ts: _recitaTs(lastTox.date || lastTox.fecha) },
+    lastScu && { fam: "sculptra", ts: _recitaTs(lastScu.date || lastScu.fecha) },
+    lastAh && { fam: "rino", ts: _recitaTs(lastAh.date || lastAh.fecha) }
+  ].filter(Boolean).sort((a, b) => b.ts - a.ts);
+  let pick = cand.length ? cand[0].fam
+    : (toxRe.test(tag) ? "toxina" : scuRe.test(tag) ? "sculptra" : ahRe.test(tag) ? "rino" : null);
   if (!pick) return null;
   let umbral, motivo, msg, precio, fam, refTs;
   if (pick === "toxina") {
@@ -234,13 +237,18 @@ function recitaFor(p) {
     motivo = "Toxina · refuerzo a 3 meses";
     msg = "ya es momento de renovar tu toxina botulínica para mantener tu resultado natural";
     refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
-  } else {
+  } else if (pick === "sculptra") {
     fam = "sculptra"; umbral = 2; precio = 280000;
     const ses = hist.filter(h => scuRe.test(h.proc || h.title || "")).length || 1;
     if (ses >= 3) return null; // esquema de 3 sesiones completo
     motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a 2 meses)";
     msg = "tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión " + (ses + 1) + " de 3)";
     refTs = lastScu ? _recitaTs(lastScu.date || lastScu.fecha) : _recitaTs(p.lastVisit);
+  } else {
+    fam = "rino"; umbral = 10; precio = 0; // sin precio definido → el WhatsApp no muestra valor
+    motivo = "Rinomodelación · mantención a 10 meses";
+    msg = "ya es buen momento para evaluar y renovar tu rinomodelación y mantener tu resultado";
+    refTs = lastAh ? _recitaTs(lastAh.date || lastAh.fecha) : _recitaTs(p.lastVisit);
   }
   if (!refTs) return null;
   const meses = (Date.now() - refTs) / (1000 * 60 * 60 * 24 * 30.44);
@@ -253,8 +261,9 @@ function recitaDue(patients) { return (patients || []).map(p => ({ p, r: recitaF
 // Mensaje de WhatsApp que muestra el precio real y luego el precio preferente (en pesos, no en %).
 function recitaMsg(p, r) {
   const first = (p.name || "").split(" ")[0] || "";
-  return "Hola " + first + ", te saludamos de " + ((window.clinicName && window.clinicName()) || "tu clínica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) +
-    ". El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + ". ¿Te agendamos tu hora?";
+  const base = "Hola " + first + ", te saludamos de " + ((window.clinicName && window.clinicName()) || "tu clínica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) + ".";
+  const precioTxt = r.precio ? " El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + "." : "";
+  return base + precioTxt + " ¿Te agendamos tu hora?";
 }
 function recitaWa(p, r) { return "https://wa.me/" + (p.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(recitaMsg(p, r)); }
 function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }) {
