@@ -745,21 +745,6 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   );
 }
 
-// Ancla el día de cada cita a su FECHA real (absoluta), recalculando el offset
-// relativo `day` en cada carga. Sin esto, las citas guardan `day` como un número
-// relativo a "hoy" que queda corrido al cruzar la medianoche → se ven 1 día movidas.
-// Si la cita no tiene fecha (citas demo/online antiguas), conserva su `day` original.
-function normApptDay(a) {
-  if (!a || !a.fecha) return { ...a };
-  try {
-    var t = new Date(a.fecha + "T00:00:00");
-    if (isNaN(t.getTime())) return { ...a };
-    var base = new Date(); base.setHours(0, 0, 0, 0);
-    var off = Math.round((t.getTime() - base.getTime()) / 86400000);
-    return { ...a, day: off };
-  } catch (e) { return { ...a }; }
-}
-
 function AdminApp() {
   // Modo día automático 08:00–18:00; modo noche 18:00–08:00.
   const autoTheme = () => { const h = new Date().getHours(); return (h >= 8 && h < 18) ? "cielo" : "azul"; };
@@ -798,7 +783,7 @@ function AdminApp() {
   const [appts, setAppts] = useState(() => {
     // Citas por clínica desde la BD (Firebase). Las reservas web ya entran aquí vía importWebBookings.
     var saved = (window.DB && window.DB.get("appointments"));
-    if (Array.isArray(saved)) return saved.map(normApptDay);
+    if (Array.isArray(saved)) return saved.map(a => ({ ...a }));
     const base = D.appointments.map(a => ({ ...a }));
     try {
       const online = (window.DB && window.DB.get("bookings")) || [];
@@ -841,7 +826,7 @@ function AdminApp() {
       try {
         importAllWeb().then(() => {
           if (!alive) return;
-          try { const fresh = window.DB && window.DB.get("appointments"); if (Array.isArray(fresh)) setAppts(fresh.map(normApptDay)); } catch (e) {}
+          try { const fresh = window.DB && window.DB.get("appointments"); if (Array.isArray(fresh)) setAppts(fresh.map(a => ({ ...a }))); } catch (e) {}
         });
       } catch (e) {}
     }
@@ -916,7 +901,7 @@ function AdminApp() {
     return fetchP.then(function (pending) {
       var impP = window.JCSAAS.importWebBookings ? window.JCSAAS.importWebBookings() : Promise.resolve(0);
       return impP.then(function (added) {
-        try { var fresh = window.DB && window.DB.get("appointments"); if (Array.isArray(fresh)) setAppts(fresh.map(normApptDay)); } catch (e) {}
+        try { var fresh = window.DB && window.DB.get("appointments"); if (Array.isArray(fresh)) setAppts(fresh.map(a => ({ ...a }))); } catch (e) {}
         return { ok: true, pending: (pending || []).length, added: added || 0, clinicId: (window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || "" };
       });
     }).catch(function (err) { return { ok: false, reason: (err && (err.code || err.message)) || "error" }; });
