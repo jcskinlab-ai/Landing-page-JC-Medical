@@ -881,6 +881,27 @@ function WhatsAppSetupModal({ T, onClose }) {
 }
 if (typeof window !== "undefined") window.WhatsAppSetupModal = WhatsAppSetupModal;
 
+// Guía honesta para Meta Business Suite (bandeja IG/FB en el panel). Es un proyecto grande
+// (OAuth + Webhooks + App Review de Meta). Aquí solo se explica qué requiere; el build es aparte.
+function MetaBizGuideModal({ T, onClose }) {
+  const stepBox = { background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" };
+  const stepNum = { fontFamily: T.sans, fontSize: 10, fontWeight: 700, letterSpacing: ".1em", color: T.accent, marginBottom: 5 };
+  const stepTxt = { fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.6 };
+  return (
+    <AdModal T={T} title="Bandeja de Instagram y Facebook" onClose={onClose} footer={<AdBtn T={T} primary full onClick={onClose}>Entendido</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>Ver y responder tus <b>DMs y comentarios de Instagram y Facebook</b> dentro del panel es una integración <b>grande</b> (parecida a WhatsApp): Meta exige conectar tu cuenta y <b>aprobar la app</b>, lo que tarda semanas. Por eso todavía no está activa.</p>
+        <div style={{ background: "rgba(214,158,46,.10)", border: "1px solid rgba(214,158,46,.4)", borderRadius: 8, padding: "9px 12px", fontFamily: T.sans, fontSize: 11.5, color: T.gold || "#b08400", lineHeight: 1.5 }}>⏳ Lo que más demora es la <b>verificación del negocio + revisión de la app (App Review)</b> en Meta. Conviene arrancarlo cuanto antes.</div>
+        <div style={stepBox}><div style={stepNum}>QUÉ REQUIERE</div><div style={stepTxt}>1) Conectar tu <b>Página de Facebook + Instagram Business</b> con login de Meta (OAuth). 2) Permisos avanzados de mensajería/comentarios. 3) <b>Verificación del negocio</b> y <b>App Review</b> de Meta.</div></div>
+        <div style={stepBox}><div style={stepNum}>QUIÉN LO HACE</div><div style={stepTxt}>El <b>dueño de la cuenta</b> arranca la verificación y la revisión en Meta (lo lento); nosotros construimos la conexión, el webhook y la bandeja en el panel.</div></div>
+        <div style={stepBox}><div style={stepNum}>BUENA NOTICIA</div><div style={stepTxt}>Es la <b>misma app de Meta</b> que necesita <b>WhatsApp</b>. Haciendo el setup una vez, sirve para las dos. <br /><a href="https://business.facebook.com/settings/security" target="_blank" rel="noopener" style={{ color: T.accent, fontSize: 11.5, textDecoration: "underline" }}>Abrir Verificación del negocio ↗</a></div></div>
+        <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>📄 El plan técnico completo (fases, endpoints, tiempos) está en <b>META-BUSINESS-SUITE-SETUP.md</b>.</p>
+      </div>
+    </AdModal>
+  );
+}
+if (typeof window !== "undefined") window.MetaBizGuideModal = MetaBizGuideModal;
+
 function IntegracionesView({ T }) {
   const [list, setList] = useState(() => {
     let saved = {};
@@ -892,6 +913,7 @@ function IntegracionesView({ T }) {
   const [correoModal, setCorreoModal] = useState(false); // conexión REAL de correo (envío de prueba)
   const [previewInteg, setPreviewInteg] = useState(null); // integración a previsualizar antes de conectar
   const [waGuide, setWaGuide] = useState(false); // guía paso a paso para activar WhatsApp
+  const [bizGuide, setBizGuide] = useState(false); // guía/requisitos de Meta Business Suite
   function toggle(id) {
     const n = list.map(i => i.id === id ? { ...i, connected: !i.connected } : i);
     setList(n);
@@ -916,6 +938,8 @@ function IntegracionesView({ T }) {
     if (it.id === "groq") { jcmTestIA(); return; }
     // WhatsApp Business: abre la guía paso a paso de activación (Meta Cloud API), no un toggle falso.
     if (it.id === "wa") { setWaGuide(true); return; }
+    // Meta Business Suite: abre los requisitos (build grande con App Review), no un toggle falso.
+    if (it.id === "metabiz") { setBizGuide(true); return; }
     if (!connected) { setPreviewInteg(it); return; } // mostrar popup antes de conectar
     toggle(it.id); // desconectar directo sin popup
   }
@@ -931,7 +955,8 @@ function IntegracionesView({ T }) {
             : it.id === "gcal" ? { label: "Exportar .ics", desc: "Exporta tus citas en un archivo .ics para importarlo en Google Calendar." }
             : it.id === "landing" ? { label: "Importar reservas", desc: "Las reservas de tu link público entran solas a la agenda al abrir el panel. Tu link está en Configuración. ¿Traer las nuevas ahora?" }
             : it.id === "groq" ? { label: "Probar IA", desc: "La IA ya potencia el Copiloto y los resúmenes del panel. Responder a pacientes por WhatsApp se activa al conectar WhatsApp. Probar que la IA responde:" }
-            : it.id === "wa" ? { label: "Ver pasos", desc: "Pendiente de activar. El asistente responde a tus pacientes por WhatsApp una vez que se enciende WhatsApp Cloud API en Meta. Mira los pasos:" } : null;
+            : it.id === "wa" ? { label: "Ver pasos", desc: "Pendiente de activar. El asistente responde a tus pacientes por WhatsApp una vez que se enciende WhatsApp Cloud API en Meta. Mira los pasos:" }
+            : it.id === "metabiz" ? { label: "Ver requisitos", desc: "Pendiente. Ver tus DMs y comentarios de IG/FB en el panel requiere conexión y revisión de Meta (proyecto grande). Mira qué hace falta:" } : null;
           return (
           <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (connected ? T.line : T.lineSoft) }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: it.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 500, flexShrink: 0 }}>{it.letter}</div>
@@ -951,6 +976,7 @@ function IntegracionesView({ T }) {
       {metaModal && <MetaConnectModal T={T} onClose={() => setMetaModal(false)} onSaved={() => { setMetaOn(metaConnected()); setMetaModal(false); }} />}
       {correoModal && <CorreoConnectModal T={T} onClose={() => setCorreoModal(false)} onConnected={() => { markConnected("gmail", true); setCorreoModal(false); }} />}
       {waGuide && <WhatsAppSetupModal T={T} onClose={() => setWaGuide(false)} />}
+      {bizGuide && <MetaBizGuideModal T={T} onClose={() => setBizGuide(false)} />}
       {previewInteg && (
         <AdModal T={T} title={"Conectar " + previewInteg.name} onClose={() => setPreviewInteg(null)}
           footer={<div style={{ display: "flex", gap: 10, width: "100%" }}>
@@ -1172,6 +1198,22 @@ function ConfigView({ T }) {
   const [copiedMob, setCopiedMob] = useState(false);
   function copyLink() { try { navigator.clipboard.writeText(bookUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (e) {} }
   function copyMobile() { try { navigator.clipboard.writeText(mobileUrl); setCopiedMob(true); setTimeout(() => setCopiedMob(false), 1800); } catch (e) {} }
+  // Calendario suscribible: las citas aparecen solas en Google/Apple Calendar (no descargar .ics).
+  const [calUrl, setCalUrl] = useState("");
+  const [calBusy, setCalBusy] = useState(false);
+  const [calErr, setCalErr] = useState("");
+  const [calCopied, setCalCopied] = useState(false);
+  function genCal() {
+    if (!window.mediqueCalendarLink) { setCalErr("No disponible en este momento."); return; }
+    setCalBusy(true); setCalErr("");
+    window.mediqueCalendarLink().then(r => {
+      setCalBusy(false);
+      if (r && r.ok && r.url) setCalUrl(r.url);
+      else if (r && r.configured === false) setCalErr("Aún no está activo: falta que el administrador agregue la clave de servicio de Firebase en el servidor.");
+      else setCalErr((r && r.error) || "No se pudo generar el link del calendario.");
+    });
+  }
+  function copyCal() { try { navigator.clipboard.writeText(calUrl); setCalCopied(true); setTimeout(() => setCalCopied(false), 1800); } catch (e) {} }
   return (
     <div>
       <SecHead T={T} title="Configuración de la clínica" sub="Administra la información pública y los detalles de tu clínica." />
@@ -1199,6 +1241,31 @@ function ConfigView({ T }) {
             <img src={qr} alt="QR de reserva" width="150" height="150" style={{ display: "block" }} />
           </div>
         </div>
+      </div>
+      {/* Calendario que se actualiza solo — suscripción por URL (no descargar .ics) */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
+        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4M9 16l2 2 4-4" /></svg>
+          Calendario que se actualiza solo
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px", lineHeight: 1.5 }}>Suscribe este calendario UNA vez en Google Calendar (o Apple/Outlook) y tus reservas aparecen solas en tu teléfono y PC, sin descargar nada. Google lo revisa cada varias horas (no es instantáneo).</div>
+        {!calUrl ? (
+          <div>
+            <AdBtn T={T} primary onClick={genCal}>{calBusy ? "Generando…" : "Generar mi link de calendario"}</AdBtn>
+            {calErr && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#e06a6a", marginTop: 10, lineHeight: 1.5 }}>{calErr}</div>}
+          </div>
+        ) : (
+          <div>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Tu link de suscripción</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input readOnly value={calUrl} onFocus={e => e.target.select()} style={{ flex: 1, fontFamily: T.sans, fontSize: 12.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" }} />
+              <button onClick={copyCal} title="Copiar" style={{ flexShrink: 0, padding: "0 13px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{calCopied ? "✓" : "Copiar"}</button>
+            </div>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10, lineHeight: 1.6 }}>
+              <b style={{ color: T.text }}>Cómo suscribirlo en Google Calendar:</b> abre <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener" style={{ color: T.accent, textDecoration: "underline" }}>Agregar desde URL ↗</a>, pega el link de arriba y pulsa “Agregar calendario”. (En el celular ya lo verás porque sincroniza tu Google).
+            </div>
+          </div>
+        )}
       </div>
       {/* Panel móvil del equipo — confirmar y crear citas desde el teléfono */}
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>

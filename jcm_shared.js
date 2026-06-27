@@ -330,6 +330,23 @@ function mediqueMeta(opts) {
 }
 if (typeof window !== 'undefined') window.mediqueMeta = mediqueMeta;
 
+// ── CLIENTE CALENDARIO SUSCRIBIBLE (/api/calendar) ──
+// Pide al servidor la URL de suscripción del calendario de la clínica (citas que se actualizan
+// solas en Google/Apple/Outlook). → Promise { ok, url, webcal } | { ok:false, configured?, error }
+function mediqueCalendarLink() {
+  try {
+    var cid = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || '';
+    var tokP = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
+    return Promise.resolve(tokP).then(function (tok) {
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+      return fetch('/api/calendar', { method: 'POST', headers: headers, body: JSON.stringify({ clinicId: cid }) });
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
+      .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
+  } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }
+}
+if (typeof window !== 'undefined') window.mediqueCalendarLink = mediqueCalendarLink;
+
 // ── CLIENTE 2FA por email (/api/otp). Envía el ID token de Firebase del usuario. ──
 function mediqueOtp(action, extra) {
   try {
