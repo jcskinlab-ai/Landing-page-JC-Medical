@@ -1625,10 +1625,11 @@ function FacturacionTab({ T, patient, updatePatient }) {
   const [delIdx, setDelIdx] = useState(null);
   const metodos = ["Transferencia", "Efectivo", "Tarjeta débito", "Tarjeta crédito", "Otro"];
 
-  const items = patient.billing || [];
+  // Atenciones = los pagos registrados en cada SESIÓN (pestaña Procedimientos). Fuente única.
+  const items = (patient.history || [])
+    .filter(h => (h.cobro || 0) > 0)
+    .map(h => ({ concept: (h.proc || "Atención"), metodo: h.metodo || "—", amount: h.cobro || 0, date: h.date || "" }));
   const total = items.reduce((s, i) => s + (i.amount || 0), 0);
-  const pagado = items.filter(i => i.paid).reduce((s, i) => s + (i.amount || 0), 0);
-  const saldo = total - pagado;
 
   function addNew() {
     setEditAt({ idx: -1, item: { id: "b" + Date.now(), concept: "", date: new Date().toLocaleDateString("es-CL"), amount: 0, paid: false, metodo: "Transferencia", comprobante: "" } });
@@ -1651,31 +1652,26 @@ function FacturacionTab({ T, patient, updatePatient }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Atenciones y pagos</div>
-        <AdBtn T={T} small primary onClick={addNew}>+ Atención</AdBtn>
+        {items.length > 0 && <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Total {D.fmt(total)}</div>}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
-        <AdStat T={T} n={D.fmt(total)} l="Total" />
-        <AdStat T={T} n={D.fmt(pagado)} l="Pagado" />
-        <AdStat T={T} n={D.fmt(saldo)} l="Saldo" accent={saldo > 0} />
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>
+        Los pagos se registran en cada <b style={{ color: T.text }}>sesión</b> (pestaña Procedimientos). Aquí ves solo el procedimiento, el método de pago y el monto.
       </div>
       {items.length === 0 && (
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, textAlign: "center", padding: "24px 0" }}>
-          No hay atenciones registradas. Presiona "+ Atención" para agregar una.
+          Aún no hay pagos. Registra el cobro al crear una sesión en <b>Procedimientos</b>.
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {items.map((b, idx) => (
-          <div key={b.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}>
-            <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setEditAt({ idx, item: { ...b } })}>
-              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept || "Sin descripción"}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.date}{b.metodo ? " · " + b.metodo : ""}</div>
+          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.metodo}</div>
             </div>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 }}>{D.fmt(b.amount || 0)}</div>
-            <AdTag T={T} tone={b.paid ? "ok" : "warn"}>{b.paid ? "Pagado" : "Pendiente"}</AdTag>
-            <button onClick={() => setEditAt({ idx, item: { ...b } })} title="Editar" style={{ background: "none", border: "none", cursor: "pointer", padding: 5, color: T.textMute, flexShrink: 0 }}>{iconEdit}</button>
-            <button onClick={() => setDelIdx(idx)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", padding: 5, color: T.textFaint, flexShrink: 0 }}>{iconDel}</button>
           </div>
         ))}
       </div>
