@@ -1559,8 +1559,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {/* Vista previa momentánea al pasar el cursor sobre una cita (vista día/lista) */}
       {hoverA && hoverA.a && !edit && (() => {
         const a = hoverA.a, isPP = a.status === "pendiente_pago";
-        const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
-        const estado = a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
+        const ac = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent));
+        const estado = a.status === "no_asistio" ? "No asistió" : (a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente")));
         return (
           <div style={{ position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
@@ -1700,7 +1700,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   {/* Bloques de citas apilados verticalmente */}
                   {stackAppts(da).map(a => {
                     const isPendPago = a.status === "pendiente_pago";
-                    const accentColor = a.attended ? "#1F8A5B" : (isPendPago ? "#B8860B" : T.accent);
+                    const accentColor = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPendPago ? "#B8860B" : T.accent));
                     return (
                       <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
                         onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
@@ -1726,8 +1726,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       {/* Vista previa momentánea al pasar el cursor sobre una cita */}
       {hover && hover.a && !menu && (() => {
         const a = hover.a, isPP = a.status === "pendiente_pago";
-        const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
-        const estado = a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
+        const ac = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent));
+        const estado = a.status === "no_asistio" ? "No asistió" : (a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente")));
         return (
           <div style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
@@ -1758,6 +1758,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               ["__sep", null],
               ...(activeAppt.status === "pendiente_pago" ? [["✓ Confirmar transferencia", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#1F8A5B"]] : []),
               ["Marcar como atendido", () => { updateAppt(activeAppt.id, { status: "confirmada", attended: true }); setMenu(null); }],
+              ["No asistió", () => { updateAppt(activeAppt.id, { status: "no_asistio", attended: false }); setMenu(null); }, "#C0285A"],
               ["Anular", () => { removeAppt(activeAppt.id); setMenu(null); }]
             ].map((it, i) => it[0] === "__sep"
               ? <div key={i} style={{ height: 1, background: T.lineSoft, margin: "4px 0" }} />

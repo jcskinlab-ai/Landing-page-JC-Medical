@@ -1262,8 +1262,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     setFichaConfirm(null);
   }, style: { flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" } }, "Ir a ficha")))), hoverA && hoverA.a && !edit && (() => {
     const a = hoverA.a, isPP = a.status === "pendiente_pago";
-    const ac = a.attended ? "#1F8A5B" : isPP ? "#B8860B" : T.accent;
-    const estado = a.attended ? "Atendida" : isPP ? "\u23F3 Pago pendiente" : a.status === "confirmada" ? "Confirmada" : "Pendiente";
+    const ac = a.status === "no_asistio" ? "#C0285A" : a.attended ? "#1F8A5B" : isPP ? "#B8860B" : T.accent;
+    const estado = a.status === "no_asistio" ? "No asisti\xF3" : a.attended ? "Atendida" : isPP ? "\u23F3 Pago pendiente" : a.status === "confirmada" ? "Confirmada" : "Pendiente";
     return /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 } }, a.name), [["Hora", a.time], ["Duraci\xF3n", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "\u2014"], ["Estado", estado]].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 500, textAlign: "right" } }, v))));
   })());
 }
@@ -1386,7 +1386,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       ));
     }), stackAppts(da).map((a) => {
       const isPendPago = a.status === "pendiente_pago";
-      const accentColor = a.attended ? "#1F8A5B" : isPendPago ? "#B8860B" : T.accent;
+      const accentColor = a.status === "no_asistio" ? "#C0285A" : a.attended ? "#1F8A5B" : isPendPago ? "#B8860B" : T.accent;
       return /* @__PURE__ */ React.createElement(
         "div",
         {
@@ -1412,8 +1412,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     }));
   })))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Pasa el mouse por un horario libre y toca el ", /* @__PURE__ */ React.createElement("b", { style: { color: T.accent } }, "+"), " para agendar \xB7 toca una cita para ver opciones (atender, reprogramar, anular)."), hover && hover.a && !menu && (() => {
     const a = hover.a, isPP = a.status === "pendiente_pago";
-    const ac = a.attended ? "#1F8A5B" : isPP ? "#B8860B" : T.accent;
-    const estado = a.attended ? "Atendida" : isPP ? "\u23F3 Pago pendiente" : a.status === "confirmada" ? "Confirmada" : "Pendiente";
+    const ac = a.status === "no_asistio" ? "#C0285A" : a.attended ? "#1F8A5B" : isPP ? "#B8860B" : T.accent;
+    const estado = a.status === "no_asistio" ? "No asisti\xF3" : a.attended ? "Atendida" : isPP ? "\u23F3 Pago pendiente" : a.status === "confirmada" ? "Confirmada" : "Pendiente";
     return /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 } }, a.name), [["Hora", a.time], ["Duraci\xF3n", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "\u2014"], ["Estado", estado]].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 500, textAlign: "right" } }, v))), a.comentario && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 3 } }, "Comentario"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)));
   })(), menu && activeAppt && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setMenu(null), style: { position: "fixed", inset: 0, zIndex: 79 } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: menuPos.x, top: menuPos.y, zIndex: 80, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 8, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", overflow: "hidden", padding: "4px 0", animation: "jcSlideUp .2s ease" } }, [
     ["Ver ficha del paciente", () => {
@@ -1441,6 +1441,10 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       updateAppt(activeAppt.id, { status: "confirmada", attended: true });
       setMenu(null);
     }],
+    ["No asisti\xF3", () => {
+      updateAppt(activeAppt.id, { status: "no_asistio", attended: false });
+      setMenu(null);
+    }, "#C0285A"],
     ["Anular", () => {
       removeAppt(activeAppt.id);
       setMenu(null);

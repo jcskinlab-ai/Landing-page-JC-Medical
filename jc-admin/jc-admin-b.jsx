@@ -1472,7 +1472,10 @@ function ConsentTab({ T, patient, updatePatient }) {
         lista.unshift(nuevo);
         commitConsents(lista); // guarda el consentimiento en su propia clave (sube a la nube)
         // En el paciente solo queda la marca liviana (sin firmas) para que el documento sea pequeño.
-        updatePatient(patient.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+        // La edad se sincroniza con la ficha: si el consentimiento la trae y la ficha no la tenía, la guarda.
+        const _age = parseInt(r.fields && r.fields.edad, 10);
+        const _agePatch = (_age && !patient.age) ? { age: _age } : {};
+        updatePatient(patient.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
         setSigning(false);
         try { window.jcmToast && window.jcmToast("Consentimiento guardado. Se abrió en una pestaña para tu respaldo.", "ok"); } catch (e) {}
         // Abre el consentimiento firmado en una PESTAÑA NUEVA (sin lanzar la impresión).

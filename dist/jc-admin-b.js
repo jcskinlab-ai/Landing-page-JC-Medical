@@ -1166,7 +1166,9 @@ function ConsentTab({ T, patient, updatePatient }) {
     const lista = patConsents(patient).slice();
     lista.unshift(nuevo);
     commitConsents(lista);
-    updatePatient(patient.id, { consent: true, consentInfo: r.tpl.title + " \xB7 " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+    const _age = parseInt(r.fields && r.fields.edad, 10);
+    const _agePatch = _age && !patient.age ? { age: _age } : {};
+    updatePatient(patient.id, { consent: true, consentInfo: r.tpl.title + " \xB7 " + r.fields.fecha, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
     setSigning(false);
     try {
       window.jcmToast && window.jcmToast("Consentimiento guardado. Se abri\xF3 en una pesta\xF1a para tu respaldo.", "ok");
