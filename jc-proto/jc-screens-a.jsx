@@ -124,7 +124,7 @@ function HomeScreen({ T, D, go, openBooking, tone }) {
     <div style={{ height: "100%" }}>
       {/* Hero — ocupa exactamente el alto del marco; al desplazar pasa de inmediato a tratamientos */}
       <div style={{ position: "relative", overflow: "hidden", height: "100%", minHeight: 520, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-        <img src="assets/jc-hero-v2.png" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 28%" }} />
+        <img src="assets/jc-hero-v2.png" alt="" fetchpriority="high" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 28%" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(13,13,13,.58) 0%, rgba(13,13,13,.34) 28%, rgba(13,13,13,.66) 56%, rgba(13,13,13,.97) 100%)" }} />
         <div style={{ position: "relative", padding: "0 22px 96px" }}>
           <Eyebrow T={heroT}>Medicina estética · Talca</Eyebrow>
@@ -168,8 +168,9 @@ function HomeScreen({ T, D, go, openBooking, tone }) {
       </div>
       <div style={{ display: "flex", gap: 8, padding: "0 20px", overflowX: "auto", scrollSnapType: "x mandatory" }}>
         {D.beforeAfter.map(b => (
-          <button key={b.id} onClick={() => setBaLight(b)} title="Ver foto completa" style={{ flex: "0 0 30%", scrollSnapAlign: "start", padding: 0, background: T.surface2, cursor: "pointer", borderRadius: 12, overflow: "hidden", position: "relative", border: "1px solid " + T.line }}>
-            <img src={b.img} alt={b.t} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+          <button key={b.id} onClick={() => setBaLight(b)} title={"Ver resultado: " + b.t} aria-label={"Ver resultado real: " + b.t}
+            style={{ flex: "0 0 30%", scrollSnapAlign: "start", padding: 0, background: T.surface2, cursor: "pointer", borderRadius: 12, overflow: "hidden", position: "relative", border: "1px solid " + T.line }}>
+            <img src={b.img} alt={b.t} loading="lazy" decoding="async" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
           </button>
         ))}
       </div>
@@ -445,9 +446,9 @@ function CatalogScreen({ T, D, go, openBooking, onBack }) {
             {searchGroups.map(({ cat, g, items }) => (
               <Reveal key={cat} style={{ marginTop: 22 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, paddingBottom: 8, borderBottom: "1px solid " + T.line }}>{cat}</div>
-                {items.map(it => { const ph = catPhoto(it.n, g.cat); return it.promo
-                  ? <PromoRow key={it.n} T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} />
-                  : <CatRow key={it.n} T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} onAdd={() => openBooking && openBooking({ name: it.n, price: it.price })} />; })}
+                {items.map((it, idx) => { const ph = catPhoto(it.n, g.cat); return it.promo
+                  ? <div key={it.n} style={{ animation: "jcFade .32s ease both", animationDelay: (idx * 0.045) + "s" }}><PromoRow T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} /></div>
+                  : <div key={it.n} style={{ animation: "jcFade .32s ease both", animationDelay: (idx * 0.045) + "s" }}><CatRow T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} onAdd={() => openBooking && openBooking({ name: it.n, price: it.price })} /></div>; })}
               </Reveal>
             ))}
           </div>
@@ -482,9 +483,9 @@ function CatalogScreen({ T, D, go, openBooking, onBack }) {
             return (
               <Reveal key={g.cat} style={{ marginTop: 22 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase", color: T.accent, paddingBottom: 8, borderBottom: "1px solid " + T.line }}>{g.cat}</div>
-                {items.map(it => { const ph = catPhoto(it.n, g.cat); return it.promo
-                  ? <PromoRow key={it.n} T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} />
-                  : <CatRow key={it.n} T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} onAdd={() => openBooking && openBooking({ name: it.n, price: it.price })} />; })}
+                {items.map((it, idx) => { const ph = catPhoto(it.n, g.cat); return it.promo
+                  ? <div key={it.n} style={{ animation: "jcFade .32s ease both", animationDelay: (idx * 0.045) + "s" }}><PromoRow T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} /></div>
+                  : <div key={it.n} style={{ animation: "jcFade .32s ease both", animationDelay: (idx * 0.045) + "s" }}><CatRow T={T} it={it} D={D} photo={ph} onClick={() => openFicha(it, g.cat, ph)} onAdd={() => openBooking && openBooking({ name: it.n, price: it.price })} /></div>; })}
               </Reveal>
             );
           })}
@@ -506,13 +507,14 @@ function CatRow({ T, it, onClick, D, photo, onAdd }) {
     setAdded(true);
     if (tRef.current) clearTimeout(tRef.current);
     tRef.current = setTimeout(() => setAdded(false), 700);
+    if (navigator.vibrate) navigator.vibrate(8);
     onAdd && onAdd();
   }
   return (
     <button onClick={onClick} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
       style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", padding: "14px 4px", cursor: "pointer", background: h ? T.surface : "transparent", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: "background .2s" }}>
       <div style={{ width: 58, height: 58, flexShrink: 0, borderRadius: 10, overflow: "hidden", border: "1px solid " + T.line }}>
-        <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
+        <img src={photo} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 500, color: T.text }}>{it.n}</div>
@@ -546,7 +548,7 @@ function PromoRow({ T, it, onClick, D, photo }) {
     <button onClick={onClick} style={{ display: "block", width: "100%", textAlign: "left", padding: "4px 12px", cursor: "pointer", marginTop: 8, background: "linear-gradient(180deg, " + (T.accentSoft || "rgba(84,112,127,.12)") + ", transparent)", border: "1px solid rgba(84,112,127,.25)", borderRadius: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 13, padding: "10px 0" }}>
         <div style={{ width: 58, height: 58, flexShrink: 0, borderRadius: 10, overflow: "hidden", border: "1px solid " + T.line }}>
-          <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
+          <img src={photo} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 500, color: T.text, lineHeight: 1.25 }}>{it.n}</div>

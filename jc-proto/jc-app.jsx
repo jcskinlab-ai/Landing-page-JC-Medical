@@ -65,10 +65,12 @@ function OnboardOverlay({ T, onDone }) {
           <p style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 300, color: T.textMute, lineHeight: 1.75 }}>{cur.body}</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={onDone} style={{ flex: 1, fontFamily: T.sans, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 4, padding: "14px 10px", cursor: "pointer", minHeight: 44 }}>
-            Omitir
+          <button onClick={onDone} aria-label="Explorar sin guía"
+            style={{ flex: 1, fontFamily: T.sans, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 4, padding: "14px 10px", cursor: "pointer", minHeight: 44 }}>
+            Explorar
           </button>
-          <button onClick={() => isLast ? onDone() : setStep(s => s + 1)} style={{ flex: 2, fontFamily: T.sans, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: T.primaryText, background: T.primaryBg, border: "none", borderRadius: 4, padding: "14px 10px", cursor: "pointer", minHeight: 44 }}>
+          <button onClick={() => isLast ? onDone() : setStep(s => s + 1)} aria-label={isLast ? "Entrar a la app" : "Ir al siguiente paso"}
+            style={{ flex: 2, fontFamily: T.sans, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: T.primaryText, background: T.primaryBg, border: "none", borderRadius: 4, padding: "14px 10px", cursor: "pointer", minHeight: 44 }}>
             {isLast ? "Comenzar" : "Siguiente"}
           </button>
         </div>
