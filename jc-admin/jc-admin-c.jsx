@@ -722,7 +722,8 @@ function jcmSlug(s) { return (s || "medique").toLowerCase().replace(/[^a-z0-9]/g
 // Respaldo de todas las fichas/pacientes/citas en un JSON descargable.
 function jcmBackupFichas() {
   var patients = [], appts = [];
-  try { patients = (window.DB && DB.get("patients")) || []; } catch (e) {}
+  // Respaldo con el historial COMPLETO: rehidrata phist_<id> en cada paciente.
+  try { patients = (window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : ((window.DB && DB.get("patients")) || [])) || []; } catch (e) {}
   try { appts = (window.DB && DB.get("appointments")) || []; } catch (e) {}
   var clinica = jcmClinicName(), now = new Date();
   var fecha = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
@@ -2650,6 +2651,53 @@ function optimizePatientsBlock() {
   });
   if (changed) { try { DB.set("patients", next); } catch (e) { return { ok: false, movedImg, movedCons }; } }
   return { ok: true, movedImg, movedCons };
+}
+
+// ── Historial por paciente en su propia clave (phist_<id>) ────────────────────
+// El bloque "patients" guarda solo el ÍNDICE liviano (datos, etiquetas, flags, billing).
+// El historial de sesiones de cada paciente vive en phist_<id>, un documento aparte
+// y pequeño. Así "patients" nunca crece sin control ni topa el límite de 1 MB de la
+// nube por más sesiones que se registren. Cada phist_<id> sincroniza solo (como pimg_/pcons_).
+function patHistKey(id) { return "phist_" + id; }
+// Caché de la última versión persistida del historial de cada paciente (evita reescrituras).
+var _histCache = {};
+// Lee el índice liviano y RE-HIDRATA el historial de cada paciente desde su clave propia,
+// dejando los objetos exactamente como el resto del panel los espera (con .history poblado).
+function loadPatientsFull() {
+  var DB = window.DB; if (!DB) return [];
+  var idx; try { idx = DB.get("patients"); } catch (e) { return []; }
+  if (!Array.isArray(idx)) return [];
+  return idx.map(function (p) {
+    if (!p || p.id == null) return p;
+    // Formato ANTIGUO: el historial está inline y AÚN NO en phist_<id>. No sembramos la caché,
+    // para que el próximo guardado SÍ lo escriba en su clave propia (migración sin pérdida).
+    if (Array.isArray(p.history)) return Object.assign({}, p);
+    // Formato nuevo: el historial ya vive en phist_<id> (ya persistido) → siembra la caché.
+    var hist = []; try { var h = DB.get(patHistKey(p.id)); if (Array.isArray(h)) hist = h; } catch (e) {}
+    try { _histCache[p.id] = JSON.stringify(hist); } catch (e) {}
+    return Object.assign({}, p, { history: hist });
+  });
+}
+// Punto ÚNICO de persistencia: guarda cada historial en phist_<id> (solo si cambió) y
+// el índice "patients" SIN historial inline. No pierde nada y mantiene el índice liviano.
+function savePatientsLight(list) {
+  var DB = window.DB; if (!DB) return list;
+  var light = (list || []).map(function (p) {
+    if (!p || p.id == null) return p;
+    if (Array.isArray(p.history)) {
+      var js = null; try { js = JSON.stringify(p.history); } catch (e) {}
+      if (js != null && _histCache[p.id] !== js) { try { DB.set(patHistKey(p.id), p.history); } catch (e) {} _histCache[p.id] = js; }
+      var rest = Object.assign({}, p); delete rest.history; return rest;
+    }
+    return p;
+  });
+  try { DB.set("patients", light); } catch (e) {}
+  return list;
+}
+if (typeof window !== "undefined") {
+  window.optimizePatientsBlock = optimizePatientsBlock;
+  window.jcmLoadPatientsFull = loadPatientsFull;
+  window.jcmSavePatientsLight = savePatientsLight;
 }
 
 // Diagnóstico de sincronización con la nube: tamaño de cada bloque, qué falta subir y por qué.

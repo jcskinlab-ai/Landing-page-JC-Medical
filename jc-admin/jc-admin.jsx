@@ -790,8 +790,12 @@ function AdminApp() {
   function closeTour() { try { window.DB && window.DB.set("tour_done_v1", true); } catch (e) {} setShowTour(false); }
   const [darCita, setDarCita] = useState(null); // prellenado del copiloto → abre modal "Dar cita"
   const [patients, setPatients] = useState(() => {
-    var saved = (window.DB && window.DB.get("patients"));
-    return (Array.isArray(saved) ? saved : A.patients).map(p => ({ ...p, points: p.points || [] }));
+    // Carga hidratada: el índice "patients" es liviano y el historial vive en phist_<id>.
+    var raw = (window.DB && window.DB.get("patients"));
+    var arr = Array.isArray(raw)
+      ? (window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : raw)
+      : A.patients;
+    return arr.map(p => ({ ...p, points: p.points || [], history: Array.isArray(p.history) ? p.history : [] }));
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
   const [openPatientTab, setOpenPatientTab] = useState(null);
@@ -811,9 +815,49 @@ function AdminApp() {
     } catch (e) {}
     return base;
   });
-  // Persistencia por clínica
-  function savePatients(list) { try { window.DB && window.DB.set("patients", list); } catch (e) {} return list; }
+  // Persistencia por clínica. Punto ÚNICO: el historial se guarda en phist_<id> y el
+  // índice "patients" queda liviano (no topa el límite de 1 MB de la nube → sincroniza siempre).
+  function savePatients(list) {
+    try {
+      if (window.jcmSavePatientsLight) window.jcmSavePatientsLight(list);
+      else if (window.DB) window.DB.set("patients", list);
+    } catch (e) {}
+    return list;
+  }
   function saveAppts(list) { try { window.DB && window.DB.set("appointments", list); } catch (e) {} return list; }
+
+  // ── Sincronización robusta entre dispositivos ────────────────────────────────
+  // (A+C) Al entrar: migra el historial inline → phist_<id> y saca las imágenes/firmas
+  // base64 del bloque "patients" (reusa la optimización ya probada). Así el índice queda
+  // liviano, baja del límite de 1 MB y vuelve a subir a la nube. No se pierde ningún dato.
+  useEffect(() => {
+    try {
+      if (window.jcmSavePatientsLight) window.jcmSavePatientsLight(patients); // C: separa el historial
+      if (window.optimizePatientsBlock) window.optimizePatientsBlock();        // A: separa imágenes/firmas
+      if (window.JCSAAS && window.JCSAAS.retrySync) setTimeout(() => { try { window.JCSAAS.retrySync(); } catch (e) {} }, 1500);
+    } catch (e) {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // (B) Refresco en vivo: cuando otro dispositivo de la clínica sube un cambio, la nube
+  // actualiza el almacenamiento local y emite 'jcsaas:data'. Aquí re-leemos pacientes y
+  // agenda para que aparezcan SIN tener que recargar la página.
+  useEffect(() => {
+    function onData() {
+      try {
+        var raw = window.DB && window.DB.get("patients");
+        if (Array.isArray(raw)) {
+          var full = window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : raw;
+          setPatients(full.map(p => ({ ...p, points: p.points || [], history: Array.isArray(p.history) ? p.history : [] })));
+        }
+        var fa = window.DB && window.DB.get("appointments");
+        if (Array.isArray(fa)) setAppts(fa.map(a => ({ ...a })));
+      } catch (e) {}
+    }
+    window.addEventListener("jcsaas:data", onData);
+    return () => window.removeEventListener("jcsaas:data", onData);
+  }, []);
+
   const [navOpen, setNavOpen] = useState(false);
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);

@@ -542,7 +542,7 @@ function jcmSlug(s) {
 function jcmBackupFichas() {
   var patients = [], appts = [];
   try {
-    patients = window.DB && DB.get("patients") || [];
+    patients = (window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : window.DB && DB.get("patients") || []) || [];
   } catch (e) {
   }
   try {
@@ -2027,6 +2027,71 @@ function optimizePatientsBlock() {
     }
   }
   return { ok: true, movedImg, movedCons };
+}
+function patHistKey(id) {
+  return "phist_" + id;
+}
+var _histCache = {};
+function loadPatientsFull() {
+  var DB2 = window.DB;
+  if (!DB2) return [];
+  var idx;
+  try {
+    idx = DB2.get("patients");
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(idx)) return [];
+  return idx.map(function(p) {
+    if (!p || p.id == null) return p;
+    if (Array.isArray(p.history)) return Object.assign({}, p);
+    var hist = [];
+    try {
+      var h = DB2.get(patHistKey(p.id));
+      if (Array.isArray(h)) hist = h;
+    } catch (e) {
+    }
+    try {
+      _histCache[p.id] = JSON.stringify(hist);
+    } catch (e) {
+    }
+    return Object.assign({}, p, { history: hist });
+  });
+}
+function savePatientsLight(list) {
+  var DB2 = window.DB;
+  if (!DB2) return list;
+  var light = (list || []).map(function(p) {
+    if (!p || p.id == null) return p;
+    if (Array.isArray(p.history)) {
+      var js = null;
+      try {
+        js = JSON.stringify(p.history);
+      } catch (e) {
+      }
+      if (js != null && _histCache[p.id] !== js) {
+        try {
+          DB2.set(patHistKey(p.id), p.history);
+        } catch (e) {
+        }
+        _histCache[p.id] = js;
+      }
+      var rest = Object.assign({}, p);
+      delete rest.history;
+      return rest;
+    }
+    return p;
+  });
+  try {
+    DB2.set("patients", light);
+  } catch (e) {
+  }
+  return list;
+}
+if (typeof window !== "undefined") {
+  window.optimizePatientsBlock = optimizePatientsBlock;
+  window.jcmLoadPatientsFull = loadPatientsFull;
+  window.jcmSavePatientsLight = savePatientsLight;
 }
 function SyncStatusCard({ T }) {
   const [, force] = useState(0);

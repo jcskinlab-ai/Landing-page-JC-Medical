@@ -581,8 +581,9 @@ function AdminApp() {
   }
   const [darCita, setDarCita] = useState(null);
   const [patients, setPatients] = useState(() => {
-    var saved = window.DB && window.DB.get("patients");
-    return (Array.isArray(saved) ? saved : A.patients).map((p) => ({ ...p, points: p.points || [] }));
+    var raw = window.DB && window.DB.get("patients");
+    var arr = Array.isArray(raw) ? window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : raw : A.patients;
+    return arr.map((p) => ({ ...p, points: p.points || [], history: Array.isArray(p.history) ? p.history : [] }));
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
   const [openPatientTab, setOpenPatientTab] = useState(null);
@@ -610,7 +611,8 @@ function AdminApp() {
   });
   function savePatients(list) {
     try {
-      window.DB && window.DB.set("patients", list);
+      if (window.jcmSavePatientsLight) window.jcmSavePatientsLight(list);
+      else if (window.DB) window.DB.set("patients", list);
     } catch (e) {
     }
     return list;
@@ -622,6 +624,35 @@ function AdminApp() {
     }
     return list;
   }
+  useEffect(() => {
+    try {
+      if (window.jcmSavePatientsLight) window.jcmSavePatientsLight(patients);
+      if (window.optimizePatientsBlock) window.optimizePatientsBlock();
+      if (window.JCSAAS && window.JCSAAS.retrySync) setTimeout(() => {
+        try {
+          window.JCSAAS.retrySync();
+        } catch (e) {
+        }
+      }, 1500);
+    } catch (e) {
+    }
+  }, []);
+  useEffect(() => {
+    function onData() {
+      try {
+        var raw = window.DB && window.DB.get("patients");
+        if (Array.isArray(raw)) {
+          var full = window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : raw;
+          setPatients(full.map((p) => ({ ...p, points: p.points || [], history: Array.isArray(p.history) ? p.history : [] })));
+        }
+        var fa = window.DB && window.DB.get("appointments");
+        if (Array.isArray(fa)) setAppts(fa.map((a) => ({ ...a })));
+      } catch (e) {
+      }
+    }
+    window.addEventListener("jcsaas:data", onData);
+    return () => window.removeEventListener("jcsaas:data", onData);
+  }, []);
   const [navOpen, setNavOpen] = useState(false);
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
