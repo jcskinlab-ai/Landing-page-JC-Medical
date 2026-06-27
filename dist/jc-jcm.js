@@ -35,9 +35,22 @@ function AppJCMView({ T }) {
 }
 function UsuariosApp({ T }) {
   const DB = _db();
-  const [users] = useState(() => DB.get("users") || []);
+  const [users, setUsers] = useState(() => DB.get("users") || []);
   const [reds] = useState(() => DB.get("redeems") || []);
   const [q, setQ] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  useEffect(() => {
+    pull();
+  }, []);
+  function pull() {
+    if (!window.JCSAAS || !window.JCSAAS.importWebAppUsers) return;
+    setSyncing(true);
+    window.JCSAAS.importWebAppUsers().then((n) => {
+      setSyncing(false);
+      if (n > 0) setUsers(DB.get("users") || []);
+    }).catch(() => setSyncing(false));
+  }
   const ticketsByUser = {};
   reds.forEach((r) => {
     if (r.done) ticketsByUser[r.user] = (ticketsByUser[r.user] || 0) + 1;
@@ -54,7 +67,13 @@ function UsuariosApp({ T }) {
     a.download = "usuarios-app.csv";
     a.click();
   }
-  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement(JcmCard, { T }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.text } }, "Usuarios registrados ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: T.textMute } }, "\xB7 ", users.length)), users.length > 0 && /* @__PURE__ */ React.createElement(JcmBtn, { T, ghost: true, onClick: expUsers }, "\u2193 Exportar CSV")), users.length > 0 && /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "Buscar por nombre, correo o tel\xE9fono\u2026", style: { width: "100%", padding: "10px 13px", borderRadius: 6, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", marginBottom: 12 } }), users.length === 0 && /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 } }, "A\xFAn no hay usuarios registrados en la app. Cuando alguien cree una cuenta en jcmedical.cl/app, aparecer\xE1 aqu\xED."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 0 } }, filtered.map((u, i) => {
+  const rulesCode = `match /tenants/{clinicId}/appusers/{doc} {
+  allow create: if request.resource.data.keys().hasOnly(
+    ['name','phone','email','points','created','createdAt']
+  ) && request.resource.data.size() < 1000;
+  allow read, update, delete: if request.auth != null;
+}`;
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement(JcmCard, { T }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.text } }, "Usuarios registrados ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: T.textMute } }, "\xB7 ", users.length)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(JcmBtn, { T, ghost: true, onClick: pull }, syncing ? "Sincronizando\u2026" : "\u21BB Traer usuarios web"), users.length > 0 && /* @__PURE__ */ React.createElement(JcmBtn, { T, ghost: true, onClick: expUsers }, "\u2193 CSV"))), users.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 6 } }, "Para que los registros de la app lleguen al panel, agrega esta regla en ", /* @__PURE__ */ React.createElement("b", null, "Firestore \u2192 Reglas"), ":"), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRules((r) => !r), style: { fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" } }, showRules ? "Ocultar regla" : "Ver regla de Firestore"), showRules && /* @__PURE__ */ React.createElement("pre", { style: { marginTop: 10, fontFamily: "monospace", fontSize: 11, color: T.text, background: T.bg, border: "1px solid " + T.line, borderRadius: 6, padding: "10px 12px", overflowX: "auto", whiteSpace: "pre-wrap" } }, rulesCode)), users.length > 0 && /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "Buscar por nombre, correo o tel\xE9fono\u2026", style: { width: "100%", padding: "10px 13px", borderRadius: 6, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", marginBottom: 12 } }), users.length === 0 && !syncing && /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 } }, 'A\xFAn no hay usuarios. Agrega la regla de Firestore y luego toca "\u21BB Traer usuarios web".'), syncing && /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Buscando usuarios en la nube\u2026"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 0 } }, filtered.map((u, i) => {
     const tickets = ticketsByUser[u.name] || 0;
     return /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 12, paddingTop: i === 0 ? 0 : 10, marginTop: i === 0 ? 0 : 10, borderTop: i === 0 ? "none" : "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { width: 38, height: 38, borderRadius: "50%", background: T.accent + "22", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 15, fontWeight: 600, flexShrink: 0 } }, (u.name || "?")[0].toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, u.name || "Sin nombre"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1 } }, u.phone && /* @__PURE__ */ React.createElement("span", null, u.phone), u.phone && u.email && /* @__PURE__ */ React.createElement("span", { style: { margin: "0 5px", opacity: 0.4 } }, "\xB7"), u.email && /* @__PURE__ */ React.createElement("span", null, u.email))), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.gold || "#C4A96A" } }, (u.points || 0).toLocaleString("es-CL"), " pts"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: tickets > 0 ? "#1F8A5B" : T.textFaint, marginTop: 1 } }, tickets > 0 ? tickets + " ticket" + (tickets !== 1 ? "s" : "") + " canjeado" + (tickets !== 1 ? "s" : "") : "Sin canjes")));
   })), filtered.length === 0 && q && /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 8 } }, 'No hay resultados para "', q, '".')), users.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 } }, [

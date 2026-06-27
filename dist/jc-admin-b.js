@@ -786,7 +786,7 @@ function ConsentView({ T, patients, updatePatient }) {
           window.DB.set(patConsKey(p.id), lista);
         } catch (e) {
         }
-        updatePatient(p.id, { consent: true, consentInfo: r.tpl.title + " \xB7 " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+        updatePatient(p.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " \xB7 " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
         setSigning(null);
       }
     }
@@ -1170,7 +1170,7 @@ function ConsentTab({ T, patient, updatePatient }) {
     commitConsents(lista);
     const _age = parseInt(r.fields && r.fields.edad, 10);
     const _agePatch = _age && !patient.age ? { age: _age } : {};
-    updatePatient(patient.id, { consent: true, consentInfo: r.tpl.title + " \xB7 " + r.fields.fecha, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+    updatePatient(patient.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " \xB7 " + r.fields.fecha, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
     setSigning(false);
     try {
       window.jcmToast && window.jcmToast("Consentimiento guardado. Se abri\xF3 en una pesta\xF1a para tu respaldo.", "ok");
@@ -1187,7 +1187,7 @@ function readImageResized(file, cb) {
   reader.onload = (e) => {
     const img = new Image();
     img.onload = () => {
-      const max = 900;
+      const max = 800;
       let { width: w, height: h } = img;
       if (w > max || h > max) {
         const r = Math.min(max / w, max / h);
@@ -1198,7 +1198,7 @@ function readImageResized(file, cb) {
       cv.width = w;
       cv.height = h;
       cv.getContext("2d").drawImage(img, 0, 0, w, h);
-      cb(cv.toDataURL("image/jpeg", 0.82));
+      cb(cv.toDataURL("image/jpeg", 0.72));
     };
     img.src = e.target.result;
   };

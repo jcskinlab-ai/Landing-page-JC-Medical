@@ -1636,15 +1636,13 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
   );
   const sinConsent = patients.filter(p => !p.consent);
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
-  // Mensajes/comentarios/seguimientos: ya NO se muestran datos de ejemplo del prototipo.
-  // Estas bandejas parten vacías para TODAS las clínicas (incluida la base JC Medical) y
-  // solo se llenan con datos reales. (Antes la base mostraba ejemplos del prototipo.)
+  // Consentimientos firmados hace más de 1 año → sugerir renovación
+  const oneYear = Date.now() - 365 * 24 * 3600 * 1000;
+  const porRenovar = patients.filter(p => p.consent && p.consentTs && p.consentTs < oneYear);
   const waMsgs = [];
   const bizC = [];
   const segs = [];
-  // El contador de arriba refleja TODO lo pendiente (tareas + consentimientos + re-citas + bandejas),
-  // para que no diga "Nada pendiente" cuando abajo sí hay cosas por gestionar.
-  const otrosPend = sinConsent.length + recitas.length + waMsgs.length + bizC.length + segs.length;
+  const otrosPend = sinConsent.length + recitas.length + porRenovar.length + waMsgs.length + bizC.length + segs.length;
   const totalPend = tPend.length + otrosPend;
   return (
     <div>
@@ -1667,6 +1665,10 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
       <Group T={T} title={"Consentimientos por firmar (" + sinConsent.length + ")"}>
         {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Ir a consentimientos" onClick={() => openP(p.id, "consent")} />)}
         {!sinConsent.length && <Empty2 T={T}>Todo firmado.</Empty2>}
+      </Group>
+      <Group T={T} title={"Consentimientos por renovar · +1 año (" + porRenovar.length + ")"}>
+        {porRenovar.map(p => { const meses = Math.floor((Date.now() - p.consentTs) / (30 * 24 * 3600 * 1000)); return <PendRow key={p.id} T={T} name={p.name} desc={"Firmado hace " + meses + " meses · " + (p.consentInfo || "Consentimiento")} action="Renovar" onClick={() => openP(p.id, "consent")} />; })}
+        {!porRenovar.length && <Empty2 T={T}>Todos los consentimientos están vigentes.</Empty2>}
       </Group>
       <Group T={T} title={"Re-citar · esquema en curso (" + recitas.length + ")"}>
         {recitas.map(({ p, r }) => <PendRow key={p.id} T={T} name={p.name} desc={r.motivo + " · " + r.precioFmt + " → " + r.descFmt} action="WhatsApp" href={window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""))} />)}

@@ -44,10 +44,23 @@ function AppJCMView({ T }) {
 /* ── USUARIOS REGISTRADOS EN LA APP ── */
 function UsuariosApp({ T }) {
   const DB = _db();
-  const [users] = useState(() => DB.get("users") || []);
+  const [users, setUsers] = useState(() => DB.get("users") || []);
   const [reds] = useState(() => DB.get("redeems") || []);
   const [q, setQ] = useState("");
-  // Contar tickets canjeados (done=true) por nombre de usuario
+  const [syncing, setSyncing] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+
+  // Auto-importar al abrir la pestaña
+  useEffect(() => { pull(); }, []);
+  function pull() {
+    if (!window.JCSAAS || !window.JCSAAS.importWebAppUsers) return;
+    setSyncing(true);
+    window.JCSAAS.importWebAppUsers().then(n => {
+      setSyncing(false);
+      if (n > 0) setUsers(DB.get("users") || []);
+    }).catch(() => setSyncing(false));
+  }
+
   const ticketsByUser = {};
   reds.forEach(r => { if (r.done) ticketsByUser[r.user] = (ticketsByUser[r.user] || 0) + 1; });
   const filtered = q.trim() ? users.filter(u => (u.name || "").toLowerCase().includes(q.toLowerCase()) || (u.email || "").toLowerCase().includes(q.toLowerCase()) || (u.phone || "").includes(q)) : users;
@@ -56,16 +69,34 @@ function UsuariosApp({ T }) {
     const csv = rows.map(r => r.map(c => { const s = String(c); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(";")).join("\n");
     const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8,﻿" + encodeURIComponent(csv); a.download = "usuarios-app.csv"; a.click();
   }
+  const rulesCode = `match /tenants/{clinicId}/appusers/{doc} {
+  allow create: if request.resource.data.keys().hasOnly(
+    ['name','phone','email','points','created','createdAt']
+  ) && request.resource.data.size() < 1000;
+  allow read, update, delete: if request.auth != null;
+}`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <JcmCard T={T}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>Usuarios registrados <span style={{ fontSize: 13, color: T.textMute }}>· {users.length}</span></div>
-          {users.length > 0 && <JcmBtn T={T} ghost onClick={expUsers}>↓ Exportar CSV</JcmBtn>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <JcmBtn T={T} ghost onClick={pull}>{syncing ? "Sincronizando…" : "↻ Traer usuarios web"}</JcmBtn>
+            {users.length > 0 && <JcmBtn T={T} ghost onClick={expUsers}>↓ CSV</JcmBtn>}
+          </div>
         </div>
+        {/* Aviso de regla Firestore si no hay usuarios y JCSAAS está disponible */}
+        {users.length === 0 && (
+          <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px", marginBottom: 12 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 6 }}>Para que los registros de la app lleguen al panel, agrega esta regla en <b>Firestore → Reglas</b>:</div>
+            <button onClick={() => setShowRules(r => !r)} style={{ fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>{showRules ? "Ocultar regla" : "Ver regla de Firestore"}</button>
+            {showRules && <pre style={{ marginTop: 10, fontFamily: "monospace", fontSize: 11, color: T.text, background: T.bg, border: "1px solid " + T.line, borderRadius: 6, padding: "10px 12px", overflowX: "auto", whiteSpace: "pre-wrap" }}>{rulesCode}</pre>}
+          </div>
+        )}
         {/* Buscador */}
         {users.length > 0 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por nombre, correo o teléfono…" style={{ width: "100%", padding: "10px 13px", borderRadius: 6, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", marginBottom: 12 }} />}
-        {users.length === 0 && <p style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>Aún no hay usuarios registrados en la app. Cuando alguien cree una cuenta en jcmedical.cl/app, aparecerá aquí.</p>}
+        {users.length === 0 && !syncing && <p style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>Aún no hay usuarios. Agrega la regla de Firestore y luego toca "↻ Traer usuarios web".</p>}
+        {syncing && <p style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute }}>Buscando usuarios en la nube…</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           {filtered.map((u, i) => {
             const tickets = ticketsByUser[u.name] || 0;

@@ -1478,6 +1478,49 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>
       </div>
 
+      {/* ── Resumen del día ── */}
+      {(() => {
+        const todayAppts = appts.filter(a => a.day === 0).sort((a, b) => { const m = t => { const [h, mi] = (t || "0:0").split(":"); return +h * 60 + +mi; }; return m(a.time) - m(b.time); });
+        if (!todayAppts.length) return null;
+        const now2 = new Date(); const nowM = now2.getHours() * 60 + now2.getMinutes();
+        const upcoming = todayAppts.filter(a => { const [h, mi] = (a.time || "0:0").split(":"); return +h * 60 + +mi >= nowM; });
+        const cleanPh = s => (s || "").replace(/\D/g, "");
+        const findPat = a => { const ap = cleanPh(a.phone); if (ap.length >= 8) { const m = (patients||[]).find(x => { const xp = cleanPh(x.phone); return xp.length >= 8 && xp.slice(-8) === ap.slice(-8); }); if (m) return m; } const an = (a.name||"").toLowerCase().trim(); return (patients||[]).find(x => { const xn = (x.name||"").toLowerCase(); return xn === an || (an.length >= 4 && xn.startsWith(an.split(" ")[0])); }); };
+        const sinC = todayAppts.filter(a => { const p = findPat(a); return p && !p.consent; }).length;
+        return (
+          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent }}>Hoy · {todayAppts.length} cita{todayAppts.length !== 1 ? "s" : ""}</div>
+              <div style={{ display: "flex", gap: 12, fontFamily: T.sans, fontSize: 11 }}>
+                {upcoming.length > 0 && <span style={{ color: T.textMute }}>{upcoming.length} por venir</span>}
+                {sinC > 0 && <span style={{ color: "#C0285A", fontWeight: 600 }}>⚠ {sinC} sin consentimiento</span>}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {todayAppts.map(a => {
+                const p = findPat(a); const hasCons = !p || p.consent;
+                const [h, mi] = (a.time || "0:0").split(":"); const aMins = +h * 60 + +mi;
+                const past = aMins < nowM; const attended = a.attended || a.status === "attended";
+                const noShow = a.status === "no_asistio";
+                const col = noShow ? "#C0285A" : attended ? "#1F8A5B" : past ? T.textMute : T.text;
+                return (
+                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: col, width: 44, flexShrink: 0 }}>{a.time}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: col, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name || "Sin nombre"}</div>
+                      {a.proc && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.proc}{a.nota ? " · " + a.nota : ""}</div>}
+                    </div>
+                    {!hasCons && <span title="Sin consentimiento" style={{ fontSize: 13, flexShrink: 0 }}>⚠️</span>}
+                    {noShow && <span style={{ fontFamily: T.sans, fontSize: 10, color: "#C0285A", flexShrink: 0 }}>No asistió</span>}
+                    {attended && !noShow && <span style={{ fontFamily: T.sans, fontSize: 10, color: "#1F8A5B", flexShrink: 0 }}>✓</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {view === "semana" ? (
         <SemanaGrid T={T} week={week} appts={appts} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={setEdit} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
           const clean = s => (s || "").replace(/\D/g, "");
@@ -1806,6 +1849,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [phone, setPhone] = useState("+56 9 ");
   const [email, setEmail] = useState("");
   const [sendMail, setSendMail] = useState(true);
+  const [notaCita, setNotaCita] = useState("");
   // origen / campaña — para estadística y conexión con Meta Ads
   const ORIGEN_ORG = ["Paciente antiguo / fidelizado", "Orgánico · Instagram", "Orgánico · Facebook", "Orgánico · TikTok", "Referido de paciente", "Pasó por la clínica (walk-in)", "Búsqueda en Google"];
   const metaCamps = ((window.CADMIN || { campaigns: [] }).campaigns || []).filter(c => c.active);
@@ -1839,7 +1883,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         } catch (e) {}
       }
       setSavedPatId(resolvedPatId || "");
-      onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, recurso, camilla, dur, origen, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
+      onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, recurso, camilla, dur, origen, nota: notaCita.trim(), time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
       // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente
       try {
         const dt = new Date(apptFecha + "T00:00:00");
@@ -2040,6 +2084,10 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
               ? "Las campañas pagadas se sincronizan desde Meta Ads. Se guarda en la cita para medir de dónde llega cada paciente."
               : "Conecta Meta Ads en Integraciones para listar tus campañas activas automáticamente."}
           </div>
+        </div>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid " + T.line }}>
+          <span style={lbl}>Nota interna <span style={{ color: T.textMute, textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· solo visible para el equipo</span></span>
+          <textarea value={notaCita} onChange={e => setNotaCita(e.target.value)} placeholder="Ej: primera vez, viene con acompañante, sensible al dolor…" rows={2} style={{ width: "100%", padding: "10px 13px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", resize: "none", lineHeight: 1.5 }} />
         </div>
       </AdModal>
     );

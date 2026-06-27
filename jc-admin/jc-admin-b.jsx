@@ -1054,7 +1054,7 @@ function ConsentView({ T, patients, updatePatient }) {
           const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
           const lista = patConsents(p).slice(); lista.unshift(nuevo);
           try { window.DB.set(patConsKey(p.id), lista); } catch (e) {}
-          updatePatient(p.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+          updatePatient(p.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
           setSigning(null);
         }} />}
     </div>
@@ -1475,7 +1475,7 @@ function ConsentTab({ T, patient, updatePatient }) {
         // La edad se sincroniza con la ficha: si el consentimiento la trae y la ficha no la tenía, la guarda.
         const _age = parseInt(r.fields && r.fields.edad, 10);
         const _agePatch = (_age && !patient.age) ? { age: _age } : {};
-        updatePatient(patient.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+        updatePatient(patient.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " · " + r.fields.fecha, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
         setSigning(false);
         try { window.jcmToast && window.jcmToast("Consentimiento guardado. Se abrió en una pestaña para tu respaldo.", "ok"); } catch (e) {}
         // Abre el consentimiento firmado en una PESTAÑA NUEVA (sin lanzar la impresión).
@@ -1493,11 +1493,11 @@ function readImageResized(file, cb) {
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      const max = 900; let { width: w, height: h } = img;
+      const max = 800; let { width: w, height: h } = img;
       if (w > max || h > max) { const r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
       const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
       cv.getContext("2d").drawImage(img, 0, 0, w, h);
-      cb(cv.toDataURL("image/jpeg", 0.82));
+      cb(cv.toDataURL("image/jpeg", 0.72));
     };
     img.src = e.target.result;
   };
