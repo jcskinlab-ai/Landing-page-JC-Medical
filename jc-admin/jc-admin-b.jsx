@@ -543,7 +543,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             const cuando = next ? ("el " + new Date(next.fecha + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }) + (next.time ? " a las " + next.time : "") + (next.proc ? " (" + next.proc + ")" : "")) : "tu próxima cita";
             const text = "Hola " + nombre + ",\n\nTe recordamos " + cuando + " en " + clinic + ".\n\nSi necesitas reprogramar, respóndenos este correo.\n\n— " + clinic;
             window.jcmToast && window.jcmToast("Enviando recordatorio…", "info");
-            const r = await window.mediqueEmail({ to: email, subject: "Recordatorio de tu cita · " + clinic, text: text });
+            const r = await window.mediqueEmail({ to: email, subject: "Recordatorio de tu cita · " + clinic, text: text, replyTo: window.clinicReplyTo && window.clinicReplyTo() });
             if (r && r.ok) window.jcmToast && window.jcmToast("Recordatorio enviado a " + email + ". Revisa la bandeja (y spam).", "ok");
             else if (r && r.configured === false) window.jcmError && window.jcmError("Correo no configurado en el servidor (falta RESEND_API_KEY).", r.error);
             else window.jcmError && window.jcmError("No se pudo enviar el recordatorio", (r && r.error) || r);

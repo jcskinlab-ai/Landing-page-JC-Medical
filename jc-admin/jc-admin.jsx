@@ -130,6 +130,18 @@ function clinicName() { try { var n = window.DB && DB.cfg().clinic_name; if (n) 
 function clinicAddr() { try { var a = window.DB && DB.cfg().clinic_addr; if (a) return a; } catch (e) {} return clinicSeeded() ? ((((window.JCDATA || {}).contact) || {}).address || "") : ""; }
 function clinicPro() { try { var p = window.DB && DB.cfg().professional; if (p) return p; } catch (e) {} return clinicSeeded() ? ((((window.JCDATA || {}).contact) || {}).pro || "") : ""; }
 window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro;
+// Correo al que responde el paciente los recordatorios/correos (reply-to). Si NO se setea, las
+// respuestas se van a noreply@medique.cl y se pierden. Orden: campo de config "clinic_email" (lo
+// setea la clínica en Configuración) → correo dueño de la clínica (con el que inicia sesión) →
+// correo de contacto de la base. undefined si no hay ninguno (sale sin reply-to, como antes).
+function clinicReplyTo() {
+  var ok = function (e) { return e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e + "").trim()); };
+  try { var e = window.DB && DB.cfg().clinic_email; if (ok(e)) return (e + "").trim().toLowerCase(); } catch (x) {}
+  try { var c = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic(); if (c && ok(c.ownerEmail)) return (c.ownerEmail + "").trim().toLowerCase(); } catch (x) {}
+  try { var rc = (((window.JCDATA || {}).contact) || {}).email; if (ok(rc)) return (rc + "").trim().toLowerCase(); } catch (x) {}
+  return undefined;
+}
+window.clinicReplyTo = clinicReplyTo;
 // Importa TODAS las bandejas web (reservas + colaboraciones + reseñas) al panel de la clínica.
 function importAllWeb() {
   if (!(window.JCSAAS && window.JCSAAS.enabled)) return Promise.resolve(0);
@@ -812,6 +824,13 @@ function AdminApp() {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  // Refresca la agenda sin recargar cuando se importan reservas web a mitad de sesión
+  // (lo dispara jcmImportReservas en Integraciones → "Importar reservas").
+  useEffect(() => {
+    const reload = () => { try { var s = window.DB && window.DB.get("appointments"); if (Array.isArray(s)) setAppts(s.map(a => ({ ...a }))); } catch (e) {} };
+    window.addEventListener("jcm:appts", reload);
+    return () => window.removeEventListener("jcm:appts", reload);
+  }, []);
 
   function updatePatient(id, patch) { setPatients(ps => savePatients(ps.map(p => p.id === id ? { ...p, ...patch } : p))); }
   // Marca de una sola vez todos los pacientes sin consentimiento como "firmado en papel"
@@ -924,12 +943,37 @@ function AdminApp() {
             return;
           }
           var j = jobs[i];
-          window.mediqueEmail({ to: j.email, subject: "Recordatorio de tu cita · " + clinic, text: j.text })
+          window.mediqueEmail({ to: j.email, subject: "Recordatorio de tu cita · " + clinic, text: j.text, replyTo: window.clinicReplyTo && window.clinicReplyTo() })
             .then(function (r) { if (r && r.ok) { sent[j.key] = true; ok++; } run(i + 1); })
             .catch(function () { run(i + 1); });
         };
         run(0);
       }, 5000);
+      return function () { clearTimeout(timer); };
+    } catch (e) {}
+  }, []);
+
+  // ── Motor de RESPALDO automático por correo (1×/semana, al abrir el panel) ──
+  // Envía el respaldo .json de fichas+citas como adjunto al correo de la clínica. Reemplaza el
+  // "descargar a mano". Dedup por fecha: solo si pasaron ≥7 días desde el último envío confirmado.
+  useEffect(function () {
+    try {
+      if (!window.jcmEmailBackup) return;
+      var to = (window.clinicReplyTo && window.clinicReplyTo()) || "";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return; // sin correo configurado → no hay a dónde enviarlo
+      var last = ""; try { last = DB.get("auto_backup_lastrun") || ""; } catch (e) {}
+      var now = new Date(); now.setHours(0, 0, 0, 0);
+      if (last) { var ld = new Date(last + "T00:00:00"); if (!isNaN(ld.getTime()) && (now - ld) < 7 * 86400000) return; }
+      var iso = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
+      // Después de los recordatorios (5s) para no encimar dos envíos al abrir.
+      var timer = setTimeout(function () {
+        window.jcmEmailBackup({ silent: true }).then(function (r) {
+          if (r && r.ok) {
+            try { DB.set("auto_backup_lastrun", iso); } catch (e) {}
+            try { window.jcmToast && window.jcmToast("Respaldo semanal enviado a tu correo.", "ok"); } catch (e) {}
+          }
+        });
+      }, 11000);
       return function () { clearTimeout(timer); };
     } catch (e) {}
   }, []);

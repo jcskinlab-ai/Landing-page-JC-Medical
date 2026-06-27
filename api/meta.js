@@ -99,6 +99,33 @@ export default async function handler(req, res) {
     return (data.data && data.data[0]) || {};
   }
 
+  // Insights por CAMPAÑA + estado (activa/pausada) de cada una. Para que el panel liste las campañas.
+  async function fetchCampaigns(acct) {
+    const base = "https://graph.facebook.com/" + ver + "/" + acct;
+    const insUrl = base + "/insights?level=campaign&fields=" +
+      encodeURIComponent("campaign_id,campaign_name,spend,reach,impressions,clicks,actions") +
+      "&date_preset=" + encodeURIComponent(preset) + "&limit=200&access_token=" + encodeURIComponent(token);
+    const stUrl = base + "/campaigns?fields=" + encodeURIComponent("id,name,effective_status") +
+      "&limit=500&access_token=" + encodeURIComponent(token);
+    const [insR, stR] = await Promise.all([fetch(insUrl), fetch(stUrl)]);
+    const ins = await insR.json();
+    const st = await stR.json().catch(() => ({}));
+    if (!insR.ok || ins.error) throw new Error(acct + ": " + ((ins.error && ins.error.message) || insR.status));
+    const statusById = {};
+    ((st && st.data) || []).forEach(c => { statusById[c.id] = c.effective_status; });
+    return ((ins && ins.data) || []).map(row => {
+      let leads = 0;
+      (row.actions || []).forEach(a => { if (/lead/i.test(a.action_type)) leads += parseInt(a.value, 10) || 0; });
+      const estado = statusById[row.campaign_id] || "";
+      return {
+        id: row.campaign_id, name: row.campaign_name || "Campaña",
+        spend: Math.round(parseFloat(row.spend || 0)), reach: parseInt(row.reach, 10) || 0,
+        clicks: parseInt(row.clicks, 10) || 0, leads: leads,
+        active: estado === "ACTIVE", status: estado
+      };
+    });
+  }
+
   try {
     const totals = { spend: 0, reach: 0, impressions: 0, clicks: 0, leads: 0 };
     const errors = [];
@@ -115,6 +142,12 @@ export default async function handler(req, res) {
       console.error("Meta error (todas las cuentas)", errors);
       return res.status(502).json({ ok: false, error: "Meta respondió con error.", detail: errors.join(" · ") });
     }
+    // Lista de campañas (solo si el panel la pide → no penaliza la verificación al conectar).
+    let campaigns;
+    if (body.campaigns) {
+      const cArr = await Promise.all(accounts.map(a => fetchCampaigns(a).catch(e => { errors.push(e.message); return []; })));
+      campaigns = cArr.flat().sort((a, b) => (b.spend || 0) - (a.spend || 0));
+    }
     return res.status(200).json({
       ok: true,
       spend: Math.round(totals.spend),
@@ -123,6 +156,7 @@ export default async function handler(req, res) {
       clicks: totals.clicks,
       leads: totals.leads,
       accounts: accounts.length,
+      ...(campaigns ? { campaigns } : {}),
       partialErrors: errors.length ? errors : undefined
     });
   } catch (e) {

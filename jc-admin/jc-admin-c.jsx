@@ -46,9 +46,9 @@ const INTEGRATIONS_CATALOG = [
   { id: "metaads", name: "Meta Ads", desc: "Campañas de Facebook e Instagram Ads", letter: "f", color: "#1877F2", stat: "Campañas conectadas", info: "Conecta tu cuenta de Meta Ads para ver tu inversión, leads y ROAS directamente en el panel de Medique. Requiere un token de lectura (ads_read) generado desde Meta Business Suite." },
   { id: "metabiz", name: "Meta Business Suite", desc: "Bandeja de Instagram y Facebook", letter: "B", color: "#0866FF", stat: "DM y comentarios", info: "Centraliza los mensajes directos y comentarios de Instagram y Facebook en el panel. Responde y gestiona tu bandeja social sin salir de Medique." },
   { id: "gmail", name: "Gmail", desc: "Recordatorios y confirmaciones por correo", letter: "M", color: "#EA4335", stat: "Correo conectado", info: "Envía recordatorios de cita, confirmaciones y seguimientos post-tratamiento automáticamente por correo electrónico a tus pacientes." },
-  { id: "drive", name: "Google Drive", desc: "Respaldo de fichas y consentimientos", letter: "▲", color: "#1FA463", stat: "Respaldo automático", info: "Respalda automáticamente fichas clínicas y consentimientos firmados en tu cuenta de Google Drive. El respaldo ocurre cada vez que hay cambios en las fichas." },
+  { id: "drive", name: "Respaldo de fichas", desc: "Respaldo automático de fichas y citas a tu correo", letter: "▲", color: "#1FA463", stat: "Respaldo automático", info: "Cada semana te enviamos automáticamente un respaldo (.json) de todas tus fichas y citas al correo de la clínica. Guárdalo donde quieras (por ejemplo, súbelo a tu Google Drive)." },
   { id: "gcal", name: "Google Calendar", desc: "Sincroniza tu agenda", letter: "31", color: "#4285F4", stat: "Sync bidireccional", info: "Sincroniza la agenda del panel con Google Calendar en tiempo real. Las citas agendadas en Medique aparecen en tu calendario de Google y viceversa." },
-  { id: "groq", name: "Groq (Agente IA)", desc: "Asistente que responde por WhatsApp", letter: "✦", color: "#8B6FE0", stat: "Asistente activo", info: "Activa el agente de inteligencia artificial que responde automáticamente las consultas de tus pacientes por WhatsApp, con contexto de tu clínica y disponibilidad de agenda." },
+  { id: "groq", name: "Groq (Agente IA)", desc: "Asistente IA del panel · WhatsApp pendiente", letter: "✦", color: "#8B6FE0", stat: "Asistente activo", info: "La IA ya está activa en el panel: potencia el Copiloto y los resúmenes de fichas. Que responda automáticamente a tus pacientes por WhatsApp se activa cuando conectes WhatsApp." },
   { id: "wa", name: "WhatsApp Business", desc: "Recordatorios y agenda por WhatsApp", letter: "✆", color: "#1F8A5B", stat: "WhatsApp conectado", info: "Conecta tu número de WhatsApp Business para enviar recordatorios de cita, indicaciones post-tratamiento, campañas de re-cita y permitir que los pacientes agenden directamente por WhatsApp." },
   { id: "landing", name: "Reserva online Medique", desc: "Reservas online conectadas a tu link", letter: "M", color: "#0a0f1c", stat: "Reservas en vivo", info: "Activa la integración con tu página de reservas en medique.cl. Las reservas que hagan tus pacientes desde el link público entran automáticamente a tu agenda del panel." }
 ];
@@ -523,14 +523,37 @@ function FidelidadView({ T }) {
 /* ─────────── MARKETING ─────────── */
 function MarketingView({ T, go }) {
   const D = window.JCDATA;
+  const connected = (typeof metaConnected === "function") && metaConnected();
   const [camps, setCamps] = useState(() => {
-    // Sólo campañas REALES sincronizadas desde Meta Ads. Sin datos ficticios sembrados.
+    // Campañas REALES cacheadas desde Meta Ads (se refrescan al entrar). Sin datos ficticios.
     try { const saved = window.DB && window.DB.get("campaigns"); if (saved && saved.length) return saved.filter(c => c.real); } catch (e) {}
     return [];
   });
+  const [tot, setTot] = useState({ spend: 0, leads: 0, reach: 0 });
+  const [loading, setLoading] = useState(connected);
+  const [err, setErr] = useState("");
   function saveCamps(n) { setCamps(n); try { window.DB && window.DB.set("campaigns", n); } catch (e) {} }
-  const totLeads = camps.reduce((a, c) => a + c.leads, 0);
-  const totSpend = camps.reduce((a, c) => a + c.spend, 0);
+  // Al entrar: si Meta Ads está conectado, lee gasto/leads/campañas REALES desde la Graph API.
+  useEffect(() => {
+    if (!connected || !window.mediqueMeta) { setLoading(false); return; }
+    let alive = true; setLoading(true); setErr("");
+    window.mediqueMeta({ campaigns: true }).then(d => {
+      if (!alive) return;
+      setLoading(false);
+      if (d && d.ok) {
+        setTot({ spend: d.spend || 0, leads: d.leads || 0, reach: d.reach || 0 });
+        const list = (d.campaigns || []).map(c => ({ id: c.id, name: c.name, reach: c.reach || 0, leads: c.leads || 0, spend: c.spend || 0, net: "Meta Ads", active: !!c.active, real: true }));
+        saveCamps(list);
+      } else if (d && d.configured === false) {
+        setErr("Meta Ads no está configurado en el servidor.");
+      } else {
+        setErr((d && d.error) || "No se pudieron leer tus campañas de Meta.");
+      }
+    });
+    return () => { alive = false; };
+  }, [connected]);
+  const totLeads = tot.leads || camps.reduce((a, c) => a + c.leads, 0);
+  const totSpend = tot.spend || camps.reduce((a, c) => a + c.spend, 0);
   return (
     <div>
       <SecHead T={T} title="Marketing" sub="Campañas conectadas a Meta Ads e Instagram" />
@@ -539,6 +562,13 @@ function MarketingView({ T, go }) {
         <AdStat T={T} n={D.fmt(totSpend)} l="Inversión" />
         <AdStat T={T} n={totLeads ? (Math.round(totSpend / totLeads / 100) / 10 + "k") : "—"} l="Costo/lead" />
       </div>
+      {!connected && (
+        <div onClick={() => go("integraciones")} style={{ cursor: "pointer", background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.accent, borderRadius: 10, padding: "14px 16px", marginBottom: 16, fontFamily: T.sans, fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>
+          <b>Conecta tu cuenta de Meta Ads</b> para ver aquí tus campañas reales con su gasto, leads y alcance. <span style={{ color: T.accent }}>Ir a Integraciones →</span>
+        </div>
+      )}
+      {connected && loading && <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 12, color: T.textMute }}>Cargando tus campañas de Meta Ads…</div>}
+      {connected && !loading && err && <div style={{ background: "rgba(224,106,106,.08)", border: "1px solid rgba(224,106,106,.4)", borderRadius: 8, padding: "12px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 12, color: "#e06a6a" }}>{err}</div>}
       <a href="https://adsmanager.facebook.com/adsmanager" target="_blank" rel="noopener" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 10, marginBottom: 16, textDecoration: "none", background: "#1877F2", border: "1px solid #1877F2" }}>
         <span style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(255,255,255,.18)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, flexShrink: 0 }}>f</span>
         <span style={{ flex: 1, fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: "#fff" }}>Ir a Meta Ads Manager</span>
@@ -553,7 +583,7 @@ function MarketingView({ T, go }) {
         </a>
       </div>
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 13px", marginBottom: 12, fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5 }}>
-        Las campañas se crean y administran directamente en <b style={{ color: T.text }}>Meta Ads Manager</b>. Cuando conectes tu cuenta, las campañas reales aparecerán aquí automáticamente con su alcance, leads e inversión.
+        Las campañas se crean y administran directamente en <b style={{ color: T.text }}>Meta Ads Manager</b>. {connected ? "Aquí ves tus campañas reales con su alcance, leads e inversión del mes." : "Cuando conectes tu cuenta, las campañas reales aparecerán aquí automáticamente con su alcance, leads e inversión."}
       </div>
       {/* Campañas activas */}
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
@@ -566,7 +596,6 @@ function MarketingView({ T, go }) {
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{c.name}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <AdTag T={T} tone="ok">Activa</AdTag>
-                <button onClick={() => saveCamps(camps.map(x => x.id === c.id ? { ...x, active: false } : x))} style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 6, padding: "4px 9px", cursor: "pointer" }}>Pausar</button>
               </div>
             </div>
             <div style={{ display: "flex", gap: 18, marginTop: 10 }}>
@@ -590,7 +619,6 @@ function MarketingView({ T, go }) {
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{c.name}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <AdTag T={T} tone="muted">Pausada</AdTag>
-                <button onClick={() => saveCamps(camps.map(x => x.id === c.id ? { ...x, active: true } : x))} style={{ fontFamily: T.sans, fontSize: 10, color: T.accent, background: "none", border: "1px solid " + T.accent, borderRadius: 6, padding: "4px 9px", cursor: "pointer" }}>Activar</button>
               </div>
             </div>
             <div style={{ display: "flex", gap: 18, marginTop: 10 }}>
@@ -652,13 +680,26 @@ function MetaConnectModal({ T, onClose, onSaved }) {
       </div>
     }>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>Conecta tu cuenta de Meta Ads para ver tu gasto, leads y ROAS reales en el panel. Usa un token de <b>solo lectura</b> (<code>ads_read</code>).</p>
-        <AdField T={T} label="ID de cuenta publicitaria" value={account} onChange={setAccount} placeholder="act_1234567890" />
+        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>Conecta tu cuenta de Meta Ads para ver tu gasto, leads y campañas reales en el panel. Usa un token de <b>solo lectura</b> (<code>ads_read</code>): no permite gastar ni modificar nada, solo leer tus estadísticas.</p>
+        {/* TUTORIAL paso a paso para cliente nuevo (genera el token + encuentra el ID de cuenta). */}
+        <div style={{ background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "14px 15px" }}>
+          <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>¿Primera vez? Conéctalo en 3 pasos</div>
+          <ol style={{ margin: 0, paddingLeft: 18, fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 8 }}>
+            <li>En Meta, abre <b>Configuración del negocio → Usuarios → Usuarios del sistema</b>.<br />
+              <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener" style={{ color: T.accent, fontSize: 11.5, textDecoration: "underline" }}>Abrir Usuarios del sistema ↗</a>
+            </li>
+            <li>Elige (o crea) un usuario del sistema → <b>Generar nuevo token</b> → selecciona tu app → marca el permiso <b>ads_read</b> → <b>copia</b> el token y pégalo abajo.</li>
+            <li>Tu <b>ID de cuenta</b> empieza con <code>act_</code> (lo ves en Ads Manager o en Cuentas publicitarias) y va en el primer campo.<br />
+              <a href="https://business.facebook.com/settings/ad-accounts" target="_blank" rel="noopener" style={{ color: T.accent, fontSize: 11.5, textDecoration: "underline" }}>Ver mis cuentas publicitarias ↗</a>
+            </li>
+          </ol>
+        </div>
+        <AdField T={T} label="1 · ID de cuenta publicitaria" value={account} onChange={setAccount} placeholder="act_1234567890" />
         <label style={{ display: "block" }}>
-          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Token de acceso (ads_read)</span>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>2 · Token de acceso (ads_read)</span>
           <input type="password" value={token} onChange={e => setToken(e.target.value)} placeholder="EAAB…" autoComplete="off" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
         </label>
-        <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>El token se guarda solo en los datos privados de tu clínica y se usa para leer tus estadísticas. Puedes desconectarlo cuando quieras. ¿No sabes generarlo? Pídelo en business.facebook.com → Usuarios del sistema → Generar token (permiso ads_read).</p>
+        <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>El token se guarda solo en los datos privados de tu clínica y puedes desconectarlo cuando quieras. Al pulsar “Conectar y verificar” comprobamos contra Meta que el token funcione antes de guardarlo.</p>
       </div>
     </AdModal>
   );
@@ -719,17 +760,45 @@ function jcmDownloadFile(name, content, mime) {
 }
 function jcmClinicName() { try { return (window.DB && DB.cfg().clinic_name) || "Medique"; } catch (e) { return "Medique"; } }
 function jcmSlug(s) { return (s || "medique").toLowerCase().replace(/[^a-z0-9]/g, ""); }
-// Respaldo de todas las fichas/pacientes/citas en un JSON descargable.
-function jcmBackupFichas() {
+// Arma el contenido del respaldo (fichas/pacientes/citas) sin descargar ni enviar.
+function jcmBackupData() {
   var patients = [], appts = [];
   try { patients = (window.DB && DB.get("patients")) || []; } catch (e) {}
   try { appts = (window.DB && DB.get("appointments")) || []; } catch (e) {}
   var clinica = jcmClinicName(), now = new Date();
   var fecha = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
   var data = { clinica: clinica, generado: now.toISOString(), total_pacientes: patients.length, total_citas: appts.length, pacientes: patients, citas: appts };
-  var ok = jcmDownloadFile("respaldo-" + jcmSlug(clinica) + "-" + fecha + ".json", JSON.stringify(data, null, 2), "application/json");
-  try { window.jcmToast && window.jcmToast(ok ? ("Respaldo descargado · " + patients.length + " paciente(s).") : "No se pudo generar el respaldo.", ok ? "ok" : "error"); } catch (e) {}
+  return { clinica: clinica, fecha: fecha, nPac: patients.length, nCitas: appts.length, json: JSON.stringify(data, null, 2) };
 }
+// Respaldo de todas las fichas/pacientes/citas en un JSON descargable.
+function jcmBackupFichas() {
+  var b = jcmBackupData();
+  var ok = jcmDownloadFile("respaldo-" + jcmSlug(b.clinica) + "-" + b.fecha + ".json", b.json, "application/json");
+  try { window.jcmToast && window.jcmToast(ok ? ("Respaldo descargado · " + b.nPac + " paciente(s).") : "No se pudo generar el respaldo.", ok ? "ok" : "error"); } catch (e) {}
+}
+// Envía el respaldo como ADJUNTO al correo de la clínica (clinicReplyTo). Lo usa el botón
+// "Enviar a mi correo" y el motor semanal automático. opts.silent → sin toasts (modo automático).
+function jcmEmailBackup(opts) {
+  opts = opts || {};
+  var toast = function (m, k) { if (!opts.silent) { try { (k === "error" ? (window.jcmError || window.jcmToast) : window.jcmToast)(m, k); } catch (e) {} } };
+  if (!window.mediqueEmail) { toast("El correo no está disponible.", "error"); return Promise.resolve({ ok: false }); }
+  var to = (window.clinicReplyTo && window.clinicReplyTo()) || "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast("Agrega un correo en Configuración → Datos de la clínica para recibir el respaldo.", "info"); return Promise.resolve({ ok: false, error: "sin correo" }); }
+  var b = jcmBackupData();
+  if (!b.nPac && !b.nCitas) { toast("Todavía no hay fichas ni citas para respaldar.", "info"); return Promise.resolve({ ok: false, error: "vacío" }); }
+  var b64; try { b64 = btoa(unescape(encodeURIComponent(b.json))); } catch (e) { toast("No se pudo preparar el respaldo.", "error"); return Promise.resolve({ ok: false, error: "encode" }); }
+  if (b64.length > 7400000) { toast("El respaldo es muy grande para enviarlo por correo; usa “Descargar respaldo”.", "info"); return Promise.resolve({ ok: false, error: "grande" }); }
+  var fname = "respaldo-" + jcmSlug(b.clinica) + "-" + b.fecha + ".json";
+  var text = "Adjuntamos el respaldo de " + b.clinica + " (" + b.nPac + " paciente(s) · " + b.nCitas + " cita(s)) generado el " + b.fecha + ".\n\nGuárdalo en un lugar seguro (por ejemplo, súbelo a tu Google Drive). Este respaldo se envía automáticamente cada semana.\n\n— Medique";
+  toast("Enviando respaldo a tu correo…", "info");
+  return window.mediqueEmail({ to: to, subject: "Respaldo de tus fichas · " + b.clinica, text: text, attachments: [{ filename: fname, content: b64 }] }).then(function (r) {
+    if (r && r.ok) toast("Respaldo enviado a " + to + ". Revisa tu bandeja (y spam).", "ok");
+    else if (r && r.configured === false) toast("Correo no configurado en el servidor (falta RESEND_API_KEY).", "error");
+    else toast("No se pudo enviar el respaldo: " + ((r && r.error) || ""), "error");
+    return r;
+  });
+}
+if (typeof window !== "undefined") { window.jcmEmailBackup = jcmEmailBackup; window.jcmBackupData = jcmBackupData; }
 // Exporta las citas futuras a un archivo .ics (se importa en Google Calendar, Apple Calendar, Outlook).
 function jcmExportICS() {
   var appts = [];
@@ -753,6 +822,64 @@ function jcmExportICS() {
   try { window.jcmToast && window.jcmToast(ok ? (fut.length + " cita(s) exportada(s). Impórtalo en Google Calendar.") : "No hay citas o no se pudo exportar.", ok && fut.length ? "ok" : "info"); } catch (e) {}
 }
 
+// Reserva online: trae las reservas del link público a la agenda AHORA (además del import
+// automático al abrir el panel). Es la acción REAL de la integración (no un toggle cosmético).
+function jcmImportReservas() {
+  var S = window.JCSAAS;
+  if (!(S && S.enabled && S.importWebBookings)) {
+    try { window.jcmToast && window.jcmToast("Las reservas online se activan con tu clínica en la nube.", "info"); } catch (e) {}
+    return;
+  }
+  try { window.jcmToast && window.jcmToast("Buscando reservas nuevas…", "info"); } catch (e) {}
+  S.importWebBookings().then(function (n) {
+    if (n > 0) {
+      try { window.jcmToast && window.jcmToast(n + " reserva(s) nueva(s) importada(s) a tu agenda.", "ok"); } catch (e) {}
+      try { window.dispatchEvent(new Event("jcm:appts")); } catch (e) {} // refresca la agenda sin recargar
+    } else {
+      try { window.jcmToast && window.jcmToast("No hay reservas nuevas. Ya están todas en tu agenda.", "info"); } catch (e) {}
+    }
+  }).catch(function () { try { (window.jcmError || window.jcmToast)("No se pudieron traer las reservas.", "error"); } catch (e) {} });
+}
+if (typeof window !== "undefined") window.jcmImportReservas = jcmImportReservas;
+
+// Agente IA (Groq): prueba REAL de conexión. Le pregunta a /api/ai (Groq) y confirma que responde.
+// La IA ya potencia el Copiloto y los resúmenes del panel; responder por WhatsApp es aparte (Meta).
+function jcmTestIA() {
+  if (!window.mediqueAI) { try { window.jcmToast && window.jcmToast("La IA no está disponible.", "error"); } catch (e) {} return; }
+  var clinic = (function () { try { return { name: DB.cfg().clinic_name || "" }; } catch (e) { return {}; } })();
+  try { window.jcmToast && window.jcmToast("Probando la IA…", "info"); } catch (e) {}
+  window.mediqueAI([{ role: "user", content: "Responde solo con: OK, asistente activo." }], clinic, { max_tokens: 30 }).then(function (r) {
+    if (r && r.ok) { try { window.jcmToast && window.jcmToast("✓ La IA está activa y respondió correctamente.", "ok"); } catch (e) {} }
+    else if (r && r.configured === false) { try { (window.jcmError || window.jcmToast)("La IA no está configurada en el servidor (falta GROQ_API_KEY).", "error"); } catch (e) {} }
+    else { try { (window.jcmError || window.jcmToast)("La IA no respondió: " + ((r && r.error) || "sin respuesta"), "error"); } catch (e) {} }
+  }).catch(function () { try { (window.jcmError || window.jcmToast)("No se pudo contactar la IA.", "error"); } catch (e) {} });
+}
+if (typeof window !== "undefined") window.jcmTestIA = jcmTestIA;
+
+// Guía paso a paso para ACTIVAR WhatsApp Cloud API (la hace el dueño en Meta). Reutilizada por
+// el card de Integraciones y la pantalla Agente IA. Resume WHATSAPP-SETUP.md con links directos.
+function WhatsAppSetupModal({ T, onClose }) {
+  const linkS = { color: T.accent, fontSize: 11.5, textDecoration: "underline" };
+  const stepBox = { background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" };
+  const stepNum = { fontFamily: T.sans, fontSize: 10, fontWeight: 700, letterSpacing: ".1em", color: T.accent, marginBottom: 5 };
+  const stepTxt = { fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.6 };
+  return (
+    <AdModal T={T} title="Activar WhatsApp · paso a paso" onClose={onClose} footer={<AdBtn T={T} primary full onClick={onClose}>Entendido</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>El asistente ya está programado: recibe los mensajes, responde con IA y agenda la cita. Solo falta <b>encender el canal de WhatsApp en Meta</b> y pegar unos datos. Lo hace el <b>dueño de la cuenta</b>.</p>
+        <div style={{ background: "rgba(214,158,46,.10)", border: "1px solid rgba(214,158,46,.4)", borderRadius: 8, padding: "9px 12px", fontFamily: T.sans, fontSize: 11.5, color: T.gold || "#b08400", lineHeight: 1.5 }}>⏳ Lo que más demora es la <b>verificación del negocio</b> en Meta (puede tardar días). Conviene empezar por ahí.</div>
+        <div style={stepBox}><div style={stepNum}>PASO 1 · CREAR LA APP</div><div style={stepTxt}>En <b>developers.facebook.com → My Apps → Create App</b> (tipo Business), agrega el producto <b>WhatsApp</b>. Meta te da un número de prueba y un <b>Phone Number ID</b>.<br /><a href="https://developers.facebook.com/apps" target="_blank" rel="noopener" style={linkS}>Abrir Meta for Developers ↗</a></div></div>
+        <div style={stepBox}><div style={stepNum}>PASO 2 · TOKEN PERMANENTE</div><div style={stepTxt}>En <b>Configuración del negocio → Usuarios del sistema</b>, crea un usuario Admin y <b>genera un token</b> con permisos <b>whatsapp_business_messaging</b> y <b>whatsapp_business_management</b>. Guarda ese token y el Phone Number ID.<br /><a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener" style={linkS}>Abrir Usuarios del sistema ↗</a></div></div>
+        <div style={stepBox}><div style={stepNum}>PASO 3 · CONECTAR EL WEBHOOK</div><div style={stepTxt}>En la app: <b>WhatsApp → Configuration → Webhook</b>. URL: <code>https://medique.cl/api/wa-webhook</code>. Inventa una palabra secreta como <b>Verify token</b> (ej. <code>medique-wa-2026</code>), pulsa <b>Verify and save</b> y suscríbete al campo <b>messages</b>.</div></div>
+        <div style={stepBox}><div style={stepNum}>PASO 4 · DATOS EN VERCEL</div><div style={stepTxt}>En Vercel → Settings → Environment Variables (Production) pega <b>WHATSAPP_TOKEN</b>, <b>WHATSAPP_PHONE_ID</b> y <b>WHATSAPP_VERIFY_TOKEN</b> (la misma palabra secreta del paso 3). Luego haz <b>Redeploy</b>.</div></div>
+        <div style={stepBox}><div style={stepNum}>PASO 5 · VERIFICAR EL NEGOCIO</div><div style={stepTxt}>Para responder a <b>cualquier</b> paciente (no solo números de prueba), Meta exige <b>verificar el negocio</b> en <b>Configuración del negocio → Seguridad</b>. Puede tardar días.<br /><a href="https://business.facebook.com/settings/security" target="_blank" rel="noopener" style={linkS}>Abrir Verificación del negocio ↗</a></div></div>
+        <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>💬 Costo: si el <b>paciente escribe primero</b> es gratis dentro de 24 h; si la clínica inicia (recordatorios) son centavos por mensaje. Apenas quede activo, las conversaciones aparecerán solas en esta bandeja.</p>
+      </div>
+    </AdModal>
+  );
+}
+if (typeof window !== "undefined") window.WhatsAppSetupModal = WhatsAppSetupModal;
+
 function IntegracionesView({ T }) {
   const [list, setList] = useState(() => {
     let saved = {};
@@ -763,6 +890,7 @@ function IntegracionesView({ T }) {
   const [metaOn, setMetaOn] = useState(metaConnected());
   const [correoModal, setCorreoModal] = useState(false); // conexión REAL de correo (envío de prueba)
   const [previewInteg, setPreviewInteg] = useState(null); // integración a previsualizar antes de conectar
+  const [waGuide, setWaGuide] = useState(false); // guía paso a paso para activar WhatsApp
   function toggle(id) {
     const n = list.map(i => i.id === id ? { ...i, connected: !i.connected } : i);
     setList(n);
@@ -777,9 +905,16 @@ function IntegracionesView({ T }) {
     if (it.id === "metaads") { setMetaModal(true); return; }
     // Correo: conexión REAL (envía un correo de prueba). Desconectar es directo.
     if (it.id === "gmail") { if (connected) toggle("gmail"); else setCorreoModal(true); return; }
-    // Drive / Calendar: alternativas reales sin OAuth → acción de descarga directa (no es "conexión").
-    if (it.id === "drive") { jcmBackupFichas(); return; }
+    // Drive / Calendar: alternativas reales sin OAuth.
+    // Drive → envía el respaldo al correo de la clínica (además del envío semanal automático).
+    if (it.id === "drive") { window.jcmEmailBackup ? window.jcmEmailBackup({}) : jcmBackupFichas(); return; }
     if (it.id === "gcal") { jcmExportICS(); return; }
+    // Reserva online: acción REAL → importa las reservas del link público a la agenda ahora.
+    if (it.id === "landing") { jcmImportReservas(); return; }
+    // Agente IA: acción REAL → prueba que Groq responde (la IA del panel ya está activa).
+    if (it.id === "groq") { jcmTestIA(); return; }
+    // WhatsApp Business: abre la guía paso a paso de activación (Meta Cloud API), no un toggle falso.
+    if (it.id === "wa") { setWaGuide(true); return; }
     if (!connected) { setPreviewInteg(it); return; } // mostrar popup antes de conectar
     toggle(it.id); // desconectar directo sin popup
   }
@@ -791,8 +926,11 @@ function IntegracionesView({ T }) {
           const isMeta = it.id === "metaads";
           const connected = isMeta ? metaOn : it.connected;
           // Drive/Calendar son ACCIONES de descarga reales (no "conexión" OAuth).
-          const action = it.id === "drive" ? { label: "Descargar respaldo", desc: "Descarga todas las fichas y citas en un archivo (.json) para guardarlo donde quieras." }
-            : it.id === "gcal" ? { label: "Exportar .ics", desc: "Exporta tus citas en un archivo .ics para importarlo en Google Calendar." } : null;
+          const action = it.id === "drive" ? { label: "Enviar a mi correo", desc: "Cada semana te llega solo a tu correo un respaldo (.json) de fichas y citas. ¿Lo quieres ahora? Envíalo." }
+            : it.id === "gcal" ? { label: "Exportar .ics", desc: "Exporta tus citas en un archivo .ics para importarlo en Google Calendar." }
+            : it.id === "landing" ? { label: "Importar reservas", desc: "Las reservas de tu link público entran solas a la agenda al abrir el panel. Tu link está en Configuración. ¿Traer las nuevas ahora?" }
+            : it.id === "groq" ? { label: "Probar IA", desc: "La IA ya potencia el Copiloto y los resúmenes del panel. Responder a pacientes por WhatsApp se activa al conectar WhatsApp. Probar que la IA responde:" }
+            : it.id === "wa" ? { label: "Ver pasos", desc: "Pendiente de activar. El asistente responde a tus pacientes por WhatsApp una vez que se enciende WhatsApp Cloud API en Meta. Mira los pasos:" } : null;
           return (
           <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (connected ? T.line : T.lineSoft) }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: it.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 500, flexShrink: 0 }}>{it.letter}</div>
@@ -811,6 +949,7 @@ function IntegracionesView({ T }) {
       <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 14, lineHeight: 1.6 }}>Cada herramienta se conecta con el inicio de sesión oficial (OAuth) de la plataforma. Conecta solo las que uses en tu clínica.</p>
       {metaModal && <MetaConnectModal T={T} onClose={() => setMetaModal(false)} onSaved={() => { setMetaOn(metaConnected()); setMetaModal(false); }} />}
       {correoModal && <CorreoConnectModal T={T} onClose={() => setCorreoModal(false)} onConnected={() => { markConnected("gmail", true); setCorreoModal(false); }} />}
+      {waGuide && <WhatsAppSetupModal T={T} onClose={() => setWaGuide(false)} />}
       {previewInteg && (
         <AdModal T={T} title={"Conectar " + previewInteg.name} onClose={() => setPreviewInteg(null)}
           footer={<div style={{ display: "flex", gap: 10, width: "100%" }}>
@@ -1098,8 +1237,10 @@ function ClinicDataCard({ T }) {
     clinic_name: cfg0.clinic_name || clinicName || "",
     clinic_addr: cfg0.clinic_addr || "",
     professional: cfg0.professional || "",
+    clinic_email: cfg0.clinic_email || "",
     wa_number: cfg0.wa_number || ""
   });
+  const emailReplyOk = !f.clinic_email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.clinic_email.trim());
   const [saved, setSaved] = useState(false);
   function onWa(v) {
     // Prefijo +56 9 fijo, solo dígitos. Se quita el país y el 9 móvil del prefijo visible (una sola vez).
@@ -1111,7 +1252,8 @@ function ClinicDataCard({ T }) {
   }
   const waDisplay = "+569 " + ((f.wa_number || "").replace(/^569/, ""));
   function save() {
-    try { DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), professional: f.professional.trim(), wa_number: (f.wa_number || "").replace(/\D/g, "") })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {}
+    if (!emailReplyOk) { window.jcmToast && window.jcmToast("El correo para respuestas no es válido.", "error"); return; }
+    try { DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {}
   }
   return (
     <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
@@ -1123,6 +1265,12 @@ function ClinicDataCard({ T }) {
         <AdField T={T} label="Nombre de la clínica" value={f.clinic_name} onChange={v => { setF({ ...f, clinic_name: v }); setSaved(false); }} placeholder="Ej: Clínica Karenina" />
         <AdField T={T} label="Dirección" value={f.clinic_addr} onChange={v => { setF({ ...f, clinic_addr: v }); setSaved(false); }} placeholder="Ej: 1 Norte 123, oficina 4, Talca" />
         <AdField T={T} label="Profesional a cargo" value={f.professional} onChange={v => { setF({ ...f, professional: v.replace(/[0-9]/g, "") }); setSaved(false); }} placeholder="Ej: Dra. Karenina Soto" />
+        <div>
+          <AdField T={T} label="Correo para respuestas de pacientes" value={f.clinic_email} onChange={v => { setF({ ...f, clinic_email: v }); setSaved(false); }} placeholder="Ej: contacto@tuclinica.cl" />
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: emailReplyOk ? T.textMute : "#e06a6a", lineHeight: 1.5, marginTop: 5 }}>
+            {emailReplyOk ? "Cuando un paciente responda un recordatorio, su respuesta llegará a este correo. Si lo dejas vacío, se usa el correo con que iniciaste sesión." : "Correo no válido."}
+          </div>
+        </div>
         <label style={{ display: "block" }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>WhatsApp</span>
           <input value={waDisplay} onChange={e => onWa(e.target.value)} inputMode="numeric" placeholder="+569 1234 5678" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
@@ -1896,6 +2044,7 @@ function AgenteIAView({ T, patients, addAppt }) {
   const [aiBusy, setAiBusy] = useState(false);
   const [darCita, setDarCita] = useState(null); // {name, phone}
   const [citaOk, setCitaOk] = useState(null);   // cita recién creada
+  const [showGuide, setShowGuide] = useState(false); // guía de activación de WhatsApp
   const conv = convs.find(c => c.id === sel);
   function send() {
     if (!draft.trim() || !conv) return;
@@ -1938,8 +2087,8 @@ function AgenteIAView({ T, patients, addAppt }) {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <SecHead T={T} title="Agente IA · WhatsApp" sub="Bandeja con un asistente que responde con el contexto de tu clínica." />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.gold, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: T.gold }} /> Prototipo</span>
-          <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, borderRadius: 8, padding: "8px 14px" }}>Conectar WhatsApp</span>
+          <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.gold, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: T.gold }} /> Pendiente · requiere WhatsApp</span>
+          <button onClick={() => setShowGuide(true)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer" }}>Conectar WhatsApp</button>
         </div>
       </div>
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
@@ -1957,9 +2106,9 @@ function AgenteIAView({ T, patients, addAppt }) {
       {/* Modelo de IA */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
         <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent }}>Modelo de IA</span>
-        <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>Llama 3.3 70B · Groq</span>
-        <span style={{ fontFamily: T.sans, fontSize: 9.5, color: "#1F8A5B", background: "rgba(31,138,91,.1)", borderRadius: 6, padding: "2px 7px" }}>Gratis</span>
-        <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Auto-respuesta · Bot activo</span>
+        <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>Groq · gpt-oss-120b</span>
+        <span style={{ fontFamily: T.sans, fontSize: 9.5, color: "#1F8A5B", background: "rgba(31,138,91,.1)", borderRadius: 6, padding: "2px 7px" }}>Activo en el panel</span>
+        <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Auto-respuesta por WhatsApp · pendiente de activar</span>
       </div>
       {convs.length === 0 ? (
         <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "44px 28px", textAlign: "center" }}>
@@ -1968,7 +2117,7 @@ function AgenteIAView({ T, patients, addAppt }) {
           </div>
           <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text, marginBottom: 6 }}>Conecta tu agente de WhatsApp</div>
           <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 18px" }}>Aún no hay conversaciones. Vincula tu WhatsApp Business y el asistente responderá a tus pacientes, agendará citas y resolverá dudas con el contexto de tu clínica.</div>
-          <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, borderRadius: 8, padding: "11px 20px", display: "inline-block" }}>Conectar WhatsApp</span>
+          <button onClick={() => setShowGuide(true)} style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "11px 20px", cursor: "pointer" }}>Ver cómo conectar WhatsApp</button>
         </div>
       ) : (
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 12, height: 460 }}>
@@ -2013,6 +2162,7 @@ function AgenteIAView({ T, patients, addAppt }) {
         <NewCitaModal T={T} patients={patients || []} prefill={{ patName: darCita.name, phone: darCita.phone }} onClose={() => setDarCita(null)} onSave={handleSaveCita} />
       )}
       {citaOk && <CitaAgendadaOkPopup T={T} cita={citaOk} appts={appts} onClose={() => setCitaOk(null)} />}
+      {showGuide && <WhatsAppSetupModal T={T} onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

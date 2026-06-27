@@ -301,12 +301,34 @@ function mediqueEmail(opts) {
       // Adjunta el nombre de la clínica para la plantilla, si está disponible.
       var clinic = opts.clinic || (function () { try { return { name: (window.DB && DB.cfg().clinic_name) || '' }; } catch (e) { return {}; } })();
       var body = { to: opts.to, subject: opts.subject, text: opts.text, replyTo: opts.replyTo, clinic: clinic };
+      if (opts.attachments) body.attachments = opts.attachments;
       return fetch('/api/email', { method: 'POST', headers: headers, body: JSON.stringify(body) });
     }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
       .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
   } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }
 }
 if (typeof window !== 'undefined') window.mediqueEmail = mediqueEmail;
+
+// ── CLIENTE META ADS (/api/meta; lee gasto/leads/campañas reales con el token de la clínica) ──
+// mediqueMeta({ preset?, campaigns? }) → Promise { ok, spend, reach, leads, campaigns:[...] } | { ok:false, configured?, error }
+// Usa las credenciales guardadas por clínica en DB 'meta_creds' (token ads_read + cuenta act_…).
+function mediqueMeta(opts) {
+  try {
+    opts = opts || {};
+    var creds = {}; try { creds = (typeof window !== 'undefined' && window.DB && window.DB.get('meta_creds')) || {}; } catch (e) {}
+    var tokP = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
+    return Promise.resolve(tokP).then(function (tok) {
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+      var payload = { preset: opts.preset || 'this_month' };
+      if (opts.campaigns) payload.campaigns = true;
+      if (creds.token && creds.account) { payload.token = creds.token; payload.account = creds.account; }
+      return fetch('/api/meta', { method: 'POST', headers: headers, body: JSON.stringify(payload) });
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
+      .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
+  } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }
+}
+if (typeof window !== 'undefined') window.mediqueMeta = mediqueMeta;
 
 // ── CLIENTE 2FA por email (/api/otp). Envía el ID token de Firebase del usuario. ──
 function mediqueOtp(action, extra) {
