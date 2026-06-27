@@ -1051,7 +1051,7 @@ function ConsentView({ T, patients, updatePatient }) {
       {signing && <SignConsentModal T={T} data={signing} onClose={() => setSigning(null)}
         onSign={(r) => {
           const p = signing.patient;
-          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
           const lista = patConsents(p).slice(); lista.unshift(nuevo);
           try { window.DB.set(patConsKey(p.id), lista); } catch (e) {}
           updatePatient(p.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
@@ -1074,8 +1074,13 @@ function ConsentDoc({ T, tpl, prof }) {
   const P = ({ n, children }) => <p style={{ margin: "0 0 11px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}><b>{n}</b> {children}</p>;
   const EU = prof || "____________________";
   if (tpl.kind === "custom") {
+    // Consentimientos guardados antes de incluir paragraphs: los recuperamos de la plantilla por título.
+    let paras = tpl.paragraphs;
+    if (!paras || !paras.length) {
+      try { const tmpl = ((window.JCADMIN && window.JCADMIN.consents) || []).find(c => c.title === tpl.title || c.id === tpl.id); if (tmpl) paras = tmpl.paragraphs; } catch (e) {}
+    }
     const renderT = t => { const parts = t.split("{EU}"); if (parts.length === 1) return t; return parts.reduce((a, p, i) => i < parts.length - 1 ? [...a, p, <b key={i}>{EU}</b>] : [...a, p], []); };
-    return <div>{(tpl.paragraphs || []).map((p, i) => <P key={i} n={p.n}>{renderT(p.t)}</P>)}</div>;
+    return <div>{(paras || []).map((p, i) => <P key={i} n={p.n}>{renderT(p.t)}</P>)}</div>;
   }
   if (tpl.kind === "extra") return (
     <div>
@@ -1293,7 +1298,13 @@ function ConsentTab({ T, patient, updatePatient }) {
     const EU = esc(doc.prof || "____________________");
     const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
     let body = "";
-    if (doc.kind === "extra") {
+    if (doc.kind === "custom") {
+      // Plantilla con cláusulas propias (ej. Bruxismo). Respaldo a la plantilla si no se guardaron.
+      let paras = doc.paragraphs;
+      if (!paras || !paras.length) { try { var tmpl = ((window.JCADMIN && window.JCADMIN.consents) || []).find(function (c) { return c.title === doc.title || c.id === doc.id; }); if (tmpl) paras = tmpl.paragraphs; } catch (e) {} }
+      (paras || []).forEach(function (pa) { body += p(esc(pa.n || ""), esc(pa.t || "").replace(/\{EU\}/g, "<b>" + EU + "</b>")); });
+      if (!paras || !paras.length) body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento " + esc(doc.proc || "") + ".");
+    } else if (doc.kind === "extra") {
       if (doc.proc) body += p("", "Procedimiento: <b>" + esc(doc.proc) + "</b>.");
       body += "<div style='white-space:pre-wrap;font-size:12px;line-height:1.6;margin-bottom:11px'>" + esc(doc.body || "—") + "</div>";
       body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento descrito, habiéndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes clínicos.");
@@ -1456,7 +1467,7 @@ function ConsentTab({ T, patient, updatePatient }) {
       )}
 
       {signing && <SignConsentModal T={T} data={{ patient: patient, template: tpl0 || A.consents[0] }} onClose={() => setSigning(false)} onSign={(r) => {
-        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
         const lista = patConsents(patient).slice();
         lista.unshift(nuevo);
         commitConsents(lista); // guarda el consentimiento en su propia clave (sube a la nube)

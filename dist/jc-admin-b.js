@@ -777,7 +777,7 @@ function ConsentView({ T, patients, updatePatient }) {
       onClose: () => setSigning(null),
       onSign: (r) => {
         const p = signing.patient;
-        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
         const lista = patConsents(p).slice();
         lista.unshift(nuevo);
         try {
@@ -802,12 +802,20 @@ function ConsentDoc({ T, tpl, prof }) {
   const P = ({ n, children }) => /* @__PURE__ */ React.createElement("p", { style: { margin: "0 0 11px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text } }, /* @__PURE__ */ React.createElement("b", null, n), " ", children);
   const EU = prof || "____________________";
   if (tpl.kind === "custom") {
+    let paras = tpl.paragraphs;
+    if (!paras || !paras.length) {
+      try {
+        const tmpl = (window.JCADMIN && window.JCADMIN.consents || []).find((c) => c.title === tpl.title || c.id === tpl.id);
+        if (tmpl) paras = tmpl.paragraphs;
+      } catch (e) {
+      }
+    }
     const renderT = (t) => {
       const parts = t.split("{EU}");
       if (parts.length === 1) return t;
       return parts.reduce((a, p, i) => i < parts.length - 1 ? [...a, p, /* @__PURE__ */ React.createElement("b", { key: i }, EU)] : [...a, p], []);
     };
-    return /* @__PURE__ */ React.createElement("div", null, (tpl.paragraphs || []).map((p, i) => /* @__PURE__ */ React.createElement(P, { key: i, n: p.n }, renderT(p.t))));
+    return /* @__PURE__ */ React.createElement("div", null, (paras || []).map((p, i) => /* @__PURE__ */ React.createElement(P, { key: i, n: p.n }, renderT(p.t))));
   }
   if (tpl.kind === "extra") return /* @__PURE__ */ React.createElement("div", null, tpl.proc && /* @__PURE__ */ React.createElement(P, { n: "" }, "Procedimiento: ", /* @__PURE__ */ React.createElement("b", null, tpl.proc), "."), /* @__PURE__ */ React.createElement("div", { style: { whiteSpace: "pre-wrap", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text } }, tpl.body || "\u2014"), /* @__PURE__ */ React.createElement(P, { n: "" }, "Autorizo a EU ", /* @__PURE__ */ React.createElement("b", null, EU), " a realizar el procedimiento descrito, habi\xE9ndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes cl\xEDnicos."));
   if (tpl.kind === "toxina") return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(P, { n: "1.-" }, "Por el presente documento, autorizo a EU ", /* @__PURE__ */ React.createElement("b", null, EU), " a realizar el procedimiento conocido como \u201Ctratamiento cosm\xE9tico para arrugas\u201D mediante la aplicaci\xF3n de Toxina Botul\xEDnica tipo A, producto que al ser utilizado en la musculatura facial de manera adecuada, produce relajamiento de la expresi\xF3n con la disminuci\xF3n de las arrugas de expresi\xF3n. El procedimiento mencionado me ha sido totalmente explicado por el profesional, entendiendo la naturaleza y las consecuencias del mismo. Los siguientes puntos me han sido especialmente aclarados:"), /* @__PURE__ */ React.createElement("p", { style: { margin: "0 0 8px 16px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text } }, /* @__PURE__ */ React.createElement("b", null, "a)"), " En los sitios de la(s) aplicaci\xF3n(es) pueden quedar peque\xF1as marcas transitorias, enrojecimiento de la piel, hematomas, inflamaci\xF3n y efectos no deseados descritos en el prospecto, los mismos son comunes y reversibles."), /* @__PURE__ */ React.createElement("p", { style: { margin: "0 0 11px 16px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text } }, /* @__PURE__ */ React.createElement("b", null, "b)"), " Todos los pacientes que est\xE9n siendo tratados con antibi\xF3ticos del tipo de espectinomicina o amino gluc\xF3sidos, enfermedades neuromusculares, embarazadas, mujeres en periodos de lactancia, que presenten rellenos con biopol\xEDmeros, siliconas, as\xED como infecci\xF3n o signos de inflamaci\xF3n en los sitios de aplicaci\xF3n no pueden ser sometidos a la aplicaci\xF3n de Toxina Botul\xEDnica."), /* @__PURE__ */ React.createElement(P, { n: "2.-" }, "He entendido que la duraci\xF3n de los resultados es variable y reversible, siendo aproximadamente de entre 3 a 6 meses y me ha sido explicado que los efectos comenzar\xE1n a evidenciarse despu\xE9s del cuarto d\xEDa de la aplicaci\xF3n."), /* @__PURE__ */ React.createElement(P, { n: "3.-" }, "Soy consciente que la pr\xE1ctica de la medicina no es una ciencia exacta y reconozco que a pesar de que el profesional me ha informado adecuadamente las posibilidades absolutas y relativas de lograr los objetivos indicados en el punto 1, los resultados no pueden ser predecibles."), /* @__PURE__ */ React.createElement(P, { n: "4.-" }, "Doy fe de no haber omitido o alterado datos al exponer mis antecedentes cl\xEDnicos."), /* @__PURE__ */ React.createElement(P, { n: "5.-" }, "Autorizo el registro del proceso mediante fotograf\xEDas, v\xEDdeos, modelos de estudios y ex\xE1menes complementarios. Los cuales pueden ser utilizados con fines acad\xE9micos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Congresos, cursos, demostraciones, capacitaciones)."), /* @__PURE__ */ React.createElement(P, { n: "6.-" }, "He le\xEDdo detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional nombrado a realizarme el procedimiento antes explicado."));
@@ -1022,7 +1030,22 @@ function ConsentTab({ T, patient, updatePatient }) {
     const EU = esc(doc.prof || "____________________");
     const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
     let body = "";
-    if (doc.kind === "extra") {
+    if (doc.kind === "custom") {
+      let paras = doc.paragraphs;
+      if (!paras || !paras.length) {
+        try {
+          var tmpl = (window.JCADMIN && window.JCADMIN.consents || []).find(function(c) {
+            return c.title === doc.title || c.id === doc.id;
+          });
+          if (tmpl) paras = tmpl.paragraphs;
+        } catch (e) {
+        }
+      }
+      (paras || []).forEach(function(pa) {
+        body += p(esc(pa.n || ""), esc(pa.t || "").replace(/\{EU\}/g, "<b>" + EU + "</b>"));
+      });
+      if (!paras || !paras.length) body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento " + esc(doc.proc || "") + ".");
+    } else if (doc.kind === "extra") {
       if (doc.proc) body += p("", "Procedimiento: <b>" + esc(doc.proc) + "</b>.");
       body += "<div style='white-space:pre-wrap;font-size:12px;line-height:1.6;margin-bottom:11px'>" + esc(doc.body || "\u2014") + "</div>";
       body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento descrito, habi\xE9ndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes cl\xEDnicos.");
@@ -1139,7 +1162,7 @@ function ConsentTab({ T, patient, updatePatient }) {
   ), openDoc && /* @__PURE__ */ React.createElement(AdModal, { T, title: openDoc.title || "Consentimiento", onClose: () => setOpenDoc(null), wide: true, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setOpenDoc(null) }, "Cerrar"), openDoc.kind === "upload" ? /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => {
     if (openDoc.img) window.open(openDoc.img, "_blank");
   } }, "Abrir / descargar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: imprimirConsent }, "Imprimir")) }, openDoc.kind === "upload" ? /* @__PURE__ */ React.createElement("div", { style: { background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "16px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#444", marginBottom: 10 } }, "Consentimiento subido \xB7 ", openDoc.fecha, openDoc.fileType === "pdf" ? " \xB7 PDF" : ""), openDoc.fileType === "pdf" ? /* @__PURE__ */ React.createElement("a", { href: openDoc.img, target: "_blank", rel: "noopener", style: { fontFamily: T.sans, fontSize: 14, color: T.accent } }, "\u{1F4C4} Abrir el PDF del consentimiento") : /* @__PURE__ */ React.createElement("img", { src: openDoc.img, alt: "consentimiento subido", style: { width: "100%", maxHeight: "70vh", objectFit: "contain", display: "block" } })) : /* @__PURE__ */ React.createElement("div", { ref: printRef, style: { background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", fontFamily: T.sans, fontSize: 11, color: "#444" } }, "Fecha: ", openDoc.fecha), /* @__PURE__ */ React.createElement("h2", { style: { textAlign: "center", fontFamily: T.serif, fontWeight: 400, fontSize: 20, color: "#111", margin: "2px 0 14px" } }, "Consentimiento informado"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 } }, "Yo ", /* @__PURE__ */ React.createElement("b", null, openDoc.nombre)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 14 } }, "Identificado con CI N\xB0 ", /* @__PURE__ */ React.createElement("b", null, openDoc.ci), " \xB7 Edad ", /* @__PURE__ */ React.createElement("b", null, openDoc.edad)), /* @__PURE__ */ React.createElement(ConsentDocDark, { T, tpl: openDoc, prof: openDoc.prof }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma paciente"), openDoc.sigPac && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPac, alt: "firma paciente", style: { width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma profesional \xB7 ", openDoc.prof), openDoc.sigPro && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPro, alt: "firma profesional", style: { width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } }))))), signing && /* @__PURE__ */ React.createElement(SignConsentModal, { T, data: { patient, template: tpl0 || A.consents[0] }, onClose: () => setSigning(false), onSign: (r) => {
-    const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+    const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
     const lista = patConsents(patient).slice();
     lista.unshift(nuevo);
     commitConsents(lista);
