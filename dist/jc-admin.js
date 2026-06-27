@@ -628,6 +628,36 @@ function AdminApp() {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  const lastWebPull = useRef(0);
+  useEffect(() => {
+    let alive = true;
+    function pull() {
+      if (!(window.JCSAAS && window.JCSAAS.enabled)) return;
+      const now = Date.now();
+      if (now - lastWebPull.current < 2e4) return;
+      lastWebPull.current = now;
+      try {
+        importAllWeb().then(() => {
+          if (!alive) return;
+          try {
+            const fresh = window.DB && window.DB.get("appointments");
+            if (Array.isArray(fresh)) setAppts(fresh.map((a) => ({ ...a })));
+          } catch (e) {
+          }
+        });
+      } catch (e) {
+      }
+    }
+    pull();
+    const onFocus = () => pull();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, []);
   function updatePatient(id, patch) {
     setPatients((ps) => savePatients(ps.map((p) => p.id === id ? { ...p, ...patch } : p)));
   }
