@@ -1486,7 +1486,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           {chipField("Antecedentes mórbidos", "morbidos", ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
           {nrField("Alergias", "alergias", "Ej. Penicilina, AINEs…", "alpha")}
           {nrField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
-          {chipField("Procedimientos estéticos previos", "esteticos", ["Botox", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
+          {chipField("Procedimientos estéticos previos", "esteticos", ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
           {nrField("Hospitalizaciones", "hospital", "—")}
           {nrField("Medicamentos de uso diario", "medicamentos", "—")}
         </div>
