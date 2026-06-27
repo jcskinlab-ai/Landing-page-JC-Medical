@@ -1731,7 +1731,19 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const nowMinW = nowT.getHours() * 60 + nowT.getMinutes();
   const nowVisibleW = nowMinW >= WK_OPEN * 60 && nowMinW <= (WK_CLOSE + 1) * 60;
   const nowTopW = (nowMinW - WK_OPEN * 60) * WPX / 60;
-  // ¿Está disponible (habilitado) ese horario ese día? Lee la disponibilidad real (la misma de las reservas).
+  // Override por fecha AUTORITATIVO: el mapa namespaced de la BD (lo que se sincroniza y ven los
+  // pacientes); cae a jc-data si la BD aún no tiene esa fecha. Así agenda y reservas coinciden.
+  function dateOverride(dk) {
+    try { const m = (window.DB && window.DB.get("horarios_dates")) || null; if (m && m[dk]) return m[dk]; } catch (e) {}
+    try { const o = D.getDateSlots && D.getDateSlots(dk); if (o) return o; } catch (e) {}
+    return null;
+  }
+  function availSlotsFor(dateObj) {
+    const ov = dateOverride(D.dKey(dateObj));
+    if (ov) return { open: ov.length > 0, slots: ov };
+    return D.availForDate(dateObj); // disponibilidad semanal (jc-data)
+  }
+  // ¿Está disponible (habilitado) ese horario ese día?
   function isAvail(av, hhmm) {
     if (!av || !av.open) return false;
     if (av.slots.includes(hhmm)) return true;
@@ -1739,17 +1751,21 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     const b = String(Math.floor(blk / 60)).padStart(2, "0") + ":" + String(blk % 60).padStart(2, "0");
     return av.slots.includes(b);
   }
-  // Marca/desmarca un horario como "no disponible" para esa fecha (se refleja en agenda y en reservas).
+  // Marca/desmarca un horario como "no disponible" para esa fecha. Escribe por DOS vías:
+  //   1) jc-data (D.saveDateSlots) → la agenda del admin lo refleja al instante.
+  //   2) DB.set('horarios_dates') → dispara la PUBLICACIÓN a la nube (jcm_saas) para que el
+  //      LINK PÚBLICO de reservas también muestre esa hora bloqueada (no la pueden reservar).
   function toggleBlock(dateObj, hhmm, makeAvailable) {
     try {
       const dk = D.dKey(dateObj);
-      const cur = (D.getDateSlots(dk) || (D.availForDate(dateObj).slots) || []).slice();
+      const cur = (dateOverride(dk) || (D.availForDate(dateObj).slots) || []).slice();
       const next = makeAvailable
         ? (cur.includes(hhmm) ? cur : [...cur, hhmm].sort())
         : cur.filter(t => t !== hhmm);
-      D.saveDateSlots(dk, next);
+      try { D.saveDateSlots(dk, next); } catch (e) {}
+      try { const dbMap = (window.DB && window.DB.get("horarios_dates")) || {}; dbMap[dk] = next; if (window.DB) window.DB.set("horarios_dates", dbMap); } catch (e) {}
       setAvailVer(v => v + 1);
-      try { window.jcmToast && window.jcmToast(makeAvailable ? (hhmm + " habilitado.") : (hhmm + " marcado como no disponible."), "ok"); } catch (e) {}
+      try { window.jcmToast && window.jcmToast(makeAvailable ? (hhmm + " habilitado para reservas.") : (hhmm + " bloqueado · también queda no disponible para reservas online."), "ok"); } catch (e) {}
     } catch (e) {}
   }
 
@@ -1812,7 +1828,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             {/* Columnas de días */}
             {days.map((d, ci) => {
               const da = appts.filter(a => apptDayOff(a) === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
-              const av = D.availForDate(d.date); // disponibilidad real de ESA fecha
+              const av = availSlotsFor(d.date); // disponibilidad real de ESA fecha (sincronizada)
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
                   {/* Zonas clicables (15 o 30 min según la clínica); ocupadas por cita, libres, o "no disponible" */}
