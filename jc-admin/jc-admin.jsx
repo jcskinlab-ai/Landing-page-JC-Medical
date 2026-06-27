@@ -271,8 +271,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
   const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
-  const hoy = appts.filter(a => a.day === 0);
-  // Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
+  const hoy = appts.filter(a => apptDayOff(a) === 0);
+// Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
@@ -284,7 +284,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const growth = serie[0] ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
 
   // próximas citas (hoy primero por hora, luego el resto)
-  const ord = appts.slice().sort((a, b) => (a.day || 0) - (b.day || 0) || (a.time || "").localeCompare(b.time || ""));
+  const ord = appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || ""));
   const prox5 = ord.slice(0, 5);
 
   // notificaciones
@@ -628,7 +628,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc}</div>
       </div>
       <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{a.day === 0 ? "Hoy, " + (a.time || "—") : (a.when || a.time || "—")}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{apptDayOff(a) === 0 ? "Hoy, " + (a.time || "—") : (a.when || a.time || "—")}</div>
         <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{(a.dur || 60) + " min"}</div>
       </div>
       <button onClick={() => go("agenda")} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Ver</button>
@@ -743,6 +743,21 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       {movCaja && <MovimientosCajaModal T={T} onClose={() => setMovCaja(false)} />}
     </div>
   );
+}
+
+// Offset de día (0=hoy, 1=mañana, -1=ayer) de una cita, DERIVADO de su fecha real
+// (a.fecha, absoluta y permanente). Solo LEE — nunca modifica ni guarda la cita.
+// Así la grilla ubica cada cita por la fecha que se agendó, y nunca se corre al
+// cambiar el día. Si la cita no tiene fecha (demo/online antiguas), usa su `day`.
+function apptDayOff(a) {
+  if (a && a.fecha) {
+    var t = new Date(a.fecha + "T00:00:00");
+    if (!isNaN(t.getTime())) {
+      var base = new Date(); base.setHours(0, 0, 0, 0);
+      return Math.round((t.getTime() - base.getTime()) / 86400000);
+    }
+  }
+  return (a && typeof a.day === "number") ? a.day : 0;
 }
 
 function AdminApp() {
@@ -1219,7 +1234,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   const [edit, setEdit] = useState(null);
   const [metaConn, setMetaConn] = useState(true);
   const [resModal, setResModal] = useState(null);
-  const hoy = appts.filter(a => a.day === 0).sort((a, b) => a.time.localeCompare(b.time));
+  const hoy = appts.filter(a => apptDayOff(a) === 0).sort((a, b) => a.time.localeCompare(b.time));
   const next3 = appts.slice().sort((a, b) => (a.day - b.day) || a.time.localeCompare(b.time)).slice(0, 3);
   const camps = (window.CADMIN || { campaigns: [] }).campaigns;
   const reach = camps.reduce((s, c) => s + c.reach, 0), leads = camps.reduce((s, c) => s + c.leads, 0), spend = camps.reduce((s, c) => s + c.spend, 0);
@@ -1255,7 +1270,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
       {resModal && (() => {
         const cfg = {
           pacientes: { title: "Pacientes", rows: patients.map(p => ({ k: p.id, a: p.name, b: p.rut || p.phone || "" })) },
-          citas: { title: "Citas de la semana", rows: appts.slice().sort((a, b) => (a.day || 0) - (b.day || 0) || (a.time || "").localeCompare(b.time || "")).map(a => ({ k: a.id, a: a.name, b: (a.day === 0 ? "Hoy " : "") + (a.time || "") + " · " + (a.proc || "") })) },
+          citas: { title: "Citas de la semana", rows: appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || "")).map(a => ({ k: a.id, a: a.name, b: (apptDayOff(a) === 0 ? "Hoy " : "") + (a.time || "") + " · " + (a.proc || "") })) },
           consent: { title: "Consentimientos pendientes", rows: patients.filter(p => !p.consent).map(p => ({ k: p.id, a: p.name, b: (p.tags && p.tags[0]) || "Paciente" })) }
         }[resModal];
         return (
@@ -1285,7 +1300,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
           <button key={a.id} onClick={() => setEdit(a)} style={{ display: "flex", alignItems: "center", gap: 13, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer", textAlign: "left", width: "100%" }}>
             <div style={{ textAlign: "center", flexShrink: 0 }}>
               <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1 }}>{a.time}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, marginTop: 3 }}>{a.day === 0 ? "Hoy" : "Mañana"}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, marginTop: 3 }}>{apptDayOff(a) === 0 ? "Hoy" : "Mañana"}</div>
             </div>
             <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 13 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{a.name}</div>
@@ -1422,7 +1437,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   const D = window.JCDATA;
-  const list = appts.filter(a => a.day === day);
+  const list = appts.filter(a => apptDayOff(a) === day);
   // Apila citas solapadas en la vista lista
   const listStacked = (() => {
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
@@ -1441,7 +1456,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNow = day === 0 && nowMin >= OPEN && nowMin <= CLOSE;
   const hours = []; for (let h = OPEN / 60; h < CLOSE / 60; h++) hours.push(h);
-  const week = []; const b0 = new Date(); for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Mañana" : wdN[dt.getDay()], count: appts.filter(a => a.day === off).length }); }
+  const week = []; const b0 = new Date(); for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Mañana" : wdN[dt.getDay()], count: appts.filter(a => apptDayOff(a) === off).length }); }
 
   function clickTimeline(e) {
     if (e.target.closest("[data-appt]")) return;
@@ -1613,7 +1628,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const last = days[6].date;
   const hours = []; for (let h = 8; h <= 20; h++) hours.push(h);
   const hourOf = t => parseInt((t || "0").split(":")[0], 10);
-  const atCell = (off, h) => appts.filter(a => a.day === off && hourOf(a.time) === h);
+  const atCell = (off, h) => appts.filter(a => apptDayOff(a) === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
   const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
@@ -1678,7 +1693,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             </div>
             {/* Columnas de días */}
             {days.map((d, ci) => {
-              const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
+              const da = appts.filter(a => apptDayOff(a) === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
                   {/* Zonas clicables (15 o 30 min según la clínica); bloqueadas si hay una cita que cubre ese tramo */}
