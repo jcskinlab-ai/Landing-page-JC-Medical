@@ -271,15 +271,56 @@ function ServiciosView({ T }) {
   } }, "Guardar cambios") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre", value: editing.name, onChange: (v) => setEditing({ ...editing, name: v }) }), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Descripci\xF3n / zonas que cubre"), /* @__PURE__ */ React.createElement("textarea", { value: editing.desc, onChange: (e) => setEditing({ ...editing, desc: e.target.value }), rows: 2, style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", resize: "vertical", boxSizing: "border-box" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 } }, /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: editing.dur, onChange: (e) => setEditing({ ...editing, dur: e.target.value }), style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }, [15, 30, 45, 60, 90].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: String(d) }, d, " min")))), /* @__PURE__ */ React.createElement(AdField, { T, label: "Puntos que otorga", value: editing.pts, onChange: (v) => setEditing({ ...editing, pts: v.replace(/\D/g, "") }), inputMode: "numeric" })), /* @__PURE__ */ React.createElement(AdField, { T, label: "Precio (CLP)", value: editing.price, onChange: (v) => setEditing({ ...editing, price: v.replace(/\D/g, "") }), inputMode: "numeric" }))), newSvc && /* @__PURE__ */ React.createElement(NewServiceModal, { T, initial: newSvc === "new" ? null : newSvc, onClose: () => setNewSvc(null), onSave: saveSvc }));
 }
 const PERM_SECCIONES = ["Agenda", "Pacientes", "Servicios", "Inventario", "Reportes", "Marketing", "Configuraci\xF3n"];
+function jcmDefaultTeam() {
+  var name = "";
+  try {
+    name = window.clinicPro && window.clinicPro() || window.DB && DB.cfg().professional || "";
+  } catch (e) {
+  }
+  if (!name || name.trim().length < 2) {
+    try {
+      name = window.DB && DB.cfg().clinic_name || "";
+    } catch (e) {
+    }
+  }
+  if (!name || name.trim().length < 2) return [];
+  var email = "", phone = "";
+  try {
+    var c = window.JCSAAS && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {};
+    email = c.ownerEmail || "";
+  } catch (e) {
+  }
+  try {
+    if (!email) email = window.DB && DB.cfg().reply_email || "";
+  } catch (e) {
+  }
+  try {
+    phone = window.DB && DB.cfg().wa_number || "";
+  } catch (e) {
+  }
+  if (phone && !/^\+/.test(phone)) phone = "+" + phone.replace(/[^0-9]/g, "");
+  return [{ id: "t_owner", name: name.trim(), role: "Profesional a cargo", email, phone, color: "#6A8296", active: true, access: true, pin: "1234", perms: { Agenda: true, Pacientes: true, Inventario: true, Servicios: true, Reportes: true, Marketing: true, Configuraci\u00F3n: true } }];
+}
 function EquipoView({ T }) {
   const [team, setTeam] = useState(() => {
     try {
       const t = window.DB && DB.get("team");
-      if (Array.isArray(t)) return t;
+      if (Array.isArray(t) && t.length) return t;
     } catch (e) {
     }
-    return (typeof clinicSeeded === "function" ? clinicSeeded() : true) ? CADMIN.team || [] : [];
+    const seed = (typeof clinicSeeded === "function" ? clinicSeeded() : true) ? CADMIN.team || [] : [];
+    return seed.length ? seed : jcmDefaultTeam();
   });
+  useEffect(() => {
+    if (team && team.length) {
+      if (window.CADMIN) window.CADMIN.team = team;
+      try {
+        const saved = window.DB && DB.get("team");
+        if (!Array.isArray(saved) || !saved.length) window.DB && window.DB.set("team", team);
+      } catch (e) {
+      }
+    }
+  }, []);
   const [editing, setEditing] = useState(null);
   function save(m) {
     CADMIN.team = m.id && team.find((x) => x.id === m.id) ? team.map((x) => x.id === m.id ? m : x) : [...team, { ...m, id: "t" + Date.now(), color: m.color || "#8B9EB0" }];
@@ -1464,7 +1505,7 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
   }
   const tPend = tasks.filter((t) => !t.done), tDone = tasks.filter((t) => t.done);
   const taskCard = (t) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => toggleTask(t.id), title: t.done ? "Reabrir" : "Completar", style: { flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + (t.done ? "#4E8A72" : T.chipBorder), background: t.done ? "#4E8A72" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 } }, t.done && /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "3" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6 9 17l-5-5" }))), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 13, color: t.done ? T.textFaint : T.text, textDecoration: t.done ? "line-through" : "none" } }, t.text), /* @__PURE__ */ React.createElement("button", { onClick: () => delTask(t.id), title: "Eliminar", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }))));
-  const sinConsent = patients.filter((p) => !p.consent);
+  const sinConsent = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
   const recitas = window.recitaDue ? window.recitaDue(patients) : [];
   const oneYear = Date.now() - 365 * 24 * 3600 * 1e3;
   const porRenovar = patients.filter((p) => p.consent && p.consentTs && p.consentTs < oneYear);
@@ -1612,10 +1653,10 @@ function AutomatizacionesView({ T }) {
   const avg = reviews.length ? reviews.reduce((s, r) => s + (r.stars || 0), 0) / reviews.length : 0;
   const stars = (n) => "\u2605\u2605\u2605\u2605\u2605\u2606\u2606\u2606\u2606\u2606".slice(5 - Math.round(n), 10 - Math.round(n));
   const [showReviews, setShowReviews] = useState(false);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Automatizaciones", sub: "Configura recordatorios y mensajes autom\xE1ticos para tus pacientes." }), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "El env\xEDo real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aqu\xED configuras y visualizas las reglas."), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Formulario de rese\xF1as de tu cl\xEDnica"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } }, reviews.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.gold } }, stars(avg), " ", /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, avg.toFixed(1), " \xB7 ", reviews.length, " rese\xF1a", reviews.length === 1 ? "" : "s")), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowReviews(true), style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, padding: "7px 13px", borderRadius: 8, cursor: "pointer", border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text } }, "Ver rese\xF1as", reviews.length ? " (" + reviews.length + ")" : ""))), showReviews && /* @__PURE__ */ React.createElement(ReviewsModal, { T, reviews, stars, onClose: () => setShowReviews(false) }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 } }, 'Comparte este enlace con tus pacientes (se incluye al final del mensaje de indicaciones cuando "Solicitud de rese\xF1a" est\xE1 activa). Las rese\xF1as que dejen llegan a este panel.'), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("input", { readOnly: true, value: reviewUrl, onFocus: (e) => e.target.select(), style: { flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" } }), /* @__PURE__ */ React.createElement("button", { onClick: copyReview, style: { padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 } }, copiedRev ? "\u2713" : "Copiar"), /* @__PURE__ */ React.createElement("a", { href: reviewUrl, target: "_blank", rel: "noopener", style: { display: "inline-flex", alignItems: "center", padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, textDecoration: "none", fontFamily: T.sans, fontSize: 11.5 } }, "Abrir \u2197")), reviews.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 8 } }, reviews.slice(0, 5).map((r) => /* @__PURE__ */ React.createElement("div", { key: r.id, style: { background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text } }, r.name || "An\xF3nimo"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.gold } }, stars(r.stars || 0))), r.comment && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3, lineHeight: 1.5 } }, r.comment))))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 } }, rules.map((r) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Automatizaciones", sub: "Configura recordatorios y mensajes autom\xE1ticos para tus pacientes." }), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "El env\xEDo real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aqu\xED configuras y visualizas las reglas."), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 } }, rules.map((r) => {
     const cc = AUTO_CH_COLOR[r.ch] || T.accent;
     return /* @__PURE__ */ React.createElement("div", { key: r.id, style: { background: T.surface, border: "1px solid " + (r.on ? T.accent + "55" : T.line), borderRadius: 14, padding: "18px 18px 16px", position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12 } }, /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, width: 42, height: 42, borderRadius: 11, background: cc + "1c", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "21", height: "21", viewBox: "0 0 24 24", fill: "none", stroke: cc, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, AUTO_IC[r.ic])), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16.5, color: T.text, lineHeight: 1.2 } }, r.t), /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", marginTop: 5, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", color: T.textMute, background: T.surface2, border: "1px solid " + T.line, borderRadius: 6, padding: "2px 7px" } }, r.ch)), /* @__PURE__ */ React.createElement("button", { onClick: () => toggle(r.id), title: r.on ? "Activado" : "Desactivado", style: { flexShrink: 0, width: 44, height: 25, borderRadius: 999, border: "none", cursor: "pointer", background: r.on ? T.accent : T.line, position: "relative", transition: "background .2s" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 3, left: r.on ? 22 : 3, width: 19, height: 19, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.3)" } }))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 12, lineHeight: 1.5 } }, r.d), r.on && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-start", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid " + T.lineSoft } }, r.email ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: "#1F8A5B" } }), " Activo \xB7 por correo") : /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: "#caa86a" } }), " Pendiente \xB7 requiere WhatsApp")));
-  })));
+  })), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Formulario de rese\xF1as de tu cl\xEDnica"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } }, reviews.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.gold } }, stars(avg), " ", /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, avg.toFixed(1), " \xB7 ", reviews.length, " rese\xF1a", reviews.length === 1 ? "" : "s")), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowReviews(true), style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, padding: "7px 13px", borderRadius: 8, cursor: "pointer", border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text } }, "Ver rese\xF1as", reviews.length ? " (" + reviews.length + ")" : ""))), showReviews && /* @__PURE__ */ React.createElement(ReviewsModal, { T, reviews, stars, onClose: () => setShowReviews(false) }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 } }, 'Comparte este enlace con tus pacientes (se incluye al final del mensaje de indicaciones cuando "Solicitud de rese\xF1a" est\xE1 activa). Las rese\xF1as que dejen llegan a este panel.'), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("input", { readOnly: true, value: reviewUrl, onFocus: (e) => e.target.select(), style: { flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" } }), /* @__PURE__ */ React.createElement("button", { onClick: copyReview, style: { padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 } }, copiedRev ? "\u2713" : "Copiar"), /* @__PURE__ */ React.createElement("a", { href: reviewUrl, target: "_blank", rel: "noopener", style: { display: "inline-flex", alignItems: "center", padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, textDecoration: "none", fontFamily: T.sans, fontSize: 11.5 } }, "Abrir \u2197")), reviews.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 8 } }, reviews.slice(0, 5).map((r) => /* @__PURE__ */ React.createElement("div", { key: r.id, style: { background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text } }, r.name || "An\xF3nimo"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.gold } }, stars(r.stars || 0))), r.comment && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3, lineHeight: 1.5 } }, r.comment))))));
 }
 const WA_SEED = [
   { id: "c1", name: "Camila Rojas", phone: "+56 9 1111 1111", msgs: [{ f: "in", t: "Hola, \xBFtienen hora para botox esta semana?", h: "09:12" }, { f: "out", t: "\xA1Hola Camila! S\xED \u{1F60A} Tenemos el jueves a las 16:00. \xBFTe sirve?", h: "09:13" }, { f: "in", t: "Perfecto, ag\xE9ndame ah\xED", h: "09:15" }] },
@@ -1805,6 +1846,14 @@ function billingUpdateMethod(patId, billId, metodo) {
   try {
     const pts = window.DB && DB.get("patients") || [];
     DB.set("patients", pts.map((p) => p.id === patId ? { ...p, billing: (p.billing || []).map((b) => b.id === billId ? { ...b, metodo } : b) } : p));
+    cashNotify();
+  } catch (e) {
+  }
+}
+function billingDelete(patId, billId) {
+  try {
+    const pts = window.DB && DB.get("patients") || [];
+    DB.set("patients", pts.map((p) => p.id === patId ? { ...p, billing: (p.billing || []).filter((b) => b.id !== billId) } : p));
     cashNotify();
   } catch (e) {
   }
@@ -2526,10 +2575,13 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
           patch.fechaImport = fechaRaw;
           patch.fechaTs = fechaTs;
         }
-        if (importHist && (!existing.history || !existing.history.length)) {
-          patch.history = importHist;
-          if (fechaISO && !existing.lastVisit) patch.lastVisit = fechaISO;
+        if (importHist && importHist[0]) {
+          const newH = importHist[0];
+          const eh = existing.history || [];
+          const yaEsta = eh.some((h) => (h.proc || "").toLowerCase().trim() === (newH.proc || "").toLowerCase().trim() && (h.date || "") === (newH.date || ""));
+          if (!yaEsta) patch.history = [newH, ...eh];
           if (proc && (!existing.tags || !existing.tags.length)) patch.tags = [proc];
+          if (fechaISO && (!existing.lastVisit || existing.lastVisit < fechaISO)) patch.lastVisit = fechaISO;
         }
         if (Object.keys(patch).length && updatePatient) {
           updatePatient(existing.id, patch);
@@ -2631,9 +2683,71 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
     return /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 } }, "Actividad reciente"), log.length ? log.map((e, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, e.action || e.msg || "Acci\xF3n"), /* @__PURE__ */ React.createElement("span", { style: { color: T.textFaint, fontSize: 11 } }, (e.ts || "").slice(0, 16).replace("T", " ")))) : /* @__PURE__ */ React.createElement(Empty2, { T }, "A\xFAn no hay actividad registrada en este dispositivo."));
   })());
 }
+function jcmVerifyAdminKey(pass) {
+  try {
+    if (window.JCSAAS && window.JCSAAS.enabled && typeof window.JCSAAS.verifyPassword === "function") return window.JCSAAS.verifyPassword(pass);
+  } catch (e) {
+  }
+  try {
+    if (typeof jcmAdminCheck === "function") return jcmAdminCheck(typeof jcmAdminUser === "function" ? jcmAdminUser() : "", pass).then((r) => !!(r && r.ok));
+  } catch (e) {
+  }
+  return Promise.resolve(false);
+}
+function AdminKeyModal({ T, title, message, confirmLabel, onClose, onOk }) {
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function go() {
+    if (busy || !pass) return;
+    setBusy(true);
+    setErr("");
+    let ok = false;
+    try {
+      ok = await jcmVerifyAdminKey(pass);
+    } catch (e) {
+      ok = false;
+    }
+    if (ok) {
+      onOk();
+    } else {
+      setErr("Clave incorrecta.");
+      setBusy(false);
+    }
+  }
+  return /* @__PURE__ */ React.createElement(
+    AdModal,
+    {
+      T,
+      title: title || "Confirmar con tu clave",
+      onClose,
+      footer: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cancelar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: go }, busy ? "Verificando\u2026" : confirmLabel || "Eliminar"))
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 } }, message || "Ingresa la clave del admin de la cl\xEDnica para confirmar."),
+    /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "password",
+        value: pass,
+        autoFocus: true,
+        onChange: (e) => {
+          setPass(e.target.value);
+          setErr("");
+        },
+        onKeyDown: (e) => {
+          if (e.key === "Enter") go();
+        },
+        placeholder: "Clave del admin",
+        style: { width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (err ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, outline: "none" }
+      }
+    ),
+    err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: 8 } }, err)
+  );
+}
 function CajaView({ T }) {
   const D = window.JCDATA;
   const [tick, setTick] = useState(0);
+  const [delMov, setDelMov] = useState(null);
   const [mov, setMov] = useState(false);
   const [editMov, setEditMov] = useState(null);
   const [cierre, setCierre] = useState(false);
@@ -2660,8 +2774,8 @@ function CajaView({ T }) {
   const manuales = movs.filter((m) => m.kind !== "atencion");
   const adCost = typeof jcmAdCostPerPatient === "function" ? jcmAdCostPerPatient() : 0;
   const costoPub = atenciones.length * adCost;
-  const liqDe = (m) => (m.amount || 0) - (m.cost || 0) - (m.kind === "atencion" ? adCost : 0);
-  const neto = ingresos - egresos - costoIns - costoPub;
+  const liqDe = (m) => (m.amount || 0) - (m.kind === "atencion" ? adCost : 0);
+  const neto = ingresos - egresos - costoPub;
   const porMetodo = {};
   movs.filter((m) => m.type === "ingreso").forEach((m) => {
     const k = m.method || "Otro";
@@ -2679,13 +2793,24 @@ function CajaView({ T }) {
   const subLbl = periodo === "hoy" ? "hoy" : periodo === "semana" ? "esta semana" : "este mes";
   const cuando = (m) => (periodo !== "hoy" && m._day ? m._day.slice(8) + "/" + m._day.slice(5, 7) + " \xB7 " : "") + hora(m.ts);
   const chip = (k, l) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setPeriodo(k), style: { fontFamily: T.sans, fontSize: 11.5, padding: "7px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (periodo === k ? T.accent : T.line), background: periodo === k ? T.surface2 : T.surface, color: periodo === k ? T.text : T.textMute } }, l);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Caja", sub: "Resumen de caja " + periodoLbl }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setCierre(true) }, "Cierre del d\xEDa"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setMov(true) }, "+ Movimiento"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } }, chip("hoy", "Hoy"), chip("semana", "Esta semana"), chip("mes", "Este mes")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 5 : 4) + ",1fr)", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Ingresos (bruto)", v: D.fmt(ingresos), c: "#1F8A5B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Costo insumos", v: D.fmt(costoIns), c: T.gold || "#C9A227" }), adCost > 0 && /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Publicidad", v: D.fmt(costoPub), c: "#B8860B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Egresos", v: D.fmt(egresos), c: "#C0285A" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: adCost > 0 ? "L\xEDquido (ganancia)" : "Neto (ganancia)", v: D.fmt(neto), c: T.accent, strong: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 } }, "Atenciones cobradas ", subLbl), atenciones.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin atenciones cobradas ", subLbl, ".") : atenciones.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, onClick: () => setEditMov(m), title: "Cambiar m\xE9todo de pago", style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method, " \xB7 insumos ", D.fmt(m.cost || 0), adCost > 0 ? " \xB7 publicidad " + D.fmt(adCost) : "")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" } }, D.fmt(m.amount || 0)), (adCost > 0 || (m.cost || 0) > 0) && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 1 } }, "l\xEDquido ", D.fmt(liqDe(m)))))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" } }, "Movimientos manuales"), manuales.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin movimientos manuales ", subLbl, ".") : manuales.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, onClick: () => setEditMov(m), title: "Cambiar m\xE9todo de pago", style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" } }, m.type === "ingreso" ? "" : "\u2212 ", D.fmt(m.amount || 0)), m._src === "caja" && /* @__PURE__ */ React.createElement("button", { onClick: async (ev) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Caja", sub: "Resumen de caja " + periodoLbl }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setCierre(true) }, "Cierre del d\xEDa"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setMov(true) }, "+ Movimiento"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } }, chip("hoy", "Hoy"), chip("semana", "Esta semana"), chip("mes", "Este mes")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 4 : 3) + ",1fr)", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Ingresos (bruto)", v: D.fmt(ingresos), c: "#1F8A5B" }), adCost > 0 && /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Publicidad", v: D.fmt(costoPub), c: "#B8860B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Egresos", v: D.fmt(egresos), c: "#C0285A" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: adCost > 0 ? "L\xEDquido (ganancia)" : "Neto (ganancia)", v: D.fmt(neto), c: T.accent, strong: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 } }, "Atenciones cobradas ", subLbl), atenciones.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin atenciones cobradas ", subLbl, ".") : atenciones.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { onClick: () => setEditMov(m), title: "Cambiar m\xE9todo de pago", style: { flex: 1, minWidth: 0, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method, adCost > 0 ? " \xB7 publicidad " + D.fmt(adCost) : "")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" } }, D.fmt(m.amount || 0)), adCost > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 1 } }, "l\xEDquido ", D.fmt(liqDe(m)))), /* @__PURE__ */ React.createElement("button", { onClick: () => setDelMov(m), title: "Eliminar de Caja (no toca la sesi\xF3n)", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" }))))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" } }, "Movimientos manuales"), manuales.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin movimientos manuales ", subLbl, ".") : manuales.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, onClick: () => setEditMov(m), title: "Cambiar m\xE9todo de pago", style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cuando(m), " \xB7 ", m.method)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" } }, m.type === "ingreso" ? "" : "\u2212 ", D.fmt(m.amount || 0)), m._src === "caja" && /* @__PURE__ */ React.createElement("button", { onClick: (ev) => {
     ev.stopPropagation();
-    if (await (window.jcmConfirm || window.confirm)("\xBFEliminar este movimiento?", { danger: true })) {
-      cashDelete(m.id);
-      setTick((t) => t + 1);
+    setDelMov(m);
+  }, title: "Eliminar movimiento", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" })))))), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 } }, "Ingresos por m\xE9todo"), Object.keys(porMetodo).length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin ingresos a\xFAn.") : Object.keys(porMetodo).map((k) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", padding: "7px 0", fontFamily: T.sans, fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, D.fmt(porMetodo[k])))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 12, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text } }, "Total ingresos"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 18, color: T.accent } }, D.fmt(ingresos))))), delMov && /* @__PURE__ */ React.createElement(
+    AdminKeyModal,
+    {
+      T,
+      title: "Eliminar movimiento de Caja",
+      message: 'Vas a quitar "' + (delMov.concept || "este movimiento") + '" de Caja. Esto NO borra la sesi\xF3n del paciente, solo el registro en Caja. Ingresa la clave del admin de la cl\xEDnica para confirmar.',
+      onClose: () => setDelMov(null),
+      onOk: () => {
+        if (delMov._src === "billing") billingDelete(delMov._patId, delMov._billId);
+        else cashDelete(delMov.id);
+        setDelMov(null);
+        setTick((t) => t + 1);
+      }
     }
-  }, title: "Eliminar movimiento", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" })))))), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 } }, "Ingresos por m\xE9todo"), Object.keys(porMetodo).length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin ingresos a\xFAn.") : Object.keys(porMetodo).map((k) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", padding: "7px 0", fontFamily: T.sans, fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, D.fmt(porMetodo[k])))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 12, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text } }, "Total ingresos"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 18, color: T.accent } }, D.fmt(ingresos))))), mov && /* @__PURE__ */ React.createElement(NuevoMovModal, { T, onClose: () => setMov(false), onSave: (mv) => {
+  ), mov && /* @__PURE__ */ React.createElement(NuevoMovModal, { T, onClose: () => setMov(false), onSave: (mv) => {
     cashAdd({ ...mv, kind: "manual" });
     setMov(false);
     setTick(tick + 1);
@@ -2731,6 +2856,6 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
       }
     }
   }
-  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cierre del d\xEDa", onClose, footer: done ? /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: confirmarCierre }, "Confirmar cierre del d\xEDa") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" } }, fecha), [["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Costo insumos", costoIns, T.gold || "#C9A227", "\u2212 "], ["Egresos", egresos, "#C0285A", "\u2212 "]].map(([l, v, c, s]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: c } }, s, D.fmt(v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, fontFamily: T.sans, fontSize: 15, fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, "Neto (ganancia)"), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, D.fmt(neto))));
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cierre del d\xEDa", onClose, footer: done ? /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: confirmarCierre }, "Confirmar cierre del d\xEDa") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" } }, fecha), [["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Egresos", egresos, "#C0285A", "\u2212 "]].map(([l, v, c, s]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: c } }, s, D.fmt(v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, fontFamily: T.sans, fontSize: 15, fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, "Neto (ganancia)"), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, D.fmt(neto))));
 }
 Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });

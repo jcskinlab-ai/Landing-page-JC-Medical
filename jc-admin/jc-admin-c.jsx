@@ -336,8 +336,33 @@ function ServiciosView({ T }) {
 
 /* ─────────── EQUIPO ─────────── */
 const PERM_SECCIONES = ["Agenda", "Pacientes", "Servicios", "Inventario", "Reportes", "Marketing", "Configuración"];
+// Equipo por defecto: si una clínica aún no tiene profesionales, parte con el "profesional a cargo"
+// (de Configuración) para que el módulo Equipo nunca aparezca vacío.
+function jcmDefaultTeam() {
+  var name = "";
+  try { name = (window.clinicPro && window.clinicPro()) || (window.DB && DB.cfg().professional) || ""; } catch (e) {}
+  if (!name || name.trim().length < 2) { try { name = (window.DB && DB.cfg().clinic_name) || ""; } catch (e) {} }
+  if (!name || name.trim().length < 2) return [];
+  var email = "", phone = "";
+  try { var c = (window.JCSAAS && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}; email = c.ownerEmail || ""; } catch (e) {}
+  try { if (!email) email = (window.DB && DB.cfg().reply_email) || ""; } catch (e) {}
+  try { phone = (window.DB && DB.cfg().wa_number) || ""; } catch (e) {}
+  if (phone && !/^\+/.test(phone)) phone = "+" + phone.replace(/[^0-9]/g, "");
+  return [{ id: "t_owner", name: name.trim(), role: "Profesional a cargo", email: email, phone: phone, color: "#6A8296", active: true, access: true, pin: "1234", perms: { Agenda: true, Pacientes: true, Inventario: true, Servicios: true, Reportes: true, Marketing: true, Configuración: true } }];
+}
 function EquipoView({ T }) {
-  const [team, setTeam] = useState(() => { try { const t = window.DB && DB.get("team"); if (Array.isArray(t)) return t; } catch (e) {} return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? (CADMIN.team || []) : []; });
+  const [team, setTeam] = useState(() => {
+    try { const t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {}
+    const seed = ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? (CADMIN.team || []) : [];
+    return seed.length ? seed : jcmDefaultTeam();
+  });
+  // Asegura que el resto del panel vea el equipo y persiste el default la primera vez (para que no quede vacío).
+  useEffect(() => {
+    if (team && team.length) {
+      if (window.CADMIN) window.CADMIN.team = team;
+      try { const saved = window.DB && DB.get("team"); if (!Array.isArray(saved) || !saved.length) window.DB && window.DB.set("team", team); } catch (e) {}
+    }
+  }, []);
   const [editing, setEditing] = useState(null); // miembro a editar o "new"
   function save(m) {
     CADMIN.team = (m.id && team.find(x => x.id === m.id)) ? team.map(x => x.id === m.id ? m : x) : [...team, { ...m, id: "t" + Date.now(), color: m.color || "#8B9EB0" }];
@@ -1850,7 +1875,7 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
       <button onClick={() => delTask(t.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
     </div>
   );
-  const sinConsent = patients.filter(p => !p.consent);
+  const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
   // Consentimientos firmados hace más de 1 año → sugerir renovación
   const oneYear = Date.now() - 365 * 24 * 3600 * 1000;
@@ -2067,8 +2092,35 @@ function AutomatizacionesView({ T }) {
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
         El envío real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aquí configuras y visualizas las reglas.
       </div>
-      {/* Formulario de reseñas propio de la clínica (Medique). Se comparte con los pacientes; las reseñas llegan al panel. */}
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
+        {rules.map(r => {
+          const cc = AUTO_CH_COLOR[r.ch] || T.accent;
+          return (
+            <div key={r.id} style={{ background: T.surface, border: "1px solid " + (r.on ? T.accent + "55" : T.line), borderRadius: 14, padding: "18px 18px 16px", position: "relative" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <span style={{ flexShrink: 0, width: 42, height: 42, borderRadius: 11, background: cc + "1c", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={cc} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{AUTO_IC[r.ic]}</svg>
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 16.5, color: T.text, lineHeight: 1.2 }}>{r.t}</div>
+                  <span style={{ display: "inline-block", marginTop: 5, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", color: T.textMute, background: T.surface2, border: "1px solid " + T.line, borderRadius: 6, padding: "2px 7px" }}>{r.ch}</span>
+                </div>
+                <button onClick={() => toggle(r.id)} title={r.on ? "Activado" : "Desactivado"} style={{ flexShrink: 0, width: 44, height: 25, borderRadius: 999, border: "none", cursor: "pointer", background: r.on ? T.accent : T.line, position: "relative", transition: "background .2s" }}>
+                  <span style={{ position: "absolute", top: 3, left: r.on ? 22 : 3, width: 19, height: 19, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.3)" }} />
+                </button>
+              </div>
+              <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 12, lineHeight: 1.5 }}>{r.d}</p>
+              {r.on && <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid " + T.lineSoft }}>
+                {r.email
+                  ? <span style={{ fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1F8A5B" }} /> Activo · por correo</span>
+                  : <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#caa86a" }} /> Pendiente · requiere WhatsApp</span>}
+              </div>}
+            </div>
+          );
+        })}
+      </div>
+      {/* Formulario de reseñas propio de la clínica (Medique). Va DEBAJO de las automatizaciones. */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
           <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Formulario de reseñas de tu clínica</div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -2097,33 +2149,6 @@ function AutomatizacionesView({ T }) {
             ))}
           </div>
         )}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
-        {rules.map(r => {
-          const cc = AUTO_CH_COLOR[r.ch] || T.accent;
-          return (
-            <div key={r.id} style={{ background: T.surface, border: "1px solid " + (r.on ? T.accent + "55" : T.line), borderRadius: 14, padding: "18px 18px 16px", position: "relative" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <span style={{ flexShrink: 0, width: 42, height: 42, borderRadius: 11, background: cc + "1c", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={cc} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{AUTO_IC[r.ic]}</svg>
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: T.serif, fontSize: 16.5, color: T.text, lineHeight: 1.2 }}>{r.t}</div>
-                  <span style={{ display: "inline-block", marginTop: 5, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", color: T.textMute, background: T.surface2, border: "1px solid " + T.line, borderRadius: 6, padding: "2px 7px" }}>{r.ch}</span>
-                </div>
-                <button onClick={() => toggle(r.id)} title={r.on ? "Activado" : "Desactivado"} style={{ flexShrink: 0, width: 44, height: 25, borderRadius: 999, border: "none", cursor: "pointer", background: r.on ? T.accent : T.line, position: "relative", transition: "background .2s" }}>
-                  <span style={{ position: "absolute", top: 3, left: r.on ? 22 : 3, width: 19, height: 19, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.3)" }} />
-                </button>
-              </div>
-              <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 12, lineHeight: 1.5 }}>{r.d}</p>
-              {r.on && <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid " + T.lineSoft }}>
-                {r.email
-                  ? <span style={{ fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1F8A5B" }} /> Activo · por correo</span>
-                  : <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#caa86a" }} /> Pendiente · requiere WhatsApp</span>}
-              </div>}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -2365,6 +2390,14 @@ function billingUpdateMethod(patId, billId, metodo) {
   try {
     const pts = (window.DB && DB.get("patients")) || [];
     DB.set("patients", pts.map(p => p.id === patId ? { ...p, billing: (p.billing || []).map(b => b.id === billId ? { ...b, metodo: metodo } : b) } : p));
+    cashNotify();
+  } catch (e) {}
+}
+// Quita una atención del registro de Caja (p.billing). NO toca la sesión del historial clínico.
+function billingDelete(patId, billId) {
+  try {
+    const pts = (window.DB && DB.get("patients")) || [];
+    DB.set("patients", pts.map(p => p.id === patId ? { ...p, billing: (p.billing || []).filter(b => b.id !== billId) } : p));
     cashNotify();
   } catch (e) {}
 }
@@ -3078,13 +3111,17 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
         (p.name || "").toLowerCase() === name.toLowerCase());
       if (existing) {
         dup++;
-        // Re-importar para arreglar bases antiguas: completa fecha y/o el procedimiento si faltan.
+        // Re-importar para arreglar bases antiguas: completa fecha y AGREGA el procedimiento si no está
+        // (así, al resubir el Excel, la campaña de re-cita se reactiva aunque el paciente ya existiera).
         const patch = {};
         if (fechaTs && !existing.fechaTs) { patch.fechaImport = fechaRaw; patch.fechaTs = fechaTs; }
-        if (importHist && (!existing.history || !existing.history.length)) {
-          patch.history = importHist;
-          if (fechaISO && !existing.lastVisit) patch.lastVisit = fechaISO;
-          if (proc && (!existing.tags || !existing.tags.length)) patch.tags = [proc];
+        if (importHist && importHist[0]) {
+          const newH = importHist[0];
+          const eh = existing.history || [];
+          const yaEsta = eh.some(h => (h.proc || "").toLowerCase().trim() === (newH.proc || "").toLowerCase().trim() && (h.date || "") === (newH.date || ""));
+          if (!yaEsta) patch.history = [newH, ...eh]; // agrega la sesión del Excel (dedup por procedimiento + fecha)
+          if (proc && (!existing.tags || !existing.tags.length)) patch.tags = [proc];           // tag → la re-cita lo detecta
+          if (fechaISO && (!existing.lastVisit || existing.lastVisit < fechaISO)) patch.lastVisit = fechaISO;
         }
         if (Object.keys(patch).length && updatePatient) { updatePatient(existing.id, patch); updated++; }
         continue;
@@ -3252,9 +3289,43 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
 }
 
 /* ─────────── CAJA ─────────── */
+// Verifica la "clave del admin de la clínica": en modo nube = contraseña de la cuenta (re-auth);
+// en modo local = la clave del panel (admin_pass). Devuelve Promise<bool>.
+function jcmVerifyAdminKey(pass) {
+  try {
+    if (window.JCSAAS && window.JCSAAS.enabled && typeof window.JCSAAS.verifyPassword === "function") return window.JCSAAS.verifyPassword(pass);
+  } catch (e) {}
+  try {
+    if (typeof jcmAdminCheck === "function") return jcmAdminCheck((typeof jcmAdminUser === "function" ? jcmAdminUser() : ""), pass).then(r => !!(r && r.ok));
+  } catch (e) {}
+  return Promise.resolve(false);
+}
+// Modal: pide la clave del admin y confirma una acción sensible (p. ej. borrar un movimiento de Caja).
+function AdminKeyModal({ T, title, message, confirmLabel, onClose, onOk }) {
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function go() {
+    if (busy || !pass) return; setBusy(true); setErr("");
+    let ok = false;
+    try { ok = await jcmVerifyAdminKey(pass); } catch (e) { ok = false; }
+    if (ok) { onOk(); } else { setErr("Clave incorrecta."); setBusy(false); }
+  }
+  return (
+    <AdModal T={T} title={title || "Confirmar con tu clave"} onClose={onClose}
+      footer={<><AdBtn T={T} onClick={onClose}>Cancelar</AdBtn><AdBtn T={T} primary onClick={go}>{busy ? "Verificando…" : (confirmLabel || "Eliminar")}</AdBtn></>}>
+      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 }}>{message || "Ingresa la clave del admin de la clínica para confirmar."}</div>
+      <input type="password" value={pass} autoFocus onChange={e => { setPass(e.target.value); setErr(""); }}
+        onKeyDown={e => { if (e.key === "Enter") go(); }} placeholder="Clave del admin"
+        style={{ width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (err ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, outline: "none" }} />
+      {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: 8 }}>{err}</div>}
+    </AdModal>
+  );
+}
 function CajaView({ T }) {
   const D = window.JCDATA;
   const [tick, setTick] = useState(0);
+  const [delMov, setDelMov] = useState(null); // movimiento a eliminar (pide clave admin)
   const [mov, setMov] = useState(false);
   const [editMov, setEditMov] = useState(null); // movimiento al que se le cambia el método de pago
   const [cierre, setCierre] = useState(false);
@@ -3281,8 +3352,9 @@ function CajaView({ T }) {
   // Costo de publicidad por paciente atendido (solo JC Medical: $5.000 c/u). El líquido lo descuenta.
   const adCost = (typeof jcmAdCostPerPatient === "function") ? jcmAdCostPerPatient() : 0;
   const costoPub = atenciones.length * adCost;
-  const liqDe = m => (m.amount || 0) - (m.cost || 0) - (m.kind === "atencion" ? adCost : 0); // líquido de un movimiento
-  const neto = ingresos - egresos - costoIns - costoPub;
+  // El líquido NO descuenta insumos (a pedido: en Caja se muestra el pago completo).
+  const liqDe = m => (m.amount || 0) - (m.kind === "atencion" ? adCost : 0); // líquido de un movimiento
+  const neto = ingresos - egresos - costoPub;
   const porMetodo = {};
   movs.filter(m => m.type === "ingreso").forEach(m => { const k = m.method || "Otro"; porMetodo[k] = (porMetodo[k] || 0) + (m.amount || 0); });
   const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
@@ -3303,9 +3375,8 @@ function CajaView({ T }) {
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>{chip("hoy", "Hoy")}{chip("semana", "Esta semana")}{chip("mes", "Este mes")}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 5 : 4) + ",1fr)", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 4 : 3) + ",1fr)", gap: 10, marginBottom: 18 }}>
         <CajaCard T={T} l="Ingresos (bruto)" v={D.fmt(ingresos)} c="#1F8A5B" />
-        <CajaCard T={T} l="Costo insumos" v={D.fmt(costoIns)} c={T.gold || "#C9A227"} />
         {adCost > 0 && <CajaCard T={T} l="Publicidad" v={D.fmt(costoPub)} c="#B8860B" />}
         <CajaCard T={T} l="Egresos" v={D.fmt(egresos)} c="#C0285A" />
         <CajaCard T={T} l={adCost > 0 ? "Líquido (ganancia)" : "Neto (ganancia)"} v={D.fmt(neto)} c={T.accent} strong />
@@ -3315,15 +3386,18 @@ function CajaView({ T }) {
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Atenciones cobradas {subLbl}</div>
           {atenciones.length === 0 ? <Empty2 T={T}>Sin atenciones cobradas {subLbl}.</Empty2>
             : atenciones.map(m => (
-              <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
+                <div onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method} · insumos {D.fmt(m.cost || 0)}{adCost > 0 ? " · publicidad " + D.fmt(adCost) : ""}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method}{adCost > 0 ? " · publicidad " + D.fmt(adCost) : ""}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" }}>{D.fmt(m.amount || 0)}</div>
-                  {(adCost > 0 || (m.cost || 0) > 0) && <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 1 }}>líquido {D.fmt(liqDe(m))}</div>}
+                  {adCost > 0 && <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 1 }}>líquido {D.fmt(liqDe(m))}</div>}
                 </div>
+                <button onClick={() => setDelMov(m)} title="Eliminar de Caja (no toca la sesión)" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
+                </button>
               </div>
             ))}
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" }}>Movimientos manuales</div>
@@ -3335,7 +3409,7 @@ function CajaView({ T }) {
                   <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method}</div>
                 </div>
                 <div style={{ fontFamily: T.serif, fontSize: 16, color: m.type === "ingreso" ? "#1F8A5B" : "#C0285A" }}>{m.type === "ingreso" ? "" : "− "}{D.fmt(m.amount || 0)}</div>
-                {m._src === "caja" && <button onClick={async (ev) => { ev.stopPropagation(); if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento?", { danger: true })) { cashDelete(m.id); setTick(t => t + 1); } }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
+                {m._src === "caja" && <button onClick={(ev) => { ev.stopPropagation(); setDelMov(m); }} title="Eliminar movimiento" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex", flexShrink: 0 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
                 </button>}
               </div>
@@ -3355,6 +3429,10 @@ function CajaView({ T }) {
           </div>
         </div>
       </div>
+      {delMov && <AdminKeyModal T={T} title="Eliminar movimiento de Caja"
+        message={"Vas a quitar \"" + (delMov.concept || "este movimiento") + "\" de Caja. Esto NO borra la sesión del paciente, solo el registro en Caja. Ingresa la clave del admin de la clínica para confirmar."}
+        onClose={() => setDelMov(null)}
+        onOk={() => { if (delMov._src === "billing") billingDelete(delMov._patId, delMov._billId); else cashDelete(delMov.id); setDelMov(null); setTick(t => t + 1); }} />}
       {mov && <NuevoMovModal T={T} onClose={() => setMov(false)} onSave={mv => { cashAdd({ ...mv, kind: "manual" }); setMov(false); setTick(tick + 1); }} />}
       {cierre && <CierreModal T={T} ingresos={ingresos} egresos={egresos} costoIns={costoIns} neto={neto} fecha={fechaTxt} onClose={() => setCierre(false)} />}
       {editMov && <MetodoPagoModal T={T} mov={editMov} onClose={() => setEditMov(null)} onSave={metodo => {
@@ -3426,7 +3504,7 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   return (
     <AdModal T={T} title="Cierre del día" onClose={onClose} footer={done ? <AdBtn T={T} full onClick={onClose}>Cerrar</AdBtn> : <AdBtn T={T} primary full onClick={confirmarCierre}>Confirmar cierre del día</AdBtn>}>
       <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" }}>{fecha}</div>
-      {[["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Costo insumos", costoIns, T.gold || "#C9A227", "− "], ["Egresos", egresos, "#C0285A", "− "]].map(([l, v, c, s]) => (
+      {[["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Egresos", egresos, "#C0285A", "− "]].map(([l, v, c, s]) => (
         <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 }}>
           <span style={{ color: T.textMute }}>{l}</span><span style={{ color: c }}>{s}{D.fmt(v)}</span>
         </div>

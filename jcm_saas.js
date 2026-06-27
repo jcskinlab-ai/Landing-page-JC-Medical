@@ -477,6 +477,15 @@
     currentClinicId: function () { return state.clinicId; },
     // ID token de Firebase del usuario logueado (para autenticar llamadas a /api/*). Corto (1h), no es secreto.
     idToken: function () { try { return (auth && auth.currentUser) ? auth.currentUser.getIdToken() : Promise.resolve(null); } catch (e) { return Promise.resolve(null); } },
+    // Verifica la contraseña de la cuenta (re-autenticación) para confirmar acciones sensibles
+    // (p. ej. borrar un movimiento de Caja). No cambia la sesión; solo valida. Devuelve Promise<bool>.
+    verifyPassword: function (pass) {
+      try {
+        if (!auth || !auth.currentUser || !auth.currentUser.email || !pass) return Promise.resolve(false);
+        var cred = fb.auth.EmailAuthProvider.credential(auth.currentUser.email, pass);
+        return auth.currentUser.reauthenticateWithCredential(cred).then(function () { return true; }).catch(function () { return false; });
+      } catch (e) { return Promise.resolve(false); }
+    },
     access: access,
     migrateLocal: migrateLocal,
     hasLegacyData: hasLegacyData,

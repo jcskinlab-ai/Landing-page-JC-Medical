@@ -309,7 +309,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null);
   const [movCaja, setMovCaja] = useState(false);
   const fmt = D && D.fmt ? D.fmt : (n) => "$" + (n || 0).toLocaleString("es-CL");
-  const hoy = appts.filter((a) => apptDayOff(a) === 0);
+  const hoy = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada");
   const ingresosHoy = typeof window.cashToday === "function" ? (window.cashToday() || []).filter((m) => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
@@ -317,11 +317,11 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const serie = window.JCSAAS && window.JCSAAS.enabled ? [0, 0, 0, 0, 0, 0, 0] : [38e4, 42e4, 51e4, 47e4, 54e4, 61e4, 74e4];
   const totalSemana = serie.reduce((a, b) => a + b, 0);
   const growth = serie[0] ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
-  const ord = appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || ""));
+  const ord = appts.filter((a) => a.status !== "anulada").sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || ""));
   const prox5 = ord.slice(0, 5);
   const wa = (window.CADMIN || {}).waMessages || [];
   const biz = (window.CADMIN || {}).bizComments || [];
-  const sinConsent = patients.filter((p) => !p.consent);
+  const sinConsent = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
   const recitas = window.recitaDue ? window.recitaDue(patients) : [];
   const TABS = [["general", "Visi\xF3n General"], ["citas", "Pr\xF3ximas Citas"], ["notif", "Notificaciones"]];
   const [metaEdit, setMetaEdit] = useState(false);
@@ -992,8 +992,9 @@ function AdminApp() {
     }
   }, []);
   const current = patients.find((p) => p.id === openPatient);
-  const pendCount = patients.filter((p) => !p.consent).length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
-  const notifCount = (notifVer, unreadNotifCount(patients));
+  const _sinCons = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
+  const pendCount = _sinCons.length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
+  const notifCount = (notifVer, unreadNotifCount(patients, appts));
   let body;
   if (section === "dashboard") body = /* @__PURE__ */ React.createElement(DashboardView, { T, D, A, appts, patients, go: nav });
   else if (section === "appjcm") body = /* @__PURE__ */ React.createElement(AppJCMView, { T });
@@ -1135,15 +1136,16 @@ function notifMarkAllRead(keys) {
   } catch (e) {
   }
 }
-function unreadNotifCount(patients) {
+function unreadNotifCount(patients, appts) {
   var read = {};
   notifReadList().forEach(function(k) {
     read[k] = 1;
   });
   var n = 0;
-  (patients || []).forEach(function(p) {
-    if (!p.consent) n++;
+  var sc = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : (patients || []).filter(function(p) {
+    return !p.consent;
   });
+  n += sc.length;
   ((window.CADMIN || {}).waMessages || []).forEach(function(m) {
     if (!read["w" + m.id]) n++;
   });
@@ -1174,7 +1176,7 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   });
   const wa = ((window.CADMIN || {}).waMessages || []).filter((m) => !read["w" + m.id]);
   const biz = ((window.CADMIN || {}).bizComments || []).filter((b) => !read["b" + b.id]);
-  const sinConsent = patients.filter((p) => !p.consent);
+  const sinConsent = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter((x) => !read["re" + x.p.id]);
   let tasks = [];
   try {
@@ -1217,7 +1219,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
     }
   })();
   const [resModal, setResModal] = useState(null);
-  const hoy = appts.filter((a) => apptDayOff(a) === 0).sort((a, b) => a.time.localeCompare(b.time));
+  const hoy = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada").sort((a, b) => a.time.localeCompare(b.time));
   const next3 = appts.slice().sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)).slice(0, 3);
   const camps = (() => {
     try {
@@ -1228,14 +1230,45 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
     return [];
   })();
   const reach = camps.reduce((s, c) => s + c.reach, 0), leads = camps.reduce((s, c) => s + c.leads, 0), spend = camps.reduce((s, c) => s + c.spend, 0);
-  const week = [4, 6, 3, 7, 5, 2, 0];
-  const wd = ["L", "M", "M", "J", "V", "S", "D"], maxw = Math.max(...week);
+  const wd = ["L", "M", "M", "J", "V", "S", "D"];
+  const _wkBase = /* @__PURE__ */ new Date();
+  _wkBase.setHours(0, 0, 0, 0);
+  const _todayIdx = (_wkBase.getDay() + 6) % 7;
+  const _wkMon = new Date(_wkBase);
+  _wkMon.setDate(_wkBase.getDate() - _todayIdx);
+  const _apptDayIdx = (a) => {
+    let d = null;
+    try {
+      d = a.fecha ? /* @__PURE__ */ new Date(a.fecha + "T00:00:00") : null;
+    } catch (e) {
+      d = null;
+    }
+    if (!d || isNaN(d)) {
+      d = new Date(_wkBase);
+      d.setDate(_wkBase.getDate() + (apptDayOff(a) || 0));
+    }
+    d.setHours(0, 0, 0, 0);
+    return Math.round((d - _wkMon) / 864e5);
+  };
+  const week = [0, 0, 0, 0, 0, 0, 0];
+  let wkCitas = 0, wkMonto = 0;
+  (appts || []).forEach((a) => {
+    if (a.status === "anulada" || a.status === "cancelada") return;
+    const di = _apptDayIdx(a);
+    if (di >= 0 && di < 7) {
+      week[di]++;
+      wkCitas++;
+      wkMonto += a.price || (window.jcmProcPrice ? window.jcmProcPrice(a.proc) : 0) || 0;
+    }
+  });
+  const maxw = Math.max(1, week[0], week[1], week[2], week[3], week[4], week[5], week[6]);
+  const sinCons = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
   const greet = now.getHours() < 13 ? "Buenos d\xEDas" : now.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent } }, greet, ", ", clinicDisplayName()), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, marginTop: 8, lineHeight: 1.05 } }, now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "18px 18px", marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Resumen semanal"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "27 citas \xB7 ", D.fmt(394e4))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 8, height: 84 } }, week.map((v, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 26, height: v / maxw * 60 + 4 + "px", background: i === now.getDay() - 1 ? T.accent : T.dark ? "rgba(242,237,230,.18)" : "rgba(20,20,15,.14)", borderRadius: 4 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute } }, wd[i])))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16, paddingTop: 16, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("pacientes"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: patients.length, l: "Pacientes" })), /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("citas"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: appts.length, l: "Citas semana" })), /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("consent"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: patients.filter((p) => !p.consent).length, l: "Consent. pend.", accent: patients.some((p) => !p.consent) })))), resModal && (() => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent } }, greet, ", ", clinicDisplayName()), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, marginTop: 8, lineHeight: 1.05 } }, now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "18px 18px", marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Resumen semanal"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, wkCitas, " ", wkCitas === 1 ? "cita" : "citas", wkMonto > 0 ? " \xB7 " + D.fmt(wkMonto) : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 8, height: 84 } }, week.map((v, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 26, height: v / maxw * 60 + 4 + "px", background: i === _todayIdx ? T.accent : T.dark ? "rgba(242,237,230,.18)" : "rgba(20,20,15,.14)", borderRadius: 4 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute } }, wd[i])))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16, paddingTop: 16, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("pacientes"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: patients.length, l: "Pacientes" })), /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("citas"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: appts.length, l: "Citas semana" })), /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("consent"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: sinCons.length, l: "Consent. pend.", accent: sinCons.length > 0 })))), resModal && (() => {
     const cfg = {
       pacientes: { title: "Pacientes", rows: patients.map((p) => ({ k: p.id, a: p.name, b: p.rut || p.phone || "" })) },
       citas: { title: "Citas de la semana", rows: appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || "")).map((a) => ({ k: a.id, a: a.name, b: (apptDayOff(a) === 0 ? "Hoy " : "") + (a.time || "") + " \xB7 " + (a.proc || "") })) },
-      consent: { title: "Consentimientos pendientes", rows: patients.filter((p) => !p.consent).map((p) => ({ k: p.id, a: p.name, b: p.tags && p.tags[0] || "Paciente" })) }
+      consent: { title: "Consentimientos pendientes", rows: sinCons.map((p) => ({ k: p.id, a: p.name, b: p.tags && p.tags[0] || "Paciente" })) }
     }[resModal];
     return /* @__PURE__ */ React.createElement(AdModal, { T, title: cfg.title + " (" + cfg.rows.length + ")", onClose: () => setResModal(null), footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => {
       setResModal(null);
@@ -1275,10 +1308,11 @@ function Toast({ T, data, onClose }) {
   return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: "50%", bottom: 22, transform: "translateX(-50%)", zIndex: 55, width: "min(360px, calc(100% - 32px))", background: T.dark ? "#16170f" : "#fff", border: "1px solid " + T.line, borderRadius: 12, boxShadow: "0 18px 50px -16px rgba(0,0,0,.5)", padding: "16px 18px", animation: "jcSlideUp .3s " + T.ease } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 24, height: 24, borderRadius: "50%", background: "#1F8A5B", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "2.4" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6 9 17l-5-5" }))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text } }, "Cita creada \xB7 notificaciones enviadas")), data.lines.map((l, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, padding: "3px 0" } }, l)), data.cli && /* @__PURE__ */ React.createElement("a", { href: "https://wa.me/" + data.cli.replace(/\D/g, ""), target: "_blank", rel: "noopener", style: { display: "inline-block", marginTop: 10, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 999, padding: "8px 14px" } }, "Abrir WhatsApp del paciente \u2192"));
 }
 function ApptBlock({ T, a, onClick, compact }) {
+  const st = jcmApptState(a, T);
   return /* @__PURE__ */ React.createElement("div", { "data-appt": true, onClick: (e) => {
     e.stopPropagation();
     onClick(a);
-  }, style: { cursor: "pointer", background: T.surface2, border: "1px solid " + T.accent, borderLeft: "3px solid " + T.accent, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), !compact && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.accent, flexShrink: 0 } }, a.time)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, compact ? a.time + " \xB7 " + a.proc : a.proc));
+  }, style: { cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderLeft: "3px solid " + st.color, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), !compact && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 } }, a.time)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, compact ? a.time + " \xB7 " + a.proc : a.proc), !compact && st.key !== "pendiente" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, display: "inline-block", fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".04em", color: st.color, background: st.color + "1a", borderRadius: 5, padding: "2px 6px" } }, st.label));
 }
 function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
   const [webBusy, setWebBusy] = useState(false);
@@ -1310,7 +1344,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     return () => clearInterval(id);
   }, []);
   const D = window.JCDATA;
-  const list = appts.filter((a) => apptDayOff(a) === day);
+  const list = appts.filter((a) => apptDayOff(a) === day && a.status !== "anulada");
+  const anuladas = appts.filter((a) => a.status === "anulada").sort((a, b) => (b.anuladaAt || 0) - (a.anuladaAt || 0));
   const listStacked = (() => {
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
     let cur = -1;
@@ -1334,7 +1369,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   for (let off = 0; off < 7; off++) {
     const dt = new Date(b0);
     dt.setDate(b0.getDate() + off);
-    week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Ma\xF1ana" : wdN[dt.getDay()], count: appts.filter((a) => apptDayOff(a) === off).length });
+    week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Ma\xF1ana" : wdN[dt.getDay()], count: appts.filter((a) => apptDayOff(a) === off && a.status !== "anulada").length });
   }
   function clickTimeline(e) {
     if (e.target.closest("[data-appt]")) return;
@@ -1381,7 +1416,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       setHoverA(null);
       setEdit(x);
     } })
-  )), showNow && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 42, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 2, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" } }, "Ahora ", fmtTime(now)))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Toca un espacio libre para crear una cita \xB7 toca una cita para editarla.")), nueva && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: nueva.time, day: nueva.day, prefill: nueva.fromSlot ? { time: nueva.time, day: nueva.day } : void 0, onClose: () => setNueva(null), onSave: onCreate, onOpenPatient }), edit && /* @__PURE__ */ React.createElement(CitaEditModal, { T, appt: edit, patients, onClose: () => setEdit(null), onSave: (patch) => {
+  )), showNow && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 42, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 2, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" } }, "Ahora ", fmtTime(now)))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Toca un espacio libre para crear una cita \xB7 toca una cita para editarla.")), anuladas.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 22, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: "#9AA0A6" } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.textMute } }, "Citas anuladas (", anuladas.length, ")")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, marginBottom: 12 } }, "Quedan registradas con los datos del paciente. Puedes restaurarlas si fue un error."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column" } }, anuladas.map((a) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, textDecoration: "line-through", textDecorationColor: "#9AA0A6" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, [a.proc, a.time && a.time + " h", a.fecha].filter(Boolean).join("  \xB7  "), a.phone ? "  \xB7  " + a.phone : ""), a.anuladaAt && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 } }, "Anulada el ", new Date(a.anuladaAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" }), " \xB7 ", new Date(a.anuladaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => updateAppt(a.id, { status: "pendiente", anuladaAt: null }), style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer" } }, "Restaurar"))))), nueva && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: nueva.time, day: nueva.day, prefill: nueva.fromSlot ? { time: nueva.time, day: nueva.day } : void 0, onClose: () => setNueva(null), onSave: onCreate, onOpenPatient }), edit && /* @__PURE__ */ React.createElement(CitaEditModal, { T, appt: edit, patients, onClose: () => setEdit(null), onSave: (patch) => {
     updateAppt(edit.id, patch);
     setEdit(null);
   }, onCancel: () => {
@@ -1394,8 +1429,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     setFichaConfirm(null);
   }, style: { flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" } }, "Ir a ficha")))), hoverA && hoverA.a && !edit && (() => {
     const a = hoverA.a, isPP = a.status === "pendiente_pago";
-    const ac = a.status === "no_asistio" ? "#C0285A" : a.attended ? "#1F8A5B" : isPP ? "#B8860B" : T.accent;
-    const estado = a.status === "no_asistio" ? "No asisti\xF3" : a.attended ? "Atendida" : isPP ? "\u23F3 Pago pendiente" : a.status === "confirmada" ? "Confirmada" : "Pendiente";
+    const _hs2 = jcmApptState(a, T);
+    const ac = _hs2.color, estado = _hs2.label;
     return /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 } }, a.name), [["Hora", a.time], ["Duraci\xF3n", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "\u2014"], ["Estado", estado]].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 500, textAlign: "right" } }, v))));
   })());
 }
@@ -1447,6 +1482,18 @@ function adminSlotMins() {
 function adminSlots() {
   return adminSlotMins() === 15 ? ADMIN_QUARTER_HOURS : ADMIN_HALF_HOURS;
 }
+function jcmApptState(a, T) {
+  a = a || {};
+  if (a.status === "anulada" || a.status === "cancelada") return { key: "anulada", label: "Anulada", color: "#9AA0A6" };
+  if (a.status === "no_asistio") return { key: "no_asistio", label: "No asisti\xF3", color: "#C0285A" };
+  if (a.status === "atendiendose") return { key: "atendiendose", label: "Atendi\xE9ndose", color: "#1F8A5B" };
+  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#1F8A5B" };
+  if (a.status === "en_sala") return { key: "en_sala", label: "En sala de espera", color: "#0E7490" };
+  if (a.status === "pendiente_pago") return { key: "pendiente_pago", label: "\u23F3 Pago pendiente", color: "#B8860B" };
+  if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#2563EB" };
+  return { key: "pendiente", label: "Pendiente", color: T && T.accent || "#8A7E6B" };
+}
+if (typeof window !== "undefined") window.jcmApptState = jcmApptState;
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha }) {
   const D = window.JCDATA;
   const [wkOff, setWkOff] = useState(0);
@@ -1497,7 +1544,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     const half = hhmm.endsWith(":30");
     return /* @__PURE__ */ React.createElement("div", { key: hhmm, style: { position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 8.5 : 10, color: T.textFaint, opacity: half ? 0.5 : 1, pointerEvents: "none", userSelect: "none" } }, hhmm);
   })), days.map((d, ci) => {
-    const da = appts.filter((a) => apptDayOff(a) === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
+    const da = appts.filter((a) => apptDayOff(a) === d.off && a.status !== "anulada" && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
     return /* @__PURE__ */ React.createElement("div", { key: ci, style: { flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" } }, slots.map((hhmm, i) => {
       const isHourLine = hhmm.endsWith(":00");
       const isHalfLine = hhmm.endsWith(":30");
@@ -1518,7 +1565,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       ));
     }), stackAppts(da).map((a) => {
       const isPendPago = a.status === "pendiente_pago";
-      const accentColor = a.status === "no_asistio" ? "#C0285A" : a.attended ? "#1F8A5B" : isPendPago ? "#B8860B" : T.accent;
+      const accentColor = jcmApptState(a, T).color;
       return /* @__PURE__ */ React.createElement(
         "div",
         {
@@ -1544,8 +1591,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     }));
   })))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Pasa el mouse por un horario libre y toca el ", /* @__PURE__ */ React.createElement("b", { style: { color: T.accent } }, "+"), " para agendar \xB7 toca una cita para ver opciones (atender, reprogramar, anular)."), hover && hover.a && !menu && (() => {
     const a = hover.a, isPP = a.status === "pendiente_pago";
-    const ac = a.status === "no_asistio" ? "#C0285A" : a.attended ? "#1F8A5B" : isPP ? "#B8860B" : T.accent;
-    const estado = a.status === "no_asistio" ? "No asisti\xF3" : a.attended ? "Atendida" : isPP ? "\u23F3 Pago pendiente" : a.status === "confirmada" ? "Confirmada" : "Pendiente";
+    const _hs = jcmApptState(a, T);
+    const ac = _hs.color, estado = _hs.label;
     return /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 } }, a.name), [["Hora", a.time], ["Duraci\xF3n", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "\u2014"], ["Estado", estado]].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 500, textAlign: "right" } }, v))), a.comentario && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 3 } }, "Comentario"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)));
   })(), menu && activeAppt && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setMenu(null), style: { position: "fixed", inset: 0, zIndex: 79 } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: menuPos.x, top: menuPos.y, zIndex: 80, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 8, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", overflow: "hidden", padding: "4px 0", animation: "jcSlideUp .2s ease" } }, [
     ["Ver ficha del paciente", () => {
@@ -1569,19 +1616,32 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       updateAppt(activeAppt.id, { status: "confirmada" });
       setMenu(null);
     }, "#1F8A5B"]] : [],
+    ["Confirmar cita", () => {
+      updateAppt(activeAppt.id, { status: "confirmada" });
+      setMenu(null);
+    }, "#2563EB"],
+    ["En sala de espera", () => {
+      updateAppt(activeAppt.id, { status: "en_sala" });
+      setMenu(null);
+    }, "#0E7490"],
+    ["Atendi\xE9ndose", () => {
+      updateAppt(activeAppt.id, { status: "atendiendose" });
+      setMenu(null);
+    }, "#1F8A5B"],
     ["Marcar como atendido", () => {
-      updateAppt(activeAppt.id, { status: "confirmada", attended: true });
+      updateAppt(activeAppt.id, { status: "atendida", attended: true });
       setMenu(null);
     }],
     ["No asisti\xF3", () => {
       updateAppt(activeAppt.id, { status: "no_asistio", attended: false });
       setMenu(null);
     }, "#C0285A"],
-    ["Anular", () => {
-      removeAppt(activeAppt.id);
+    ["__sep", null],
+    ["Anular cita", () => {
+      updateAppt(activeAppt.id, { status: "anulada", attended: false, anuladaAt: Date.now() });
       setMenu(null);
-    }]
-  ].map((it, i) => it[0] === "__sep" ? /* @__PURE__ */ React.createElement("div", { key: i, style: { height: 1, background: T.lineSoft, margin: "4px 0" } }) : /* @__PURE__ */ React.createElement("button", { key: i, onClick: it[1], style: { display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[0] === "Anular" ? "#C0285A" : it[2] || T.text } }, it[0])))));
+    }, "#C0285A"]
+  ].map((it, i) => it[0] === "__sep" ? /* @__PURE__ */ React.createElement("div", { key: i, style: { height: 1, background: T.lineSoft, margin: "4px 0" } }) : /* @__PURE__ */ React.createElement("button", { key: i, onClick: it[1], style: { display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[2] || T.text } }, it[0])))));
 }
 function Summ({ T, k, v }) {
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, textAlign: "right" } }, v));

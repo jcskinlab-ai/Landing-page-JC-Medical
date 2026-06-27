@@ -223,6 +223,25 @@ function _recitaTs(s) {
   if (m) { let y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]).getTime(); }
   const t = Date.parse(s); return isNaN(t) ? 0 : t;
 }
+// Normaliza abreviaturas de procedimiento del Excel (B3Z, BFF, Sculptra, Rino, Lipolítico…) a su precio.
+var JCM_PROC_ABBR = [
+  { re: /b3z\s*\+\s*lifting/i, price: 170000 },
+  { re: /\bbff\b|full\s*face/i, price: 350000 },
+  { re: /\bb3z\b|botox\s*3/i, price: 150000 },
+  { re: /sculptra|bioestim|col[aá]g/i, price: 450000 },
+  { re: /\brino\b|rinomodel/i, price: 200000 },
+  { re: /lipol[ií]tic|quemador/i, price: 300000 },
+  { re: /bruxismo/i, price: 240000 }
+];
+function jcmProcPrice(name) {
+  if (!name) return 0;
+  var nm = ("" + name).toLowerCase().trim();
+  try { var svc = (window.clinicServiceList ? window.clinicServiceList() : []).find(x => (x.name || "").toLowerCase() === nm); if (svc && svc.price) return svc.price; } catch (e) {}
+  for (var i = 0; i < JCM_PROC_ABBR.length; i++) if (JCM_PROC_ABBR[i].re.test(nm)) return JCM_PROC_ABBR[i].price;
+  try { var svc2 = (window.clinicServiceList ? window.clinicServiceList() : []).find(x => (x.name || "").toLowerCase().indexOf(nm) >= 0 && x.price); if (svc2 && svc2.price) return svc2.price; } catch (e) {}
+  return 0;
+}
+if (typeof window !== "undefined") window.jcmProcPrice = jcmProcPrice;
 function recitaFor(p) {
   const fmtP = n => "$" + (n || 0).toLocaleString("es-CL");
   const tag = ((p.tags && p.tags[0]) || "").toLowerCase();
@@ -246,9 +265,10 @@ function recitaFor(p) {
   if (!pick) return null;
   let umbral, motivo, msg, precio, fam, refTs;
   if (pick === "toxina") {
-    fam = "toxina"; umbral = 3; precio = 150000;
+    fam = "toxina"; umbral = 3;
+    precio = jcmProcPrice((lastTox && (lastTox.proc || lastTox.title)) || tag) || 150000; // valor actual del procedimiento
     motivo = "Toxina · refuerzo a 3 meses";
-    msg = "ya es momento de renovar tu toxina botulínica para mantener tu resultado natural";
+    msg = "te contactamos para ver si deseas renovar tu toxina botulínica para mantener tu resultado natural";
     refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
   } else if (pick === "sculptra") {
     fam = "sculptra"; umbral = 2; precio = 280000;
@@ -265,7 +285,7 @@ function recitaFor(p) {
   }
   if (!refTs) return null;
   const meses = (Date.now() - refTs) / (1000 * 60 * 60 * 24 * 30.44);
-  const desc = Math.round(precio * 0.9 / 1000) * 1000; // 10% pero comunicado en pesos
+  const desc = precio > 20000 ? precio - 20000 : precio; // precio preferente: valor actual − $20.000
   const due = new Date(refTs + umbral * 30.44 * 24 * 60 * 60 * 1000);
   return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
@@ -276,7 +296,7 @@ function recitaMsg(p, r) {
   const first = (p.name || "").split(" ")[0] || "";
   const base = "Hola " + first + ", te saludamos de " + ((window.clinicName && window.clinicName()) || "tu clínica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) + ".";
   const precioTxt = r.precio ? " El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + "." : "";
-  return base + precioTxt + " ¿Te agendamos tu hora?";
+  return base + precioTxt + " ¿Te gustaría gestionar tu hora?";
 }
 function recitaWa(p, r) { return "https://wa.me/" + (p.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(recitaMsg(p, r)); }
 function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }) {
@@ -441,6 +461,51 @@ function NewPatientModal({ T, onClose, onSave }) {
 }
 
 /* ─────────── FICHA MÉDICA ─────────── */
+// Eliminar una sesión del historial clínico, confirmando con la clave (PIN) del profesional que la realizó.
+function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  const team = (((window.CADMIN || {}).team) || []).filter(t => t.active !== false);
+  const pro = team.find(t => t.id === sesion.proId) || team.find(t => t.name === sesion.proName);
+  function go() {
+    if (pro && pro.pin) { if (pin !== pro.pin) { setErr("Clave incorrecta. Solo " + (pro.name || "el profesional") + " puede eliminar su sesión."); return; } }
+    else if (pin.length < 1) { setErr("Ingresa una clave para confirmar."); return; }
+    onConfirm();
+  }
+  return (
+    <AdModal T={T} title="Eliminar sesión" onClose={onClose} footer={<div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}><AdBtn T={T} onClick={onClose}>Cancelar</AdBtn><AdBtn T={T} primary onClick={go}>Eliminar</AdBtn></div>}>
+      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 }}>
+        Vas a eliminar la sesión <b style={{ color: T.text }}>{sesion.proc || "—"}</b>{sesion.date ? " del " + sesion.date : ""}. {sesion.proName ? ("Confirma con la clave de " + sesion.proName + ".") : "Confirma con la clave del profesional."}
+      </div>
+      <input type="password" value={pin} autoFocus onChange={e => { setPin(e.target.value.replace(/\D/g, "").slice(0, 6)); setErr(""); }} onKeyDown={e => { if (e.key === "Enter") go(); }} inputMode="numeric" placeholder="Clave del profesional"
+        style={{ width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (err ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, letterSpacing: ".3em", textAlign: "center", outline: "none" }} />
+      {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: 8 }}>{err}</div>}
+    </AdModal>
+  );
+}
+// Pacientes que aún necesitan consentimiento, EXCLUYENDO a quienes se marcaron "no asistió"
+// en la agenda y no tienen otra cita activa (si no vinieron, no se les pide consentimiento).
+function jcmConsentPending(patients, appts) {
+  appts = appts || [];
+  const info = {};
+  (appts || []).forEach(a => {
+    const keys = [];
+    if (a.patId) keys.push("id:" + a.patId);
+    const nm = (a.name || "").toLowerCase().trim(); if (nm) keys.push("nm:" + nm);
+    keys.forEach(k => {
+      if (!info[k]) info[k] = { noShow: false, active: false };
+      if (a.status === "no_asistio") info[k].noShow = true;
+      else if (a.status !== "anulada" && a.status !== "cancelada") info[k].active = true;
+    });
+  });
+  return (patients || []).filter(p => {
+    if (p.consent) return false;
+    const inf = info["id:" + p.id] || info["nm:" + (p.name || "").toLowerCase().trim()];
+    if (inf && inf.noShow && !inf.active) return false; // no asistió y sin otra cita activa → no pedir consentimiento
+    return true;
+  });
+}
+if (typeof window !== "undefined") window.jcmConsentPending = jcmConsentPending;
 function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab }) {
   const [tab, setTab] = useState(initialTab || "fichaclinica");
   // Al abrir la ficha: si el paciente tiene imágenes guardadas DENTRO de su registro (modelo
@@ -459,6 +524,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const [newEntry, setNewEntry] = useState(false);
   const [editIdx, setEditIdx] = useState(null); // índice de la sesión a editar (null = nueva)
   const [viewMode, setViewMode] = useState(false); // abrir la sesión en solo-lectura
+  const [delSession, setDelSession] = useState(null); // { h, i } sesión a eliminar (pide clave del profesional)
   const [editD, setEditD] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [delInput, setDelInput] = useState("");
@@ -658,6 +724,9 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
                   <button onClick={() => imprimirProc(h)} title="Imprimir procedimiento" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></svg>Imprimir
                   </button>
+                  <button onClick={() => setDelSession({ h, i })} title="Eliminar sesión" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: "#C0285A", background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>Eliminar
+                  </button>
                 </div>
               </div>
             ); })}
@@ -678,6 +747,12 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
               try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name }); } catch (e3) {}
             }
             try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : ((e.cobro || 0) > 0 ? "Sesión registrada · " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesión registrada."), "ok"); } catch (e2) {}
+          }} />}
+          {delSession && <SesionDeleteModal T={T} sesion={delSession.h} onClose={() => setDelSession(null)} onConfirm={() => {
+            const hist = (patient.history || []).filter((x, idx) => delSession.h && delSession.h.id ? x.id !== delSession.h.id : idx !== delSession.i);
+            updatePatient(patient.id, { history: hist });
+            setDelSession(null);
+            try { window.jcmToast && window.jcmToast("Sesión eliminada.", "ok"); } catch (e2) {}
           }} />}
         </div>
       )}

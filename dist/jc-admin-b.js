@@ -227,6 +227,32 @@ function _recitaTs(s) {
   const t = Date.parse(s);
   return isNaN(t) ? 0 : t;
 }
+var JCM_PROC_ABBR = [
+  { re: /b3z\s*\+\s*lifting/i, price: 17e4 },
+  { re: /\bbff\b|full\s*face/i, price: 35e4 },
+  { re: /\bb3z\b|botox\s*3/i, price: 15e4 },
+  { re: /sculptra|bioestim|col[aá]g/i, price: 45e4 },
+  { re: /\brino\b|rinomodel/i, price: 2e5 },
+  { re: /lipol[ií]tic|quemador/i, price: 3e5 },
+  { re: /bruxismo/i, price: 24e4 }
+];
+function jcmProcPrice(name) {
+  if (!name) return 0;
+  var nm = ("" + name).toLowerCase().trim();
+  try {
+    var svc = (window.clinicServiceList ? window.clinicServiceList() : []).find((x) => (x.name || "").toLowerCase() === nm);
+    if (svc && svc.price) return svc.price;
+  } catch (e) {
+  }
+  for (var i = 0; i < JCM_PROC_ABBR.length; i++) if (JCM_PROC_ABBR[i].re.test(nm)) return JCM_PROC_ABBR[i].price;
+  try {
+    var svc2 = (window.clinicServiceList ? window.clinicServiceList() : []).find((x) => (x.name || "").toLowerCase().indexOf(nm) >= 0 && x.price);
+    if (svc2 && svc2.price) return svc2.price;
+  } catch (e) {
+  }
+  return 0;
+}
+if (typeof window !== "undefined") window.jcmProcPrice = jcmProcPrice;
 function recitaFor(p) {
   const fmtP = (n) => "$" + (n || 0).toLocaleString("es-CL");
   const tag = (p.tags && p.tags[0] || "").toLowerCase();
@@ -249,9 +275,9 @@ function recitaFor(p) {
   if (pick === "toxina") {
     fam = "toxina";
     umbral = 3;
-    precio = 15e4;
+    precio = jcmProcPrice(lastTox && (lastTox.proc || lastTox.title) || tag) || 15e4;
     motivo = "Toxina \xB7 refuerzo a 3 meses";
-    msg = "ya es momento de renovar tu toxina botul\xEDnica para mantener tu resultado natural";
+    msg = "te contactamos para ver si deseas renovar tu toxina botul\xEDnica para mantener tu resultado natural";
     refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
   } else if (pick === "sculptra") {
     fam = "sculptra";
@@ -272,7 +298,7 @@ function recitaFor(p) {
   }
   if (!refTs) return null;
   const meses = (Date.now() - refTs) / (1e3 * 60 * 60 * 24 * 30.44);
-  const desc = Math.round(precio * 0.9 / 1e3) * 1e3;
+  const desc = precio > 2e4 ? precio - 2e4 : precio;
   const due = new Date(refTs + umbral * 30.44 * 24 * 60 * 60 * 1e3);
   return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
@@ -283,7 +309,7 @@ function recitaMsg(p, r) {
   const first = (p.name || "").split(" ")[0] || "";
   const base = "Hola " + first + ", te saludamos de " + (window.clinicName && window.clinicName() || "tu cl\xEDnica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) + ".";
   const precioTxt = r.precio ? " El valor actual es de " + r.precioFmt + " y, por ser parte de la cl\xEDnica, te lo dejamos en " + r.descFmt + "." : "";
-  return base + precioTxt + " \xBFTe agendamos tu hora?";
+  return base + precioTxt + " \xBFTe gustar\xEDa gestionar tu hora?";
 }
 function recitaWa(p, r) {
   return "https://wa.me/" + (p.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(recitaMsg(p, r));
@@ -366,6 +392,64 @@ function NewPatientModal({ T, onClose, onSave }) {
   const ok = f.name.trim().length > 2 && phoneDigits.length >= 11 && rutOk && emailOk;
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Nuevo paciente", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ ...f, name: f.name.trim(), age: parseInt(f.age, 10) || 0 }) }, "Guardar paciente") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: onlyLetters(v) }), placeholder: "Ej: Valentina P\xE9rez" }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.4fr .8fr", gap: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "RUT", value: f.rut, onChange: (v) => setF({ ...f, rut: window.jcmFmtRut ? window.jcmFmtRut(v) : v }), placeholder: "20.090.534-2" }), f.rut.trim() && !rutOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 5 } }, "RUT inv\xE1lido (revisa el d\xEDgito verificador).")), /* @__PURE__ */ React.createElement(AdField, { T, label: "Edad", value: f.age, onChange: (v) => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 3) }), inputMode: "numeric", placeholder: "32" })), /* @__PURE__ */ React.createElement(AdField, { T, label: "Tel\xE9fono (WhatsApp)", value: f.phone, onChange: onPhone, inputMode: "numeric" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "Correo (opcional)", value: f.email, onChange: (v) => setF({ ...f, email: v }), inputMode: "email", placeholder: "correo@ejemplo.com" }), f.email.trim() && !emailOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C0285A", marginTop: 5 } }, "Correo inv\xE1lido."))));
 }
+function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  const team = ((window.CADMIN || {}).team || []).filter((t) => t.active !== false);
+  const pro = team.find((t) => t.id === sesion.proId) || team.find((t) => t.name === sesion.proName);
+  function go() {
+    if (pro && pro.pin) {
+      if (pin !== pro.pin) {
+        setErr("Clave incorrecta. Solo " + (pro.name || "el profesional") + " puede eliminar su sesi\xF3n.");
+        return;
+      }
+    } else if (pin.length < 1) {
+      setErr("Ingresa una clave para confirmar.");
+      return;
+    }
+    onConfirm();
+  }
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Eliminar sesi\xF3n", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cancelar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: go }, "Eliminar")) }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 } }, "Vas a eliminar la sesi\xF3n ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, sesion.proc || "\u2014"), sesion.date ? " del " + sesion.date : "", ". ", sesion.proName ? "Confirma con la clave de " + sesion.proName + "." : "Confirma con la clave del profesional."), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "password",
+      value: pin,
+      autoFocus: true,
+      onChange: (e) => {
+        setPin(e.target.value.replace(/\D/g, "").slice(0, 6));
+        setErr("");
+      },
+      onKeyDown: (e) => {
+        if (e.key === "Enter") go();
+      },
+      inputMode: "numeric",
+      placeholder: "Clave del profesional",
+      style: { width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (err ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, letterSpacing: ".3em", textAlign: "center", outline: "none" }
+    }
+  ), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: 8 } }, err));
+}
+function jcmConsentPending(patients, appts) {
+  appts = appts || [];
+  const info = {};
+  (appts || []).forEach((a) => {
+    const keys = [];
+    if (a.patId) keys.push("id:" + a.patId);
+    const nm = (a.name || "").toLowerCase().trim();
+    if (nm) keys.push("nm:" + nm);
+    keys.forEach((k) => {
+      if (!info[k]) info[k] = { noShow: false, active: false };
+      if (a.status === "no_asistio") info[k].noShow = true;
+      else if (a.status !== "anulada" && a.status !== "cancelada") info[k].active = true;
+    });
+  });
+  return (patients || []).filter((p) => {
+    if (p.consent) return false;
+    const inf = info["id:" + p.id] || info["nm:" + (p.name || "").toLowerCase().trim()];
+    if (inf && inf.noShow && !inf.active) return false;
+    return true;
+  });
+}
+if (typeof window !== "undefined") window.jcmConsentPending = jcmConsentPending;
 function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab }) {
   const [tab, setTab] = useState(initialTab || "fichaclinica");
   useEffect(() => {
@@ -384,6 +468,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const [newEntry, setNewEntry] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
   const [viewMode, setViewMode] = useState(false);
+  const [delSession, setDelSession] = useState(null);
   const [editD, setEditD] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [delInput, setDelInput] = useState("");
@@ -480,7 +565,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       setEditIdx(i);
       setViewMode(false);
       setNewEntry(true);
-    }, title: "Editar sesi\xF3n", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" })), "Editar"), /* @__PURE__ */ React.createElement("button", { onClick: () => imprimirProc(h), title: "Imprimir procedimiento", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9V2h12v7" }), /* @__PURE__ */ React.createElement("rect", { x: "6", y: "13", width: "12", height: "8" }), /* @__PURE__ */ React.createElement("path", { d: "M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" })), "Imprimir")));
+    }, title: "Editar sesi\xF3n", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" })), "Editar"), /* @__PURE__ */ React.createElement("button", { onClick: () => imprimirProc(h), title: "Imprimir procedimiento", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9V2h12v7" }), /* @__PURE__ */ React.createElement("rect", { x: "6", y: "13", width: "12", height: "8" }), /* @__PURE__ */ React.createElement("path", { d: "M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" })), "Imprimir"), /* @__PURE__ */ React.createElement("button", { onClick: () => setDelSession({ h, i }), title: "Eliminar sesi\xF3n", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: T.sans, fontSize: 11, color: "#C0285A", background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "5px 9px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" })), "Eliminar")));
   }), (!patient.history || patient.history.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 0", fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "Sin sesiones registradas.")), newEntry && /* @__PURE__ */ React.createElement(NewEntryModal, { T, patient, updatePatient, startView: viewMode, entry: editIdx != null ? (patient.history || [])[editIdx] : null, onClose: () => {
     setNewEntry(false);
     setEditIdx(null);
@@ -505,6 +590,14 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     }
     try {
       window.jcmToast && window.jcmToast(editing ? "Sesi\xF3n actualizada." : (e.cobro || 0) > 0 ? "Sesi\xF3n registrada \xB7 " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesi\xF3n registrada.", "ok");
+    } catch (e2) {
+    }
+  } }), delSession && /* @__PURE__ */ React.createElement(SesionDeleteModal, { T, sesion: delSession.h, onClose: () => setDelSession(null), onConfirm: () => {
+    const hist = (patient.history || []).filter((x, idx) => delSession.h && delSession.h.id ? x.id !== delSession.h.id : idx !== delSession.i);
+    updatePatient(patient.id, { history: hist });
+    setDelSession(null);
+    try {
+      window.jcmToast && window.jcmToast("Sesi\xF3n eliminada.", "ok");
     } catch (e2) {
     }
   } })), tab === "notas" && /* @__PURE__ */ React.createElement(NotasTab, { T, patient, updatePatient })), editD && /* @__PURE__ */ React.createElement(EditDatosModal, { T, patient, onClose: () => setEditD(false), onSave: (d) => {

@@ -283,7 +283,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
   const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
-  const hoy = appts.filter(a => apptDayOff(a) === 0);
+  const hoy = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada");
 // Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
@@ -296,13 +296,13 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const growth = serie[0] ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
 
   // próximas citas (hoy primero por hora, luego el resto)
-  const ord = appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || ""));
+  const ord = appts.filter(a => a.status !== "anulada").sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || ""));
   const prox5 = ord.slice(0, 5);
 
   // notificaciones
   const wa = ((window.CADMIN || {}).waMessages) || [];
   const biz = ((window.CADMIN || {}).bizComments) || [];
-  const sinConsent = patients.filter(p => !p.consent);
+  const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
 
   const TABS = [["general", "Visión General"], ["citas", "Próximas Citas"], ["notif", "Notificaciones"]];
@@ -1075,9 +1075,10 @@ function AdminApp() {
   }, []);
 
   const current = patients.find(p => p.id === openPatient);
-  const pendCount = patients.filter(p => !p.consent).length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
+  const _sinCons = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
+  const pendCount = _sinCons.length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
   // La campana cuenta solo lo NO leído (se actualiza al pulsar "Leer todas"); notifVer fuerza el recálculo.
-  const notifCount = (notifVer, unreadNotifCount(patients));
+  const notifCount = (notifVer, unreadNotifCount(patients, appts));
 
   let body;
   if (section === "dashboard") body = <DashboardView T={T} D={D} A={A} appts={appts} patients={patients} go={nav} />;
@@ -1233,10 +1234,11 @@ function AdminApp() {
 // "Leer todas" guarda las claves vistas en notif_read para que no reaparezcan en la campana.
 function notifReadList() { try { var v = window.DB && DB.get("notif_read"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 function notifMarkAllRead(keys) { try { var set = {}; notifReadList().forEach(function (k) { set[k] = 1; }); (keys || []).forEach(function (k) { set[k] = 1; }); window.DB && DB.set("notif_read", Object.keys(set)); } catch (e) {} }
-function unreadNotifCount(patients) {
+function unreadNotifCount(patients, appts) {
   var read = {}; notifReadList().forEach(function (k) { read[k] = 1; });
   var n = 0;
-  (patients || []).forEach(function (p) { if (!p.consent) n++; });
+  var sc = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : (patients || []).filter(function (p) { return !p.consent; }));
+  n += sc.length;
   (((window.CADMIN || {}).waMessages) || []).forEach(function (m) { if (!read["w" + m.id]) n++; });
   (((window.CADMIN || {}).bizComments) || []).forEach(function (b) { if (!read["b" + b.id]) n++; });
   var recitas = (window.recitaDue ? window.recitaDue(patients) : []);
@@ -1252,8 +1254,8 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   const wa = (((window.CADMIN || {}).waMessages) || []).filter(m => !read["w" + m.id]);
   const biz = (((window.CADMIN || {}).bizComments) || []).filter(b => !read["b" + b.id]);
   // Los consentimientos pendientes son un estado real (no una notificación transitoria):
-  // se muestran SIEMPRE en la campana y solo desaparecen al firmarse o marcarse como firmados.
-  const sinConsent = patients.filter(p => !p.consent);
+  // se muestran SIEMPRE en la campana y solo desaparecen al firmarse, marcarse firmados, o si no asistió.
+  const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
   // Pacientes que ya cumplieron el plazo para su próxima aplicación (re-cita).
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter(x => !read["re" + x.p.id]);
   let tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(t => !t.done && !read["t" + t.id]); } catch (e) {}
@@ -1323,13 +1325,30 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   // Estado REAL de Meta Ads: hay credenciales (token + cuenta) guardadas por la clínica.
   const metaConn = (() => { try { const c = (window.DB && window.DB.get("meta_creds")) || {}; return !!(c.token && c.account); } catch (e) { return false; } })();
   const [resModal, setResModal] = useState(null);
-  const hoy = appts.filter(a => apptDayOff(a) === 0).sort((a, b) => a.time.localeCompare(b.time));
+  const hoy = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").sort((a, b) => a.time.localeCompare(b.time));
   const next3 = appts.slice().sort((a, b) => (a.day - b.day) || a.time.localeCompare(b.time)).slice(0, 3);
   // Campañas REALES cacheadas desde Meta Ads (las llena Marketing). Sin demo.
   const camps = (() => { try { const s = window.DB && window.DB.get("campaigns"); if (Array.isArray(s)) return s.filter(c => c.real); } catch (e) {} return []; })();
   const reach = camps.reduce((s, c) => s + c.reach, 0), leads = camps.reduce((s, c) => s + c.leads, 0), spend = camps.reduce((s, c) => s + c.spend, 0);
-  const week = [4, 6, 3, 7, 5, 2, 0];
-  const wd = ["L", "M", "M", "J", "V", "S", "D"], maxw = Math.max(...week);
+  // Resumen semanal REAL: citas por día (lun→dom de la semana actual) y su valor estimado. Sin demo.
+  const wd = ["L", "M", "M", "J", "V", "S", "D"];
+  const _wkBase = new Date(); _wkBase.setHours(0, 0, 0, 0);
+  const _todayIdx = (_wkBase.getDay() + 6) % 7; // 0 = lunes
+  const _wkMon = new Date(_wkBase); _wkMon.setDate(_wkBase.getDate() - _todayIdx);
+  const _apptDayIdx = a => {
+    let d = null; try { d = a.fecha ? new Date(a.fecha + "T00:00:00") : null; } catch (e) { d = null; }
+    if (!d || isNaN(d)) { d = new Date(_wkBase); d.setDate(_wkBase.getDate() + (apptDayOff(a) || 0)); }
+    d.setHours(0, 0, 0, 0); return Math.round((d - _wkMon) / 86400000);
+  };
+  const week = [0, 0, 0, 0, 0, 0, 0];
+  let wkCitas = 0, wkMonto = 0;
+  (appts || []).forEach(a => {
+    if (a.status === "anulada" || a.status === "cancelada") return;
+    const di = _apptDayIdx(a);
+    if (di >= 0 && di < 7) { week[di]++; wkCitas++; wkMonto += (a.price || (window.jcmProcPrice ? window.jcmProcPrice(a.proc) : 0) || 0); }
+  });
+  const maxw = Math.max(1, week[0], week[1], week[2], week[3], week[4], week[5], week[6]);
+  const sinCons = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
   const greet = now.getHours() < 13 ? "Buenos días" : now.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
   return (
     <div>
@@ -1340,12 +1359,12 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "18px 18px", marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Resumen semanal</div>
-          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>27 citas · {D.fmt(3940000)}</div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{wkCitas} {wkCitas === 1 ? "cita" : "citas"}{wkMonto > 0 ? " · " + D.fmt(wkMonto) : ""}</div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 84 }}>
           {week.map((v, i) => (
             <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
-              <div style={{ width: "100%", maxWidth: 26, height: (v / maxw * 60 + 4) + "px", background: i === now.getDay() - 1 ? T.accent : (T.dark ? "rgba(242,237,230,.18)" : "rgba(20,20,15,.14)"), borderRadius: 4 }} />
+              <div style={{ width: "100%", maxWidth: 26, height: (v / maxw * 60 + 4) + "px", background: i === _todayIdx ? T.accent : (T.dark ? "rgba(242,237,230,.18)" : "rgba(20,20,15,.14)"), borderRadius: 4 }} />
               <span style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute }}>{wd[i]}</span>
             </div>
           ))}
@@ -1353,7 +1372,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16, paddingTop: 16, borderTop: "1px solid " + T.lineSoft }}>
           <button onClick={() => setResModal("pacientes")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}><AdStat T={T} n={patients.length} l="Pacientes" /></button>
           <button onClick={() => setResModal("citas")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}><AdStat T={T} n={appts.length} l="Citas semana" /></button>
-          <button onClick={() => setResModal("consent")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}><AdStat T={T} n={patients.filter(p => !p.consent).length} l="Consent. pend." accent={patients.some(p => !p.consent)} /></button>
+          <button onClick={() => setResModal("consent")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}><AdStat T={T} n={sinCons.length} l="Consent. pend." accent={sinCons.length > 0} /></button>
         </div>
       </div>
 
@@ -1361,7 +1380,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
         const cfg = {
           pacientes: { title: "Pacientes", rows: patients.map(p => ({ k: p.id, a: p.name, b: p.rut || p.phone || "" })) },
           citas: { title: "Citas de la semana", rows: appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || "")).map(a => ({ k: a.id, a: a.name, b: (apptDayOff(a) === 0 ? "Hoy " : "") + (a.time || "") + " · " + (a.proc || "") })) },
-          consent: { title: "Consentimientos pendientes", rows: patients.filter(p => !p.consent).map(p => ({ k: p.id, a: p.name, b: (p.tags && p.tags[0]) || "Paciente" })) }
+          consent: { title: "Consentimientos pendientes", rows: sinCons.map(p => ({ k: p.id, a: p.name, b: (p.tags && p.tags[0]) || "Paciente" })) }
         }[resModal];
         return (
           <AdModal T={T} title={cfg.title + " (" + cfg.rows.length + ")"} onClose={() => setResModal(null)} footer={<AdBtn T={T} primary full onClick={() => { setResModal(null); go(resModal === "citas" ? "agenda" : resModal === "consent" ? "pendientes" : "pacientes"); }}>Ir a la sección</AdBtn>}>
@@ -1493,13 +1512,15 @@ function Toast({ T, data, onClose }) {
 }
 
 function ApptBlock({ T, a, onClick, compact }) {
+  const st = jcmApptState(a, T);
   return (
-    <div data-appt onClick={e => { e.stopPropagation(); onClick(a); }} style={{ cursor: "pointer", background: T.surface2, border: "1px solid " + T.accent, borderLeft: "3px solid " + T.accent, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" }}>
+    <div data-appt onClick={e => { e.stopPropagation(); onClick(a); }} style={{ cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderLeft: "3px solid " + st.color, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
         <span style={{ fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
-        {!compact && <span style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, flexShrink: 0 }}>{a.time}</span>}
+        {!compact && <span style={{ fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 }}>{a.time}</span>}
       </div>
       <div style={{ fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{compact ? a.time + " · " + a.proc : a.proc}</div>
+      {!compact && st.key !== "pendiente" && <div style={{ marginTop: 4, display: "inline-block", fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".04em", color: st.color, background: st.color + "1a", borderRadius: 5, padding: "2px 6px" }}>{st.label}</div>}
     </div>
   );
 }
@@ -1527,7 +1548,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   const D = window.JCDATA;
-  const list = appts.filter(a => apptDayOff(a) === day);
+  const list = appts.filter(a => apptDayOff(a) === day && a.status !== "anulada");
+  // Citas anuladas (no se borran: quedan registradas con los datos del paciente que se anuló).
+  const anuladas = appts.filter(a => a.status === "anulada").sort((a, b) => (b.anuladaAt || 0) - (a.anuladaAt || 0));
   // Apila citas solapadas en la vista lista
   const listStacked = (() => {
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
@@ -1546,7 +1569,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNow = day === 0 && nowMin >= OPEN && nowMin <= CLOSE;
   const hours = []; for (let h = OPEN / 60; h < CLOSE / 60; h++) hours.push(h);
-  const week = []; const b0 = new Date(); for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Mañana" : wdN[dt.getDay()], count: appts.filter(a => apptDayOff(a) === off).length }); }
+  const week = []; const b0 = new Date(); for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Mañana" : wdN[dt.getDay()], count: appts.filter(a => apptDayOff(a) === off && a.status !== "anulada").length }); }
 
   function clickTimeline(e) {
     if (e.target.closest("[data-appt]")) return;
@@ -1629,6 +1652,29 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         </div>
       )}
 
+      {/* Citas anuladas: no se borran, quedan registradas con los datos del paciente. */}
+      {anuladas.length > 0 && (
+        <div style={{ marginTop: 22, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#9AA0A6" }} />
+            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.textMute }}>Citas anuladas ({anuladas.length})</div>
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, marginBottom: 12 }}>Quedan registradas con los datos del paciente. Puedes restaurarlas si fue un error.</div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {anuladas.map(a => (
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: "1px solid " + T.lineSoft }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, textDecoration: "line-through", textDecorationColor: "#9AA0A6" }}>{a.name}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{[a.proc, a.time && (a.time + " h"), a.fecha].filter(Boolean).join("  ·  ")}{a.phone ? "  ·  " + a.phone : ""}</div>
+                  {a.anuladaAt && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 }}>Anulada el {new Date(a.anuladaAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} · {new Date(a.anuladaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</div>}
+                </div>
+                <button onClick={() => updateAppt(a.id, { status: "pendiente", anuladaAt: null })} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer" }}>Restaurar</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} onOpenPatient={onOpenPatient} />}
       {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
       {toast && <Toast T={T} data={toast} onClose={() => setToast(null)} />}
@@ -1664,8 +1710,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {/* Vista previa momentánea al pasar el cursor sobre una cita (vista día/lista) */}
       {hoverA && hoverA.a && !edit && (() => {
         const a = hoverA.a, isPP = a.status === "pendiente_pago";
-        const ac = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent));
-        const estado = a.status === "no_asistio" ? "No asistió" : (a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente")));
+        const _hs2 = jcmApptState(a, T); const ac = _hs2.color, estado = _hs2.label;
         return (
           <div style={{ position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
@@ -1701,6 +1746,19 @@ const ADMIN_QUARTER_HOURS = (() => { const s = []; for (let h = 8; h <= 20; h++)
 function adminSlotMins() { try { return (typeof clinicSeeded === "function" && clinicSeeded()) ? 15 : 30; } catch (e) { return 30; } }
 function adminSlots() { return adminSlotMins() === 15 ? ADMIN_QUARTER_HOURS : ADMIN_HALF_HOURS; }
 
+// Estado de una cita → etiqueta + color (estilo Medilink). "pendiente" usa el acento del tema.
+function jcmApptState(a, T) {
+  a = a || {};
+  if (a.status === "anulada" || a.status === "cancelada") return { key: "anulada", label: "Anulada", color: "#9AA0A6" };
+  if (a.status === "no_asistio") return { key: "no_asistio", label: "No asistió", color: "#C0285A" };
+  if (a.status === "atendiendose") return { key: "atendiendose", label: "Atendiéndose", color: "#1F8A5B" };
+  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#1F8A5B" };
+  if (a.status === "en_sala") return { key: "en_sala", label: "En sala de espera", color: "#0E7490" };
+  if (a.status === "pendiente_pago") return { key: "pendiente_pago", label: "⏳ Pago pendiente", color: "#B8860B" };
+  if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#2563EB" };
+  return { key: "pendiente", label: "Pendiente", color: (T && T.accent) || "#8A7E6B" };
+}
+if (typeof window !== "undefined") window.jcmApptState = jcmApptState;
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha }) {
   const D = window.JCDATA;
   const [wkOff, setWkOff] = useState(0);
@@ -1783,7 +1841,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             </div>
             {/* Columnas de días */}
             {days.map((d, ci) => {
-              const da = appts.filter(a => apptDayOff(a) === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
+              const da = appts.filter(a => apptDayOff(a) === d.off && a.status !== "anulada" && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
                   {/* Zonas clicables (15 o 30 min según la clínica); bloqueadas si hay una cita que cubre ese tramo */}
@@ -1805,7 +1863,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   {/* Bloques de citas apilados verticalmente */}
                   {stackAppts(da).map(a => {
                     const isPendPago = a.status === "pendiente_pago";
-                    const accentColor = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPendPago ? "#B8860B" : T.accent));
+                    const accentColor = jcmApptState(a, T).color;
                     return (
                       <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
                         onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
@@ -1831,8 +1889,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       {/* Vista previa momentánea al pasar el cursor sobre una cita */}
       {hover && hover.a && !menu && (() => {
         const a = hover.a, isPP = a.status === "pendiente_pago";
-        const ac = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent));
-        const estado = a.status === "no_asistio" ? "No asistió" : (a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente")));
+        const _hs = jcmApptState(a, T); const ac = _hs.color, estado = _hs.label;
         return (
           <div style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
@@ -1862,12 +1919,16 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               ["Agregar comentario", () => { onEdit(activeAppt); setMenu(null); }],
               ["__sep", null],
               ...(activeAppt.status === "pendiente_pago" ? [["✓ Confirmar transferencia", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#1F8A5B"]] : []),
-              ["Marcar como atendido", () => { updateAppt(activeAppt.id, { status: "confirmada", attended: true }); setMenu(null); }],
+              ["Confirmar cita", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#2563EB"],
+              ["En sala de espera", () => { updateAppt(activeAppt.id, { status: "en_sala" }); setMenu(null); }, "#0E7490"],
+              ["Atendiéndose", () => { updateAppt(activeAppt.id, { status: "atendiendose" }); setMenu(null); }, "#1F8A5B"],
+              ["Marcar como atendido", () => { updateAppt(activeAppt.id, { status: "atendida", attended: true }); setMenu(null); }],
               ["No asistió", () => { updateAppt(activeAppt.id, { status: "no_asistio", attended: false }); setMenu(null); }, "#C0285A"],
-              ["Anular", () => { removeAppt(activeAppt.id); setMenu(null); }]
+              ["__sep", null],
+              ["Anular cita", () => { updateAppt(activeAppt.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); setMenu(null); }, "#C0285A"]
             ].map((it, i) => it[0] === "__sep"
               ? <div key={i} style={{ height: 1, background: T.lineSoft, margin: "4px 0" }} />
-              : <button key={i} onClick={it[1]} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[0] === "Anular" ? "#C0285A" : (it[2] || T.text) }}>{it[0]}</button>)}
+              : <button key={i} onClick={it[1]} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[2] || T.text }}>{it[0]}</button>)}
           </div>
         </>
       )}
