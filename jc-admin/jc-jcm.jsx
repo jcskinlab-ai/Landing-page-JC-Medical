@@ -32,11 +32,9 @@ function AppJCMView({ T }) {
       <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".24em", textTransform: "uppercase", color: T.accent }}>Gestión de la app de usuario</div>
       <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 34, letterSpacing: "-.02em", color: T.text, margin: "8px 0 18px" }}>App JC Medical</h1>
       <JcmTabsBar T={T} sel={sub} onSel={setSub} tabs={[
-        { k: "usuarios", l: "Usuarios registrados" }, { k: "horarios", l: "Horarios disponibles" }, { k: "contenido", l: "Contenido" }, { k: "fidelidad", l: "Glow Points" }, { k: "integraciones", l: "Integraciones" }
+        { k: "usuarios", l: "Usuarios registrados" }, { k: "fidelidad", l: "Glow Points" }, { k: "integraciones", l: "Integraciones" }
       ]} />
       {sub === "usuarios" && <UsuariosApp T={T} />}
-      {sub === "horarios" && <HorariosApp T={T} />}
-      {sub === "contenido" && <ContenidoApp T={T} />}
       {sub === "fidelidad" && <FidelidadApp T={T} />}
       {sub === "integraciones" && <IntegracionesApp T={T} />}
     </div>

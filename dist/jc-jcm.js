@@ -29,11 +29,9 @@ function AppJCMView({ T }) {
   const [sub, setSub] = useState("usuarios");
   return /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", padding: "18px 20px 40px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".24em", textTransform: "uppercase", color: T.accent } }, "Gesti\xF3n de la app de usuario"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 34, letterSpacing: "-.02em", color: T.text, margin: "8px 0 18px" } }, "App JC Medical"), /* @__PURE__ */ React.createElement(JcmTabsBar, { T, sel: sub, onSel: setSub, tabs: [
     { k: "usuarios", l: "Usuarios registrados" },
-    { k: "horarios", l: "Horarios disponibles" },
-    { k: "contenido", l: "Contenido" },
     { k: "fidelidad", l: "Glow Points" },
     { k: "integraciones", l: "Integraciones" }
-  ] }), sub === "usuarios" && /* @__PURE__ */ React.createElement(UsuariosApp, { T }), sub === "horarios" && /* @__PURE__ */ React.createElement(HorariosApp, { T }), sub === "contenido" && /* @__PURE__ */ React.createElement(ContenidoApp, { T }), sub === "fidelidad" && /* @__PURE__ */ React.createElement(FidelidadApp, { T }), sub === "integraciones" && /* @__PURE__ */ React.createElement(IntegracionesApp, { T }));
+  ] }), sub === "usuarios" && /* @__PURE__ */ React.createElement(UsuariosApp, { T }), sub === "fidelidad" && /* @__PURE__ */ React.createElement(FidelidadApp, { T }), sub === "integraciones" && /* @__PURE__ */ React.createElement(IntegracionesApp, { T }));
 }
 function UsuariosApp({ T }) {
   const DB = _db();
