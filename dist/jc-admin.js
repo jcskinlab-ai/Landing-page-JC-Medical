@@ -1454,12 +1454,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null);
-  const [nowT, setNowT] = useState(/* @__PURE__ */ new Date());
-  const [, setAvailVer] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setNowT(/* @__PURE__ */ new Date()), 3e4);
-    return () => clearInterval(id);
-  }, []);
   const activeAppt = menu ? appts.find((a) => a.id === menu) : null;
   const DOWS = ["DOM", "LUN", "MAR", "MI\xC9", "JUE", "VIE", "S\xC1B"];
   const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -1484,57 +1478,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX;
   const slots = adminSlots(), slotPx = WPX * adminSlotMins() / 60;
   const topW = (t) => (mins(t) - WK_OPEN * 60) * WPX / 60;
-  const nowMinW = nowT.getHours() * 60 + nowT.getMinutes();
-  const nowVisibleW = nowMinW >= WK_OPEN * 60 && nowMinW <= (WK_CLOSE + 1) * 60;
-  const nowTopW = (nowMinW - WK_OPEN * 60) * WPX / 60;
-  function dateOverride(dk) {
-    try {
-      const m = window.DB && window.DB.get("horarios_dates") || null;
-      if (m && m[dk]) return m[dk];
-    } catch (e) {
-    }
-    try {
-      const o = D.getDateSlots && D.getDateSlots(dk);
-      if (o) return o;
-    } catch (e) {
-    }
-    return null;
-  }
-  function availSlotsFor(dateObj) {
-    const ov = dateOverride(D.dKey(dateObj));
-    if (ov) return { open: ov.length > 0, slots: ov };
-    return D.availForDate(dateObj);
-  }
-  function isAvail(av, hhmm) {
-    if (!av || !av.open) return false;
-    if (av.slots.includes(hhmm)) return true;
-    const m = mins(hhmm), blk = Math.floor(m / 30) * 30;
-    const b = String(Math.floor(blk / 60)).padStart(2, "0") + ":" + String(blk % 60).padStart(2, "0");
-    return av.slots.includes(b);
-  }
-  function toggleBlock(dateObj, hhmm, makeAvailable) {
-    try {
-      const dk = D.dKey(dateObj);
-      const cur = (dateOverride(dk) || D.availForDate(dateObj).slots || []).slice();
-      const next = makeAvailable ? cur.includes(hhmm) ? cur : [...cur, hhmm].sort() : cur.filter((t) => t !== hhmm);
-      try {
-        D.saveDateSlots(dk, next);
-      } catch (e) {
-      }
-      try {
-        const dbMap = window.DB && window.DB.get("horarios_dates") || {};
-        dbMap[dk] = next;
-        if (window.DB) window.DB.set("horarios_dates", dbMap);
-      } catch (e) {
-      }
-      setAvailVer((v) => v + 1);
-      try {
-        window.jcmToast && window.jcmToast(makeAvailable ? hhmm + " habilitado para reservas." : hhmm + " bloqueado \xB7 tambi\xE9n queda no disponible para reservas online.", "ok");
-      } catch (e) {
-      }
-    } catch (e) {
-    }
-  }
   const stackAppts = (list) => {
     if (!list.length) return [];
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
@@ -1555,7 +1498,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     return /* @__PURE__ */ React.createElement("div", { key: hhmm, style: { position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 8.5 : 10, color: T.textFaint, opacity: half ? 0.5 : 1, pointerEvents: "none", userSelect: "none" } }, hhmm);
   })), days.map((d, ci) => {
     const da = appts.filter((a) => apptDayOff(a) === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
-    const av = availSlotsFor(d.date);
     return /* @__PURE__ */ React.createElement("div", { key: ci, style: { flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" } }, slots.map((hhmm, i) => {
       const isHourLine = hhmm.endsWith(":00");
       const isHalfLine = hhmm.endsWith(":30");
@@ -1564,17 +1506,16 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(hhmm);
         return ts >= as && ts < as + ad;
       });
-      const unavail = !blocked && !isAvail(av, hhmm);
-      return /* @__PURE__ */ React.createElement("div", { key: hhmm, style: { position: "absolute", left: 0, right: 0, top: i * slotPx, height: slotPx, borderBottom: isHourLine || isHalfLine ? "1px solid " + T.lineSoft : "none", backgroundImage: unavail ? "repeating-linear-gradient(45deg, transparent, transparent 5px, " + (T.dark ? "rgba(255,255,255,.05)" : "rgba(20,20,15,.05)") + " 5px, " + (T.dark ? "rgba(255,255,255,.05)" : "rgba(20,20,15,.05)") + " 10px)" : "none" } }, unavail ? /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ React.createElement("div", { key: hhmm, style: { position: "absolute", left: 0, right: 0, top: i * slotPx, height: slotPx, borderBottom: isHourLine || isHalfLine ? "1px solid " + T.lineSoft : "none" } }, !blocked && /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "jc-cell",
-          onClick: () => toggleBlock(d.date, hhmm, true),
-          title: "No disponible \xB7 clic para habilitar " + hhmm,
+          onClick: () => onNew(d.off, hhmm),
+          title: "Agendar " + hhmm,
           style: { position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }
         },
-        /* @__PURE__ */ React.createElement("span", { className: "jc-cell-add", style: { width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.textMute, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "8", height: "8", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("rect", { x: "5", y: "11", width: "14", height: "9", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M8 11V7a4 4 0 0 1 7.5-2" })))
-      ) : !blocked && /* @__PURE__ */ React.createElement("div", { className: "jc-cell", style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 9 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => onNew(d.off, hhmm), title: "Agendar " + hhmm, style: { background: "transparent", border: "none", cursor: "pointer", display: "flex", padding: 0 } }, /* @__PURE__ */ React.createElement("span", { className: "jc-cell-add", style: { width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.6", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })))), /* @__PURE__ */ React.createElement("button", { onClick: () => toggleBlock(d.date, hhmm, false), title: "Marcar " + hhmm + " como no disponible", style: { background: "transparent", border: "none", cursor: "pointer", display: "flex", padding: 0 } }, /* @__PURE__ */ React.createElement("span", { className: "jc-cell-add", style: { width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.textMute, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "8", height: "8", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("rect", { x: "5", y: "11", width: "14", height: "9", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M8 11V8a4 4 0 0 1 8 0v3" }))))));
+        /* @__PURE__ */ React.createElement("span", { className: "jc-cell-add", style: { width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.6", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })))
+      ));
     }), stackAppts(da).map((a) => {
       const isPendPago = a.status === "pendiente_pago";
       const accentColor = a.status === "no_asistio" ? "#C0285A" : a.attended ? "#1F8A5B" : isPendPago ? "#B8860B" : T.accent;
@@ -1600,7 +1541,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         },
         /* @__PURE__ */ React.createElement("div", { style: { height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E122" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name)), a._h > 26 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time, " \xB7 ", parseInt(a.dur) || 60, " min", a.proc ? " \xB7 " + (isPendPago ? "\u23F3 Pago pendiente" : a.proc) : ""))
       );
-    }), d.isToday && nowVisibleW && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, right: 0, top: nowTopW, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: -3, top: -4, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 3, top: -13, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, letterSpacing: ".04em", color: "#C0285A" } }, fmtTime(nowT))));
+    }));
   })))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Pasa el mouse por un horario libre y toca el ", /* @__PURE__ */ React.createElement("b", { style: { color: T.accent } }, "+"), " para agendar \xB7 toca una cita para ver opciones (atender, reprogramar, anular)."), hover && hover.a && !menu && (() => {
     const a = hover.a, isPP = a.status === "pendiente_pago";
     const ac = a.status === "no_asistio" ? "#C0285A" : a.attended ? "#1F8A5B" : isPP ? "#B8860B" : T.accent;

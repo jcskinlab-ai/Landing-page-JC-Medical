@@ -1708,9 +1708,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null); // { a, x, y } · vista previa momentánea al pasar el cursor
-  const [nowT, setNowT] = useState(new Date()); // hora actual para la línea "ahora"
-  const [, setAvailVer] = useState(0); // fuerza re-render al bloquear/habilitar un horario
-  useEffect(() => { const id = setInterval(() => setNowT(new Date()), 30000); return () => clearInterval(id); }, []);
   const activeAppt = menu ? appts.find(a => a.id === menu) : null;
   const DOWS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
   const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -1727,47 +1724,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
   const slots = adminSlots(), slotPx = WPX * adminSlotMins() / 60; // 15 min (JC Medical) o 30 min (otras clínicas)
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
-  // Línea "ahora": posición vertical de la hora actual dentro de la jornada visible.
-  const nowMinW = nowT.getHours() * 60 + nowT.getMinutes();
-  const nowVisibleW = nowMinW >= WK_OPEN * 60 && nowMinW <= (WK_CLOSE + 1) * 60;
-  const nowTopW = (nowMinW - WK_OPEN * 60) * WPX / 60;
-  // Override por fecha AUTORITATIVO: el mapa namespaced de la BD (lo que se sincroniza y ven los
-  // pacientes); cae a jc-data si la BD aún no tiene esa fecha. Así agenda y reservas coinciden.
-  function dateOverride(dk) {
-    try { const m = (window.DB && window.DB.get("horarios_dates")) || null; if (m && m[dk]) return m[dk]; } catch (e) {}
-    try { const o = D.getDateSlots && D.getDateSlots(dk); if (o) return o; } catch (e) {}
-    return null;
-  }
-  function availSlotsFor(dateObj) {
-    const ov = dateOverride(D.dKey(dateObj));
-    if (ov) return { open: ov.length > 0, slots: ov };
-    return D.availForDate(dateObj); // disponibilidad semanal (jc-data)
-  }
-  // ¿Está disponible (habilitado) ese horario ese día?
-  function isAvail(av, hhmm) {
-    if (!av || !av.open) return false;
-    if (av.slots.includes(hhmm)) return true;
-    const m = mins(hhmm), blk = Math.floor(m / 30) * 30; // grilla de 15 min → cae al bloque de 30 disponible
-    const b = String(Math.floor(blk / 60)).padStart(2, "0") + ":" + String(blk % 60).padStart(2, "0");
-    return av.slots.includes(b);
-  }
-  // Marca/desmarca un horario como "no disponible" para esa fecha. Escribe por DOS vías:
-  //   1) jc-data (D.saveDateSlots) → la agenda del admin lo refleja al instante.
-  //   2) DB.set('horarios_dates') → dispara la PUBLICACIÓN a la nube (jcm_saas) para que el
-  //      LINK PÚBLICO de reservas también muestre esa hora bloqueada (no la pueden reservar).
-  function toggleBlock(dateObj, hhmm, makeAvailable) {
-    try {
-      const dk = D.dKey(dateObj);
-      const cur = (dateOverride(dk) || (D.availForDate(dateObj).slots) || []).slice();
-      const next = makeAvailable
-        ? (cur.includes(hhmm) ? cur : [...cur, hhmm].sort())
-        : cur.filter(t => t !== hhmm);
-      try { D.saveDateSlots(dk, next); } catch (e) {}
-      try { const dbMap = (window.DB && window.DB.get("horarios_dates")) || {}; dbMap[dk] = next; if (window.DB) window.DB.set("horarios_dates", dbMap); } catch (e) {}
-      setAvailVer(v => v + 1);
-      try { window.jcmToast && window.jcmToast(makeAvailable ? (hhmm + " habilitado para reservas.") : (hhmm + " bloqueado · también queda no disponible para reservas online."), "ok"); } catch (e) {}
-    } catch (e) {}
-  }
 
   // Apila citas solapadas verticalmente (ancho completo, empuja las siguientes hacia abajo)
   const stackAppts = list => {
@@ -1828,38 +1784,21 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             {/* Columnas de días */}
             {days.map((d, ci) => {
               const da = appts.filter(a => apptDayOff(a) === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
-              const av = availSlotsFor(d.date); // disponibilidad real de ESA fecha (sincronizada)
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
-                  {/* Zonas clicables (15 o 30 min según la clínica); ocupadas por cita, libres, o "no disponible" */}
+                  {/* Zonas clicables (15 o 30 min según la clínica); bloqueadas si hay una cita que cubre ese tramo */}
                   {slots.map((hhmm, i) => {
                     const isHourLine = hhmm.endsWith(":00"); // borde marcado en la hora en punto
                     const isHalfLine = hhmm.endsWith(":30"); // borde sutil en la media hora
                     const blocked = appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
-                    const unavail = !blocked && !isAvail(av, hhmm); // horario marcado como no disponible
                     return (
-                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * slotPx, height: slotPx, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none", backgroundImage: unavail ? "repeating-linear-gradient(45deg, transparent, transparent 5px, " + (T.dark ? "rgba(255,255,255,.05)" : "rgba(20,20,15,.05)") + " 5px, " + (T.dark ? "rgba(255,255,255,.05)" : "rgba(20,20,15,.05)") + " 10px)" : "none" }}>
-                        {unavail ? (
-                          <button className="jc-cell" onClick={() => toggleBlock(d.date, hhmm, true)} title={"No disponible · clic para habilitar " + hhmm}
-                            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
-                            <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.textMute, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V7a4 4 0 0 1 7.5-2" /></svg>
-                            </span>
-                          </button>
-                        ) : !blocked && (
-                          <div className="jc-cell" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 9 }}>
-                            <button onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", padding: 0 }}>
-                              <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                              </span>
-                            </button>
-                            <button onClick={() => toggleBlock(d.date, hhmm, false)} title={"Marcar " + hhmm + " como no disponible"} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", padding: 0 }}>
-                              <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.textMute, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
-                              </span>
-                            </button>
-                          </div>
-                        )}
+                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * slotPx, height: slotPx, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none" }}>
+                        {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
+                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                          <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                          </span>
+                        </button>}
                       </div>
                     );
                   })}
@@ -1882,13 +1821,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                       </div>
                     );
                   })}
-                  {/* Línea "AHORA": marca el avance del día en la columna de hoy */}
-                  {d.isToday && nowVisibleW && (
-                    <div style={{ position: "absolute", left: 0, right: 0, top: nowTopW, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" }}>
-                      <span style={{ position: "absolute", left: -3, top: -4, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" }} />
-                      <span style={{ position: "absolute", right: 3, top: -13, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, letterSpacing: ".04em", color: "#C0285A" }}>{fmtTime(nowT)}</span>
-                    </div>
-                  )}
                 </div>
               );
             })}
