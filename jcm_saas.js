@@ -206,6 +206,8 @@
       addr: cf.clinic_addr || '',
       hours: cf.clinic_hours || '',
       wa: cf.wa_number || '',
+      // Datos de transferencia que la clínica configura en el panel (se muestran en la reserva).
+      pago: { banco: cf.pay_banco || '', titular: cf.pay_titular || '', rut: cf.pay_rut || '', tipo: cf.pay_tipo || '', numero: cf.pay_numero || '', email: cf.pay_email || '' },
       horarios: (window.DB && window.DB.get('horarios_v1')) || null,
       horariosDates: (window.DB && window.DB.get('horarios_dates')) || null,
       servicesOver: (window.DB && window.DB.get('services_over')) || null,

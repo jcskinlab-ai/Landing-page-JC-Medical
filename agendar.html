@@ -202,31 +202,13 @@
       <div class="sech">Confirma tu reserva</div>
       <div class="summ-card" id="summ"></div>
 
-      <!-- Datos bancarios para transferencia -->
-      <div style="background:rgba(84,112,127,.05);border:1px solid rgba(84,112,127,.3);border-radius:14px;padding:18px 18px 14px;margin-top:14px">
+      <!-- Datos bancarios para transferencia — los configura cada clínica en su panel (no van en el código) -->
+      <div id="pago-box" style="background:rgba(84,112,127,.05);border:1px solid rgba(84,112,127,.3);border-radius:14px;padding:18px 18px 14px;margin-top:14px;display:none">
         <div style="font-family:'Marcellus';font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:#54707F;margin-bottom:12px">Pago por transferencia</div>
-        <div style="display:grid;gap:7px">
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
-            <span style="color:#5C5A50">Banco</span><span style="font-weight:600;color:#1A1A14">Banco de Chile</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
-            <span style="color:#5C5A50">Titular</span><span style="font-weight:600;color:#1A1A14">Juan Claudio Parra</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
-            <span style="color:#5C5A50">RUT</span><span style="font-weight:600;color:#1A1A14">17.415.131-3</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
-            <span style="color:#5C5A50">Tipo de cuenta</span><span style="font-weight:600;color:#1A1A14">Cuenta corriente</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)">
-            <span style="color:#5C5A50">N° de cuenta</span><span style="font-weight:600;color:#1A1A14">00-60498-01-7</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0">
-            <span style="color:#5C5A50">Correo</span><span style="font-weight:600;color:#1A1A14">jc.skinlab@gmail.com</span>
-          </div>
-        </div>
+        <div id="pago-rows" style="display:grid;gap:7px"></div>
         <div style="margin-top:12px;font-size:11.5px;color:#8A8674;line-height:1.6">Realiza la transferencia por el valor del tratamiento e incluye tu nombre como referencia. Luego toca el botón de abajo para enviarnos el comprobante.</div>
       </div>
+      <div id="pago-fallback" style="background:rgba(84,112,127,.05);border:1px solid rgba(84,112,127,.3);border-radius:14px;padding:16px 18px;margin-top:14px;font-size:12.5px;color:#5C5A50;line-height:1.6;display:none">Al confirmar, te enviaremos los <b>datos de transferencia</b> por WhatsApp para coordinar el pago.</div>
 
       <label class="consent" id="consent-wrap" style="margin-top:14px">
         <input type="checkbox" id="fconsentimiento">
@@ -302,7 +284,7 @@
 <script src="jc-proto/jc-data.js?v=75"></script>
 <!-- Multi-clínica: si la URL trae ?c=clinicId, carga la marca/datos de esa clínica -->
 <script src="jcm_saas_config.js?v=7"></script>
-<script src="jcm_saas.js?v=20"></script>
+<script src="jcm_saas.js?v=21"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -322,10 +304,24 @@
       if(tag && p.name){ tag.textContent = p.name; tag.style.display = 'block'; }
       // El perfil de la clínica llega async; re-render los servicios con los SUYOS.
       if(typeof buildServices === 'function') buildServices();
+      renderPago();
     }catch(e){}
+  }
+  // Rellena los datos de transferencia desde la config de la clínica. Si no hay datos,
+  // muestra el aviso de coordinar por WhatsApp (nunca una cuenta "quemada" en el código).
+  function renderPago(){
+    var box=document.getElementById('pago-box'), rows=document.getElementById('pago-rows'), fb=document.getElementById('pago-fallback');
+    if(!box||!rows||!fb) return;
+    var p=(CLINIC&&CLINIC.pago)||null;
+    var has=p&&(p.banco||p.titular||p.numero||p.rut);
+    if(!has){ box.style.display='none'; fb.style.display='block'; return; }
+    fb.style.display='none'; box.style.display='block';
+    function row(k,v){ return v ? "<div style=\"display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(20,20,15,.07)\"><span style=\"color:#5C5A50\">"+k+"</span><span style=\"font-weight:600;color:#1A1A14\">"+esc(v)+"</span></div>" : ""; }
+    rows.innerHTML = row('Banco',p.banco)+row('Titular',p.titular)+row('RUT',p.rut)+row('Tipo de cuenta',p.tipo)+row('N° de cuenta',p.numero)+row('Correo',p.email);
   }
   window.addEventListener('jcsaas:public', function(ev){ applyClinic(ev.detail && ev.detail.profile); });
   try{ if(window.JCSAAS && window.JCSAAS.getPublic && window.JCSAAS.getPublic()) applyClinic(window.JCSAAS.getPublic()); }catch(e){}
+  renderPago(); // estado inicial: sin datos aún → muestra el aviso de WhatsApp
 
   var steps   = [].slice.call(document.querySelectorAll('.step'));
   var nextBtn = document.getElementById('next-btn');

@@ -1074,6 +1074,7 @@ function ConfigView({ T }) {
         </div>
       </div>
       <ClinicDataCard T={T} />
+      <PaymentDataCard T={T} />
       <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>
       <IndTemplatesEditor T={T} />
       <ClinCard T={T} title="Notificaciones">
@@ -1127,6 +1128,76 @@ function ClinicDataCard({ T }) {
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>WhatsApp</span>
           <input value={waDisplay} onChange={e => onWa(e.target.value)} inputMode="numeric" placeholder="+569 1234 5678" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
         </label>
+      </div>
+    </div>
+  );
+}
+/* Datos de pago (transferencia) — propios de cada clínica. Se muestran en la página de
+   reservas. Solo el dueño con sesión iniciada los edita (no están en el código). */
+function PaymentDataCard({ T }) {
+  const cfg0 = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const [f, setF] = useState({
+    pay_banco: cfg0.pay_banco || "",
+    pay_titular: cfg0.pay_titular || "",
+    pay_rut: cfg0.pay_rut || "",
+    pay_tipo: cfg0.pay_tipo || "Cuenta corriente",
+    pay_numero: cfg0.pay_numero || "",
+    pay_email: cfg0.pay_email || ""
+  });
+  const [saved, setSaved] = useState(false);
+  const up = (k, v) => { setF(prev => ({ ...prev, [k]: v })); setSaved(false); };
+  // Valida el dígito verificador del RUT (módulo 11) — solo aviso, no bloquea.
+  const rutOk = (() => {
+    const r = (f.pay_rut || "").replace(/[^0-9kK]/g, "");
+    if (r.length < 2) return null;
+    const body = r.slice(0, -1), dvIn = r.slice(-1).toUpperCase();
+    if (!/^\d+$/.test(body)) return false;
+    let s = 0, m = 2;
+    for (let i = body.length - 1; i >= 0; i--) { s += parseInt(body[i], 10) * m; m = m === 7 ? 2 : m + 1; }
+    let dv = 11 - (s % 11); dv = dv === 11 ? "0" : dv === 10 ? "K" : "" + dv;
+    return dv === dvIn;
+  })();
+  function save() {
+    try {
+      DB.set("config", Object.assign({}, DB.cfg(), {
+        pay_banco: (f.pay_banco || "").trim(), pay_titular: (f.pay_titular || "").trim(),
+        pay_rut: (f.pay_rut || "").trim(), pay_tipo: f.pay_tipo,
+        pay_numero: (f.pay_numero || "").trim(), pay_email: (f.pay_email || "").trim()
+      }));
+      setSaved(true); setTimeout(() => setSaved(false), 1800);
+      try { window.JCSAAS && window.JCSAAS.publishProfile && window.JCSAAS.publishProfile(); } catch (e) {}
+    } catch (e) {}
+  }
+  const tipos = ["Cuenta corriente", "Cuenta vista", "Cuenta de ahorro", "Cuenta RUT", "Chequera electrónica"];
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Datos de pago (transferencia)</div>
+        <AdBtn T={T} small primary onClick={save}>{saved ? "✓ Guardado" : "Guardar"}</AdBtn>
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "0 0 14px", lineHeight: 1.5 }}>
+        Estos datos aparecen en tu <b style={{ color: T.text }}>página de reservas</b> para que los pacientes te transfieran. Solo tú, con tu sesión iniciada, puedes editarlos. Déjalos en blanco si prefieres coordinar el pago por WhatsApp.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <AdField T={T} label="Banco" value={f.pay_banco} onChange={v => up("pay_banco", v)} placeholder="Ej: Banco de Chile" />
+        <AdField T={T} label="Titular de la cuenta" value={f.pay_titular} onChange={v => up("pay_titular", v)} placeholder="Ej: Clínica Karenina SpA" />
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>RUT del titular</span>
+          <input value={f.pay_rut} onChange={e => up("pay_rut", window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value)} placeholder="Ej: 76.123.456-7" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + (rutOk === false ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+          {rutOk === false && <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 5 }}>El dígito verificador no calza — revisa que el RUT esté correcto.</span>}
+          {rutOk === true && <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: "#1F8A5B", marginTop: 5 }}>RUT válido ✓</span>}
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Tipo de cuenta</span>
+          <select value={f.pay_tipo} onChange={e => up("pay_tipo", e.target.value)} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }}>
+            {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>N° de cuenta</span>
+          <input value={f.pay_numero} onChange={e => up("pay_numero", e.target.value)} inputMode="numeric" placeholder="Ej: 00-123-45678-90" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+        </label>
+        <AdField T={T} label="Correo (para el comprobante)" value={f.pay_email} onChange={v => up("pay_email", v)} placeholder="Ej: pagos@tuclinica.cl" />
       </div>
     </div>
   );
