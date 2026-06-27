@@ -35,7 +35,7 @@ function validate(form) {
 function abonoOf(p) { return (/Evaluaci/.test(p.name) ? (p.price || 10000) : (p.price > 0 ? Math.round(p.price * 0.2) : 25000)); }
 
 // Resumen de la reserva en texto plano — sirve para WhatsApp y para el correo.
-function bookingText(D, cart, day, time, form, pay) {
+function bookingText(D, cart, day, time, form, pay, secondOff) {
   const fmt = D.fmt || (n => "$" + n);
   const L = [];
   L.push("NUEVA RESERVA · JC Medical");
@@ -47,6 +47,11 @@ function bookingText(D, cart, day, time, form, pay) {
   L.push("");
   L.push("Tratamientos:");
   (cart || []).forEach(p => L.push("• " + ((p.qty || 1) > 1 ? (p.qty + "× ") : "") + p.name + (p.price > 0 ? (" — " + fmt(p.price * (p.qty || 1))) : "")));
+  if (secondOff > 0) {
+    const rawTotal = (cart || []).reduce((s, p) => s + (p.price || 0) * (p.qty || 1), 0);
+    L.push("Descuento 2° procedimiento (−15%): −" + fmt(secondOff));
+    L.push("Total tratamientos: " + fmt(rawTotal - secondOff));
+  }
   L.push("");
   L.push("Fecha: " + (day ? (day.wd + " " + day.dd + " " + day.mm) : "Por coordinar") + (time ? (" · " + time + " h") : ""));
   L.push("Abono de reserva: " + fmt(15000));
@@ -181,7 +186,7 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     setPay(payMethod); setDone(true);
   }
 
-  if (done) return <BookingDone T={T} D={D} cart={cart} day={day} time={time} form={form} pay={pay} onClose={onClose} />;
+  if (done) return <BookingDone T={T} D={D} cart={cart} day={day} time={time} form={form} pay={pay} onClose={onClose} secondOff={secondOff} />;
 
   /* ── header ── */
   const header = (
@@ -449,8 +454,8 @@ function Field({ T, label, value, onChange, placeholder, err, inputMode, type })
   );
 }
 
-function BookingDone({ T, D, cart, day, time, form, pay, onClose }) {
-  const txt = bookingText(D, cart, day, time, form, pay);
+function BookingDone({ T, D, cart, day, time, form, pay, onClose, secondOff }) {
+  const txt = bookingText(D, cart, day, time, form, pay, secondOff || 0);
   const waUrl = "https://wa.me/" + D.wa + "?text=" + encodeURIComponent(txt);
   const clinicMail = (D.contact && D.contact.email) || "jc.skinlab@gmail.com";
   const mailUrl = "mailto:" + clinicMail + "?subject=" + encodeURIComponent("Nueva reserva — " + (form.name || "paciente")) + "&body=" + encodeURIComponent(txt);
@@ -469,6 +474,8 @@ function BookingDone({ T, D, cart, day, time, form, pay, onClose }) {
       </p>
       <div style={{ marginTop: 20, width: "100%", maxWidth: 340, background: T.surface, border: "1px solid " + T.line, borderRadius: 4, padding: "16px 20px", textAlign: "left" }}>
         {(cart || []).map(c => <Summ key={c.name} T={T} k={((c.qty || 1) > 1 ? c.qty + "× " : "") + c.name} v={c.price > 0 ? D.fmt(c.price * (c.qty || 1)) : "—"} />)}
+        {(secondOff || 0) > 0 && <Summ T={T} k="Descuento −15% (2° proc.)" v={"−" + D.fmt(secondOff)} />}
+        {(secondOff || 0) > 0 && <Summ T={T} k="Total tratamientos" v={D.fmt((cart || []).reduce((s, c) => s + (c.price || 0) * (c.qty || 1), 0) - secondOff)} />}
         <Summ T={T} k="Fecha" v={day ? (day.wd + " " + day.dd + " " + day.mm) : "Por coordinar"} />
         <Summ T={T} k="Hora" v={time || "Por coordinar"} />
         <Summ T={T} k="Estado" v={pay === "transfer" ? "Por confirmar · con abono" : pay === "clinica" ? "Por confirmar · paga en clínica" : "Por confirmar"} />
