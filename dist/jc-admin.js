@@ -700,6 +700,23 @@ function AdminApp() {
     }
     setAppts((as) => saveAppts(as.filter((a) => a.id !== id)));
   }
+  function syncWebBookings() {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return Promise.resolve({ ok: false, reason: "Este panel no est\xE1 conectado a la nube." });
+    var fetchP = window.JCSAAS.fetchBookings ? window.JCSAAS.fetchBookings() : Promise.resolve([]);
+    return fetchP.then(function(pending) {
+      var impP = window.JCSAAS.importWebBookings ? window.JCSAAS.importWebBookings() : Promise.resolve(0);
+      return impP.then(function(added) {
+        try {
+          var fresh = window.DB && window.DB.get("appointments");
+          if (Array.isArray(fresh)) setAppts(fresh.map((a) => ({ ...a })));
+        } catch (e) {
+        }
+        return { ok: true, pending: (pending || []).length, added: added || 0, clinicId: window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId() || "" };
+      });
+    }).catch(function(err) {
+      return { ok: false, reason: err && (err.code || err.message) || "error" };
+    });
+  }
   function nav(k) {
     setSection(k);
     setOpenPatient(null);
@@ -835,7 +852,7 @@ function AdminApp() {
   if (section === "dashboard") body = /* @__PURE__ */ React.createElement(DashboardView, { T, D, A, appts, patients, go: nav });
   else if (section === "appjcm") body = /* @__PURE__ */ React.createElement(AppJCMView, { T });
   else if (section === "resumen") body = /* @__PURE__ */ React.createElement(Resumen, { T, D, A, appts, patients, go: nav, updateAppt, removeAppt, themeKey, setThemeKey });
-  else if (section === "agenda") body = /* @__PURE__ */ React.createElement(Agenda, { T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient: (id) => {
+  else if (section === "agenda") body = /* @__PURE__ */ React.createElement(Agenda, { T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onSyncWeb: syncWebBookings, onOpenPatient: (id) => {
     setOpenPatient(id);
     setSection("pacientes");
   } });
@@ -1103,7 +1120,23 @@ function ApptBlock({ T, a, onClick, compact }) {
     onClick(a);
   }, style: { cursor: "pointer", background: T.surface2, border: "1px solid " + T.accent, borderLeft: "3px solid " + T.accent, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), !compact && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.accent, flexShrink: 0 } }, a.time)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, compact ? a.time + " \xB7 " + a.proc : a.proc));
 }
-function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient }) {
+function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
+  const [webBusy, setWebBusy] = useState(false);
+  function traerWeb() {
+    if (webBusy || !onSyncWeb) return;
+    setWebBusy(true);
+    Promise.resolve(onSyncWeb()).then(function(r) {
+      if (!r || !r.ok) {
+        window.jcmToast && window.jcmToast("No se pudieron traer las reservas: " + (r && r.reason || "error") + ".", "error");
+      } else if (r.added > 0) window.jcmToast && window.jcmToast(r.added + " reserva(s) web tra\xEDda(s) a la agenda.", "ok");
+      else if (r.pending > 0) window.jcmToast && window.jcmToast(r.pending + " reserva(s) en la nube, ya estaban en la agenda.", "info");
+      else window.jcmToast && window.jcmToast("No hay reservas web nuevas en la nube. Si acabas de agendar y no llega, es la escritura desde el link p\xFAblico (App Check / dominio).", "info");
+    }).catch(function() {
+      window.jcmToast && window.jcmToast("Error al traer las reservas.", "error");
+    }).then(function() {
+      setWebBusy(false);
+    });
+  }
   const [view, setView] = useState("semana");
   const [day, setDay] = useState(0);
   const [nueva, setNueva] = useState(null);
@@ -1154,7 +1187,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     addAppt(a);
   }
   const tabBtn = (k, l) => /* @__PURE__ */ React.createElement("button", { onClick: () => setView(k), style: { flex: 1, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 7, cursor: "pointer", background: view === k ? T.text : "transparent", color: view === k ? T.bg : T.textMute, border: "none" } }, l);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setView("dia"), title: "Vista lista / d\xEDa", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setView("semana"), title: "Vista calendario / semana", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" })))), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNueva({ time: "10:00", day: view === "dia" ? day : 0 }) }, "+ Nueva Cita")), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: setEdit, updateAppt, removeAppt, onDay: (off) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setView("dia"), title: "Vista lista / d\xEDa", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setView("semana"), title: "Vista calendario / semana", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" })))), onSyncWeb && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: traerWeb }, webBusy ? "Trayendo\u2026" : "\u21BB Traer reservas web"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNueva({ time: "10:00", day: view === "dia" ? day : 0 }) }, "+ Nueva Cita")), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: setEdit, updateAppt, removeAppt, onDay: (off) => {
     setDay(off);
     setView("dia");
   }, onVerFicha: (appt) => {

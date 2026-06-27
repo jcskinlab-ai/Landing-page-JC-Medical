@@ -869,6 +869,19 @@ function AdminApp() {
     }
     setAppts(as => saveAppts(as.filter(a => a.id !== id)));
   }
+  // Trae las reservas hechas en la web (link público) a la agenda, AHORA y a demanda.
+  // Lee directo Firestore (diagnóstico: cuántas hay), las importa y refresca la agenda.
+  function syncWebBookings() {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return Promise.resolve({ ok: false, reason: "Este panel no está conectado a la nube." });
+    var fetchP = window.JCSAAS.fetchBookings ? window.JCSAAS.fetchBookings() : Promise.resolve([]);
+    return fetchP.then(function (pending) {
+      var impP = window.JCSAAS.importWebBookings ? window.JCSAAS.importWebBookings() : Promise.resolve(0);
+      return impP.then(function (added) {
+        try { var fresh = window.DB && window.DB.get("appointments"); if (Array.isArray(fresh)) setAppts(fresh.map(a => ({ ...a }))); } catch (e) {}
+        return { ok: true, pending: (pending || []).length, added: added || 0, clinicId: (window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || "" };
+      });
+    }).catch(function (err) { return { ok: false, reason: (err && (err.code || err.message)) || "error" }; });
+  }
   function nav(k) { setSection(k); setOpenPatient(null); setNavOpen(false); }
 
   // Mantiene la URL sincronizada con la sección/paciente (deep-linking): /panel/inventario, /panel/pacientes/<id>…
@@ -943,7 +956,7 @@ function AdminApp() {
   if (section === "dashboard") body = <DashboardView T={T} D={D} A={A} appts={appts} patients={patients} go={nav} />;
   else if (section === "appjcm") body = <AppJCMView T={T} />;
   else if (section === "resumen") body = <Resumen T={T} D={D} A={A} appts={appts} patients={patients} go={nav} updateAppt={updateAppt} removeAppt={removeAppt} themeKey={themeKey} setThemeKey={setThemeKey} />;
-  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
+  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
   else if (section === "pacientes") body = current
     ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} />
     : <PacientesView T={T} patients={patients} appts={appts} onOpen={setOpenPatient} updatePatient={updatePatient} addPatient={addPatient} />;
@@ -1362,7 +1375,19 @@ function ApptBlock({ T, a, onClick, compact }) {
   );
 }
 
-function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient }) {
+function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
+  const [webBusy, setWebBusy] = useState(false);
+  function traerWeb() {
+    if (webBusy || !onSyncWeb) return;
+    setWebBusy(true);
+    Promise.resolve(onSyncWeb()).then(function (r) {
+      if (!r || !r.ok) { window.jcmToast && window.jcmToast("No se pudieron traer las reservas: " + ((r && r.reason) || "error") + ".", "error"); }
+      else if (r.added > 0) window.jcmToast && window.jcmToast(r.added + " reserva(s) web traída(s) a la agenda.", "ok");
+      else if (r.pending > 0) window.jcmToast && window.jcmToast(r.pending + " reserva(s) en la nube, ya estaban en la agenda.", "info");
+      else window.jcmToast && window.jcmToast("No hay reservas web nuevas en la nube. Si acabas de agendar y no llega, es la escritura desde el link público (App Check / dominio).", "info");
+    }).catch(function () { window.jcmToast && window.jcmToast("Error al traer las reservas.", "error"); })
+      .then(function () { setWebBusy(false); });
+  }
   const [view, setView] = useState("semana");
   const [day, setDay] = useState(0);
   const [nueva, setNueva] = useState(null);
@@ -1425,6 +1450,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
           </button>
         </div>
+        {onSyncWeb && <AdBtn T={T} onClick={traerWeb}>{webBusy ? "Trayendo…" : "↻ Traer reservas web"}</AdBtn>}
         <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>
       </div>
 
