@@ -2661,6 +2661,16 @@ function optimizePatientsBlock() {
 function patHistKey(id) { return "phist_" + id; }
 // Caché de la última versión persistida del historial de cada paciente (evita reescrituras).
 var _histCache = {};
+// Clave estable de una sesión para deduplicar al unir historiales divergentes.
+function _sesKey(s) { return (s && (s.id || s.ts || ((s.date || s.fecha || "") + "|" + (s.proc || s.title || "")))) || null; }
+// Une dos historiales SIN perder sesiones (por si dos equipos divergieron antes de migrar):
+// conserva el orden de `a` (local) y agrega de `b` (otro equipo) solo lo que no esté ya.
+function unionHist(a, b) {
+  var out = Array.isArray(a) ? a.slice() : [];
+  var seen = {}; out.forEach(function (s) { var k = _sesKey(s); if (k) seen[k] = 1; });
+  (Array.isArray(b) ? b : []).forEach(function (s) { var k = _sesKey(s); if (!k || !seen[k]) { out.push(s); if (k) seen[k] = 1; } });
+  return out;
+}
 // Lee el índice liviano y RE-HIDRATA el historial de cada paciente desde su clave propia,
 // dejando los objetos exactamente como el resto del panel los espera (con .history poblado).
 function loadPatientsFull() {
@@ -2669,11 +2679,15 @@ function loadPatientsFull() {
   if (!Array.isArray(idx)) return [];
   return idx.map(function (p) {
     if (!p || p.id == null) return p;
-    // Formato ANTIGUO: el historial está inline y AÚN NO en phist_<id>. No sembramos la caché,
-    // para que el próximo guardado SÍ lo escriba en su clave propia (migración sin pérdida).
-    if (Array.isArray(p.history)) return Object.assign({}, p);
+    var remote = null; try { var h = DB.get(patHistKey(p.id)); if (Array.isArray(h)) remote = h; } catch (e) {}
+    // Formato ANTIGUO: el historial está inline. Si además ya existe phist_<id> (porque otro
+    // equipo migró antes), UNE ambos para no perder sesiones divergentes. No sembramos la caché,
+    // para que el próximo guardado escriba la unión a su clave propia (migración sin pérdida).
+    if (Array.isArray(p.history)) {
+      return Object.assign({}, p, { history: remote ? unionHist(p.history, remote) : p.history });
+    }
     // Formato nuevo: el historial ya vive en phist_<id> (ya persistido) → siembra la caché.
-    var hist = []; try { var h = DB.get(patHistKey(p.id)); if (Array.isArray(h)) hist = h; } catch (e) {}
+    var hist = remote || [];
     try { _histCache[p.id] = JSON.stringify(hist); } catch (e) {}
     return Object.assign({}, p, { history: hist });
   });

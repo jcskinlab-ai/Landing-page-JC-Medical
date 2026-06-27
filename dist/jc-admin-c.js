@@ -2032,6 +2032,25 @@ function patHistKey(id) {
   return "phist_" + id;
 }
 var _histCache = {};
+function _sesKey(s) {
+  return s && (s.id || s.ts || (s.date || s.fecha || "") + "|" + (s.proc || s.title || "")) || null;
+}
+function unionHist(a, b) {
+  var out = Array.isArray(a) ? a.slice() : [];
+  var seen = {};
+  out.forEach(function(s) {
+    var k = _sesKey(s);
+    if (k) seen[k] = 1;
+  });
+  (Array.isArray(b) ? b : []).forEach(function(s) {
+    var k = _sesKey(s);
+    if (!k || !seen[k]) {
+      out.push(s);
+      if (k) seen[k] = 1;
+    }
+  });
+  return out;
+}
 function loadPatientsFull() {
   var DB2 = window.DB;
   if (!DB2) return [];
@@ -2044,13 +2063,16 @@ function loadPatientsFull() {
   if (!Array.isArray(idx)) return [];
   return idx.map(function(p) {
     if (!p || p.id == null) return p;
-    if (Array.isArray(p.history)) return Object.assign({}, p);
-    var hist = [];
+    var remote = null;
     try {
       var h = DB2.get(patHistKey(p.id));
-      if (Array.isArray(h)) hist = h;
+      if (Array.isArray(h)) remote = h;
     } catch (e) {
     }
+    if (Array.isArray(p.history)) {
+      return Object.assign({}, p, { history: remote ? unionHist(p.history, remote) : p.history });
+    }
+    var hist = remote || [];
     try {
       _histCache[p.id] = JSON.stringify(hist);
     } catch (e) {
