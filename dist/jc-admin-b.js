@@ -189,8 +189,22 @@ function compressImageDataUrl(dataUrl, maxW, q) {
 function patConsents(p) {
   if (!p) return [];
   try {
-    const v = window.DB && window.DB.get(patConsKey(p.id));
-    if (Array.isArray(v)) return v;
+    var manifest = window.DB && window.DB.get("pconsm_" + p.id);
+    if (Array.isArray(manifest) && manifest.length > 0) {
+      var items = [];
+      manifest.forEach(function(ts) {
+        try {
+          var c = window.DB.get("pcons_" + p.id + "_" + ts);
+          if (c) items.push(c);
+        } catch (e2) {
+        }
+      });
+      if (items.length > 0) return items.sort(function(a, b) {
+        return (b.ts || 0) - (a.ts || 0);
+      });
+    }
+    var v = window.DB && window.DB.get(patConsKey(p.id));
+    if (Array.isArray(v) && v.length > 0) return v;
   } catch (e) {
   }
   return p.consents || (p.consentDoc ? [p.consentDoc] : []);
@@ -780,10 +794,11 @@ function ConsentView({ T, patients, updatePatient }) {
       onSign: (r) => {
         const p = signing.patient;
         const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
-        const lista = patConsents(p).slice();
-        lista.unshift(nuevo);
         try {
-          window.DB.set(patConsKey(p.id), lista);
+          var _nts = nuevo.ts || Date.now();
+          window.DB.set("pcons_" + p.id + "_" + _nts, nuevo);
+          var _mf = window.DB.get("pconsm_" + p.id);
+          window.DB.set("pconsm_" + p.id, Array.isArray(_mf) ? [_nts].concat(_mf) : [_nts]);
         } catch (e) {
         }
         updatePatient(p.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " \xB7 " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
@@ -878,18 +893,36 @@ function ConsentTab({ T, patient, updatePatient }) {
   useEffect(() => {
     setConsentsState(patConsents(patient));
     try {
-      const legacy = patient.consents || (patient.consentDoc ? [patient.consentDoc] : []);
-      const own = window.DB && window.DB.get(consKey);
-      if (legacy.length && !Array.isArray(own)) {
-        window.DB.set(consKey, legacy);
-        if (Array.isArray(window.DB.get(consKey))) updatePatient(patient.id, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+      var hasManifest = Array.isArray(window.DB && window.DB.get("pconsm_" + patient.id));
+      if (!hasManifest) {
+        var old = window.DB && window.DB.get(consKey);
+        var legacy = patient.consents || (patient.consentDoc ? [patient.consentDoc] : []);
+        var toMigrate = Array.isArray(old) && old.length > 0 ? old : legacy;
+        if (toMigrate.length > 0) {
+          var mf = [];
+          toMigrate.forEach(function(c, i) {
+            var ts = c.ts || Date.now() + i;
+            window.DB.set("pcons_" + patient.id + "_" + ts, c);
+            mf.push(ts);
+          });
+          window.DB.set("pconsm_" + patient.id, mf);
+          if (legacy.length > 0 && Array.isArray(window.DB.get("pconsm_" + patient.id))) {
+            updatePatient(patient.id, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+          }
+        }
       }
     } catch (e) {
     }
   }, [patient.id]);
   function commitConsents(next) {
     try {
-      window.DB.set(consKey, next);
+      var newManifest = [];
+      next.forEach(function(c, i) {
+        var ts = c.ts || Date.now() + i;
+        window.DB.set("pcons_" + patient.id + "_" + ts, c);
+        newManifest.push(ts);
+      });
+      window.DB.set("pconsm_" + patient.id, newManifest);
     } catch (e) {
     }
     setConsentsState(next);
