@@ -151,6 +151,28 @@ function clinicPro() {
 window.clinicName = clinicName;
 window.clinicAddr = clinicAddr;
 window.clinicPro = clinicPro;
+function clinicReplyTo() {
+  var ok = function(e2) {
+    return e2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e2 + "").trim());
+  };
+  try {
+    var e = window.DB && DB.cfg().clinic_email;
+    if (ok(e)) return (e + "").trim().toLowerCase();
+  } catch (x) {
+  }
+  try {
+    var c = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic();
+    if (c && ok(c.ownerEmail)) return (c.ownerEmail + "").trim().toLowerCase();
+  } catch (x) {
+  }
+  try {
+    var rc = ((window.JCDATA || {}).contact || {}).email;
+    if (ok(rc)) return (rc + "").trim().toLowerCase();
+  } catch (x) {
+  }
+  return void 0;
+}
+window.clinicReplyTo = clinicReplyTo;
 function importAllWeb() {
   if (!(window.JCSAAS && window.JCSAAS.enabled)) return Promise.resolve(0);
   var p = window.JCSAAS.importWebBookings ? window.JCSAAS.importWebBookings() : Promise.resolve(0);
@@ -674,6 +696,17 @@ function AdminApp() {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  useEffect(() => {
+    const reload = () => {
+      try {
+        var s = window.DB && window.DB.get("appointments");
+        if (Array.isArray(s)) setAppts(s.map((a) => ({ ...a })));
+      } catch (e) {
+      }
+    };
+    window.addEventListener("jcm:appts", reload);
+    return () => window.removeEventListener("jcm:appts", reload);
+  }, []);
   const lastWebPull = useRef(0);
   useEffect(() => {
     let alive = true;
@@ -903,7 +936,7 @@ function AdminApp() {
             return;
           }
           var j = jobs[i];
-          window.mediqueEmail({ to: j.email, subject: "Recordatorio de tu cita \xB7 " + clinic, text: j.text }).then(function(r) {
+          window.mediqueEmail({ to: j.email, subject: "Recordatorio de tu cita \xB7 " + clinic, text: j.text, replyTo: window.clinicReplyTo && window.clinicReplyTo() }).then(function(r) {
             if (r && r.ok) {
               sent[j.key] = true;
               ok++;
@@ -915,6 +948,43 @@ function AdminApp() {
         };
         run(0);
       }, 5e3);
+      return function() {
+        clearTimeout(timer);
+      };
+    } catch (e) {
+    }
+  }, []);
+  useEffect(function() {
+    try {
+      if (!window.jcmEmailBackup) return;
+      var to = window.clinicReplyTo && window.clinicReplyTo() || "";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return;
+      var last = "";
+      try {
+        last = DB.get("auto_backup_lastrun") || "";
+      } catch (e) {
+      }
+      var now = /* @__PURE__ */ new Date();
+      now.setHours(0, 0, 0, 0);
+      if (last) {
+        var ld = /* @__PURE__ */ new Date(last + "T00:00:00");
+        if (!isNaN(ld.getTime()) && now - ld < 7 * 864e5) return;
+      }
+      var iso = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
+      var timer = setTimeout(function() {
+        window.jcmEmailBackup({ silent: true }).then(function(r) {
+          if (r && r.ok) {
+            try {
+              DB.set("auto_backup_lastrun", iso);
+            } catch (e) {
+            }
+            try {
+              window.jcmToast && window.jcmToast("Respaldo semanal enviado a tu correo.", "ok");
+            } catch (e) {
+            }
+          }
+        });
+      }, 11e3);
       return function() {
         clearTimeout(timer);
       };

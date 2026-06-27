@@ -38,9 +38,9 @@ const INTEGRATIONS_CATALOG = [
   { id: "metaads", name: "Meta Ads", desc: "Campa\xF1as de Facebook e Instagram Ads", letter: "f", color: "#1877F2", stat: "Campa\xF1as conectadas", info: "Conecta tu cuenta de Meta Ads para ver tu inversi\xF3n, leads y ROAS directamente en el panel de Medique. Requiere un token de lectura (ads_read) generado desde Meta Business Suite." },
   { id: "metabiz", name: "Meta Business Suite", desc: "Bandeja de Instagram y Facebook", letter: "B", color: "#0866FF", stat: "DM y comentarios", info: "Centraliza los mensajes directos y comentarios de Instagram y Facebook en el panel. Responde y gestiona tu bandeja social sin salir de Medique." },
   { id: "gmail", name: "Gmail", desc: "Recordatorios y confirmaciones por correo", letter: "M", color: "#EA4335", stat: "Correo conectado", info: "Env\xEDa recordatorios de cita, confirmaciones y seguimientos post-tratamiento autom\xE1ticamente por correo electr\xF3nico a tus pacientes." },
-  { id: "drive", name: "Google Drive", desc: "Respaldo de fichas y consentimientos", letter: "\u25B2", color: "#1FA463", stat: "Respaldo autom\xE1tico", info: "Respalda autom\xE1ticamente fichas cl\xEDnicas y consentimientos firmados en tu cuenta de Google Drive. El respaldo ocurre cada vez que hay cambios en las fichas." },
+  { id: "drive", name: "Respaldo de fichas", desc: "Respaldo autom\xE1tico de fichas y citas a tu correo", letter: "\u25B2", color: "#1FA463", stat: "Respaldo autom\xE1tico", info: "Cada semana te enviamos autom\xE1ticamente un respaldo (.json) de todas tus fichas y citas al correo de la cl\xEDnica. Gu\xE1rdalo donde quieras (por ejemplo, s\xFAbelo a tu Google Drive)." },
   { id: "gcal", name: "Google Calendar", desc: "Sincroniza tu agenda", letter: "31", color: "#4285F4", stat: "Sync bidireccional", info: "Sincroniza la agenda del panel con Google Calendar en tiempo real. Las citas agendadas en Medique aparecen en tu calendario de Google y viceversa." },
-  { id: "groq", name: "Groq (Agente IA)", desc: "Asistente que responde por WhatsApp", letter: "\u2726", color: "#8B6FE0", stat: "Asistente activo", info: "Activa el agente de inteligencia artificial que responde autom\xE1ticamente las consultas de tus pacientes por WhatsApp, con contexto de tu cl\xEDnica y disponibilidad de agenda." },
+  { id: "groq", name: "Groq (Agente IA)", desc: "Asistente IA del panel \xB7 WhatsApp pendiente", letter: "\u2726", color: "#8B6FE0", stat: "Asistente activo", info: "La IA ya est\xE1 activa en el panel: potencia el Copiloto y los res\xFAmenes de fichas. Que responda autom\xE1ticamente a tus pacientes por WhatsApp se activa cuando conectes WhatsApp." },
   { id: "wa", name: "WhatsApp Business", desc: "Recordatorios y agenda por WhatsApp", letter: "\u2706", color: "#1F8A5B", stat: "WhatsApp conectado", info: "Conecta tu n\xFAmero de WhatsApp Business para enviar recordatorios de cita, indicaciones post-tratamiento, campa\xF1as de re-cita y permitir que los pacientes agenden directamente por WhatsApp." },
   { id: "landing", name: "Reserva online Medique", desc: "Reservas online conectadas a tu link", letter: "M", color: "#0a0f1c", stat: "Reservas en vivo", info: "Activa la integraci\xF3n con tu p\xE1gina de reservas en medique.cl. Las reservas que hagan tus pacientes desde el link p\xFAblico entran autom\xE1ticamente a tu agenda del panel." }
 ];
@@ -383,6 +383,7 @@ function FidelidadView({ T }) {
 }
 function MarketingView({ T, go }) {
   const D = window.JCDATA;
+  const connected = typeof metaConnected === "function" && metaConnected();
   const [camps, setCamps] = useState(() => {
     try {
       const saved = window.DB && window.DB.get("campaigns");
@@ -391,6 +392,9 @@ function MarketingView({ T, go }) {
     }
     return [];
   });
+  const [tot, setTot] = useState({ spend: 0, leads: 0, reach: 0 });
+  const [loading, setLoading] = useState(connected);
+  const [err, setErr] = useState("");
   function saveCamps(n) {
     setCamps(n);
     try {
@@ -398,9 +402,34 @@ function MarketingView({ T, go }) {
     } catch (e) {
     }
   }
-  const totLeads = camps.reduce((a, c) => a + c.leads, 0);
-  const totSpend = camps.reduce((a, c) => a + c.spend, 0);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Marketing", sub: "Campa\xF1as conectadas a Meta Ads e Instagram" }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: totLeads, l: "Leads (mes)" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: D.fmt(totSpend), l: "Inversi\xF3n" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: totLeads ? Math.round(totSpend / totLeads / 100) / 10 + "k" : "\u2014", l: "Costo/lead" })), /* @__PURE__ */ React.createElement("a", { href: "https://adsmanager.facebook.com/adsmanager", target: "_blank", rel: "noopener", style: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 10, marginBottom: 16, textDecoration: "none", background: "#1877F2", border: "1px solid #1877F2" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 30, height: 30, borderRadius: 8, background: "rgba(255,255,255,.18)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, flexShrink: 0 } }, "f"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: "#fff" } }, "Ir a Meta Ads Manager"), /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M7 17 17 7M9 7h8v8" }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Campa\xF1as"), /* @__PURE__ */ React.createElement("a", { href: "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=create", target: "_blank", rel: "noopener", title: "Las campa\xF1as se crean en Meta Ads Manager y se sincronizan aqu\xED", style: { display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, textDecoration: "none", background: T.accent, color: T.onAccent || "#fff" } }, "+ Crear en Meta Ads", /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M7 17 17 7M9 7h8v8" })))), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 13px", marginBottom: 12, fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5 } }, "Las campa\xF1as se crean y administran directamente en ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "Meta Ads Manager"), ". Cuando conectes tu cuenta, las campa\xF1as reales aparecer\xE1n aqu\xED autom\xE1ticamente con su alcance, leads e inversi\xF3n."), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: "#1F8A5B" } }), "Activas (", camps.filter((c) => c.active).length, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 } }, camps.filter((c) => c.active).map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, style: { padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid rgba(31,138,91,.3)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, c.name), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(AdTag, { T, tone: "ok" }, "Activa"), /* @__PURE__ */ React.createElement("button", { onClick: () => saveCamps(camps.map((x) => x.id === c.id ? { ...x, active: false } : x)), style: { fontFamily: T.sans, fontSize: 10, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 6, padding: "4px 9px", cursor: "pointer" } }, "Pausar"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, marginTop: 10 } }, /* @__PURE__ */ React.createElement(Mini, { T, k: "Alcance", v: c.reach.toLocaleString("es-CL") }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Leads", v: c.leads }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Inversi\xF3n", v: D.fmt(c.spend) }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Red", v: c.net })))), !camps.filter((c) => c.active).length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin campa\xF1as activas.")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: T.textFaint } }), "Pausadas (", camps.filter((c) => !c.active).length, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 } }, camps.filter((c) => !c.active).map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, style: { padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, opacity: 0.8 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, c.name), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(AdTag, { T, tone: "muted" }, "Pausada"), /* @__PURE__ */ React.createElement("button", { onClick: () => saveCamps(camps.map((x) => x.id === c.id ? { ...x, active: true } : x)), style: { fontFamily: T.sans, fontSize: 10, color: T.accent, background: "none", border: "1px solid " + T.accent, borderRadius: 6, padding: "4px 9px", cursor: "pointer" } }, "Activar"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, marginTop: 10 } }, /* @__PURE__ */ React.createElement(Mini, { T, k: "Alcance", v: c.reach.toLocaleString("es-CL") }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Leads", v: c.leads }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Inversi\xF3n", v: D.fmt(c.spend) }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Red", v: c.net })))), !camps.filter((c) => !c.active).length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin campa\xF1as pausadas.")), /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: () => go("integraciones") }, "Gestionar integraciones"));
+  useEffect(() => {
+    if (!connected || !window.mediqueMeta) {
+      setLoading(false);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    setErr("");
+    window.mediqueMeta({ campaigns: true }).then((d) => {
+      if (!alive) return;
+      setLoading(false);
+      if (d && d.ok) {
+        setTot({ spend: d.spend || 0, leads: d.leads || 0, reach: d.reach || 0 });
+        const list = (d.campaigns || []).map((c) => ({ id: c.id, name: c.name, reach: c.reach || 0, leads: c.leads || 0, spend: c.spend || 0, net: "Meta Ads", active: !!c.active, real: true }));
+        saveCamps(list);
+      } else if (d && d.configured === false) {
+        setErr("Meta Ads no est\xE1 configurado en el servidor.");
+      } else {
+        setErr(d && d.error || "No se pudieron leer tus campa\xF1as de Meta.");
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [connected]);
+  const totLeads = tot.leads || camps.reduce((a, c) => a + c.leads, 0);
+  const totSpend = tot.spend || camps.reduce((a, c) => a + c.spend, 0);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Marketing", sub: "Campa\xF1as conectadas a Meta Ads e Instagram" }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: totLeads, l: "Leads (mes)" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: D.fmt(totSpend), l: "Inversi\xF3n" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: totLeads ? Math.round(totSpend / totLeads / 100) / 10 + "k" : "\u2014", l: "Costo/lead" })), !connected && /* @__PURE__ */ React.createElement("div", { onClick: () => go("integraciones"), style: { cursor: "pointer", background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.accent, borderRadius: 10, padding: "14px 16px", marginBottom: 16, fontFamily: T.sans, fontSize: 12.5, color: T.text, lineHeight: 1.5 } }, /* @__PURE__ */ React.createElement("b", null, "Conecta tu cuenta de Meta Ads"), " para ver aqu\xED tus campa\xF1as reales con su gasto, leads y alcance. ", /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, "Ir a Integraciones \u2192")), connected && loading && /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Cargando tus campa\xF1as de Meta Ads\u2026"), connected && !loading && err && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(224,106,106,.08)", border: "1px solid rgba(224,106,106,.4)", borderRadius: 8, padding: "12px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 12, color: "#e06a6a" } }, err), /* @__PURE__ */ React.createElement("a", { href: "https://adsmanager.facebook.com/adsmanager", target: "_blank", rel: "noopener", style: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 10, marginBottom: 16, textDecoration: "none", background: "#1877F2", border: "1px solid #1877F2" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 30, height: 30, borderRadius: 8, background: "rgba(255,255,255,.18)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, flexShrink: 0 } }, "f"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: "#fff" } }, "Ir a Meta Ads Manager"), /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M7 17 17 7M9 7h8v8" }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Campa\xF1as"), /* @__PURE__ */ React.createElement("a", { href: "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=create", target: "_blank", rel: "noopener", title: "Las campa\xF1as se crean en Meta Ads Manager y se sincronizan aqu\xED", style: { display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, textDecoration: "none", background: T.accent, color: T.onAccent || "#fff" } }, "+ Crear en Meta Ads", /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M7 17 17 7M9 7h8v8" })))), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 13px", marginBottom: 12, fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5 } }, "Las campa\xF1as se crean y administran directamente en ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "Meta Ads Manager"), ". ", connected ? "Aqu\xED ves tus campa\xF1as reales con su alcance, leads e inversi\xF3n del mes." : "Cuando conectes tu cuenta, las campa\xF1as reales aparecer\xE1n aqu\xED autom\xE1ticamente con su alcance, leads e inversi\xF3n."), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: "#1F8A5B" } }), "Activas (", camps.filter((c) => c.active).length, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 } }, camps.filter((c) => c.active).map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, style: { padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid rgba(31,138,91,.3)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, c.name), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(AdTag, { T, tone: "ok" }, "Activa"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, marginTop: 10 } }, /* @__PURE__ */ React.createElement(Mini, { T, k: "Alcance", v: c.reach.toLocaleString("es-CL") }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Leads", v: c.leads }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Inversi\xF3n", v: D.fmt(c.spend) }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Red", v: c.net })))), !camps.filter((c) => c.active).length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin campa\xF1as activas.")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: T.textFaint } }), "Pausadas (", camps.filter((c) => !c.active).length, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 } }, camps.filter((c) => !c.active).map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, style: { padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, opacity: 0.8 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, c.name), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(AdTag, { T, tone: "muted" }, "Pausada"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, marginTop: 10 } }, /* @__PURE__ */ React.createElement(Mini, { T, k: "Alcance", v: c.reach.toLocaleString("es-CL") }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Leads", v: c.leads }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Inversi\xF3n", v: D.fmt(c.spend) }), /* @__PURE__ */ React.createElement(Mini, { T, k: "Red", v: c.net })))), !camps.filter((c) => !c.active).length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin campa\xF1as pausadas.")), /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: () => go("integraciones") }, "Gestionar integraciones"));
 }
 function Mini({ T, k, v }) {
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent } }, k), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text, marginTop: 3 } }, v));
@@ -462,7 +491,7 @@ function MetaConnectModal({ T, onClose, onSaved }) {
     window.jcmToast && window.jcmToast("Meta Ads desconectado.", "info");
     onSaved && onSaved();
   }
-  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Conectar Meta Ads", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, width: "100%" } }, metaConnected() && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: disconnect }, "Desconectar"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: save }, busy ? "Verificando\u2026" : "Conectar y verificar"))) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, "Conecta tu cuenta de Meta Ads para ver tu gasto, leads y ROAS reales en el panel. Usa un token de ", /* @__PURE__ */ React.createElement("b", null, "solo lectura"), " (", /* @__PURE__ */ React.createElement("code", null, "ads_read"), ")."), /* @__PURE__ */ React.createElement(AdField, { T, label: "ID de cuenta publicitaria", value: account, onChange: setAccount, placeholder: "act_1234567890" }), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Token de acceso (ads_read)"), /* @__PURE__ */ React.createElement("input", { type: "password", value: token, onChange: (e) => setToken(e.target.value), placeholder: "EAAB\u2026", autoComplete: "off", style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } })), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 } }, "El token se guarda solo en los datos privados de tu cl\xEDnica y se usa para leer tus estad\xEDsticas. Puedes desconectarlo cuando quieras. \xBFNo sabes generarlo? P\xEDdelo en business.facebook.com \u2192 Usuarios del sistema \u2192 Generar token (permiso ads_read).")));
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Conectar Meta Ads", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, width: "100%" } }, metaConnected() && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: disconnect }, "Desconectar"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: save }, busy ? "Verificando\u2026" : "Conectar y verificar"))) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, "Conecta tu cuenta de Meta Ads para ver tu gasto, leads y campa\xF1as reales en el panel. Usa un token de ", /* @__PURE__ */ React.createElement("b", null, "solo lectura"), " (", /* @__PURE__ */ React.createElement("code", null, "ads_read"), "): no permite gastar ni modificar nada, solo leer tus estad\xEDsticas."), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "14px 15px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: T.accent, marginBottom: 10 } }, "\xBFPrimera vez? Con\xE9ctalo en 3 pasos"), /* @__PURE__ */ React.createElement("ol", { style: { margin: 0, paddingLeft: 18, fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("li", null, "En Meta, abre ", /* @__PURE__ */ React.createElement("b", null, "Configuraci\xF3n del negocio \u2192 Usuarios \u2192 Usuarios del sistema"), ".", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("a", { href: "https://business.facebook.com/settings/system-users", target: "_blank", rel: "noopener", style: { color: T.accent, fontSize: 11.5, textDecoration: "underline" } }, "Abrir Usuarios del sistema \u2197")), /* @__PURE__ */ React.createElement("li", null, "Elige (o crea) un usuario del sistema \u2192 ", /* @__PURE__ */ React.createElement("b", null, "Generar nuevo token"), " \u2192 selecciona tu app \u2192 marca el permiso ", /* @__PURE__ */ React.createElement("b", null, "ads_read"), " \u2192 ", /* @__PURE__ */ React.createElement("b", null, "copia"), " el token y p\xE9galo abajo."), /* @__PURE__ */ React.createElement("li", null, "Tu ", /* @__PURE__ */ React.createElement("b", null, "ID de cuenta"), " empieza con ", /* @__PURE__ */ React.createElement("code", null, "act_"), " (lo ves en Ads Manager o en Cuentas publicitarias) y va en el primer campo.", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("a", { href: "https://business.facebook.com/settings/ad-accounts", target: "_blank", rel: "noopener", style: { color: T.accent, fontSize: 11.5, textDecoration: "underline" } }, "Ver mis cuentas publicitarias \u2197")))), /* @__PURE__ */ React.createElement(AdField, { T, label: "1 \xB7 ID de cuenta publicitaria", value: account, onChange: setAccount, placeholder: "act_1234567890" }), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "2 \xB7 Token de acceso (ads_read)"), /* @__PURE__ */ React.createElement("input", { type: "password", value: token, onChange: (e) => setToken(e.target.value), placeholder: "EAAB\u2026", autoComplete: "off", style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } })), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 } }, "El token se guarda solo en los datos privados de tu cl\xEDnica y puedes desconectarlo cuando quieras. Al pulsar \u201CConectar y verificar\u201D comprobamos contra Meta que el token funcione antes de guardarlo.")));
 }
 function CorreoConnectModal({ T, onClose, onConnected }) {
   const [dest, setDest] = useState(() => {
@@ -539,7 +568,7 @@ function jcmClinicName() {
 function jcmSlug(s) {
   return (s || "medique").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
-function jcmBackupFichas() {
+function jcmBackupData() {
   var patients = [], appts = [];
   try {
     patients = (window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : window.DB && DB.get("patients") || []) || [];
@@ -552,11 +581,64 @@ function jcmBackupFichas() {
   var clinica = jcmClinicName(), now = /* @__PURE__ */ new Date();
   var fecha = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
   var data = { clinica, generado: now.toISOString(), total_pacientes: patients.length, total_citas: appts.length, pacientes: patients, citas: appts };
-  var ok = jcmDownloadFile("respaldo-" + jcmSlug(clinica) + "-" + fecha + ".json", JSON.stringify(data, null, 2), "application/json");
+  return { clinica, fecha, nPac: patients.length, nCitas: appts.length, json: JSON.stringify(data, null, 2) };
+}
+function jcmBackupFichas() {
+  var b = jcmBackupData();
+  var ok = jcmDownloadFile("respaldo-" + jcmSlug(b.clinica) + "-" + b.fecha + ".json", b.json, "application/json");
   try {
-    window.jcmToast && window.jcmToast(ok ? "Respaldo descargado \xB7 " + patients.length + " paciente(s)." : "No se pudo generar el respaldo.", ok ? "ok" : "error");
+    window.jcmToast && window.jcmToast(ok ? "Respaldo descargado \xB7 " + b.nPac + " paciente(s)." : "No se pudo generar el respaldo.", ok ? "ok" : "error");
   } catch (e) {
   }
+}
+function jcmEmailBackup(opts) {
+  opts = opts || {};
+  var toast = function(m, k) {
+    if (!opts.silent) {
+      try {
+        (k === "error" ? window.jcmError || window.jcmToast : window.jcmToast)(m, k);
+      } catch (e) {
+      }
+    }
+  };
+  if (!window.mediqueEmail) {
+    toast("El correo no est\xE1 disponible.", "error");
+    return Promise.resolve({ ok: false });
+  }
+  var to = window.clinicReplyTo && window.clinicReplyTo() || "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    toast("Agrega un correo en Configuraci\xF3n \u2192 Datos de la cl\xEDnica para recibir el respaldo.", "info");
+    return Promise.resolve({ ok: false, error: "sin correo" });
+  }
+  var b = jcmBackupData();
+  if (!b.nPac && !b.nCitas) {
+    toast("Todav\xEDa no hay fichas ni citas para respaldar.", "info");
+    return Promise.resolve({ ok: false, error: "vac\xEDo" });
+  }
+  var b64;
+  try {
+    b64 = btoa(unescape(encodeURIComponent(b.json)));
+  } catch (e) {
+    toast("No se pudo preparar el respaldo.", "error");
+    return Promise.resolve({ ok: false, error: "encode" });
+  }
+  if (b64.length > 74e5) {
+    toast("El respaldo es muy grande para enviarlo por correo; usa \u201CDescargar respaldo\u201D.", "info");
+    return Promise.resolve({ ok: false, error: "grande" });
+  }
+  var fname = "respaldo-" + jcmSlug(b.clinica) + "-" + b.fecha + ".json";
+  var text = "Adjuntamos el respaldo de " + b.clinica + " (" + b.nPac + " paciente(s) \xB7 " + b.nCitas + " cita(s)) generado el " + b.fecha + ".\n\nGu\xE1rdalo en un lugar seguro (por ejemplo, s\xFAbelo a tu Google Drive). Este respaldo se env\xEDa autom\xE1ticamente cada semana.\n\n\u2014 Medique";
+  toast("Enviando respaldo a tu correo\u2026", "info");
+  return window.mediqueEmail({ to, subject: "Respaldo de tus fichas \xB7 " + b.clinica, text, attachments: [{ filename: fname, content: b64 }] }).then(function(r) {
+    if (r && r.ok) toast("Respaldo enviado a " + to + ". Revisa tu bandeja (y spam).", "ok");
+    else if (r && r.configured === false) toast("Correo no configurado en el servidor (falta RESEND_API_KEY).", "error");
+    else toast("No se pudo enviar el respaldo: " + (r && r.error || ""), "error");
+    return r;
+  });
+}
+if (typeof window !== "undefined") {
+  window.jcmEmailBackup = jcmEmailBackup;
+  window.jcmBackupData = jcmBackupData;
 }
 function jcmExportICS() {
   var appts = [];
@@ -602,6 +684,95 @@ function jcmExportICS() {
   } catch (e) {
   }
 }
+function jcmImportReservas() {
+  var S = window.JCSAAS;
+  if (!(S && S.enabled && S.importWebBookings)) {
+    try {
+      window.jcmToast && window.jcmToast("Las reservas online se activan con tu cl\xEDnica en la nube.", "info");
+    } catch (e) {
+    }
+    return;
+  }
+  try {
+    window.jcmToast && window.jcmToast("Buscando reservas nuevas\u2026", "info");
+  } catch (e) {
+  }
+  S.importWebBookings().then(function(n) {
+    if (n > 0) {
+      try {
+        window.jcmToast && window.jcmToast(n + " reserva(s) nueva(s) importada(s) a tu agenda.", "ok");
+      } catch (e) {
+      }
+      try {
+        window.dispatchEvent(new Event("jcm:appts"));
+      } catch (e) {
+      }
+    } else {
+      try {
+        window.jcmToast && window.jcmToast("No hay reservas nuevas. Ya est\xE1n todas en tu agenda.", "info");
+      } catch (e) {
+      }
+    }
+  }).catch(function() {
+    try {
+      (window.jcmError || window.jcmToast)("No se pudieron traer las reservas.", "error");
+    } catch (e) {
+    }
+  });
+}
+if (typeof window !== "undefined") window.jcmImportReservas = jcmImportReservas;
+function jcmTestIA() {
+  if (!window.mediqueAI) {
+    try {
+      window.jcmToast && window.jcmToast("La IA no est\xE1 disponible.", "error");
+    } catch (e) {
+    }
+    return;
+  }
+  var clinic = function() {
+    try {
+      return { name: DB.cfg().clinic_name || "" };
+    } catch (e) {
+      return {};
+    }
+  }();
+  try {
+    window.jcmToast && window.jcmToast("Probando la IA\u2026", "info");
+  } catch (e) {
+  }
+  window.mediqueAI([{ role: "user", content: "Responde solo con: OK, asistente activo." }], clinic, { max_tokens: 30 }).then(function(r) {
+    if (r && r.ok) {
+      try {
+        window.jcmToast && window.jcmToast("\u2713 La IA est\xE1 activa y respondi\xF3 correctamente.", "ok");
+      } catch (e) {
+      }
+    } else if (r && r.configured === false) {
+      try {
+        (window.jcmError || window.jcmToast)("La IA no est\xE1 configurada en el servidor (falta GROQ_API_KEY).", "error");
+      } catch (e) {
+      }
+    } else {
+      try {
+        (window.jcmError || window.jcmToast)("La IA no respondi\xF3: " + (r && r.error || "sin respuesta"), "error");
+      } catch (e) {
+      }
+    }
+  }).catch(function() {
+    try {
+      (window.jcmError || window.jcmToast)("No se pudo contactar la IA.", "error");
+    } catch (e) {
+    }
+  });
+}
+if (typeof window !== "undefined") window.jcmTestIA = jcmTestIA;
+function WhatsAppSetupModal({ T, onClose }) {
+  const linkS = { color: T.accent, fontSize: 11.5, textDecoration: "underline" };
+  const stepBox = { background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" };
+  const stepNum = { fontFamily: T.sans, fontSize: 10, fontWeight: 700, letterSpacing: ".1em", color: T.accent, marginBottom: 5 };
+  const stepTxt = { fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.6 };
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Activar WhatsApp \xB7 paso a paso", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: onClose }, "Entendido") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, "El asistente ya est\xE1 programado: recibe los mensajes, responde con IA y agenda la cita. Solo falta ", /* @__PURE__ */ React.createElement("b", null, "encender el canal de WhatsApp en Meta"), " y pegar unos datos. Lo hace el ", /* @__PURE__ */ React.createElement("b", null, "due\xF1o de la cuenta"), "."), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(214,158,46,.10)", border: "1px solid rgba(214,158,46,.4)", borderRadius: 8, padding: "9px 12px", fontFamily: T.sans, fontSize: 11.5, color: T.gold || "#b08400", lineHeight: 1.5 } }, "\u23F3 Lo que m\xE1s demora es la ", /* @__PURE__ */ React.createElement("b", null, "verificaci\xF3n del negocio"), " en Meta (puede tardar d\xEDas). Conviene empezar por ah\xED."), /* @__PURE__ */ React.createElement("div", { style: stepBox }, /* @__PURE__ */ React.createElement("div", { style: stepNum }, "PASO 1 \xB7 CREAR LA APP"), /* @__PURE__ */ React.createElement("div", { style: stepTxt }, "En ", /* @__PURE__ */ React.createElement("b", null, "developers.facebook.com \u2192 My Apps \u2192 Create App"), " (tipo Business), agrega el producto ", /* @__PURE__ */ React.createElement("b", null, "WhatsApp"), ". Meta te da un n\xFAmero de prueba y un ", /* @__PURE__ */ React.createElement("b", null, "Phone Number ID"), ".", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("a", { href: "https://developers.facebook.com/apps", target: "_blank", rel: "noopener", style: linkS }, "Abrir Meta for Developers \u2197"))), /* @__PURE__ */ React.createElement("div", { style: stepBox }, /* @__PURE__ */ React.createElement("div", { style: stepNum }, "PASO 2 \xB7 TOKEN PERMANENTE"), /* @__PURE__ */ React.createElement("div", { style: stepTxt }, "En ", /* @__PURE__ */ React.createElement("b", null, "Configuraci\xF3n del negocio \u2192 Usuarios del sistema"), ", crea un usuario Admin y ", /* @__PURE__ */ React.createElement("b", null, "genera un token"), " con permisos ", /* @__PURE__ */ React.createElement("b", null, "whatsapp_business_messaging"), " y ", /* @__PURE__ */ React.createElement("b", null, "whatsapp_business_management"), ". Guarda ese token y el Phone Number ID.", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("a", { href: "https://business.facebook.com/settings/system-users", target: "_blank", rel: "noopener", style: linkS }, "Abrir Usuarios del sistema \u2197"))), /* @__PURE__ */ React.createElement("div", { style: stepBox }, /* @__PURE__ */ React.createElement("div", { style: stepNum }, "PASO 3 \xB7 CONECTAR EL WEBHOOK"), /* @__PURE__ */ React.createElement("div", { style: stepTxt }, "En la app: ", /* @__PURE__ */ React.createElement("b", null, "WhatsApp \u2192 Configuration \u2192 Webhook"), ". URL: ", /* @__PURE__ */ React.createElement("code", null, "https://medique.cl/api/wa-webhook"), ". Inventa una palabra secreta como ", /* @__PURE__ */ React.createElement("b", null, "Verify token"), " (ej. ", /* @__PURE__ */ React.createElement("code", null, "medique-wa-2026"), "), pulsa ", /* @__PURE__ */ React.createElement("b", null, "Verify and save"), " y suscr\xEDbete al campo ", /* @__PURE__ */ React.createElement("b", null, "messages"), ".")), /* @__PURE__ */ React.createElement("div", { style: stepBox }, /* @__PURE__ */ React.createElement("div", { style: stepNum }, "PASO 4 \xB7 DATOS EN VERCEL"), /* @__PURE__ */ React.createElement("div", { style: stepTxt }, "En Vercel \u2192 Settings \u2192 Environment Variables (Production) pega ", /* @__PURE__ */ React.createElement("b", null, "WHATSAPP_TOKEN"), ", ", /* @__PURE__ */ React.createElement("b", null, "WHATSAPP_PHONE_ID"), " y ", /* @__PURE__ */ React.createElement("b", null, "WHATSAPP_VERIFY_TOKEN"), " (la misma palabra secreta del paso 3). Luego haz ", /* @__PURE__ */ React.createElement("b", null, "Redeploy"), ".")), /* @__PURE__ */ React.createElement("div", { style: stepBox }, /* @__PURE__ */ React.createElement("div", { style: stepNum }, "PASO 5 \xB7 VERIFICAR EL NEGOCIO"), /* @__PURE__ */ React.createElement("div", { style: stepTxt }, "Para responder a ", /* @__PURE__ */ React.createElement("b", null, "cualquier"), " paciente (no solo n\xFAmeros de prueba), Meta exige ", /* @__PURE__ */ React.createElement("b", null, "verificar el negocio"), " en ", /* @__PURE__ */ React.createElement("b", null, "Configuraci\xF3n del negocio \u2192 Seguridad"), ". Puede tardar d\xEDas.", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("a", { href: "https://business.facebook.com/settings/security", target: "_blank", rel: "noopener", style: linkS }, "Abrir Verificaci\xF3n del negocio \u2197"))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 } }, "\u{1F4AC} Costo: si el ", /* @__PURE__ */ React.createElement("b", null, "paciente escribe primero"), " es gratis dentro de 24 h; si la cl\xEDnica inicia (recordatorios) son centavos por mensaje. Apenas quede activo, las conversaciones aparecer\xE1n solas en esta bandeja.")));
+}
+if (typeof window !== "undefined") window.WhatsAppSetupModal = WhatsAppSetupModal;
 function IntegracionesView({ T }) {
   const [list, setList] = useState(() => {
     let saved = {};
@@ -616,6 +787,7 @@ function IntegracionesView({ T }) {
   const [metaOn, setMetaOn] = useState(metaConnected());
   const [correoModal, setCorreoModal] = useState(false);
   const [previewInteg, setPreviewInteg] = useState(null);
+  const [waGuide, setWaGuide] = useState(false);
   function toggle(id) {
     const n = list.map((i) => i.id === id ? { ...i, connected: !i.connected } : i);
     setList(n);
@@ -655,11 +827,23 @@ function IntegracionesView({ T }) {
       return;
     }
     if (it.id === "drive") {
-      jcmBackupFichas();
+      window.jcmEmailBackup ? window.jcmEmailBackup({}) : jcmBackupFichas();
       return;
     }
     if (it.id === "gcal") {
       jcmExportICS();
+      return;
+    }
+    if (it.id === "landing") {
+      jcmImportReservas();
+      return;
+    }
+    if (it.id === "groq") {
+      jcmTestIA();
+      return;
+    }
+    if (it.id === "wa") {
+      setWaGuide(true);
       return;
     }
     if (!connected) {
@@ -671,7 +855,7 @@ function IntegracionesView({ T }) {
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Integraciones", sub: "Conecta tus herramientas a Medique" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, list.map((it) => {
     const isMeta = it.id === "metaads";
     const connected = isMeta ? metaOn : it.connected;
-    const action = it.id === "drive" ? { label: "Descargar respaldo", desc: "Descarga todas las fichas y citas en un archivo (.json) para guardarlo donde quieras." } : it.id === "gcal" ? { label: "Exportar .ics", desc: "Exporta tus citas en un archivo .ics para importarlo en Google Calendar." } : null;
+    const action = it.id === "drive" ? { label: "Enviar a mi correo", desc: "Cada semana te llega solo a tu correo un respaldo (.json) de fichas y citas. \xBFLo quieres ahora? Env\xEDalo." } : it.id === "gcal" ? { label: "Exportar .ics", desc: "Exporta tus citas en un archivo .ics para importarlo en Google Calendar." } : it.id === "landing" ? { label: "Importar reservas", desc: "Las reservas de tu link p\xFAblico entran solas a la agenda al abrir el panel. Tu link est\xE1 en Configuraci\xF3n. \xBFTraer las nuevas ahora?" } : it.id === "groq" ? { label: "Probar IA", desc: "La IA ya potencia el Copiloto y los res\xFAmenes del panel. Responder a pacientes por WhatsApp se activa al conectar WhatsApp. Probar que la IA responde:" } : it.id === "wa" ? { label: "Ver pasos", desc: "Pendiente de activar. El asistente responde a tus pacientes por WhatsApp una vez que se enciende WhatsApp Cloud API en Meta. Mira los pasos:" } : null;
     return /* @__PURE__ */ React.createElement("div", { key: it.id, style: { display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (connected ? T.line : T.lineSoft) } }, /* @__PURE__ */ React.createElement("div", { style: { width: 42, height: 42, borderRadius: 10, background: it.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 500, flexShrink: 0 } }, it.letter), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, it.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, action ? action.desc : isMeta ? connected ? "\u2713 Conectada \xB7 leyendo tu gasto real" : "Conecta tu cuenta para ver gasto y ROAS reales" : connected ? "\u2713 " + it.stat : it.desc)), /* @__PURE__ */ React.createElement("button", { onClick: () => handleConnectClick(it, connected), style: {
       fontFamily: T.sans,
       fontSize: 10,
@@ -691,7 +875,7 @@ function IntegracionesView({ T }) {
   } }), correoModal && /* @__PURE__ */ React.createElement(CorreoConnectModal, { T, onClose: () => setCorreoModal(false), onConnected: () => {
     markConnected("gmail", true);
     setCorreoModal(false);
-  } }), previewInteg && /* @__PURE__ */ React.createElement(
+  } }), waGuide && /* @__PURE__ */ React.createElement(WhatsAppSetupModal, { T, onClose: () => setWaGuide(false) }), previewInteg && /* @__PURE__ */ React.createElement(
     AdModal,
     {
       T,
@@ -877,8 +1061,10 @@ function ClinicDataCard({ T }) {
     clinic_name: cfg0.clinic_name || clinicName || "",
     clinic_addr: cfg0.clinic_addr || "",
     professional: cfg0.professional || "",
+    clinic_email: cfg0.clinic_email || "",
     wa_number: cfg0.wa_number || ""
   });
+  const emailReplyOk = !f.clinic_email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.clinic_email.trim());
   const [saved, setSaved] = useState(false);
   function onWa(v) {
     let d = (v || "").replace(/\D/g, "");
@@ -890,8 +1076,12 @@ function ClinicDataCard({ T }) {
   }
   const waDisplay = "+569 " + (f.wa_number || "").replace(/^569/, "");
   function save() {
+    if (!emailReplyOk) {
+      window.jcmToast && window.jcmToast("El correo para respuestas no es v\xE1lido.", "error");
+      return;
+    }
     try {
-      DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), professional: f.professional.trim(), wa_number: (f.wa_number || "").replace(/\D/g, "") }));
+      DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") }));
       setSaved(true);
       setTimeout(() => setSaved(false), 1800);
     } catch (e) {
@@ -906,7 +1096,10 @@ function ClinicDataCard({ T }) {
   }, placeholder: "Ej: 1 Norte 123, oficina 4, Talca" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Profesional a cargo", value: f.professional, onChange: (v) => {
     setF({ ...f, professional: v.replace(/[0-9]/g, "") });
     setSaved(false);
-  }, placeholder: "Ej: Dra. Karenina Soto" }), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "WhatsApp"), /* @__PURE__ */ React.createElement("input", { value: waDisplay, onChange: (e) => onWa(e.target.value), inputMode: "numeric", placeholder: "+569 1234 5678", style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } }))));
+  }, placeholder: "Ej: Dra. Karenina Soto" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "Correo para respuestas de pacientes", value: f.clinic_email, onChange: (v) => {
+    setF({ ...f, clinic_email: v });
+    setSaved(false);
+  }, placeholder: "Ej: contacto@tuclinica.cl" }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: emailReplyOk ? T.textMute : "#e06a6a", lineHeight: 1.5, marginTop: 5 } }, emailReplyOk ? "Cuando un paciente responda un recordatorio, su respuesta llegar\xE1 a este correo. Si lo dejas vac\xEDo, se usa el correo con que iniciaste sesi\xF3n." : "Correo no v\xE1lido.")), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "WhatsApp"), /* @__PURE__ */ React.createElement("input", { value: waDisplay, onChange: (e) => onWa(e.target.value), inputMode: "numeric", placeholder: "+569 1234 5678", style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } }))));
 }
 function PaymentDataCard({ T }) {
   const cfg0 = (() => {
@@ -1426,6 +1619,7 @@ function AgenteIAView({ T, patients, addAppt }) {
   const [aiBusy, setAiBusy] = useState(false);
   const [darCita, setDarCita] = useState(null);
   const [citaOk, setCitaOk] = useState(null);
+  const [showGuide, setShowGuide] = useState(false);
   const conv = convs.find((c) => c.id === sel);
   function send() {
     if (!draft.trim() || !conv) return;
@@ -1479,7 +1673,7 @@ function AgenteIAView({ T, patients, addAppt }) {
       }
     }
   }
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Agente IA \xB7 WhatsApp", sub: "Bandeja con un asistente que responde con el contexto de tu cl\xEDnica." }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.gold, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: T.gold } }), " Prototipo"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, borderRadius: 8, padding: "8px 14px" } }, "Conectar WhatsApp"))), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, seeded ? "Conversaciones de ejemplo. El env\xEDo real de WhatsApp y las respuestas con IA corren en el servidor (Medique)." : "Conecta tu WhatsApp Business para que el asistente responda a tus pacientes con el contexto de tu cl\xEDnica. Hasta entonces, esta bandeja est\xE1 vac\xEDa."), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: convs.length, l: "Contactos" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: convs.reduce((s, c) => s + c.msgs.length, 0), l: "Mensajes (30d)" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: 0, l: "Citas por IA" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: "0%", l: "Tasa respuesta" })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "10px 14px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent } }, "Modelo de IA"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text } }, "Llama 3.3 70B \xB7 Groq"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, color: "#1F8A5B", background: "rgba(31,138,91,.1)", borderRadius: 6, padding: "2px 7px" } }, "Gratis"), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, "Auto-respuesta \xB7 Bot activo")), convs.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "44px 28px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 54, height: 54, borderRadius: "50%", background: "rgba(31,138,91,.12)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" } }, /* @__PURE__ */ React.createElement("svg", { width: "26", height: "26", viewBox: "0 0 24 24", fill: "none", stroke: "#1F8A5B", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" }))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.text, marginBottom: 6 } }, "Conecta tu agente de WhatsApp"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 18px" } }, "A\xFAn no hay conversaciones. Vincula tu WhatsApp Business y el asistente responder\xE1 a tus pacientes, agendar\xE1 citas y resolver\xE1 dudas con el contexto de tu cl\xEDnica."), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, borderRadius: 8, padding: "11px 20px", display: "inline-block" } }, "Conectar WhatsApp")) : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "260px 1fr", gap: 12, height: 460 } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflowY: "auto" } }, convs.map((c) => /* @__PURE__ */ React.createElement("button", { key: c.id, onClick: () => setSel(c.id), style: { width: "100%", textAlign: "left", display: "block", padding: "12px 14px", border: "none", borderBottom: "1px solid " + T.line, background: c.id === sel ? T.accentSoft || "rgba(84,112,127,.12)" : "transparent", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, c.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.msgs[c.msgs.length - 1].t)))), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, display: "flex", flexDirection: "column" } }, conv ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 16px", borderBottom: "1px solid " + T.line, display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text } }, conv.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, conv.phone)), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Agente IA \xB7 WhatsApp", sub: "Bandeja con un asistente que responde con el contexto de tu cl\xEDnica." }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.gold, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: T.gold } }), " Pendiente \xB7 requiere WhatsApp"), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowGuide(true), style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer" } }, "Conectar WhatsApp"))), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, seeded ? "Conversaciones de ejemplo. El env\xEDo real de WhatsApp y las respuestas con IA corren en el servidor (Medique)." : "Conecta tu WhatsApp Business para que el asistente responda a tus pacientes con el contexto de tu cl\xEDnica. Hasta entonces, esta bandeja est\xE1 vac\xEDa."), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: convs.length, l: "Contactos" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: convs.reduce((s, c) => s + c.msgs.length, 0), l: "Mensajes (30d)" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: 0, l: "Citas por IA" }), /* @__PURE__ */ React.createElement(AdStat, { T, n: "0%", l: "Tasa respuesta" })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "10px 14px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent } }, "Modelo de IA"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text } }, "Groq \xB7 gpt-oss-120b"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, color: "#1F8A5B", background: "rgba(31,138,91,.1)", borderRadius: 6, padding: "2px 7px" } }, "Activo en el panel"), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, "Auto-respuesta por WhatsApp \xB7 pendiente de activar")), convs.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "44px 28px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 54, height: 54, borderRadius: "50%", background: "rgba(31,138,91,.12)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" } }, /* @__PURE__ */ React.createElement("svg", { width: "26", height: "26", viewBox: "0 0 24 24", fill: "none", stroke: "#1F8A5B", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" }))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.text, marginBottom: 6 } }, "Conecta tu agente de WhatsApp"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 18px" } }, "A\xFAn no hay conversaciones. Vincula tu WhatsApp Business y el asistente responder\xE1 a tus pacientes, agendar\xE1 citas y resolver\xE1 dudas con el contexto de tu cl\xEDnica."), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowGuide(true), style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "11px 20px", cursor: "pointer" } }, "Ver c\xF3mo conectar WhatsApp")) : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "260px 1fr", gap: 12, height: 460 } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflowY: "auto" } }, convs.map((c) => /* @__PURE__ */ React.createElement("button", { key: c.id, onClick: () => setSel(c.id), style: { width: "100%", textAlign: "left", display: "block", padding: "12px 14px", border: "none", borderBottom: "1px solid " + T.line, background: c.id === sel ? T.accentSoft || "rgba(84,112,127,.12)" : "transparent", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, c.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.msgs[c.msgs.length - 1].t)))), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, display: "flex", flexDirection: "column" } }, conv ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 16px", borderBottom: "1px solid " + T.line, display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text } }, conv.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, conv.phone)), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => setDarCita({ name: conv.name, phone: conv.phone }),
@@ -1487,7 +1681,7 @@ function AgenteIAView({ T, patients, addAppt }) {
     },
     /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4M12 13v4M10 15h4" })),
     "Agendar cita"
-  )), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8 } }, conv.msgs.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { alignSelf: m.f === "out" ? "flex-end" : "flex-start", maxWidth: "75%", background: m.f === "out" ? T.accent : T.bg, color: m.f === "out" ? "#fff" : T.text, border: m.f === "out" ? "none" : "1px solid " + T.line, borderRadius: 12, padding: "8px 12px", fontFamily: T.sans, fontSize: 12.5 } }, m.t, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, opacity: 0.7, marginTop: 3, textAlign: "right" } }, m.h)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, padding: 12, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("button", { onClick: aiSuggest, disabled: aiBusy, title: "Sugerir respuesta con IA (Groq)", style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: aiBusy ? T.textFaint : "#8B6FE0", background: "transparent", border: "1px solid " + (aiBusy ? T.line : "#8B6FE0"), borderRadius: 8, padding: "0 12px", cursor: aiBusy ? "default" : "pointer", whiteSpace: "nowrap" } }, aiBusy ? "\u2026" : "\u2726 IA"), /* @__PURE__ */ React.createElement("input", { value: draft, onChange: (e) => setDraft(e.target.value), onKeyDown: (e) => e.key === "Enter" && send(), placeholder: "Escribe una respuesta\u2026", style: { flex: 1, fontFamily: T.sans, fontSize: 13, padding: "9px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text } }), /* @__PURE__ */ React.createElement("button", { onClick: send, style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "0 16px", cursor: "pointer" } }, "Enviar"))) : /* @__PURE__ */ React.createElement(Empty2, { T }, "Selecciona una conversaci\xF3n."))), darCita && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients: patients || [], prefill: { patName: darCita.name, phone: darCita.phone }, onClose: () => setDarCita(null), onSave: handleSaveCita }), citaOk && /* @__PURE__ */ React.createElement(CitaAgendadaOkPopup, { T, cita: citaOk, appts, onClose: () => setCitaOk(null) }));
+  )), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8 } }, conv.msgs.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { alignSelf: m.f === "out" ? "flex-end" : "flex-start", maxWidth: "75%", background: m.f === "out" ? T.accent : T.bg, color: m.f === "out" ? "#fff" : T.text, border: m.f === "out" ? "none" : "1px solid " + T.line, borderRadius: 12, padding: "8px 12px", fontFamily: T.sans, fontSize: 12.5 } }, m.t, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, opacity: 0.7, marginTop: 3, textAlign: "right" } }, m.h)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, padding: 12, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("button", { onClick: aiSuggest, disabled: aiBusy, title: "Sugerir respuesta con IA (Groq)", style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: aiBusy ? T.textFaint : "#8B6FE0", background: "transparent", border: "1px solid " + (aiBusy ? T.line : "#8B6FE0"), borderRadius: 8, padding: "0 12px", cursor: aiBusy ? "default" : "pointer", whiteSpace: "nowrap" } }, aiBusy ? "\u2026" : "\u2726 IA"), /* @__PURE__ */ React.createElement("input", { value: draft, onChange: (e) => setDraft(e.target.value), onKeyDown: (e) => e.key === "Enter" && send(), placeholder: "Escribe una respuesta\u2026", style: { flex: 1, fontFamily: T.sans, fontSize: 13, padding: "9px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text } }), /* @__PURE__ */ React.createElement("button", { onClick: send, style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "0 16px", cursor: "pointer" } }, "Enviar"))) : /* @__PURE__ */ React.createElement(Empty2, { T }, "Selecciona una conversaci\xF3n."))), darCita && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients: patients || [], prefill: { patName: darCita.name, phone: darCita.phone }, onClose: () => setDarCita(null), onSave: handleSaveCita }), citaOk && /* @__PURE__ */ React.createElement(CitaAgendadaOkPopup, { T, cita: citaOk, appts, onClose: () => setCitaOk(null) }), showGuide && /* @__PURE__ */ React.createElement(WhatsAppSetupModal, { T, onClose: () => setShowGuide(false) }));
 }
 const INV_SEED = [
   { id: "i1", name: "Toxina botul\xEDnica 100U", cat: "Insumo cl\xEDnico", stock: 6, min: 4, unit: "viales", price: 95e3 },

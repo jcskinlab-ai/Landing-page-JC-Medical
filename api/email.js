@@ -119,6 +119,18 @@ export default async function handler(req, res) {
   const replyTo = isEmail(body.replyTo) ? body.replyTo.trim() : undefined;
   const clinicName = (body.clinic && body.clinic.name) || "Medique";
 
+  // Adjuntos opcionales (p.ej. respaldo .json). Resend espera { filename, content(base64) }.
+  // Límite total ~7.5MB en base64 (~5.5MB binario) para no reventar el correo.
+  const ATT_MAX = 7600000;
+  let attachments = Array.isArray(body.attachments)
+    ? body.attachments
+        .filter(a => a && a.filename && a.content)
+        .slice(0, 5)
+        .map(a => ({ filename: String(a.filename).slice(0, 120), content: String(a.content) }))
+    : [];
+  const attBytes = attachments.reduce((n, a) => n + a.content.length, 0);
+  if (attBytes > ATT_MAX) return res.status(413).json({ ok: false, error: "El adjunto es demasiado grande para enviarlo por correo." });
+
   if (!isEmail(to)) return res.status(400).json({ ok: false, error: "Correo de destino inválido." });
   if (!subject) return res.status(400).json({ ok: false, error: "Falta el asunto." });
   if (!text.trim()) return res.status(400).json({ ok: false, error: "El correo está vacío." });
@@ -131,7 +143,7 @@ export default async function handler(req, res) {
     const r = await fetch(RESEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-      body: JSON.stringify({ from, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) })
+      body: JSON.stringify({ from, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}), ...(attachments.length ? { attachments } : {}) })
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
