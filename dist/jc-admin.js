@@ -1236,6 +1236,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   const _todayIdx = (_wkBase.getDay() + 6) % 7;
   const _wkMon = new Date(_wkBase);
   _wkMon.setDate(_wkBase.getDate() - _todayIdx);
+  const _dk = (dt) => dt.getFullYear() + "-" + ("0" + (dt.getMonth() + 1)).slice(-2) + "-" + ("0" + dt.getDate()).slice(-2);
   const _apptDayIdx = (a) => {
     let d = null;
     try {
@@ -1251,20 +1252,29 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
     return Math.round((d - _wkMon) / 864e5);
   };
   const week = [0, 0, 0, 0, 0, 0, 0];
-  let wkCitas = 0, wkMonto = 0;
+  let wkCitas = 0;
   (appts || []).forEach((a) => {
     if (a.status === "anulada" || a.status === "cancelada") return;
     const di = _apptDayIdx(a);
     if (di >= 0 && di < 7) {
       week[di]++;
       wkCitas++;
-      wkMonto += a.price || (window.jcmProcPrice ? window.jcmProcPrice(a.proc) : 0) || 0;
     }
   });
+  let wkMonto = 0;
+  try {
+    const _wkSun = new Date(_wkMon);
+    _wkSun.setDate(_wkMon.getDate() + 6);
+    const _mon = _dk(_wkMon), _sun = _dk(_wkSun);
+    (window.cashMovimientos ? window.cashMovimientos() : []).forEach((m) => {
+      if (m.type === "ingreso" && m._day && m._day >= _mon && m._day <= _sun) wkMonto += m.amount || 0;
+    });
+  } catch (e) {
+  }
   const maxw = Math.max(1, week[0], week[1], week[2], week[3], week[4], week[5], week[6]);
   const sinCons = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
   const greet = now.getHours() < 13 ? "Buenos d\xEDas" : now.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent } }, greet, ", ", clinicDisplayName()), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, marginTop: 8, lineHeight: 1.05 } }, now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "18px 18px", marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Resumen semanal"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, wkCitas, " ", wkCitas === 1 ? "cita" : "citas", wkMonto > 0 ? " \xB7 " + D.fmt(wkMonto) : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 8, height: 84 } }, week.map((v, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 26, height: v / maxw * 60 + 4 + "px", background: i === _todayIdx ? T.accent : T.dark ? "rgba(242,237,230,.18)" : "rgba(20,20,15,.14)", borderRadius: 4 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute } }, wd[i])))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16, paddingTop: 16, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("pacientes"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: patients.length, l: "Pacientes" })), /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("citas"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: appts.length, l: "Citas semana" })), /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("consent"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: sinCons.length, l: "Consent. pend.", accent: sinCons.length > 0 })))), resModal && (() => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent } }, greet, ", ", clinicDisplayName()), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, marginTop: 8, lineHeight: 1.05 } }, now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "18px 18px", marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Resumen semanal"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, wkCitas, " ", wkCitas === 1 ? "cita" : "citas", wkMonto > 0 ? " \xB7 " + D.fmt(wkMonto) + " cobrado" : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 8, height: 84 } }, week.map((v, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 26, height: v / maxw * 60 + 4 + "px", background: i === _todayIdx ? T.accent : T.dark ? "rgba(242,237,230,.18)" : "rgba(20,20,15,.14)", borderRadius: 4 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute } }, wd[i])))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16, paddingTop: 16, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("pacientes"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: patients.length, l: "Pacientes" })), /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("citas"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: appts.length, l: "Citas semana" })), /* @__PURE__ */ React.createElement("button", { onClick: () => setResModal("consent"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement(AdStat, { T, n: sinCons.length, l: "Consent. pend.", accent: sinCons.length > 0 })))), resModal && (() => {
     const cfg = {
       pacientes: { title: "Pacientes", rows: patients.map((p) => ({ k: p.id, a: p.name, b: p.rut || p.phone || "" })) },
       citas: { title: "Citas de la semana", rows: appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || "")).map((a) => ({ k: a.id, a: a.name, b: (apptDayOff(a) === 0 ? "Hoy " : "") + (a.time || "") + " \xB7 " + (a.proc || "") })) },

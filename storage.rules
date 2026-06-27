@@ -1,0 +1,45 @@
+rules_version = '2';
+
+// ════════════════════════════════════════════════════════════════════════
+// Reglas de Firebase Storage para Medique (medique-8dbf6).
+//
+// Las fotos clínicas, mapas faciales y consentimientos suben a:
+//   {clinicId}/patients/<...>
+// (ver jcm_saas.js → JCSAAS.uploadImage, que antepone {clinicId}/patients/).
+//
+// Seguridad (igual modelo que firestore.rules): solo un usuario LOGUEADO cuya
+// clínica (users/{uid}.clinicId) coincide con {clinicId} puede leer/escribir
+// los archivos de ESA clínica. Cada clínica aislada de las demás.
+//
+// DESPLEGAR (una vez): en la consola de Firebase → Storage → Reglas, pega este
+// archivo y publica. O por CLI:  firebase deploy --only storage --project medique-8dbf6
+// ════════════════════════════════════════════════════════════════════════
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() { return request.auth != null; }
+
+    // clinicId del usuario logueado, leído desde Firestore (users/{uid}.clinicId).
+    function myClinic() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.clinicId;
+    }
+
+    // super-admin (mismo criterio que firestore.rules).
+    function isSuper() {
+      return signedIn() && (
+        request.auth.token.superAdmin == true
+        || request.auth.token.email == 'medique.cl@gmail.com'
+        || request.auth.token.email == 'jc.skinlab@gmail.com'
+      );
+    }
+
+    // Archivos de cada clínica (fotos de pacientes, rostros, consentimientos).
+    match /{clinicId}/{allPaths=**} {
+      allow read:  if signedIn() && (isSuper() || myClinic() == clinicId);
+      allow write: if signedIn() && (isSuper() || myClinic() == clinicId)
+                   && request.resource.size < 15 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if signedIn() && (isSuper() || myClinic() == clinicId);
+    }
+  }
+}

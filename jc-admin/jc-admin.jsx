@@ -1330,23 +1330,33 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   // Campañas REALES cacheadas desde Meta Ads (las llena Marketing). Sin demo.
   const camps = (() => { try { const s = window.DB && window.DB.get("campaigns"); if (Array.isArray(s)) return s.filter(c => c.real); } catch (e) {} return []; })();
   const reach = camps.reduce((s, c) => s + c.reach, 0), leads = camps.reduce((s, c) => s + c.leads, 0), spend = camps.reduce((s, c) => s + c.spend, 0);
-  // Resumen semanal REAL: citas por día (lun→dom de la semana actual) y su valor estimado. Sin demo.
+  // Resumen semanal REAL: citas por día (lun→dom de la semana actual) y dinero cobrado. Sin demo.
   const wd = ["L", "M", "M", "J", "V", "S", "D"];
   const _wkBase = new Date(); _wkBase.setHours(0, 0, 0, 0);
   const _todayIdx = (_wkBase.getDay() + 6) % 7; // 0 = lunes
   const _wkMon = new Date(_wkBase); _wkMon.setDate(_wkBase.getDate() - _todayIdx);
+  const _dk = dt => dt.getFullYear() + "-" + ("0" + (dt.getMonth() + 1)).slice(-2) + "-" + ("0" + dt.getDate()).slice(-2);
   const _apptDayIdx = a => {
     let d = null; try { d = a.fecha ? new Date(a.fecha + "T00:00:00") : null; } catch (e) { d = null; }
     if (!d || isNaN(d)) { d = new Date(_wkBase); d.setDate(_wkBase.getDate() + (apptDayOff(a) || 0)); }
     d.setHours(0, 0, 0, 0); return Math.round((d - _wkMon) / 86400000);
   };
   const week = [0, 0, 0, 0, 0, 0, 0];
-  let wkCitas = 0, wkMonto = 0;
+  let wkCitas = 0;
   (appts || []).forEach(a => {
     if (a.status === "anulada" || a.status === "cancelada") return;
     const di = _apptDayIdx(a);
-    if (di >= 0 && di < 7) { week[di]++; wkCitas++; wkMonto += (a.price || (window.jcmProcPrice ? window.jcmProcPrice(a.proc) : 0) || 0); }
+    if (di >= 0 && di < 7) { week[di]++; wkCitas++; }
   });
+  // Dinero REALMENTE cobrado esta semana (Caja: ingresos del lun→dom actual). Cifra real, no estimada.
+  let wkMonto = 0;
+  try {
+    const _wkSun = new Date(_wkMon); _wkSun.setDate(_wkMon.getDate() + 6);
+    const _mon = _dk(_wkMon), _sun = _dk(_wkSun);
+    (window.cashMovimientos ? window.cashMovimientos() : []).forEach(m => {
+      if (m.type === "ingreso" && m._day && m._day >= _mon && m._day <= _sun) wkMonto += (m.amount || 0);
+    });
+  } catch (e) {}
   const maxw = Math.max(1, week[0], week[1], week[2], week[3], week[4], week[5], week[6]);
   const sinCons = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
   const greet = now.getHours() < 13 ? "Buenos días" : now.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
@@ -1359,7 +1369,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "18px 18px", marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Resumen semanal</div>
-          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{wkCitas} {wkCitas === 1 ? "cita" : "citas"}{wkMonto > 0 ? " · " + D.fmt(wkMonto) : ""}</div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{wkCitas} {wkCitas === 1 ? "cita" : "citas"}{wkMonto > 0 ? " · " + D.fmt(wkMonto) + " cobrado" : ""}</div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 84 }}>
           {week.map((v, i) => (

@@ -528,7 +528,19 @@
         while (len--) arr[len] = raw.charCodeAt(len);
         var blob = new Blob([arr], { type: mime });
         var ref = storage.ref(state.clinicId + '/patients/' + path);
-        return ref.put(blob).then(function () { return ref.getDownloadURL(); });
+        // Reintenta ante fallos TRANSITORIOS (red); no reintenta si es de permiso (reglas de Storage).
+        function attempt(n) {
+          return ref.put(blob).then(function () { return ref.getDownloadURL(); })
+            .catch(function (e) {
+              var code = (e && e.code) || '';
+              var permanent = code.indexOf('unauthorized') >= 0 || code.indexOf('unauthenticated') >= 0 || code.indexOf('invalid-argument') >= 0;
+              if (n > 0 && !permanent) {
+                return new Promise(function (res) { setTimeout(res, 1200); }).then(function () { return attempt(n - 1); });
+              }
+              throw e;
+            });
+        }
+        return attempt(2);
       } catch (e) { return Promise.reject(e); }
     },
     deleteImage: function (path) {
