@@ -200,7 +200,7 @@ function App() {
 
   const screenKey = sub ? sub.type + (sub.proc ? sub.proc.id || sub.proc.name : "") : tab;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current; if (!el) return;
     el.scrollTop = (scrollMem.current[screenKey] != null ? scrollMem.current[screenKey] : 0);
     curKey.current = screenKey;

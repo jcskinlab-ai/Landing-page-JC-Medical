@@ -178,7 +178,7 @@ function App() {
   else if (tab === "perfil") screen = /* @__PURE__ */ React.createElement(ProfileScreen, { T, D, go, openBooking, onBack: goBack, onSessionChange: (s) => setSession(s) });
   else if (tab === "panel") screen = /* @__PURE__ */ React.createElement(PanelScreen, { T, D });
   const screenKey = sub ? sub.type + (sub.proc ? sub.proc.id || sub.proc.name : "") : tab;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = scrollMem.current[screenKey] != null ? scrollMem.current[screenKey] : 0;
