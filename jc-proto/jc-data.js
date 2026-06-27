@@ -159,9 +159,9 @@
           return slotMinutes > nowMinutes + 30;
         })
         .map(function (time) {
-          var h = parseInt(time, 10);
-          var seed = (d.getDate() * 7 + h * 3 + (time.slice(3) === "45" ? 2 : 0)) % 10;
-          return { time: time, taken: seed < 3 };
+          // Todos los horarios configurados quedan disponibles (sin "ocupado" de demo).
+          // La disponibilidad real la confirma la clínica; así la app calza con el panel.
+          return { time: time, taken: false };
         });
       if (!slots.length) continue; // hoy sin horas disponibles → no mostrar
       days.push({

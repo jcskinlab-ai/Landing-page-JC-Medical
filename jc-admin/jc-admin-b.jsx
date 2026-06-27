@@ -110,7 +110,7 @@ function AdModal({ T, title, onClose, children, footer, wide, huge }) {
   // disponible → el contenido largo (p. ej. "Nuevo procedimiento") hace scroll interno
   // sin salirse de pantalla ni quedar cortado.
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: huge ? 12 : 16, paddingRight: huge ? 12 : 16 }}>
+    <div onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: huge ? 12 : 16, paddingRight: huge ? 12 : 16 }}>
       <div onClick={e => e.stopPropagation()} style={{ width: huge ? "97vw" : "100%", maxWidth: huge ? 1180 : (wide ? 720 : 460), maxHeight: "100%", background: T.bg, borderRadius: 16, border: "1px solid " + T.line, display: "flex", flexDirection: "column", animation: "jcSlideUp .3s " + T.ease, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid " + T.line }}>
           <div style={{ fontFamily: T.serif, fontSize: 22, fontWeight: 300, color: T.text }}>{title}</div>
@@ -186,7 +186,20 @@ function compressImageDataUrl(dataUrl, maxW, q) {
 }
 function patConsents(p) {
   if (!p) return [];
-  try { const v = window.DB && window.DB.get(patConsKey(p.id)); if (Array.isArray(v)) return v; } catch (e) {}
+  try {
+    // Nuevo formato: manifest en pconsm_<id>, cada consentimiento en pcons_<id>_<ts>
+    var manifest = window.DB && window.DB.get("pconsm_" + p.id);
+    if (Array.isArray(manifest) && manifest.length > 0) {
+      var items = [];
+      manifest.forEach(function(ts) {
+        try { var c = window.DB.get("pcons_" + p.id + "_" + ts); if (c) items.push(c); } catch(e2) {}
+      });
+      if (items.length > 0) return items.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    }
+    // Formato anterior: array completo en pcons_<id> (se migrará al abrir la ficha)
+    var v = window.DB && window.DB.get(patConsKey(p.id));
+    if (Array.isArray(v) && v.length > 0) return v;
+  } catch(e) {}
   return p.consents || (p.consentDoc ? [p.consentDoc] : []);
 }
 
@@ -214,19 +227,22 @@ function recitaFor(p) {
   const fmtP = n => "$" + (n || 0).toLocaleString("es-CL");
   const tag = ((p.tags && p.tags[0]) || "").toLowerCase();
   const hist = p.history || [];
-  const toxRe = /botox|toxina|botul|bruxismo|hiperhidro|gingival|nefertiti|empedrado/i;
+  const toxRe = /botox|toxina|botul|bruxismo|hiperhidro|gingival|nefertiti|empedrado|\bb3z\b|\bbff\b|full\s*face/i;
   const scuRe = /sculptra|bioestim|col[aá]g|estimul/i;
   // Última sesión de cada familia según el HISTORIAL CLÍNICO (no solo los tags).
   const fechado = hist.filter(h => h && _recitaTs(h.date || h.fecha)).sort((a, b) => _recitaTs(b.date || b.fecha) - _recitaTs(a.date || a.fecha));
+  const ahRe = /rino|hialur|armoniz|relleno/i;
   const lastTox = fechado.find(h => toxRe.test(h.proc || h.title || ""));
   const lastScu = fechado.find(h => scuRe.test(h.proc || h.title || ""));
-  // Elige la familia de la sesión más reciente; si no hay historial, cae al tag.
-  let pick = null;
-  if (lastTox && lastScu) pick = _recitaTs(lastTox.date || lastTox.fecha) >= _recitaTs(lastScu.date || lastScu.fecha) ? "toxina" : "sculptra";
-  else if (lastTox) pick = "toxina";
-  else if (lastScu) pick = "sculptra";
-  else if (toxRe.test(tag)) pick = "toxina";
-  else if (scuRe.test(tag)) pick = "sculptra";
+  const lastAh = fechado.find(h => ahRe.test(h.proc || h.title || ""));
+  // Elige la familia de la sesión MÁS reciente; si no hay historial, cae al tag.
+  const cand = [
+    lastTox && { fam: "toxina", ts: _recitaTs(lastTox.date || lastTox.fecha) },
+    lastScu && { fam: "sculptra", ts: _recitaTs(lastScu.date || lastScu.fecha) },
+    lastAh && { fam: "rino", ts: _recitaTs(lastAh.date || lastAh.fecha) }
+  ].filter(Boolean).sort((a, b) => b.ts - a.ts);
+  let pick = cand.length ? cand[0].fam
+    : (toxRe.test(tag) ? "toxina" : scuRe.test(tag) ? "sculptra" : ahRe.test(tag) ? "rino" : null);
   if (!pick) return null;
   let umbral, motivo, msg, precio, fam, refTs;
   if (pick === "toxina") {
@@ -234,13 +250,18 @@ function recitaFor(p) {
     motivo = "Toxina · refuerzo a 3 meses";
     msg = "ya es momento de renovar tu toxina botulínica para mantener tu resultado natural";
     refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
-  } else {
+  } else if (pick === "sculptra") {
     fam = "sculptra"; umbral = 2; precio = 280000;
     const ses = hist.filter(h => scuRe.test(h.proc || h.title || "")).length || 1;
     if (ses >= 3) return null; // esquema de 3 sesiones completo
     motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a 2 meses)";
     msg = "tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión " + (ses + 1) + " de 3)";
     refTs = lastScu ? _recitaTs(lastScu.date || lastScu.fecha) : _recitaTs(p.lastVisit);
+  } else {
+    fam = "rino"; umbral = 10; precio = 0; // sin precio definido → el WhatsApp no muestra valor
+    motivo = "Rinomodelación · mantención a 10 meses";
+    msg = "ya es buen momento para evaluar y renovar tu rinomodelación y mantener tu resultado";
+    refTs = lastAh ? _recitaTs(lastAh.date || lastAh.fecha) : _recitaTs(p.lastVisit);
   }
   if (!refTs) return null;
   const meses = (Date.now() - refTs) / (1000 * 60 * 60 * 24 * 30.44);
@@ -253,8 +274,9 @@ function recitaDue(patients) { return (patients || []).map(p => ({ p, r: recitaF
 // Mensaje de WhatsApp que muestra el precio real y luego el precio preferente (en pesos, no en %).
 function recitaMsg(p, r) {
   const first = (p.name || "").split(" ")[0] || "";
-  return "Hola " + first + ", te saludamos de " + ((window.clinicName && window.clinicName()) || "tu clínica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) +
-    ". El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + ". ¿Te agendamos tu hora?";
+  const base = "Hola " + first + ", te saludamos de " + ((window.clinicName && window.clinicName()) || "tu clínica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) + ".";
+  const precioTxt = r.precio ? " El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + "." : "";
+  return base + precioTxt + " ¿Te agendamos tu hora?";
 }
 function recitaWa(p, r) { return "https://wa.me/" + (p.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(recitaMsg(p, r)); }
 function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }) {
@@ -739,7 +761,7 @@ function NotasTab({ T, patient, updatePatient }) {
 
 function procMapType(proc) {
   const p = (proc || "").toLowerCase();
-  if (/botox|toxina|botulín|botul/i.test(p)) return "botox";
+  if (/botox|toxina|botulín|botul|\bb3z\b|\bbff\b|full\s*face/i.test(p)) return "botox";
   if (/hialur|rino|armoniz|relleno/i.test(p)) return "ah";
   if (/bio|sculptra|col[aá]g|estimul/i.test(p)) return "bio";
   return null;
@@ -1042,10 +1064,14 @@ function ConsentView({ T, patients, updatePatient }) {
       {signing && <SignConsentModal T={T} data={signing} onClose={() => setSigning(null)}
         onSign={(r) => {
           const p = signing.patient;
-          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
-          const lista = patConsents(p).slice(); lista.unshift(nuevo);
-          try { window.DB.set(patConsKey(p.id), lista); } catch (e) {}
-          updatePatient(p.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+          try {
+            var _nts = nuevo.ts || Date.now();
+            window.DB.set("pcons_" + p.id + "_" + _nts, nuevo);
+            var _mf = window.DB.get("pconsm_" + p.id);
+            window.DB.set("pconsm_" + p.id, Array.isArray(_mf) ? [_nts].concat(_mf) : [_nts]);
+          } catch(e) {}
+          updatePatient(p.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
           setSigning(null);
         }} />}
     </div>
@@ -1065,8 +1091,13 @@ function ConsentDoc({ T, tpl, prof }) {
   const P = ({ n, children }) => <p style={{ margin: "0 0 11px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}><b>{n}</b> {children}</p>;
   const EU = prof || "____________________";
   if (tpl.kind === "custom") {
+    // Consentimientos guardados antes de incluir paragraphs: los recuperamos de la plantilla por título.
+    let paras = tpl.paragraphs;
+    if (!paras || !paras.length) {
+      try { const tmpl = ((window.JCADMIN && window.JCADMIN.consents) || []).find(c => c.title === tpl.title || c.id === tpl.id); if (tmpl) paras = tmpl.paragraphs; } catch (e) {}
+    }
     const renderT = t => { const parts = t.split("{EU}"); if (parts.length === 1) return t; return parts.reduce((a, p, i) => i < parts.length - 1 ? [...a, p, <b key={i}>{EU}</b>] : [...a, p], []); };
-    return <div>{(tpl.paragraphs || []).map((p, i) => <P key={i} n={p.n}>{renderT(p.t)}</P>)}</div>;
+    return <div>{(paras || []).map((p, i) => <P key={i} n={p.n}>{renderT(p.t)}</P>)}</div>;
   }
   if (tpl.kind === "extra") return (
     <div>
@@ -1184,17 +1215,40 @@ function ConsentTab({ T, patient, updatePatient }) {
   const [consents, setConsentsState] = useState(() => patConsents(patient));
   useEffect(() => {
     setConsentsState(patConsents(patient));
-    // Migración del modelo antiguo (consentimientos dentro del paciente) → su clave propia.
+    // Migración al nuevo formato (un doc por consentimiento) desde: array en pcons_<id> o dentro del paciente.
     try {
-      const legacy = patient.consents || (patient.consentDoc ? [patient.consentDoc] : []);
-      const own = window.DB && window.DB.get(consKey);
-      if (legacy.length && !Array.isArray(own)) {
-        window.DB.set(consKey, legacy);
-        if (Array.isArray(window.DB.get(consKey))) updatePatient(patient.id, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+      var hasManifest = Array.isArray(window.DB && window.DB.get("pconsm_" + patient.id));
+      if (!hasManifest) {
+        var old = window.DB && window.DB.get(consKey);
+        var legacy = patient.consents || (patient.consentDoc ? [patient.consentDoc] : []);
+        var toMigrate = (Array.isArray(old) && old.length > 0) ? old : legacy;
+        if (toMigrate.length > 0) {
+          var mf = [];
+          toMigrate.forEach(function(c, i) {
+            var ts = c.ts || (Date.now() + i);
+            window.DB.set("pcons_" + patient.id + "_" + ts, c);
+            mf.push(ts);
+          });
+          window.DB.set("pconsm_" + patient.id, mf);
+          if (legacy.length > 0 && Array.isArray(window.DB.get("pconsm_" + patient.id))) {
+            updatePatient(patient.id, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+          }
+        }
       }
-    } catch (e) {}
+    } catch(e) {}
   }, [patient.id]);
-  function commitConsents(next) { try { window.DB.set(consKey, next); } catch (e) {} setConsentsState(next); }
+  function commitConsents(next) {
+    try {
+      var newManifest = [];
+      next.forEach(function(c, i) {
+        var ts = c.ts || (Date.now() + i);
+        window.DB.set("pcons_" + patient.id + "_" + ts, c);
+        newManifest.push(ts);
+      });
+      window.DB.set("pconsm_" + patient.id, newManifest);
+    } catch(e) {}
+    setConsentsState(next);
+  }
   const printRef = useRef(null);
   function start(t) { setTpl0(t); setSigning(true); }
 
@@ -1284,7 +1338,13 @@ function ConsentTab({ T, patient, updatePatient }) {
     const EU = esc(doc.prof || "____________________");
     const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
     let body = "";
-    if (doc.kind === "extra") {
+    if (doc.kind === "custom") {
+      // Plantilla con cláusulas propias (ej. Bruxismo). Respaldo a la plantilla si no se guardaron.
+      let paras = doc.paragraphs;
+      if (!paras || !paras.length) { try { var tmpl = ((window.JCADMIN && window.JCADMIN.consents) || []).find(function (c) { return c.title === doc.title || c.id === doc.id; }); if (tmpl) paras = tmpl.paragraphs; } catch (e) {} }
+      (paras || []).forEach(function (pa) { body += p(esc(pa.n || ""), esc(pa.t || "").replace(/\{EU\}/g, "<b>" + EU + "</b>")); });
+      if (!paras || !paras.length) body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento " + esc(doc.proc || "") + ".");
+    } else if (doc.kind === "extra") {
       if (doc.proc) body += p("", "Procedimiento: <b>" + esc(doc.proc) + "</b>.");
       body += "<div style='white-space:pre-wrap;font-size:12px;line-height:1.6;margin-bottom:11px'>" + esc(doc.body || "—") + "</div>";
       body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento descrito, habiéndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes clínicos.");
@@ -1447,12 +1507,15 @@ function ConsentTab({ T, patient, updatePatient }) {
       )}
 
       {signing && <SignConsentModal T={T} data={{ patient: patient, template: tpl0 || A.consents[0] }} onClose={() => setSigning(false)} onSign={(r) => {
-        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
         const lista = patConsents(patient).slice();
         lista.unshift(nuevo);
         commitConsents(lista); // guarda el consentimiento en su propia clave (sube a la nube)
         // En el paciente solo queda la marca liviana (sin firmas) para que el documento sea pequeño.
-        updatePatient(patient.id, { consent: true, consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+        // La edad se sincroniza con la ficha: si el consentimiento la trae y la ficha no la tenía, la guarda.
+        const _age = parseInt(r.fields && r.fields.edad, 10);
+        const _agePatch = (_age && !patient.age) ? { age: _age } : {};
+        updatePatient(patient.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " · " + r.fields.fecha, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
         setSigning(false);
         try { window.jcmToast && window.jcmToast("Consentimiento guardado. Se abrió en una pestaña para tu respaldo.", "ok"); } catch (e) {}
         // Abre el consentimiento firmado en una PESTAÑA NUEVA (sin lanzar la impresión).
@@ -1470,11 +1533,11 @@ function readImageResized(file, cb) {
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      const max = 900; let { width: w, height: h } = img;
+      const max = 800; let { width: w, height: h } = img;
       if (w > max || h > max) { const r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
       const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
       cv.getContext("2d").drawImage(img, 0, 0, w, h);
-      cb(cv.toDataURL("image/jpeg", 0.82));
+      cb(cv.toDataURL("image/jpeg", 0.72));
     };
     img.src = e.target.result;
   };
@@ -1596,7 +1659,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
 
       {/* Visor de imagen a pantalla completa (clic en cualquier foto) */}
       {viewer && (
-        <div onClick={() => setViewer(null)} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(8,8,6,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px", boxSizing: "border-box" }}>
+        <div onMouseDown={e => { if (e.target === e.currentTarget) setViewer(null); }} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(8,8,6,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px", boxSizing: "border-box" }}>
           <div style={{ position: "absolute", top: "calc(14px + env(safe-area-inset-top,0px))", left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px" }}>
             <span style={{ fontFamily: T.sans, fontSize: 12.5, color: "#fff" }}>{viewer.proc || viewer.label || "Imagen"}{viewer.date ? " · " + fmtDate(viewer.date) : ""}</span>
             <button onClick={() => setViewer(null)} style={{ background: "rgba(255,255,255,.14)", border: "none", borderRadius: 999, width: 40, height: 40, cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
@@ -1616,10 +1679,11 @@ function FacturacionTab({ T, patient, updatePatient }) {
   const [delIdx, setDelIdx] = useState(null);
   const metodos = ["Transferencia", "Efectivo", "Tarjeta débito", "Tarjeta crédito", "Otro"];
 
-  const items = patient.billing || [];
+  // Atenciones = los pagos registrados en cada SESIÓN (pestaña Procedimientos). Fuente única.
+  const items = (patient.history || [])
+    .filter(h => (h.cobro || 0) > 0)
+    .map(h => ({ concept: (h.proc || "Atención"), metodo: h.metodo || "—", amount: h.cobro || 0, date: h.date || "" }));
   const total = items.reduce((s, i) => s + (i.amount || 0), 0);
-  const pagado = items.filter(i => i.paid).reduce((s, i) => s + (i.amount || 0), 0);
-  const saldo = total - pagado;
 
   function addNew() {
     setEditAt({ idx: -1, item: { id: "b" + Date.now(), concept: "", date: new Date().toLocaleDateString("es-CL"), amount: 0, paid: false, metodo: "Transferencia", comprobante: "" } });
@@ -1642,31 +1706,26 @@ function FacturacionTab({ T, patient, updatePatient }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Atenciones y pagos</div>
-        <AdBtn T={T} small primary onClick={addNew}>+ Atención</AdBtn>
+        {items.length > 0 && <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Total {D.fmt(total)}</div>}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
-        <AdStat T={T} n={D.fmt(total)} l="Total" />
-        <AdStat T={T} n={D.fmt(pagado)} l="Pagado" />
-        <AdStat T={T} n={D.fmt(saldo)} l="Saldo" accent={saldo > 0} />
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>
+        Los pagos se registran en cada <b style={{ color: T.text }}>sesión</b> (pestaña Procedimientos). Aquí ves solo el procedimiento, el método de pago y el monto.
       </div>
       {items.length === 0 && (
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, textAlign: "center", padding: "24px 0" }}>
-          No hay atenciones registradas. Presiona "+ Atención" para agregar una.
+          Aún no hay pagos. Registra el cobro al crear una sesión en <b>Procedimientos</b>.
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {items.map((b, idx) => (
-          <div key={b.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}>
-            <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setEditAt({ idx, item: { ...b } })}>
-              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept || "Sin descripción"}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.date}{b.metodo ? " · " + b.metodo : ""}</div>
+          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.metodo}</div>
             </div>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 }}>{D.fmt(b.amount || 0)}</div>
-            <AdTag T={T} tone={b.paid ? "ok" : "warn"}>{b.paid ? "Pagado" : "Pendiente"}</AdTag>
-            <button onClick={() => setEditAt({ idx, item: { ...b } })} title="Editar" style={{ background: "none", border: "none", cursor: "pointer", padding: 5, color: T.textMute, flexShrink: 0 }}>{iconEdit}</button>
-            <button onClick={() => setDelIdx(idx)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", padding: 5, color: T.textFaint, flexShrink: 0 }}>{iconDel}</button>
           </div>
         ))}
       </div>
@@ -1957,16 +2016,19 @@ function RecetaTab({ T, patient, updatePatient }) {
   const [diag, setDiag] = useState("");
   const [rp, setRp] = useState("");
   const [ind, setInd] = useState("");
+  const [ctrl, setCtrl] = useState(""); // fecha de control (solo indicaciones)
   const [preview, setPreview] = useState(null); // documento abierto en popup
+  // Formatea "YYYY-MM-DD" a fecha larga en español para el documento.
+  const fmtCtrl = s => { if (!s) return ""; const m = ("" + s).match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return s; const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d) ? s : d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); };
   const recetas = patient.recetas || [];
   const titleOf = t => t === "indicaciones" ? "Indicaciones post tratamiento" : "Receta médica";
   const rpLabelOf = t => t === "indicaciones" ? "Indicaciones / cuidados" : "Rp. (medicamentos)";
 
   function guardar() {
     if (!rp.trim()) return;
-    const r = { id: "rx" + Date.now(), tipo, fecha: hoy, diag: diag.trim(), rp: rp.trim(), ind: ind.trim() };
+    const r = { id: "rx" + Date.now(), tipo, fecha: hoy, diag: diag.trim(), rp: rp.trim(), ind: ind.trim(), ctrl: tipo === "indicaciones" ? ctrl : "" };
     updatePatient(patient.id, { recetas: [r, ...recetas] });
-    setDiag(""); setRp(""); setInd("");
+    setDiag(""); setRp(""); setInd(""); setCtrl("");
   }
   function imprimir(r) {
     const e = jcmDocEsc;
@@ -1991,7 +2053,7 @@ function RecetaTab({ T, patient, updatePatient }) {
         : "<div style=\"font-family:'Cormorant Garamond',serif;font-style:italic;font-size:34px;color:#121A26;line-height:1;margin:8px 0 6px\">Rp.</div><div class='textbox'>" + e(r.rp).replace(/\n/g, "<br>") + "</div>")
       + "</div>"
       + (r.ind ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas adicionales</span><span class='sh-rule'></span></div><div class='textbox'>" + e(r.ind).replace(/\n/g, "<br>") + "</div></div>" : "")
-      + (isInd ? "<div class='control-note'><span class='cn-icon'>+</span><div><span class='cn-k'>Control de evaluación</span><span class='cn-v'>Agenda tu control para evaluar el resultado y realizar los ajustes que sean necesarios.</span></div></div>" : "")
+      + (isInd ? "<div class='control-note'><span class='cn-icon'>+</span><div><span class='cn-k'>Control de evaluación</span><span class='cn-v'>" + (r.ctrl ? "Tu control está agendado para el <b>" + e(fmtCtrl(r.ctrl)) + "</b>. Asiste para evaluar el resultado y realizar los ajustes que sean necesarios." : "Agenda tu control para evaluar el resultado y realizar los ajustes que sean necesarios.") + "</span></div></div>" : "")
       + "</div>"
       + jcmSignFoot(b, b.proName, titleOf(r.tipo), patient.name || "", hoy);
     jcmPrintDoc(titleOf(r.tipo) + " · " + e(patient.name || ""), b, inner);
@@ -2002,6 +2064,7 @@ function RecetaTab({ T, patient, updatePatient }) {
     if (r.diag) L.push("Diagnóstico: " + r.diag);
     L.push((r.tipo === "indicaciones" ? "Indicaciones:" : "Rp.:"), r.rp);
     if (r.ind) L.push("Notas: " + r.ind);
+    if (r.ctrl) L.push("Control de evaluación: " + fmtCtrl(r.ctrl));
     L.push("— " + pro);
     window.open("https://wa.me/" + (patient.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener");
   }
@@ -2044,6 +2107,12 @@ function RecetaTab({ T, patient, updatePatient }) {
           <textarea style={{ ...inp, minHeight: 120, resize: "vertical" }} value={rp} onChange={e => setRp(e.target.value)} placeholder={tipo === "indicaciones" ? "Elige una plantilla arriba o escribe aquí…" : "Ej.\nParacetamol 500 mg — 1 comprimido cada 8 h por 3 días\nÁrnica tópica — aplicar 2 veces al día"} /></label>
         <label style={{ display: "block", marginTop: 13 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Notas adicionales (opcional)</span>
           <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={ind} onChange={e => setInd(e.target.value)} placeholder="Reposo relativo, control en 7 días…" /></label>
+        {tipo === "indicaciones" && (
+          <label style={{ display: "block", marginTop: 13 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Fecha de control (opcional)</span>
+            <input type="date" style={{ ...inp, maxWidth: 260 }} value={ctrl} onChange={e => setCtrl(e.target.value)} />
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 5 }}>Si la indicas, aparece en la sección "Control de evaluación" del documento.</span>
+          </label>
+        )}
         <div style={{ marginTop: 16, textAlign: "right" }}><AdBtn T={T} primary onClick={guardar}>Guardar {tipo === "indicaciones" ? "indicaciones" : "receta"}</AdBtn></div>
       </div>
       <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Documentos del paciente ({recetas.length})</div>
@@ -2080,6 +2149,10 @@ function RecetaTab({ T, patient, updatePatient }) {
           {preview.ind && <div>
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>Notas adicionales</div>
             <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{preview.ind}</div>
+          </div>}
+          {preview.ctrl && <div style={{ marginTop: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>Control de evaluación</div>
+            <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text, textTransform: "capitalize" }}>{fmtCtrl(preview.ctrl)}</div>
           </div>}
         </AdModal>
       )}

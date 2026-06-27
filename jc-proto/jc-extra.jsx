@@ -200,10 +200,10 @@ const JC_GAMES = [
   { id: "reflex",    nm: "Reflejo Glow", d: "Reacciona en < 400 ms", ic: "⚡", url: "arcade/games/jc/index.html?game=reflejo", c: "#5E7A99", rk: "acc_reflex", base: 360,
     inst: "Toca en cuanto el círculo se ponga VERDE. Solo reacciones bajo 400 ms suman puntos. Son 5 rondas — más rápido, más puntos." },
   // ── Habilidad ──
-  { id: "mina",    nm: "Mapa de Punción", d: "Evita los nervios faciales", ic: "🧭", url: "arcade/games/jc/index.html?game=mina", c: "#54707F", rk: "acc_mina", base: 300,
-    inst: "Marca zonas seguras sin tocar un nervio facial. Cada número indica cuántos nervios hay cerca. Cambia a modo bandera para marcarlos." },
-  { id: "glowlab",  nm: "Glow Lab", d: "Arrastra para combinar insumos", ic: "🧪", url: "arcade/games/jc/index.html?game=glowlab", c: "#9C8AB5", rk: "glowlab_best", base: 1500,
-    inst: "Desliza el dedo sobre una ficha hacia una vecina para intercambiarlas. Alinea 3 o más iguales y ¡estallan! Tienes 25 movimientos — como Candy Crush." }
+  { id: "salta",   nm: "Salto Glow", d: "Salta los obstáculos · sin parar", ic: "🦘", url: "arcade/games/nuevos5/index.html?game=salta", c: "#54707F", rk: "acc_salta", base: 300,
+    inst: "Toca la pantalla para saltar. Evita que los obstáculos te atrapen. ¡Aguanta lo más que puedas!" },
+  { id: "jeringa", nm: "Función Perfecta", d: "Detén el émbolo en la zona verde", ic: "💉", url: "arcade/games/nuevos/index.html?game=jeringa", c: "#9C8AB5", rk: "acc_jeringa", base: 1000,
+    inst: "Toca para detener el émbolo exactamente en la zona verde. A menor distancia del centro, más puntos. ¿Puedes ser perfecto?" }
 ];
 const JC_TOP_IDS = ["trivia", "millonario", "mv", "reflex"];
 
@@ -284,7 +284,7 @@ function GamesScreen({ T, go, onBack }) {
       </div>
       {/* Pop-up de bienvenida (1 vez por sesión) */}
       {promo && !open && (
-        <div onClick={dismissPromo} style={{ position: "absolute", inset: 0, zIndex: 55, background: "rgba(0,0,0,.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div onClick={dismissPromo} style={{ position: "fixed", inset: 0, zIndex: 55, background: "rgba(0,0,0,.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 16, padding: "26px 22px", maxWidth: 340, textAlign: "center", animation: "jcPop .4s " + T.ease }}>
             <div style={{ width: 54, height: 54, borderRadius: "50%", background: T.gold + "22", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={T.gold} strokeWidth="1.6"><path d="M5 3h14v2h2v2.5a3.5 3.5 0 0 1-3.5 3.5h-.6A5 5 0 0 1 13 15.8V18h3v2H8v-2h3v-2.2A5 5 0 0 1 7.1 11H6.5A3.5 3.5 0 0 1 3 7.5V5h2V3z" /></svg>
@@ -298,7 +298,7 @@ function GamesScreen({ T, go, onBack }) {
       )}
       {/* Pop-up de instrucciones antes de cada juego */}
       {pending && !open && (
-        <div onClick={() => setPending(null)} style={{ position: "absolute", inset: 0, zIndex: 56, background: "rgba(0,0,0,.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div onClick={() => setPending(null)} style={{ position: "fixed", inset: 0, zIndex: 56, background: "rgba(0,0,0,.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 16, padding: "26px 22px", maxWidth: 340, width: "100%", textAlign: "center", animation: "jcPop .4s " + (T.ease || "ease") }}>
             <div style={{ width: 56, height: 56, borderRadius: "50%", background: pending.c + "22", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", fontSize: 28 }}>{pending.ic}</div>
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 6 }}>Cómo se juega</div>
@@ -310,7 +310,7 @@ function GamesScreen({ T, go, onBack }) {
         </div>
       )}
       {open && (
-        <div style={{ position: "absolute", inset: 0, background: T.bg, zIndex: 50, display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "fixed", inset: 0, background: T.bg, zIndex: 50, display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid " + T.line, background: T.navBg }}>
             <button onClick={closeGame} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", color: T.text, fontFamily: T.sans, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M15 18l-6-6 6-6" /></svg>Juegos

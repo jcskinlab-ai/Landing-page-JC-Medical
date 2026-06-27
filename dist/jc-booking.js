@@ -28,7 +28,7 @@ function validate(form) {
 function abonoOf(p) {
   return /Evaluaci/.test(p.name) ? p.price || 1e4 : p.price > 0 ? Math.round(p.price * 0.2) : 25e3;
 }
-function bookingText(D, cart, day, time, form, pay) {
+function bookingText(D, cart, day, time, form, pay, secondOff) {
   const fmt = D.fmt || ((n) => "$" + n);
   const L = [];
   L.push("NUEVA RESERVA \xB7 JC Medical");
@@ -40,6 +40,11 @@ function bookingText(D, cart, day, time, form, pay) {
   L.push("");
   L.push("Tratamientos:");
   (cart || []).forEach((p) => L.push("\u2022 " + ((p.qty || 1) > 1 ? p.qty + "\xD7 " : "") + p.name + (p.price > 0 ? " \u2014 " + fmt(p.price * (p.qty || 1)) : "")));
+  if (secondOff > 0) {
+    const rawTotal = (cart || []).reduce((s, p) => s + (p.price || 0) * (p.qty || 1), 0);
+    L.push("Descuento 2\xB0 procedimiento (\u221215%): \u2212" + fmt(secondOff));
+    L.push("Total tratamientos: " + fmt(rawTotal - secondOff));
+  }
   L.push("");
   L.push("Fecha: " + (day ? day.wd + " " + day.dd + " " + day.mm : "Por coordinar") + (time ? " \xB7 " + time + " h" : ""));
   L.push("Abono de reserva: " + fmt(15e3));
@@ -203,7 +208,7 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     setPay(payMethod);
     setDone(true);
   }
-  if (done) return /* @__PURE__ */ React.createElement(BookingDone, { T, D, cart, day, time, form, pay, onClose });
+  if (done) return /* @__PURE__ */ React.createElement(BookingDone, { T, D, cart, day, time, form, pay, onClose, secondOff });
   const header = /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 18px 14px", borderBottom: "1px solid " + T.line, background: T.navBg, backdropFilter: "blur(14px)", position: "sticky", top: 0, zIndex: 5 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 22, fontWeight: 300, color: T.text } }, "Agendar"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement(
     "a",
     {
@@ -318,13 +323,13 @@ function Field({ T, label, value, onChange, placeholder, err, inputMode, type })
     outline: "none"
   } }), err && /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 10.5, color: "#c0285a", marginTop: 5 } }, err));
 }
-function BookingDone({ T, D, cart, day, time, form, pay, onClose }) {
-  const txt = bookingText(D, cart, day, time, form, pay);
+function BookingDone({ T, D, cart, day, time, form, pay, onClose, secondOff }) {
+  const txt = bookingText(D, cart, day, time, form, pay, secondOff || 0);
   const waUrl = "https://wa.me/" + D.wa + "?text=" + encodeURIComponent(txt);
   const clinicMail = D.contact && D.contact.email || "jc.skinlab@gmail.com";
   const mailUrl = "mailto:" + clinicMail + "?subject=" + encodeURIComponent("Nueva reserva \u2014 " + (form.name || "paciente")) + "&body=" + encodeURIComponent(txt);
   const [sent, setSent] = useState(false);
-  return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, background: T.bg, zIndex: 40, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 26px", textAlign: "center", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 68, height: 68, borderRadius: "50%", background: "#1F8A5B", display: "flex", alignItems: "center", justifyContent: "center", animation: "jcPop .5s " + T.ease, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "32", height: "32", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6 9 17l-5-5" }))), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 32, color: T.text, marginTop: 20, lineHeight: 1.1 } }, "Reserva registrada"), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, marginTop: 10, lineHeight: 1.6, maxWidth: 330 } }, form.name ? form.name.split(" ")[0] + ", " : "", pay === "clinica" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "env\xEDanos tu reserva por ", /* @__PURE__ */ React.createElement("b", { style: { color: "#1F8A5B" } }, "WhatsApp"), ". Pagas ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "directo en la cl\xEDnica"), " el d\xEDa de tu atenci\xF3n y te confirmamos la hora.") : /* @__PURE__ */ React.createElement(React.Fragment, null, "env\xEDanos el ", /* @__PURE__ */ React.createElement("b", { style: { color: "#1F8A5B" } }, "comprobante por WhatsApp"), ". Revisaremos la transferencia y confirmaremos tu hora en ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "m\xE1ximo 15 minutos"), ".")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 20, width: "100%", maxWidth: 340, background: T.surface, border: "1px solid " + T.line, borderRadius: 4, padding: "16px 20px", textAlign: "left" } }, (cart || []).map((c) => /* @__PURE__ */ React.createElement(Summ, { key: c.name, T, k: ((c.qty || 1) > 1 ? c.qty + "\xD7 " : "") + c.name, v: c.price > 0 ? D.fmt(c.price * (c.qty || 1)) : "\u2014" })), /* @__PURE__ */ React.createElement(Summ, { T, k: "Fecha", v: day ? day.wd + " " + day.dd + " " + day.mm : "Por coordinar" }), /* @__PURE__ */ React.createElement(Summ, { T, k: "Hora", v: time || "Por coordinar" }), /* @__PURE__ */ React.createElement(Summ, { T, k: "Estado", v: pay === "transfer" ? "Por confirmar \xB7 con abono" : pay === "clinica" ? "Por confirmar \xB7 paga en cl\xEDnica" : "Por confirmar" })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 22, width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 10 } }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, background: T.bg, zIndex: 40, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 26px", textAlign: "center", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 68, height: 68, borderRadius: "50%", background: "#1F8A5B", display: "flex", alignItems: "center", justifyContent: "center", animation: "jcPop .5s " + T.ease, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "32", height: "32", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6 9 17l-5-5" }))), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 32, color: T.text, marginTop: 20, lineHeight: 1.1 } }, "Reserva registrada"), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, marginTop: 10, lineHeight: 1.6, maxWidth: 330 } }, form.name ? form.name.split(" ")[0] + ", " : "", pay === "clinica" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "env\xEDanos tu reserva por ", /* @__PURE__ */ React.createElement("b", { style: { color: "#1F8A5B" } }, "WhatsApp"), ". Pagas ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "directo en la cl\xEDnica"), " el d\xEDa de tu atenci\xF3n y te confirmamos la hora.") : /* @__PURE__ */ React.createElement(React.Fragment, null, "env\xEDanos el ", /* @__PURE__ */ React.createElement("b", { style: { color: "#1F8A5B" } }, "comprobante por WhatsApp"), ". Revisaremos la transferencia y confirmaremos tu hora en ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "m\xE1ximo 15 minutos"), ".")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 20, width: "100%", maxWidth: 340, background: T.surface, border: "1px solid " + T.line, borderRadius: 4, padding: "16px 20px", textAlign: "left" } }, (cart || []).map((c) => /* @__PURE__ */ React.createElement(Summ, { key: c.name, T, k: ((c.qty || 1) > 1 ? c.qty + "\xD7 " : "") + c.name, v: c.price > 0 ? D.fmt(c.price * (c.qty || 1)) : "\u2014" })), (secondOff || 0) > 0 && /* @__PURE__ */ React.createElement(Summ, { T, k: "Descuento \u221215% (2\xB0 proc.)", v: "\u2212" + D.fmt(secondOff) }), (secondOff || 0) > 0 && /* @__PURE__ */ React.createElement(Summ, { T, k: "Total tratamientos", v: D.fmt((cart || []).reduce((s, c) => s + (c.price || 0) * (c.qty || 1), 0) - secondOff) }), /* @__PURE__ */ React.createElement(Summ, { T, k: "Fecha", v: day ? day.wd + " " + day.dd + " " + day.mm : "Por coordinar" }), /* @__PURE__ */ React.createElement(Summ, { T, k: "Hora", v: time || "Por coordinar" }), /* @__PURE__ */ React.createElement(Summ, { T, k: "Estado", v: pay === "transfer" ? "Por confirmar \xB7 con abono" : pay === "clinica" ? "Por confirmar \xB7 paga en cl\xEDnica" : "Por confirmar" })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 22, width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 10 } }, /* @__PURE__ */ React.createElement(
     "a",
     {
       href: waUrl,

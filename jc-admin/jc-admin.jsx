@@ -226,7 +226,7 @@ function MovimientosCajaModal({ T, onClose }) {
   const del = async (id) => { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este movimiento de caja?", { danger: true }) && window.cashDelete) { window.cashDelete(id); force(x => x + 1); } };
   const segBtn = (k, l) => <button key={k} onClick={() => setPeriod(k)} style={{ flex: 1, fontFamily: T.sans, fontSize: 12, fontWeight: period === k ? 600 : 500, padding: "9px 6px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (period === k ? T.accent : T.line), background: period === k ? T.accent : "transparent", color: period === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>;
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: 16, paddingRight: 16 }}>
+    <div onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: 16, paddingRight: 16 }}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "100%", background: T.bg, border: "1px solid " + T.line, borderRadius: 16, display: "flex", flexDirection: "column", animation: "jcSlideUp .25s ease", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid " + T.line, flexShrink: 0 }}>
           <div>
@@ -283,8 +283,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
   const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
-  const hoy = appts.filter(a => a.day === 0);
-  // Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
+  const hoy = appts.filter(a => apptDayOff(a) === 0);
+// Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
@@ -296,7 +296,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const growth = serie[0] ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
 
   // próximas citas (hoy primero por hora, luego el resto)
-  const ord = appts.slice().sort((a, b) => (a.day || 0) - (b.day || 0) || (a.time || "").localeCompare(b.time || ""));
+  const ord = appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || ""));
   const prox5 = ord.slice(0, 5);
 
   // notificaciones
@@ -579,7 +579,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       }
     }
     return (
-      <div onClick={() => setKpiPopup(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onMouseDown={e => { if (e.target === e.currentTarget) setKpiPopup(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
         <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "80vh", background: T.bg, border: "1px solid " + T.line, borderRadius: 16, display: "flex", flexDirection: "column", animation: "jcSlideUp .25s ease" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid " + T.line, flexShrink: 0 }}>
             <span style={{ fontFamily: T.serif, fontSize: 20, fontWeight: 300, color: T.text }}>{title}</span>
@@ -640,7 +640,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc}</div>
       </div>
       <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{a.day === 0 ? "Hoy, " + (a.time || "—") : (a.when || a.time || "—")}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{apptDayOff(a) === 0 ? "Hoy, " + (a.time || "—") : (a.when || a.time || "—")}</div>
         <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{(a.dur || 60) + " min"}</div>
       </div>
       <button onClick={() => go("agenda")} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Ver</button>
@@ -757,6 +757,21 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   );
 }
 
+// Offset de día (0=hoy, 1=mañana, -1=ayer) de una cita, DERIVADO de su fecha real
+// (a.fecha, absoluta y permanente). Solo LEE — nunca modifica ni guarda la cita.
+// Así la grilla ubica cada cita por la fecha que se agendó, y nunca se corre al
+// cambiar el día. Si la cita no tiene fecha (demo/online antiguas), usa su `day`.
+function apptDayOff(a) {
+  if (a && a.fecha) {
+    var t = new Date(a.fecha + "T00:00:00");
+    if (!isNaN(t.getTime())) {
+      var base = new Date(); base.setHours(0, 0, 0, 0);
+      return Math.round((t.getTime() - base.getTime()) / 86400000);
+    }
+  }
+  return (a && typeof a.day === "number") ? a.day : 0;
+}
+
 function AdminApp() {
   // Modo día automático 08:00–18:00; modo noche 18:00–08:00.
   const autoTheme = () => { const h = new Date().getHours(); return (h >= 8 && h < 18) ? "cielo" : "azul"; };
@@ -787,8 +802,12 @@ function AdminApp() {
   function closeTour() { try { window.DB && window.DB.set("tour_done_v1", true); } catch (e) {} setShowTour(false); }
   const [darCita, setDarCita] = useState(null); // prellenado del copiloto → abre modal "Dar cita"
   const [patients, setPatients] = useState(() => {
-    var saved = (window.DB && window.DB.get("patients"));
-    return (Array.isArray(saved) ? saved : A.patients).map(p => ({ ...p, points: p.points || [] }));
+    // Carga hidratada: el índice "patients" es liviano y el historial vive en phist_<id>.
+    var raw = (window.DB && window.DB.get("patients"));
+    var arr = Array.isArray(raw)
+      ? (window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : raw)
+      : A.patients;
+    return arr.map(p => ({ ...p, points: p.points || [], history: Array.isArray(p.history) ? p.history : [] }));
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
   const [openPatientTab, setOpenPatientTab] = useState(null);
@@ -808,9 +827,49 @@ function AdminApp() {
     } catch (e) {}
     return base;
   });
-  // Persistencia por clínica
-  function savePatients(list) { try { window.DB && window.DB.set("patients", list); } catch (e) {} return list; }
+  // Persistencia por clínica. Punto ÚNICO: el historial se guarda en phist_<id> y el
+  // índice "patients" queda liviano (no topa el límite de 1 MB de la nube → sincroniza siempre).
+  function savePatients(list) {
+    try {
+      if (window.jcmSavePatientsLight) window.jcmSavePatientsLight(list);
+      else if (window.DB) window.DB.set("patients", list);
+    } catch (e) {}
+    return list;
+  }
   function saveAppts(list) { try { window.DB && window.DB.set("appointments", list); } catch (e) {} return list; }
+
+  // ── Sincronización robusta entre dispositivos ────────────────────────────────
+  // (A+C) Al entrar: migra el historial inline → phist_<id> y saca las imágenes/firmas
+  // base64 del bloque "patients" (reusa la optimización ya probada). Así el índice queda
+  // liviano, baja del límite de 1 MB y vuelve a subir a la nube. No se pierde ningún dato.
+  useEffect(() => {
+    try {
+      if (window.jcmSavePatientsLight) window.jcmSavePatientsLight(patients); // C: separa el historial
+      if (window.optimizePatientsBlock) window.optimizePatientsBlock();        // A: separa imágenes/firmas
+      if (window.JCSAAS && window.JCSAAS.retrySync) setTimeout(() => { try { window.JCSAAS.retrySync(); } catch (e) {} }, 1500);
+    } catch (e) {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // (B) Refresco en vivo: cuando otro dispositivo de la clínica sube un cambio, la nube
+  // actualiza el almacenamiento local y emite 'jcsaas:data'. Aquí re-leemos pacientes y
+  // agenda para que aparezcan SIN tener que recargar la página.
+  useEffect(() => {
+    function onData() {
+      try {
+        var raw = window.DB && window.DB.get("patients");
+        if (Array.isArray(raw)) {
+          var full = window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : raw;
+          setPatients(full.map(p => ({ ...p, points: p.points || [], history: Array.isArray(p.history) ? p.history : [] })));
+        }
+        var fa = window.DB && window.DB.get("appointments");
+        if (Array.isArray(fa)) setAppts(fa.map(a => ({ ...a })));
+      } catch (e) {}
+    }
+    window.addEventListener("jcsaas:data", onData);
+    return () => window.removeEventListener("jcsaas:data", onData);
+  }, []);
+
   const [navOpen, setNavOpen] = useState(false);
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -830,6 +889,30 @@ function AdminApp() {
     const reload = () => { try { var s = window.DB && window.DB.get("appointments"); if (Array.isArray(s)) setAppts(s.map(a => ({ ...a }))); } catch (e) {} };
     window.addEventListener("jcm:appts", reload);
     return () => window.removeEventListener("jcm:appts", reload);
+  }, []);
+  // Trae las reservas web a la agenda SOLAS: al abrir el panel y al volver a la pestaña
+  // (con tope de 20 s para no leer Firestore de más). Refresca el estado para que aparezcan
+  // sin tener que tocar el botón. importWebBookings es idempotente (marca importadas, dedup).
+  const lastWebPull = useRef(0);
+  useEffect(() => {
+    let alive = true;
+    function pull() {
+      if (!(window.JCSAAS && window.JCSAAS.enabled)) return;
+      const now = Date.now();
+      if (now - lastWebPull.current < 20000) return;
+      lastWebPull.current = now;
+      try {
+        importAllWeb().then(() => {
+          if (!alive) return;
+          try { const fresh = window.DB && window.DB.get("appointments"); if (Array.isArray(fresh)) setAppts(fresh.map(a => ({ ...a }))); } catch (e) {}
+        });
+      } catch (e) {}
+    }
+    pull();
+    const onFocus = () => pull();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => { alive = false; window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onFocus); };
   }, []);
 
   function updatePatient(id, patch) { setPatients(ps => savePatients(ps.map(p => p.id === id ? { ...p, ...patch } : p))); }
@@ -887,6 +970,19 @@ function AdminApp() {
       } catch(e) {}
     }
     setAppts(as => saveAppts(as.filter(a => a.id !== id)));
+  }
+  // Trae las reservas hechas en la web (link público) a la agenda, AHORA y a demanda.
+  // Lee directo Firestore (diagnóstico: cuántas hay), las importa y refresca la agenda.
+  function syncWebBookings() {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return Promise.resolve({ ok: false, reason: "Este panel no está conectado a la nube." });
+    var fetchP = window.JCSAAS.fetchBookings ? window.JCSAAS.fetchBookings() : Promise.resolve([]);
+    return fetchP.then(function (pending) {
+      var impP = window.JCSAAS.importWebBookings ? window.JCSAAS.importWebBookings() : Promise.resolve(0);
+      return impP.then(function (added) {
+        try { var fresh = window.DB && window.DB.get("appointments"); if (Array.isArray(fresh)) setAppts(fresh.map(a => ({ ...a }))); } catch (e) {}
+        return { ok: true, pending: (pending || []).length, added: added || 0, clinicId: (window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || "" };
+      });
+    }).catch(function (err) { return { ok: false, reason: (err && (err.code || err.message)) || "error" }; });
   }
   function nav(k) { setSection(k); setOpenPatient(null); setNavOpen(false); }
 
@@ -987,7 +1083,7 @@ function AdminApp() {
   if (section === "dashboard") body = <DashboardView T={T} D={D} A={A} appts={appts} patients={patients} go={nav} />;
   else if (section === "appjcm") body = <AppJCMView T={T} />;
   else if (section === "resumen") body = <Resumen T={T} D={D} A={A} appts={appts} patients={patients} go={nav} updateAppt={updateAppt} removeAppt={removeAppt} themeKey={themeKey} setThemeKey={setThemeKey} />;
-  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
+  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
   else if (section === "pacientes") body = current
     ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} />
     : <PacientesView T={T} patients={patients} appts={appts} onOpen={setOpenPatient} updatePatient={updatePatient} addPatient={addPatient} />;
@@ -1226,7 +1322,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   const [edit, setEdit] = useState(null);
   const [metaConn, setMetaConn] = useState(true);
   const [resModal, setResModal] = useState(null);
-  const hoy = appts.filter(a => a.day === 0).sort((a, b) => a.time.localeCompare(b.time));
+  const hoy = appts.filter(a => apptDayOff(a) === 0).sort((a, b) => a.time.localeCompare(b.time));
   const next3 = appts.slice().sort((a, b) => (a.day - b.day) || a.time.localeCompare(b.time)).slice(0, 3);
   const camps = (window.CADMIN || { campaigns: [] }).campaigns;
   const reach = camps.reduce((s, c) => s + c.reach, 0), leads = camps.reduce((s, c) => s + c.leads, 0), spend = camps.reduce((s, c) => s + c.spend, 0);
@@ -1262,7 +1358,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
       {resModal && (() => {
         const cfg = {
           pacientes: { title: "Pacientes", rows: patients.map(p => ({ k: p.id, a: p.name, b: p.rut || p.phone || "" })) },
-          citas: { title: "Citas de la semana", rows: appts.slice().sort((a, b) => (a.day || 0) - (b.day || 0) || (a.time || "").localeCompare(b.time || "")).map(a => ({ k: a.id, a: a.name, b: (a.day === 0 ? "Hoy " : "") + (a.time || "") + " · " + (a.proc || "") })) },
+          citas: { title: "Citas de la semana", rows: appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || "")).map(a => ({ k: a.id, a: a.name, b: (apptDayOff(a) === 0 ? "Hoy " : "") + (a.time || "") + " · " + (a.proc || "") })) },
           consent: { title: "Consentimientos pendientes", rows: patients.filter(p => !p.consent).map(p => ({ k: p.id, a: p.name, b: (p.tags && p.tags[0]) || "Paciente" })) }
         }[resModal];
         return (
@@ -1292,7 +1388,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
           <button key={a.id} onClick={() => setEdit(a)} style={{ display: "flex", alignItems: "center", gap: 13, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer", textAlign: "left", width: "100%" }}>
             <div style={{ textAlign: "center", flexShrink: 0 }}>
               <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1 }}>{a.time}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, marginTop: 3 }}>{a.day === 0 ? "Hoy" : "Mañana"}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, marginTop: 3 }}>{apptDayOff(a) === 0 ? "Hoy" : "Mañana"}</div>
             </div>
             <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 13 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{a.name}</div>
@@ -1406,7 +1502,19 @@ function ApptBlock({ T, a, onClick, compact }) {
   );
 }
 
-function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient }) {
+function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
+  const [webBusy, setWebBusy] = useState(false);
+  function traerWeb() {
+    if (webBusy || !onSyncWeb) return;
+    setWebBusy(true);
+    Promise.resolve(onSyncWeb()).then(function (r) {
+      if (!r || !r.ok) { window.jcmToast && window.jcmToast("No se pudieron traer las reservas: " + ((r && r.reason) || "error") + ".", "error"); }
+      else if (r.added > 0) window.jcmToast && window.jcmToast(r.added + " reserva(s) web traída(s) a la agenda.", "ok");
+      else if (r.pending > 0) window.jcmToast && window.jcmToast(r.pending + " reserva(s) en la nube, ya estaban en la agenda.", "info");
+      else window.jcmToast && window.jcmToast("No hay reservas web nuevas en la nube. Si acabas de agendar y no llega, es la escritura desde el link público (App Check / dominio).", "info");
+    }).catch(function () { window.jcmToast && window.jcmToast("Error al traer las reservas.", "error"); })
+      .then(function () { setWebBusy(false); });
+  }
   const [view, setView] = useState("semana");
   const [day, setDay] = useState(0);
   const [nueva, setNueva] = useState(null);
@@ -1417,7 +1525,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   const D = window.JCDATA;
-  const list = appts.filter(a => a.day === day);
+  const list = appts.filter(a => apptDayOff(a) === day);
   // Apila citas solapadas en la vista lista
   const listStacked = (() => {
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
@@ -1436,7 +1544,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNow = day === 0 && nowMin >= OPEN && nowMin <= CLOSE;
   const hours = []; for (let h = OPEN / 60; h < CLOSE / 60; h++) hours.push(h);
-  const week = []; const b0 = new Date(); for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Mañana" : wdN[dt.getDay()], count: appts.filter(a => a.day === off).length }); }
+  const week = []; const b0 = new Date(); for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Mañana" : wdN[dt.getDay()], count: appts.filter(a => apptDayOff(a) === off).length }); }
 
   function clickTimeline(e) {
     if (e.target.closest("[data-appt]")) return;
@@ -1469,6 +1577,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
           </button>
         </div>
+        {onSyncWeb && <AdBtn T={T} onClick={traerWeb}>{webBusy ? "Trayendo…" : "↻ Traer reservas web"}</AdBtn>}
         <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>
       </div>
 
@@ -1522,7 +1631,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
       {toast && <Toast T={T} data={toast} onClose={() => setToast(null)} />}
       {fichaConfirm && (
-        <div onClick={() => setFichaConfirm(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.48)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div onMouseDown={e => { if (e.target === e.currentTarget) setFichaConfirm(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.48)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: T.bg, borderRadius: 16, padding: 24, maxWidth: 390, width: "100%", boxShadow: "0 24px 60px -18px rgba(0,0,0,.5)", border: "1px solid " + T.line }}>
             <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Ir a ficha del paciente</div>
             <div style={{ marginBottom: 14, padding: "12px 14px", background: T.surface, borderRadius: 10, border: "1px solid " + T.line }}>
@@ -1553,8 +1662,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {/* Vista previa momentánea al pasar el cursor sobre una cita (vista día/lista) */}
       {hoverA && hoverA.a && !edit && (() => {
         const a = hoverA.a, isPP = a.status === "pendiente_pago";
-        const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
-        const estado = a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
+        const ac = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent));
+        const estado = a.status === "no_asistio" ? "No asistió" : (a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente")));
         return (
           <div style={{ position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
@@ -1607,7 +1716,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const last = days[6].date;
   const hours = []; for (let h = 8; h <= 20; h++) hours.push(h);
   const hourOf = t => parseInt((t || "0").split(":")[0], 10);
-  const atCell = (off, h) => appts.filter(a => a.day === off && hourOf(a.time) === h);
+  const atCell = (off, h) => appts.filter(a => apptDayOff(a) === off && hourOf(a.time) === h);
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
   const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
@@ -1672,7 +1781,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             </div>
             {/* Columnas de días */}
             {days.map((d, ci) => {
-              const da = appts.filter(a => a.day === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
+              const da = appts.filter(a => apptDayOff(a) === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
                   {/* Zonas clicables (15 o 30 min según la clínica); bloqueadas si hay una cita que cubre ese tramo */}
@@ -1694,7 +1803,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   {/* Bloques de citas apilados verticalmente */}
                   {stackAppts(da).map(a => {
                     const isPendPago = a.status === "pendiente_pago";
-                    const accentColor = a.attended ? "#1F8A5B" : (isPendPago ? "#B8860B" : T.accent);
+                    const accentColor = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPendPago ? "#B8860B" : T.accent));
                     return (
                       <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
                         onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
@@ -1720,8 +1829,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       {/* Vista previa momentánea al pasar el cursor sobre una cita */}
       {hover && hover.a && !menu && (() => {
         const a = hover.a, isPP = a.status === "pendiente_pago";
-        const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
-        const estado = a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
+        const ac = a.status === "no_asistio" ? "#C0285A" : (a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent));
+        const estado = a.status === "no_asistio" ? "No asistió" : (a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente")));
         return (
           <div style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
@@ -1752,6 +1861,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               ["__sep", null],
               ...(activeAppt.status === "pendiente_pago" ? [["✓ Confirmar transferencia", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#1F8A5B"]] : []),
               ["Marcar como atendido", () => { updateAppt(activeAppt.id, { status: "confirmada", attended: true }); setMenu(null); }],
+              ["No asistió", () => { updateAppt(activeAppt.id, { status: "no_asistio", attended: false }); setMenu(null); }, "#C0285A"],
               ["Anular", () => { removeAppt(activeAppt.id); setMenu(null); }]
             ].map((it, i) => it[0] === "__sep"
               ? <div key={i} style={{ height: 1, background: T.lineSoft, margin: "4px 0" }} />
@@ -2011,7 +2121,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           : <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
               <AdField T={T} label="Nombre completo" value={nombre} onChange={setNombre} placeholder="Ej: Paciente nuevo" />
               <AdField T={T} label="RUT" value={rut} onChange={v => setRut(window.jcmFmtRut ? window.jcmFmtRut(v) : v)} placeholder="12.345.678-9" />
-              <AdField T={T} label="Teléfono móvil (WhatsApp)" value={phone} onChange={setPhone} inputMode="tel" />
+              <AdField T={T} label="Teléfono móvil (WhatsApp)" value={phone} onChange={v => { const pfx = "+56 9 "; const digits = v.startsWith(pfx) ? v.slice(pfx.length).replace(/\D/g,"") : v.replace(/\D/g,""); setPhone(pfx + digits); }} inputMode="tel" placeholder="+56 9 1234 5678" />
               <AdField T={T} label="Correo" value={email} onChange={setEmail} inputMode="email" placeholder="correo@ejemplo.com" />
             </div>}
         <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid " + T.line }}>

@@ -415,6 +415,8 @@ async function jcmRegister(name, phone, password, email) {
   };
   users.push(user);
   DB.set('users', users);
+  // Enviar a Firestore para que el panel lo vea (requiere regla Firestore en appusers)
+  try { if (window.JCSAAS && window.JCSAAS.submitAppUser) window.JCSAAS.submitAppUser({ name: user.name, phone: user.phone, email: user.email, points: user.points, created: user.created }); } catch (e) {}
   return { ok:true, user };
 }
 

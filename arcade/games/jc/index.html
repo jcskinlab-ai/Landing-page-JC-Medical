@@ -262,21 +262,35 @@ function gMito(){const g=G('mito');let i=0,score=0,lives=3;
  show();ov._clean=()=>clearTimers();
 }
 
-// ─── 4 · REFLEJO GLOW (< 400 ms para puntuar) ───
-function gReflejo(){const g=G('reflejo');let round=0,hitCount=0,totalMs=0,to;
+// ─── 4 · REFLEJO GLOW (< 400 ms para puntuar, 3 vidas) ───
+function gReflejo(){const g=G('reflejo');let round=0,hitCount=0,totalMs=0,to,lives=3;
  play.classList.remove('hidden');
- function next(){round++;if(round>5){const avg=hitCount>0?Math.round(totalMs/hitCount):999;const score=hitCount>0?Math.min(900,hitCount*Math.max(20,Math.round(180-(avg-100)*0.5))):0;return gameOver(g,score,hitCount+'/5 reacciones bajo 400ms. Promedio: '+(hitCount?avg:'—')+' ms. ');}
-  setHud(`<div class="s">Ronda<b>${round}/5</b></div>`);
+ function liv(){return '❤️'.repeat(lives)+'🖤'.repeat(3-lives);}
+ function calcScore(){const avg=hitCount>0?Math.round(totalMs/hitCount):999;return hitCount>0?Math.min(900,hitCount*Math.max(20,Math.round(180-(avg-100)*0.5))):0;}
+ function next(){if(lives<=0)return;round++;
+  if(round>5){return gameOver(g,calcScore(),hitCount+'/5 reacciones bajo 400ms. Promedio: '+(hitCount?Math.round(totalMs/hitCount):'—')+' ms. ');}
+  setHud(`<div class="s">Ronda<b>${round}/5</b></div><div class="s"><span class="lives">${liv()}</span></div>`);
   render('#e7e0d2','Espera…',false,false);
+  // Detección de toque anticipado: si toca durante "Espera" pierde una vida
+  const waitPad=$('#pad');
+  if(waitPad){waitPad.onclick=()=>{
+   clearTimeout(to);
+   lives--;
+   render('#fde8d0','¡Te apuraste!',false,false,'#c0563f');
+   setHud(`<div class="s">Ronda<b>${round}/5</b></div><div class="s"><span class="lives">${liv()}</span></div>`);
+   if(lives<=0){timers.push(setTimeout(()=>gameOver(g,calcScore(),'Te quedaste sin vidas. '),950));}
+   else{timers.push(setTimeout(next,950));}
+  };}
   const delay=700+Math.floor(Math.random()*1800);
   to=setTimeout(()=>{const t0=Date.now();let reacted=false;
    render('#cfe3d8','¡TOCA!',true,false);
+   setHud(`<div class="s">Ronda<b>${round}/5</b></div><div class="s"><span class="lives">${liv()}</span></div>`);
    const timeout=setTimeout(()=>{if(!reacted){render('#f3dcd5','Muy lento',false,true);timers.push(setTimeout(next,900));}},1800);timers.push(timeout);
    $('#pad').onclick=()=>{if(reacted)return;reacted=true;clearTimeout(timeout);const ms=Date.now()-t0;
     if(ms<400){hitCount++;totalMs+=ms;render('#dcefe4',ms+' ms ✓',false,false,'var(--good)');timers.push(setTimeout(next,750));}
     else{render('#f3dcd5',ms+' ms — muy lento',false,false,'var(--bad)');timers.push(setTimeout(next,900));}};
   },delay);timers.push(to);}
- function render(bg,txt,go,early,col){const c=col||(go?'var(--good)':early?'var(--bad)':'var(--ink)');play.innerHTML=`<button id="pad" style="position:absolute;inset:0;border:none;background:${bg};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background .12s"><div style="font-family:Marcellus;font-size:${go?'40px':'28px'};color:${c}">${txt}</div><div style="font-size:12px;color:var(--mute)">${go?'¡Reacciona ya!':early?'demasiado tarde/pronto':'espera el verde…'}</div></button>`;}
+ function render(bg,txt,go,early,col){const c=col||(go?'var(--good)':early?'var(--bad)':'var(--ink)');play.innerHTML=`<button id="pad" style="position:absolute;inset:0;border:none;background:${bg};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background .12s"><div style="font-family:Marcellus;font-size:${go?'40px':'28px'};color:${c}">${txt}</div><div style="font-size:12px;color:var(--mute)">${go?'¡Reacciona ya!':early?'¡demasiado pronto!':'espera el verde…'}</div></button>`;}
  next();ov._clean=()=>clearTimers();
 }
 

@@ -763,7 +763,8 @@ function jcmSlug(s) { return (s || "medique").toLowerCase().replace(/[^a-z0-9]/g
 // Arma el contenido del respaldo (fichas/pacientes/citas) sin descargar ni enviar.
 function jcmBackupData() {
   var patients = [], appts = [];
-  try { patients = (window.DB && DB.get("patients")) || []; } catch (e) {}
+  // Respaldo con el historial COMPLETO: rehidrata phist_<id> en cada paciente.
+  try { patients = (window.jcmLoadPatientsFull ? window.jcmLoadPatientsFull() : ((window.DB && DB.get("patients")) || [])) || []; } catch (e) {}
   try { appts = (window.DB && DB.get("appointments")) || []; } catch (e) {}
   var clinica = jcmClinicName(), now = new Date();
   var fecha = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
@@ -1213,6 +1214,7 @@ function ConfigView({ T }) {
         </div>
       </div>
       <ClinicDataCard T={T} />
+      <PaymentDataCard T={T} />
       <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>
       <IndTemplatesEditor T={T} />
       <ClinCard T={T} title="Notificaciones">
@@ -1275,6 +1277,76 @@ function ClinicDataCard({ T }) {
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>WhatsApp</span>
           <input value={waDisplay} onChange={e => onWa(e.target.value)} inputMode="numeric" placeholder="+569 1234 5678" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
         </label>
+      </div>
+    </div>
+  );
+}
+/* Datos de pago (transferencia) — propios de cada clínica. Se muestran en la página de
+   reservas. Solo el dueño con sesión iniciada los edita (no están en el código). */
+function PaymentDataCard({ T }) {
+  const cfg0 = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const [f, setF] = useState({
+    pay_banco: cfg0.pay_banco || "",
+    pay_titular: cfg0.pay_titular || "",
+    pay_rut: cfg0.pay_rut || "",
+    pay_tipo: cfg0.pay_tipo || "Cuenta corriente",
+    pay_numero: cfg0.pay_numero || "",
+    pay_email: cfg0.pay_email || ""
+  });
+  const [saved, setSaved] = useState(false);
+  const up = (k, v) => { setF(prev => ({ ...prev, [k]: v })); setSaved(false); };
+  // Valida el dígito verificador del RUT (módulo 11) — solo aviso, no bloquea.
+  const rutOk = (() => {
+    const r = (f.pay_rut || "").replace(/[^0-9kK]/g, "");
+    if (r.length < 2) return null;
+    const body = r.slice(0, -1), dvIn = r.slice(-1).toUpperCase();
+    if (!/^\d+$/.test(body)) return false;
+    let s = 0, m = 2;
+    for (let i = body.length - 1; i >= 0; i--) { s += parseInt(body[i], 10) * m; m = m === 7 ? 2 : m + 1; }
+    let dv = 11 - (s % 11); dv = dv === 11 ? "0" : dv === 10 ? "K" : "" + dv;
+    return dv === dvIn;
+  })();
+  function save() {
+    try {
+      DB.set("config", Object.assign({}, DB.cfg(), {
+        pay_banco: (f.pay_banco || "").trim(), pay_titular: (f.pay_titular || "").trim(),
+        pay_rut: (f.pay_rut || "").trim(), pay_tipo: f.pay_tipo,
+        pay_numero: (f.pay_numero || "").trim(), pay_email: (f.pay_email || "").trim()
+      }));
+      setSaved(true); setTimeout(() => setSaved(false), 1800);
+      try { window.JCSAAS && window.JCSAAS.publishProfile && window.JCSAAS.publishProfile(); } catch (e) {}
+    } catch (e) {}
+  }
+  const tipos = ["Cuenta corriente", "Cuenta vista", "Cuenta de ahorro", "Cuenta RUT", "Chequera electrónica"];
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Datos de pago (transferencia)</div>
+        <AdBtn T={T} small primary onClick={save}>{saved ? "✓ Guardado" : "Guardar"}</AdBtn>
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "0 0 14px", lineHeight: 1.5 }}>
+        Estos datos aparecen en tu <b style={{ color: T.text }}>página de reservas</b> para que los pacientes te transfieran. Solo tú, con tu sesión iniciada, puedes editarlos. Déjalos en blanco si prefieres coordinar el pago por WhatsApp.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <AdField T={T} label="Banco" value={f.pay_banco} onChange={v => up("pay_banco", v)} placeholder="Ej: Banco de Chile" />
+        <AdField T={T} label="Titular de la cuenta" value={f.pay_titular} onChange={v => up("pay_titular", v)} placeholder="Ej: Clínica Karenina SpA" />
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>RUT del titular</span>
+          <input value={f.pay_rut} onChange={e => up("pay_rut", window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value)} placeholder="Ej: 76.123.456-7" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + (rutOk === false ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+          {rutOk === false && <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 5 }}>El dígito verificador no calza — revisa que el RUT esté correcto.</span>}
+          {rutOk === true && <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: "#1F8A5B", marginTop: 5 }}>RUT válido ✓</span>}
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Tipo de cuenta</span>
+          <select value={f.pay_tipo} onChange={e => up("pay_tipo", e.target.value)} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }}>
+            {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>N° de cuenta</span>
+          <input value={f.pay_numero} onChange={e => up("pay_numero", e.target.value)} inputMode="numeric" placeholder="Ej: 00-123-45678-90" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+        </label>
+        <AdField T={T} label="Correo (para el comprobante)" value={f.pay_email} onChange={v => up("pay_email", v)} placeholder="Ej: pagos@tuclinica.cl" />
       </div>
     </div>
   );
@@ -1563,7 +1635,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           {chipField("Antecedentes mórbidos", "morbidos", ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
           {nrField("Alergias", "alergias", "Ej. Penicilina, AINEs…", "alpha")}
           {nrField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
-          {chipField("Procedimientos estéticos previos", "esteticos", ["Botox", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
+          {chipField("Procedimientos estéticos previos", "esteticos", ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
           {nrField("Hospitalizaciones", "hospital", "—")}
           {nrField("Medicamentos de uso diario", "medicamentos", "—")}
         </div>
@@ -1713,12 +1785,14 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
   );
   const sinConsent = patients.filter(p => !p.consent);
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
-  // Mensajes/comentarios/seguimientos: ya NO se muestran datos de ejemplo del prototipo.
-  // Estas bandejas parten vacías para TODAS las clínicas (incluida la base JC Medical) y
-  // solo se llenan con datos reales. (Antes la base mostraba ejemplos del prototipo.)
+  // Consentimientos firmados hace más de 1 año → sugerir renovación
+  const oneYear = Date.now() - 365 * 24 * 3600 * 1000;
+  const porRenovar = patients.filter(p => p.consent && p.consentTs && p.consentTs < oneYear);
   const waMsgs = [];
   const bizC = [];
   const segs = [];
+  const otrosPend = sinConsent.length + recitas.length + porRenovar.length + waMsgs.length + bizC.length + segs.length;
+  const totalPend = tPend.length + otrosPend;
   return (
     <div>
       <SecHead T={T} title="Pendientes" sub="Tareas generales del equipo y seguimientos clínicos." />
@@ -1729,8 +1803,8 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
         <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: 14 }}>
-          <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 }}>Pendientes ({tPend.length})</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tPend.length ? tPend.map(taskCard) : <Empty2 T={T}>Nada pendiente. 🎉</Empty2>}</div>
+          <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 }}>Pendientes ({totalPend})</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tPend.length ? tPend.map(taskCard) : (otrosPend > 0 ? <Empty2 T={T}>Sin tareas manuales. Abajo tienes {sinConsent.length} consentimiento(s) y {recitas.length} re-cita(s) por gestionar.</Empty2> : <Empty2 T={T}>Nada pendiente. 🎉</Empty2>)}</div>
         </div>
         <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: 14 }}>
           <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 }}>Completadas ({tDone.length})</div>
@@ -1740,6 +1814,10 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
       <Group T={T} title={"Consentimientos por firmar (" + sinConsent.length + ")"}>
         {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Ir a consentimientos" onClick={() => openP(p.id, "consent")} />)}
         {!sinConsent.length && <Empty2 T={T}>Todo firmado.</Empty2>}
+      </Group>
+      <Group T={T} title={"Consentimientos por renovar · +1 año (" + porRenovar.length + ")"}>
+        {porRenovar.map(p => { const meses = Math.floor((Date.now() - p.consentTs) / (30 * 24 * 3600 * 1000)); return <PendRow key={p.id} T={T} name={p.name} desc={"Firmado hace " + meses + " meses · " + (p.consentInfo || "Consentimiento")} action="Renovar" onClick={() => openP(p.id, "consent")} />; })}
+        {!porRenovar.length && <Empty2 T={T}>Todos los consentimientos están vigentes.</Empty2>}
       </Group>
       <Group T={T} title={"Re-citar · esquema en curso (" + recitas.length + ")"}>
         {recitas.map(({ p, r }) => <PendRow key={p.id} T={T} name={p.name} desc={r.motivo + " · " + r.precioFmt + " → " + r.descFmt} action="WhatsApp" href={window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""))} />)}
@@ -1997,7 +2075,7 @@ function CitaAgendadaOkPopup({ T, cita, appts, onClose }) {
   const ocupados = (appts || []).filter(a => a.day === (cita.day || 0)).map(a => a.time);
   const citaTime = cita.time || "";
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,.55)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,.55)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: T.bg, border: "1px solid " + T.line, borderRadius: 16, padding: "26px 24px", animation: "jcSlideUp .28s " + T.ease }}>
         {/* check de éxito */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 22 }}>
@@ -2517,7 +2595,7 @@ function InvScanModal({ T, onClose, onApply }) {
   function delRow(i) { setRows(rows.filter((_, j) => j !== i)); }
   const inp = { fontFamily: T.sans, fontSize: 12.5, padding: "8px 10px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", width: "100%" };
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.5)", backdropFilter: "blur(5px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.5)", backdropFilter: "blur(5px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, maxHeight: "88vh", overflowY: "auto", background: T.bg, border: "1px solid " + T.line, borderRadius: 14, padding: "22px 22px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <h2 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 24, color: T.text, margin: 0 }}>Escanear factura o boleta</h2>
@@ -2725,6 +2803,67 @@ function optimizePatientsBlock() {
   return { ok: true, movedImg, movedCons };
 }
 
+// ── Historial por paciente en su propia clave (phist_<id>) ────────────────────
+// El bloque "patients" guarda solo el ÍNDICE liviano (datos, etiquetas, flags, billing).
+// El historial de sesiones de cada paciente vive en phist_<id>, un documento aparte
+// y pequeño. Así "patients" nunca crece sin control ni topa el límite de 1 MB de la
+// nube por más sesiones que se registren. Cada phist_<id> sincroniza solo (como pimg_/pcons_).
+function patHistKey(id) { return "phist_" + id; }
+// Caché de la última versión persistida del historial de cada paciente (evita reescrituras).
+var _histCache = {};
+// Clave estable de una sesión para deduplicar al unir historiales divergentes.
+function _sesKey(s) { return (s && (s.id || s.ts || ((s.date || s.fecha || "") + "|" + (s.proc || s.title || "")))) || null; }
+// Une dos historiales SIN perder sesiones (por si dos equipos divergieron antes de migrar):
+// conserva el orden de `a` (local) y agrega de `b` (otro equipo) solo lo que no esté ya.
+function unionHist(a, b) {
+  var out = Array.isArray(a) ? a.slice() : [];
+  var seen = {}; out.forEach(function (s) { var k = _sesKey(s); if (k) seen[k] = 1; });
+  (Array.isArray(b) ? b : []).forEach(function (s) { var k = _sesKey(s); if (!k || !seen[k]) { out.push(s); if (k) seen[k] = 1; } });
+  return out;
+}
+// Lee el índice liviano y RE-HIDRATA el historial de cada paciente desde su clave propia,
+// dejando los objetos exactamente como el resto del panel los espera (con .history poblado).
+function loadPatientsFull() {
+  var DB = window.DB; if (!DB) return [];
+  var idx; try { idx = DB.get("patients"); } catch (e) { return []; }
+  if (!Array.isArray(idx)) return [];
+  return idx.map(function (p) {
+    if (!p || p.id == null) return p;
+    var remote = null; try { var h = DB.get(patHistKey(p.id)); if (Array.isArray(h)) remote = h; } catch (e) {}
+    // Formato ANTIGUO: el historial está inline. Si además ya existe phist_<id> (porque otro
+    // equipo migró antes), UNE ambos para no perder sesiones divergentes. No sembramos la caché,
+    // para que el próximo guardado escriba la unión a su clave propia (migración sin pérdida).
+    if (Array.isArray(p.history)) {
+      return Object.assign({}, p, { history: remote ? unionHist(p.history, remote) : p.history });
+    }
+    // Formato nuevo: el historial ya vive en phist_<id> (ya persistido) → siembra la caché.
+    var hist = remote || [];
+    try { _histCache[p.id] = JSON.stringify(hist); } catch (e) {}
+    return Object.assign({}, p, { history: hist });
+  });
+}
+// Punto ÚNICO de persistencia: guarda cada historial en phist_<id> (solo si cambió) y
+// el índice "patients" SIN historial inline. No pierde nada y mantiene el índice liviano.
+function savePatientsLight(list) {
+  var DB = window.DB; if (!DB) return list;
+  var light = (list || []).map(function (p) {
+    if (!p || p.id == null) return p;
+    if (Array.isArray(p.history)) {
+      var js = null; try { js = JSON.stringify(p.history); } catch (e) {}
+      if (js != null && _histCache[p.id] !== js) { try { DB.set(patHistKey(p.id), p.history); } catch (e) {} _histCache[p.id] = js; }
+      var rest = Object.assign({}, p); delete rest.history; return rest;
+    }
+    return p;
+  });
+  try { DB.set("patients", light); } catch (e) {}
+  return list;
+}
+if (typeof window !== "undefined") {
+  window.optimizePatientsBlock = optimizePatientsBlock;
+  window.jcmLoadPatientsFull = loadPatientsFull;
+  window.jcmSavePatientsLight = savePatientsLight;
+}
+
 // Diagnóstico de sincronización con la nube: tamaño de cada bloque, qué falta subir y por qué.
 function SyncStatusCard({ T }) {
   const [, force] = useState(0);
@@ -2841,6 +2980,8 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
   function ingestRows(rows) {
     let headers = null, added = 0, dup = 0, updated = 0;
     const cell = v => ("" + (v == null ? "" : v)).trim();
+    const isoFromTs = ts => { if (!ts) return ""; const d = new Date(ts); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); };
+    const newSid = () => (window.jcmUid ? window.jcmUid("s") : "s" + Date.now() + Math.random().toString(36).slice(2, 6));
     const seen = new Set((patients || []).map(p => (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase()).filter(Boolean));
     for (const fields of rows) {
       const lower = fields.map(v => cell(v).toLowerCase());
@@ -2859,23 +3000,35 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
       // Fecha del paciente en el Excel (ingreso / primera consulta / atención). Para ordenar en "Calendario".
       const fechaRaw = (r["fecha"] || r["fecha de ingreso"] || r["fecha ingreso"] || r["fecha primera consulta"] || r["fecha de registro"] || r["fecha de atención"] || r["fecha atencion"] || r["ingreso"] || r["date"] || "").trim();
       const fechaTs = parseFechaImp(fechaRaw);
+      const fechaISO = isoFromTs(fechaTs);
+      // Procedimiento realizado (para crear la sesión y reactivar la campaña de re-cita).
+      const proc = (r["procedimiento"] || r["procedimientos"] || r["tratamiento"] || r["tratamientos"] || r["servicio"] || r["proc"] || "").trim();
+      // Sesión de historial a partir del Excel (solo si trae procedimiento).
+      const importHist = proc ? [{ id: newSid(), date: fechaISO || isoFromTs(Date.now()), proc: proc, note: "Importado del Excel", imported: true }] : null;
       // ¿Ya existe? (por RUT o por nombre). Conserva el registro, pero le completa la fecha si le falta.
       const existing = (patients || []).find(p =>
         (rutNorm.length >= 5 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase() === rutNorm) ||
         (p.name || "").toLowerCase() === name.toLowerCase());
       if (existing) {
         dup++;
-        // Re-importar para arreglar bases antiguas: si el paciente no tenía fecha y el Excel la trae, se la ponemos.
-        if (fechaTs && !existing.fechaTs && updatePatient) { updatePatient(existing.id, { fechaImport: fechaRaw, fechaTs: fechaTs }); updated++; }
+        // Re-importar para arreglar bases antiguas: completa fecha y/o el procedimiento si faltan.
+        const patch = {};
+        if (fechaTs && !existing.fechaTs) { patch.fechaImport = fechaRaw; patch.fechaTs = fechaTs; }
+        if (importHist && (!existing.history || !existing.history.length)) {
+          patch.history = importHist;
+          if (fechaISO && !existing.lastVisit) patch.lastVisit = fechaISO;
+          if (proc && (!existing.tags || !existing.tags.length)) patch.tags = [proc];
+        }
+        if (Object.keys(patch).length && updatePatient) { updatePatient(existing.id, patch); updated++; }
         continue;
       }
       if (rutNorm.length >= 5) seen.add(rutNorm);
       // Importados: consentimiento ya firmado en papel → consent:true (no entran a "Consent. pend.").
-      if (addPatient) addPatient({ name, rut, phone, email, consent: true, consentInfo: "Consentimiento firmado en papel (importado)", imported: true, fechaImport: fechaRaw, fechaTs: fechaTs });
+      if (addPatient) addPatient({ name, rut, phone, email, consent: true, consentInfo: "Consentimiento firmado en papel (importado)", imported: true, fechaImport: fechaRaw, fechaTs: fechaTs, history: importHist || [], tags: importHist ? [proc] : [], lastVisit: (importHist && fechaISO) ? fechaISO : undefined });
       added++;
     }
-    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo, Fecha)."); return; }
-    flash("Importación: " + added + " nuevo(s)" + (updated ? " · " + updated + " actualizados con su fecha" : "") + (dup ? " · " + dup + " ya existían" : "") + ".");
+    if (!headers) { flash("No encontré la fila de encabezados. Asegúrate de que una fila tenga la columna 'Nombre' (y opcional RUT, Teléfono, Correo, Fecha, Procedimiento)."); return; }
+    flash("Importación: " + added + " nuevo(s)" + (updated ? " · " + updated + " actualizados (fecha/procedimiento)" : "") + (dup ? " · " + dup + " ya existían" : "") + ".");
   }
   // Carga el lector de Excel (SheetJS) bajo demanda, solo cuando se importa un .xlsx/.xls.
   function loadXLSX() {
@@ -2985,7 +3138,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
           {/* Importar base de pacientes */}
           <div style={{ marginTop: 18, background: T.surface, border: "1px dashed " + T.chipBorder, borderRadius: 12, padding: "18px 18px" }}>
             <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Importar base de pacientes</div>
-            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Sube un archivo <b>Excel (.xlsx) o CSV</b>. La primera fila debe tener los <b>encabezados</b> y una columna llamada <b>Nombre</b> (opcionales: RUT, Teléfono, Correo). Si el RUT ya existe, no se duplica. <i>(.numbers: en Numbers usa Archivo → Exportar a → Excel.)</i></div>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Sube un archivo <b>Excel (.xlsx) o CSV</b>. La primera fila debe tener los <b>encabezados</b> y una columna llamada <b>Nombre</b> (opcionales: RUT, Teléfono, Correo, <b>Fecha</b> y <b>Procedimiento</b>). Si agregas <b>Fecha</b> y <b>Procedimiento</b>, se crea la sesión en el historial y se <b>reactiva la campaña de re-cita</b> automáticamente. Si el RUT ya existe, no se duplica (y se le completa el procedimiento si le faltaba). <i>(.numbers: en Numbers usa Archivo → Exportar a → Excel.)</i></div>
             <AdBtn T={T} onClick={() => fileRef.current.click()}>Subir archivo (Excel / CSV)</AdBtn>
             <input ref={fileRef} type="file" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.numbers" onChange={onImport} style={{ display: "none" }} />
             <p style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, margin: "12px 0 0", lineHeight: 1.5 }}>Los pacientes importados quedan con <b>consentimiento firmado en papel</b> (no aparecen como pendientes de firma). Si tu Excel trae una columna <b>Fecha</b>, podrás ordenarlos por fecha con el filtro <b>Calendario</b> en Pacientes.</p>

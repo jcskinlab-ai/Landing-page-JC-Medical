@@ -206,6 +206,8 @@
       addr: cf.clinic_addr || '',
       hours: cf.clinic_hours || '',
       wa: cf.wa_number || '',
+      // Datos de transferencia que la clínica configura en el panel (se muestran en la reserva).
+      pago: { banco: cf.pay_banco || '', titular: cf.pay_titular || '', rut: cf.pay_rut || '', tipo: cf.pay_tipo || '', numero: cf.pay_numero || '', email: cf.pay_email || '' },
       horarios: (window.DB && window.DB.get('horarios_v1')) || null,
       horariosDates: (window.DB && window.DB.get('horarios_dates')) || null,
       servicesOver: (window.DB && window.DB.get('services_over')) || null,
@@ -442,10 +444,13 @@
   function noop(e) { if (e) { try { console.warn('[JCSAAS]', e.code || e.message || e); } catch (_) {} } }
 
   // ── Arranque ──────────────────────────────────────────────────────────
+  // El panel móvil del equipo (/movil) trae ?c= para saber la clínica, pero NECESITA login:
+  // no es modo público. Sin esta excepción se quedaba pegado en "Entrando…".
+  var isTeamPanel = (function () { try { return /^\/movil(\/|$)/.test(location.pathname || ''); } catch (e) { return false; } })();
   var ready;
   if (!CONFIGURED) {
     ready = Promise.resolve(false); // modo local (mono-clínica) como hoy
-  } else if (urlC) {
+  } else if (urlC && !isTeamPanel) {
     // App de pacientes / reserva de una clínica concreta (solo lectura, sin login).
     state.mode = 'public';
     ready = initFirebase().then(function () { return loadPublic(urlC); }).then(function () { return true; })
@@ -591,6 +596,32 @@
         if (added) window.DB.set('collabs', list);
         return added;
       }).catch(function (e) { noop(e); return 0; });
+    },
+    // ── APP USERS (pacientes registrados en la app de la clínica) ──
+    submitAppUser: function (data) {
+      if (!db || !state.clinicId) return Promise.resolve(null);
+      var safe = { name: data.name || '', phone: data.phone || '', email: data.email || '', points: data.points || 0, created: data.created || new Date().toISOString(), createdAt: Date.now() };
+      return db.collection('tenants').doc(state.clinicId).collection('appusers').add(safe).catch(noop);
+    },
+    importWebAppUsers: function () {
+      if (!db || !state.clinicId || !window.DB) return Promise.resolve(0);
+      return db.collection('tenants').doc(state.clinicId).collection('appusers').orderBy('createdAt', 'asc').limit(500).get()
+        .then(function (s) {
+          if (s.empty) return 0;
+          var users = window.DB.get('users') || [];
+          var byPhone = {}; users.forEach(function (u) { var p = (u.phone || '').replace(/\D/g, ''); if (p.length >= 8) byPhone[p] = 1; });
+          var added = 0;
+          s.forEach(function (d) {
+            var b = d.data();
+            var ph = (b.phone || '').replace(/\D/g, '');
+            if (ph.length >= 8 && byPhone[ph]) return;
+            users.push({ id: d.id, name: b.name || '', phone: b.phone || '', email: b.email || '', points: b.points || 0, created: b.created || '', createdAt: b.createdAt || Date.now(), _source: 'web' });
+            if (ph.length >= 8) byPhone[ph] = 1;
+            added++;
+          });
+          if (added) window.DB.set('users', added > 0 ? users : (window.DB.get('users') || []));
+          return added;
+        }).catch(function (e) { noop(e); return 0; });
     },
     // ── RESEÑAS (formulario público por clínica) ──
     reviewLink: function (cid) { return (window.jcmPubBase ? window.jcmPubBase() : location.origin) + '/review.html?c=' + (cid || state.clinicId || ''); },
