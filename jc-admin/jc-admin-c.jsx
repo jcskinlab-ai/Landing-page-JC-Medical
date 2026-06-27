@@ -1642,6 +1642,10 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
   const waMsgs = [];
   const bizC = [];
   const segs = [];
+  // El contador de arriba refleja TODO lo pendiente (tareas + consentimientos + re-citas + bandejas),
+  // para que no diga "Nada pendiente" cuando abajo sí hay cosas por gestionar.
+  const otrosPend = sinConsent.length + recitas.length + waMsgs.length + bizC.length + segs.length;
+  const totalPend = tPend.length + otrosPend;
   return (
     <div>
       <SecHead T={T} title="Pendientes" sub="Tareas generales del equipo y seguimientos clínicos." />
@@ -1652,8 +1656,8 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
         <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: 14 }}>
-          <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 }}>Pendientes ({tPend.length})</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tPend.length ? tPend.map(taskCard) : <Empty2 T={T}>Nada pendiente. 🎉</Empty2>}</div>
+          <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 }}>Pendientes ({totalPend})</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tPend.length ? tPend.map(taskCard) : (otrosPend > 0 ? <Empty2 T={T}>Sin tareas manuales. Abajo tienes {sinConsent.length} consentimiento(s) y {recitas.length} re-cita(s) por gestionar.</Empty2> : <Empty2 T={T}>Nada pendiente. 🎉</Empty2>)}</div>
         </div>
         <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: 14 }}>
           <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 }}>Completadas ({tDone.length})</div>
