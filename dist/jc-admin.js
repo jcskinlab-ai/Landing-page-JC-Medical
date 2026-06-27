@@ -1487,6 +1487,24 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const nowMinW = nowT.getHours() * 60 + nowT.getMinutes();
   const nowVisibleW = nowMinW >= WK_OPEN * 60 && nowMinW <= (WK_CLOSE + 1) * 60;
   const nowTopW = (nowMinW - WK_OPEN * 60) * WPX / 60;
+  function dateOverride(dk) {
+    try {
+      const m = window.DB && window.DB.get("horarios_dates") || null;
+      if (m && m[dk]) return m[dk];
+    } catch (e) {
+    }
+    try {
+      const o = D.getDateSlots && D.getDateSlots(dk);
+      if (o) return o;
+    } catch (e) {
+    }
+    return null;
+  }
+  function availSlotsFor(dateObj) {
+    const ov = dateOverride(D.dKey(dateObj));
+    if (ov) return { open: ov.length > 0, slots: ov };
+    return D.availForDate(dateObj);
+  }
   function isAvail(av, hhmm) {
     if (!av || !av.open) return false;
     if (av.slots.includes(hhmm)) return true;
@@ -1497,12 +1515,21 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   function toggleBlock(dateObj, hhmm, makeAvailable) {
     try {
       const dk = D.dKey(dateObj);
-      const cur = (D.getDateSlots(dk) || D.availForDate(dateObj).slots || []).slice();
+      const cur = (dateOverride(dk) || D.availForDate(dateObj).slots || []).slice();
       const next = makeAvailable ? cur.includes(hhmm) ? cur : [...cur, hhmm].sort() : cur.filter((t) => t !== hhmm);
-      D.saveDateSlots(dk, next);
+      try {
+        D.saveDateSlots(dk, next);
+      } catch (e) {
+      }
+      try {
+        const dbMap = window.DB && window.DB.get("horarios_dates") || {};
+        dbMap[dk] = next;
+        if (window.DB) window.DB.set("horarios_dates", dbMap);
+      } catch (e) {
+      }
       setAvailVer((v) => v + 1);
       try {
-        window.jcmToast && window.jcmToast(makeAvailable ? hhmm + " habilitado." : hhmm + " marcado como no disponible.", "ok");
+        window.jcmToast && window.jcmToast(makeAvailable ? hhmm + " habilitado para reservas." : hhmm + " bloqueado \xB7 tambi\xE9n queda no disponible para reservas online.", "ok");
       } catch (e) {
       }
     } catch (e) {
@@ -1528,7 +1555,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     return /* @__PURE__ */ React.createElement("div", { key: hhmm, style: { position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 8.5 : 10, color: T.textFaint, opacity: half ? 0.5 : 1, pointerEvents: "none", userSelect: "none" } }, hhmm);
   })), days.map((d, ci) => {
     const da = appts.filter((a) => apptDayOff(a) === d.off && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
-    const av = D.availForDate(d.date);
+    const av = availSlotsFor(d.date);
     return /* @__PURE__ */ React.createElement("div", { key: ci, style: { flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" } }, slots.map((hhmm, i) => {
       const isHourLine = hhmm.endsWith(":00");
       const isHalfLine = hhmm.endsWith(":30");
