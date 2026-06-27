@@ -284,7 +284,7 @@
 <script src="jc-proto/jc-data.js?v=75"></script>
 <!-- Multi-clínica: si la URL trae ?c=clinicId, carga la marca/datos de esa clínica -->
 <script src="jcm_saas_config.js?v=7"></script>
-<script src="jcm_saas.js?v=21"></script>
+<script src="jcm_saas.js?v=22"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -355,13 +355,15 @@
   }
   function getSlotsForDate(dateStr){
     try{
-      var dates = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
-      if(dates[dateStr]) return dates[dateStr];
+      // Fuente de verdad: los horarios que la clínica configuró en su PANEL (vienen en el
+      // perfil público). Respaldo a localStorage solo si el perfil aún no cargó.
+      var dates = (CLINIC && CLINIC.horariosDates) || JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
+      if(dates && dates[dateStr]) return dates[dateStr];
       var d = new Date(dateStr+"T00:00:00"), wd = d.getDay();
-      if(wd === 0) return [];
-      var hor = JSON.parse(localStorage.getItem("jcm_horarios_v1")||"{}");
-      var h = hor[wd];
+      var hor = (CLINIC && CLINIC.horarios) || JSON.parse(localStorage.getItem("jcm_horarios_v1")||"{}");
+      var h = hor && hor[wd];
       if(h){ if(h.open===false) return []; return h.slots || defaultSlots(wd); }
+      if(wd === 0) return []; // domingo cerrado por defecto si no hay config
       return defaultSlots(wd);
     }catch(e){ return []; }
   }

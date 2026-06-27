@@ -444,10 +444,13 @@
   function noop(e) { if (e) { try { console.warn('[JCSAAS]', e.code || e.message || e); } catch (_) {} } }
 
   // ── Arranque ──────────────────────────────────────────────────────────
+  // El panel móvil del equipo (/movil) trae ?c= para saber la clínica, pero NECESITA login:
+  // no es modo público. Sin esta excepción se quedaba pegado en "Entrando…".
+  var isTeamPanel = (function () { try { return /^\/movil(\/|$)/.test(location.pathname || ''); } catch (e) { return false; } })();
   var ready;
   if (!CONFIGURED) {
     ready = Promise.resolve(false); // modo local (mono-clínica) como hoy
-  } else if (urlC) {
+  } else if (urlC && !isTeamPanel) {
     // App de pacientes / reserva de una clínica concreta (solo lectura, sin login).
     state.mode = 'public';
     ready = initFirebase().then(function () { return loadPublic(urlC); }).then(function () { return true; })
