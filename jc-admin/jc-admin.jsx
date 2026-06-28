@@ -1796,6 +1796,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const profMatch = a => !multiProf || ((a.prof || "").trim() ? (a.prof || "").trim() === selProf : selProf === firstProf);
   const selProfColor = (() => { const m = team.find(x => x.name === selProf); return (m && m.color) || T.accent; })();
   const DOWS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+  const DOWS_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1870,12 +1871,20 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           <div style={{ display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
             <div style={{ borderBottom: "1px solid " + T.line }} />
             {days.map((d, i) => (
-              <div key={i} style={{ padding: "12px 4px 10px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }}>
-                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", color: d.isToday ? T.accent : T.textMute }}>{d.dow}</div>
-                {d.isToday
-                  ? <div style={{ margin: "3px auto 0", width: 30, height: 30, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", fontFamily: T.serif, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" }}>{d.dd}</div>
-                  : <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, marginTop: 2 }}>{d.dd}</div>}
-              </div>
+              v2 ? (
+                /* Encabezado horizontal en una línea (ahorra espacio): "Lunes 22 jun" */
+                <div key={i} style={{ padding: "11px 6px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "12" : "transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ fontFamily: T.serif, fontSize: 15.5, color: d.isToday ? T.accent : T.text }}>{DOWS_FULL[d.date.getDay()]} {d.dd}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 10, color: d.isToday ? T.accent : T.textMute, marginLeft: 5 }}>{MES[d.date.getMonth()].slice(0, 3)}</span>
+                </div>
+              ) : (
+                <div key={i} style={{ padding: "12px 4px 10px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", color: d.isToday ? T.accent : T.textMute }}>{d.dow}</div>
+                  {d.isToday
+                    ? <div style={{ margin: "3px auto 0", width: 30, height: 30, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", fontFamily: T.serif, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" }}>{d.dd}</div>
+                    : <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, marginTop: 2 }}>{d.dd}</div>}
+                </div>
+              )
             ))}
             {v2 && <div style={{ borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }} />}
           </div>
@@ -1886,7 +1895,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               {ADMIN_HALF_HOURS.map((hhmm, i) => {
                 const half = hhmm.endsWith(":30"); // las medias horas, más pequeñas y tenues
                 return (
-                  <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 8.5 : 10, color: T.textFaint, opacity: half ? 0.5 : 1, pointerEvents: "none", userSelect: "none" }}>
+                  <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 9 : (v2 ? 10.5 : 10), fontWeight: (v2 && !half) ? 600 : 400, color: v2 ? (half ? T.textFaint : T.textMute) : T.textFaint, opacity: half ? (v2 ? 0.8 : 0.5) : 1, pointerEvents: "none", userSelect: "none" }}>
                     {hhmm}
                   </div>
                 );
@@ -1901,7 +1910,10 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   {slots.map((hhmm, i) => {
                     const isHourLine = hhmm.endsWith(":00"); // borde marcado en la hora en punto
                     const isHalfLine = hhmm.endsWith(":30"); // borde sutil en la media hora
-                    const blocked = appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
+                    // v2: el "+" no se dibuja donde hay una cita visible (sin ruido detrás de las citas).
+                    const blocked = v2
+                      ? da.some(a => { const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(hhmm); return ts >= as && ts < as + ad; })
+                      : appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
                     return (
                       <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * slotPx, height: slotPx, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none" }}>
                         {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
@@ -1948,7 +1960,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                 {ADMIN_HALF_HOURS.map((hhmm, i) => {
                   const half = hhmm.endsWith(":30");
                   return (
-                    <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, left: 6, fontFamily: T.sans, fontSize: half ? 8.5 : 10, color: T.textFaint, opacity: half ? 0.5 : 1, pointerEvents: "none", userSelect: "none" }}>
+                    <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, left: 6, fontFamily: T.sans, fontSize: half ? 9 : 10.5, fontWeight: half ? 400 : 600, color: half ? T.textFaint : T.textMute, opacity: half ? 0.8 : 1, pointerEvents: "none", userSelect: "none" }}>
                       {hhmm}
                     </div>
                   );
