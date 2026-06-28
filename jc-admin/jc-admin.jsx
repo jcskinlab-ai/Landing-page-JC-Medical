@@ -1593,33 +1593,49 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   }
   const tabBtn = (k, l) => <button onClick={() => setView(k)} style={{ flex: 1, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 7, cursor: "pointer", background: view === k ? T.text : "transparent", color: view === k ? T.bg : T.textMute, border: "none" }}>{l}</button>;
 
+  // En JC Medical (base / v2) la cabecera se colapsa a una sola línea (sin título grande):
+  // el toggle de vista y "+ Nueva Cita" se inyectan dentro de la barra de la semana (SemanaGrid).
+  const isBase = (window.JCM_BASE === true);
+  const viewToggleNode = (
+    <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
+      <button onClick={() => setView("dia")} title="Vista lista / día" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? (T.onAccent || "#fff") : T.textMute }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
+      </button>
+      <button onClick={() => setView("semana")} title="Vista calendario / semana" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? (T.onAccent || "#fff") : T.textMute }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+      </button>
+    </div>
+  );
+  const nuevaBtnNode = <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>;
+
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
-        <div style={{ width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+      {/* Cabecera grande: solo en clínicas que NO son la base (v2 la colapsa a una línea en SemanaGrid). */}
+      {!isBase && (
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
+          <div style={{ width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 }}>Reservas y Citas</h1>
+            <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 }}>Gestiona la agenda de la clínica, confirma asistencias y asigna puntos.</div>
+          </div>
+          {viewToggleNode}
+          {onSyncWeb && <AdBtn T={T} onClick={traerWeb}>{webBusy ? "Trayendo…" : "↻ Traer reservas web"}</AdBtn>}
+          {nuevaBtnNode}
         </div>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 }}>Reservas y Citas</h1>
-          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 }}>Gestiona la agenda de la clínica, confirma asistencias y asigna puntos.</div>
+      )}
+      {/* En v2 (lista), una mini-barra superior con el toggle + Nueva cita (la semana ya los lleva inline). */}
+      {isBase && view === "dia" && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text }}>Reservas y Citas</div>
+          {viewToggleNode}
+          {nuevaBtnNode}
         </div>
-        {/* toggle de vista (lista / calendario) */}
-        <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
-          <button onClick={() => setView("dia")} title="Vista lista / día" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? (T.onAccent || "#fff") : T.textMute }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
-          </button>
-          <button onClick={() => setView("semana")} title="Vista calendario / semana" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? (T.onAccent || "#fff") : T.textMute }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
-          </button>
-        </div>
-        {/* "Traer reservas web": en JC Medical (base) se oculta (la importación ya es automática, menos ruido).
-            Las demás clínicas lo conservan hasta el rollout global. */}
-        {!(window.JCM_BASE === true) && onSyncWeb && <AdBtn T={T} onClick={traerWeb}>{webBusy ? "Trayendo…" : "↻ Traer reservas web"}</AdBtn>}
-        <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>
-      </div>
+      )}
 
       {view === "semana" ? (
-        <SemanaGrid T={T} week={week} appts={appts} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={setEdit} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
+        <SemanaGrid T={T} week={week} appts={appts} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={setEdit} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
           const clean = s => (s || "").replace(/\D/g, "");
           const ap = clean(appt.phone || "");
           let found = null;
@@ -1771,7 +1787,7 @@ function jcmApptState(a, T) {
   return { key: "pendiente", label: "Pendiente", color: (T && T.accent) || "#8A7E6B" };
 }
 if (typeof window !== "undefined") window.jcmApptState = jcmApptState;
-function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha }) {
+function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn }) {
   const D = window.JCDATA;
   const [wkOff, setWkOff] = useState(0);
   const [menu, setMenu] = useState(null); // appt id abierto
@@ -1831,11 +1847,18 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
 
   return (
     <div>
-      {/* navegación de semana */}
+      {/* navegación de semana (v2: una sola línea con icono + semana + toggle + Nueva cita + profesional + Hoy/nav) */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 180, fontFamily: T.serif, fontSize: 21, color: T.text }}>
+        {v2 && (
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 160, fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text }}>
           {days[0].dd} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[start.getMonth()])}</span> – {last.getDate()} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[last.getMonth()])}</span>
         </div>
+        {v2 && viewToggle}
+        {v2 && nuevaBtn}
         {v2 && team.length > 0 && (
           <div style={{ position: "relative" }}>
             <button onClick={() => setProfOpen(o => !o)} title="Ver agenda de un profesional" style={{ display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 }}>
