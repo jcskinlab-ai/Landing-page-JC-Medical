@@ -753,6 +753,23 @@ function AdminApp() {
     return n;
   }
   function addPatient(p) {
+    const rutClean = (r) => (r || "").replace(/[.\-\s]/g, "").toLowerCase();
+    const pRut = rutClean(p.rut);
+    const pName = (p.name || "").toLowerCase().trim();
+    const existing = patients.find((x) => {
+      if (!p.imported) {
+        if (pRut.length >= 6 && rutClean(x.rut) === pRut) return true;
+        if (pName.length >= 4 && (x.name || "").toLowerCase().trim() === pName) return true;
+      }
+      return false;
+    });
+    if (existing) {
+      try {
+        window.jcmToast && window.jcmToast('Ya existe una ficha para "' + existing.name + '" (RUT o nombre duplicado).', "error");
+      } catch (e) {
+      }
+      return existing;
+    }
     const np = { ...p, id: window.jcmUid ? window.jcmUid("p") : "p" + Date.now(), tags: p.tags || [], consent: p.consent === true, points: p.points || [], history: p.history || [] };
     if (np.fechaTs == null && !np.imported) np.fechaTs = Date.now();
     setPatients((ps) => savePatients([np, ...ps]));
@@ -1508,10 +1525,10 @@ function jcmApptState(a, T) {
   if (a.status === "anulada" || a.status === "cancelada") return { key: "anulada", label: "Anulada", color: "#9AA0A6" };
   if (a.status === "no_asistio") return { key: "no_asistio", label: "No asisti\xF3", color: "#C0285A" };
   if (a.status === "atendiendose") return { key: "atendiendose", label: "Atendi\xE9ndose", color: "#1F8A5B" };
-  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#1F8A5B" };
+  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#CA8A04" };
   if (a.status === "en_sala") return { key: "en_sala", label: "En sala de espera", color: "#0E7490" };
   if (a.status === "pendiente_pago") return { key: "pendiente_pago", label: "\u23F3 Pago pendiente", color: "#B8860B" };
-  if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#2563EB" };
+  if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#16A34A" };
   return { key: "pendiente", label: "Pendiente", color: T && T.accent || "#8A7E6B" };
 }
 if (typeof window !== "undefined") window.jcmApptState = jcmApptState;
@@ -1690,7 +1707,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 15px 11px" } }, rows.map(([k, v, c], i) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid " + T.lineSoft : "none" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, flexShrink: 0 } }, k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: c || T.text, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, v)))),
       a.comentario && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 15px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)),
       /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" } }, [
-        ["Confirmar", () => updateAppt(a.id, { status: "confirmada" }), T.accent, T.accent],
+        ["Confirmar", () => updateAppt(a.id, { status: "confirmada", attended: false }), T.accent, T.accent],
         ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), T.line, T.textMute],
         ["No asisti\xF3", () => updateAppt(a.id, { status: "no_asistio", attended: false }), T.line, "#C0285A"],
         ["Cancelar", () => updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }), T.line, "#C0285A"],
@@ -1731,9 +1748,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       setMenu(null);
     }, "#1F8A5B"]] : [],
     ["Confirmar cita", () => {
-      updateAppt(activeAppt.id, { status: "confirmada" });
+      updateAppt(activeAppt.id, { status: "confirmada", attended: false });
       setMenu(null);
-    }, "#2563EB"],
+    }, "#16A34A"],
     ["Marcar como atendido", () => {
       updateAppt(activeAppt.id, { status: "atendida", attended: true });
       setMenu(null);

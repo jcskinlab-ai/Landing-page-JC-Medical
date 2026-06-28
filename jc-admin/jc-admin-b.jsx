@@ -495,13 +495,15 @@ function jcmConsentPending(patients, appts) {
     keys.forEach(k => {
       if (!info[k]) info[k] = { noShow: false, active: false };
       if (a.status === "no_asistio") info[k].noShow = true;
-      else if (a.status !== "anulada" && a.status !== "cancelada") info[k].active = true;
+      else if (a.status === "anulada" || a.status === "cancelada") info[k].anulada = true;
+      else info[k].active = true;
     });
   });
   return (patients || []).filter(p => {
     if (p.consent) return false;
     const inf = info["id:" + p.id] || info["nm:" + (p.name || "").toLowerCase().trim()];
-    if (inf && inf.noShow && !inf.active) return false; // no asistió y sin otra cita activa → no pedir consentimiento
+    if (inf && inf.noShow && !inf.active) return false; // no asistió y sin otra cita activa
+    if (inf && inf.anulada && !inf.active && !inf.noShow) return false; // todas anuladas → sin consentimiento
     return true;
   });
 }
