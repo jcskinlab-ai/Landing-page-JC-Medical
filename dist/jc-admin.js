@@ -1510,6 +1510,14 @@ function jcmApptState(a, T) {
   return { key: "pendiente", label: "Pendiente", color: T && T.accent || "#8A7E6B" };
 }
 if (typeof window !== "undefined") window.jcmApptState = jcmApptState;
+function ComentarioPopup({ T, appt, updateAppt, onClose }) {
+  const [txt, setTxt] = useState(appt.comentario || "");
+  const save = () => {
+    updateAppt(appt.id, { comentario: txt.trim() });
+    onClose();
+  };
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 94, background: "rgba(0,0,0,.38)" } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 95, width: 340, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 24px 60px -16px rgba(0,0,0,.6)", padding: "22px 20px 18px", animation: "jcFade .16s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text, marginBottom: 4 } }, appt.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 } }, appt.time, " \xB7 ", appt.proc || "Procedimiento"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Comentario"), /* @__PURE__ */ React.createElement("textarea", { value: txt, onChange: (e) => setTxt(e.target.value), placeholder: "Ej. Abona el d\xEDa de la atenci\xF3n", rows: 3, style: { width: "100%", boxSizing: "border-box", background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 11px", fontFamily: T.sans, fontSize: 13, color: T.text, resize: "vertical", outline: "none" }, autoFocus: true }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 12 } }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { flex: 1, height: 36, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: save, style: { flex: 2, height: 36, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, cursor: "pointer" } }, "Guardar comentario"))));
+}
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn }) {
   const D = window.JCDATA;
   const [wkOff, setWkOff] = useState(0);
@@ -1517,6 +1525,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null);
+  const [editCom, setEditCom] = useState(null);
   const hideT = useRef(null);
   const v2 = true;
   const activeAppt = menu ? appts.find((a) => a.id === menu) : null;
@@ -1684,7 +1693,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           if (onVerFicha) onVerFicha(a);
         }, T.line, T.textMute],
         ["Comentario", () => {
-          if (onEdit) onEdit(a);
+          setEditCom(a);
         }, T.line, T.textMute]
       ].map(([lbl, fn, bd, col]) => /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: () => {
         fn();
@@ -1708,7 +1717,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       setMenu(null);
     }],
     ["Agregar comentario", () => {
-      onEdit(activeAppt);
+      setEditCom(activeAppt);
       setMenu(null);
     }],
     ["__sep", null],
@@ -1733,7 +1742,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       updateAppt(activeAppt.id, { status: "anulada", attended: false, anuladaAt: Date.now() });
       setMenu(null);
     }, "#C0285A"]
-  ].map((it, i) => it[0] === "__sep" ? /* @__PURE__ */ React.createElement("div", { key: i, style: { height: 1, background: T.lineSoft, margin: "4px 0" } }) : /* @__PURE__ */ React.createElement("button", { key: i, onClick: it[1], style: { display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[2] || T.text } }, it[0])))));
+  ].map((it, i) => it[0] === "__sep" ? /* @__PURE__ */ React.createElement("div", { key: i, style: { height: 1, background: T.lineSoft, margin: "4px 0" } }) : /* @__PURE__ */ React.createElement("button", { key: i, onClick: it[1], style: { display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[2] || T.text } }, it[0])))), editCom && /* @__PURE__ */ React.createElement(ComentarioPopup, { T, appt: editCom, updateAppt, onClose: () => setEditCom(null) }));
 }
 function Summ({ T, k, v }) {
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, textAlign: "right" } }, v));

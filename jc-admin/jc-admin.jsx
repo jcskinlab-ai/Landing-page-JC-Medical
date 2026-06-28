@@ -1789,6 +1789,25 @@ function jcmApptState(a, T) {
   return { key: "pendiente", label: "Pendiente", color: (T && T.accent) || "#8A7E6B" };
 }
 if (typeof window !== "undefined") window.jcmApptState = jcmApptState;
+function ComentarioPopup({ T, appt, updateAppt, onClose }) {
+  const [txt, setTxt] = useState(appt.comentario || "");
+  const save = () => { updateAppt(appt.id, { comentario: txt.trim() }); onClose(); };
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 94, background: "rgba(0,0,0,.38)" }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: "fixed", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 95, width: 340, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 24px 60px -16px rgba(0,0,0,.6)", padding: "22px 20px 18px", animation: "jcFade .16s ease" }}>
+        <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, marginBottom: 4 }}>{appt.name}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 }}>{appt.time} · {appt.proc || "Procedimiento"}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Comentario</div>
+        <textarea value={txt} onChange={e => setTxt(e.target.value)} placeholder="Ej. Abona el día de la atención" rows={3} style={{ width: "100%", boxSizing: "border-box", background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 11px", fontFamily: T.sans, fontSize: 13, color: T.text, resize: "vertical", outline: "none" }} autoFocus />
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button onClick={onClose} style={{ flex: 1, height: 36, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" }}>Cancelar</button>
+          <button onClick={save} style={{ flex: 2, height: 36, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Guardar comentario</button>
+        </div>
+      </div>
+    </>
+  );
+}
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn }) {
   const D = window.JCDATA;
   const [wkOff, setWkOff] = useState(0);
@@ -1796,6 +1815,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null); // { a, x, y } · vista previa momentánea al pasar el cursor
+  const [editCom, setEditCom] = useState(null); // appt para popup de comentario rápido
   const hideT = useRef(null); // retardo para poder mover el cursor de la cita al tooltip (acciones)
   // ── Nueva agenda (estilo Medilink barra) — ACTIVA PARA TODAS LAS CLÍNICAS ──
   // Semana lun→dom, profesional desplegable, hora a ambos lados, cabecera en una línea,
@@ -2030,7 +2050,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                 ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }), T.line, "#C0285A"],
                 ["Cancelar", () => updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }), T.line, "#C0285A"],
                 ["Ficha", () => { if (onVerFicha) onVerFicha(a); }, T.line, T.textMute],
-                ["Comentario", () => { if (onEdit) onEdit(a); }, T.line, T.textMute]
+                ["Comentario", () => { setEditCom(a); }, T.line, T.textMute]
               ].map(([lbl, fn, bd, col]) => (
                 <button key={lbl} onClick={() => { fn(); setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + bd, background: bd === T.accent ? "transparent" : T.surface, color: col, fontFamily: T.sans, fontSize: 10.5, fontWeight: bd === T.accent ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>
               ))}
@@ -2063,7 +2083,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               ["Ver ficha del paciente", () => { if (onVerFicha) onVerFicha(activeAppt); setMenu(null); }],
               ["Cambiar fecha / hora", () => { onEdit(activeAppt); setMenu(null); }],
               ["Modificar duración", () => { onEdit(activeAppt); setMenu(null); }],
-              ["Agregar comentario", () => { onEdit(activeAppt); setMenu(null); }],
+              ["Agregar comentario", () => { setEditCom(activeAppt); setMenu(null); }],
               ["__sep", null],
               ...(activeAppt.status === "pendiente_pago" ? [["✓ Confirmar transferencia", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#1F8A5B"]] : []),
               ["Confirmar cita", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#2563EB"],
@@ -2077,6 +2097,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           </div>
         </>
       )}
+      {editCom && <ComentarioPopup T={T} appt={editCom} updateAppt={updateAppt} onClose={() => setEditCom(null)} />}
     </div>
   );
 }
