@@ -1306,6 +1306,7 @@ function ConfigView({ T }) {
         </div>
       </div>
       <ClinicDataCard T={T} />
+      <AdminPinCard T={T} />
       <PaymentDataCard T={T} />
       <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>
       <IndTemplatesEditor T={T} />
@@ -1373,6 +1374,46 @@ function ClinicDataCard({ T }) {
     </div>
   );
 }
+/* PIN de admin — protege acciones sensibles (borrar movimientos de Caja, etc.).
+   Se guarda en DB separado del config; nunca sale al servidor. */
+function AdminPinCard({ T }) {
+  const [pin, setPin] = useState(() => { try { return String(window.DB && window.DB.get("admin_pin") || ""); } catch (e) { return ""; } });
+  const [pin2, setPin2] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState("");
+  function save() {
+    setErr("");
+    if (!pin.trim()) { setErr("Ingresa un PIN de al menos 4 dígitos."); return; }
+    if (pin.trim().length < 4) { setErr("El PIN debe tener al menos 4 caracteres."); return; }
+    if (pin.trim() !== pin2.trim()) { setErr("Los PINs no coinciden."); return; }
+    try { window.DB && window.DB.set("admin_pin", pin.trim()); setSaved(true); setPin2(""); setTimeout(() => setSaved(false), 1800); } catch (e) { setErr("No se pudo guardar."); }
+  }
+  const hasSaved = (() => { try { return !!(window.DB && window.DB.get("admin_pin")); } catch (e) { return false; } })();
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>PIN de seguridad</div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>Requerido para borrar movimientos de Caja y otras acciones sensibles.</div>
+        </div>
+        {hasSaved && <span style={{ fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", background: "#1F8A5B18", borderRadius: 6, padding: "3px 9px" }}>PIN activo</span>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{hasSaved ? "Nuevo PIN" : "PIN de admin"}</span>
+          <input type="password" value={pin} data-nocap="1" onChange={e => { setPin(e.target.value); setSaved(false); setErr(""); }} placeholder="Mínimo 4 caracteres" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, outline: "none", boxSizing: "border-box" }} />
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Confirmar PIN</span>
+          <input type="password" value={pin2} data-nocap="1" onChange={e => { setPin2(e.target.value); setSaved(false); setErr(""); }} placeholder="Repite el PIN" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, outline: "none", boxSizing: "border-box" }} />
+        </label>
+        {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A" }}>{err}</div>}
+        <AdBtn T={T} small primary onClick={save}>{saved ? "✓ PIN guardado" : (hasSaved ? "Cambiar PIN" : "Guardar PIN")}</AdBtn>
+      </div>
+    </div>
+  );
+}
+
 /* Datos de pago (transferencia) — propios de cada clínica. Se muestran en la página de
    reservas. Solo el dueño con sesión iniciada los edita (no están en el código). */
 function PaymentDataCard({ T }) {
@@ -3293,6 +3334,10 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
 // en modo local = la clave del panel (admin_pass). Devuelve Promise<bool>.
 function jcmVerifyAdminKey(pass) {
   try {
+    var storedPin = window.DB && window.DB.get("admin_pin");
+    if (storedPin) return Promise.resolve(String(pass) === String(storedPin));
+  } catch (e) {}
+  try {
     if (window.JCSAAS && window.JCSAAS.enabled && typeof window.JCSAAS.verifyPassword === "function") return window.JCSAAS.verifyPassword(pass);
   } catch (e) {}
   try {
@@ -3314,9 +3359,9 @@ function AdminKeyModal({ T, title, message, confirmLabel, onClose, onOk }) {
   return (
     <AdModal T={T} title={title || "Confirmar con tu clave"} onClose={onClose}
       footer={<><AdBtn T={T} onClick={onClose}>Cancelar</AdBtn><AdBtn T={T} primary onClick={go}>{busy ? "Verificando…" : (confirmLabel || "Eliminar")}</AdBtn></>}>
-      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 }}>{message || "Ingresa la clave del admin de la clínica para confirmar."}</div>
+      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 }}>{message || "Ingresa el PIN de admin de la clínica para confirmar."}</div>
       <input type="password" value={pass} autoFocus onChange={e => { setPass(e.target.value); setErr(""); }}
-        onKeyDown={e => { if (e.key === "Enter") go(); }} placeholder="Clave del admin"
+        onKeyDown={e => { if (e.key === "Enter") go(); }} placeholder="PIN de admin"
         style={{ width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (err ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, outline: "none" }} />
       {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: 8 }}>{err}</div>}
     </AdModal>
@@ -3430,7 +3475,7 @@ function CajaView({ T }) {
         </div>
       </div>
       {delMov && <AdminKeyModal T={T} title="Eliminar movimiento de Caja"
-        message={"Vas a quitar \"" + (delMov.concept || "este movimiento") + "\" de Caja. Esto NO borra la sesión del paciente, solo el registro en Caja. Ingresa la clave del admin de la clínica para confirmar."}
+        message={"Vas a quitar \"" + (delMov.concept || "este movimiento") + "\" de Caja. Esto NO borra la sesión del paciente, solo el registro en Caja. Ingresa el PIN de admin (se configura en Configuración → PIN de seguridad)."}
         onClose={() => setDelMov(null)}
         onOk={() => { if (delMov._src === "billing") billingDelete(delMov._patId, delMov._billId); else cashDelete(delMov.id); setDelMov(null); setTick(t => t + 1); }} />}
       {mov && <NuevoMovModal T={T} onClose={() => setMov(false)} onSave={mv => { cashAdd({ ...mv, kind: "manual" }); setMov(false); setTick(tick + 1); }} />}

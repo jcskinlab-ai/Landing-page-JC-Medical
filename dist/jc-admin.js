@@ -1145,7 +1145,9 @@ function unreadNotifCount(patients, appts) {
   var sc = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : (patients || []).filter(function(p) {
     return !p.consent;
   });
-  n += sc.length;
+  sc.forEach(function(p) {
+    if (!read["c" + p.id]) n++;
+  });
   ((window.CADMIN || {}).waMessages || []).forEach(function(m) {
     if (!read["w" + m.id]) n++;
   });
@@ -1176,7 +1178,7 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   });
   const wa = ((window.CADMIN || {}).waMessages || []).filter((m) => !read["w" + m.id]);
   const biz = ((window.CADMIN || {}).bizComments || []).filter((b) => !read["b" + b.id]);
-  const sinConsent = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
+  const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent)).filter((p) => !read["c" + p.id]);
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter((x) => !read["re" + x.p.id]);
   let tasks = [];
   try {

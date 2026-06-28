@@ -1238,7 +1238,7 @@ function unreadNotifCount(patients, appts) {
   var read = {}; notifReadList().forEach(function (k) { read[k] = 1; });
   var n = 0;
   var sc = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : (patients || []).filter(function (p) { return !p.consent; }));
-  n += sc.length;
+  sc.forEach(function (p) { if (!read["c" + p.id]) n++; });
   (((window.CADMIN || {}).waMessages) || []).forEach(function (m) { if (!read["w" + m.id]) n++; });
   (((window.CADMIN || {}).bizComments) || []).forEach(function (b) { if (!read["b" + b.id]) n++; });
   var recitas = (window.recitaDue ? window.recitaDue(patients) : []);
@@ -1253,9 +1253,9 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   const read = {}; notifReadList().forEach(k => { read[k] = 1; });
   const wa = (((window.CADMIN || {}).waMessages) || []).filter(m => !read["w" + m.id]);
   const biz = (((window.CADMIN || {}).bizComments) || []).filter(b => !read["b" + b.id]);
-  // Los consentimientos pendientes son un estado real (no una notificación transitoria):
-  // se muestran SIEMPRE en la campana y solo desaparecen al firmarse, marcarse firmados, o si no asistió.
-  const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
+  // Los consentimientos pendientes: se pueden descartar con X en el popup (se marcan como leídos),
+  // pero siguen visibles en Pendientes hasta que se firmen realmente.
+  const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent)).filter(p => !read["c" + p.id]);
   // Pacientes que ya cumplieron el plazo para su próxima aplicación (re-cita).
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter(x => !read["re" + x.p.id]);
   let tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(t => !t.done && !read["t" + t.id]); } catch (e) {}
