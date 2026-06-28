@@ -792,7 +792,12 @@ function AdminApp() {
     }, 300000);
     return () => clearInterval(id);
   }, []);
-  const T = JCTHEME[themeKey];
+  // Tipografía: solo JC Medical (base) usa Fraunces como serif/itálica (cuerpo sigue en Jost).
+  // Las demás clínicas conservan Marcellus/Cormorant hasta el rollout global de la tipografía.
+  const _T0 = JCTHEME[themeKey];
+  const T = (window.JCM_BASE === true)
+    ? Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" })
+    : _T0;
   const D = window.JCDATA, A = window.JCADMIN;
 
   const _initRoute = panelParseRoute(); // sección/paciente inicial según la URL (/panel/<seccion>[/<id>])

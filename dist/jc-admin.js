@@ -583,7 +583,8 @@ function AdminApp() {
     }, 3e5);
     return () => clearInterval(id);
   }, []);
-  const T = JCTHEME[themeKey];
+  const _T0 = JCTHEME[themeKey];
+  const T = window.JCM_BASE === true ? Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" }) : _T0;
   const D = window.JCDATA, A = window.JCADMIN;
   const _initRoute = panelParseRoute();
   const [section, setSection] = useState(_initRoute.section);
