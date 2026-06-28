@@ -98,7 +98,7 @@ function DesktopSidePanel({ T }) {
         {[
           ["22 procedimientos", "catálogo completo"],
           ["Galderma · AbbVie", "insumos certificados"],
-          ["Evaluación $10.000", "se descuenta del tratamiento"]
+          ["Evaluación $15.000", "se descuenta del tratamiento"]
         ].map(([v, l]) => (
           <div key={l} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>{v}</span>

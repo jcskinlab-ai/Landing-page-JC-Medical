@@ -1,7 +1,7 @@
 /* ═══════════ JC · FLUJO DE AGENDA (multi-paso) ═══════════ */
 
 function allProcs(D) {
-  const out = [{ name: "Evaluación general", price: 10000, note: "Diagnóstico y plan personalizado" }];
+  const out = [{ name: "Evaluación general", price: 15000, note: "Diagnóstico y plan personalizado" }];
   D.catalog.forEach(s => s.groups.forEach(g => g.items.forEach(it => out.push({ name: it.n, price: it.price, note: g.cat }))));
   return out;
 }
@@ -32,7 +32,7 @@ function validate(form) {
 }
 
 // Abono por ítem (eval = precio completo; resto 20% con mínimo $25.000)
-function abonoOf(p) { return (/Evaluaci/.test(p.name) ? (p.price || 10000) : (p.price > 0 ? Math.round(p.price * 0.2) : 25000)); }
+function abonoOf(p) { return (/Evaluaci/.test(p.name) ? (p.price || 15000) : (p.price > 0 ? Math.round(p.price * 0.2) : 25000)); }
 
 // Resumen de la reserva en texto plano — sirve para WhatsApp y para el correo.
 function bookingText(D, cart, day, time, form, pay, secondOff) {

@@ -1,5 +1,5 @@
 function allProcs(D) {
-  const out = [{ name: "Evaluaci\xF3n general", price: 1e4, note: "Diagn\xF3stico y plan personalizado" }];
+  const out = [{ name: "Evaluaci\xF3n general", price: 15e3, note: "Diagn\xF3stico y plan personalizado" }];
   D.catalog.forEach((s) => s.groups.forEach((g) => g.items.forEach((it) => out.push({ name: it.n, price: it.price, note: g.cat }))));
   return out;
 }
@@ -26,7 +26,7 @@ function validate(form) {
   return e;
 }
 function abonoOf(p) {
-  return /Evaluaci/.test(p.name) ? p.price || 1e4 : p.price > 0 ? Math.round(p.price * 0.2) : 25e3;
+  return /Evaluaci/.test(p.name) ? p.price || 15e3 : p.price > 0 ? Math.round(p.price * 0.2) : 25e3;
 }
 function bookingText(D, cart, day, time, form, pay, secondOff) {
   const fmt = D.fmt || ((n) => "$" + n);
