@@ -115,19 +115,22 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (/eval/.test(t)) return "Evaluación general";
     return null;
   }
-  // Extrae el nombre dictado tras el verbo: «agenda a Juan Parra para el domingo…» → "Juan Parra".
-  // Corta en palabras de fecha/hora/procedimiento para no arrastrar "botox", "domingo", etc.
+  // Extrae el nombre dictado: «agenda a Juan Parra para el domingo…» → "Juan Parra".
+  // Maneja también «agenda una hora para Paula Díaz el lunes».
   function extractPatientName(text) {
-    const m = (text || "").match(/(?:agenda(?:r|me|le)?|ag[eé]nda\w*|reserva(?:r|me|le)?|res[eé]rva\w*|anota(?:r|me|le)?|an[oó]ta\w*|cita)\s+(?:a\s+|para\s+|al\s+)?([a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,3})/i);
-    if (!m) return "";
-    const STOP = ["para", "el", "la", "los", "las", "manana", "hoy", "pasado", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo", "las", "con", "procedimiento", "proc", "botox", "toxina", "relleno", "rino", "rinomodelacion", "sculptra", "bioestim", "bioestimulacion", "colageno", "evaluacion", "hialuronico", "labio", "pomulo", "menton", "de", "del", "y", "una", "un"];
-    const out = [];
-    for (const w of m[1].split(/\s+/)) {
-      const wn = _facialNorm(w);
-      if (STOP.indexOf(wn) >= 0) break;
-      out.push(w);
+    const STOP = ["para", "el", "la", "los", "las", "manana", "hoy", "pasado", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo", "con", "procedimiento", "proc", "botox", "toxina", "relleno", "rino", "rinomodelacion", "sculptra", "bioestim", "bioestimulacion", "colageno", "evaluacion", "hialuronico", "labio", "pomulo", "menton", "de", "del", "y", "una", "un", "hora", "cita", "turno"];
+    function filterStop(raw) {
+      const out = [];
+      for (const w of raw.split(/\s+/)) { if (STOP.indexOf(_facialNorm(w)) >= 0) break; out.push(w); }
+      return out.join(" ").trim();
     }
-    return out.join(" ").trim();
+    // Intento 1: «agenda [a/para] [nombre]» directo
+    const m1 = (text || "").match(/(?:agenda(?:r|me|le)?|ag[eé]nda\w*|reserva(?:r|me|le)?|res[eé]rva\w*|anota(?:r|me|le)?|an[oó]ta\w*|cita)\s+(?:a\s+|para\s+|al\s+)?([a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,4})/i);
+    if (m1) { const r1 = filterStop(m1[1]); if (r1) return r1; }
+    // Intento 2: «agenda una hora para [nombre]» — busca «para» tras el verbo
+    const m2 = (text || "").match(/(?:agenda(?:r|me|le)?|ag[eé]nda\w*|reserva(?:r|me|le)?|res[eé]rva\w*|anota(?:r|me|le)?|an[oó]ta\w*|cita)\b.*?\bpara\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,4})/i);
+    if (m2) { const r2 = filterStop(m2[1]); if (r2) return r2; }
+    return "";
   }
   // Empareja un nombre dictado con un paciente existente, ESTRICTO por nombre (no por palabras
   // sueltas que puedan ser un procedimiento, como "botox"). Si no hay match → null (= paciente nuevo).

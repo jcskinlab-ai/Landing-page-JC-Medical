@@ -144,16 +144,26 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     return null;
   }
   function extractPatientName(text) {
-    const m = (text || "").match(/(?:agenda(?:r|me|le)?|ag[eé]nda\w*|reserva(?:r|me|le)?|res[eé]rva\w*|anota(?:r|me|le)?|an[oó]ta\w*|cita)\s+(?:a\s+|para\s+|al\s+)?([a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,3})/i);
-    if (!m) return "";
-    const STOP = ["para", "el", "la", "los", "las", "manana", "hoy", "pasado", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo", "las", "con", "procedimiento", "proc", "botox", "toxina", "relleno", "rino", "rinomodelacion", "sculptra", "bioestim", "bioestimulacion", "colageno", "evaluacion", "hialuronico", "labio", "pomulo", "menton", "de", "del", "y", "una", "un"];
-    const out = [];
-    for (const w of m[1].split(/\s+/)) {
-      const wn = _facialNorm(w);
-      if (STOP.indexOf(wn) >= 0) break;
-      out.push(w);
+    const STOP = ["para", "el", "la", "los", "las", "manana", "hoy", "pasado", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo", "con", "procedimiento", "proc", "botox", "toxina", "relleno", "rino", "rinomodelacion", "sculptra", "bioestim", "bioestimulacion", "colageno", "evaluacion", "hialuronico", "labio", "pomulo", "menton", "de", "del", "y", "una", "un", "hora", "cita", "turno"];
+    function filterStop(raw) {
+      const out = [];
+      for (const w of raw.split(/\s+/)) {
+        if (STOP.indexOf(_facialNorm(w)) >= 0) break;
+        out.push(w);
+      }
+      return out.join(" ").trim();
     }
-    return out.join(" ").trim();
+    const m1 = (text || "").match(/(?:agenda(?:r|me|le)?|ag[eé]nda\w*|reserva(?:r|me|le)?|res[eé]rva\w*|anota(?:r|me|le)?|an[oó]ta\w*|cita)\s+(?:a\s+|para\s+|al\s+)?([a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,4})/i);
+    if (m1) {
+      const r1 = filterStop(m1[1]);
+      if (r1) return r1;
+    }
+    const m2 = (text || "").match(/(?:agenda(?:r|me|le)?|ag[eé]nda\w*|reserva(?:r|me|le)?|res[eé]rva\w*|anota(?:r|me|le)?|an[oó]ta\w*|cita)\b.*?\bpara\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,4})/i);
+    if (m2) {
+      const r2 = filterStop(m2[1]);
+      if (r2) return r2;
+    }
+    return "";
   }
   function matchPatient(name) {
     const dn = (name || "").toLowerCase().trim();
