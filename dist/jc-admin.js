@@ -1818,6 +1818,14 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         D.saveDateSlots(apptFecha, (curr.slots || []).filter((s) => s !== pick.time));
       } catch (e) {
       }
+      if (sendMail) {
+        const waP = (finalPhone || "").replace(/[^0-9]/g, "");
+        if (waP.length >= 8) {
+          const wk2 = dayInfo(pick.dayOff);
+          const msg2 = encodeURIComponent("Hola " + finalName + " \u{1F44B}\n\nTu cita en " + clinicDisplayName() + " qued\xF3 confirmada:\n\n\u{1F4C5} " + wk2.wd + " " + wk2.dd + " " + wk2.mm + "\n\u{1F550} " + pick.time + " hrs\n\u{1F489} " + proc + "\n\u{1F468}\u200D\u2695\uFE0F " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.\n\n\xA1Nos vemos pronto! \u{1F33F}");
+          setTimeout(() => window.open("https://api.whatsapp.com/send?phone=" + waP + "&text=" + msg2, "_blank", "noopener"), 400);
+        }
+      }
       setStep(3);
     } catch (e) {
       console.error("Error al confirmar cita:", e);

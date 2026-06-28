@@ -1945,7 +1945,7 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
         </div>
       </div>
       <Group T={T} title={"Consentimientos por firmar (" + sinConsent.length + ")"}>
-        {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Ir a consentimientos" onClick={() => openP(p.id, "consent")} />)}
+        {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Ir a consentimientos" onClick={() => openP(p.id, "consent")} onDelete={() => updatePatient(p.id, { consent: true, consentInfo: "Marcado como firmado", consentTs: Date.now() })} />)}
         {!sinConsent.length && <Empty2 T={T}>Todo firmado.</Empty2>}
       </Group>
       <Group T={T} title={"Consentimientos por renovar · +1 año (" + porRenovar.length + ")"}>
@@ -1973,13 +1973,20 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
 }
 function Group({ T, title, children }) { return <div style={{ marginBottom: 20 }}><div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{title}</div><div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{children}</div></div>; }
 function Empty2({ T, children }) { return <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "4px 0" }}>{children}</div>; }
-function PendRow({ T, name, desc, action, onClick, href }) {
+function PendRow({ T, name, desc, action, onClick, href, onDelete }) {
+  const xBtn = onDelete ? React.createElement("button", {
+    key: "x", onClick: e => { e.stopPropagation(); e.preventDefault(); onDelete(); },
+    title: "Marcar como hecho",
+    style: { flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: "4px 6px", display: "flex", alignItems: "center", borderRadius: 4 }
+  }, React.createElement("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2 },
+    React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }))) : null;
   const inner = [
     React.createElement("div", { key: "a", style: { flex: 1, minWidth: 0 } },
       React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, name),
       React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, desc)),
-    React.createElement("span", { key: "b", style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, whiteSpace: "nowrap" } }, action + " →")
-  ];
+    React.createElement("span", { key: "b", style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, whiteSpace: "nowrap" } }, action + " →"),
+    xBtn
+  ].filter(Boolean);
   const st = { display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer", textDecoration: "none" };
   return href
     ? React.createElement("a", { href: href, target: "_blank", rel: "noopener", style: st }, inner)

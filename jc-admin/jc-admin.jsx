@@ -2186,6 +2186,15 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         const curr = D.availability(dt.getDay());
         D.saveDateSlots(apptFecha, (curr.slots || []).filter(s => s !== pick.time));
       } catch (e) {}
+      // Auto-abrir WhatsApp si el checkbox estaba marcado y hay teléfono
+      if (sendMail) {
+        const waP = (finalPhone || "").replace(/[^0-9]/g, "");
+        if (waP.length >= 8) {
+          const wk2 = dayInfo(pick.dayOff);
+          const msg2 = encodeURIComponent("Hola " + finalName + " 👋\n\nTu cita en " + clinicDisplayName() + " quedó confirmada:\n\n📅 " + wk2.wd + " " + wk2.dd + " " + wk2.mm + "\n🕐 " + pick.time + " hrs\n💉 " + proc + "\n👨‍⚕️ " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.\n\n¡Nos vemos pronto! 🌿");
+          setTimeout(() => window.open("https://api.whatsapp.com/send?phone=" + waP + "&text=" + msg2, "_blank", "noopener"), 400);
+        }
+      }
       setStep(3);
     } catch (e) {
       console.error("Error al confirmar cita:", e);
