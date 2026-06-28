@@ -1223,7 +1223,7 @@ function AdminApp() {
           </div>
         </div>
         <Copilot T={T} patients={patients} appts={appts} addAppt={addAppt} onDarCita={(pf) => setDarCita(pf)} />
-        {darCita && <NewCitaModal T={T} patients={patients} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />}
+        {darCita && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />}
         {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} onChanged={() => setNotifVer(v => v + 1)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
         {showTour && <WelcomeTour T={T} go={(k) => nav(k)} onClose={closeTour} />}
       </div>
@@ -1727,12 +1727,20 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             ) : (
               <div style={{ marginBottom: 18, padding: "12px 14px", background: "rgba(192,40,90,.07)", borderRadius: 10, border: "1px solid rgba(192,40,90,.22)" }}>
                 <div style={{ fontFamily: T.sans, fontSize: 10, color: "#C0285A", marginBottom: 3 }}>Sin ficha registrada</div>
-                <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>No se encontró paciente con ese teléfono o nombre. Búscalo manualmente en Pacientes.</div>
+                <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 0 }}>No existe una ficha para este paciente. Puedes crearla ahora con los datos de la cita.</div>
               </div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setFichaConfirm(null)} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.surface, color: T.textMute, border: "1px solid " + T.line }}>Cancelar</button>
-              {fichaConfirm.patient && <button onClick={() => { if (onOpenPatient) onOpenPatient(fichaConfirm.patient.id); setFichaConfirm(null); }} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" }}>Ir a ficha</button>}
+              {fichaConfirm.patient
+                ? <button onClick={() => { if (onOpenPatient) onOpenPatient(fichaConfirm.patient.id); setFichaConfirm(null); }} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" }}>Ir a ficha</button>
+                : <button onClick={() => {
+                    const a = fichaConfirm.appt;
+                    const np = addPatient({ name: (a.name || "").trim(), phone: (a.phone || "").trim(), rut: (a.rut || "").trim(), email: (a.email || "").trim(), age: 0 });
+                    if (np && np.id && onOpenPatient) onOpenPatient(np.id);
+                    setFichaConfirm(null);
+                  }} style={{ flex: 2, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" }}>Crear ficha ahora</button>
+              }
             </div>
           </div>
         </div>
