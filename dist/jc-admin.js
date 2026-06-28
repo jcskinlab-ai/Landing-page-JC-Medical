@@ -584,7 +584,7 @@ function AdminApp() {
     return () => clearInterval(id);
   }, []);
   const _T0 = JCTHEME[themeKey];
-  const T = window.JCM_BASE === true ? Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" }) : _T0;
+  const T = Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" });
   const D = window.JCDATA, A = window.JCADMIN;
   const _initRoute = panelParseRoute();
   const [section, setSection] = useState(_initRoute.section);
@@ -1395,7 +1395,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     addAppt(a);
   }
   const tabBtn = (k, l) => /* @__PURE__ */ React.createElement("button", { onClick: () => setView(k), style: { flex: 1, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 7, cursor: "pointer", background: view === k ? T.text : "transparent", color: view === k ? T.bg : T.textMute, border: "none" } }, l);
-  const isBase = window.JCM_BASE === true;
+  const isBase = true;
   const viewToggleNode = /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setView("dia"), title: "Vista lista / d\xEDa", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setView("semana"), title: "Vista calendario / semana", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))));
   const nuevaBtnNode = /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNueva({ time: "10:00", day: view === "dia" ? day : 0 }) }, "+ Nueva Cita");
   return /* @__PURE__ */ React.createElement("div", null, !isBase && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), viewToggleNode, onSyncWeb && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: traerWeb }, webBusy ? "Trayendo\u2026" : "\u21BB Traer reservas web"), nuevaBtnNode), isBase && view === "dia" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text } }, "Reservas y Citas"), viewToggleNode, nuevaBtnNode), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: setEdit, updateAppt, removeAppt, onDay: (off) => {
@@ -1518,7 +1518,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null);
   const hideT = useRef(null);
-  const v2 = window.JCM_BASE === true;
+  const v2 = true;
   const activeAppt = menu ? appts.find((a) => a.id === menu) : null;
   const team = (() => {
     try {
@@ -1675,16 +1675,21 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 15px 11px", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 36, borderRadius: 9, background: ac, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, flexShrink: 0 } }, ini), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text, lineHeight: 1.15 } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: ac, marginTop: 3 } }, estado))),
       /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 15px 11px" } }, rows.map(([k, v, c], i) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid " + T.lineSoft : "none" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, flexShrink: 0 } }, k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: c || T.text, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, v)))),
       a.comentario && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 15px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)),
-      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, padding: "0 15px 13px" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
-        updateAppt(a.id, { status: "confirmada" });
+      /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" } }, [
+        ["Confirmar", () => updateAppt(a.id, { status: "confirmada" }), T.accent, T.accent],
+        ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), T.line, T.textMute],
+        ["No asisti\xF3", () => updateAppt(a.id, { status: "no_asistio", attended: false }), T.line, "#C0285A"],
+        ["Cancelar", () => updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }), T.line, "#C0285A"],
+        ["Ficha", () => {
+          if (onVerFicha) onVerFicha(a);
+        }, T.line, T.textMute],
+        ["Comentario", () => {
+          if (onEdit) onEdit(a);
+        }, T.line, T.textMute]
+      ].map(([lbl, fn, bd, col]) => /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: () => {
+        fn();
         setHover(null);
-      }, style: { flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.accent, background: "transparent", color: T.accent, fontFamily: T.sans, fontSize: 11, fontWeight: 600, cursor: "pointer" } }, "Confirmar"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
-        updateAppt(a.id, { status: "atendida", attended: true });
-        setHover(null);
-      }, style: { flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 11, fontWeight: 500, cursor: "pointer" } }, "Atender"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
-        if (onVerFicha) onVerFicha(a);
-        setHover(null);
-      }, style: { flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 11, fontWeight: 500, cursor: "pointer" } }, "Ficha"))
+      }, style: { height: 30, borderRadius: 7, border: "1px solid " + bd, background: bd === T.accent ? "transparent" : T.surface, color: col, fontFamily: T.sans, fontSize: 10.5, fontWeight: bd === T.accent ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" } }, lbl)))
     ) : (
       /* Vista clásica (otras clínicas): tabla simple, sin acciones */
       /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 } }, a.name), [["Hora", a.time], ["Duraci\xF3n", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "\u2014"], ["Estado", estado]].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 500, textAlign: "right" } }, v))), a.comentario && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 3 } }, "Comentario"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)))
@@ -1715,14 +1720,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       updateAppt(activeAppt.id, { status: "confirmada" });
       setMenu(null);
     }, "#2563EB"],
-    ["En sala de espera", () => {
-      updateAppt(activeAppt.id, { status: "en_sala" });
-      setMenu(null);
-    }, "#0E7490"],
-    ["Atendi\xE9ndose", () => {
-      updateAppt(activeAppt.id, { status: "atendiendose" });
-      setMenu(null);
-    }, "#1F8A5B"],
     ["Marcar como atendido", () => {
       updateAppt(activeAppt.id, { status: "atendida", attended: true });
       setMenu(null);

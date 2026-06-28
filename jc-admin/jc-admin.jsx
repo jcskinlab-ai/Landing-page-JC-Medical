@@ -792,12 +792,9 @@ function AdminApp() {
     }, 300000);
     return () => clearInterval(id);
   }, []);
-  // Tipografía: solo JC Medical (base) usa Fraunces como serif/itálica (cuerpo sigue en Jost).
-  // Las demás clínicas conservan Marcellus/Cormorant hasta el rollout global de la tipografía.
+  // Tipografía unificada para TODAS las clínicas: Fraunces como serif/itálica (cuerpo en Jost).
   const _T0 = JCTHEME[themeKey];
-  const T = (window.JCM_BASE === true)
-    ? Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" })
-    : _T0;
+  const T = Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" });
   const D = window.JCDATA, A = window.JCADMIN;
 
   const _initRoute = panelParseRoute(); // sección/paciente inicial según la URL (/panel/<seccion>[/<id>])
@@ -1598,9 +1595,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   }
   const tabBtn = (k, l) => <button onClick={() => setView(k)} style={{ flex: 1, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 7, cursor: "pointer", background: view === k ? T.text : "transparent", color: view === k ? T.bg : T.textMute, border: "none" }}>{l}</button>;
 
-  // En JC Medical (base / v2) la cabecera se colapsa a una sola línea (sin título grande):
-  // el toggle de vista y "+ Nueva Cita" se inyectan dentro de la barra de la semana (SemanaGrid).
-  const isBase = (window.JCM_BASE === true);
+  // Cabecera colapsada a una sola línea para TODAS las clínicas (el toggle de vista y
+  // "+ Nueva Cita" se inyectan dentro de la barra de la semana, SemanaGrid).
+  const isBase = true;
   const viewToggleNode = (
     <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
       <button onClick={() => setView("dia")} title="Vista lista / día" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? (T.onAccent || "#fff") : T.textMute }}>
@@ -1800,11 +1797,11 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null); // { a, x, y } · vista previa momentánea al pasar el cursor
   const hideT = useRef(null); // retardo para poder mover el cursor de la cita al tooltip (acciones)
-  // ── Rollout gradual de la nueva agenda (estilo Medilink barra) ──
-  // v2 = nueva agenda (semana lun→dom, profesional desplegable, hora a ambos lados, tarjeta hover con acciones).
-  // Por ahora SOLO la clínica base (JC Medical) la ve; las demás clínicas siguen con la agenda actual.
-  // Para activarla en todas, cambiar esta línea por: const v2 = true;
-  const v2 = (window.JCM_BASE === true);
+  // ── Nueva agenda (estilo Medilink barra) — ACTIVA PARA TODAS LAS CLÍNICAS ──
+  // Semana lun→dom, profesional desplegable, hora a ambos lados, cabecera en una línea,
+  // tarjeta hover con acciones. La única diferencia por clínica es la granularidad de la
+  // agenda (15 min en JC Medical / 30 min en clínicas cliente), que la maneja adminSlotMins().
+  const v2 = true;
   const activeAppt = menu ? appts.find(a => a.id === menu) : null;
   // Equipo de la clínica → desplegable de profesional (ver una agenda a la vez, sin "Todos").
   const team = (() => { try { var t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {} try { if (window.CADMIN && Array.isArray(CADMIN.team) && CADMIN.team.length) return CADMIN.team; } catch (e) {} return []; })();
@@ -2026,10 +2023,17 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               ))}
             </div>
             {a.comentario && <div style={{ padding: "0 15px 11px" }}><div style={{ padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.comentario}</div></div>}
-            <div style={{ display: "flex", gap: 6, padding: "0 15px 13px" }}>
-              <button onClick={() => { updateAppt(a.id, { status: "confirmada" }); setHover(null); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.accent, background: "transparent", color: T.accent, fontFamily: T.sans, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Confirmar</button>
-              <button onClick={() => { updateAppt(a.id, { status: "atendida", attended: true }); setHover(null); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 11, fontWeight: 500, cursor: "pointer" }}>Atender</button>
-              <button onClick={() => { if (onVerFicha) onVerFicha(a); setHover(null); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 11, fontWeight: 500, cursor: "pointer" }}>Ficha</button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" }}>
+              {[
+                ["Confirmar", () => updateAppt(a.id, { status: "confirmada" }), T.accent, T.accent],
+                ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), T.line, T.textMute],
+                ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }), T.line, "#C0285A"],
+                ["Cancelar", () => updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }), T.line, "#C0285A"],
+                ["Ficha", () => { if (onVerFicha) onVerFicha(a); }, T.line, T.textMute],
+                ["Comentario", () => { if (onEdit) onEdit(a); }, T.line, T.textMute]
+              ].map(([lbl, fn, bd, col]) => (
+                <button key={lbl} onClick={() => { fn(); setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + bd, background: bd === T.accent ? "transparent" : T.surface, color: col, fontFamily: T.sans, fontSize: 10.5, fontWeight: bd === T.accent ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>
+              ))}
             </div>
           </div>
         ) : (
@@ -2063,8 +2067,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               ["__sep", null],
               ...(activeAppt.status === "pendiente_pago" ? [["✓ Confirmar transferencia", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#1F8A5B"]] : []),
               ["Confirmar cita", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#2563EB"],
-              ["En sala de espera", () => { updateAppt(activeAppt.id, { status: "en_sala" }); setMenu(null); }, "#0E7490"],
-              ["Atendiéndose", () => { updateAppt(activeAppt.id, { status: "atendiendose" }); setMenu(null); }, "#1F8A5B"],
               ["Marcar como atendido", () => { updateAppt(activeAppt.id, { status: "atendida", attended: true }); setMenu(null); }],
               ["No asistió", () => { updateAppt(activeAppt.id, { status: "no_asistio", attended: false }); setMenu(null); }, "#C0285A"],
               ["__sep", null],
