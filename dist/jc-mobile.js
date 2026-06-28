@@ -13,6 +13,14 @@ function minsM(t) {
   const [h, m] = t.split(":");
   return parseInt(h) * 60 + parseInt(m || 0);
 }
+function apptStateM(a, T) {
+  if (a.status === "anulada") return { label: "Anulada", color: T.textFaint };
+  if (a.status === "no_asistio") return { label: "No asisti\xF3", color: "#C0285A" };
+  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#C9A227" };
+  if (a.status === "confirmada") return { label: "Confirmada", color: "#16A34A" };
+  if (a.status === "pendiente_pago") return { label: "\u23F3 Transferencia", color: "#B8860B" };
+  return { label: "Pendiente", color: T.accent };
+}
 function todayISO() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 }
@@ -171,14 +179,18 @@ function MobileShell({ T, D, onLogout }) {
 }
 function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
   const today = todayISO();
-  const upcoming = appts.filter((a) => {
+  const [filterDay, setFilterDay] = useState("all");
+  const [showAnuladas, setShowAnuladas] = useState(false);
+  const all = appts.filter((a) => {
     const f = a.fecha || offToISO(a.day || 0);
     return f >= today;
   }).sort((a, b) => {
     const fa = a.fecha || offToISO(a.day || 0), fb = b.fecha || offToISO(b.day || 0);
     return fa < fb ? -1 : fa > fb ? 1 : minsM(a.time) - minsM(b.time);
   });
-  if (!upcoming.length) return /* @__PURE__ */ React.createElement("div", { style: { padding: "60px 24px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 22, color: T.textMute, marginBottom: 10 } }, "Sin citas pr\xF3ximas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textFaint } }, 'Usa "Nueva" para agregar una cita desde el panel'));
+  const availDays = [...new Set(all.map((a) => a.fecha || offToISO(a.day || 0)))].sort();
+  const byFilter = filterDay === "all" ? all : all.filter((a) => (a.fecha || offToISO(a.day || 0)) === filterDay);
+  const upcoming = showAnuladas ? byFilter : byFilter.filter((a) => a.status !== "anulada");
   const pendPago = upcoming.filter((a) => a.status === "pendiente_pago");
   const byDate = {};
   upcoming.forEach((a) => {
@@ -186,21 +198,43 @@ function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
     if (!byDate[k]) byDate[k] = [];
     byDate[k].push(a);
   });
-  return /* @__PURE__ */ React.createElement("div", { style: { paddingBottom: 24 } }, pendPago.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { margin: "14px 14px 6px", background: "#B8860B18", border: "1px solid #B8860B44", borderRadius: 10, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "#B8860B", marginBottom: 4 } }, "\u23F3 ", pendPago.length, " transferencia", pendPago.length > 1 ? "s" : "", " por confirmar"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Revisa el comprobante y toca la cita para confirmar")), Object.entries(byDate).map(([fecha, dayAppts]) => {
-    const dt = /* @__PURE__ */ new Date(fecha + "T00:00:00");
+  const anuladasCount = byFilter.filter((a) => a.status === "anulada").length;
+  function dayLabel(iso) {
+    if (iso === today) return "Hoy";
+    const dt = /* @__PURE__ */ new Date(iso + "T00:00:00");
+    return WDS[dt.getDay()] + " " + dt.getDate() + " " + MESES[dt.getMonth()];
+  }
+  return /* @__PURE__ */ React.createElement("div", { style: { paddingBottom: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, padding: "10px 12px 8px", borderBottom: "1px solid " + T.lineSoft, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", flex: 1 } }, /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value: filterDay,
+      onChange: (e) => setFilterDay(e.target.value),
+      style: { width: "100%", fontFamily: T.sans, fontSize: 12.5, color: T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 32px 9px 12px", appearance: "none", cursor: "pointer", outline: "none" }
+    },
+    /* @__PURE__ */ React.createElement("option", { value: "all" }, "Todos los d\xEDas"),
+    availDays.map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, dayLabel(d)))
+  ), /* @__PURE__ */ React.createElement("svg", { style: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }, width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "2" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), anuladasCount > 0 && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => setShowAnuladas((v) => !v),
+      style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, border: "1px solid " + (showAnuladas ? "#C0285A" : T.line), borderRadius: 8, padding: "9px 12px", background: showAnuladas ? "#C0285A18" : T.surface, color: showAnuladas ? "#C0285A" : T.textMute, cursor: "pointer", whiteSpace: "nowrap" }
+    },
+    showAnuladas ? "Ocultar anuladas" : "Anuladas (" + anuladasCount + ")"
+  )), pendPago.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { margin: "14px 14px 6px", background: "#B8860B18", border: "1px solid #B8860B44", borderRadius: 10, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "#B8860B", marginBottom: 4 } }, "\u23F3 ", pendPago.length, " transferencia", pendPago.length > 1 ? "s" : "", " por confirmar"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Revisa el comprobante y toca la cita para confirmar")), upcoming.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "50px 24px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.textMute, marginBottom: 8 } }, "Sin citas", filterDay !== "all" ? " para este d\xEDa" : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, filterDay !== "all" ? "Selecciona otro d\xEDa" : 'Usa "Nueva" para agregar una cita')), Object.entries(byDate).map(([fecha, dayAppts]) => {
     const isToday = fecha === today;
-    const label = isToday ? "Hoy" : WDS[dt.getDay()] + " " + dt.getDate() + " " + MESES[dt.getMonth()];
-    return /* @__PURE__ */ React.createElement("div", { key: fecha, style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "0 16px 6px", fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: isToday ? T.accent : T.textMute } }, label), dayAppts.map((a) => /* @__PURE__ */ React.createElement(ApptCard, { key: a.id, T, D, appt: a, confirmPago, cancelAppt })));
+    return /* @__PURE__ */ React.createElement("div", { key: fecha, style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "0 16px 6px", fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: isToday ? T.accent : T.textMute } }, dayLabel(fecha)), dayAppts.map((a) => /* @__PURE__ */ React.createElement(ApptCard, { key: a.id, T, D, appt: a, confirmPago, cancelAppt })));
   }));
 }
 function ApptCard({ T, D, appt: a, confirmPago, cancelAppt }) {
   const isPend = a.status === "pendiente_pago";
+  const isAnulada = a.status === "anulada";
   const [open, setOpen] = useState(isPend);
   const [confirmDel, setConfirmDel] = useState(false);
-  const ac = a.attended ? "#1F8A5B" : isPend ? "#B8860B" : T.accent;
+  const st = apptStateM(a, T);
+  const ac = st.color;
   const rawPhone = (a.phone || "").replace(/\D/g, "");
   const waPhone = rawPhone.length >= 8 ? rawPhone : "";
-  return /* @__PURE__ */ React.createElement("div", { style: { margin: "0 12px 8px", borderRadius: 10, border: "1px solid " + (isPend ? "#B8860B44" : T.line), background: T.surface, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen((v) => !v), style: { width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", background: "none", border: "none", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: ac, flexShrink: 0 }, "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 15, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, a.name)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 } }, a.time, " \xB7 ", a.proc || "\u2014", " \xB7 ", a.dur || "60 min")), /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".09em", textTransform: "uppercase", color: ac, border: "1px solid " + ac + "66", borderRadius: 999, padding: "3px 8px" } }, isPend ? "\u23F3 Transferencia" : a.attended ? "Atendida" : a.status || "pendiente"))), open && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid " + T.lineSoft, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9 } }, isPend && /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { style: { margin: "0 12px 8px", borderRadius: 10, border: "1px solid " + (isAnulada ? T.lineSoft : isPend ? "#B8860B44" : T.line), background: T.surface, overflow: "hidden", opacity: isAnulada ? 0.6 : 1 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => !isAnulada && setOpen((v) => !v), style: { width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", background: "none", border: "none", cursor: isAnulada ? "default" : "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: ac, flexShrink: 0 }, "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 15, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, a.name)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 } }, a.time, " \xB7 ", a.proc || "\u2014", " \xB7 ", a.dur || "60 min")), /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".09em", textTransform: "uppercase", color: ac, border: "1px solid " + ac + "55", borderRadius: 999, padding: "3px 8px" } }, st.label))), open && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid " + T.lineSoft, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9 } }, isPend && /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => confirmPago(a.id),

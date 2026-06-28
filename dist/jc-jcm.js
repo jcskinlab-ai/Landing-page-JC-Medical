@@ -46,10 +46,13 @@ function UsuariosApp({ T }) {
   function pull() {
     if (!window.JCSAAS || !window.JCSAAS.importWebAppUsers) return;
     setSyncing(true);
-    window.JCSAAS.importWebAppUsers().then((n) => {
+    window.JCSAAS.importWebAppUsers().then(() => {
       setSyncing(false);
-      if (n > 0) setUsers(DB.get("users") || []);
-    }).catch(() => setSyncing(false));
+      setUsers(DB.get("users") || []);
+    }).catch(() => {
+      setSyncing(false);
+      setUsers(DB.get("users") || []);
+    });
   }
   const ticketsByUser = {};
   reds.forEach((r) => {
