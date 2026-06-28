@@ -1612,7 +1612,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
           </button>
         </div>
-        {onSyncWeb && <AdBtn T={T} onClick={traerWeb}>{webBusy ? "Trayendo…" : "↻ Traer reservas web"}</AdBtn>}
+        {/* "Traer reservas web": en JC Medical (base) se oculta (la importación ya es automática, menos ruido).
+            Las demás clínicas lo conservan hasta el rollout global. */}
+        {!(window.JCM_BASE === true) && onSyncWeb && <AdBtn T={T} onClick={traerWeb}>{webBusy ? "Trayendo…" : "↻ Traer reservas web"}</AdBtn>}
         <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>
       </div>
 
@@ -1776,12 +1778,28 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null); // { a, x, y } · vista previa momentánea al pasar el cursor
+  const hideT = useRef(null); // retardo para poder mover el cursor de la cita al tooltip (acciones)
+  // ── Rollout gradual de la nueva agenda (estilo Medilink barra) ──
+  // v2 = nueva agenda (semana lun→dom, profesional desplegable, hora a ambos lados, tarjeta hover con acciones).
+  // Por ahora SOLO la clínica base (JC Medical) la ve; las demás clínicas siguen con la agenda actual.
+  // Para activarla en todas, cambiar esta línea por: const v2 = true;
+  const v2 = (window.JCM_BASE === true);
   const activeAppt = menu ? appts.find(a => a.id === menu) : null;
+  // Equipo de la clínica → desplegable de profesional (ver una agenda a la vez, sin "Todos").
+  const team = (() => { try { var t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {} try { if (window.CADMIN && Array.isArray(CADMIN.team) && CADMIN.team.length) return CADMIN.team; } catch (e) {} return []; })();
+  const multiProf = team.length >= 2; // solo se filtra cuando hay 2+ profesionales
+  const firstProf = team[0] ? team[0].name : "";
+  const [selProf, setSelProf] = useState(firstProf);
+  const [profOpen, setProfOpen] = useState(false);
+  // Una cita pertenece al profesional seleccionado por su nombre; las sin profesional asignado
+  // se muestran bajo el primero (así no desaparece ninguna cita antigua o de reserva web).
+  const profMatch = a => !multiProf || ((a.prof || "").trim() ? (a.prof || "").trim() === selProf : selProf === firstProf);
+  const selProfColor = (() => { const m = team.find(x => x.name === selProf); return (m && m.color) || T.accent; })();
   const DOWS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
   const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const start = new Date(today); start.setDate(today.getDate() - today.getDay() + wkOff * 7); // domingo de la semana mostrada
+  const start = new Date(today); start.setDate(today.getDate() - (v2 ? ((today.getDay() + 6) % 7) : today.getDay()) + wkOff * 7); // v2: lunes→domingo · clásico: domingo→sábado
   const days = []; for (let i = 0; i < 7; i++) { const dt = new Date(start); dt.setDate(start.getDate() + i); days.push({ date: dt, dd: dt.getDate(), dow: DOWS[dt.getDay()], off: Math.round((dt - today) / 86400000), isToday: dt.getTime() === today.getTime() }); }
   const last = days[6].date;
   const hours = []; for (let h = 8; h <= 20; h++) hours.push(h);
@@ -1817,15 +1835,39 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         <div style={{ flex: 1, minWidth: 180, fontFamily: T.serif, fontSize: 21, color: T.text }}>
           {days[0].dd} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[start.getMonth()])}</span> – {last.getDate()} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[last.getMonth()])}</span>
         </div>
+        {v2 && team.length > 0 && (
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setProfOpen(o => !o)} title="Ver agenda de un profesional" style={{ display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: selProfColor, flexShrink: 0 }} />
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selProf || "Profesional"}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" style={{ flexShrink: 0 }}><path d="M6 9l6 6 6-6" /></svg>
+            </button>
+            {profOpen && (
+              <>
+                <div onClick={() => setProfOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 224, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, overflow: "hidden", zIndex: 61 }}>
+                  <div style={{ padding: "9px 14px 6px", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Agenda por profesional</div>
+                  {team.map(m => (
+                    <button key={m.id || m.name} onClick={() => { setSelProf(m.name); setProfOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 14px", background: m.name === selProf ? T.accent + "14" : "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: m.name === selProf ? T.accent : T.textMute }}>
+                      <span style={{ width: 9, height: 9, borderRadius: "50%", background: m.color || T.accent, flexShrink: 0 }} />
+                      <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
+                      {m.name === selProf && <span style={{ fontSize: 10 }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <button onClick={() => setWkOff(0)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "8px 16px", cursor: "pointer" }}>Hoy</button>
         <button onClick={() => setWkOff(wkOff - 1)} title="Semana anterior" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
         <button onClick={() => setWkOff(wkOff + 1)} title="Semana siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
       </div>
 
-      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "74vh", border: "1px solid " + T.line, borderRadius: 12 }}>
+      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
         <div style={{ minWidth: 900 }}>
-          {/* Encabezado días */}
-          <div style={{ display: "grid", gridTemplateColumns: "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
+          {/* Encabezado días (en v2: hora a ambos lados) */}
+          <div style={{ display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
             <div style={{ borderBottom: "1px solid " + T.line }} />
             {days.map((d, i) => (
               <div key={i} style={{ padding: "12px 4px 10px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }}>
@@ -1835,6 +1877,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   : <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, marginTop: 2 }}>{d.dd}</div>}
               </div>
             ))}
+            {v2 && <div style={{ borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }} />}
           </div>
           {/* Timeline continuo por columna */}
           <div style={{ display: "flex", position: "relative" }}>
@@ -1851,7 +1894,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             </div>
             {/* Columnas de días */}
             {days.map((d, ci) => {
-              const da = appts.filter(a => apptDayOff(a) === d.off && a.status !== "anulada" && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60);
+              const da = appts.filter(a => apptDayOff(a) === d.off && a.status !== "anulada" && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60 && (!v2 || profMatch(a)));
               return (
                 <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
                   {/* Zonas clicables (15 o 30 min según la clínica); bloqueadas si hay una cita que cubre ese tramo */}
@@ -1876,31 +1919,81 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                     const accentColor = jcmApptState(a, T).color;
                     return (
                       <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
-                        onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
-                        onMouseLeave={() => setHover(null)}
+                        onMouseEnter={e => { if (hideT.current) clearTimeout(hideT.current); const r = e.currentTarget.getBoundingClientRect(); if (v2) { let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288; setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) }); } else { setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); } }}
+                        onMouseLeave={() => { if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
                         onClick={e => { e.stopPropagation(); setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
-                        <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
+                        {v2 ? (
+                          /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve + solo el nombre (el detalle va en el hover) */
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? "26" : "1c"), border: "1px solid " + accentColor + "33", borderLeft: "4px solid " + accentColor, borderRadius: 6, padding: "0 8px", overflow: "hidden", display: "flex", alignItems: "center" }}>
                             <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                           </div>
-                          {a._h > 26 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {(parseInt(a.dur) || 60)} min{a.proc ? " · " + (isPendPago ? "⏳ Pago pendiente" : a.proc) : ""}</div>}
-                        </div>
+                        ) : (
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
+                              <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                            </div>
+                            {a._h > 26 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {(parseInt(a.dur) || 60)} min{a.proc ? " · " + (isPendPago ? "⏳ Pago pendiente" : a.proc) : ""}</div>}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               );
             })}
+            {/* Etiquetas de hora del lado derecho (solo v2: hora a ambos lados, estilo Medilink) */}
+            {v2 && (
+              <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, overflow: "hidden" }}>
+                {ADMIN_HALF_HOURS.map((hhmm, i) => {
+                  const half = hhmm.endsWith(":30");
+                  return (
+                    <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, left: 6, fontFamily: T.sans, fontSize: half ? 8.5 : 10, color: T.textFaint, opacity: half ? 0.5 : 1, pointerEvents: "none", userSelect: "none" }}>
+                      {hhmm}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
-      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 }}>Pasa el mouse por un horario libre y toca el <b style={{ color: T.accent }}>+</b> para agendar · toca una cita para ver opciones (atender, reprogramar, anular).</p>
-      {/* Vista previa momentánea al pasar el cursor sobre una cita */}
+      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 }}>Pasa el mouse por un horario libre y toca el <b style={{ color: T.accent }}>+</b> para agendar · pasa el cursor por una cita para ver el detalle y acciones.</p>
+      {/* Tarjeta al pasar el cursor: avatar + estado + tabla (Hora/Duración/Procedimiento/Estado/Profesional) + acciones rápidas.
+          Interactiva: el retardo de cierre permite mover el cursor de la cita a la tarjeta para tocar un botón. */}
       {hover && hover.a && !menu && (() => {
         const a = hover.a, isPP = a.status === "pendiente_pago";
         const _hs = jcmApptState(a, T); const ac = _hs.color, estado = _hs.label;
-        return (
+        const ini = (a.name || "").split(" ").slice(0, 2).map(w => (w[0] || "")).join("").toUpperCase();
+        const rows = [["Hora", a.time], ["Duración", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "—"], ["Estado", estado, ac]];
+        if ((a.prof || "").trim()) rows.push(["Profesional", a.prof, (team.find(x => x.name === a.prof) || {}).color || T.accent]);
+        return v2 ? (
+          <div onMouseEnter={() => { if (hideT.current) clearTimeout(hideT.current); }} onMouseLeave={() => setHover(null)}
+            style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 280, background: T.bg, border: "1px solid " + T.line, borderRadius: 12, boxShadow: "0 20px 50px -16px rgba(0,0,0,.55)", overflow: "hidden", animation: "jcFade .14s ease" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 15px 11px", borderBottom: "1px solid " + T.lineSoft }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: ac, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>{ini}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, lineHeight: 1.15 }}>{a.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: ac, marginTop: 3 }}>{estado}</div>
+              </div>
+            </div>
+            <div style={{ padding: "6px 15px 11px" }}>
+              {rows.map(([k, v, c], i) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid " + T.lineSoft : "none" }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, flexShrink: 0 }}>{k}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: c || T.text, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            {a.comentario && <div style={{ padding: "0 15px 11px" }}><div style={{ padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.comentario}</div></div>}
+            <div style={{ display: "flex", gap: 6, padding: "0 15px 13px" }}>
+              <button onClick={() => { updateAppt(a.id, { status: "confirmada" }); setHover(null); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.accent, background: "transparent", color: T.accent, fontFamily: T.sans, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Confirmar</button>
+              <button onClick={() => { updateAppt(a.id, { status: "atendida", attended: true }); setHover(null); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 11, fontWeight: 500, cursor: "pointer" }}>Atender</button>
+              <button onClick={() => { if (onVerFicha) onVerFicha(a); setHover(null); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 11, fontWeight: 500, cursor: "pointer" }}>Ficha</button>
+            </div>
+          </div>
+        ) : (
+          /* Vista clásica (otras clínicas): tabla simple, sin acciones */
           <div style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
             {[["Hora", a.time], ["Duración", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "—"], ["Estado", estado]].map(([k, v]) => (
