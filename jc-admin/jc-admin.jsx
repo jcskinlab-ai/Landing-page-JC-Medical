@@ -1805,7 +1805,7 @@ function jcmApptState(a, T) {
   if (a.status === "anulada" || a.status === "cancelada") return { key: "anulada", label: "Anulada", color: "#9AA0A6" };
   if (a.status === "no_asistio") return { key: "no_asistio", label: "No asistió", color: "#C0285A" };
   if (a.status === "atendiendose") return { key: "atendiendose", label: "Atendiéndose", color: "#1F8A5B" };
-  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#CA8A04" };
+  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#C9A227" };
   if (a.status === "en_sala") return { key: "en_sala", label: "En sala de espera", color: "#0E7490" };
   if (a.status === "pendiente_pago") return { key: "pendiente_pago", label: "⏳ Pago pendiente", color: "#B8860B" };
   if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#16A34A" };
@@ -2068,14 +2068,14 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             {a.comentario && <div style={{ padding: "0 15px 11px" }}><div style={{ padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.comentario}</div></div>}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" }}>
               {[
-                ["Confirmar", () => updateAppt(a.id, { status: "confirmada", attended: false }), T.accent, T.accent],
-                ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), T.line, T.textMute],
-                ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }), T.line, "#C0285A"],
-                ["Cancelar", () => updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }), T.line, "#C0285A"],
-                ["Ficha", () => { if (onVerFicha) onVerFicha(a); }, T.line, T.textMute],
-                ["Comentario", () => { setEditCom(a); }, T.line, T.textMute]
-              ].map(([lbl, fn, bd, col]) => (
-                <button key={lbl} onClick={() => { fn(); setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + bd, background: bd === T.accent ? "transparent" : T.surface, color: col, fontFamily: T.sans, fontSize: 10.5, fontWeight: bd === T.accent ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>
+                ["Confirmar",  () => updateAppt(a.id, { status: "confirmada", attended: false }),                      "#16A34A",  "#16A34A",  true],
+                ["Atendido",   () => updateAppt(a.id, { status: "atendida",   attended: true }),                       "#C9A227",  "#C9A227",  true],
+                ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }),                      T.line,     "#C0285A",  false],
+                ["Cancelar",   () => updateAppt(a.id, { status: "anulada",    attended: false, anuladaAt: Date.now() }), T.line,   "#C0285A",  false],
+                ["Ficha",      () => { if (onVerFicha) onVerFicha(a); },                                               T.line,     T.textMute, false],
+                ["Comentario", () => { setEditCom(a); },                                                               T.line,     T.textMute, false]
+              ].map(([lbl, fn, bd, col, accent]) => (
+                <button key={lbl} onClick={() => { fn(); setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + bd, background: accent ? "transparent" : T.surface, color: col, fontFamily: T.sans, fontSize: 10.5, fontWeight: accent ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>
               ))}
             </div>
           </div>

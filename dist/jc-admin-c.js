@@ -2631,7 +2631,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
       const fechaRaw = (r["fecha"] || r["fecha de ingreso"] || r["fecha ingreso"] || r["fecha primera consulta"] || r["fecha de registro"] || r["fecha de atenci\xF3n"] || r["fecha atencion"] || r["ingreso"] || r["date"] || "").trim();
       const fechaTs = parseFechaImp(fechaRaw);
       const fechaISO = isoFromTs(fechaTs);
-      const proc = (r["procedimiento"] || r["procedimientos"] || r["tratamiento"] || r["tratamientos"] || r["servicio"] || r["proc"] || "").trim();
+      const proc = (r["procedimiento realizado"] || r["procedimiento"] || r["procedimientos"] || r["tratamiento"] || r["tratamientos"] || r["servicio"] || r["proc"] || "").trim();
       const importHist = proc ? [{ id: newSid(), date: fechaISO || isoFromTs(Date.now()), proc, note: "Importado del Excel", imported: true }] : null;
       const existing = (patients || []).find((p) => rutNorm.length >= 5 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase() === rutNorm || (p.name || "").toLowerCase() === name.toLowerCase());
       if (existing) {
@@ -2641,6 +2641,8 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
           patch.fechaImport = fechaRaw;
           patch.fechaTs = fechaTs;
         }
+        if (phone && !existing.phone) patch.phone = phone;
+        if (email && !existing.email) patch.email = email;
         if (importHist && importHist[0]) {
           const newH = importHist[0];
           const eh = existing.history || [];

@@ -3150,7 +3150,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
       const fechaTs = parseFechaImp(fechaRaw);
       const fechaISO = isoFromTs(fechaTs);
       // Procedimiento realizado (para crear la sesión y reactivar la campaña de re-cita).
-      const proc = (r["procedimiento"] || r["procedimientos"] || r["tratamiento"] || r["tratamientos"] || r["servicio"] || r["proc"] || "").trim();
+      const proc = (r["procedimiento realizado"] || r["procedimiento"] || r["procedimientos"] || r["tratamiento"] || r["tratamientos"] || r["servicio"] || r["proc"] || "").trim();
       // Sesión de historial a partir del Excel (solo si trae procedimiento).
       const importHist = proc ? [{ id: newSid(), date: fechaISO || isoFromTs(Date.now()), proc: proc, note: "Importado del Excel", imported: true }] : null;
       // ¿Ya existe? (por RUT o por nombre). Conserva el registro, pero le completa la fecha si le falta.
@@ -3163,6 +3163,9 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
         // (así, al resubir el Excel, la campaña de re-cita se reactiva aunque el paciente ya existiera).
         const patch = {};
         if (fechaTs && !existing.fechaTs) { patch.fechaImport = fechaRaw; patch.fechaTs = fechaTs; }
+        // Completar teléfono y email si el registro existente los tiene vacíos
+        if (phone && !existing.phone) patch.phone = phone;
+        if (email && !existing.email) patch.email = email;
         if (importHist && importHist[0]) {
           const newH = importHist[0];
           const eh = existing.history || [];

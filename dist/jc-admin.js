@@ -1525,7 +1525,7 @@ function jcmApptState(a, T) {
   if (a.status === "anulada" || a.status === "cancelada") return { key: "anulada", label: "Anulada", color: "#9AA0A6" };
   if (a.status === "no_asistio") return { key: "no_asistio", label: "No asisti\xF3", color: "#C0285A" };
   if (a.status === "atendiendose") return { key: "atendiendose", label: "Atendi\xE9ndose", color: "#1F8A5B" };
-  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#CA8A04" };
+  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#C9A227" };
   if (a.status === "en_sala") return { key: "en_sala", label: "En sala de espera", color: "#0E7490" };
   if (a.status === "pendiente_pago") return { key: "pendiente_pago", label: "\u23F3 Pago pendiente", color: "#B8860B" };
   if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#16A34A" };
@@ -1707,20 +1707,20 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 15px 11px" } }, rows.map(([k, v, c], i) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid " + T.lineSoft : "none" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, flexShrink: 0 } }, k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: c || T.text, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, v)))),
       a.comentario && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 15px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)),
       /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" } }, [
-        ["Confirmar", () => updateAppt(a.id, { status: "confirmada", attended: false }), T.accent, T.accent],
-        ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), T.line, T.textMute],
-        ["No asisti\xF3", () => updateAppt(a.id, { status: "no_asistio", attended: false }), T.line, "#C0285A"],
-        ["Cancelar", () => updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }), T.line, "#C0285A"],
+        ["Confirmar", () => updateAppt(a.id, { status: "confirmada", attended: false }), "#16A34A", "#16A34A", true],
+        ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), "#C9A227", "#C9A227", true],
+        ["No asisti\xF3", () => updateAppt(a.id, { status: "no_asistio", attended: false }), T.line, "#C0285A", false],
+        ["Cancelar", () => updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }), T.line, "#C0285A", false],
         ["Ficha", () => {
           if (onVerFicha) onVerFicha(a);
-        }, T.line, T.textMute],
+        }, T.line, T.textMute, false],
         ["Comentario", () => {
           setEditCom(a);
-        }, T.line, T.textMute]
-      ].map(([lbl, fn, bd, col]) => /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: () => {
+        }, T.line, T.textMute, false]
+      ].map(([lbl, fn, bd, col, accent]) => /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: () => {
         fn();
         setHover(null);
-      }, style: { height: 30, borderRadius: 7, border: "1px solid " + bd, background: bd === T.accent ? "transparent" : T.surface, color: col, fontFamily: T.sans, fontSize: 10.5, fontWeight: bd === T.accent ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" } }, lbl)))
+      }, style: { height: 30, borderRadius: 7, border: "1px solid " + bd, background: accent ? "transparent" : T.surface, color: col, fontFamily: T.sans, fontSize: 10.5, fontWeight: accent ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" } }, lbl)))
     ) : (
       /* Vista clásica (otras clínicas): tabla simple, sin acciones */
       /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 } }, a.name), [["Hora", a.time], ["Duraci\xF3n", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "\u2014"], ["Estado", estado]].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 500, textAlign: "right" } }, v))), a.comentario && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 3 } }, "Comentario"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)))
