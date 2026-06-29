@@ -70,10 +70,10 @@ function UsuariosApp({ T }) {
     const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8,﻿" + encodeURIComponent(csv); a.download = "usuarios-app.csv"; a.click();
   }
   const rulesCode = `match /tenants/{clinicId}/appusers/{doc} {
-  allow create: if request.resource.data.keys().hasOnly(
+  allow create, update: if request.resource.data.keys().hasOnly(
     ['name','phone','email','points','created','createdAt']
   ) && request.resource.data.size() < 1000;
-  allow read, update, delete: if request.auth != null;
+  allow read, delete: if request.auth != null;
 }`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

@@ -629,7 +629,12 @@
     submitAppUser: function (data) {
       if (!db || !state.clinicId) return Promise.resolve(null);
       var safe = { name: data.name || '', phone: data.phone || '', email: data.email || '', points: data.points || 0, created: data.created || new Date().toISOString(), createdAt: Date.now() };
-      return db.collection('tenants').doc(state.clinicId).collection('appusers').add(safe).catch(noop);
+      // Usar teléfono normalizado como ID del doc → idempotente (updates en lugar de duplicados)
+      var docId = (data.phone || '').replace(/\D/g, '');
+      var ref = docId.length >= 6
+        ? db.collection('tenants').doc(state.clinicId).collection('appusers').doc(docId)
+        : db.collection('tenants').doc(state.clinicId).collection('appusers').doc();
+      return ref.set(safe).catch(noop);
     },
     importWebAppUsers: function () {
       if (!db || !state.clinicId || !window.DB) return Promise.resolve(0);

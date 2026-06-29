@@ -110,6 +110,15 @@ service cloud.firestore {
       allow read, update, delete: if signedIn() && myClinic() == clinicId;
     }
 
+    // Usuarios registrados en la app de la clínica (sin login al crear/actualizar).
+    // El doc ID es el teléfono normalizado (solo dígitos) → idempotente.
+    match /tenants/{clinicId}/appusers/{doc} {
+      allow create, update: if request.resource.data.keys().hasOnly(
+                        ['name','phone','email','points','created','createdAt']
+                    ) && request.resource.data.size() < 1000;
+      allow read, delete: if signedIn() && myClinic() == clinicId;
+    }
+
     // Reseñas que dejan los pacientes desde el formulario público (sin login).
     match /tenants/{clinicId}/reviews/{id} {
       allow create: if request.resource.data.keys().hasOnly(['name','phone','stars','comment','createdAt'])

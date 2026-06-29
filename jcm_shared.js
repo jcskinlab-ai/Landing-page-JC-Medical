@@ -461,6 +461,8 @@ async function jcmLogin(phone, password) {
   }
 
   _attReset(key);
+  // Sincronizar con Firestore en cada login (sube usuarios existentes que nunca llegaron)
+  try { if (window.JCSAAS && window.JCSAAS.submitAppUser) window.JCSAAS.submitAppUser({ name: user.name, phone: user.phone, email: user.email, points: user.points, created: user.created }); } catch (e) {}
   return { ok:true, user };
 }
 
