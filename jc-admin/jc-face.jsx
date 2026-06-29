@@ -106,16 +106,36 @@ function photoQuality(dataUrl) {
 }
 
 const FACEMESH_SRC = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js";
-// Detecta 468 landmarks faciales en el navegador. Devuelve {lm, W, H} o lanza error.
-async function detectFaceMesh(dataUrl) {
+const FACEMESH_CDN = f => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/" + f;
+// Instancia cacheada para no re-inicializar el WASM en cada análisis (primera carga ~8–15 s).
+let _fmInstance = null;
+let _fmReady = false;
+
+async function getFaceMesh() {
   await loadScriptOnce(FACEMESH_SRC);
   if (!window.FaceMesh) throw new Error("El modelo de IA no está disponible.");
+  if (!_fmInstance) {
+    _fmInstance = new window.FaceMesh({ locateFile: FACEMESH_CDN });
+    _fmInstance.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.4 });
+    // onResults se sobreescribe en cada llamada; la instancia se reutiliza.
+    await new Promise((res, rej) => {
+      const t = setTimeout(() => { _fmInstance = null; rej(new Error("El modelo tardó demasiado en cargar. Revisa tu conexión e intenta de nuevo.")); }, 60000);
+      _fmInstance.onResults(() => { clearTimeout(t); _fmReady = true; res(); });
+      // Imagen mínima para forzar la inicialización del WASM.
+      const c = document.createElement("canvas"); c.width = 8; c.height = 8;
+      _fmInstance.send({ image: c }).catch(() => { clearTimeout(t); _fmReady = true; res(); });
+    });
+  }
+  return _fmInstance;
+}
+
+// Detecta 468 landmarks faciales en el navegador. Devuelve {lm, W, H} o lanza error.
+async function detectFaceMesh(dataUrl) {
+  const fm = await getFaceMesh();
   const img = await loadImg(dataUrl);
   return await new Promise((resolve, reject) => {
-    const to = setTimeout(() => reject(new Error("La detección tardó demasiado. Intenta con otra foto.")), 20000);
+    const to = setTimeout(() => reject(new Error("La detección tardó demasiado. Intenta con otra foto.")), 45000);
     try {
-      const fm = new window.FaceMesh({ locateFile: f => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/" + f });
-      fm.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.4 });
       fm.onResults(r => {
         clearTimeout(to);
         const l = r.multiFaceLandmarks && r.multiFaceLandmarks[0];
@@ -847,7 +867,19 @@ function RickettsTool({ T, patient, updatePatient }) {
             {photo && (
               <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
                 {marks.nariz && marks.menton && <line x1={marks.nariz.x * 100} y1={marks.nariz.y * 100} x2={marks.menton.x * 100} y2={marks.menton.y * 100} stroke={T.accent} strokeWidth="1.4" strokeOpacity="0.85" vectorEffect="non-scaling-stroke" />}
-                {RICK_STEPS.map(([k]) => { const c = (k === "lsup" || k === "linf") ? "#E0607A" : T.accent; return marks[k] && <circle key={k} cx={marks[k].x * 100} cy={marks[k].y * 100} r="0.85" fill={c} fillOpacity="0.3" stroke={c} strokeWidth="1.4" vectorEffect="non-scaling-stroke" />; })}
+                {RICK_STEPS.map(([k]) => {
+                  const c = (k === "lsup" || k === "linf") ? "#E0607A" : T.accent;
+                  return marks[k] && (
+                    <g key={k} vectorEffect="non-scaling-stroke">
+                      {/* halo exterior suave */}
+                      <circle cx={marks[k].x * 100} cy={marks[k].y * 100} r="1.1" fill={c} fillOpacity="0.08" stroke="none" vectorEffect="non-scaling-stroke" />
+                      {/* cuerpo glass: relleno casi transparente + borde fino */}
+                      <circle cx={marks[k].x * 100} cy={marks[k].y * 100} r="0.45" fill="rgba(255,255,255,0.18)" stroke={c} strokeWidth="0.9" strokeOpacity="0.75" vectorEffect="non-scaling-stroke" />
+                      {/* punto central sólido pequeño */}
+                      <circle cx={marks[k].x * 100} cy={marks[k].y * 100} r="0.15" fill={c} fillOpacity="0.9" stroke="none" vectorEffect="non-scaling-stroke" />
+                    </g>
+                  );
+                })}
               </svg>
             )}
           </div>

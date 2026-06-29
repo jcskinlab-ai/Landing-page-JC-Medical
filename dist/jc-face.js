@@ -166,15 +166,43 @@ function photoQuality(dataUrl) {
   });
 }
 const FACEMESH_SRC = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js";
-async function detectFaceMesh(dataUrl) {
+const FACEMESH_CDN = (f) => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/" + f;
+let _fmInstance = null;
+let _fmReady = false;
+async function getFaceMesh() {
   await loadScriptOnce(FACEMESH_SRC);
   if (!window.FaceMesh) throw new Error("El modelo de IA no est\xE1 disponible.");
+  if (!_fmInstance) {
+    _fmInstance = new window.FaceMesh({ locateFile: FACEMESH_CDN });
+    _fmInstance.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.4 });
+    await new Promise((res, rej) => {
+      const t = setTimeout(() => {
+        _fmInstance = null;
+        rej(new Error("El modelo tard\xF3 demasiado en cargar. Revisa tu conexi\xF3n e intenta de nuevo."));
+      }, 6e4);
+      _fmInstance.onResults(() => {
+        clearTimeout(t);
+        _fmReady = true;
+        res();
+      });
+      const c = document.createElement("canvas");
+      c.width = 8;
+      c.height = 8;
+      _fmInstance.send({ image: c }).catch(() => {
+        clearTimeout(t);
+        _fmReady = true;
+        res();
+      });
+    });
+  }
+  return _fmInstance;
+}
+async function detectFaceMesh(dataUrl) {
+  const fm = await getFaceMesh();
   const img = await loadImg(dataUrl);
   return await new Promise((resolve, reject) => {
-    const to = setTimeout(() => reject(new Error("La detecci\xF3n tard\xF3 demasiado. Intenta con otra foto.")), 2e4);
+    const to = setTimeout(() => reject(new Error("La detecci\xF3n tard\xF3 demasiado. Intenta con otra foto.")), 45e3);
     try {
-      const fm = new window.FaceMesh({ locateFile: (f) => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/" + f });
-      fm.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.4 });
       fm.onResults((r) => {
         clearTimeout(to);
         const l = r.multiFaceLandmarks && r.multiFaceLandmarks[0];
@@ -687,7 +715,7 @@ function RickettsTool({ T, patient, updatePatient }) {
   }
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.55 } }, "Sube una foto de ", /* @__PURE__ */ React.createElement("b", null, "perfil"), " y marca 4 puntos: la l\xEDnea est\xE9tica E de Ricketts une la ", /* @__PURE__ */ React.createElement("b", null, "punta de la nariz"), " con el ", /* @__PURE__ */ React.createElement("b", null, "ment\xF3n"), "; se eval\xFAa cu\xE1nto sobresalen los labios respecto a esa l\xEDnea."), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "minmax(220px, 330px) 1fr", gap: 18, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onUpload, style: { display: "none" } }), /* @__PURE__ */ React.createElement("div", { ref: areaRef, onClick: clickArea, style: { position: "relative", aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", border: "1px solid " + T.line, background: T.surface, cursor: photo && next ? "crosshair" : "default", display: "flex", alignItems: "center", justifyContent: "center" } }, photo ? /* @__PURE__ */ React.createElement("img", { src: photo, alt: "Perfil", style: { width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" } }) : /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", color: T.textFaint, fontFamily: T.sans, fontSize: 12, padding: 20 } }, "Sin foto de perfil"), photo && /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 100 100", preserveAspectRatio: "none", style: { position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" } }, marks.nariz && marks.menton && /* @__PURE__ */ React.createElement("line", { x1: marks.nariz.x * 100, y1: marks.nariz.y * 100, x2: marks.menton.x * 100, y2: marks.menton.y * 100, stroke: T.accent, strokeWidth: "1.4", strokeOpacity: "0.85", vectorEffect: "non-scaling-stroke" }), RICK_STEPS.map(([k]) => {
     const c = k === "lsup" || k === "linf" ? "#E0607A" : T.accent;
-    return marks[k] && /* @__PURE__ */ React.createElement("circle", { key: k, cx: marks[k].x * 100, cy: marks[k].y * 100, r: "0.85", fill: c, fillOpacity: "0.3", stroke: c, strokeWidth: "1.4", vectorEffect: "non-scaling-stroke" });
+    return marks[k] && /* @__PURE__ */ React.createElement("g", { key: k, vectorEffect: "non-scaling-stroke" }, /* @__PURE__ */ React.createElement("circle", { cx: marks[k].x * 100, cy: marks[k].y * 100, r: "1.1", fill: c, fillOpacity: "0.08", stroke: "none", vectorEffect: "non-scaling-stroke" }), /* @__PURE__ */ React.createElement("circle", { cx: marks[k].x * 100, cy: marks[k].y * 100, r: "0.45", fill: "rgba(255,255,255,0.18)", stroke: c, strokeWidth: "0.9", strokeOpacity: "0.75", vectorEffect: "non-scaling-stroke" }), /* @__PURE__ */ React.createElement("circle", { cx: marks[k].x * 100, cy: marks[k].y * 100, r: "0.15", fill: c, fillOpacity: "0.9", stroke: "none", vectorEffect: "non-scaling-stroke" }));
   }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => fileRef.current.click(), style: ghostBtn(T) }, photo ? "Cambiar foto" : "Subir perfil"), photo && /* @__PURE__ */ React.createElement("button", { onClick: reset, style: ghostBtn(T) }, "Reiniciar puntos")), photo && next && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontFamily: T.sans, fontSize: 12, color: T.accent } }, "Toca: ", /* @__PURE__ */ React.createElement("b", null, next[1]))), /* @__PURE__ */ React.createElement("div", null, !report && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, padding: "26px 14px", textAlign: "center", border: "1px dashed " + T.line, borderRadius: 10 } }, "Marca los 4 puntos para trazar la l\xEDnea E y evaluar la posici\xF3n de los labios."), report && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 } }, "L\xEDnea est\xE9tica de Ricketts"), [["Labio superior", report.su, report.iu], ["Labio inferior", report.sl, report.il]].map(([lbl, v, it]) => /* @__PURE__ */ React.createElement("div", { key: lbl, style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "9px 0", borderBottom: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, lbl), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: v > 4 ? "#C0285A" : v < -4 ? T.accent : "#1F8A5B" } }, v >= 0 ? "+" : "", v.toFixed(1), " \xB7 ", it))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 12, lineHeight: 1.55 } }, "Referencia: en el adulto los labios suelen quedar ligeramente por detr\xE1s de la l\xEDnea E (labio superior \u2248 \u22124, inferior \u2248 \u22122). Valores positivos indican protrusi\xF3n labial. Medida relativa al largo de la l\xEDnea nariz\u2013ment\xF3n."), rickRecs.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 7 } }, "Sugerencias"), rickRecs.map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5, marginBottom: 5, paddingLeft: 12, position: "relative" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, color: T.accent } }, "\xB7"), r))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 10, lineHeight: 1.5 } }, "An\xE1lisis orientativo, no sustituye un cefalograma. El criterio cl\xEDnico prevalece.")))));
 }
 function MarquardtTool({ T, patient, updatePatient }) {
