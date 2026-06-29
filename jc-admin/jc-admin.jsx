@@ -2025,8 +2025,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                         {v2 ? (
                           /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve + solo el nombre (el detalle va en el hover) */
                           <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? "26" : "1c"), border: "1px solid " + accentColor + "33", borderLeft: "4px solid " + accentColor, borderRadius: 6, padding: "0 6px 0 5px", overflow: "hidden", display: "flex", alignItems: "center", gap: 5 }}>
-                            {a.proc && <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
                             <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                            {a.proc && <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
                           </div>
                         ) : (
                           <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
