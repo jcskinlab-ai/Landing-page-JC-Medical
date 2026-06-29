@@ -1,4 +1,4 @@
-/* ═══════════ JC Medical · Panel Móvil v1 ═══════════ */
+/* ═══════════ JC Medical · Panel Móvil v2 ═══════════ */
 
 const HALF_HOURS = (() => {
   const s = [];
@@ -7,6 +7,7 @@ const HALF_HOURS = (() => {
 })();
 const WDS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
 function minsM(t) { if (!t) return 0; const [h,m] = t.split(":"); return parseInt(h)*60+parseInt(m||0); }
 function apptStateM(a, T) {
   if (a.status === "anulada")        return { label: "Anulada",     color: T.textFaint };
@@ -16,10 +17,26 @@ function apptStateM(a, T) {
   if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#B8860B" };
   return { label: "Pendiente", color: T.accent };
 }
-function todayISO() { return new Date().toISOString().slice(0,10); }
-function offToISO(off) { const d = new Date(); d.setDate(d.getDate()+off); return d.toISOString().slice(0,10); }
+
+// Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
+function localISO(d) {
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function todayISO() { return localISO(new Date()); }
+function offToISO(off) { const d = new Date(); d.setDate(d.getDate()+off); return localISO(d); }
 function isoToDayOff(iso) { const d = new Date(iso+"T00:00:00"), t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
 function procList() { try { return window.JCDATA.catalog.reduce((a,s) => { s.groups.forEach(g => g.items.forEach(it => a.push(it.n))); return a; }, []); } catch(e) { return []; } }
+function durOf(a) { return a.dur || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc)+" min" : "30 min"); }
+
+/* ─── 7 días fijos desde hoy ─── */
+function weekDays() {
+  return Array.from({length:7}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate()+i);
+    const iso = localISO(d);
+    const label = i===0 ? "Hoy" : WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()];
+    return { iso, label, wd: WDS[d.getDay()], dd: d.getDate(), i };
+  });
+}
 
 /* ─── Login ─── */
 function LoginScreen({ T, onAuth }) {
@@ -32,7 +49,6 @@ function LoginScreen({ T, onAuth }) {
     if (!pass.trim()) return;
     setBusy(true); setErr("");
     try {
-      // Mismo acceso que el panel admin: en login basta la contraseña (usa el usuario ya registrado).
       const storedUser = (window.jcmAdminUser && window.jcmAdminUser()) || user || "admin";
       const r = setup ? await window.jcmAdminSetPass(pass, user||"admin") : await window.jcmAdminCheck(storedUser, pass);
       if (!r.ok) { setErr(r.msg); setBusy(false); return; }
@@ -62,6 +78,14 @@ function LoginScreen({ T, onAuth }) {
 function MobileShell({ T, D, onLogout }) {
   const [tab, setTab] = useState("citas");
   const [appts, setAppts] = useState(() => (window.DB&&window.DB.get("appointments"))||[]);
+
+  // Escucha cambios en tiempo real (desde Firestore via liveKv)
+  useEffect(() => {
+    function reload() { setAppts((window.DB&&window.DB.get("appointments"))||[]); }
+    window.addEventListener("jcm:appts", reload);
+    window.addEventListener("jcsaas:data", reload);
+    return () => { window.removeEventListener("jcm:appts", reload); window.removeEventListener("jcsaas:data", reload); };
+  }, []);
 
   function saveAppts(updated) { window.DB&&window.DB.set("appointments", updated); setAppts(updated); }
 
@@ -111,6 +135,7 @@ function MobileShell({ T, D, onLogout }) {
     { id:"citas",    lbl:"Citas",    icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
     { id:"horarios", lbl:"Horarios", icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> },
     { id:"nueva",    lbl:"Nueva",    icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 5v14M5 12h14"/></svg> },
+    { id:"agenda",   lbl:"Agenda",   icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg> },
   ];
 
   return (
@@ -140,6 +165,7 @@ function MobileShell({ T, D, onLogout }) {
         {tab==="citas"    && <CitasTab    T={T} D={D} appts={appts} confirmPago={confirmPago} cancelAppt={cancelAppt} />}
         {tab==="horarios" && <HorariosTab T={T} appts={appts} />}
         {tab==="nueva"    && <NuevaTab    T={T} D={D} appts={appts} addAppt={(a)=>{ addAppt(a); setTab("citas"); }} />}
+        {tab==="agenda"   && <AgendaTab   T={T} appts={appts} />}
       </div>
 
       {/* Tab bar */}
@@ -159,6 +185,8 @@ function MobileShell({ T, D, onLogout }) {
 /* ─── Tab Citas ─── */
 function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
   const today = todayISO();
+  // Selector de días: 7 días fijos desde hoy, independiente de si hay citas
+  const days = weekDays();
   const [filterDay, setFilterDay] = useState("all");
   const [showAnuladas, setShowAnuladas] = useState(false);
 
@@ -169,10 +197,6 @@ function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
       return fa<fb?-1:fa>fb?1:minsM(a.time)-minsM(b.time);
     });
 
-  // Días únicos con citas para el selector
-  const availDays = [...new Set(all.map(a => a.fecha||offToISO(a.day||0)))].sort();
-
-  // Filtrar por día seleccionado y anuladas
   const byFilter = filterDay === "all" ? all : all.filter(a => (a.fecha||offToISO(a.day||0)) === filterDay);
   const upcoming = showAnuladas ? byFilter : byFilter.filter(a => a.status !== "anulada");
 
@@ -190,13 +214,13 @@ function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
 
   return (
     <div style={{ paddingBottom:24 }}>
-      {/* Controles: selector de día + toggle anuladas */}
+      {/* Controles: selector de día (7 días) + toggle anuladas */}
       <div style={{ display:"flex", gap:8, padding:"10px 12px 8px", borderBottom:"1px solid "+T.lineSoft, alignItems:"center" }}>
         <div style={{ position:"relative", flex:1 }}>
           <select value={filterDay} onChange={e=>setFilterDay(e.target.value)}
             style={{ width:"100%", fontFamily:T.sans, fontSize:12.5, color:T.text, background:T.surface, border:"1px solid "+T.line, borderRadius:8, padding:"9px 32px 9px 12px", appearance:"none", cursor:"pointer", outline:"none" }}>
             <option value="all">Todos los días</option>
-            {availDays.map(d => <option key={d} value={d}>{dayLabel(d)}</option>)}
+            {days.map(d => <option key={d.iso} value={d.iso}>{d.label}</option>)}
           </select>
           <svg style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
         </div>
@@ -246,6 +270,7 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt }) {
   const ac = st.color;
   const rawPhone = (a.phone||"").replace(/\D/g,"");
   const waPhone = rawPhone.length>=8 ? rawPhone : "";
+  const durLabel = durOf(a);
 
   return (
     <div style={{ margin:"0 12px 8px", borderRadius:10, border:"1px solid "+(isAnulada?T.lineSoft:isPend?"#B8860B44":T.line), background:T.surface, overflow:"hidden", opacity:isAnulada?.6:1 }}>
@@ -255,7 +280,7 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt }) {
             <span style={{ width:8, height:8, borderRadius:"50%", background:ac, flexShrink:0 }} aria-hidden="true" />
             <span style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.name}</span>
           </div>
-          <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, marginTop:2 }}>{a.time} · {a.proc||"—"} · {a.dur||"60 min"}</div>
+          <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, marginTop:2 }}>{a.time} · {a.proc||"—"} · {durLabel}</div>
         </div>
         <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
           <span style={{ fontFamily:T.sans, fontSize:9.5, letterSpacing:".09em", textTransform:"uppercase", color:ac, border:"1px solid "+ac+"55", borderRadius:999, padding:"3px 8px" }}>
@@ -274,7 +299,7 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt }) {
           )}
           <div style={{ display:"flex", gap:8 }}>
             {waPhone && (
-              <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+a.name+", confirmamos tu cita en JC Medical:\n📅 "+(a.fecha||"")+" · "+a.time+" hrs\n📍 Dirección 1 poniente 1258, edificio plaza poniente, oficina 101. A media cuadra de la plaza de armas de Talca.\n💉 "+(a.proc||"")+" ("+(a.dur||((window.JCDATA&&window.JCDATA.procMin&&window.JCDATA.procMin(a.proc)+" min")||"30 min"))+")\n⏰ La espera máxima para su atención es de 15 minutos, para no retrasar las atenciones siguientes")}
+              <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+a.name+", confirmamos tu cita en JC Medical:\n📅 "+(a.fecha||"")+" · "+a.time+" hrs\n📍 Dirección 1 poniente 1258, edificio plaza poniente, oficina 101. A media cuadra de la plaza de armas de Talca.\n💉 "+(a.proc||"")+" ("+durLabel+")\n⏰ La espera máxima para su atención es de 15 minutos, para no retrasar las atenciones siguientes")}
                 target="_blank" rel="noopener"
                 style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"#1F8A5B22", border:"1px solid #1F8A5B55", borderRadius:8, padding:"12px", textDecoration:"none", color:"#1F8A5B", fontFamily:T.sans, fontSize:12, fontWeight:500 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="#1F8A5B"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z"/></svg>
@@ -298,7 +323,7 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt }) {
 /* ─── Tab Horarios ─── */
 function HorariosTab({ T, appts }) {
   const [selOff, setSelOff] = useState(0);
-  const days = Array.from({length:14},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+i); return { off:i, iso:d.toISOString().slice(0,10), wd:WDS[d.getDay()], dd:d.getDate() }; });
+  const days = Array.from({length:14},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+i); return { off:i, iso:localISO(d), wd:WDS[d.getDay()], dd:d.getDate() }; });
   const selDay = days[selOff];
   const [slotsMap, setSlotsMap] = useState(()=>JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}"));
   const avail = slotsMap[selDay.iso]!=null ? slotsMap[selDay.iso] : HALF_HOURS.slice();
@@ -320,7 +345,6 @@ function HorariosTab({ T, appts }) {
 
   return (
     <div>
-      {/* Day strip */}
       <div style={{ overflowX:"auto", borderBottom:"1px solid "+T.line }}>
         <div style={{ display:"flex", gap:8, padding:"12px 14px", minWidth:"max-content" }}>
           {days.map((d,i)=>(
@@ -332,8 +356,6 @@ function HorariosTab({ T, appts }) {
           ))}
         </div>
       </div>
-
-      {/* Stats + quick actions */}
       <div style={{ padding:"12px 14px", display:"flex", alignItems:"center", gap:10, borderBottom:"1px solid "+T.lineSoft }}>
         <div style={{ flex:1, fontFamily:T.sans, fontSize:11, color:T.textMute }}>
           <span style={{ color:"#1F8A5B", fontWeight:600 }}>{availCount}</span> disponibles · <span style={{ color:T.textFaint }}>{blockedCount}</span> bloqueadas · <span style={{ color:"#B8860B", fontWeight:600 }}>{occupied.size}</span> con cita
@@ -341,8 +363,6 @@ function HorariosTab({ T, appts }) {
         <button onClick={openAll}  style={{ background:"#1F8A5B18", border:"1px solid #1F8A5B44", color:"#1F8A5B", borderRadius:6, padding:"8px 12px", fontFamily:T.sans, fontSize:10.5, cursor:"pointer" }}>Abrir todo</button>
         <button onClick={blockAll} style={{ background:"#C0285A18", border:"1px solid #C0285A44", color:"#C0285A", borderRadius:6, padding:"8px 12px", fontFamily:T.sans, fontSize:10.5, cursor:"pointer" }}>Bloquear todo</button>
       </div>
-
-      {/* Leyenda */}
       <div style={{ display:"flex", gap:14, padding:"10px 14px 6px" }}>
         {[["#1F8A5B","Disponible"],["#C0285A","Bloqueado"],["#B8860B","Con cita"]].map(([c,l])=>(
           <div key={l} style={{ display:"flex", alignItems:"center", gap:5 }}>
@@ -351,8 +371,6 @@ function HorariosTab({ T, appts }) {
           </div>
         ))}
       </div>
-
-      {/* Grid de slots */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7, padding:"6px 12px 30px" }}>
         {HALF_HOURS.map(slot=>{
           const isOcc = occupied.has(slot);
@@ -375,6 +393,118 @@ function HorariosTab({ T, appts }) {
   );
 }
 
+/* ─── Tab Agenda (calendario estilo iPhone) ─── */
+const CAL_PX_HOUR = 64; // píxeles por hora
+const CAL_START   = 8;  // primera hora visible
+const CAL_END     = 20; // última hora visible
+const CAL_HOURS   = Array.from({length: CAL_END - CAL_START + 1}, (_,i) => CAL_START + i);
+
+function AgendaTab({ T, appts }) {
+  const today = todayISO();
+  const days = weekDays();
+  const [selDay, setSelDay] = useState(today);
+  const dayRef = useMemo(() => React.createRef(), []);
+
+  // Citas del día seleccionado, excluyendo anuladas
+  const dayAppts = appts
+    .filter(a => {
+      const f = a.fecha || offToISO(a.day||0);
+      return f === selDay && a.status !== "anulada";
+    })
+    .sort((a,b) => minsM(a.time) - minsM(b.time));
+
+  // Scroll automático a la primera cita del día (o a las 8:00 si no hay)
+  useEffect(() => {
+    if (!dayRef.current) return;
+    const firstMin = dayAppts.length ? minsM(dayAppts[0].time) : CAL_START * 60;
+    const targetPx = Math.max(0, (firstMin - CAL_START * 60 - 30) * (CAL_PX_HOUR / 60));
+    dayRef.current.scrollTop = targetPx;
+  }, [selDay]);
+
+  function apptBlock(a) {
+    const startMin = minsM(a.time);
+    const durMin = parseInt(a.dur) || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+    const topPx   = (startMin - CAL_START * 60) * (CAL_PX_HOUR / 60);
+    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 28);
+    const st = apptStateM(a, T);
+    return (
+      <div key={a.id} style={{
+        position:"absolute",
+        top: topPx,
+        left: 0,
+        right: 0,
+        height: heightPx,
+        background: st.color + "1A",
+        borderTop: "2px solid " + st.color,
+        borderRadius: 6,
+        padding: "3px 8px",
+        overflow:"hidden",
+        boxSizing:"border-box",
+        cursor:"default"
+      }}>
+        <div style={{ fontFamily:T.sans, fontSize:11.5, fontWeight:700, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.3 }}>{a.name}</div>
+        {heightPx > 30 && (
+          <div style={{ fontFamily:T.sans, fontSize:10, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            {a.time} · {a.proc||"—"}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"calc(100dvh - 130px)" }}>
+      {/* Selector de días: 7 días con scroll horizontal */}
+      <div style={{ overflowX:"auto", borderBottom:"1px solid "+T.line, flexShrink:0, WebkitOverflowScrolling:"touch" }}>
+        <div style={{ display:"flex", padding:"10px 10px 8px", minWidth:"max-content", gap:2 }}>
+          {days.map(d => {
+            const isSel = d.iso === selDay;
+            const isToday = d.iso === today;
+            return (
+              <button key={d.iso} onClick={()=>setSelDay(d.iso)}
+                style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"7px 10px", borderRadius:10, minWidth:46, border:"none",
+                  background: isSel ? T.accent : "transparent", cursor:"pointer" }}>
+                <span style={{ fontFamily:T.sans, fontSize:9, letterSpacing:".06em", textTransform:"uppercase", color: isSel ? T.onAccent : T.textMute }}>
+                  {d.i===0 ? "HOY" : d.wd.toUpperCase()}
+                </span>
+                <span style={{ fontFamily:T.sans, fontSize:22, fontWeight: isToday ? "700" : "400", color: isSel ? T.onAccent : T.text, lineHeight:1.2 }}>
+                  {d.dd}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Timeline vertical */}
+      <div ref={dayRef} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
+        <div style={{ position:"relative", marginLeft:48, paddingRight:12 }}>
+          {/* Líneas de hora */}
+          {CAL_HOURS.map(h => (
+            <div key={h} style={{ position:"absolute", left:-48, right:0, top: (h - CAL_START) * CAL_PX_HOUR, display:"flex", alignItems:"flex-start", zIndex:1 }}>
+              <span style={{ fontFamily:T.sans, fontSize:10, color:T.textFaint, width:42, textAlign:"right", paddingRight:8, lineHeight:1, transform:"translateY(-5px)", flexShrink:0 }}>
+                {h<10?"0"+h:""+h}:00
+              </span>
+              <div style={{ flex:1, borderTop:"1px solid "+T.lineSoft, marginTop:0 }} />
+            </div>
+          ))}
+
+          {/* Bloque de citas del día */}
+          <div style={{ position:"relative", minHeight: (CAL_END - CAL_START) * CAL_PX_HOUR + 40 }}>
+            {dayAppts.map(a => apptBlock(a))}
+          </div>
+
+          {dayAppts.length === 0 && (
+            <div style={{ position:"absolute", top:"50%", left:0, right:0, transform:"translateY(-50%)", textAlign:"center", pointerEvents:"none" }}>
+              <div style={{ fontFamily:T.serif, fontSize:18, color:T.textFaint }}>Sin citas este día</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Tab Nueva cita ─── */
 function NuevaTab({ T, D, appts, addAppt }) {
   const procs = procList();
@@ -384,9 +514,16 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const [email, setEmail] = useState("");
   const [fecha, setFecha] = useState(todayISO());
   const [time,  setTime]  = useState("10:00");
-  const [dur,   setDur]   = useState("30 minutos");
   const [proc,  setProc]  = useState(procs[0]||"Evaluación general");
+  const [dur,   setDur]   = useState("30 minutos");
   const [saved, setSaved] = useState(false);
+
+  // Auto-ajusta la duración cuando cambia el procedimiento
+  useEffect(() => {
+    if (window.JCDATA && window.JCDATA.procMin) {
+      setDur(window.JCDATA.procMin(proc) + " minutos");
+    }
+  }, [proc]);
 
   const slotsMap = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
   const avail = slotsMap[fecha]!=null ? slotsMap[fecha] : HALF_HOURS.slice();
@@ -439,7 +576,7 @@ function NuevaTab({ T, D, appts, addAppt }) {
   );
 }
 
-/* ─── Entry point ─── */
+/* ─── Entry point (modo local) ─── */
 function MobileAdmin() {
   const TK = window.JCTHEME;
   const T = (TK && (TK.marfil || TK.cielo || TK.editorial)) || {
@@ -454,7 +591,7 @@ function MobileAdmin() {
   return <MobileShell T={T} D={D} onLogout={()=>{ try { window.jcmAdminEndSession && window.jcmAdminEndSession(); } catch(e){} setAuthed(false); }} />;
 }
 
-/* ─── Acceso SaaS (multi-clínica): login de la clínica + citas desde Firebase ─── */
+/* ─── Entry point SaaS (multi-clínica): carga data cacheada inmediatamente ─── */
 function MobileSaasGate() {
   const TK = window.JCTHEME;
   const T = (TK && (TK.marfil || TK.cielo || TK.editorial)) || {
@@ -463,7 +600,13 @@ function MobileSaasGate() {
     sans:"'Jost',sans-serif", serif:"'Marcellus',serif", navBg:"rgba(245,242,236,.96)"
   };
   const D = window.JCDATA;
-  const [phase, setPhase] = useState("loading"); // loading | login | blocked | app
+
+  // Carga rápida: si hay data en caché y clinicId, mostrar la app de inmediato
+  const hasCachedSession = !!(
+    window.JCSAAS && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId() &&
+    window.DB && (window.DB.get("appointments") || window.DB.get("patients"))
+  );
+  const [phase, setPhase] = useState(hasCachedSession ? "app" : "loading");
   const [email, setEmail] = useState(""); const [pass, setPass] = useState("");
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
 
@@ -473,12 +616,11 @@ function MobileSaasGate() {
       const a = window.JCSAAS.access();
       setPhase(a.ok ? "app" : "blocked");
     });
-    const t = setTimeout(() => setPhase(x => x === "loading" ? "login" : x), 9000);
+    // Timeout reducido: 4 segundos (era 9s)
+    const t = setTimeout(() => setPhase(x => x === "loading" ? "login" : x), 4000);
     return () => clearTimeout(t);
   }, []);
 
-  // Si tras iniciar sesión la carga de datos no responde (p. ej. App Check no habilitado
-  // en este dominio), no dejamos el botón pegado: mostramos un aviso y reactivamos.
   useEffect(() => {
     if (!busy) return;
     const t = setTimeout(() => { setBusy(false); setErr("La conexión está tardando demasiado. Revisa tu internet e inténtalo de nuevo."); }, 13000);
@@ -497,7 +639,12 @@ function MobileSaasGate() {
   const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none", boxSizing:"border-box" };
   const center = (kids) => <div style={{ minHeight:"100dvh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", background:T.bg }}>{kids}</div>;
 
-  if (phase === "loading") return center(<div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute }}>Conectando…</div>);
+  if (phase === "loading") return center(
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
+      <div style={{ fontFamily:T.serif, fontSize:24, color:T.text }}>JC Medical</div>
+      <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Conectando…</div>
+    </div>
+  );
 
   if (phase === "blocked") return center(<>
     <div style={{ fontFamily:T.serif, fontSize:26, color:T.text, marginBottom:8 }}>Plan inactivo</div>
