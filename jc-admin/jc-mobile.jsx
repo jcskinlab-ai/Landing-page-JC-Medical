@@ -59,7 +59,7 @@ function LoginScreen({ T, onAuth }) {
   const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none", boxSizing:"border-box" };
   return (
     <div style={{ minHeight:"100dvh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", background:T.bg }}>
-      <img src="/assets/medique-mark.svg" alt="Medique" style={{ width:52, height:52, marginBottom:10 }} />
+      <img src="/assets/medique-logo.png" alt="Medique" style={{ width:52, height:52, marginBottom:10 }} />
       <div style={{ fontFamily:T.serif, fontSize:30, fontWeight:300, color:T.text, marginBottom:6 }}>Medique</div>
       <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:T.textMute, marginBottom:44 }}>Panel móvil · Acceso privado</div>
       <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
@@ -145,7 +145,7 @@ function MobileShell({ T, D, onLogout }) {
       {/* Header */}
       <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid "+T.line, display:"flex", justifyContent:"space-between", alignItems:"center", background:T.navBg, backdropFilter:"blur(12px)", position:"sticky", top:0, zIndex:10 }}>
         <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-          <img src="/assets/medique-mark.svg" alt="Medique" style={{ width:28, height:28, flexShrink:0 }} />
+          <img src="/assets/medique-logo.png" alt="Medique" style={{ width:28, height:28, flexShrink:0 }} />
           <div>
             <div style={{ display:"flex", alignItems:"baseline", gap:5, lineHeight:1 }}>
               <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:400, color:T.text }}>Medique</span>
@@ -695,7 +695,7 @@ function MobileSaasGate() {
 
   if (phase === "loading") return center(
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
-      <img src="/assets/medique-mark.svg" alt="Medique" style={{ width:36, height:36, marginBottom:6 }} />
+      <img src="/assets/medique-logo.png" alt="Medique" style={{ width:36, height:36, marginBottom:6 }} />
       <div style={{ fontFamily:T.serif, fontSize:24, color:T.text }}>Medique</div>
       <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Conectando…</div>
     </div>
