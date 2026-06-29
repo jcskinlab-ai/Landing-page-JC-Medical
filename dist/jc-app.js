@@ -75,6 +75,7 @@ function App() {
   const [tab, setTab] = useState("home");
   const [sub, setSub] = useState(null);
   const [booking, setBooking] = useState(null);
+  const [_dataVer, setDataVer] = useState(0);
   const [feedNonce, setFeedNonce] = useState(0);
   const scrollRef = useRef(null);
   const prevTab = useRef("home");
@@ -99,6 +100,17 @@ function App() {
     }
     setOnboarded(true);
   }
+  useEffect(() => {
+    function onDataUpdate() {
+      setDataVer((v) => v + 1);
+    }
+    window.addEventListener("jcsaas:public", onDataUpdate);
+    window.addEventListener("jcsaas:data", onDataUpdate);
+    return () => {
+      window.removeEventListener("jcsaas:public", onDataUpdate);
+      window.removeEventListener("jcsaas:data", onDataUpdate);
+    };
+  }, []);
   function saveScroll() {
     if (scrollRef.current) scrollMem.current[curKey.current] = scrollRef.current.scrollTop;
   }

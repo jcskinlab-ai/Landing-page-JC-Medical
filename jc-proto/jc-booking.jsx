@@ -306,7 +306,7 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     <Section T={T} title="Hora disponible" hint={day ? day.wd + " " + day.dd + " " + day.mm : "Selecciona un día primero"}>
       {!day ? <Empty T={T}>Primero elige un día.</Empty> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-          {day.slots.map(s => (
+          {(D.schedule.find(dd => dd.date === day.date) || day).slots.map(s => (
             <button key={s.time} disabled={s.taken} onClick={() => setTime(s.time)} style={{
               padding: "12px 4px", borderRadius: 4, cursor: s.taken ? "not-allowed" : "pointer", fontFamily: T.sans, fontSize: 13, letterSpacing: ".04em",
               background: time === s.time ? T.accent : T.surface, color: s.taken ? T.textFaint : (time === s.time ? T.onAccent : T.text),
