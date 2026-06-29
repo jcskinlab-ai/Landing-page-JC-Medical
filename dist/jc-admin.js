@@ -1337,12 +1337,29 @@ function Toast({ T, data, onClose }) {
   }, []);
   return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: "50%", bottom: 22, transform: "translateX(-50%)", zIndex: 55, width: "min(360px, calc(100% - 32px))", background: T.dark ? "#16170f" : "#fff", border: "1px solid " + T.line, borderRadius: 12, boxShadow: "0 18px 50px -16px rgba(0,0,0,.5)", padding: "16px 18px", animation: "jcSlideUp .3s " + T.ease } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 24, height: 24, borderRadius: "50%", background: "#1F8A5B", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "2.4" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6 9 17l-5-5" }))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text } }, "Cita creada \xB7 notificaciones enviadas")), data.lines.map((l, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, padding: "3px 0" } }, l)), data.cli && /* @__PURE__ */ React.createElement("a", { href: "https://wa.me/" + data.cli.replace(/\D/g, ""), target: "_blank", rel: "noopener", style: { display: "inline-block", marginTop: 10, fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 999, padding: "8px 14px" } }, "Abrir WhatsApp del paciente \u2192"));
 }
+function procInitial(proc) {
+  if (!proc) return "";
+  const n = proc.toLowerCase();
+  if (/botox|toxina|btx|tox\b/.test(n)) return "B";
+  if (/rino/.test(n)) return "R";
+  if (/sculptra|bioestim|col[aá]geno/.test(n)) return "S";
+  if (/lipol[ií]t|disolver|lipolisis/.test(n)) return "L";
+  if (/evaluac/.test(n)) return "Ev";
+  if (/mesoterap|vitamina|nctf|rejuran|salm[oó]n/.test(n)) return "M";
+  if (/hialur|armoniz|juv[eé]derm/.test(n)) return "H";
+  if (/quemador|grasa/.test(n)) return "Q";
+  if (/plasma|prp/.test(n)) return "P";
+  if (/control/.test(n)) return "C";
+  return proc.trim().charAt(0).toUpperCase();
+}
 function ApptBlock({ T, a, onClick, compact }) {
   const st = jcmApptState(a, T);
+  const ini = procInitial(a.proc);
+  const nameLabel = ini ? a.name + " \u2022 " + ini : a.name;
   return /* @__PURE__ */ React.createElement("div", { "data-appt": true, onClick: (e) => {
     e.stopPropagation();
     onClick(a);
-  }, style: { cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderLeft: "3px solid " + st.color, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), !compact && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 } }, a.time)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, compact ? a.time + " \xB7 " + a.proc : a.proc), !compact && st.key !== "pendiente" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, display: "inline-block", fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".04em", color: st.color, background: st.color + "1a", borderRadius: 5, padding: "2px 6px" } }, st.label));
+  }, style: { cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderLeft: "3px solid " + st.color, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, nameLabel), !compact && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 } }, a.time)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, compact ? a.time + " \xB7 " + a.proc : a.proc), !compact && st.key !== "pendiente" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, display: "inline-block", fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".04em", color: st.color, background: st.color + "1a", borderRadius: 5, padding: "2px 6px" } }, st.label));
 }
 function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
   const [webBusy, setWebBusy] = useState(false);
@@ -1525,7 +1542,7 @@ function jcmApptState(a, T) {
   if (a.status === "anulada" || a.status === "cancelada") return { key: "anulada", label: "Anulada", color: "#9AA0A6" };
   if (a.status === "no_asistio") return { key: "no_asistio", label: "No asisti\xF3", color: "#C0285A" };
   if (a.status === "atendiendose") return { key: "atendiendose", label: "Atendi\xE9ndose", color: "#1F8A5B" };
-  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#C9A227" };
+  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#1A50A3" };
   if (a.status === "en_sala") return { key: "en_sala", label: "En sala de espera", color: "#0E7490" };
   if (a.status === "pendiente_pago") return { key: "pendiente_pago", label: "\u23F3 Pago pendiente", color: "#B8860B" };
   if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#16A34A" };

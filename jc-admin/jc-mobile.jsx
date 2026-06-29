@@ -12,7 +12,7 @@ function minsM(t) { if (!t) return 0; const [h,m] = t.split(":"); return parseIn
 function apptStateM(a, T) {
   if (a.status === "anulada")        return { label: "Anulada",     color: T.textFaint };
   if (a.status === "no_asistio")     return { label: "No asistió",  color: "#C0285A" };
-  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#C9A227" };
+  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#1A50A3" };
   if (a.status === "confirmada")     return { label: "Confirmada",  color: "#16A34A" };
   if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#B8860B" };
   return { label: "Pendiente", color: T.accent };
@@ -88,6 +88,7 @@ function MobileShell({ T, D, onLogout }) {
   }, []);
 
   function saveAppts(updated) { window.DB&&window.DB.set("appointments", updated); setAppts(updated); }
+  function updateAppt(id, patch) { const all=(window.DB&&window.DB.get("appointments"))||[]; saveAppts(all.map(x=>x.id===id?{...x,...patch}:x)); }
 
   function confirmPago(id) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
@@ -162,7 +163,7 @@ function MobileShell({ T, D, onLogout }) {
 
       {/* Content */}
       <div style={{ flex:1, overflowY:"auto" }}>
-        {tab==="citas"    && <CitasTab    T={T} D={D} appts={appts} confirmPago={confirmPago} cancelAppt={cancelAppt} />}
+        {tab==="citas"    && <CitasTab    T={T} D={D} appts={appts} confirmPago={confirmPago} cancelAppt={cancelAppt} updateAppt={updateAppt} />}
         {tab==="horarios" && <HorariosTab T={T} appts={appts} />}
         {tab==="nueva"    && <NuevaTab    T={T} D={D} appts={appts} addAppt={(a)=>{ addAppt(a); setTab("citas"); }} />}
         {tab==="agenda"   && <AgendaTab   T={T} appts={appts} />}
@@ -183,7 +184,7 @@ function MobileShell({ T, D, onLogout }) {
 }
 
 /* ─── Tab Citas ─── */
-function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
+function CitasTab({ T, D, appts, confirmPago, cancelAppt, updateAppt }) {
   const today = todayISO();
   // Selector de días: 7 días fijos desde hoy, independiente de si hay citas
   const days = weekDays();
@@ -253,7 +254,7 @@ function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
         return (
           <div key={fecha} style={{ marginTop:14 }}>
             <div style={{ padding:"0 16px 6px", fontFamily:T.sans, fontSize:10, letterSpacing:".12em", textTransform:"uppercase", color:isToday?T.accent:T.textMute }}>{dayLabel(fecha)}</div>
-            {dayAppts.map(a=><ApptCard key={a.id} T={T} D={D} appt={a} confirmPago={confirmPago} cancelAppt={cancelAppt} />)}
+            {dayAppts.map(a=><ApptCard key={a.id} T={T} D={D} appt={a} confirmPago={confirmPago} cancelAppt={cancelAppt} updateAppt={updateAppt} />)}
           </div>
         );
       })}
@@ -261,11 +262,13 @@ function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
   );
 }
 
-function ApptCard({ T, D, appt:a, confirmPago, cancelAppt }) {
+function ApptCard({ T, D, appt:a, confirmPago, cancelAppt, updateAppt }) {
   const isPend = a.status==="pendiente_pago";
   const isAnulada = a.status==="anulada";
   const [open, setOpen] = useState(isPend);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [editCom, setEditCom] = useState(false);
+  const [comTxt, setComTxt] = useState(a.comentario||"");
   const st = apptStateM(a, T);
   const ac = st.color;
   const rawPhone = (a.phone||"").replace(/\D/g,"");
@@ -297,6 +300,28 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt }) {
               Confirmar transferencia
             </button>
           )}
+          {/* Comentario */}
+          {editCom ? (
+            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+              <textarea value={comTxt} onChange={e=>setComTxt(e.target.value)}
+                placeholder="Ej. Evaluación de botox, control rinomodelación…"
+                rows={2} autoFocus
+                style={{ width:"100%", boxSizing:"border-box", fontFamily:T.sans, fontSize:13, color:T.text, background:T.bg, border:"1px solid "+T.line, borderRadius:8, padding:"9px 11px", resize:"none", outline:"none" }} />
+              <div style={{ display:"flex", gap:6 }}>
+                <button onClick={()=>setEditCom(false)} style={{ flex:1, height:34, borderRadius:8, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+                <button onClick={()=>{ updateAppt(a.id,{comentario:comTxt.trim()}); setEditCom(false); }} style={{ flex:2, height:34, borderRadius:8, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer" }}>Guardar</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={()=>setEditCom(true)}
+              style={{ display:"flex", alignItems:"center", gap:8, width:"100%", background:a.comentario?"#1A50A308":T.bg, border:"1px solid "+(a.comentario?"#1A50A333":T.lineSoft), borderRadius:8, padding:"9px 12px", cursor:"pointer", textAlign:"left" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.comentario?"#1A50A3":T.textFaint} strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span style={{ fontFamily:T.sans, fontSize:12, color:a.comentario?T.text:T.textFaint, flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                {a.comentario || "Agregar comentario"}
+              </span>
+            </button>
+          )}
+
           <div style={{ display:"flex", gap:8 }}>
             {waPhone && (
               <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+a.name+", confirmamos tu cita en JC Medical:\n📅 "+(a.fecha||"")+" · "+a.time+" hrs\n📍 Dirección 1 poniente 1258, edificio plaza poniente, oficina 101. A media cuadra de la plaza de armas de Talca.\n💉 "+(a.proc||"")+" ("+durLabel+")\n⏰ La espera máxima para su atención es de 15 minutos, para no retrasar las atenciones siguientes")}
@@ -448,6 +473,11 @@ function AgendaTab({ T, appts }) {
             {a.time} · {a.proc||"—"}
           </div>
         )}
+        {heightPx > 50 && a.comentario && (
+          <div style={{ fontFamily:T.sans, fontSize:9.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", fontStyle:"italic", marginTop:1 }}>
+            {a.comentario}
+          </div>
+        )}
       </div>
     );
   }
@@ -514,8 +544,9 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const [email, setEmail] = useState("");
   const [fecha, setFecha] = useState(todayISO());
   const [time,  setTime]  = useState("10:00");
-  const [proc,  setProc]  = useState(procs[0]||"Evaluación general");
-  const [dur,   setDur]   = useState("30 minutos");
+  const [proc,    setProc]    = useState(procs[0]||"Evaluación general");
+  const [dur,     setDur]     = useState("30 minutos");
+  const [comment, setComment] = useState("");
   const [saved, setSaved] = useState(false);
 
   // Auto-ajusta la duración cuando cambia el procedimiento
@@ -533,10 +564,10 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const valid = name.trim() && phone.trim();
   function save() {
     if (!valid) return;
-    addAppt({ id:Date.now().toString(36), name:name.trim(), rut:rut.trim(), phone:phone.trim(), email:email.trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"confirmada", source:"movil", createdAt:new Date().toISOString() });
+    addAppt({ id:Date.now().toString(36), name:name.trim(), rut:rut.trim(), phone:phone.trim(), email:email.trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"confirmada", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
     setSaved(true);
     setTimeout(()=>setSaved(false),2000);
-    setName(""); setRut(""); setPhone(""); setEmail(""); setTime(freeSlots[0]||"10:00");
+    setName(""); setRut(""); setPhone(""); setEmail(""); setComment(""); setTime(freeSlots[0]||"10:00");
   }
 
   const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"13px 15px", borderRadius:8, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none", boxSizing:"border-box" };
@@ -566,6 +597,11 @@ function NuevaTab({ T, D, appts, addAppt }) {
         <select value={dur} onChange={e=>setDur(e.target.value)} style={{...inp,appearance:"none"}}>
           {["15 minutos","30 minutos","45 minutos","60 minutos","90 minutos"].map(d=><option key={d}>{d}</option>)}
         </select>
+      </div>
+      <div>
+        <label style={lbl}>Comentario (opcional)</label>
+        <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ej. Evaluación de botox, control rinomodelación…" rows={2}
+          style={{...inp, resize:"none", height:"auto"}} />
       </div>
       {!valid && (name.trim() && !phone.trim()) && <div style={{ fontFamily:T.sans, fontSize:11.5, color:"#C0285A", marginTop:-4 }}>El teléfono es obligatorio.</div>}
       <button onClick={save} disabled={!valid}

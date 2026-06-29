@@ -914,16 +914,34 @@ function Toast({ T, data, onClose }) {
   );
 }
 
+function procInitial(proc) {
+  if (!proc) return "";
+  const n = proc.toLowerCase();
+  if (/botox|toxina|btx|tox\b/.test(n))              return "B";
+  if (/rino/.test(n))                                  return "R";
+  if (/sculptra|bioestim|col[aá]geno/.test(n))         return "S";
+  if (/lipol[ií]t|disolver|lipolisis/.test(n))         return "L";
+  if (/evaluac/.test(n))                               return "Ev";
+  if (/mesoterap|vitamina|nctf|rejuran|salm[oó]n/.test(n)) return "M";
+  if (/hialur|armoniz|juv[eé]derm/.test(n))            return "H";
+  if (/quemador|grasa/.test(n))                         return "Q";
+  if (/plasma|prp/.test(n))                             return "P";
+  if (/control/.test(n))                                return "C";
+  return proc.trim().charAt(0).toUpperCase();
+}
+
 function ApptBlock({ T, a, onClick, compact }) {
   const isPP = a.status === "pendiente_pago";
-  const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
+  const ac = a.attended ? "#1A50A3" : (isPP ? "#B8860B" : T.accent);
   const dur = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 60);
   const meta = (compact ? a.time + " · " : "") + dur + " min" + (a.proc ? " · " + (isPP ? "⏳ Pago pendiente" : a.proc) : "");
+  const ini = procInitial(a.proc);
+  const nameLabel = ini ? a.name + " • " + ini : a.name;
   return (
     <div data-appt onClick={e => { e.stopPropagation(); onClick(a); }} style={{ height: "100%", cursor: "pointer", background: ac + "12", border: "1px solid " + ac + "55", borderRadius: 9, padding: compact ? "5px 8px" : "8px 11px", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: ac, flexShrink: 0 }} aria-hidden="true" />
-        <span style={{ flex: 1, minWidth: 0, fontFamily: T.serif, fontSize: compact ? 12 : 14.5, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+        <span style={{ flex: 1, minWidth: 0, fontFamily: T.serif, fontSize: compact ? 12 : 14.5, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameLabel}</span>
         {!compact && <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: ac, flexShrink: 0 }}>{a.time}</span>}
       </div>
       <div style={{ fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>
@@ -1041,8 +1059,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {/* Vista previa momentánea al pasar el cursor sobre una cita (vista día/lista) */}
       {hoverA && hoverA.a && !edit && (() => {
         const a = hoverA.a, isPP = a.status === "pendiente_pago";
-        const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
-        const estado = a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
+        const ac = a.attended ? "#1A50A3" : (isPP ? "#B8860B" : T.accent);
+        const estado = a.attended || a.status === "atendida" ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
         return (
           <div style={{ position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: ac, flexShrink: 0 }} /><span style={{ fontFamily: T.serif, fontSize: 15, color: T.text }}>{a.name}</span></div>
@@ -1165,7 +1183,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   {/* Bloques de citas apilados verticalmente */}
                   {stackAppts(da).map(a => {
                     const isPendPago = a.status === "pendiente_pago";
-                    const accentColor = a.attended ? "#1F8A5B" : (isPendPago ? "#B8860B" : T.accent);
+                    const accentColor = a.attended ? "#1A50A3" : (isPendPago ? "#B8860B" : T.accent);
                     return (
                       <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
                         onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
@@ -1174,7 +1192,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                         <div style={{ height: "100%", cursor: "pointer", background: accentColor + "12", border: "1px solid " + accentColor + "55", borderRadius: 8, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
-                            <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                            <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{procInitial(a.proc) ? a.name + " • " + procInitial(a.proc) : a.name}</span>
                           </div>
                           {a._h > 26 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {(parseInt(a.dur) || 60)} min{a.proc ? " · " + (isPendPago ? "⏳ Pago pendiente" : a.proc) : ""}</div>}
                         </div>
@@ -1191,8 +1209,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       {/* Vista previa momentánea al pasar el cursor sobre una cita */}
       {hover && hover.a && !menu && (() => {
         const a = hover.a, isPP = a.status === "pendiente_pago";
-        const ac = a.attended ? "#1F8A5B" : (isPP ? "#B8860B" : T.accent);
-        const estado = a.attended ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
+        const ac = a.attended ? "#1A50A3" : (isPP ? "#B8860B" : T.accent);
+        const estado = a.attended || a.status === "atendida" ? "Atendida" : (isPP ? "⏳ Pago pendiente" : (a.status === "confirmada" ? "Confirmada" : "Pendiente"));
         return (
           <div style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: ac, flexShrink: 0 }} /><span style={{ fontFamily: T.serif, fontSize: 15, color: T.text }}>{a.name}</span></div>

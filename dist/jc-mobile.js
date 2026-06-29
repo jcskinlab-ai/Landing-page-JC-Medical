@@ -16,7 +16,7 @@ function minsM(t) {
 function apptStateM(a, T) {
   if (a.status === "anulada") return { label: "Anulada", color: T.textFaint };
   if (a.status === "no_asistio") return { label: "No asisti\xF3", color: "#C0285A" };
-  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#C9A227" };
+  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#1A50A3" };
   if (a.status === "confirmada") return { label: "Confirmada", color: "#16A34A" };
   if (a.status === "pendiente_pago") return { label: "\u23F3 Transferencia", color: "#B8860B" };
   return { label: "Pendiente", color: T.accent };
@@ -113,6 +113,10 @@ function MobileShell({ T, D, onLogout }) {
     window.DB && window.DB.set("appointments", updated);
     setAppts(updated);
   }
+  function updateAppt(id, patch) {
+    const all = window.DB && window.DB.get("appointments") || [];
+    saveAppts(all.map((x) => x.id === id ? { ...x, ...patch } : x));
+  }
   function confirmPago(id) {
     const all = window.DB && window.DB.get("appointments") || [];
     const a = all.find((x) => x.id === id);
@@ -175,7 +179,7 @@ function MobileShell({ T, D, onLogout }) {
     },
     /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" }), /* @__PURE__ */ React.createElement("path", { d: "M16 17l5-5-5-5M21 12H9" })),
     "Salir"
-  ))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto" } }, tab === "citas" && /* @__PURE__ */ React.createElement(CitasTab, { T, D, appts, confirmPago, cancelAppt }), tab === "horarios" && /* @__PURE__ */ React.createElement(HorariosTab, { T, appts }), tab === "nueva" && /* @__PURE__ */ React.createElement(NuevaTab, { T, D, appts, addAppt: (a) => {
+  ))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto" } }, tab === "citas" && /* @__PURE__ */ React.createElement(CitasTab, { T, D, appts, confirmPago, cancelAppt, updateAppt }), tab === "horarios" && /* @__PURE__ */ React.createElement(HorariosTab, { T, appts }), tab === "nueva" && /* @__PURE__ */ React.createElement(NuevaTab, { T, D, appts, addAppt: (a) => {
     addAppt(a);
     setTab("citas");
   } }), tab === "agenda" && /* @__PURE__ */ React.createElement(AgendaTab, { T, appts })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", borderTop: "1px solid " + T.line, background: T.navBg, backdropFilter: "blur(12px)", paddingBottom: "env(safe-area-inset-bottom,8px)", position: "sticky", bottom: 0 } }, tabs.map(({ id, lbl, icon }) => /* @__PURE__ */ React.createElement(
@@ -204,7 +208,7 @@ function MobileShell({ T, D, onLogout }) {
     lbl
   ))));
 }
-function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
+function CitasTab({ T, D, appts, confirmPago, cancelAppt, updateAppt }) {
   const today = todayISO();
   const days = weekDays();
   const [filterDay, setFilterDay] = useState("all");
@@ -249,14 +253,16 @@ function CitasTab({ T, D, appts, confirmPago, cancelAppt }) {
     showAnuladas ? "Ocultar anuladas" : "Anuladas (" + anuladasCount + ")"
   )), pendPago.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { margin: "14px 14px 6px", background: "#B8860B18", border: "1px solid #B8860B44", borderRadius: 10, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "#B8860B", marginBottom: 4 } }, "\u23F3 ", pendPago.length, " transferencia", pendPago.length > 1 ? "s" : "", " por confirmar"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Revisa el comprobante y toca la cita para confirmar")), upcoming.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "50px 24px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.textMute, marginBottom: 8 } }, "Sin citas", filterDay !== "all" ? " para este d\xEDa" : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, filterDay !== "all" ? "Selecciona otro d\xEDa" : 'Usa "Nueva" para agregar una cita')), Object.entries(byDate).map(([fecha, dayAppts]) => {
     const isToday = fecha === today;
-    return /* @__PURE__ */ React.createElement("div", { key: fecha, style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "0 16px 6px", fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: isToday ? T.accent : T.textMute } }, dayLabel(fecha)), dayAppts.map((a) => /* @__PURE__ */ React.createElement(ApptCard, { key: a.id, T, D, appt: a, confirmPago, cancelAppt })));
+    return /* @__PURE__ */ React.createElement("div", { key: fecha, style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "0 16px 6px", fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: isToday ? T.accent : T.textMute } }, dayLabel(fecha)), dayAppts.map((a) => /* @__PURE__ */ React.createElement(ApptCard, { key: a.id, T, D, appt: a, confirmPago, cancelAppt, updateAppt })));
   }));
 }
-function ApptCard({ T, D, appt: a, confirmPago, cancelAppt }) {
+function ApptCard({ T, D, appt: a, confirmPago, cancelAppt, updateAppt }) {
   const isPend = a.status === "pendiente_pago";
   const isAnulada = a.status === "anulada";
   const [open, setOpen] = useState(isPend);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [editCom, setEditCom] = useState(false);
+  const [comTxt, setComTxt] = useState(a.comentario || "");
   const st = apptStateM(a, T);
   const ac = st.color;
   const rawPhone = (a.phone || "").replace(/\D/g, "");
@@ -270,6 +276,27 @@ function ApptCard({ T, D, appt: a, confirmPago, cancelAppt }) {
     },
     /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6 9 17l-5-5" })),
     "Confirmar transferencia"
+  ), editCom ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7 } }, /* @__PURE__ */ React.createElement(
+    "textarea",
+    {
+      value: comTxt,
+      onChange: (e) => setComTxt(e.target.value),
+      placeholder: "Ej. Evaluaci\xF3n de botox, control rinomodelaci\xF3n\u2026",
+      rows: 2,
+      autoFocus: true,
+      style: { width: "100%", boxSizing: "border-box", fontFamily: T.sans, fontSize: 13, color: T.text, background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 11px", resize: "none", outline: "none" }
+    }
+  ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setEditCom(false), style: { flex: 1, height: 34, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    updateAppt(a.id, { comentario: comTxt.trim() });
+    setEditCom(false);
+  }, style: { flex: 2, height: 34, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "Guardar"))) : /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => setEditCom(true),
+      style: { display: "flex", alignItems: "center", gap: 8, width: "100%", background: a.comentario ? "#1A50A308" : T.bg, border: "1px solid " + (a.comentario ? "#1A50A333" : T.lineSoft), borderRadius: 8, padding: "9px 12px", cursor: "pointer", textAlign: "left" }
+    },
+    /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: a.comentario ? "#1A50A3" : T.textFaint, strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })),
+    /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: a.comentario ? T.text : T.textFaint, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.comentario || "Agregar comentario")
   ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, waPhone && /* @__PURE__ */ React.createElement(
     "a",
     {
@@ -390,7 +417,7 @@ function AgendaTab({ T, appts }) {
       overflow: "hidden",
       boxSizing: "border-box",
       cursor: "default"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 700, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 } }, a.name), heightPx > 30 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time, " \xB7 ", a.proc || "\u2014"));
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 700, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 } }, a.name), heightPx > 30 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time, " \xB7 ", a.proc || "\u2014"), heightPx > 50 && a.comentario && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontStyle: "italic", marginTop: 1 } }, a.comentario));
   }
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", height: "calc(100dvh - 130px)" } }, /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto", borderBottom: "1px solid " + T.line, flexShrink: 0, WebkitOverflowScrolling: "touch" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", padding: "10px 10px 8px", minWidth: "max-content", gap: 2 } }, days.map((d) => {
     const isSel = d.iso === selDay;
@@ -427,6 +454,7 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const [time, setTime] = useState("10:00");
   const [proc, setProc] = useState(procs[0] || "Evaluaci\xF3n general");
   const [dur, setDur] = useState("30 minutos");
+  const [comment, setComment] = useState("");
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     if (window.JCDATA && window.JCDATA.procMin) {
@@ -440,18 +468,28 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const valid = name.trim() && phone.trim();
   function save() {
     if (!valid) return;
-    addAppt({ id: Date.now().toString(36), name: name.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), proc, dur, time, fecha, day: isoToDayOff(fecha), status: "confirmada", source: "movil", createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+    addAppt({ id: Date.now().toString(36), name: name.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), proc, dur, time, fecha, day: isoToDayOff(fecha), status: "confirmada", source: "movil", comentario: comment.trim() || void 0, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
     setSaved(true);
     setTimeout(() => setSaved(false), 2e3);
     setName("");
     setRut("");
     setPhone("");
     setEmail("");
+    setComment("");
     setTime(freeSlots[0] || "10:00");
   }
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 15, padding: "13px 15px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", boxSizing: "border-box" };
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 };
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 16px 50px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, fontWeight: 300, color: T.text } }, "Nueva cita"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Paciente"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Nombre completo", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => setRut(e.target.value), placeholder: "12.345.678-9", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), placeholder: "+56 9 \xB7\xB7\xB7", style: { ...inp, borderColor: phone.trim() ? T.line : "#C0285A55" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: { ...inp, appearance: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("input", { type: "date", value: fecha, onChange: (e) => setFecha(e.target.value), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("input", { type: "time", value: time, step: "1800", list: "jcm-mob-times", onChange: (e) => setTime(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("datalist", { id: "jcm-mob-times" }, freeSlots.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }))), freeSlots.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 5 } }, "Sin horas disponibles \u2014 puedes escribir una hora manualmente")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, appearance: "none" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "90 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), !valid && (name.trim() && !phone.trim()) && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: -4 } }, "El tel\xE9fono es obligatorio."), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 16px 50px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, fontWeight: 300, color: T.text } }, "Nueva cita"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Paciente"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Nombre completo", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => setRut(e.target.value), placeholder: "12.345.678-9", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), placeholder: "+56 9 \xB7\xB7\xB7", style: { ...inp, borderColor: phone.trim() ? T.line : "#C0285A55" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: { ...inp, appearance: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("input", { type: "date", value: fecha, onChange: (e) => setFecha(e.target.value), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("input", { type: "time", value: time, step: "1800", list: "jcm-mob-times", onChange: (e) => setTime(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("datalist", { id: "jcm-mob-times" }, freeSlots.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }))), freeSlots.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 5 } }, "Sin horas disponibles \u2014 puedes escribir una hora manualmente")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, appearance: "none" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "90 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement(
+    "textarea",
+    {
+      value: comment,
+      onChange: (e) => setComment(e.target.value),
+      placeholder: "Ej. Evaluaci\xF3n de botox, control rinomodelaci\xF3n\u2026",
+      rows: 2,
+      style: { ...inp, resize: "none", height: "auto" }
+    }
+  )), !valid && (name.trim() && !phone.trim()) && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: -4 } }, "El tel\xE9fono es obligatorio."), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: save,

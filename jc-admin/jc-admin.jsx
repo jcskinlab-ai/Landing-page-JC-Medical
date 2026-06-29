@@ -1538,12 +1538,30 @@ function Toast({ T, data, onClose }) {
   );
 }
 
+function procInitial(proc) {
+  if (!proc) return "";
+  const n = proc.toLowerCase();
+  if (/botox|toxina|btx|tox\b/.test(n))              return "B";
+  if (/rino/.test(n))                                  return "R";
+  if (/sculptra|bioestim|col[aá]geno/.test(n))         return "S";
+  if (/lipol[ií]t|disolver|lipolisis/.test(n))         return "L";
+  if (/evaluac/.test(n))                               return "Ev";
+  if (/mesoterap|vitamina|nctf|rejuran|salm[oó]n/.test(n)) return "M";
+  if (/hialur|armoniz|juv[eé]derm/.test(n))            return "H";
+  if (/quemador|grasa/.test(n))                         return "Q";
+  if (/plasma|prp/.test(n))                             return "P";
+  if (/control/.test(n))                                return "C";
+  return proc.trim().charAt(0).toUpperCase();
+}
+
 function ApptBlock({ T, a, onClick, compact }) {
   const st = jcmApptState(a, T);
+  const ini = procInitial(a.proc);
+  const nameLabel = ini ? a.name + " • " + ini : a.name;
   return (
     <div data-appt onClick={e => { e.stopPropagation(); onClick(a); }} style={{ cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderLeft: "3px solid " + st.color, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
-        <span style={{ fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+        <span style={{ fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameLabel}</span>
         {!compact && <span style={{ fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 }}>{a.time}</span>}
       </div>
       <div style={{ fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{compact ? a.time + " · " + a.proc : a.proc}</div>
@@ -1805,7 +1823,7 @@ function jcmApptState(a, T) {
   if (a.status === "anulada" || a.status === "cancelada") return { key: "anulada", label: "Anulada", color: "#9AA0A6" };
   if (a.status === "no_asistio") return { key: "no_asistio", label: "No asistió", color: "#C0285A" };
   if (a.status === "atendiendose") return { key: "atendiendose", label: "Atendiéndose", color: "#1F8A5B" };
-  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#C9A227" };
+  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#1A50A3" };
   if (a.status === "en_sala") return { key: "en_sala", label: "En sala de espera", color: "#0E7490" };
   if (a.status === "pendiente_pago") return { key: "pendiente_pago", label: "⏳ Pago pendiente", color: "#B8860B" };
   if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#16A34A" };
