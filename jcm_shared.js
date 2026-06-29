@@ -524,6 +524,28 @@ async function jcmAdminChangePass(oldPass, newPass) {
   return jcmAdminSetPass(newPass, user);
 }
 
+// ── MIGRACIÓN: sube todos los usuarios del localStorage a Firestore appusers ──
+// Se ejecuta una vez por dispositivo/browser cuando la app paciente está lista.
+// Así los usuarios registrados antes del canal appusers aparecen en el panel.
+(function () {
+  var FLAG = 'jcm_appusers_pushed_v1';
+  function push() {
+    try {
+      if (localStorage.getItem(FLAG)) return;
+      if (!window.JCSAAS || !window.JCSAAS.submitAppUser) return;
+      var users = (window.DB && window.DB.get('users')) || [];
+      if (!users.length) return;
+      users.forEach(function (u) {
+        if (u.name || u.phone) {
+          try { window.JCSAAS.submitAppUser({ name: u.name, phone: u.phone, email: u.email, points: u.points || 0, created: u.created }); } catch (e) {}
+        }
+      });
+      localStorage.setItem(FLAG, String(Date.now()));
+    } catch (e) {}
+  }
+  window.addEventListener('jcsaas:public', push, { once: true });
+})();
+
 // ── NOTICIAS RSS (caché 1 h) ───────────────────────────────────────────────
 const _RSS_FEEDS = [
   'https://www.infosalus.com/rss/noticias.xml',
