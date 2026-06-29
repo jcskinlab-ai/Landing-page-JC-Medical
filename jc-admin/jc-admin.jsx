@@ -2022,7 +2022,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                         onClick={e => { e.stopPropagation(); setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
                         {v2 ? (
                           /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve + solo el nombre (el detalle va en el hover) */
-                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? "26" : "1c"), border: "1px solid " + accentColor + "33", borderLeft: "4px solid " + accentColor, borderRadius: 6, padding: "0 8px", overflow: "hidden", display: "flex", alignItems: "center" }}>
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? "26" : "1c"), border: "1px solid " + accentColor + "33", borderLeft: "4px solid " + accentColor, borderRadius: 6, padding: "0 6px 0 5px", overflow: "hidden", display: "flex", alignItems: "center", gap: 5 }}>
+                            {a.proc && <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
                             <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                           </div>
                         ) : (
