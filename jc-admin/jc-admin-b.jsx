@@ -61,11 +61,18 @@ function jcmPband(patient, fields, estado) {
   return "<div class='pband'><div class='pname'>" + e(patient.name || "—") + "</div><div class='pdivider'></div><div class='pfields'>" + fl + "</div>"
     + (estado ? "<div class='status'><span class='dot'></span><span class='lbl'>" + e(estado) + "</span></div>" : "") + "</div>";
 }
-function jcmSignFoot(b, proName, docLabel, patientName, fechaLarga) {
+function jcmSignFoot(b, proName, docLabel, patientName, fechaLarga, medSig) {
   const e = jcmDocEsc;
   const stamp = b.markUrl ? "<img class='mark' src='" + b.markUrl + "' alt=''>" : "<div class='mono'>" + e(b.wm) + "</div>";
+  var medBlock = "";
+  if (medSig) {
+    medBlock = "<div class='sign-block'>"
+      + (medSig.sig ? "<img src='" + medSig.sig + "' style='height:44px;width:auto;display:block;margin-bottom:6px;border-radius:2px'>" : "<div style='height:44px;margin-bottom:6px'></div>")
+      + "<div class='sign-line'></div><div class='sign-name'>" + e(medSig.name) + "</div>"
+      + "<div class='sign-role'>Médico responsable</div></div>";
+  }
   return "<div class='signature'><div class='sign-block'><div class='sign-line'></div><div class='sign-name'>" + e(proName || b.clinName) + "</div>"
-    + "<div class='sign-role'>" + e(b.proRole) + "</div></div><div class='sign-stamp'>" + stamp + "</div></div>"
+    + "<div class='sign-role'>" + e(b.proRole) + "</div></div>" + medBlock + "<div class='sign-stamp'>" + stamp + "</div></div>"
     + "<footer class='docfooter'><span class='f-l'>" + e(docLabel) + " · " + e(patientName) + " · Emitida <span class='fdate'>" + e(fechaLarga) + "</span></span><span class='f-r'>" + e(b.handle || b.clinName) + "</span></footer>";
 }
 // Envuelve el cuerpo en una hoja A4 completa y lo manda a imprimir.
@@ -1446,10 +1453,14 @@ function ConsentTab({ T, patient, updatePatient }) {
     // En iOS, la pestaña debe abrirse DENTRO del gesto del usuario; se rellena al recortar las firmas.
     const winIOS = openOnly ? window.open("", "_blank") : null;
     if (winIOS) { try { winIOS.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento…</body>"); } catch (e) {} }
+    var medicoSig = null;
+    try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {}
     Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
       const sp = crops[0], spr = crops[1];
+      const numCols = medicoSig ? 3 : 2;
+      const sigH = medicoSig ? 130 : 175;
       const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + esc(patient.name || "") + "</title>" +
-        "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:175px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px}.sig-box img{max-height:100%;max-width:100%;object-fit:contain}</style>" +
+        "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:repeat(" + numCols + ",1fr);gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:" + sigH + "px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px}.sig-box img{max-height:100%;max-width:100%;object-fit:contain}</style>" +
         "</head><body>" +
         "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>" +
         "<h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2>" +
@@ -1459,6 +1470,7 @@ function ConsentTab({ T, patient, updatePatient }) {
         "<div class='sigs'>" +
           "<div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (sp ? "<img src='" + sp + "'/>" : "") + "</div></div>" +
           "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (spr ? "<img src='" + spr + "'/>" : "") + "</div></div>" +
+          (medicoSig ? "<div><div class='sig-label'>Médico responsable · " + esc(medicoSig.name) + "</div><div class='sig-box'>" + (medicoSig.sig ? "<img src='" + medicoSig.sig + "'/>" : "") + "</div></div>" : "") +
         "</div></body></html>";
       if (openOnly) {
         if (winIOS) { try { winIOS.document.open(); winIOS.document.write(html); winIOS.document.close(); } catch (e) {} }
@@ -1574,10 +1586,19 @@ function ConsentTab({ T, patient, updatePatient }) {
             <div style={{ fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 }}>Yo <b>{openDoc.nombre}</b></div>
             <div style={{ fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 14 }}>Identificado con CI N° <b>{openDoc.ci}</b> · Edad <b>{openDoc.edad}</b></div>
             <ConsentDocDark T={T} tpl={openDoc} prof={openDoc.prof} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
-              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma paciente</div>{openDoc.sigPac && <img src={openDoc.sigPac} alt="firma paciente" style={{ width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
-              <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma profesional · {openDoc.prof}</div>{openDoc.sigPro && <img src={openDoc.sigPro} alt="firma profesional" style={{ width: "100%", height: 120, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
-            </div>
+            {(() => {
+              var medSigModal = null;
+              try { var mM = window.DB.get("medic_sigs"); if (mM && mM.length) medSigModal = mM[0]; } catch (_) {}
+              const cols = medSigModal ? "1fr 1fr 1fr" : "1fr 1fr";
+              const h = medSigModal ? 90 : 120;
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: cols, gap: 16, marginTop: 16 }}>
+                  <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma paciente</div>{openDoc.sigPac && <img src={openDoc.sigPac} alt="firma paciente" style={{ width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
+                  <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma profesional · {openDoc.prof}</div>{openDoc.sigPro && <img src={openDoc.sigPro} alt="firma profesional" style={{ width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
+                  {medSigModal && <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Médico responsable · {medSigModal.name}</div>{medSigModal.sig && <img src={medSigModal.sig} alt="firma médico" style={{ width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>}
+                </div>
+              );
+            })()}
           </div>
           )}
         </AdModal>
@@ -2095,6 +2116,7 @@ function RecetaTab({ T, patient, updatePatient }) {
   const [ind, setInd] = useState("");
   const [ctrl, setCtrl] = useState(""); // fecha de control (solo indicaciones)
   const [preview, setPreview] = useState(null); // documento abierto en popup
+  const [sigMedId, setSigMedId] = useState("auto");
   // Formatea "YYYY-MM-DD" a fecha larga en español para el documento.
   const fmtCtrl = s => { if (!s) return ""; const m = ("" + s).match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return s; const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d) ? s : d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); };
   const recetas = patient.recetas || [];
@@ -2132,7 +2154,9 @@ function RecetaTab({ T, patient, updatePatient }) {
       + (r.ind ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas adicionales</span><span class='sh-rule'></span></div><div class='textbox'>" + e(r.ind).replace(/\n/g, "<br>") + "</div></div>" : "")
       + (isInd ? "<div class='control-note'><span class='cn-icon'>+</span><div><span class='cn-k'>Control de evaluación</span><span class='cn-v'>" + (r.ctrl ? "Tu control está agendado para el <b>" + e(fmtCtrl(r.ctrl)) + "</b>. Asiste para evaluar el resultado y realizar los ajustes que sean necesarios." : "Agenda tu control para evaluar el resultado y realizar los ajustes que sean necesarios.") + "</span></div></div>" : "")
       + "</div>"
-      + jcmSignFoot(b, b.proName, titleOf(r.tipo), patient.name || "", hoy);
+      + jcmSignFoot(b, b.proName, titleOf(r.tipo), patient.name || "", hoy, (function() {
+        try { var ms = window.DB.get("medic_sigs"); if (!ms || !ms.length) return null; return sigMedId === "none" ? null : (ms.find(function(s) { return s.id === sigMedId; }) || ms[0]); } catch (_) { return null; }
+      })());
     jcmPrintDoc(titleOf(r.tipo) + " · " + e(patient.name || ""), b, inner);
   }
   function enviarWa(r) {
@@ -2190,6 +2214,15 @@ function RecetaTab({ T, patient, updatePatient }) {
             <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 5 }}>Si la indicas, aparece en la sección "Control de evaluación" del documento.</span>
           </label>
         )}
+        {(() => { try { var ms = window.DB.get("medic_sigs"); if (!ms || ms.length < 2) return null; return (
+          <label style={{ display: "block", marginTop: 14 }}>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Firma del médico en este documento</span>
+            <select value={sigMedId} onChange={e => setSigMedId(e.target.value)} style={{ ...inp, cursor: "pointer" }}>
+              {ms.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
+              <option value="none">Sin firma del médico</option>
+            </select>
+          </label>
+        ); } catch (_) { return null; } })()}
         <div style={{ marginTop: 16, textAlign: "right" }}><AdBtn T={T} primary onClick={guardar}>Guardar {tipo === "indicaciones" ? "indicaciones" : "receta"}</AdBtn></div>
       </div>
       <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Documentos del paciente ({recetas.length})</div>

@@ -1174,6 +1174,92 @@ function getIndTemplates() {
   // Solo la clínica base (JC Medical) o el modo local heredan las plantillas de ejemplo; las nuevas parten en blanco.
   return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? IND_TPL_SEED : [];
 }
+/* ─────────── FIRMAS DE MÉDICOS ─────────── */
+function FirmasMedicasEditor({ T }) {
+  const SignPad = window.SignaturePad;
+  const [sigs, setSigs] = useState(function() {
+    try { return window.DB.get("medic_sigs") || []; } catch (e) { return []; }
+  });
+  const [adding, setAdding] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [sig, setSig] = useState(null);
+  const [saved, setSaved] = useState(false);
+
+  function guardar() {
+    if (!nombre.trim() || !sig) return;
+    var ns = sigs.concat([{ id: "ms" + Date.now(), name: nombre.trim(), sig: sig }]);
+    setSigs(ns);
+    try { window.DB.set("medic_sigs", ns); } catch (e) {}
+    setSaved(true); setTimeout(function() { setSaved(false); }, 2000);
+    setAdding(false); setNombre(""); setSig(null);
+  }
+
+  async function eliminar(id, name) {
+    if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar la firma de " + name + "?", { danger: true }))) return;
+    var ns = sigs.filter(function(s) { return s.id !== id; });
+    setSigs(ns);
+    try { window.DB.set("medic_sigs", ns); } catch (e) {}
+  }
+
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none", boxSizing: "border-box" };
+
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+      <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Firmas de médicos</div>
+      <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>
+        Las firmas aquí configuradas se insertan automáticamente en las recetas e indicaciones al imprimir, y aparecen como <em>Médico responsable</em> en los consentimientos firmados.
+      </div>
+
+      {sigs.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+          {sigs.map(function(s) {
+            return (
+              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 14px", borderRadius: 8, background: T.surface2, border: "1px solid " + T.line }}>
+                {s.sig
+                  ? <img src={s.sig} alt="firma" style={{ height: 38, width: "auto", maxWidth: 100, objectFit: "contain", background: "#fff", borderRadius: 4, padding: "3px 6px", border: "1px solid " + T.line, flexShrink: 0 }} />
+                  : <div style={{ width: 80, height: 38, background: T.surface, borderRadius: 4, border: "1px solid " + T.line, flexShrink: 0 }} />}
+                <div style={{ flex: 1, fontFamily: T.sans, fontSize: 13, color: T.text }}>{s.name}</div>
+                <button onClick={function() { eliminar(s.id, s.name); }} title="Eliminar firma" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 6, display: "flex" }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {adding ? (
+        <div style={{ border: "1px solid " + T.line, borderRadius: 8, padding: "14px 14px", background: T.surface2 }}>
+          <label style={{ display: "block", marginBottom: 14 }}>
+            <span style={lbl}>Nombre del médico</span>
+            <input style={inp} value={nombre} onChange={function(e) { setNombre(e.target.value); }} placeholder="Dr. Juan Pérez" autoFocus />
+          </label>
+          <span style={lbl}>Firma digital</span>
+          {SignPad ? <SignPad T={T} onChange={setSig} height={150} /> : <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Componente de firma no disponible.</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            <button onClick={function() { setAdding(false); setNombre(""); setSig(null); }}
+              style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", padding: "12px 18px", borderRadius: 6, border: "1px solid " + T.line, background: "none", color: T.textMute, cursor: "pointer" }}>
+              Cancelar
+            </button>
+            <button onClick={guardar} disabled={!nombre.trim() || !sig}
+              style={{ flex: 1, fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", padding: "12px 18px", borderRadius: 6, border: "none", background: nombre.trim() && sig ? T.accent : T.surface, color: nombre.trim() && sig ? (T.onAccent || "#fff") : T.textFaint, cursor: nombre.trim() && sig ? "pointer" : "default" }}>
+              Guardar firma
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={function() { setAdding(true); }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", padding: "11px 16px", borderRadius: 6, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar firma
+          {saved && <span style={{ color: "#4caf73", fontWeight: 600, marginLeft: 4 }}>✓ guardada</span>}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Diagnósticos sugeridos (desplegable en Receta / Indicaciones).
 const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"];
 function IndTemplatesEditor({ T }) {
@@ -1310,6 +1396,7 @@ function ConfigView({ T }) {
       <PaymentDataCard T={T} />
       <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>
       <IndTemplatesEditor T={T} />
+      <FirmasMedicasEditor T={T} />
       <ClinCard T={T} title="Notificaciones">
         <ToggleRow T={T} label="Recordatorio 24 h antes (WhatsApp)" def={true} />
         <ToggleRow T={T} label="Recordatorio el día del tratamiento · 08:30 (WhatsApp)" def={true} />
