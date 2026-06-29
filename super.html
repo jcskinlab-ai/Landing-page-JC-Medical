@@ -13,7 +13,7 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;min-height:100dvh}
   .serif{font-family:'Marcellus',serif;font-weight:400}
-  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px}
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 60px}
   .center{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px}
   input{width:100%;padding:13px 14px;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none}
   input:focus{border-color:rgba(127,127,127,.6);box-shadow:0 0 0 3px rgba(127,127,127,.12)}
@@ -25,10 +25,28 @@
   .muted{color:var(--mute);font-size:12px}
   .faint{color:var(--faint);font-size:11px}
   @media(max-width:680px){ .row{grid-template-columns:1fr 1fr;gap:10px} }
+
+  /* ── Modal ── */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:mFadeIn .18s ease}
+  @keyframes mFadeIn{from{opacity:0}to{opacity:1}}
+  .modal-box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 24px;width:100%;max-width:440px;animation:mSlideUp .2s cubic-bezier(.22,1,.36,1)}
+  @keyframes mSlideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .modal-box h2{font-size:19px;margin-bottom:6px}
+  .modal-box .sub{color:var(--mute);font-size:12.5px;line-height:1.55;margin-bottom:16px}
+  .modal-box input{margin-bottom:12px}
+  .modal-box .row-btns{display:flex;gap:8px;margin-top:4px}
+  .modal-box .row-btns button{flex:1;padding:12px}
+  .modal-chk{display:flex;align-items:flex-start;gap:9px;margin-bottom:14px;cursor:pointer}
+  .modal-chk input[type=checkbox]{margin-top:3px;width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
+  .modal-chk span{color:var(--mute);font-size:12.5px;line-height:1.5}
+  .modal-err{color:#E0607A;font-size:12px;min-height:16px;margin-bottom:8px}
+  .tag-email{display:inline-block;padding:3px 9px;border-radius:6px;background:rgba(127,176,198,.12);border:1px solid rgba(127,176,198,.22);font-size:12px;color:var(--accent);font-family:monospace;letter-spacing:.01em;word-break:break-all}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<!-- Modal (reutilizable para eliminar y cambiar correo) -->
+<div id="modal" style="display:none"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -38,25 +56,64 @@
 <script>
 (function () {
   'use strict';
-  var SUPER_EMAIL = 'medique.cl@gmail.com'; // debe coincidir con isSuper() en firestore.rules
+  var SUPER_EMAIL = 'medique.cl@gmail.com';
   var app = document.getElementById('app');
   var cfg = window.JCSAAS_CONFIG || {};
   if (!cfg.apiKey) { app.innerHTML = '<div class="center"><div>Falta configurar Firebase en jcm_saas_config.js</div></div>'; return; }
   firebase.initializeApp(cfg);
-  // App Check (anti-abuso): se activa solo si hay site key de reCAPTCHA v3 en la config.
   if (cfg.appCheckKey) { try { firebase.appCheck().activate(cfg.appCheckKey, true); } catch (e) {} }
   var auth = firebase.auth(), db = firebase.firestore();
   try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
 
-  var fmtDate = function (ms) { try { return new Date(ms).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '—'; } };
   var esc = function (s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var fmtDate = function (ms) { try { return new Date(ms).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '—'; } };
 
+  // ── Token del super-admin para llamar al API ──
+  function getToken() {
+    var u = auth.currentUser;
+    if (!u) return Promise.reject(new Error('Sin sesión'));
+    return u.getIdToken();
+  }
+
+  // ── Llamada al endpoint de operaciones admin ──
+  function superOp(payload) {
+    return getToken().then(function (tok) {
+      return fetch('/api/super-ops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify(payload),
+      });
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) throw new Error(data.error || 'Error desconocido');
+      return data;
+    });
+  }
+
+  // ── Modal genérico ──
+  var _mResolve = null;
+  function showModal(html) {
+    var el = document.getElementById('modal');
+    el.innerHTML = '<div class="modal-bg" id="modal-bg"><div class="modal-box">' + html + '</div></div>';
+    el.style.display = '';
+    // Cerrar con Escape
+    document.onkeydown = function (e) { if (e.key === 'Escape') closeModal(); };
+    // Cerrar clickando fondo
+    document.getElementById('modal-bg').onclick = function (e) { if (e.target === this) closeModal(); };
+  }
+  function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+    document.getElementById('modal').innerHTML = '';
+    document.onkeydown = null;
+    if (_mResolve) { _mResolve(false); _mResolve = null; }
+  }
+
+  // ── Plan info ──
   function planInfo(c) {
     var now = Date.now();
-    if (c.plan === 'pending') return { label: 'Pendiente · aprobar', color: 'var(--warn)' };
-    if (c.plan === 'rejected') return { label: 'Rechazada', color: 'var(--danger)' };
+    if (c.plan === 'pending')   return { label: 'Pendiente · aprobar', color: 'var(--warn)' };
+    if (c.plan === 'rejected')  return { label: 'Rechazada',           color: 'var(--danger)' };
     if (c.plan === 'active' || c.plan === 'comp') return { label: 'Activo', color: 'var(--ok)' };
-    if (c.plan === 'suspended') return { label: 'Suspendido', color: 'var(--danger)' };
+    if (c.plan === 'suspended') return { label: 'Suspendido',          color: 'var(--danger)' };
     if (c.plan === 'trial') {
       var left = Math.ceil(((c.trialEnds || 0) - now) / 86400000);
       return left > 0 ? { label: 'Prueba · ' + left + 'd', color: 'var(--warn)' } : { label: 'Prueba vencida', color: 'var(--danger)' };
@@ -64,6 +121,7 @@
     return { label: c.plan || '—', color: 'var(--faint)' };
   }
 
+  // ── Login ──
   function loginView(msg) {
     app.innerHTML =
       '<div class="center"><div style="width:100%;max-width:340px">' +
@@ -95,11 +153,12 @@
   function notAllowed(email) {
     app.innerHTML = '<div class="center"><div style="text-align:center;max-width:360px">' +
       '<h1 class="serif" style="font-size:28px;margin-bottom:8px">Sin acceso</h1>' +
-      '<p class="muted">La cuenta <b>' + esc(email) + '</b> no es super-admin. Entra con ' + esc(SUPER_EMAIL) + '.</p>' +
+      '<p class="muted">La cuenta <b>' + esc(email) + '</b> no es super-admin.</p>' +
       '<button class="btn-ghost" style="margin-top:16px" onclick="window._logout()">Cerrar sesión</button>' +
       '</div></div>';
   }
 
+  // ── Dashboard ──
   function dash() {
     app.innerHTML = '<div class="wrap"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">' +
       '<h1 class="serif" style="font-size:30px">Clínicas</h1>' +
@@ -112,61 +171,140 @@
       var html = '';
       snap.forEach(function (d) {
         var c = d.data(), pi = planInfo(c);
+        var isOwn = (c.ownerEmail || '').toLowerCase() === 'jc.skinlab@gmail.com';
         html += '<div class="row" data-id="' + esc(d.id) + '">' +
           '<div><div class="serif" style="font-size:18px">' + esc(c.name || d.id) + '</div>' +
           '<div class="faint">' + esc(c.ownerEmail || '') + '</div></div>' +
           '<div class="muted">Creada ' + fmtDate(c.createdAt) + '<br><span class="faint">prueba hasta ' + fmtDate(c.trialEnds) + '</span></div>' +
           '<div><span class="pill" style="color:' + pi.color + ';border-color:' + pi.color + '">' + pi.label + '</span></div>' +
           '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">' +
-          (c.plan === 'pending' ? '<button class="btn" onclick="window._approve(\'' + esc(d.id) + '\')">Aprobar</button>' +
-            '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._reject(\'' + esc(d.id) + '\')">Rechazar</button>' : '') +
+          (c.plan === 'pending'
+            ? '<button class="btn" onclick="window._approve(\'' + esc(d.id) + '\')">Aprobar</button>' +
+              '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._reject(\'' + esc(d.id) + '\')">Rechazar</button>' : '') +
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'active\')">Activar</button>' +
-          '<button class="btn-ghost" style="' + (c.plan === 'comp' ? 'border-color:var(--ok);color:var(--ok)' : '') + '" onclick="window._setPlan(\'' + esc(d.id) + '\',\'comp\')" title="Plan cortesía: gratis permanente, nunca vence ni se bloquea">Cortesía' + (c.plan === 'comp' ? ' ✓' : '') + '</button>' +
+          '<button class="btn-ghost" style="' + (c.plan === 'comp' ? 'border-color:var(--ok);color:var(--ok)' : '') + '" onclick="window._setPlan(\'' + esc(d.id) + '\',\'comp\')" title="Plan cortesía: gratis permanente">Cortesía' + (c.plan === 'comp' ? ' ✓' : '') + '</button>' +
           '<button class="btn-ghost" onclick="window._extend(\'' + esc(d.id) + '\')">+14d prueba</button>' +
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'suspended\')">Suspender</button>' +
           '<button class="btn-ghost" style="' + (c.jcApp ? 'border-color:var(--ok);color:var(--ok)' : '') + '" onclick="window._toggleJcApp(\'' + esc(d.id) + '\',' + (c.jcApp ? 'true' : 'false') + ')">App JC' + (c.jcApp ? ' ✓' : '') + '</button>' +
           '<button class="btn-ghost" onclick="window._copyLink(\'' + esc(d.id) + '\')" title="Copiar link de reserva">Link reserva</button>' +
-          ((c.ownerEmail || '').toLowerCase() === 'jc.skinlab@gmail.com' ? '' :
-            '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._deleteClinic(\'' + esc(d.id) + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\',\'' + esc(c.ownerUid || '') + '\')" title="Eliminar clínica">Eliminar</button>') +
+          (!isOwn
+            ? '<button class="btn-ghost" style="border-color:rgba(127,176,198,.5);color:var(--accent)" onclick="window._changeEmail(\'' + esc(d.id) + '\',\'' + esc(c.ownerUid || '') + '\',\'' + esc(c.ownerEmail || '') + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\')" title="Cambiar correo de ingreso">Correo</button>' +
+              '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._deleteClinic(\'' + esc(d.id) + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\',\'' + esc(c.ownerUid || '') + '\',\'' + esc(c.ownerEmail || '') + '\')" title="Eliminar clínica">Eliminar</button>'
+            : '') +
           '</div></div>';
       });
       document.getElementById('list').innerHTML = html;
     }).catch(function (e) { document.getElementById('list').innerHTML = '<span style="color:#E0607A">Error: ' + esc(e.code || e.message) + '</span>'; });
   }
 
-  window._logout = function () { auth.signOut(); };
-  window._setPlan = function (id, plan) {
-    db.collection('clinics').doc(id).update({ plan: plan }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
-  };
-  window._extend = function (id) {
-    db.collection('clinics').doc(id).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000 }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
-  };
-  // Aprobar una cuenta pendiente: inicia su prueba de 14 días y le da acceso al panel.
-  window._approve = function (id) {
-    db.collection('clinics').doc(id).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000, approvedAt: Date.now() }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
-  };
-  // Rechazar una solicitud: la clínica no podrá entrar al panel.
-  window._reject = function (id) {
-    if (!confirm('¿Rechazar esta solicitud de cuenta? La clínica no podrá entrar al panel.')) return;
+  // ── Acciones de plan ──
+  window._logout   = function () { auth.signOut(); };
+  window._dash     = dash;
+  window._setPlan  = function (id, plan) { db.collection('clinics').doc(id).update({ plan: plan }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); }); };
+  window._extend   = function (id) { db.collection('clinics').doc(id).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000 }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); }); };
+  window._approve  = function (id) { db.collection('clinics').doc(id).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000, approvedAt: Date.now() }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); }); };
+  window._reject   = function (id) {
+    if (!confirm('¿Rechazar esta solicitud? La clínica no podrá entrar.')) return;
     db.collection('clinics').doc(id).update({ plan: 'rejected' }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
   };
+  window._toggleJcApp = function (id, cur) { db.collection('clinics').doc(id).update({ jcApp: !cur }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); }); };
+  window._copyLink = function (id) {
+    var link = 'https://medique.cl/reservar?c=' + id;
+    try { navigator.clipboard.writeText(link); alert('Link copiado:\n\n' + link); } catch (e) { prompt('Link de reserva:', link); }
+  };
 
-  function slug(s){ return (s||'clinica').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,28)||'clinica'; }
+  // ── Eliminar clínica (usa /api/super-ops para borrado completo) ──
+  window._deleteClinic = function (id, name, uid, email) {
+    showModal(
+      '<h2>⚠️ Eliminar clínica</h2>' +
+      '<p class="sub">Esta acción <b>elimina permanentemente</b> la cuenta de ingreso, todos los datos del panel y la información almacenada de <b>' + esc(name) + '</b>. <span style="color:#E0607A;font-weight:600">No se puede deshacer.</span></p>' +
+      (email ? '<p class="sub" style="margin-bottom:12px">Cuenta a eliminar: <span class="tag-email">' + esc(email) + '</span></p>' : '') +
+      '<input id="del-confirm" placeholder="Escribe ELIMINAR para confirmar" autocomplete="off" style="margin-bottom:4px">' +
+      '<div class="modal-err" id="del-err"></div>' +
+      '<div class="row-btns">' +
+        '<button class="btn-ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A;font-weight:600" id="del-go">Eliminar definitivamente</button>' +
+      '</div>'
+    );
+    document.getElementById('del-confirm').focus();
+    document.getElementById('del-go').onclick = function () {
+      var val = (document.getElementById('del-confirm').value || '').trim().toUpperCase();
+      var err = document.getElementById('del-err');
+      if (val !== 'ELIMINAR') { err.textContent = 'Escribe exactamente ELIMINAR en mayúsculas.'; return; }
+      var btn = document.getElementById('del-go');
+      btn.textContent = 'Eliminando…'; btn.disabled = true; err.textContent = '';
+      superOp({ action: 'deleteClinic', clinicId: id, ownerUid: uid, clinicName: name })
+        .then(function (r) { closeModal(); dash(); })
+        .catch(function (e) {
+          err.textContent = e.message || 'No se pudo eliminar.';
+          btn.textContent = 'Eliminar definitivamente'; btn.disabled = false;
+        });
+    };
+    document.getElementById('del-confirm').onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('del-go').click(); };
+  };
 
-  // Crea una clínica usando una app Firebase SECUNDARIA, para no cerrar la sesión del super-admin.
-  function createClinic(name, email, pass){
+  // ── Cambiar correo de ingreso ──
+  window._changeEmail = function (id, uid, currentEmail, name) {
+    showModal(
+      '<h2>Cambiar correo de ingreso</h2>' +
+      '<p class="sub">Clínica: <b>' + esc(name) + '</b><br>Correo actual: <span class="tag-email">' + esc(currentEmail || '—') + '</span></p>' +
+      '<input id="new-email" type="email" placeholder="Nuevo correo de acceso" autocomplete="off" style="margin-bottom:4px">' +
+      '<div class="modal-err" id="em-err"></div>' +
+      '<label class="modal-chk"><input type="checkbox" id="em-auth"><span>El titular de <b>' + esc(name) + '</b> ha autorizado expresamente este cambio. Se enviarán notificaciones al correo actual y al nuevo.</span></label>' +
+      '<div class="row-btns">' +
+        '<button class="btn-ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn" style="background:var(--accent);color:#0a0a0a" id="em-go">Confirmar cambio</button>' +
+      '</div>'
+    );
+    document.getElementById('new-email').focus();
+    document.getElementById('em-go').onclick = function () {
+      var newEmail = (document.getElementById('new-email').value || '').trim().toLowerCase();
+      var auth2   = document.getElementById('em-auth').checked;
+      var err     = document.getElementById('em-err');
+      var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRe.test(newEmail))  { err.textContent = 'Ingresa un correo válido.'; return; }
+      if (newEmail === (currentEmail || '').toLowerCase()) { err.textContent = 'El nuevo correo es igual al actual.'; return; }
+      if (!auth2) { err.textContent = 'Debes confirmar que el titular ha autorizado el cambio.'; return; }
+      var btn = document.getElementById('em-go');
+      btn.textContent = 'Actualizando…'; btn.disabled = true; err.textContent = '';
+      superOp({ action: 'changeEmail', clinicId: id, ownerUid: uid, ownerEmail: currentEmail, newEmail: newEmail, clinicName: name })
+        .then(function (r) {
+          closeModal();
+          // Mostrar confirmación breve antes de recargar
+          showModal(
+            '<h2 style="color:var(--ok)">✓ Correo actualizado</h2>' +
+            '<p class="sub">El correo de ingreso de <b>' + esc(name) + '</b> fue cambiado a:<br><span class="tag-email">' + esc(newEmail) + '</span></p>' +
+            '<p class="sub">Se enviaron notificaciones al correo anterior y al nuevo.</p>' +
+            '<div class="row-btns"><button class="btn" onclick="closeModal();window._dash()">Aceptar</button></div>'
+          );
+          _mResolve = null;
+        })
+        .catch(function (e) {
+          err.textContent = e.message || 'No se pudo actualizar el correo.';
+          btn.textContent = 'Confirmar cambio'; btn.disabled = false;
+        });
+    };
+    document.getElementById('new-email').onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('em-go').click(); };
+  };
+
+  // Exponer closeModal globalmente (se llama desde el HTML del modal)
+  window.closeModal = closeModal;
+
+  // ── Crear nueva clínica ──
+  function slug(s) { return (s || 'clinica').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28) || 'clinica'; }
+
+  function createClinic(name, email, pass) {
     var second = firebase.initializeApp(cfg, 'admin2-' + Date.now());
     var a2 = second.auth(), d2 = second.firestore();
     var clinicId;
-    return a2.createUserWithEmailAndPassword(email, pass).then(function(cred){
-      var uid = cred.user.uid; clinicId = slug(name) + '-' + uid.slice(0,6); var now = Date.now();
-      // Se crea PENDIENTE (la regla lo exige); el super-admin la aprueba enseguida (ver _newClinic).
-      return d2.collection('clinics').doc(clinicId).set({ id:clinicId, name:name, ownerUid:uid, ownerEmail:email, plan:'pending', trialEnds:0, createdAt:now, branding:{name:name} })
-        .then(function(){ return d2.collection('users').doc(uid).set({ clinicId:clinicId, role:'owner', email:email, createdAt:now }); });
-    }).then(function(){ return a2.signOut(); }).then(function(){ return second.delete(); }).then(function(){ return clinicId; });
+    return a2.createUserWithEmailAndPassword(email, pass).then(function (cred) {
+      var uid = cred.user.uid; clinicId = slug(name) + '-' + uid.slice(0, 6); var now = Date.now();
+      return d2.collection('clinics').doc(clinicId).set({ id: clinicId, name: name, ownerUid: uid, ownerEmail: email, plan: 'pending', trialEnds: 0, createdAt: now, branding: { name: name } })
+        .then(function () { return d2.collection('users').doc(uid).set({ clinicId: clinicId, role: 'owner', email: email, createdAt: now }); });
+    }).then(function () { return a2.signOut(); }).then(function () { return second.delete(); }).then(function () { return clinicId; });
   }
 
-  window._newClinic = function(){
+  window._newClinic = function () {
     app.innerHTML = '<div class="wrap" style="max-width:420px">' +
       '<h1 class="serif" style="font-size:28px;margin-bottom:4px">Nueva clínica</h1>' +
       '<p class="muted" style="margin-bottom:18px">Se crea con 14 días de prueba. Entrega estas credenciales a la clínica para entrar en portal.medique.cl</p>' +
@@ -177,36 +315,18 @@
       '<button class="btn" style="width:100%;margin-bottom:8px" id="nc-go">Crear clínica</button>' +
       '<button class="btn-ghost" style="width:100%" onclick="window._dash()">Cancelar</button>' +
       '</div>';
-    document.getElementById('nc-go').onclick = function(){
-      var n=document.getElementById('nc-name').value.trim(), e=document.getElementById('nc-email').value.trim().toLowerCase(), p=document.getElementById('nc-pass').value;
-      var err=document.getElementById('nc-err');
-      if(n.length<2){ err.textContent='Ingresa el nombre.'; return; }
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ err.textContent='Correo no válido.'; return; }
-      if(p.length<6){ err.textContent='La contraseña debe tener al menos 6 caracteres.'; return; }
-      var btn=document.getElementById('nc-go'); btn.textContent='Creando…'; btn.disabled=true; err.textContent='';
-      createClinic(n,e,p).then(function(clinicId){
-        // El super-admin la creó: se aprueba de inmediato (prueba de 14 días).
-        return db.collection('clinics').doc(clinicId).update({ plan:'trial', trialEnds: Date.now()+14*86400000, approvedAt: Date.now() });
-      }).then(function(){ alert('Clínica "'+n+'" creada y aprobada.\n\nAcceso:\n'+e+'\nContraseña: '+p+'\n\nEntra en portal.medique.cl'); dash(); })
-        .catch(function(ex){ err.textContent = (ex.code||'').indexOf('email-already-in-use')>=0 ? 'Ese correo ya tiene cuenta.' : ('No se pudo crear: '+(ex.code||ex.message)); btn.textContent='Crear clínica'; btn.disabled=false; });
+    document.getElementById('nc-go').onclick = function () {
+      var n = document.getElementById('nc-name').value.trim(), e = document.getElementById('nc-email').value.trim().toLowerCase(), p = document.getElementById('nc-pass').value;
+      var err = document.getElementById('nc-err');
+      if (n.length < 2) { err.textContent = 'Ingresa el nombre.'; return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { err.textContent = 'Correo no válido.'; return; }
+      if (p.length < 6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+      var btn = document.getElementById('nc-go'); btn.textContent = 'Creando…'; btn.disabled = true; err.textContent = '';
+      createClinic(n, e, p).then(function (clinicId) {
+        return db.collection('clinics').doc(clinicId).update({ plan: 'trial', trialEnds: Date.now() + 14 * 86400000, approvedAt: Date.now() });
+      }).then(function () { alert('Clínica "' + n + '" creada y aprobada.\n\nAcceso:\n' + e + '\nContraseña: ' + p + '\n\nEntra en portal.medique.cl'); dash(); })
+        .catch(function (ex) { err.textContent = (ex.code || '').indexOf('email-already-in-use') >= 0 ? 'Ese correo ya tiene cuenta.' : ('No se pudo crear: ' + (ex.code || ex.message)); btn.textContent = 'Crear clínica'; btn.disabled = false; });
     };
-  };
-  window._dash = dash;
-  window._toggleJcApp = function (id, cur) {
-    db.collection('clinics').doc(id).update({ jcApp: !cur }).then(dash).catch(function (e) { alert('Error: ' + (e.code || e.message)); });
-  };
-  window._deleteClinic = function (id, name, ownerUid) {
-    var c1 = prompt('⚠️ ELIMINAR la clínica "' + name + '".\n\nSe borra su registro y su acceso al panel. Esta acción NO se puede deshacer.\n\nEscribe ELIMINAR (en mayúsculas) para confirmar:');
-    if ((c1 || '').trim().toUpperCase() !== 'ELIMINAR') return;
-    var ops = [db.collection('clinics').doc(id).delete()];
-    if (ownerUid) ops.push(db.collection('users').doc(ownerUid).delete().catch(function () {}));
-    Promise.all(ops).then(function () { alert('Clínica "' + name + '" eliminada.'); dash(); })
-      .catch(function (e) { alert('No se pudo eliminar: ' + (e.code || e.message) + '\n\n(Si dice permisos, publica las reglas de Firestore actualizadas.)'); });
-  };
-  window._copyLink = function (id) {
-    var link = 'https://medique.cl/reservar?c=' + id;
-    try { navigator.clipboard.writeText(link); alert('Link de reserva copiado:\n\n' + link); }
-    catch (e) { prompt('Link de reserva:', link); }
   };
 
   auth.onAuthStateChanged(function (user) {
