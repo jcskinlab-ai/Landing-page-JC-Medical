@@ -14,6 +14,8 @@
 //   GROQ_MODEL              = modelo (default "openai/gpt-oss-120b")
 //   WA_CLINIC_ID            = clínica a la que entran las reservas de este número (default abajo)
 //   WA_CLINIC_NAME          = nombre de la clínica para el contexto del bot
+//   WA_PHONE_MAP            = (multi-clínica) JSON {"<phone_number_id>":"<clinicId>"} → cada número a su clínica
+//   FIREBASE_SERVICE_ACCOUNT= (opcional) JSON de cuenta de servicio → guarda la conversación en la bandeja del panel
 //   FIREBASE_PROJECT_ID     = (default "medique-8dbf6")
 //   FIREBASE_API_KEY        = clave web pública de Firebase (default abajo) — para crear la reserva vía REST
 //   WHATSAPP_APP_SECRET     = si se define, valida la firma X-Hub-Signature-256 de Meta
@@ -95,6 +97,48 @@ async function crearReserva(clinicId, b) {
   return true;
 }
 
+// ── Persistencia de la conversación en el panel ──────────────────────────────
+// Escribe en tenants/{cid}/kv/wa_conversations (el MISMO store que lee la bandeja del panel),
+// usando la cuenta de servicio de Firebase. Así los mensajes aparecen en "Agente IA" sin más.
+// Si no hay FIREBASE_SERVICE_ACCOUNT, simplemente no persiste (el bot igual responde).
+function _getServiceAccount() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.GOOGLE_SERVICE_ACCOUNT || "";
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+function _b64url(buf) { return Buffer.from(buf).toString("base64").replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+async function _saToken(sa) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = _b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const claim = _b64url(JSON.stringify({ iss: sa.client_email, scope: "https://www.googleapis.com/auth/datastore", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }));
+  const signer = crypto.createSign("RSA-SHA256"); signer.update(header + "." + claim);
+  const assertion = header + "." + claim + "." + _b64url(signer.sign(sa.private_key));
+  const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=" + encodeURIComponent(assertion) });
+  const d = await r.json(); if (!d.access_token) throw new Error("sin access_token"); return d.access_token;
+}
+function _hora() { try { return new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()); } catch (e) { return ""; } }
+// Agrega el mensaje entrante del paciente y la respuesta del bot al hilo (por canal+contacto).
+async function appendInbox(clinicId, channel, contactId, name, inboundText, replyText) {
+  const sa = _getServiceAccount(); if (!sa) return; // sin clave de servicio → no persiste
+  const pid = process.env.FIREBASE_PROJECT_ID || "medique-8dbf6";
+  const base = `https://firestore.googleapis.com/v1/projects/${pid}/databases/(default)/documents/tenants/${encodeURIComponent(clinicId)}/kv/wa_conversations`;
+  const token = await _saToken(sa);
+  let convs = [];
+  try {
+    const g = await fetch(base, { headers: { Authorization: "Bearer " + token } });
+    if (g.ok) { const doc = await g.json(); const v = doc && doc.fields && doc.fields.v && doc.fields.v.stringValue; if (v) convs = JSON.parse(v) || []; }
+  } catch (e) {}
+  const tid = channel + ":" + contactId;
+  let t = convs.find(c => c.id === tid);
+  if (!t) { t = { id: tid, channel: channel, name: name || contactId, phone: contactId, msgs: [] }; convs.unshift(t); }
+  const h = _hora();
+  if (inboundText) t.msgs.push({ f: "in", t: String(inboundText).slice(0, 2000), h });
+  if (replyText) t.msgs.push({ f: "out", t: String(replyText).slice(0, 2000), h });
+  t.msgs = t.msgs.slice(-200);
+  const body = { fields: { v: { stringValue: JSON.stringify(convs).slice(0, 900000) }, _ts: { integerValue: String(Date.now()) } } };
+  await fetch(base, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify(body) }).catch(() => {});
+}
+
 // ── Envía un mensaje de texto por la WhatsApp Cloud API ──
 async function sendWhats(to, body) {
   const token = process.env.WHATSAPP_TOKEN, phoneId = process.env.WHATSAPP_PHONE_ID;
@@ -131,18 +175,23 @@ export default async function handler(req, res) {
   }
 
   // Responder 200 rápido a Meta y procesar (Meta reintenta si no recibe 200).
-  let msg = null, from = "";
+  let msg = null, from = "", phoneNumberId = "", contactName = "";
   try {
     const entry = req.body && req.body.entry && req.body.entry[0];
     const change = entry && entry.changes && entry.changes[0];
     const value = change && change.value;
+    phoneNumberId = (value && value.metadata && value.metadata.phone_number_id) || "";
+    try { contactName = (value && value.contacts && value.contacts[0] && value.contacts[0].profile && value.contacts[0].profile.name) || ""; } catch (e) {}
     const m = value && value.messages && value.messages[0];
     if (m && m.type === "text" && m.from) { from = m.from; msg = (m.text && m.text.body) || ""; }
   } catch (e) {}
 
   if (!msg) return res.status(200).json({ ok: true }); // estados de entrega, no-texto, etc.
 
-  const clinicId = process.env.WA_CLINIC_ID || "jc-medical-qI9deP";
+  // Multi-clínica: el número de WhatsApp (phone_number_id) decide a qué clínica entra.
+  // WA_PHONE_MAP = JSON {"<phone_number_id>":"<clinicId>"}. Si no, cae a WA_CLINIC_ID (mono-número).
+  let clinicId = process.env.WA_CLINIC_ID || "jc-medical-qI9deP";
+  try { const map = JSON.parse(process.env.WA_PHONE_MAP || "{}"); if (phoneNumberId && map[phoneNumberId]) clinicId = map[phoneNumberId]; } catch (e) {}
   const clinicName = process.env.WA_CLINIC_NAME || "la clínica";
   const sys = [
     "Eres el asistente de WhatsApp de " + clinicName + " (medicina estética).",
@@ -179,6 +228,8 @@ export default async function handler(req, res) {
 
     session.msgs.push({ role: "assistant", content: reply });
     await sendWhats(from, reply);
+    // Guarda la conversación en el panel (bandeja Agente IA). No bloquea la respuesta si falla.
+    try { await appendInbox(clinicId, "whatsapp", from, contactName, msg, reply); } catch (e) { console.error("appendInbox WA:", e); }
   } catch (e) {
     console.error("Error procesando mensaje WA:", e);
     try { await sendWhats(from, "Disculpa, tuve un problema para responder. Intenta de nuevo en un momento 🙏"); } catch (_) {}
