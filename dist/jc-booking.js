@@ -175,6 +175,10 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     }
     try {
       if (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.submitBooking && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) {
+        var totalMin = cart.reduce(function(s, p) {
+          var m = window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(p.name) : 30;
+          return s + m * (p.qty || 1);
+        }, 0);
         window.JCSAAS.submitBooking({
           name: form.name,
           phone: form.phone,
@@ -185,6 +189,7 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
           procs: cart.map(function(p) {
             return p.name + (p.qty > 1 ? " x" + p.qty : "");
           }),
+          dur: totalMin + " minutos",
           fecha: appt.fecha || "",
           time: time || "",
           source: "app"

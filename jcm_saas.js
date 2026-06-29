@@ -173,6 +173,7 @@
     unsubKv = db.collection('tenants').doc(state.clinicId).collection('kv')
       .onSnapshot(function (snap) {
         var changed = false;
+        var apptChanged = false; // rastrea si appointments cambió (para refrescar la agenda en tiempo real)
         applyingRemote = true;
         snap.docChanges().forEach(function (ch) {
           // No sobrescribir una clave con cambios locales pendientes o sin sincronizar (p. ej. un
@@ -184,11 +185,17 @@
             var val = data && data.v != null ? JSON.parse(data.v) : null;
             var cur = localStorage.getItem(nsKey(ch.doc.id));
             var next = JSON.stringify(val);
-            if (cur !== next) { localStorage.setItem(nsKey(ch.doc.id), next); changed = true; }
+            if (cur !== next) {
+              localStorage.setItem(nsKey(ch.doc.id), next);
+              changed = true;
+              if (ch.doc.id === 'appointments') apptChanged = true;
+            }
           } catch (e) { noop(e); }
         });
         applyingRemote = false;
         if (changed) emit('jcsaas:data', {});
+        // Notifica al panel de escritorio y al móvil que hay citas nuevas (ej: agendadas desde otro dispositivo)
+        if (apptChanged) { try { window.dispatchEvent(new Event('jcm:appts')); } catch (e) {} }
       }, noop);
   }
 
@@ -581,7 +588,7 @@
           try { dayOff = Math.round((new Date(b.fecha + 'T00:00:00') - new Date().setHours(0, 0, 0, 0)) / 86400000); } catch (e) {}
           appts.push({
             id: 'web' + d.id, _bk: d.id, name: b.name || '', phone: b.phone || '', email: b.email || '',
-            proc: b.proc || '', dur: b.dur || '', durMin: parseInt(b.dur) || 0, fecha: b.fecha || '', time: b.time || '',
+            proc: b.proc || '', dur: b.dur || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(b.proc) + ' minutos' : '30 minutos'), durMin: parseInt(b.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(b.proc) : 30), fecha: b.fecha || '', time: b.time || '',
             day: dayOff, status: 'pendiente_pago', origen: 'Reserva web', ts: new Date(b.createdAt || Date.now()).toISOString()
           });
           added++;

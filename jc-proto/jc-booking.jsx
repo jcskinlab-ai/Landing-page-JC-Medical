@@ -161,10 +161,16 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     // (así llega al panel). Solo si la app está enlazada a una clínica (?c o dominio configurado).
     try {
       if (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.submitBooking && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) {
+        // Duración: suma los minutos de cada ítem del carrito según procMin
+        var totalMin = cart.reduce(function(s, p) {
+          var m = (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(p.name) : 30);
+          return s + m * (p.qty || 1);
+        }, 0);
         window.JCSAAS.submitBooking({
           name: form.name, phone: form.phone, email: form.email,
           proc: cart.map(function (p) { return (p.qty > 1 ? p.qty + "× " : "") + p.name; }).join(" + "),
           procs: cart.map(function (p) { return p.name + (p.qty > 1 ? " x" + p.qty : ""); }),
+          dur: totalMin + " minutos",
           fecha: appt.fecha || "", time: time || "", source: "app"
         });
       }
