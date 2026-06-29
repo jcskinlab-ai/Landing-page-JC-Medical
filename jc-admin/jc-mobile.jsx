@@ -96,10 +96,10 @@ function MobileShell({ T, D, onLogout }) {
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
       try {
-        const map = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
+        const map = (window.DB && window.DB.get('horarios_dates')) || {};
         const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : [];
         map[a.fecha] = cur.filter(s=>s!==a.time);
-        localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+        if (window.DB) window.DB.set('horarios_dates', map);
       } catch(e) {}
     }
     saveAppts(all.map(x=>x.id===id?{...x,status:"confirmada"}:x));
@@ -110,10 +110,10 @@ function MobileShell({ T, D, onLogout }) {
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
       try {
-        const map = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : [];
+        const map = (window.DB && window.DB.get('horarios_dates')) || {};
+        const cur = Array.isArray(map[a.fecha]) ? [...map[a.fecha]] : [];
         if (!cur.includes(a.time)) { cur.push(a.time); cur.sort(); map[a.fecha]=cur; }
-        localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+        if (window.DB) window.DB.set('horarios_dates', map);
       } catch(e) {}
     }
     saveAppts(all.filter(x=>x.id!==id));
@@ -123,10 +123,10 @@ function MobileShell({ T, D, onLogout }) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     if (appt.fecha && appt.time) {
       try {
-        const map = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
+        const map = (window.DB && window.DB.get('horarios_dates')) || {};
         const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : HALF_HOURS.slice();
         map[appt.fecha] = cur.filter(s=>s!==appt.time);
-        localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+        if (window.DB) window.DB.set('horarios_dates', map);
       } catch(e) {}
     }
     saveAppts([...all, appt]);
@@ -357,8 +357,19 @@ function HorariosTab({ T, appts }) {
   const [selOff, setSelOff] = useState(0);
   const days = Array.from({length:14},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+i); return { off:i, iso:localISO(d), wd:WDS[d.getDay()], dd:d.getDate() }; });
   const selDay = days[selOff];
-  const [slotsMap, setSlotsMap] = useState(()=>JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}"));
-  const avail = slotsMap[selDay.iso]!=null ? slotsMap[selDay.iso] : HALF_HOURS.slice();
+  const [slotsMap, setSlotsMap] = useState(()=>(window.DB && window.DB.get('horarios_dates')) || {});
+  // Escucha cambios en Firestore para refrescar el mapa
+  useEffect(() => {
+    function reload() { setSlotsMap((window.DB && window.DB.get('horarios_dates')) || {}); }
+    window.addEventListener('jcsaas:data', reload);
+    return () => window.removeEventListener('jcsaas:data', reload);
+  }, []);
+  // Horario semanal configurado (horarios_v1) para el día seleccionado como fallback
+  const weeklySlots = (() => {
+    try { var h = window.DB && window.DB.get('horarios_v1'); var wd = new Date(selDay.iso + 'T12:00:00').getDay(); if (h && h[wd] && h[wd].open !== false) return h[wd].slots || HALF_HOURS.slice(); if (h && h[wd] && h[wd].open === false) return []; } catch(e) {}
+    return HALF_HOURS.slice();
+  })();
+  const avail = slotsMap[selDay.iso]!=null ? slotsMap[selDay.iso] : weeklySlots;
   const occupied = new Set();
   appts
     .filter(a => a.status !== "anulada" && (a.fecha ? a.fecha === selDay.iso : a.day === selOff))
@@ -372,16 +383,20 @@ function HorariosTab({ T, appts }) {
       });
     });
 
-  function saveMap(map) { localStorage.setItem("jcm_horarios_dates", JSON.stringify(map)); setSlotsMap({...map}); }
+  function saveMap(map) {
+    if (window.DB) window.DB.set('horarios_dates', map);
+    else { try { localStorage.setItem("jcm_horarios_dates", JSON.stringify(map)); } catch(e){} }
+    setSlotsMap({...map});
+  }
   function toggle(slot) {
     if (occupied.has(slot)) return;
-    const map = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
-    const cur = map[selDay.iso]!=null ? [...map[selDay.iso]] : HALF_HOURS.slice();
+    const map = (window.DB && window.DB.get('horarios_dates')) || {};
+    const cur = map[selDay.iso]!=null ? [...map[selDay.iso]] : weeklySlots.slice();
     map[selDay.iso] = cur.includes(slot) ? cur.filter(s=>s!==slot) : [...cur,slot].sort();
     saveMap(map);
   }
-  function blockAll() { const m=JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}"); m[selDay.iso]=[]; saveMap(m); }
-  function openAll()  { const m=JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}"); delete m[selDay.iso]; saveMap(m); }
+  function blockAll() { const m=(window.DB && window.DB.get('horarios_dates')) || {}; m[selDay.iso]=[]; saveMap(m); }
+  function openAll()  { const m=(window.DB && window.DB.get('horarios_dates')) || {}; delete m[selDay.iso]; saveMap(m); }
 
   const availCount = avail.filter(s=>!occupied.has(s)).length;
   const blockedCount = HALF_HOURS.filter(s=>!avail.includes(s)&&!occupied.has(s)).length;
@@ -574,8 +589,12 @@ function NuevaTab({ T, D, appts, addAppt }) {
     }
   }, [proc]);
 
-  const slotsMap = JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}");
-  const avail = slotsMap[fecha]!=null ? slotsMap[fecha] : HALF_HOURS.slice();
+  const slotsMap = (window.DB && window.DB.get('horarios_dates')) || {};
+  const weeklyDef = (() => {
+    try { var h = window.DB && window.DB.get('horarios_v1'); var wd = new Date(fecha + 'T12:00:00').getDay(); if (h && h[wd] && h[wd].open !== false) return h[wd].slots || HALF_HOURS.slice(); if (h && h[wd] && h[wd].open === false) return []; } catch(e) {}
+    return HALF_HOURS.slice();
+  })();
+  const avail = slotsMap[fecha]!=null ? slotsMap[fecha] : weeklyDef;
   const occupied = new Set(appts.filter(a=>a.fecha===fecha).map(a=>a.time));
   const freeSlots = avail.filter(s=>!occupied.has(s));
 

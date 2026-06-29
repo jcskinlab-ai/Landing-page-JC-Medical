@@ -120,13 +120,28 @@
     for (var h = 8; h < end; h++) { ["00", "30"].forEach(function (m) { out.push((h < 10 ? "0" + h : h) + ":" + m); }); }
     return out;
   }
-  function loadHorarios() { try { return JSON.parse(localStorage.getItem("jcm_horarios_v1") || "{}"); } catch (e) { return {}; } }
+  function loadHorarios() {
+    try {
+      if (window.DB && window.DB.get) { var v = window.DB.get('horarios_v1'); if (v && typeof v === 'object' && !Array.isArray(v)) return v; }
+      return JSON.parse(localStorage.getItem("jcm_horarios_v1") || "{}");
+    } catch (e) { return {}; }
+  }
   function getAvail(wd) { var h = loadHorarios()[wd]; if (h) return { open: h.open !== false, slots: h.slots || defaultSlots(wd) }; return { open: wd !== 0, slots: defaultSlots(wd) }; }
   // Disponibilidad por FECHA exacta (la clínica la define en App JC Medical → Horarios disponibles).
-  // jcm_horarios_dates = { "YYYY-MM-DD": ["10:00","10:45", …] }  (lista de horas habilitadas ese día)
+  // horarios_dates = { "YYYY-MM-DD": ["10:00","10:45", …] }  (lista de horas habilitadas ese día)
   function dKey(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
-  function loadHorariosDates() { try { return JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}"); } catch (e) { return {}; } }
-  function saveHorariosDates(map) { try { localStorage.setItem("jcm_horarios_dates", JSON.stringify(map)); } catch (e) {} }
+  function loadHorariosDates() {
+    try {
+      if (window.DB && window.DB.get) { var v = window.DB.get('horarios_dates'); if (v && typeof v === 'object') return v; }
+      return JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
+    } catch (e) { return {}; }
+  }
+  function saveHorariosDates(map) {
+    try {
+      if (window.DB && window.DB.set) { window.DB.set('horarios_dates', map); return; }
+      localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+    } catch (e) {}
+  }
   // Grilla completa de horas seleccionables para un día (10:00–19:30; sábado hasta 14:30).
   function slotGrid(wd) {
     var out = [], end = wd === 6 ? 14 : 20; // sáb hasta 14:00 · resto 08:00–19:30
@@ -262,7 +277,10 @@
     DAYS_ES: DAYS_ES, MONTHS_ES: MONTHS_ES,
     defaultSlots: defaultSlots,
     availability: getAvail,
-    saveHorarios: function (wd, data) { var all = loadHorarios(); all[wd] = data; try { localStorage.setItem("jcm_horarios_v1", JSON.stringify(all)); } catch (e) {} },
+    saveHorarios: function (wd, data) {
+      var all = loadHorarios(); all[wd] = data;
+      try { if (window.DB && window.DB.set) { window.DB.set('horarios_v1', all); } else { localStorage.setItem("jcm_horarios_v1", JSON.stringify(all)); } } catch (e) {}
+    },
     // ── Horarios por fecha exacta (App JC Medical → Horarios disponibles) ──
     dKey: dKey,
     slotGrid: slotGrid,
@@ -273,4 +291,7 @@
     availForDate: availForDate,
     rebuildSchedule: function () { this.schedule = buildSchedule(); return this.schedule; }
   };
+  // Reconstruir el schedule cuando llegan datos de Firestore (modo público/SAAS)
+  window.addEventListener('jcsaas:public', function () { try { window.JCDATA.schedule = buildSchedule(); } catch (e) {} });
+  window.addEventListener('jcsaas:data',   function () { try { window.JCDATA.schedule = buildSchedule(); } catch (e) {} });
 })();

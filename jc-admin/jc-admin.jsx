@@ -966,10 +966,10 @@ function AdminApp() {
         const prev = as.find(a => a.id === id);
         if (prev && prev.status === "pendiente_pago" && prev.fecha && prev.time) {
           try {
-            const map = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
+            const map = (window.DB && window.DB.get('horarios_dates')) || {};
             const cur = Array.isArray(map[prev.fecha]) ? map[prev.fecha] : [];
             map[prev.fecha] = cur.filter(s => s !== prev.time);
-            localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+            if (window.DB) window.DB.set('horarios_dates', map);
           } catch(e) {}
         }
       }
@@ -980,10 +980,10 @@ function AdminApp() {
     const appt = appts.find(a => a.id === id);
     if (appt && appt.fecha && appt.time) {
       try {
-        const map = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
+        const map = (window.DB && window.DB.get('horarios_dates')) || {};
         const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : [];
         if (!cur.includes(appt.time)) { cur.push(appt.time); cur.sort(); map[appt.fecha] = cur; }
-        localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+        if (window.DB) window.DB.set('horarios_dates', map);
       } catch(e) {}
     }
     setAppts(as => saveAppts(as.filter(a => a.id !== id)));

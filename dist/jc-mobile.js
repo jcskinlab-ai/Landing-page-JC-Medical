@@ -122,10 +122,10 @@ function MobileShell({ T, D, onLogout }) {
     const a = all.find((x) => x.id === id);
     if (a && a.fecha && a.time) {
       try {
-        const map = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
+        const map = window.DB && window.DB.get("horarios_dates") || {};
         const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : [];
         map[a.fecha] = cur.filter((s) => s !== a.time);
-        localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+        if (window.DB) window.DB.set("horarios_dates", map);
       } catch (e) {
       }
     }
@@ -136,14 +136,14 @@ function MobileShell({ T, D, onLogout }) {
     const a = all.find((x) => x.id === id);
     if (a && a.fecha && a.time) {
       try {
-        const map = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : [];
+        const map = window.DB && window.DB.get("horarios_dates") || {};
+        const cur = Array.isArray(map[a.fecha]) ? [...map[a.fecha]] : [];
         if (!cur.includes(a.time)) {
           cur.push(a.time);
           cur.sort();
           map[a.fecha] = cur;
         }
-        localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+        if (window.DB) window.DB.set("horarios_dates", map);
       } catch (e) {
       }
     }
@@ -153,10 +153,10 @@ function MobileShell({ T, D, onLogout }) {
     const all = window.DB && window.DB.get("appointments") || [];
     if (appt.fecha && appt.time) {
       try {
-        const map = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
+        const map = window.DB && window.DB.get("horarios_dates") || {};
         const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : HALF_HOURS.slice();
         map[appt.fecha] = cur.filter((s) => s !== appt.time);
-        localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+        if (window.DB) window.DB.set("horarios_dates", map);
       } catch (e) {
       }
     }
@@ -324,8 +324,25 @@ function HorariosTab({ T, appts }) {
     return { off: i, iso: localISO(d), wd: WDS[d.getDay()], dd: d.getDate() };
   });
   const selDay = days[selOff];
-  const [slotsMap, setSlotsMap] = useState(() => JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}"));
-  const avail = slotsMap[selDay.iso] != null ? slotsMap[selDay.iso] : HALF_HOURS.slice();
+  const [slotsMap, setSlotsMap] = useState(() => window.DB && window.DB.get("horarios_dates") || {});
+  useEffect(() => {
+    function reload() {
+      setSlotsMap(window.DB && window.DB.get("horarios_dates") || {});
+    }
+    window.addEventListener("jcsaas:data", reload);
+    return () => window.removeEventListener("jcsaas:data", reload);
+  }, []);
+  const weeklySlots = (() => {
+    try {
+      var h = window.DB && window.DB.get("horarios_v1");
+      var wd = (/* @__PURE__ */ new Date(selDay.iso + "T12:00:00")).getDay();
+      if (h && h[wd] && h[wd].open !== false) return h[wd].slots || HALF_HOURS.slice();
+      if (h && h[wd] && h[wd].open === false) return [];
+    } catch (e) {
+    }
+    return HALF_HOURS.slice();
+  })();
+  const avail = slotsMap[selDay.iso] != null ? slotsMap[selDay.iso] : weeklySlots;
   const occupied = /* @__PURE__ */ new Set();
   appts.filter((a) => a.status !== "anulada" && (a.fecha ? a.fecha === selDay.iso : a.day === selOff)).forEach((a) => {
     if (!a.time) return;
@@ -337,23 +354,29 @@ function HorariosTab({ T, appts }) {
     });
   });
   function saveMap(map) {
-    localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+    if (window.DB) window.DB.set("horarios_dates", map);
+    else {
+      try {
+        localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+      } catch (e) {
+      }
+    }
     setSlotsMap({ ...map });
   }
   function toggle(slot) {
     if (occupied.has(slot)) return;
-    const map = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
-    const cur = map[selDay.iso] != null ? [...map[selDay.iso]] : HALF_HOURS.slice();
+    const map = window.DB && window.DB.get("horarios_dates") || {};
+    const cur = map[selDay.iso] != null ? [...map[selDay.iso]] : weeklySlots.slice();
     map[selDay.iso] = cur.includes(slot) ? cur.filter((s) => s !== slot) : [...cur, slot].sort();
     saveMap(map);
   }
   function blockAll() {
-    const m = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
+    const m = window.DB && window.DB.get("horarios_dates") || {};
     m[selDay.iso] = [];
     saveMap(m);
   }
   function openAll() {
-    const m = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
+    const m = window.DB && window.DB.get("horarios_dates") || {};
     delete m[selDay.iso];
     saveMap(m);
   }
@@ -477,8 +500,18 @@ function NuevaTab({ T, D, appts, addAppt }) {
       setDur(window.JCDATA.procMin(proc) + " minutos");
     }
   }, [proc]);
-  const slotsMap = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
-  const avail = slotsMap[fecha] != null ? slotsMap[fecha] : HALF_HOURS.slice();
+  const slotsMap = window.DB && window.DB.get("horarios_dates") || {};
+  const weeklyDef = (() => {
+    try {
+      var h = window.DB && window.DB.get("horarios_v1");
+      var wd = (/* @__PURE__ */ new Date(fecha + "T12:00:00")).getDay();
+      if (h && h[wd] && h[wd].open !== false) return h[wd].slots || HALF_HOURS.slice();
+      if (h && h[wd] && h[wd].open === false) return [];
+    } catch (e) {
+    }
+    return HALF_HOURS.slice();
+  })();
+  const avail = slotsMap[fecha] != null ? slotsMap[fecha] : weeklyDef;
   const occupied = new Set(appts.filter((a) => a.fecha === fecha).map((a) => a.time));
   const freeSlots = avail.filter((s) => !occupied.has(s));
   const valid = name.trim() && phone.trim();

@@ -180,11 +180,12 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     if (!isTransfer) {
       try {
         if (day && day.date && time) {
-          const map = JSON.parse(localStorage.getItem("jcm_horarios_dates") || "{}");
+          const map = (window.DB && window.DB.get('horarios_dates')) || {};
           const cur = map[day.date];
           const base = Array.isArray(cur) ? cur : (window.JCDATA ? window.JCDATA.availability(new Date(day.date + "T00:00:00").getDay()).slots : []);
           map[day.date] = base.filter(s => s !== time);
-          localStorage.setItem("jcm_horarios_dates", JSON.stringify(map));
+          if (window.DB) window.DB.set('horarios_dates', map);
+          else { try { localStorage.setItem("jcm_horarios_dates", JSON.stringify(map)); } catch(e){} }
         }
       } catch (e) {}
     }
