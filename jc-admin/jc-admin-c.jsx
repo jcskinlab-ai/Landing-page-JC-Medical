@@ -2355,6 +2355,15 @@ function CitaAgendadaOkPopup({ T, cita, appts, onClose }) {
     </div>
   );
 }
+// Canales de la bandeja unificada (Agente IA). Cada conversación trae c.channel ("whatsapp" por defecto).
+const INBOX_CHANNELS = [
+  { id: "whatsapp", name: "WhatsApp", color: "#1F8A5B", desc: "Mensajes y recordatorios por WhatsApp" },
+  { id: "instagram", name: "Instagram", color: "#E1306C", desc: "DMs y comentarios de Instagram" },
+  { id: "facebook", name: "Facebook", color: "#1877F2", desc: "Mensajes de Messenger y comentarios de Facebook" }
+];
+function chanOf(c) { return (c && c.channel) || "whatsapp"; }
+function chanMeta(id) { return INBOX_CHANNELS.find(x => x.id === id) || INBOX_CHANNELS[0]; }
+
 function AgenteIAView({ T, patients, addAppt }) {
   const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
   const [convs, setConvs] = useState(() => { try { const s = DB.get("wa_conversations"); if (s) return s; } catch (e) {} return seeded ? WA_SEED : []; });
@@ -2365,7 +2374,11 @@ function AgenteIAView({ T, patients, addAppt }) {
   const [darCita, setDarCita] = useState(null); // {name, phone}
   const [citaOk, setCitaOk] = useState(null);   // cita recién creada
   const [showGuide, setShowGuide] = useState(false); // guía de activación de WhatsApp
+  const [showMetaGuide, setShowMetaGuide] = useState(false); // guía de Instagram/Facebook (Meta)
+  const [chan, setChan] = useState("todos"); // filtro de canal
+  const shown = chan === "todos" ? convs : convs.filter(c => chanOf(c) === chan);
   const conv = convs.find(c => c.id === sel);
+  function openGuideFor(ch) { if (ch === "whatsapp") setShowGuide(true); else setShowMetaGuide(true); }
   function send() {
     if (!draft.trim() || !conv) return;
     const n = convs.map(c => c.id === sel ? { ...c, msgs: [...c.msgs, { f: "out", t: draft.trim(), h: "ahora" }] } : c);
@@ -2405,16 +2418,28 @@ function AgenteIAView({ T, patients, addAppt }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <SecHead T={T} title="Agente IA · WhatsApp" sub="Bandeja con un asistente que responde con el contexto de tu clínica." />
+        <SecHead T={T} title="Agente IA · Bandeja unificada" sub="WhatsApp, Instagram y Facebook en un solo lugar, con respuestas asistidas por IA." />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.gold, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: T.gold }} /> Pendiente · requiere WhatsApp</span>
-          <button onClick={() => setShowGuide(true)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer" }}>Conectar WhatsApp</button>
+          <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.gold, border: "1px solid " + T.chipBorder, borderRadius: 999, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: T.gold }} /> Pendiente · conecta tus canales</span>
         </div>
       </div>
-      <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
+      {/* Filtro por canal */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "12px 0 4px" }}>
+        {[{ id: "todos", name: "Todos", color: T.accent }].concat(INBOX_CHANNELS).map(ch => {
+          const on = chan === ch.id;
+          const n = ch.id === "todos" ? convs.length : convs.filter(c => chanOf(c) === ch.id).length;
+          return (
+            <button key={ch.id} onClick={() => setChan(ch.id)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 12, fontWeight: 500, padding: "7px 13px", borderRadius: 999, cursor: "pointer", background: on ? ch.color : "transparent", color: on ? "#fff" : T.textMute, border: "1px solid " + (on ? ch.color : T.line) }}>
+              {ch.id !== "todos" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: on ? "#fff" : ch.color }} />}
+              {ch.name}<span style={{ opacity: .7, fontSize: 11 }}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", margin: "8px 0 14px", fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5 }}>
         {seeded
-          ? "Conversaciones de ejemplo. El envío real de WhatsApp y las respuestas con IA corren en el servidor (Medique)."
-          : "Conecta tu WhatsApp Business para que el asistente responda a tus pacientes con el contexto de tu clínica. Hasta entonces, esta bandeja está vacía."}
+          ? "Conversaciones de ejemplo. El envío real y las respuestas con IA corren en el servidor (Medique)."
+          : "Conecta tus canales (WhatsApp, Instagram y Facebook) para que tus mensajes lleguen a esta bandeja y el asistente responda con el contexto de tu clínica. Cada conexión se activa en Meta."}
       </div>
       {/* KPIs del agente */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 }}>
@@ -2431,30 +2456,43 @@ function AgenteIAView({ T, patients, addAppt }) {
         <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Auto-respuesta por WhatsApp · pendiente de activar</span>
       </div>
       {convs.length === 0 ? (
-        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "44px 28px", textAlign: "center" }}>
-          <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(31,138,91,.12)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" strokeWidth="1.7"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
+        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "32px 24px" }}>
+          <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text, marginBottom: 4, textAlign: "center" }}>Conecta tus canales de mensajes</div>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 460, margin: "0 auto 20px", textAlign: "center" }}>Cuando conectes cada canal en Meta, los mensajes de tus pacientes entran acá y el asistente responde con el contexto de tu clínica.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", gap: 10, maxWidth: 620, margin: "0 auto" }}>
+            {INBOX_CHANNELS.map(ch => (
+              <div key={ch.id} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 14px", textAlign: "center" }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: ch.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, margin: "0 auto 10px" }}>{ch.name[0]}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{ch.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.4, minHeight: 28 }}>{ch.desc}</div>
+                <button onClick={() => openGuideFor(ch.id)} style={{ width: "100%", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: "#fff", background: ch.color, border: "none", borderRadius: 8, padding: "9px", cursor: "pointer" }}>Conectar</button>
+              </div>
+            ))}
           </div>
-          <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text, marginBottom: 6 }}>Conecta tu agente de WhatsApp</div>
-          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 18px" }}>Aún no hay conversaciones. Vincula tu WhatsApp Business y el asistente responderá a tus pacientes, agendará citas y resolverá dudas con el contexto de tu clínica.</div>
-          <button onClick={() => setShowGuide(true)} style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "11px 20px", cursor: "pointer" }}>Ver cómo conectar WhatsApp</button>
         </div>
       ) : (
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 12, height: 460 }}>
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflowY: "auto" }}>
-          {convs.map(c => (
+          {shown.length === 0 && <div style={{ padding: "16px 14px", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin conversaciones en este canal.</div>}
+          {shown.map(c => (
             <button key={c.id} onClick={() => setSel(c.id)} style={{ width: "100%", textAlign: "left", display: "block", padding: "12px 14px", border: "none", borderBottom: "1px solid " + T.line, background: c.id === sel ? (T.accentSoft || "rgba(84,112,127,.12)") : "transparent", cursor: "pointer" }}>
-              <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{c.name}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.msgs[c.msgs.length - 1].t}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: chanMeta(chanOf(c)).color, flexShrink: 0 }} title={chanMeta(chanOf(c)).name} />
+                <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(c.msgs && c.msgs.length) ? c.msgs[c.msgs.length - 1].t : ""}</div>
             </button>
           ))}
         </div>
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, display: "flex", flexDirection: "column" }}>
           {conv ? <>
             <div style={{ padding: "12px 16px", borderBottom: "1px solid " + T.line, display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{conv.name}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{conv.phone}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{conv.name}</div>
+                  <span style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: "#fff", background: chanMeta(chanOf(conv)).color, borderRadius: 5, padding: "2px 6px" }}>{chanMeta(chanOf(conv)).name}</span>
+                </div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{conv.phone || conv.handle || ""}</div>
               </div>
               <button onClick={() => setDarCita({ name: conv.name, phone: conv.phone })}
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer" }}>
@@ -2483,6 +2521,7 @@ function AgenteIAView({ T, patients, addAppt }) {
       )}
       {citaOk && <CitaAgendadaOkPopup T={T} cita={citaOk} appts={appts} onClose={() => setCitaOk(null)} />}
       {showGuide && <WhatsAppSetupModal T={T} onClose={() => setShowGuide(false)} />}
+      {showMetaGuide && <MetaBizGuideModal T={T} onClose={() => setShowMetaGuide(false)} />}
     </div>
   );
 }
