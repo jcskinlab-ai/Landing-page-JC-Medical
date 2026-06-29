@@ -229,29 +229,32 @@
     } catch (e) { noop(e); }
   }
 
-  // Modo PÚBLICO: carga el perfil de una clínica por su id (sin login).
+  // Aplica un perfil público al estado local (JCDATA + window.DB).
+  function applyPublicProfile(p, clinicId, firstLoad) {
+    state.publicProfile = p;
+    if (clinicId) state.clinicId = clinicId;
+    if (p) {
+      if (p.horarios && window.DB) { try { window.DB.set('horarios_v1', p.horarios); } catch (e) {} }
+      if (p.horariosDates && window.DB) { try { window.DB.set('horarios_dates', p.horariosDates); } catch (e) {} }
+      if (window.JCDATA && window.JCDATA.rebuildSchedule) { try { window.JCDATA.rebuildSchedule(); } catch (e) {} }
+    }
+    if (firstLoad) emit('jcsaas:public', { clinicId: state.clinicId, profile: p });
+    else emit('jcsaas:data', {});
+  }
+
+  var unsubPublic = null;
+  // Modo PÚBLICO: carga el perfil de una clínica por su id (sin login) y suscribe en tiempo real.
   function loadPublic(clinicId) {
-    return db.collection('tenants').doc(clinicId).collection('public').doc('profile').get()
-      .then(function (snap) {
-        state.publicProfile = snap.exists ? snap.data() : null;
-        state.clinicId = clinicId;
-        // Aplicar horarios semanales y por fecha al JCDATA local para que buildSchedule los use
-        if (state.publicProfile) {
-          var p = state.publicProfile;
-          if (p.horarios && window.DB) {
-            try { window.DB.set('horarios_v1', p.horarios); } catch (e) {}
-          }
-          if (p.horariosDates && window.DB) {
-            try { window.DB.set('horarios_dates', p.horariosDates); } catch (e) {}
-          }
-          // Reconstruir el calendario con los datos recién aplicados
-          if (window.JCDATA && window.JCDATA.rebuildSchedule) {
-            try { window.JCDATA.rebuildSchedule(); } catch (e) {}
-          }
-        }
-        emit('jcsaas:public', { clinicId: clinicId, profile: state.publicProfile });
-        return state.publicProfile;
-      }).catch(function (e) { noop(e); return null; });
+    if (unsubPublic) { try { unsubPublic(); } catch (e) {} unsubPublic = null; }
+    var ref = db.collection('tenants').doc(clinicId).collection('public').doc('profile');
+    var firstSnap = true;
+    return new Promise(function (resolve) {
+      unsubPublic = ref.onSnapshot(function (snap) {
+        var p = snap.exists ? snap.data() : null;
+        applyPublicProfile(p, clinicId, firstSnap);
+        if (firstSnap) { firstSnap = false; resolve(p); }
+      }, function (e) { noop(e); if (firstSnap) { firstSnap = false; resolve(null); } });
+    });
   }
 
   // ── Carga del SDK de Firebase (compat, vía CDN — sin build) ───────────
