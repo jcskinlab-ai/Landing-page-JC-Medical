@@ -743,8 +743,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <div style={{ maxWidth: 720 }}>
           <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Notificaciones</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-            {wa.map(m => notif("whatsapp", green, m.name + " escribió por WhatsApp", "“" + m.msg + "” · " + m.ago, "Responder", () => go("pendientes")))}
-            {biz.map(b => notif("campana", T.accent, b.name + " comentó en " + b.net, "“" + b.msg + "” · " + b.ago, "Ver", () => go("marketing")))}
+            {wa.map(m => notif("whatsapp", green, m.name + " escribió por WhatsApp", "\u201c" + m.msg + "\u201d · " + m.ago, "Responder", () => go("pendientes")))}
+            {biz.map(b => notif("campana", T.accent, b.name + " comentó en " + b.net, "\u201c" + b.msg + "\u201d · " + b.ago, "Ver", () => go("marketing")))}
             {sinConsent.length > 0 && notif("alerta", "#C9A227", sinConsent.length + " consentimiento(s) por firmar", "Revisa las fichas pendientes", "Ver", () => go("pendientes"))}
             {recitas.length > 0 && notif("whatsapp", green, recitas.length + " paciente(s) para re-citar", "Cumplieron el plazo de su próxima aplicación", "Ver", () => go("pacientes"))}
             {(wa.length + biz.length + sinConsent.length + recitas.length) === 0 && <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0" }}>Todo al día. Sin notificaciones.</div>}
@@ -1235,7 +1235,7 @@ function AdminApp() {
             })}
           </div>
 
-          <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>
+          <div id="jcm-main-scroll" className="jc-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>
             <div key={section + (openPatient || "")} style={{ animation: "jcFade .3s " + T.ease, maxWidth: 1500, margin: "0 auto" }}>{body}</div>
           </div>
         </div>
@@ -1358,8 +1358,8 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
           {visibleCount === 0 && total > 0 && <div style={{ padding: "28px 18px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Sin notificaciones en esta categoría.</div>}
           {showConsents && sinConsent.map(p => row("c" + p.id, "#C9A227", ICa, "Consentimiento por firmar", p.name, "Abrir ficha", () => openP(p.id)))}
           {showRecitas && recitas.map(({ p, r }) => row("re" + p.id, "#1F8A5B", ICb, "Toca re-citar · " + p.name, r.motivo, "WhatsApp", () => window.open(window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, "")), "_blank", "noopener")))}
-          {showOtros && wa.map(m => row("w" + m.id, "#1F8A5B", ICb, m.name + " escribió por WhatsApp", "“" + m.msg + "” · " + m.ago, "Responder", () => window.open("https://wa.me/" + (D ? D.wa : ""), "_blank", "noopener")))}
-          {showOtros && biz.map(b => row("b" + b.id, T.accent, ICc, b.name + " comentó en " + b.net, "“" + b.msg + "” · " + b.ago, "Ver", () => go("marketing")))}
+          {showOtros && wa.map(m => row("w" + m.id, "#1F8A5B", ICb, m.name + " escribió por WhatsApp", "\u201c" + m.msg + "\u201d · " + m.ago, "Responder", () => window.open("https://wa.me/" + (D ? D.wa : ""), "_blank", "noopener")))}
+          {showOtros && biz.map(b => row("b" + b.id, T.accent, ICc, b.name + " comentó en " + b.net, "\u201c" + b.msg + "\u201d · " + b.ago, "Ver", () => go("marketing")))}
           {showOtros && tasks.map(t => row("t" + t.id, T.accent, ICk, "Pendiente del equipo", t.text, null, null))}
         </div>
         <button onClick={() => go("pendientes")} style={{ flexShrink: 0, padding: "13px", textAlign: "center", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.accent, background: T.surface, border: "none", borderTop: "1px solid " + T.line, cursor: "pointer" }}>Abrir Pendientes →</button>
@@ -1625,10 +1625,27 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
+  // Scroll al tope al montar (evita que al navegar se quede en la posición anterior).
+  useEffect(() => { const el = document.getElementById("jcm-main-scroll"); if (el) el.scrollTop = 0; }, []);
   const D = window.JCDATA;
   const list = appts.filter(a => apptDayOff(a) === day && a.status !== "anulada");
-  // Citas anuladas (no se borran: quedan registradas con los datos del paciente que se anuló).
+  // Citas anuladas agrupadas por fecha de cita (no por fecha de anulación).
   const anuladas = appts.filter(a => a.status === "anulada").sort((a, b) => (b.anuladaAt || 0) - (a.anuladaAt || 0));
+  const anuladasByDay = anuladas.reduce((acc, a) => { const k = a.fecha || "sin-fecha"; (acc[k] = acc[k] || []).push(a); return acc; }, {});
+  const anuladaDayKeys = Object.keys(anuladasByDay).sort().reverse();
+  const [openADays, setOpenADays] = useState(() => new Set(anuladaDayKeys.slice(0, 1)));
+  function toggleADay(k) { setOpenADays(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
+  function fmtADay(fechaStr) {
+    if (!fechaStr || fechaStr === "sin-fecha") return "Sin fecha";
+    try {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const d = new Date(fechaStr + "T00:00:00"); d.setHours(0,0,0,0);
+      const diff = Math.round((d - today) / 86400000);
+      if (diff === 0) return "Hoy, " + d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
+      if (diff === -1) return "Ayer, " + d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
+      return d.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short", year: d.getFullYear() !== today.getFullYear() ? "numeric" : undefined });
+    } catch (e) { return fechaStr; }
+  }
   // Apila citas solapadas en la vista lista
   const listStacked = (() => {
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
@@ -1748,26 +1765,43 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         </div>
       )}
 
-      {/* Citas anuladas: no se borran, quedan registradas con los datos del paciente. */}
+      {/* Citas anuladas: agrupadas por día, desplegables. */}
       {anuladas.length > 0 && (
-        <div style={{ marginTop: 22, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#9AA0A6" }} />
+        <div style={{ marginTop: 22, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 18px 10px" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#9AA0A6", flexShrink: 0 }} />
             <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.textMute }}>Citas anuladas ({anuladas.length})</div>
+            <div style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 11, color: T.textFaint }}>Restaura si fue un error</div>
           </div>
-          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, marginBottom: 12 }}>Quedan registradas con los datos del paciente. Puedes restaurarlas si fue un error.</div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {anuladas.map(a => (
-              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: "1px solid " + T.lineSoft }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, textDecoration: "line-through", textDecorationColor: "#9AA0A6" }}>{a.name}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{[a.proc, a.time && (a.time + " h"), a.fecha].filter(Boolean).join("  ·  ")}{a.phone ? "  ·  " + a.phone : ""}</div>
-                  {a.anuladaAt && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 }}>Anulada el {new Date(a.anuladaAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} · {new Date(a.anuladaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</div>}
-                </div>
-                <button onClick={() => updateAppt(a.id, { status: "pendiente", anuladaAt: null })} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer" }}>Restaurar</button>
+          {anuladaDayKeys.map((k, ki) => {
+            const group = anuladasByDay[k];
+            const isOpen = openADays.has(k);
+            return (
+              <div key={k} style={{ borderTop: ki === 0 ? "1px solid " + T.lineSoft : "1px solid " + T.lineSoft }}>
+                {/* Cabecera del día — clic para desplegar/colapsar */}
+                <button onClick={() => toggleADay(k)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA0A6" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, transition: "transform .2s", transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}><path d="M6 9l6 6 6-6" /></svg>
+                  <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.textMute, flex: 1 }}>{fmtADay(k)}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, background: T.lineSoft, borderRadius: 999, padding: "2px 8px" }}>{group.length} cita{group.length !== 1 ? "s" : ""}</span>
+                </button>
+                {/* Lista de citas del día */}
+                {isOpen && (
+                  <div style={{ borderTop: "1px solid " + T.lineSoft }}>
+                    {group.map((a, ai) => (
+                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderBottom: ai < group.length - 1 ? "1px solid " + T.lineSoft : "none", background: T.bg }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.textMute, textDecoration: "line-through", textDecorationColor: "#9AA0A6" }}>{a.name}</div>
+                          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{[a.proc, a.time && (a.time + " h")].filter(Boolean).join("  ·  ")}{a.phone ? "  ·  " + a.phone : ""}</div>
+                          {a.anuladaAt && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 }}>Anulada el {new Date(a.anuladaAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} · {new Date(a.anuladaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</div>}
+                        </div>
+                        <button onClick={() => updateAppt(a.id, { status: "pendiente", anuladaAt: null })} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer" }}>Restaurar</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
 

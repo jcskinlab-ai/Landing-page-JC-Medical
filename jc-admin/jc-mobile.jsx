@@ -160,6 +160,15 @@ function MobileShell({ T, D, onLogout }) {
               {pendPago.length} pendiente{pendPago.length>1?"s":""}
             </button>
           )}
+          <button onClick={() => { const b = document.getElementById("jcm-mob-rfab-icon"); if(b) { b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{ b.style.transition=""; b.style.transform=""; },600); } setTimeout(()=>{ if("caches" in window){ caches.keys().then(ns=>Promise.all(ns.map(n=>caches.delete(n)))).finally(()=>location.reload()); } else { location.reload(); } }, 200); }} title="Actualizar" aria-label="Actualizar datos"
+            style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", background:"none", color:T.textMute, border:"1px solid "+T.line, borderRadius:999, width:36, height:36, cursor:"pointer", flexShrink:0 }}>
+            <svg id="jcm-mob-rfab-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+              <path d="M21 3v5h-5"/>
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+              <path d="M8 16H3v5"/>
+            </svg>
+          </button>
           <button onClick={onLogout} title="Cerrar sesión" aria-label="Cerrar sesión"
             style={{ display:"inline-flex", alignItems:"center", gap:6, background:T.surface, color:T.text, fontFamily:T.sans, fontSize:10.5, fontWeight:500, letterSpacing:".06em", border:"1px solid "+T.line, borderRadius:999, padding:"7px 12px", minHeight:36, cursor:"pointer" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>

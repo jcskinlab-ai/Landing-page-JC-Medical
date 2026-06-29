@@ -217,11 +217,21 @@
       uso: "Inyección con cánula distribuida en abanico en planos profundos. Requiere masaje post-tratamiento indicado.",
       beneficios: "Mejora firmeza, densidad y calidad de la piel; recupera volumen perdido. Resultado progresivo de hasta ~24 meses.",
       efectos: "Inflamación temporal; nódulos palpables poco frecuentes si se realiza el masaje post-tratamiento." },
-    { brand: "Ácido hialurónico · grado médico", img: "assets/trust-vial.jpg", tipo: "Relleno dérmico reticulado", origen: "Europa (lab. certificados)", fabricante: "Laboratorios dérmicos certificados",
-      desc: "Gel de ácido hialurónico reticulado de alta calidad, con lidocaína para tu comodidad. Reversible con hialuronidasa.",
-      uso: "Inyección subcutánea o supraperióstica, frecuentemente con cánula de bajo calibre para mayor seguridad.",
-      beneficios: "Aporta volumen, define contornos (labios, pómulos, mentón, mandíbula) e hidrata, con resultado inmediato y natural. Dura 9–18 meses.",
-      efectos: "Edema los primeros 3–5 días, posibles hematomas y sensibilidad al tacto." }
+    { brand: "Juvéderm VOLIFT® · AbbVie", img: "assets/trust-juvederm.jpg", tipo: "Ácido hialurónico reticulado + lidocaína", origen: "Francia", fabricante: "Allergan Aesthetics / AbbVie",
+      desc: "Relleno dérmico de ácido hialurónico reticulado con lidocaína incorporada. Versátil y moldeable, ideal para labios, pómulos, mentón y mandíbula. Reversible con hialuronidasa.",
+      uso: "Inyección subcutánea o supraperióstica, frecuentemente con cánula de bajo calibre para mayor seguridad y precisión.",
+      beneficios: "Aporta volumen, define contornos e hidrata en profundidad. Resultado inmediato y natural. Dura 9–18 meses según la zona.",
+      efectos: "Edema los primeros 3–5 días, posibles hematomas y sensibilidad al tacto; se resuelven solos." },
+    { brand: "NCTF® 135 HA · FILLMED", img: "assets/trust-nctf.jpg", tipo: "Cóctel revitalizante + ácido hialurónico", origen: "Francia", fabricante: "FILLMED Laboratoires",
+      desc: "Solución polirrevitalizante con 55 ingredientes activos (vitaminas, aminoácidos, coenzimas y ácido hialurónico no reticulado). El estándar de referencia en mesoterapia facial.",
+      uso: "Microinyecciones superficiales en la dermis de cara, cuello y escote. Sesiones cada 2–4 semanas en la fase inicial.",
+      beneficios: "Hidratación profunda, luminosidad, firmeza y elasticidad visibles desde la primera sesión. Ideal como mantención y prevención.",
+      efectos: "Pequeñas marcas de aguja y leve enrojecimiento pasajero; desaparecen en pocas horas." },
+    { brand: "CLH Lipase · MCCM", img: "assets/trust-clh.jpg", tipo: "Lipolítico inyectable profesional", origen: "España", fabricante: "MCCM Medical Cosmetics",
+      desc: "Cóctel lipolítico profesional con enzima lipasa y principios activos que actúan directamente sobre los depósitos de grasa localizada. Uso exclusivo médico.",
+      uso: "Microinyecciones subcutáneas en zonas de adiposidad localizada (papada, flancos, abdomen). Protocolo de 3–6 sesiones según el caso.",
+      beneficios: "Reduce grasa localizada y mejora la textura de la zona tratada. Resultados progresivos desde la segunda sesión.",
+      efectos: "Inflamación y sensibilidad localizada los primeros 2–3 días; es parte del proceso terapéutico esperado." }
   ];
 
   window.JCDATA = {

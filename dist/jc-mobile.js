@@ -179,6 +179,32 @@ function MobileShell({ T, D, onLogout }) {
   })()), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: T.textFaint, display: "block", marginTop: 2 } }, "Panel m\xF3vil"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, pendPago.length > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => setTab("citas"), style: { background: "#B8860B", color: "#fff", fontFamily: T.sans, fontSize: 11, fontWeight: 600, border: "none", borderRadius: 999, padding: "5px 12px", cursor: "pointer" } }, pendPago.length, " pendiente", pendPago.length > 1 ? "s" : ""), /* @__PURE__ */ React.createElement(
     "button",
     {
+      onClick: () => {
+        const b = document.getElementById("jcm-mob-rfab-icon");
+        if (b) {
+          b.style.transition = "transform .55s";
+          b.style.transform = "rotate(360deg)";
+          setTimeout(() => {
+            b.style.transition = "";
+            b.style.transform = "";
+          }, 600);
+        }
+        setTimeout(() => {
+          if ("caches" in window) {
+            caches.keys().then((ns) => Promise.all(ns.map((n) => caches.delete(n)))).finally(() => location.reload());
+          } else {
+            location.reload();
+          }
+        }, 200);
+      },
+      title: "Actualizar",
+      "aria-label": "Actualizar datos",
+      style: { display: "inline-flex", alignItems: "center", justifyContent: "center", background: "none", color: T.textMute, border: "1px solid " + T.line, borderRadius: 999, width: 36, height: 36, cursor: "pointer", flexShrink: 0 }
+    },
+    /* @__PURE__ */ React.createElement("svg", { id: "jcm-mob-rfab-icon", width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" }), /* @__PURE__ */ React.createElement("path", { d: "M21 3v5h-5" }), /* @__PURE__ */ React.createElement("path", { d: "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" }), /* @__PURE__ */ React.createElement("path", { d: "M8 16H3v5" }))
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
       onClick: onLogout,
       title: "Cerrar sesi\xF3n",
       "aria-label": "Cerrar sesi\xF3n",

@@ -112,6 +112,52 @@
 <script src="/dist/jc-admin-c.js?v=23"></script>
 <script src="/dist/jc-copilot.js?v=4"></script>
 <script src="/dist/jc-jcm.js?v=4"></script>
-<script src="/dist/jc-admin.js?v=32"></script>
+<script src="/dist/jc-admin.js?v=33"></script>
+
+<!-- FAB de refresh: esquina inferior izquierda, alineado con el copiloto -->
+<style>
+  #jcm-rfab { position:fixed; left:16px; bottom:20px; z-index:198; }
+  #jcm-rfab button { width:48px; height:48px; border-radius:50%; background:rgba(24,24,20,.48); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.16); cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 20px -6px rgba(0,0,0,.5); transition:transform .15s; }
+  #jcm-rfab button:hover { background:rgba(24,24,20,.7); }
+  #jcm-rfab button:active { transform:scale(.92); }
+  #jcm-rfab svg { transition:transform .55s cubic-bezier(.4,0,.2,1); }
+  #jcm-rfab.spinning svg { transform:rotate(360deg); }
+  @media(prefers-reduced-motion:reduce){ #jcm-rfab svg { transition:none; } }
+</style>
+<div id="jcm-rfab">
+  <button onclick="jcmHardRefresh()" title="Actualizar panel">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+      <path d="M21 3v5h-5"/>
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+      <path d="M8 16H3v5"/>
+    </svg>
+  </button>
+</div>
+<script>
+window.jcmHardRefresh = function() {
+  var fab = document.getElementById('jcm-rfab');
+  if (fab) { fab.classList.add('spinning'); setTimeout(function(){ fab.classList.remove('spinning'); }, 580); }
+  function doReload() { location.href = location.href.split('?')[0] + '?_r=' + Date.now(); }
+  if ('caches' in window) {
+    Promise.all([ caches.keys().then(function(names){ return Promise.all(names.map(function(n){ return caches.delete(n); })); }) ]).then(doReload).catch(doReload);
+  } else { setTimeout(doReload, 300); }
+};
+// Recarga automática en modo PWA (standalone) cuando la pestaña vuelve al frente
+// tras más de 15 minutos en background — evita datos desactualizados en iPad/iPhone.
+(function(){
+  var isPWA = window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode:standalone)').matches);
+  if (!isPWA) return;
+  var KEY = 'jcm_pwa_ts';
+  function stamp(){ sessionStorage.setItem(KEY, Date.now()); }
+  stamp(); // marca el momento de apertura
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState !== 'visible') return;
+    var last = parseInt(sessionStorage.getItem(KEY) || '0', 10);
+    if (Date.now() - last > 15 * 60 * 1000) { stamp(); location.reload(); }
+    else { stamp(); }
+  });
+})();
+</script>
 </body>
 </html>

@@ -185,6 +185,35 @@ function HomeScreen({ T, D, go, openBooking, tone }) {
         </div>
       )}
 
+      {/* Productos — strip deslizable debajo de los casos reales */}
+      <div style={{ paddingTop: 40 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 20px 14px" }}>
+          <h2 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.015em", color: T.text }}>
+            Lo que <em style={{ fontFamily: T.ital, fontStyle: "italic", color: T.accent }}>usamos.</em>
+          </h2>
+          <button onClick={() => go("catalogo")} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>Ver catálogo</button>
+        </div>
+        <div style={{ display: "flex", gap: 10, padding: "0 20px", overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
+          {(D.products || []).map((p, i) => (
+            <button key={i} onClick={() => setProdSheet(p)}
+              style={{ flex: "0 0 44%", scrollSnapAlign: "start", textAlign: "left", padding: 0, cursor: "pointer", borderRadius: 14, overflow: "hidden", border: "1px solid " + T.line, background: T.surface, boxShadow: "0 8px 22px -14px rgba(40,38,30,.32)", flexShrink: 0 }}>
+              <div style={{ position: "relative", aspectRatio: "4/3", background: T.surface2, overflow: "hidden" }}>
+                <img src={p.img} alt={p.brand} loading="lazy" decoding="async"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  onError={function(e){ e.target.style.display = "none"; }} />
+                <span style={{ position: "absolute", left: 7, top: 7, fontFamily: T.sans, fontSize: 7, letterSpacing: ".12em", textTransform: "uppercase", color: "#fff", background: "rgba(20,20,15,.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 999, padding: "3px 7px" }}>{p.origen}</span>
+              </div>
+              <div style={{ padding: "10px 12px 13px" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, lineHeight: 1.25 }}>{p.brand}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 3, lineHeight: 1.3 }}>{p.tipo}</div>
+                <div style={{ marginTop: 8, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent }}>Ver más →</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div style={{ textAlign: "center", padding: "10px 0 0", fontFamily: T.sans, fontSize: 10, color: T.textFaint, letterSpacing: ".04em" }}>Desliza para ver todos los insumos</div>
+      </div>
+
       {/* Contacto CTA · "Tu evaluación comienza aquí" */}
       <Reveal style={{ margin: "48px 20px 0", padding: "40px 26px", background: T.surface, border: "1px solid " + T.line, borderRadius: 14, textAlign: "center", boxShadow: "0 18px 44px -26px rgba(40,38,30,.4)" }}>
         <h2 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 34, letterSpacing: "-.02em", color: T.text, lineHeight: 1.05 }}>
@@ -248,6 +277,8 @@ function proceduresForProduct(p, D) {
   let cats;
   if (tipo.indexOf("toxina") >= 0) cats = ["toxina"];
   else if (tipo.indexOf("bioestim") >= 0 || tipo.indexOf("colág") >= 0 || tipo.indexOf("colag") >= 0 || tipo.indexOf("plla") >= 0) cats = ["bioestim"];
+  else if (tipo.indexOf("lipolít") >= 0 || tipo.indexOf("lipol") >= 0 || (p.brand || "").toLowerCase().indexOf("clh") >= 0) cats = ["lipol", "grasa", "quemad"];
+  else if (tipo.indexOf("cóctel") >= 0 || tipo.indexOf("coctel") >= 0 || tipo.indexOf("mesot") >= 0 || (p.brand || "").toLowerCase().indexOf("nctf") >= 0) cats = ["mesoterap", "revital", "biorevit"];
   else cats = ["armoniz", "mesoterap", "regener"]; // ácido hialurónico → armonización + meso/regeneración
   const out = [];
   ((D && D.catalog) || []).forEach(sec => {

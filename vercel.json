@@ -42,7 +42,7 @@
     },
     {
       "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index|super|review|colaborar|medique-home)(.html)?",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, max-age=0, must-revalidate" }]
     },
     {
       "source": "/assets/(.*)",

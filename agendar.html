@@ -381,9 +381,11 @@
     return order.map(function(n){ return map[n]; });
   }
   window.addProc = function(name, price){
+    var wasEmpty = cart.length === 0;
     cart.push({ name:name, price:price });
     renderCart(); markCards();
     showToast(name + " agregado");
+    if(wasEmpty && price > 0 && !_upsellShown && !/Evaluaci/i.test(name)){ _upsellShown = true; setTimeout(showUpsell, 450); }
   };
   window.incProc = function(name, price){ cart.push({ name:name, price:price }); renderCart(); markCards(); };
   window.decProc = function(name){
@@ -740,11 +742,11 @@
     document.getElementById('footer-nav').classList.add('hide');
     document.getElementById('done').classList.remove('hide');
     window.scrollTo({top:0, behavior:'smooth'});
-    setTimeout(showUpsell, 1600);
   }
 
   /* ─── Upsell: segundo procedimiento con 15% descuento ─── */
   var _upsellDiscount = false;
+  var _upsellShown = false; // solo se muestra una vez por sesión
   var _upsellItems = []; // { name, price } items del catálogo para el selector
 
   function buildUpsellItems(){
@@ -763,10 +765,12 @@
 
   function showUpsell(){
     buildUpsellItems();
-    if(!_upsellItems.length) return;
+    var cartNames = cart.map(function(c){ return c.name; });
+    var items = _upsellItems.filter(function(it){ return cartNames.indexOf(it.name) < 0; });
+    if(!items.length) return;
     var sel = document.getElementById('upsell-sel');
     sel.innerHTML = '<option value="">Elige un procedimiento…</option>'
-      + _upsellItems.map(function(it){
+      + items.map(function(it){
           return '<option value="'+esc(it.name)+'" data-price="'+it.price+'">'+esc(it.name)+'</option>';
         }).join('');
     document.getElementById('upsell-price-row').classList.add('hide');
@@ -797,19 +801,14 @@
     var price = parseInt(opt.dataset.price,10)||0;
     var disc = Math.round(price*0.85/1000)*1000;
     upsellClose();
-    _upsellDiscount = true;
-    reinit();
-    setTimeout(function(){
-      cart.push({ name:name, price:disc });
-      renderCart(); markCards();
-      showToast('15% de descuento aplicado ✓');
-      _upsellDiscount = false;
-    }, 80);
+    cart.push({ name:name, price:disc });
+    renderCart(); markCards();
+    showToast('15% de descuento aplicado ✓');
   };
 
   /* ─── Reiniciar ─── */
   window.reinit = function(){
-    cart = []; selDate=null; selTime=null; cur=0;
+    cart = []; selDate=null; selTime=null; cur=0; _upsellShown = false;
     document.getElementById('fconsentimiento').checked = false;
     ['fname','fage','femail'].forEach(function(id){ document.getElementById(id).value=''; });
     document.getElementById('fphone').value = PREFIX;
