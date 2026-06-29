@@ -98,23 +98,40 @@ async function readAppointments(sa, projectId, clinicId) {
   try { return JSON.parse(v) || []; } catch (e) { return []; }
 }
 
-// Genera el .ics (citas desde hace 30 días en adelante).
+// Genera el .ics (citas desde hace 30 días en adelante). Las horas van en UTC explícito (con "Z"):
+// la hora del panel es hora de Chile (America/Santiago); la convertimos al instante UTC real
+// (calculando el offset, incl. horario de verano) para que el calendario la muestre BIEN en cualquier
+// zona. Antes iba sin zona → Google la tomaba como UTC y la corría ~4 h.
 function buildICS(appts, clinicName) {
+  const TZ = "America/Santiago";
   const pad = n => ("0" + n).slice(-2);
   const esc = s => ("" + (s == null ? "" : s)).replace(/([\\;,])/g, "\\$1").replace(/\n/g, "\\n");
-  const fmt = (fecha, time) => { const t = (time || "09:00").split(":"); return (fecha || "").replace(/-/g, "") + "T" + pad(parseInt(t[0] || 9, 10)) + pad(parseInt(t[1] || 0, 10)) + "00"; };
-  const fmtEnd = (fecha, time, min) => { try { const d = new Date(fecha + "T" + (time || "09:00") + ":00"); d.setMinutes(d.getMinutes() + (min || 30)); return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "T" + pad(d.getHours()) + pad(d.getMinutes()) + "00"; } catch (e) { return fmt(fecha, time); } };
-  const desde = new Date(); desde.setDate(desde.getDate() - 30); desde.setHours(0, 0, 0, 0);
-  const stamp = new Date().getFullYear() + pad(new Date().getMonth() + 1) + pad(new Date().getDate()) + "T000000Z";
+  // Minutos que la zona va respecto a UTC en ese instante (Chile: -240 o -180 en verano).
+  function offMin(d) {
+    const dtf = new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const m = {}; dtf.formatToParts(d).forEach(p => { m[p.type] = p.value; });
+    const asUTC = Date.UTC(+m.year, +m.month - 1, +m.day, +m.hour, +m.minute, +m.second);
+    return (asUTC - d.getTime()) / 60000;
+  }
+  // Hora-pared (fecha YYYY-MM-DD, time HH:MM) en Chile → instante UTC en ms.
+  function startMs(fecha, time) {
+    const p = (fecha || "").split("-"); const t = (time || "09:00").split(":");
+    const guess = Date.UTC(+p[0], (+p[1] || 1) - 1, (+p[2] || 1), parseInt(t[0] || 9, 10), parseInt(t[1] || 0, 10));
+    if (isNaN(guess)) return NaN;
+    return guess - offMin(new Date(guess)) * 60000;
+  }
+  const fmtZ = ms => { const d = new Date(ms); return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + "T" + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + "00Z"; };
+  const desdeMs = Date.now() - 30 * 86400000;
+  const stamp = fmtZ(Date.now());
   let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Medique//Agenda//ES\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
-  ics += "X-WR-CALNAME:" + esc("Reservas · " + (clinicName || "Medique")) + "\r\n";
+  ics += "X-WR-CALNAME:" + esc("Reservas · " + (clinicName || "Medique")) + "\r\nX-WR-TIMEZONE:" + TZ + "\r\n";
   (Array.isArray(appts) ? appts : []).forEach((a, i) => {
     if (!a || !a.fecha) return;
-    let d; try { d = new Date(a.fecha + "T00:00:00"); } catch (e) { return; }
-    if (isNaN(d.getTime()) || d < desde) return;
+    const s = startMs(a.fecha, a.time);
+    if (isNaN(s) || s < desdeMs) return;
     const dur = parseInt(a.dur, 10) || a.durMin || 30;
     ics += "BEGIN:VEVENT\r\nUID:" + (a.id || ("apt" + i)) + "@medique.cl\r\nDTSTAMP:" + stamp +
-      "\r\nDTSTART:" + fmt(a.fecha, a.time) + "\r\nDTEND:" + fmtEnd(a.fecha, a.time, dur) +
+      "\r\nDTSTART:" + fmtZ(s) + "\r\nDTEND:" + fmtZ(s + dur * 60000) +
       "\r\nSUMMARY:" + esc((a.proc || "Cita") + (a.name ? " · " + a.name : "")) +
       "\r\nDESCRIPTION:" + esc("Cita en " + (clinicName || "Medique") + (a.phone ? " · " + a.phone : "")) +
       "\r\nEND:VEVENT\r\n";

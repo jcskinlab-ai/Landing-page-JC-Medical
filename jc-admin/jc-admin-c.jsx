@@ -927,6 +927,48 @@ function MetaBizGuideModal({ T, onClose }) {
 }
 if (typeof window !== "undefined") window.MetaBizGuideModal = MetaBizGuideModal;
 
+// Modal de SUSCRIPCIÓN a Google Calendar (reemplaza la descarga .ics): genera el link vivo
+// que se actualiza solo. Es la versión buena (la misma de Configuración), acá en Integraciones.
+function CalSubModal({ T, onClose }) {
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(true);
+  const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!window.mediqueCalendarLink) { setBusy(false); setErr("No disponible en este momento."); return; }
+    let alive = true;
+    window.mediqueCalendarLink().then(r => {
+      if (!alive) return; setBusy(false);
+      if (r && r.ok && r.url) setUrl(r.url);
+      else if (r && r.configured === false) setErr("Aún no está activo: falta la clave de servicio de Firebase en el servidor (pídeselo al administrador).");
+      else setErr((r && r.error) || "No se pudo generar el link del calendario.");
+    });
+    return () => { alive = false; };
+  }, []);
+  function copy() { try { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (e) {} }
+  return (
+    <AdModal T={T} title="Google Calendar · que se actualiza solo" onClose={onClose} footer={<AdBtn T={T} primary full onClick={onClose}>Listo</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>Suscribí este calendario <b>una sola vez</b> y tus reservas aparecen solas en tu Google Calendar (PC y celu) y se mantienen al día. <b>No hay que descargar nada.</b></p>
+        {busy && <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute }}>Generando tu link…</div>}
+        {!busy && err && <div style={{ fontFamily: T.sans, fontSize: 12, color: "#e06a6a", lineHeight: 1.5 }}>{err}</div>}
+        {!busy && url && (
+          <div>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Tu link de suscripción</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input readOnly value={url} onFocus={e => e.target.select()} style={{ flex: 1, fontFamily: T.sans, fontSize: 12.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2 || T.surface, color: T.text, outline: "none" }} />
+              <button onClick={copy} style={{ flexShrink: 0, padding: "0 13px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{copied ? "✓" : "Copiar"}</button>
+            </div>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10, lineHeight: 1.6 }}>
+              <b style={{ color: T.text }}>Cómo suscribirlo:</b> abrí <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener" style={{ color: T.accent, textDecoration: "underline" }}>Google Calendar → Agregar desde URL ↗</a>, pegá el link de arriba y "Agregar calendario". En el celular aparece solo (sincroniza tu Google). Google lo revisa cada varias horas.
+            </div>
+          </div>
+        )}
+      </div>
+    </AdModal>
+  );
+}
+
 function IntegracionesView({ T }) {
   const [list, setList] = useState(() => {
     let saved = {};
@@ -939,6 +981,7 @@ function IntegracionesView({ T }) {
   const [previewInteg, setPreviewInteg] = useState(null); // integración a previsualizar antes de conectar
   const [waGuide, setWaGuide] = useState(false); // guía paso a paso para activar WhatsApp
   const [bizGuide, setBizGuide] = useState(false); // guía/requisitos de Meta Business Suite
+  const [calModal, setCalModal] = useState(false); // suscripción a Google Calendar (se actualiza solo)
   function toggle(id) {
     const n = list.map(i => i.id === id ? { ...i, connected: !i.connected } : i);
     setList(n);
@@ -956,7 +999,7 @@ function IntegracionesView({ T }) {
     // Drive / Calendar: alternativas reales sin OAuth.
     // Drive → envía el respaldo al correo de la clínica (además del envío semanal automático).
     if (it.id === "drive") { window.jcmEmailBackup ? window.jcmEmailBackup({}) : jcmBackupFichas(); return; }
-    if (it.id === "gcal") { jcmExportICS(); return; }
+    if (it.id === "gcal") { setCalModal(true); return; }
     // Reserva online: acción REAL → importa las reservas del link público a la agenda ahora.
     if (it.id === "landing") { jcmImportReservas(); return; }
     // Agente IA: acción REAL → prueba que Groq responde (la IA del panel ya está activa).
@@ -977,7 +1020,7 @@ function IntegracionesView({ T }) {
           const connected = isMeta ? metaOn : it.connected;
           // Drive/Calendar son ACCIONES de descarga reales (no "conexión" OAuth).
           const action = it.id === "drive" ? { label: "Enviar a mi correo", desc: "Cada semana te llega solo a tu correo un respaldo (.json) de fichas y citas. ¿Lo quieres ahora? Envíalo." }
-            : it.id === "gcal" ? { label: "Exportar .ics", desc: "Exporta tus citas en un archivo .ics para importarlo en Google Calendar." }
+            : it.id === "gcal" ? { label: "Suscribir", desc: "Suscribe tus reservas a Google Calendar (se actualizan solas en PC y celu, sin descargar nada)." }
             : it.id === "landing" ? { label: "Importar reservas", desc: "Las reservas de tu link público entran solas a la agenda al abrir el panel. Tu link está en Configuración. ¿Traer las nuevas ahora?" }
             : it.id === "groq" ? { label: "Probar IA", desc: "La IA ya potencia el Copiloto y los resúmenes del panel. Responder a pacientes por WhatsApp se activa al conectar WhatsApp. Probar que la IA responde:" }
             : it.id === "wa" ? { label: "Ver pasos", desc: "Pendiente de activar. El asistente responde a tus pacientes por WhatsApp una vez que se enciende WhatsApp Cloud API en Meta. Mira los pasos:" }
@@ -1002,6 +1045,7 @@ function IntegracionesView({ T }) {
       {correoModal && <CorreoConnectModal T={T} onClose={() => setCorreoModal(false)} onConnected={() => { markConnected("gmail", true); setCorreoModal(false); }} />}
       {waGuide && <WhatsAppSetupModal T={T} onClose={() => setWaGuide(false)} />}
       {bizGuide && <MetaBizGuideModal T={T} onClose={() => setBizGuide(false)} />}
+      {calModal && <CalSubModal T={T} onClose={() => setCalModal(false)} />}
       {previewInteg && (
         <AdModal T={T} title={"Conectar " + previewInteg.name} onClose={() => setPreviewInteg(null)}
           footer={<div style={{ display: "flex", gap: 10, width: "100%" }}>
