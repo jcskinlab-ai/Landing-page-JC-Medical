@@ -630,7 +630,7 @@ function MobileSaasGate() {
   async function doLogin() {
     if (!email.trim() || !pass) return;
     setErr(""); setBusy(true);
-    try { await window.JCSAAS.login(email, pass); }
+    try { await window.JCSAAS.login(email, pass); setBusy(false); }
     catch (e) { setErr("Correo o contraseña incorrectos."); setBusy(false); }
   }
 
