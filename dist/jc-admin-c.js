@@ -821,6 +821,39 @@ function MetaBizGuideModal({ T, onClose }) {
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Bandeja de Instagram y Facebook", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: onClose }, "Entendido") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, "Ver y responder tus ", /* @__PURE__ */ React.createElement("b", null, "DMs y comentarios de Instagram y Facebook"), " dentro del panel es una integraci\xF3n ", /* @__PURE__ */ React.createElement("b", null, "grande"), " (parecida a WhatsApp): Meta exige conectar tu cuenta y ", /* @__PURE__ */ React.createElement("b", null, "aprobar la app"), ", lo que tarda semanas. Por eso todav\xEDa no est\xE1 activa."), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(214,158,46,.10)", border: "1px solid rgba(214,158,46,.4)", borderRadius: 8, padding: "9px 12px", fontFamily: T.sans, fontSize: 11.5, color: T.gold || "#b08400", lineHeight: 1.5 } }, "\u23F3 Lo que m\xE1s demora es la ", /* @__PURE__ */ React.createElement("b", null, "verificaci\xF3n del negocio + revisi\xF3n de la app (App Review)"), " en Meta. Conviene arrancarlo cuanto antes."), /* @__PURE__ */ React.createElement("div", { style: stepBox }, /* @__PURE__ */ React.createElement("div", { style: stepNum }, "QU\xC9 REQUIERE"), /* @__PURE__ */ React.createElement("div", { style: stepTxt }, "1) Conectar tu ", /* @__PURE__ */ React.createElement("b", null, "P\xE1gina de Facebook + Instagram Business"), " con login de Meta (OAuth). 2) Permisos avanzados de mensajer\xEDa/comentarios. 3) ", /* @__PURE__ */ React.createElement("b", null, "Verificaci\xF3n del negocio"), " y ", /* @__PURE__ */ React.createElement("b", null, "App Review"), " de Meta.")), /* @__PURE__ */ React.createElement("div", { style: stepBox }, /* @__PURE__ */ React.createElement("div", { style: stepNum }, "QUI\xC9N LO HACE"), /* @__PURE__ */ React.createElement("div", { style: stepTxt }, "El ", /* @__PURE__ */ React.createElement("b", null, "due\xF1o de la cuenta"), " arranca la verificaci\xF3n y la revisi\xF3n en Meta (lo lento); nosotros construimos la conexi\xF3n, el webhook y la bandeja en el panel.")), /* @__PURE__ */ React.createElement("div", { style: stepBox }, /* @__PURE__ */ React.createElement("div", { style: stepNum }, "BUENA NOTICIA"), /* @__PURE__ */ React.createElement("div", { style: stepTxt }, "Es la ", /* @__PURE__ */ React.createElement("b", null, "misma app de Meta"), " que necesita ", /* @__PURE__ */ React.createElement("b", null, "WhatsApp"), ". Haciendo el setup una vez, sirve para las dos. ", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("a", { href: "https://business.facebook.com/settings/security", target: "_blank", rel: "noopener", style: { color: T.accent, fontSize: 11.5, textDecoration: "underline" } }, "Abrir Verificaci\xF3n del negocio \u2197"))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 } }, "\u{1F4C4} El plan t\xE9cnico completo (fases, endpoints, tiempos) est\xE1 en ", /* @__PURE__ */ React.createElement("b", null, "META-BUSINESS-SUITE-SETUP.md"), ".")));
 }
 if (typeof window !== "undefined") window.MetaBizGuideModal = MetaBizGuideModal;
+function CalSubModal({ T, onClose }) {
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(true);
+  const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!window.mediqueCalendarLink) {
+      setBusy(false);
+      setErr("No disponible en este momento.");
+      return;
+    }
+    let alive = true;
+    window.mediqueCalendarLink().then((r) => {
+      if (!alive) return;
+      setBusy(false);
+      if (r && r.ok && r.url) setUrl(r.url);
+      else if (r && r.configured === false) setErr("A\xFAn no est\xE1 activo: falta la clave de servicio de Firebase en el servidor (p\xEDdeselo al administrador).");
+      else setErr(r && r.error || "No se pudo generar el link del calendario.");
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  function copy() {
+    try {
+      navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (e) {
+    }
+  }
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Google Calendar \xB7 que se actualiza solo", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: onClose }, "Listo") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, "Suscrib\xED este calendario ", /* @__PURE__ */ React.createElement("b", null, "una sola vez"), " y tus reservas aparecen solas en tu Google Calendar (PC y celu) y se mantienen al d\xEDa. ", /* @__PURE__ */ React.createElement("b", null, "No hay que descargar nada.")), busy && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Generando tu link\u2026"), !busy && err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#e06a6a", lineHeight: 1.5 } }, err), !busy && url && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Tu link de suscripci\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("input", { readOnly: true, value: url, onFocus: (e) => e.target.select(), style: { flex: 1, fontFamily: T.sans, fontSize: 12.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2 || T.surface, color: T.text, outline: "none" } }), /* @__PURE__ */ React.createElement("button", { onClick: copy, style: { flexShrink: 0, padding: "0 13px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 } }, copied ? "\u2713" : "Copiar")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10, lineHeight: 1.6 } }, /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "C\xF3mo suscribirlo:"), " abr\xED ", /* @__PURE__ */ React.createElement("a", { href: "https://calendar.google.com/calendar/u/0/r/settings/addbyurl", target: "_blank", rel: "noopener", style: { color: T.accent, textDecoration: "underline" } }, "Google Calendar \u2192 Agregar desde URL \u2197"), ', peg\xE1 el link de arriba y "Agregar calendario". En el celular aparece solo (sincroniza tu Google). Google lo revisa cada varias horas.'))));
+}
 function IntegracionesView({ T }) {
   const [list, setList] = useState(() => {
     let saved = {};
@@ -837,6 +870,7 @@ function IntegracionesView({ T }) {
   const [previewInteg, setPreviewInteg] = useState(null);
   const [waGuide, setWaGuide] = useState(false);
   const [bizGuide, setBizGuide] = useState(false);
+  const [calModal, setCalModal] = useState(false);
   function toggle(id) {
     const n = list.map((i) => i.id === id ? { ...i, connected: !i.connected } : i);
     setList(n);
@@ -880,7 +914,7 @@ function IntegracionesView({ T }) {
       return;
     }
     if (it.id === "gcal") {
-      jcmExportICS();
+      setCalModal(true);
       return;
     }
     if (it.id === "landing") {
@@ -908,7 +942,7 @@ function IntegracionesView({ T }) {
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Integraciones", sub: "Conecta tus herramientas a Medique" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, list.map((it) => {
     const isMeta = it.id === "metaads";
     const connected = isMeta ? metaOn : it.connected;
-    const action = it.id === "drive" ? { label: "Enviar a mi correo", desc: "Cada semana te llega solo a tu correo un respaldo (.json) de fichas y citas. \xBFLo quieres ahora? Env\xEDalo." } : it.id === "gcal" ? { label: "Exportar .ics", desc: "Exporta tus citas en un archivo .ics para importarlo en Google Calendar." } : it.id === "landing" ? { label: "Importar reservas", desc: "Las reservas de tu link p\xFAblico entran solas a la agenda al abrir el panel. Tu link est\xE1 en Configuraci\xF3n. \xBFTraer las nuevas ahora?" } : it.id === "groq" ? { label: "Probar IA", desc: "La IA ya potencia el Copiloto y los res\xFAmenes del panel. Responder a pacientes por WhatsApp se activa al conectar WhatsApp. Probar que la IA responde:" } : it.id === "wa" ? { label: "Ver pasos", desc: "Pendiente de activar. El asistente responde a tus pacientes por WhatsApp una vez que se enciende WhatsApp Cloud API en Meta. Mira los pasos:" } : it.id === "metabiz" ? { label: "Ver requisitos", desc: "Pendiente. Ver tus DMs y comentarios de IG/FB en el panel requiere conexi\xF3n y revisi\xF3n de Meta (proyecto grande). Mira qu\xE9 hace falta:" } : null;
+    const action = it.id === "drive" ? { label: "Enviar a mi correo", desc: "Cada semana te llega solo a tu correo un respaldo (.json) de fichas y citas. \xBFLo quieres ahora? Env\xEDalo." } : it.id === "gcal" ? { label: "Suscribir", desc: "Suscribe tus reservas a Google Calendar (se actualizan solas en PC y celu, sin descargar nada)." } : it.id === "landing" ? { label: "Importar reservas", desc: "Las reservas de tu link p\xFAblico entran solas a la agenda al abrir el panel. Tu link est\xE1 en Configuraci\xF3n. \xBFTraer las nuevas ahora?" } : it.id === "groq" ? { label: "Probar IA", desc: "La IA ya potencia el Copiloto y los res\xFAmenes del panel. Responder a pacientes por WhatsApp se activa al conectar WhatsApp. Probar que la IA responde:" } : it.id === "wa" ? { label: "Ver pasos", desc: "Pendiente de activar. El asistente responde a tus pacientes por WhatsApp una vez que se enciende WhatsApp Cloud API en Meta. Mira los pasos:" } : it.id === "metabiz" ? { label: "Ver requisitos", desc: "Pendiente. Ver tus DMs y comentarios de IG/FB en el panel requiere conexi\xF3n y revisi\xF3n de Meta (proyecto grande). Mira qu\xE9 hace falta:" } : null;
     return /* @__PURE__ */ React.createElement("div", { key: it.id, style: { display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (connected ? T.line : T.lineSoft) } }, /* @__PURE__ */ React.createElement("div", { style: { width: 42, height: 42, borderRadius: 10, background: it.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 500, flexShrink: 0 } }, it.letter), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, it.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, action ? action.desc : isMeta ? connected ? "\u2713 Conectada \xB7 leyendo tu gasto real" : "Conecta tu cuenta para ver gasto y ROAS reales" : connected ? "\u2713 " + it.stat : it.desc)), /* @__PURE__ */ React.createElement("button", { onClick: () => handleConnectClick(it, connected), style: {
       fontFamily: T.sans,
       fontSize: 10,
@@ -928,7 +962,7 @@ function IntegracionesView({ T }) {
   } }), correoModal && /* @__PURE__ */ React.createElement(CorreoConnectModal, { T, onClose: () => setCorreoModal(false), onConnected: () => {
     markConnected("gmail", true);
     setCorreoModal(false);
-  } }), waGuide && /* @__PURE__ */ React.createElement(WhatsAppSetupModal, { T, onClose: () => setWaGuide(false) }), bizGuide && /* @__PURE__ */ React.createElement(MetaBizGuideModal, { T, onClose: () => setBizGuide(false) }), previewInteg && /* @__PURE__ */ React.createElement(
+  } }), waGuide && /* @__PURE__ */ React.createElement(WhatsAppSetupModal, { T, onClose: () => setWaGuide(false) }), bizGuide && /* @__PURE__ */ React.createElement(MetaBizGuideModal, { T, onClose: () => setBizGuide(false) }), calModal && /* @__PURE__ */ React.createElement(CalSubModal, { T, onClose: () => setCalModal(false) }), previewInteg && /* @__PURE__ */ React.createElement(
     AdModal,
     {
       T,
