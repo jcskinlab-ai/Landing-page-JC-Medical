@@ -1268,6 +1268,7 @@ function unreadNotifCount(patients, appts) {
 }
 function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   const D = window.JCDATA;
+  const [tab, setTab] = useState("todo");
   // Excluye las notificaciones ya marcadas como leídas (botón "Leer todas").
   const read = {}; notifReadList().forEach(k => { read[k] = 1; });
   const wa = (((window.CADMIN || {}).waMessages) || []).filter(m => !read["w" + m.id]);
@@ -1278,7 +1279,8 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   // Pacientes que ya cumplieron el plazo para su próxima aplicación (re-cita).
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []).filter(x => !read["re" + x.p.id]);
   let tasks = []; try { tasks = ((window.DB && DB.get("admin_tasks")) || []).filter(t => !t.done && !read["t" + t.id]); } catch (e) {}
-  const total = wa.length + biz.length + sinConsent.length + recitas.length + tasks.length;
+  const otros = [...wa, ...biz, ...tasks];
+  const total = sinConsent.length + recitas.length + otros.length;
   function leerTodas() {
     const keys = [].concat(
       sinConsent.map(p => "c" + p.id), recitas.map(x => "re" + x.p.id),
@@ -1309,6 +1311,28 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   const ICa = <><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></>;
   const ICc = <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></>;
   const ICk = <><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></>;
+  // Tabs de categoría — solo las que tienen elementos
+  const tabs = [
+    { id: "todo",        label: "Todo",           n: total },
+    { id: "consents",   label: "Consentimientos", n: sinConsent.length },
+    { id: "recita",     label: "Re-cita",         n: recitas.length },
+    { id: "otros",      label: "Otros",           n: otros.length },
+  ].filter(t => t.id === "todo" || t.n > 0);
+  const activeTab = tabs.find(t => t.id === tab) ? tab : "todo";
+  const tabBtn = (t) => {
+    const active = t.id === activeTab;
+    return (
+      <button key={t.id} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, border: active ? "1px solid " + T.accent : "1px solid " + T.lineSoft, background: active ? T.accent + "18" : "transparent", fontFamily: T.sans, fontSize: 11, fontWeight: active ? 600 : 400, color: active ? T.accent : T.textMute, cursor: "pointer", whiteSpace: "nowrap", transition: "all .15s" }}>
+        {t.label}
+        {t.n > 0 && <span style={{ fontFamily: T.sans, fontSize: 9.5, fontWeight: 700, background: active ? T.accent : T.lineSoft, color: active ? "#fff" : T.textMute, borderRadius: 999, padding: "1px 6px", lineHeight: 1.6 }}>{t.n}</span>}
+      </button>
+    );
+  };
+  // Filas visibles según tab activo
+  const showConsents = activeTab === "todo" || activeTab === "consents";
+  const showRecitas  = activeTab === "todo" || activeTab === "recita";
+  const showOtros    = activeTab === "todo" || activeTab === "otros";
+  const visibleCount = (showConsents ? sinConsent.length : 0) + (showRecitas ? recitas.length : 0) + (showOtros ? otros.length : 0);
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 70 }} />
@@ -1323,13 +1347,20 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
             <button onClick={onClose} title="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 2 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
           </div>
         </div>
+        {/* Tabs de categoría (solo si hay más de una categoría con elementos) */}
+        {tabs.length > 1 && (
+          <div style={{ display: "flex", gap: 6, padding: "10px 14px", borderBottom: "1px solid " + T.lineSoft, overflowX: "auto", flexShrink: 0 }}>
+            {tabs.map(tabBtn)}
+          </div>
+        )}
         <div style={{ flex: 1, overflowY: "auto" }}>
           {total === 0 && <div style={{ padding: "34px 18px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Todo al día. Sin notificaciones.</div>}
-          {sinConsent.map(p => row("c" + p.id, "#C9A227", ICa, "Consentimiento por firmar", p.name, "Abrir ficha", () => openP(p.id)))}
-          {recitas.map(({ p, r }) => row("re" + p.id, "#1F8A5B", ICb, "Toca re-citar · " + p.name, r.motivo, "WhatsApp", () => window.open(window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, "")), "_blank", "noopener")))}
-          {wa.map(m => row("w" + m.id, "#1F8A5B", ICb, m.name + " escribió por WhatsApp", "“" + m.msg + "” · " + m.ago, "Responder", () => window.open("https://wa.me/" + (D ? D.wa : ""), "_blank", "noopener")))}
-          {biz.map(b => row("b" + b.id, T.accent, ICc, b.name + " comentó en " + b.net, "“" + b.msg + "” · " + b.ago, "Ver", () => go("marketing")))}
-          {tasks.map(t => row("t" + t.id, T.accent, ICk, "Pendiente del equipo", t.text, null, null))}
+          {visibleCount === 0 && total > 0 && <div style={{ padding: "28px 18px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Sin notificaciones en esta categoría.</div>}
+          {showConsents && sinConsent.map(p => row("c" + p.id, "#C9A227", ICa, "Consentimiento por firmar", p.name, "Abrir ficha", () => openP(p.id)))}
+          {showRecitas && recitas.map(({ p, r }) => row("re" + p.id, "#1F8A5B", ICb, "Toca re-citar · " + p.name, r.motivo, "WhatsApp", () => window.open(window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, "")), "_blank", "noopener")))}
+          {showOtros && wa.map(m => row("w" + m.id, "#1F8A5B", ICb, m.name + " escribió por WhatsApp", "“" + m.msg + "” · " + m.ago, "Responder", () => window.open("https://wa.me/" + (D ? D.wa : ""), "_blank", "noopener")))}
+          {showOtros && biz.map(b => row("b" + b.id, T.accent, ICc, b.name + " comentó en " + b.net, "“" + b.msg + "” · " + b.ago, "Ver", () => go("marketing")))}
+          {showOtros && tasks.map(t => row("t" + t.id, T.accent, ICk, "Pendiente del equipo", t.text, null, null))}
         </div>
         <button onClick={() => go("pendientes")} style={{ flexShrink: 0, padding: "13px", textAlign: "center", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.accent, background: T.surface, border: "none", borderTop: "1px solid " + T.line, cursor: "pointer" }}>Abrir Pendientes →</button>
       </div>
@@ -2397,7 +2428,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                     <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{p.name}</div>
                     <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.rut || p.phone || "Paciente"}</div>
                   </button>
-                )) : <div style={{ padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin resultados para “{patQ}”.</div>; })()}
+                )) : <div style={{ padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin resultados para "{patQ}".</div>; })()}
               </div>
             </div>
           : <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
