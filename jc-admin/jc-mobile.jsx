@@ -199,7 +199,7 @@ function CitasTab({ T, D, appts, confirmPago, cancelAppt, updateAppt }) {
     });
 
   const byFilter = filterDay === "all" ? all : all.filter(a => (a.fecha||offToISO(a.day||0)) === filterDay);
-  const upcoming = showAnuladas ? byFilter : byFilter.filter(a => a.status !== "anulada");
+  const upcoming = showAnuladas ? byFilter.filter(a => a.status === "anulada") : byFilter.filter(a => a.status !== "anulada");
 
   const pendPago = upcoming.filter(a=>a.status==="pendiente_pago");
   const byDate = {};
@@ -352,7 +352,18 @@ function HorariosTab({ T, appts }) {
   const selDay = days[selOff];
   const [slotsMap, setSlotsMap] = useState(()=>JSON.parse(localStorage.getItem("jcm_horarios_dates")||"{}"));
   const avail = slotsMap[selDay.iso]!=null ? slotsMap[selDay.iso] : HALF_HOURS.slice();
-  const occupied = new Set(appts.filter(a=>(a.fecha===selDay.iso)||(a.day===selOff)).map(a=>a.time).filter(Boolean));
+  const occupied = new Set();
+  appts
+    .filter(a => a.status !== "anulada" && (a.fecha ? a.fecha === selDay.iso : a.day === selOff))
+    .forEach(a => {
+      if (!a.time) return;
+      const startMin = minsM(a.time);
+      const durMin = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+      HALF_HOURS.forEach(slot => {
+        const slotMin = minsM(slot);
+        if (slotMin >= startMin && slotMin < startMin + durMin) occupied.add(slot);
+      });
+    });
 
   function saveMap(map) { localStorage.setItem("jcm_horarios_dates", JSON.stringify(map)); setSlotsMap({...map}); }
   function toggle(slot) {
