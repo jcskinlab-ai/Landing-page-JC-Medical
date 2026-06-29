@@ -168,50 +168,30 @@ function photoQuality(dataUrl) {
 const FACEMESH_SRC = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js";
 const FACEMESH_CDN = (f) => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/" + f;
 let _fmInstance = null;
-let _fmReady = false;
-async function getFaceMesh() {
+async function detectFaceMesh(dataUrl) {
   await loadScriptOnce(FACEMESH_SRC);
   if (!window.FaceMesh) throw new Error("El modelo de IA no est\xE1 disponible.");
   if (!_fmInstance) {
     _fmInstance = new window.FaceMesh({ locateFile: FACEMESH_CDN });
     _fmInstance.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.4 });
-    await new Promise((res, rej) => {
-      const t = setTimeout(() => {
-        _fmInstance = null;
-        rej(new Error("El modelo tard\xF3 demasiado en cargar. Revisa tu conexi\xF3n e intenta de nuevo."));
-      }, 6e4);
-      _fmInstance.onResults(() => {
-        clearTimeout(t);
-        _fmReady = true;
-        res();
-      });
-      const c = document.createElement("canvas");
-      c.width = 8;
-      c.height = 8;
-      _fmInstance.send({ image: c }).catch(() => {
-        clearTimeout(t);
-        _fmReady = true;
-        res();
-      });
-    });
   }
-  return _fmInstance;
-}
-async function detectFaceMesh(dataUrl) {
-  const fm = await getFaceMesh();
   const img = await loadImg(dataUrl);
   return await new Promise((resolve, reject) => {
-    const to = setTimeout(() => reject(new Error("La detecci\xF3n tard\xF3 demasiado. Intenta con otra foto.")), 45e3);
+    const to = setTimeout(() => {
+      _fmInstance = null;
+      reject(new Error("La detecci\xF3n tard\xF3 demasiado. Revisa tu conexi\xF3n e intenta de nuevo."));
+    }, 6e4);
     try {
-      fm.onResults((r) => {
+      _fmInstance.onResults((r) => {
         clearTimeout(to);
         const l = r.multiFaceLandmarks && r.multiFaceLandmarks[0];
         if (!l) reject(new Error("No se detect\xF3 un rostro. Usa una foto frontal, clara y bien iluminada."));
         else resolve({ lm: l, W: img.naturalWidth, H: img.naturalHeight });
       });
-      fm.send({ image: img });
+      _fmInstance.send({ image: img });
     } catch (e) {
       clearTimeout(to);
+      _fmInstance = null;
       reject(e);
     }
   });

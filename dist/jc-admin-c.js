@@ -1701,7 +1701,20 @@ function HorariosEditor({ T }) {
     }
   })();
   const dayAppts = appts.filter((a) => a.fecha === day.iso && a.status !== "anulada" && a.status !== "cancelada");
-  const bookedSet = new Set(dayAppts.map((a) => a.time));
+  const bookedSet = /* @__PURE__ */ new Set();
+  {
+    const _m = (t) => {
+      const [h, m] = (t || "0:0").split(":").map(Number);
+      return h * 60 + (m || 0);
+    };
+    dayAppts.forEach((a) => {
+      if (!a.time) return;
+      const st = _m(a.time), dur = parseInt(a.dur) || 30;
+      _FULL_GRID.forEach((s) => {
+        if (_m(s) >= st && _m(s) < st + dur) bookedSet.add(s);
+      });
+    });
+  }
   function toggle(s) {
     if (bookedSet.has(s)) return;
     setSlots(slots.includes(s) ? slots.filter((x) => x !== s) : [...slots, s].sort());

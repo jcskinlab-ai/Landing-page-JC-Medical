@@ -2086,7 +2086,9 @@ function HorariosEditor({ T }) {
   // Citas del día seleccionado (para marcar con cita y no permitir desbloquear).
   const appts = (() => { try { const a=(window.DB&&window.DB.get("appointments"))||[]; return Array.isArray(a)?a:[]; } catch(e){return[];} })();
   const dayAppts = appts.filter(a => a.fecha===day.iso && a.status!=="anulada" && a.status!=="cancelada");
-  const bookedSet = new Set(dayAppts.map(a=>a.time));
+  const bookedSet = new Set();
+  { const _m = t => { const [h,m]=(t||"0:0").split(":").map(Number); return h*60+(m||0); };
+    dayAppts.forEach(a => { if(!a.time) return; const st=_m(a.time), dur=parseInt(a.dur)||30; _FULL_GRID.forEach(s=>{ if(_m(s)>=st&&_m(s)<st+dur) bookedSet.add(s); }); }); }
 
   function toggle(s) {
     if (bookedSet.has(s)) return;

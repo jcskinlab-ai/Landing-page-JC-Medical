@@ -107,43 +107,30 @@ function photoQuality(dataUrl) {
 
 const FACEMESH_SRC = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js";
 const FACEMESH_CDN = f => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/" + f;
-// Instancia cacheada para no re-inicializar el WASM en cada análisis (primera carga ~8–15 s).
+// Instancia cacheada: el WASM (~9 MB) solo se descarga la primera vez.
 let _fmInstance = null;
-let _fmReady = false;
 
-async function getFaceMesh() {
+// Detecta 468 landmarks faciales en el navegador. Devuelve {lm, W, H} o lanza error.
+async function detectFaceMesh(dataUrl) {
   await loadScriptOnce(FACEMESH_SRC);
   if (!window.FaceMesh) throw new Error("El modelo de IA no está disponible.");
   if (!_fmInstance) {
     _fmInstance = new window.FaceMesh({ locateFile: FACEMESH_CDN });
     _fmInstance.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.4 });
-    // onResults se sobreescribe en cada llamada; la instancia se reutiliza.
-    await new Promise((res, rej) => {
-      const t = setTimeout(() => { _fmInstance = null; rej(new Error("El modelo tardó demasiado en cargar. Revisa tu conexión e intenta de nuevo.")); }, 60000);
-      _fmInstance.onResults(() => { clearTimeout(t); _fmReady = true; res(); });
-      // Imagen mínima para forzar la inicialización del WASM.
-      const c = document.createElement("canvas"); c.width = 8; c.height = 8;
-      _fmInstance.send({ image: c }).catch(() => { clearTimeout(t); _fmReady = true; res(); });
-    });
   }
-  return _fmInstance;
-}
-
-// Detecta 468 landmarks faciales en el navegador. Devuelve {lm, W, H} o lanza error.
-async function detectFaceMesh(dataUrl) {
-  const fm = await getFaceMesh();
   const img = await loadImg(dataUrl);
   return await new Promise((resolve, reject) => {
-    const to = setTimeout(() => reject(new Error("La detección tardó demasiado. Intenta con otra foto.")), 45000);
+    // Primera detección puede tardar 20–40 s mientras el WASM se descarga del CDN.
+    const to = setTimeout(() => { _fmInstance = null; reject(new Error("La detección tardó demasiado. Revisa tu conexión e intenta de nuevo.")); }, 60000);
     try {
-      fm.onResults(r => {
+      _fmInstance.onResults(r => {
         clearTimeout(to);
         const l = r.multiFaceLandmarks && r.multiFaceLandmarks[0];
         if (!l) reject(new Error("No se detectó un rostro. Usa una foto frontal, clara y bien iluminada."));
         else resolve({ lm: l, W: img.naturalWidth, H: img.naturalHeight });
       });
-      fm.send({ image: img });
-    } catch (e) { clearTimeout(to); reject(e); }
+      _fmInstance.send({ image: img });
+    } catch (e) { clearTimeout(to); _fmInstance = null; reject(e); }
   });
 }
 
