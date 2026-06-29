@@ -1525,14 +1525,26 @@ function FacturacionTab({ T, patient, updatePatient }) {
     /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 } }, items[delIdx] && D.fmt(items[delIdx].amount || 0), " \u2014 Esta acci\xF3n no se puede deshacer.")
   ));
 }
+const ORIGEN_ORG = ["Paciente antiguo / fidelizado", "Org\xE1nico \xB7 Instagram", "Org\xE1nico \xB7 Facebook", "Org\xE1nico \xB7 TikTok", "Referido de paciente", "Pas\xF3 por la cl\xEDnica (walk-in)", "B\xFAsqueda en Google"];
+const ORIGEN_ADS = ["Meta Ads \xB7 general", "Meta Ads \xB7 Instagram", "Meta Ads \xB7 Facebook", "Google Ads", "Otra pauta\u2026"];
+function normOrigen(v) {
+  if (!v || v === "organico") return "Org\xE1nico \xB7 Instagram";
+  if (v === "referido") return "Referido de paciente";
+  if (v === "campana") return "Meta Ads \xB7 general";
+  return v;
+}
+function isAdsOrigen(v) {
+  return ORIGEN_ADS.some((o) => v && v.startsWith(o.split("\xB7")[0].trim()));
+}
 function CampanaTab({ T, patient, updatePatient }) {
-  const c = patient.campaign || { origen: "organico", medio: "Instagram", campana: "", detalle: "" };
+  const c = patient.campaign || {};
+  const origen = normOrigen(c.origen);
   function set(patch) {
     updatePatient(patient.id, { campaign: { ...c, ...patch } });
   }
-  const origenes = [["campana", "Lleg\xF3 por campa\xF1a"], ["organico", "Org\xE1nico"], ["referido", "Referido"]];
-  const medios = ["Instagram", "Facebook / Meta Ads", "Google", "Recomendaci\xF3n", "WhatsApp", "Pas\xF3 por fuera", "Otro"];
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 } }, "Informaci\xF3n de captaci\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 } }, origenes.map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => set({ origen: k }), style: { display: "flex", alignItems: "center", gap: 11, textAlign: "left", padding: "13px 14px", borderRadius: 8, cursor: "pointer", background: c.origen === k ? T.surface2 : T.surface, border: "1px solid " + (c.origen === k ? T.accent : T.line) } }, /* @__PURE__ */ React.createElement("span", { style: { width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: "2px solid " + (c.origen === k ? T.accent : T.chipBorder), background: c.origen === k ? T.accent : "transparent" } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text } }, l)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Medio"), /* @__PURE__ */ React.createElement("select", { value: c.medio, onChange: (e) => set({ medio: e.target.value }), style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }, medios.map((m) => /* @__PURE__ */ React.createElement("option", { key: m }, m)))), c.origen === "campana" && /* @__PURE__ */ React.createElement(AdField, { T, label: "Campa\xF1a espec\xEDfica", value: c.campana, onChange: (v) => set({ campana: v }), placeholder: "Ej: Botox \xB7 invierno" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Detalle / referente", value: c.detalle, onChange: (v) => set({ detalle: v }), placeholder: "Ej: recomendada por Mar\xEDa G." })));
+  const selS = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
+  const metaCamps = ((window.CADMIN || { campaigns: [] }).campaigns || []).filter((ca) => ca.active);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 } }, "Informaci\xF3n de captaci\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Origen"), /* @__PURE__ */ React.createElement("select", { value: origen, onChange: (e) => set({ origen: e.target.value }), style: selS }, /* @__PURE__ */ React.createElement("optgroup", { label: "Org\xE1nico / directo" }, ORIGEN_ORG.map((o) => /* @__PURE__ */ React.createElement("option", { key: o }, o))), /* @__PURE__ */ React.createElement("optgroup", { label: "Publicidad \xB7 Ads" }, metaCamps.length > 0 && metaCamps.map((ca) => /* @__PURE__ */ React.createElement("option", { key: ca.id }, ca.name)), ORIGEN_ADS.map((o) => /* @__PURE__ */ React.createElement("option", { key: o }, o))))), isAdsOrigen(origen) && /* @__PURE__ */ React.createElement(AdField, { T, label: "Campa\xF1a espec\xEDfica", value: c.campana || "", onChange: (v) => set({ campana: v }), placeholder: "Ej: Botox \xB7 invierno 2026" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Detalle / referente", value: c.detalle || "", onChange: (v) => set({ detalle: v }), placeholder: "Ej: recomendada por Mar\xEDa G." })));
 }
 function AuditoriaIA({ T, patient, go }) {
   const issues = [];

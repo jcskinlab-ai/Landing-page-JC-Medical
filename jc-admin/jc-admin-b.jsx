@@ -1910,30 +1910,40 @@ function FacturacionTab({ T, patient, updatePatient }) {
 }
 
 /* ─────────── INFORMACIÓN DE CAMPAÑA ─────────── */
+const ORIGEN_ORG = ["Paciente antiguo / fidelizado", "Orgánico · Instagram", "Orgánico · Facebook", "Orgánico · TikTok", "Referido de paciente", "Pasó por la clínica (walk-in)", "Búsqueda en Google"];
+const ORIGEN_ADS = ["Meta Ads · general", "Meta Ads · Instagram", "Meta Ads · Facebook", "Google Ads", "Otra pauta…"];
+// Mapeo de valores legacy a la nueva nomenclatura granular
+function normOrigen(v) {
+  if (!v || v === "organico") return "Orgánico · Instagram";
+  if (v === "referido") return "Referido de paciente";
+  if (v === "campana") return "Meta Ads · general";
+  return v;
+}
+function isAdsOrigen(v) { return ORIGEN_ADS.some(o => v && v.startsWith(o.split("·")[0].trim())); }
 function CampanaTab({ T, patient, updatePatient }) {
-  const c = patient.campaign || { origen: "organico", medio: "Instagram", campana: "", detalle: "" };
+  const c = patient.campaign || {};
+  const origen = normOrigen(c.origen);
   function set(patch) { updatePatient(patient.id, { campaign: { ...c, ...patch } }); }
-  const origenes = [["campana", "Llegó por campaña"], ["organico", "Orgánico"], ["referido", "Referido"]];
-  const medios = ["Instagram", "Facebook / Meta Ads", "Google", "Recomendación", "WhatsApp", "Pasó por fuera", "Otro"];
+  const selS = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
+  const metaCamps = ((window.CADMIN || { campaigns: [] }).campaigns || []).filter(ca => ca.active);
   return (
     <div>
       <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Información de captación</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-        {origenes.map(([k, l]) => (
-          <button key={k} onClick={() => set({ origen: k })} style={{ display: "flex", alignItems: "center", gap: 11, textAlign: "left", padding: "13px 14px", borderRadius: 8, cursor: "pointer", background: c.origen === k ? T.surface2 : T.surface, border: "1px solid " + (c.origen === k ? T.accent : T.line) }}>
-            <span style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: "2px solid " + (c.origen === k ? T.accent : T.chipBorder), background: c.origen === k ? T.accent : "transparent" }} />
-            <span style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{l}</span>
-          </button>
-        ))}
-      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <div><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Medio</span>
-          <select value={c.medio} onChange={e => set({ medio: e.target.value })} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}>
-            {medios.map(m => <option key={m}>{m}</option>)}
+        <div>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Origen</span>
+          <select value={origen} onChange={e => set({ origen: e.target.value })} style={selS}>
+            <optgroup label="Orgánico / directo">
+              {ORIGEN_ORG.map(o => <option key={o}>{o}</option>)}
+            </optgroup>
+            <optgroup label="Publicidad · Ads">
+              {metaCamps.length > 0 && metaCamps.map(ca => <option key={ca.id}>{ca.name}</option>)}
+              {ORIGEN_ADS.map(o => <option key={o}>{o}</option>)}
+            </optgroup>
           </select>
         </div>
-        {c.origen === "campana" && <AdField T={T} label="Campaña específica" value={c.campana} onChange={v => set({ campana: v })} placeholder="Ej: Botox · invierno" />}
-        <AdField T={T} label="Detalle / referente" value={c.detalle} onChange={v => set({ detalle: v })} placeholder="Ej: recomendada por María G." />
+        {isAdsOrigen(origen) && <AdField T={T} label="Campaña específica" value={c.campana || ""} onChange={v => set({ campana: v })} placeholder="Ej: Botox · invierno 2026" />}
+        <AdField T={T} label="Detalle / referente" value={c.detalle || ""} onChange={v => set({ detalle: v })} placeholder="Ej: recomendada por María G." />
       </div>
     </div>
   );

@@ -2452,7 +2452,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {adminSlots().map(h => {
                     const sel = pick && pick.dayOff === w.off && pick.time === h;
-                    const blk = (appts || []).some(a => { if (a.day !== w.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(h); return ts >= as && ts < as + ad; });
+                    const blk = (appts || []).some(a => { if (a.status === "anulada" || a.status === "cancelada") return false; if (apptDayOff(a) !== w.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(h); return ts >= as && ts < as + ad; });
                     return <button key={h} disabled={blk} onClick={() => !blk && setPick({ dayOff: w.off, time: h })}
                       style={{ fontFamily: T.sans, fontSize: 10.5, padding: "6px 2px", borderRadius: 5,
                         cursor: blk ? "not-allowed" : "pointer",
