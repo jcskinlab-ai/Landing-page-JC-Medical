@@ -1456,6 +1456,7 @@ function ConfigView({ T }) {
       <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>
       <IndTemplatesEditor T={T} />
       <FirmasMedicasEditor T={T} />
+      <RecitaDescCard T={T} />
       <ClinCard T={T} title="Notificaciones">
         <ToggleRow T={T} label="Recordatorio 24 h antes (WhatsApp)" def={true} />
         <ToggleRow T={T} label="Recordatorio el día del tratamiento · 08:30 (WhatsApp)" def={true} />
@@ -1469,6 +1470,48 @@ function ClinCard({ T, title, children }) {
   return <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
     <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{title}</div>{children}
   </div>;
+}
+function RecitaDescCard({ T }) {
+  const DB = _db();
+  const cfg0 = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const [tipo, setTipo] = useState(cfg0.recita_desc_tipo || "fijo");
+  const [val, setVal]   = useState(String(cfg0.recita_desc_val != null ? cfg0.recita_desc_val : 20000));
+  const [saved, setSaved] = useState(false);
+  function save() {
+    const n = parseInt(val, 10);
+    if (!n || n <= 0) return;
+    try { DB.set("config", Object.assign({}, DB.cfg(), { recita_desc_tipo: tipo, recita_desc_val: n })); setSaved(true); setTimeout(() => setSaved(false), 1800); window.jcmToast && window.jcmToast("Descuento de re-cita guardado.", "ok"); } catch (e) {}
+  }
+  const preview = (() => {
+    const n = parseInt(val, 10) || 0;
+    if (!n) return "";
+    const ejemplo = 150000;
+    const desc = tipo === "pct" ? Math.round(ejemplo * (1 - n / 100) / 1000) * 1000 : Math.max(0, ejemplo - n);
+    return "Ej. Botox $150.000 → precio preferente $" + desc.toLocaleString("es-CL");
+  })();
+  const inp = { fontFamily: T.sans, fontSize: 13, padding: "9px 11px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, outline: "none", width: "100%", boxSizing: "border-box" };
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
+      <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        Campaña re-cita · Descuento preferente
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Define cuánto se descuenta al precio del procedimiento en el mensaje de WhatsApp de re-cita. Puedes usar un monto fijo (ej. $20.000 menos) o un porcentaje.</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        {[["fijo", "Monto fijo (CLP)"], ["pct", "Porcentaje (%)"]].map(([k, l]) => (
+          <button key={k} onClick={() => setTipo(k)} style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "1px solid " + (tipo === k ? T.accent : T.line), background: tipo === k ? T.accent + "14" : T.bg, color: tipo === k ? T.accent : T.textMute, fontFamily: T.sans, fontSize: 12, fontWeight: tipo === k ? 600 : 400, cursor: "pointer" }}>{l}</button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ position: "relative", flex: 1 }}>
+          <input value={val} onChange={e => setVal(e.target.value.replace(/\D/g, ""))} placeholder={tipo === "pct" ? "Ej. 10" : "Ej. 20000"} style={inp} />
+          <span style={{ position: "absolute", right: 11, top: "50%", transform: "translateY(-50%)", fontFamily: T.sans, fontSize: 12, color: T.textFaint, pointerEvents: "none" }}>{tipo === "pct" ? "%" : "CLP"}</span>
+        </div>
+        <button onClick={save} style={{ flexShrink: 0, padding: "9px 18px", borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{saved ? "✓ Guardado" : "Guardar"}</button>
+      </div>
+      {preview && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 8, fontStyle: "italic" }}>{preview}</div>}
+    </div>
+  );
 }
 /* Datos de la clínica — propios de cada clínica, editables. Vacíos para clínicas nuevas. */
 function ClinicDataCard({ T }) {

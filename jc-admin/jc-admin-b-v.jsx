@@ -72,7 +72,12 @@ function recitaFor(p) {
     motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a 2 meses)";
     msg = "tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión " + (ses + 1) + " de 3)";
   } else return null;
-  const desc = Math.round(precio * 0.9 / 1000) * 1000; // 10% pero comunicado en pesos
+  const rcfg = (() => { try { return (window.DB && window.DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const rdTipo = rcfg.recita_desc_tipo || "fijo";
+  const rdVal  = Number(rcfg.recita_desc_val) || (rdTipo === "pct" ? 10 : 20000);
+  const desc = rdTipo === "pct"
+    ? Math.round(precio * (1 - rdVal / 100) / 1000) * 1000
+    : Math.max(0, Math.round((precio - rdVal) / 1000) * 1000);
   const due = new Date(lv.getTime() + umbral * 30.44 * 24 * 60 * 60 * 1000);
   return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
