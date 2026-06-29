@@ -1645,12 +1645,21 @@ function readImageResized(file, cb) {
   };
   reader.readAsDataURL(file);
 }
-const IMG_PROCS = ["Botox", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Limpieza facial", "Evaluación inicial", "Antes / después", "Otro"];
+const IMG_PROCS_BASE = ["Botox", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Limpieza facial"];
+const IMG_PROCS_FIXED = ["Evaluación inicial", "Antes / después", "Otro"];
+// Usa todos los servicios del catálogo de la clínica si están disponibles; fallback a lista base.
+function getImgProcs() {
+  const svcs = (typeof window !== "undefined" && window.clinicServiceList) ? window.clinicServiceList() : [];
+  const names = svcs.map(s => s.name).filter(Boolean);
+  const base = names.length > 0 ? names : IMG_PROCS_BASE;
+  const seen = new Set(base);
+  return [...base, ...IMG_PROCS_FIXED.filter(f => !seen.has(f))];
+}
 function ImagenesTab({ T, patient, updatePatient }) {
   const imgKey = patImgKey(patient.id);
   const [imgs, setImgsState] = useState(() => patImages(patient));
   const [adding, setAdding] = useState(false);
-  const [proc, setProc] = useState(IMG_PROCS[0]);
+  const [proc, setProc] = useState(() => getImgProcs()[0]);
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [src, setSrc] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -1679,7 +1688,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
     if (patient.images && patient.images.length) { try { updatePatient(patient.id, { images: [] }); } catch (e) {} }
   }
 
-  function resetForm() { setAdding(false); setSrc(null); setProc(IMG_PROCS[0]); setFecha(new Date().toISOString().slice(0, 10)); }
+  function resetForm() { setAdding(false); setSrc(null); setProc(getImgProcs()[0]); setFecha(new Date().toISOString().slice(0, 10)); }
 
   function save() {
     if (!src) { if (window.jcmError) window.jcmError("Selecciona una imagen."); return; }
@@ -1749,7 +1758,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
             </button>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Procedimiento</span>
-                <select value={proc} onChange={e => setProc(e.target.value)} style={{ width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }}>{IMG_PROCS.map(p => <option key={p}>{p}</option>)}</select>
+                <select value={proc} onChange={e => setProc(e.target.value)} style={{ width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }}>{getImgProcs().map(p => <option key={p}>{p}</option>)}</select>
               </label>
               <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Fecha</span>
                 <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }} />
