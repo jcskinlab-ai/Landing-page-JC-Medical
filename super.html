@@ -187,9 +187,9 @@
           '<button class="btn-ghost" onclick="window._setPlan(\'' + esc(d.id) + '\',\'suspended\')">Suspender</button>' +
           '<button class="btn-ghost" style="' + (c.jcApp ? 'border-color:var(--ok);color:var(--ok)' : '') + '" onclick="window._toggleJcApp(\'' + esc(d.id) + '\',' + (c.jcApp ? 'true' : 'false') + ')">App JC' + (c.jcApp ? ' ✓' : '') + '</button>' +
           '<button class="btn-ghost" onclick="window._copyLink(\'' + esc(d.id) + '\')" title="Copiar link de reserva">Link reserva</button>' +
+          '<button class="btn-ghost" style="border-color:rgba(127,176,198,.5);color:var(--accent)" onclick="window._changeEmail(\'' + esc(d.id) + '\',\'' + esc(c.ownerUid || '') + '\',\'' + esc(c.ownerEmail || '') + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\')" title="Cambiar correo de ingreso">Correo</button>' +
           (!isOwn
-            ? '<button class="btn-ghost" style="border-color:rgba(127,176,198,.5);color:var(--accent)" onclick="window._changeEmail(\'' + esc(d.id) + '\',\'' + esc(c.ownerUid || '') + '\',\'' + esc(c.ownerEmail || '') + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\')" title="Cambiar correo de ingreso">Correo</button>' +
-              '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._deleteClinic(\'' + esc(d.id) + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\',\'' + esc(c.ownerUid || '') + '\',\'' + esc(c.ownerEmail || '') + '\')" title="Eliminar clínica">Eliminar</button>'
+            ? '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._deleteClinic(\'' + esc(d.id) + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\',\'' + esc(c.ownerUid || '') + '\',\'' + esc(c.ownerEmail || '') + '\')" title="Eliminar clínica">Eliminar</button>'
             : '') +
           '</div></div>';
       });
