@@ -1053,11 +1053,13 @@ function FirmasMedicasEditor({ T }) {
   });
   const [adding, setAdding] = useState(false);
   const [nombre, setNombre] = useState("");
+  const [rut, setRut] = useState("");
+  const [registro, setRegistro] = useState("");
   const [sig, setSig] = useState(null);
   const [saved, setSaved] = useState(false);
   function guardar() {
     if (!nombre.trim() || !sig) return;
-    var ns = sigs.concat([{ id: "ms" + Date.now(), name: nombre.trim(), sig }]);
+    var ns = sigs.concat([{ id: "ms" + Date.now(), name: nombre.trim(), rut: rut.trim(), registro: registro.trim(), sig }]);
     setSigs(ns);
     try {
       window.DB.set("medic_sigs", ns);
@@ -1069,6 +1071,8 @@ function FirmasMedicasEditor({ T }) {
     }, 2e3);
     setAdding(false);
     setNombre("");
+    setRut("");
+    setRegistro("");
     setSig(null);
   }
   async function eliminar(id, name) {
@@ -1085,17 +1089,23 @@ function FirmasMedicasEditor({ T }) {
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none", boxSizing: "border-box" };
   return /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 } }, "Firmas de m\xE9dicos"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 12, lineHeight: 1.5 } }, "Las firmas aqu\xED configuradas se insertan autom\xE1ticamente en las recetas e indicaciones al imprimir, y aparecen como ", /* @__PURE__ */ React.createElement("em", null, "M\xE9dico responsable"), " en los consentimientos firmados."), sigs.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 } }, sigs.map(function(s) {
-    return /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 14, padding: "10px 14px", borderRadius: 8, background: T.surface2, border: "1px solid " + T.line } }, s.sig ? /* @__PURE__ */ React.createElement("img", { src: s.sig, alt: "firma", style: { height: 38, width: "auto", maxWidth: 100, objectFit: "contain", background: "#fff", borderRadius: 4, padding: "3px 6px", border: "1px solid " + T.line, flexShrink: 0 } }) : /* @__PURE__ */ React.createElement("div", { style: { width: 80, height: 38, background: T.surface, borderRadius: 4, border: "1px solid " + T.line, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.sans, fontSize: 13, color: T.text } }, s.name), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    return /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 14, padding: "10px 14px", borderRadius: 8, background: T.surface2, border: "1px solid " + T.line } }, s.sig ? /* @__PURE__ */ React.createElement("img", { src: s.sig, alt: "firma", style: { height: 38, width: "auto", maxWidth: 100, objectFit: "contain", background: "#fff", borderRadius: 4, padding: "3px 6px", border: "1px solid " + T.line, flexShrink: 0 } }) : /* @__PURE__ */ React.createElement("div", { style: { width: 80, height: 38, background: T.surface, borderRadius: 4, border: "1px solid " + T.line, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, s.name), (s.rut || s.registro) && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, [s.rut && "RUT " + s.rut, s.registro && "Reg. " + s.registro].filter(Boolean).join(" \xB7 "))), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       eliminar(s.id, s.name);
     }, title: "Eliminar firma", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 6, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, /* @__PURE__ */ React.createElement("polyline", { points: "3 6 5 6 21 6" }), /* @__PURE__ */ React.createElement("path", { d: "M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4h6v2" }))));
-  })), adding ? /* @__PURE__ */ React.createElement("div", { style: { border: "1px solid " + T.line, borderRadius: 8, padding: "14px 14px", background: T.surface2 } }, /* @__PURE__ */ React.createElement("label", { style: { display: "block", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Nombre del m\xE9dico"), /* @__PURE__ */ React.createElement("input", { style: inp, value: nombre, onChange: function(e) {
+  })), adding ? /* @__PURE__ */ React.createElement("div", { style: { border: "1px solid " + T.line, borderRadius: 8, padding: "14px 14px", background: T.surface2 } }, /* @__PURE__ */ React.createElement("label", { style: { display: "block", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Nombre del m\xE9dico"), /* @__PURE__ */ React.createElement("input", { style: inp, value: nombre, onChange: function(e) {
     setNombre(e.target.value);
-  }, placeholder: "Dr. Juan P\xE9rez", autoFocus: true })), /* @__PURE__ */ React.createElement("span", { style: lbl }, "Firma digital"), SignPad ? /* @__PURE__ */ React.createElement(SignPad, { T, onChange: setSig, height: 150 }) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "Componente de firma no disponible."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 14 } }, /* @__PURE__ */ React.createElement(
+  }, placeholder: "Dr. Juan P\xE9rez", autoFocus: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("label", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { style: inp, value: rut, onChange: function(e) {
+    setRut(e.target.value);
+  }, placeholder: "12.345.678-9" })), /* @__PURE__ */ React.createElement("label", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "N\xB0 Registro MINSAL / SIS"), /* @__PURE__ */ React.createElement("input", { style: inp, value: registro, onChange: function(e) {
+    setRegistro(e.target.value);
+  }, placeholder: "12345" }))), /* @__PURE__ */ React.createElement("span", { style: lbl }, "Firma digital"), SignPad ? /* @__PURE__ */ React.createElement(SignPad, { T, onChange: setSig, height: 150 }) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "Componente de firma no disponible."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 14 } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: function() {
         setAdding(false);
         setNombre("");
+        setRut("");
+        setRegistro("");
         setSig(null);
       },
       style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", padding: "12px 18px", borderRadius: 6, border: "1px solid " + T.line, background: "none", color: T.textMute, cursor: "pointer" }

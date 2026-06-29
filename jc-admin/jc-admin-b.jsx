@@ -44,7 +44,8 @@ const JCM_DOC_CSS = "@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;pad
   + ".textbox{font-family:'Jost',sans-serif;font-size:13px;font-weight:300;color:#3a414b;white-space:pre-wrap;line-height:1.7;margin-top:6px;min-height:40px}"
   + ".zgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:0 32px}.zrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(18,26,38,.14)}.zrow .zk{font-family:'Jost',sans-serif;font-size:11.5px;font-weight:300;color:#121A26;letter-spacing:.09em}.zrow .zv{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:15px;color:#5A748C;font-variant-numeric:tabular-nums}.totline{display:flex;justify-content:flex-end;align-items:baseline;gap:12px;margin-top:16px}.totline .tk{font-family:'Jost',sans-serif;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#8B9197;font-weight:500}.totline .tv{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:22px;color:#121A26;font-variant-numeric:tabular-nums}.totline .tv b{color:#5A748C;font-weight:600}"
   + ".signature{margin-top:34px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;position:relative;z-index:1}.sign-block{min-width:230px}.sign-line{height:1px;background:rgba(18,26,38,.30);margin-bottom:9px}.sign-name{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:18px;color:#121A26}.sign-role{font-family:'Jost',sans-serif;font-weight:400;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#646A72;margin-top:3px}.sign-stamp{text-align:right}.sign-stamp .mark{height:30px;width:auto;opacity:.7}.sign-stamp .mono{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:30px;color:#D3D7DC;line-height:.8;letter-spacing:-.02em}"
-  + ".docfooter{margin-top:14px;padding-top:11px;border-top:1px solid rgba(18,26,38,.14);display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;z-index:1}.docfooter .f-l,.docfooter .f-r{font-family:'Jost',sans-serif;font-weight:300;font-size:8.5px;letter-spacing:.09em;color:#8B9197}.docfooter .f-r{text-transform:uppercase;letter-spacing:.20em}.docfooter .f-l .fdate{color:#646A72}";
+  + ".docfooter{margin-top:14px;padding-top:11px;border-top:1px solid rgba(18,26,38,.14);display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;z-index:1}.docfooter .f-l,.docfooter .f-r{font-family:'Jost',sans-serif;font-weight:300;font-size:8.5px;letter-spacing:.09em;color:#8B9197}.docfooter .f-r{text-transform:uppercase;letter-spacing:.20em}.docfooter .f-l .fdate{color:#646A72}"
+  + ".sign-meta{font-family:'Jost',sans-serif;font-weight:300;font-size:8.5px;color:#8B9197;margin-top:3px;letter-spacing:.06em}";
 function jcmMasthead(b) {
   const e = jcmDocEsc;
   const logoEl = b.logoUrl ? "<img class='mh-logo' src='" + b.logoUrl + "' alt=''>" : "<div class='mono'>" + e(b.clinName) + "</div>";
@@ -66,10 +67,13 @@ function jcmSignFoot(b, proName, docLabel, patientName, fechaLarga, medSig) {
   const stamp = b.markUrl ? "<img class='mark' src='" + b.markUrl + "' alt=''>" : "<div class='mono'>" + e(b.wm) + "</div>";
   var medBlock = "";
   if (medSig) {
+    var medMeta = [medSig.rut && "RUT " + medSig.rut, medSig.registro && "Reg. " + medSig.registro].filter(Boolean).join(" · ");
     medBlock = "<div class='sign-block'>"
       + (medSig.sig ? "<img src='" + medSig.sig + "' style='height:44px;width:auto;display:block;margin-bottom:6px;border-radius:2px'>" : "<div style='height:44px;margin-bottom:6px'></div>")
       + "<div class='sign-line'></div><div class='sign-name'>" + e(medSig.name) + "</div>"
-      + "<div class='sign-role'>Médico responsable</div></div>";
+      + "<div class='sign-role'>Médico responsable</div>"
+      + (medMeta ? "<div class='sign-meta'>" + e(medMeta) + "</div>" : "")
+      + "</div>";
   }
   return "<div class='signature'><div class='sign-block'><div class='sign-line'></div><div class='sign-name'>" + e(proName || b.clinName) + "</div>"
     + "<div class='sign-role'>" + e(b.proRole) + "</div></div>" + medBlock + "<div class='sign-stamp'>" + stamp + "</div></div>"
@@ -1470,7 +1474,7 @@ function ConsentTab({ T, patient, updatePatient }) {
         "<div class='sigs'>" +
           "<div><div class='sig-label'>Firma paciente</div><div class='sig-box'>" + (sp ? "<img src='" + sp + "'/>" : "") + "</div></div>" +
           "<div><div class='sig-label'>Firma profesional · " + esc(doc.prof || "") + "</div><div class='sig-box'>" + (spr ? "<img src='" + spr + "'/>" : "") + "</div></div>" +
-          (medicoSig ? "<div><div class='sig-label'>Médico responsable · " + esc(medicoSig.name) + "</div><div class='sig-box'>" + (medicoSig.sig ? "<img src='" + medicoSig.sig + "'/>" : "") + "</div></div>" : "") +
+          (medicoSig ? "<div><div class='sig-label'>Médico responsable · " + esc(medicoSig.name) + (medicoSig.rut ? " · RUT " + esc(medicoSig.rut) : "") + (medicoSig.registro ? " · Reg. " + esc(medicoSig.registro) : "") + "</div><div class='sig-box'>" + (medicoSig.sig ? "<img src='" + medicoSig.sig + "'/>" : "") + "</div></div>" : "") +
         "</div></body></html>";
       if (openOnly) {
         if (winIOS) { try { winIOS.document.open(); winIOS.document.write(html); winIOS.document.close(); } catch (e) {} }
@@ -1595,7 +1599,7 @@ function ConsentTab({ T, patient, updatePatient }) {
                 <div style={{ display: "grid", gridTemplateColumns: cols, gap: 16, marginTop: 16 }}>
                   <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma paciente</div>{openDoc.sigPac && <img src={openDoc.sigPac} alt="firma paciente" style={{ width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
                   <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Firma profesional · {openDoc.prof}</div>{openDoc.sigPro && <img src={openDoc.sigPro} alt="firma profesional" style={{ width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>
-                  {medSigModal && <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Médico responsable · {medSigModal.name}</div>{medSigModal.sig && <img src={medSigModal.sig} alt="firma médico" style={{ width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>}
+                  {medSigModal && <div><div style={{ fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 }}>Médico responsable · {medSigModal.name}{medSigModal.rut ? " · RUT " + medSigModal.rut : ""}{medSigModal.registro ? " · Reg. " + medSigModal.registro : ""}</div>{medSigModal.sig && <img src={medSigModal.sig} alt="firma médico" style={{ width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 }} />}</div>}
                 </div>
               );
             })()}

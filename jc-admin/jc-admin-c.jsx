@@ -1182,16 +1182,18 @@ function FirmasMedicasEditor({ T }) {
   });
   const [adding, setAdding] = useState(false);
   const [nombre, setNombre] = useState("");
+  const [rut, setRut] = useState("");
+  const [registro, setRegistro] = useState("");
   const [sig, setSig] = useState(null);
   const [saved, setSaved] = useState(false);
 
   function guardar() {
     if (!nombre.trim() || !sig) return;
-    var ns = sigs.concat([{ id: "ms" + Date.now(), name: nombre.trim(), sig: sig }]);
+    var ns = sigs.concat([{ id: "ms" + Date.now(), name: nombre.trim(), rut: rut.trim(), registro: registro.trim(), sig: sig }]);
     setSigs(ns);
     try { window.DB.set("medic_sigs", ns); } catch (e) {}
     setSaved(true); setTimeout(function() { setSaved(false); }, 2000);
-    setAdding(false); setNombre(""); setSig(null);
+    setAdding(false); setNombre(""); setRut(""); setRegistro(""); setSig(null);
   }
 
   async function eliminar(id, name) {
@@ -1219,7 +1221,10 @@ function FirmasMedicasEditor({ T }) {
                 {s.sig
                   ? <img src={s.sig} alt="firma" style={{ height: 38, width: "auto", maxWidth: 100, objectFit: "contain", background: "#fff", borderRadius: 4, padding: "3px 6px", border: "1px solid " + T.line, flexShrink: 0 }} />
                   : <div style={{ width: 80, height: 38, background: T.surface, borderRadius: 4, border: "1px solid " + T.line, flexShrink: 0 }} />}
-                <div style={{ flex: 1, fontFamily: T.sans, fontSize: 13, color: T.text }}>{s.name}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{s.name}</div>
+                  {(s.rut || s.registro) && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{[s.rut && "RUT " + s.rut, s.registro && "Reg. " + s.registro].filter(Boolean).join(" · ")}</div>}
+                </div>
                 <button onClick={function() { eliminar(s.id, s.name); }} title="Eliminar firma" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 6, display: "flex" }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
                 </button>
@@ -1231,14 +1236,24 @@ function FirmasMedicasEditor({ T }) {
 
       {adding ? (
         <div style={{ border: "1px solid " + T.line, borderRadius: 8, padding: "14px 14px", background: T.surface2 }}>
-          <label style={{ display: "block", marginBottom: 14 }}>
+          <label style={{ display: "block", marginBottom: 12 }}>
             <span style={lbl}>Nombre del médico</span>
             <input style={inp} value={nombre} onChange={function(e) { setNombre(e.target.value); }} placeholder="Dr. Juan Pérez" autoFocus />
           </label>
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            <label style={{ flex: 1 }}>
+              <span style={lbl}>RUT</span>
+              <input style={inp} value={rut} onChange={function(e) { setRut(e.target.value); }} placeholder="12.345.678-9" />
+            </label>
+            <label style={{ flex: 1 }}>
+              <span style={lbl}>N° Registro MINSAL / SIS</span>
+              <input style={inp} value={registro} onChange={function(e) { setRegistro(e.target.value); }} placeholder="12345" />
+            </label>
+          </div>
           <span style={lbl}>Firma digital</span>
           {SignPad ? <SignPad T={T} onChange={setSig} height={150} /> : <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Componente de firma no disponible.</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <button onClick={function() { setAdding(false); setNombre(""); setSig(null); }}
+            <button onClick={function() { setAdding(false); setNombre(""); setRut(""); setRegistro(""); setSig(null); }}
               style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", padding: "12px 18px", borderRadius: 6, border: "1px solid " + T.line, background: "none", color: T.textMute, cursor: "pointer" }}>
               Cancelar
             </button>
