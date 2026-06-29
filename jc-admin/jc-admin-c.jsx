@@ -2040,50 +2040,174 @@ function AdSwitch({ T, on, onClick }) {
   </button>;
 }
 
-/* ─────────── HORARIOS POR DÍA (editable) ─────────── */
+/* ─────────── HORARIOS POR DÍA (editable, sincronizado) ─────────── */
+// Genera la grilla de slots posibles (08:00–19:30 cada 30 min, siempre el rango completo).
+function _allSlots() { const s=[]; for(let h=8;h<20;h++) ["00","30"].forEach(m=>s.push((h<10?"0":"")+h+":"+m)); return s; }
+const _FULL_GRID = _allSlots();
+
 function HorariosEditor({ T }) {
   const D = window.JCDATA;
-  const DOW = [["Lunes", 1], ["Martes", 2], ["Miércoles", 3], ["Jueves", 4], ["Viernes", 5], ["Sábado", 6], ["Domingo", 0]];
-  const [wd, setWd] = useState(1);
-  const [open, setOpen] = useState(true);
+  // 7 días: hoy + 6 siguientes (igual que el panel móvil).
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = Array.from({length:7},(_,i)=>{
+    const dt=new Date(today); dt.setDate(today.getDate()+i);
+    return { iso:dt.toISOString().slice(0,10), dt, dow:dt.getDay(),
+      label:["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"][dt.getDay()],
+      dd:dt.getDate(), mm:["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][dt.getMonth()] };
+  });
+
+  const [selIdx, setSelIdx] = useState(0);
   const [slots, setSlots] = useState([]);
+  const [open, setOpen] = useState(true);
   const [saved, setSaved] = useState(false);
-  useEffect(() => { const a = D.availability(wd); setOpen(a.open); setSlots(a.slots.slice()); setSaved(false); }, [wd]);
-  const grid = D.defaultSlots(1);
-  function toggle(s) { setSlots(slots.includes(s) ? slots.filter(x => x !== s) : [...slots, s].sort()); setSaved(false); }
-  const allOn = grid.length > 0 && grid.every(s => slots.includes(s));
-  function toggleAll() { setSlots(allOn ? [] : grid.slice()); setSaved(false); }
-  function save() { D.saveHorarios(wd, { open: open, slots: slots }); if (D.rebuildSchedule) D.rebuildSchedule(); setSaved(true); }
+  const [saving, setSaving] = useState(false);
+  // Sección plantilla semanal colapsable.
+  const [showPlantilla, setShowPlantilla] = useState(false);
+  const [tmplWd, setTmplWd] = useState(1);
+  const [tmplSlots, setTmplSlots] = useState([]);
+  const [tmplOpen, setTmplOpen] = useState(true);
+  const [tmplSaved, setTmplSaved] = useState(false);
+
+  const day = days[selIdx];
+
+  // Leer slots para el día seleccionado (horarios_dates primero, luego plantilla).
+  useEffect(() => {
+    const avail = D.availForDate ? D.availForDate(day.dt) : D.availability(day.dow);
+    setOpen(avail.open !== false);
+    setSlots((avail.slots || []).slice());
+    setSaved(false);
+  }, [selIdx]);
+
+  // Leer plantilla cuando cambia el día de la semana.
+  useEffect(() => {
+    const a = D.availability(tmplWd); setTmplOpen(a.open !== false); setTmplSlots((a.slots||[]).slice()); setTmplSaved(false);
+  }, [tmplWd]);
+
+  // Citas del día seleccionado (para marcar con cita y no permitir desbloquear).
+  const appts = (() => { try { const a=(window.DB&&window.DB.get("appointments"))||[]; return Array.isArray(a)?a:[]; } catch(e){return[];} })();
+  const dayAppts = appts.filter(a => a.fecha===day.iso && a.status!=="anulada" && a.status!=="cancelada");
+  const bookedSet = new Set(dayAppts.map(a=>a.time));
+
+  function toggle(s) {
+    if (bookedSet.has(s)) return;
+    setSlots(slots.includes(s)?slots.filter(x=>x!==s):[...slots,s].sort());
+    setSaved(false);
+  }
+  function openAll() { setSlots(_FULL_GRID.slice()); setSaved(false); }
+  function closeAll() { setSlots([]); setSaved(false); }
+
+  // Guarda como override por fecha Y publica a Firebase para sincronizar todo.
+  async function save() {
+    setSaving(true);
+    D.saveDateSlots(day.iso, open ? slots : []);
+    if (D.rebuildSchedule) D.rebuildSchedule();
+    try { window.JCSAAS && window.JCSAAS.publishProfile && await window.JCSAAS.publishProfile(); } catch(e) {}
+    setSaved(true); setSaving(false);
+  }
+
+  function saveTemplate() {
+    D.saveHorarios(tmplWd, { open: tmplOpen, slots: tmplSlots });
+    if (D.rebuildSchedule) D.rebuildSchedule();
+    setTmplSaved(true);
+  }
+
+  const disp = open ? slots.filter(s=>!bookedSet.has(s)).length : 0;
+  const bloq  = open ? _FULL_GRID.filter(s=>!slots.includes(s)&&!bookedSet.has(s)).length : _FULL_GRID.length;
+  const DOT = (c) => <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:c,flexShrink:0}} />;
+  const btnBase = { fontFamily:T.sans,fontSize:11,padding:"6px 12px",borderRadius:999,cursor:"pointer",border:"1px solid "+T.line,background:T.chipBg||T.surface,color:T.textMute };
+  const DOW7=[["Lunes",1],["Martes",2],["Miércoles",3],["Jueves",4],["Viernes",5],["Sábado",6],["Domingo",0]];
+
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px", marginBottom: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Horarios disponibles por día</div>
-        <AdBtn T={T} small primary onClick={save}>{saved ? "✓ Guardado" : "Guardar día"}</AdBtn>
+    <div style={{ background:T.surface,border:"1px solid "+T.line,borderRadius:8,padding:"16px",marginBottom:14 }}>
+      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
+        <div style={{ fontFamily:T.sans,fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:T.accent }}>Horarios disponibles por día</div>
+        <AdBtn T={T} small primary onClick={save}>{saving?"Publicando…":saved?"✓ Publicado":"Guardar y publicar"}</AdBtn>
       </div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-        {DOW.map(([l, v]) => <button key={v} onClick={() => setWd(v)} style={{ fontFamily: T.sans, fontSize: 11, padding: "8px 12px", borderRadius: 999, cursor: "pointer", background: wd === v ? T.text : T.surface, color: wd === v ? T.bg : T.textMute, border: "1px solid " + (wd === v ? T.text : T.line) }}>{l}</button>)}
+
+      {/* Tabs de fecha */}
+      <div style={{ display:"flex",gap:5,flexWrap:"wrap",marginBottom:12 }}>
+        {days.map((d,i)=>(
+          <button key={d.iso} onClick={()=>{setSelIdx(i);setSaved(false);}} style={{
+            fontFamily:T.sans,fontSize:11,padding:"7px 11px",borderRadius:999,cursor:"pointer",
+            background:selIdx===i?T.text:T.surface,color:selIdx===i?T.bg:T.textMute,
+            border:"1px solid "+(selIdx===i?T.text:T.line)
+          }}>{i===0?"Hoy":d.label} {d.dd}</button>
+        ))}
       </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0 14px", borderBottom: "1px solid " + T.lineSoft, marginBottom: 14 }}>
-        <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{open ? "Día abierto" : "Día cerrado"}</span>
-        <AdSwitch T={T} on={open} onClick={() => { setOpen(!open); setSaved(false); }} />
+
+      {/* Stats + acciones globales */}
+      <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:12,flexWrap:"wrap" }}>
+        <div style={{ display:"flex",alignItems:"center",gap:5,fontFamily:T.sans,fontSize:11,color:T.textMute }}>
+          {DOT("#1F8A5B")}&nbsp;{disp} disponibles
+        </div>
+        <div style={{ display:"flex",alignItems:"center",gap:5,fontFamily:T.sans,fontSize:11,color:T.textMute }}>
+          {DOT("#C0285A")}&nbsp;{bloq} bloqueadas
+        </div>
+        {dayAppts.length>0&&<div style={{ display:"flex",alignItems:"center",gap:5,fontFamily:T.sans,fontSize:11,color:T.textMute }}>
+          {DOT("#C49A6A")}&nbsp;{dayAppts.length} con cita
+        </div>}
+        <div style={{ flex:1 }} />
+        <button onClick={openAll} style={btnBase}>Abrir todo</button>
+        <button onClick={closeAll} style={{...btnBase,color:"#C0285A",borderColor:"#C0285A44"}}>Bloquear todo</button>
       </div>
+
+      {/* Toggle día abierto/cerrado */}
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0 14px",borderBottom:"1px solid "+T.lineSoft,marginBottom:14 }}>
+        <span style={{ fontFamily:T.sans,fontSize:13,color:T.text }}>{open?"Día abierto":"Día cerrado"}</span>
+        <AdSwitch T={T} on={open} onClick={()=>{setOpen(!open);setSaved(false);}} />
+      </div>
+
+      {/* Grilla de slots */}
       {open && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>{slots.length} de {grid.length} horas activas</span>
-          <button onClick={toggleAll} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 999, padding: "6px 13px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">{allOn ? <path d="M18 6 6 18M6 6l12 12" /> : <path d="M20 6 9 17l-5-5" />}</svg>
-            {allOn ? "Quitar todas" : "Seleccionar todas"}
-          </button>
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7 }}>
+          {_FULL_GRID.map(s=>{
+            const isBooked = bookedSet.has(s);
+            const isOpen   = slots.includes(s);
+            return (
+              <button key={s} onClick={()=>toggle(s)} disabled={isBooked}
+                style={{ padding:"9px 4px",borderRadius:5,cursor:isBooked?"default":"pointer",
+                  fontFamily:T.sans,fontSize:12,lineHeight:1.3,
+                  background:isBooked?"rgba(196,154,106,.15)":(isOpen?T.accent:T.bg),
+                  color:isBooked?"#C49A6A":(isOpen?T.onAccent:T.textMute),
+                  border:"1px solid "+(isBooked?"rgba(196,154,106,.5)":(isOpen?T.accent:T.line)) }}>
+                {s}{isBooked&&<div style={{fontSize:9,opacity:.8}}>cita</div>}
+              </button>
+            );
+          })}
         </div>
       )}
-      {open && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 7 }}>
-          {grid.map(s => { const on = slots.includes(s); return (
-            <button key={s} onClick={() => toggle(s)} style={{ padding: "9px 4px", borderRadius: 5, cursor: "pointer", fontFamily: T.sans, fontSize: 12, background: on ? T.accent : T.bg, color: on ? T.onAccent : T.textMute, border: "1px solid " + (on ? T.accent : T.line) }}>{s}</button>
-          ); })}
+
+      <p style={{ fontFamily:T.sans,fontSize:10.5,color:T.textFaint,marginTop:12,lineHeight:1.5 }}>
+        "Guardar y publicar" escribe el override para este día y lo sincroniza con la app de pacientes y el link de reserva. Los cambios a la plantilla semanal (abajo) solo afectan días sin override.
+      </p>
+
+      {/* Plantilla semanal — colapsable */}
+      <button onClick={()=>setShowPlantilla(!showPlantilla)} style={{ marginTop:8,fontFamily:T.sans,fontSize:11,color:T.textMute,background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:0 }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{transform:showPlantilla?"rotate(90deg)":"none",transition:".2s"}}><path d="M9 18l6-6-6-6"/></svg>
+        Plantilla semanal (defaults por día de la semana)
+      </button>
+      {showPlantilla && (
+        <div style={{ marginTop:12,paddingTop:12,borderTop:"1px solid "+T.lineSoft }}>
+          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+            <span style={{ fontFamily:T.sans,fontSize:11.5,color:T.textMute }}>Día de la semana</span>
+            <AdBtn T={T} small primary onClick={saveTemplate}>{tmplSaved?"✓ Guardado":"Guardar plantilla"}</AdBtn>
+          </div>
+          <div style={{ display:"flex",gap:5,flexWrap:"wrap",marginBottom:12 }}>
+            {DOW7.map(([l,v])=><button key={v} onClick={()=>setTmplWd(v)} style={{ fontFamily:T.sans,fontSize:11,padding:"6px 10px",borderRadius:999,cursor:"pointer",background:tmplWd===v?T.text:T.surface,color:tmplWd===v?T.bg:T.textMute,border:"1px solid "+(tmplWd===v?T.text:T.line) }}>{l}</button>)}
+          </div>
+          <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0 12px",borderBottom:"1px solid "+T.lineSoft,marginBottom:12 }}>
+            <span style={{ fontFamily:T.sans,fontSize:12.5,color:T.text }}>{tmplOpen?"Día abierto":"Día cerrado"}</span>
+            <AdSwitch T={T} on={tmplOpen} onClick={()=>{setTmplOpen(!tmplOpen);setTmplSaved(false);}} />
+          </div>
+          {tmplOpen && (
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6 }}>
+              {_FULL_GRID.map(s=>{ const on=tmplSlots.includes(s); return (
+                <button key={s} onClick={()=>{setTmplSlots(on?tmplSlots.filter(x=>x!==s):[...tmplSlots,s].sort());setTmplSaved(false);}} style={{ padding:"8px 4px",borderRadius:5,cursor:"pointer",fontFamily:T.sans,fontSize:12,background:on?T.accent:T.bg,color:on?T.onAccent:T.textMute,border:"1px solid "+(on?T.accent:T.line) }}>{s}</button>
+              );})}
+            </div>
+          )}
         </div>
       )}
-      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12, lineHeight: 1.5 }}>Activa o desactiva cada hora. Los cambios se reflejan en las reservas del sitio al recargar la landing.</p>
     </div>
   );
 }
