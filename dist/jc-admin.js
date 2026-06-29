@@ -915,6 +915,7 @@ function AdminApp() {
       var timer = setTimeout(function() {
         var jobs = [];
         (appts || []).forEach(function(a) {
+          if (a.status === "anulada" || a.status === "cancelada" || a.status === "no_asistio") return;
           var esMan = a.fecha === manISO, esHoy = a.fecha === hoyISO;
           if (!(r24on && esMan) && !(rmornOn && esHoy)) return;
           var p = patients.find(function(x) {

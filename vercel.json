@@ -55,5 +55,8 @@
       "source": "/(.*)\\.(js|jsx|css|png|jpg|jpeg|webp|svg|woff2)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
     }
+  ],
+  "crons": [
+    { "path": "/api/cron", "schedule": "0 13 * * *" }
   ]
 }

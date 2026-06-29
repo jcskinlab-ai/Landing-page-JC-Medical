@@ -1035,6 +1035,8 @@ function AdminApp() {
       var timer = setTimeout(function () {
         var jobs = [];
         (appts || []).forEach(function (a) {
+          // No recordar citas canceladas/anuladas ni no-show (si se canceló, no sale el correo automático).
+          if (a.status === "anulada" || a.status === "cancelada" || a.status === "no_asistio") return;
           var esMan = a.fecha === manISO, esHoy = a.fecha === hoyISO;
           if (!(r24on && esMan) && !(rmornOn && esHoy)) return;
           var p = patients.find(function (x) { return x.id === a.patId; });
