@@ -98,7 +98,7 @@ const NAV_TOP_GROUPS = [
   { l: "An\xE1lisis", keys: ["resumen", "colaboracion", "fidelidad", "integraciones", "reportes"] },
   { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
 ];
-const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "caja"];
+const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"];
 function jcmCancelNotice(a) {
   try {
     if (!a || !window.mediqueEmail) return;

@@ -85,7 +85,8 @@ const NAV_TOP_GROUPS = [
   { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (siempre visibles, no dentro de un grupo).
-const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "caja"];
+// Incluye todo el grupo Clínica (a pedido): el desplegable "Clínica" desaparece.
+const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"];
 
 // Al anular una cita: avisar al paciente por correo que quedó cancelada (si tiene email y la cita es
 // de hoy o futura). Así el recordatorio previo queda "anulado" para el paciente. Best-effort, no bloquea.
