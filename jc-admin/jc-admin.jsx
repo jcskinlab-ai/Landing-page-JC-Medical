@@ -1213,6 +1213,14 @@ function AdminApp() {
                 r.readAsDataURL(f);
               }} />
             </div>
+            <button onClick={() => window.jcmHardRefresh && window.jcmHardRefresh()} title="Actualizar panel" style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </svg>
+            </button>
             <button onClick={() => setNotifOpen(true)} title="Notificaciones" style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
               {notifCount > 0 && <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: "#C0285A", color: "#fff", fontFamily: T.sans, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>{notifCount}</span>}

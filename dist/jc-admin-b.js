@@ -435,25 +435,19 @@ function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
 }
 function jcmConsentPending(patients, appts) {
   appts = appts || [];
-  const info = {};
-  (appts || []).forEach((a) => {
-    const keys = [];
-    if (a.patId) keys.push("id:" + a.patId);
+  const needSet = /* @__PURE__ */ new Set();
+  (appts || []).forEach(function(a) {
+    const st = a.status;
+    if (st === "anulada" || st === "cancelada" || st === "no_asistio" || st === "atendida") return;
+    if (a.attended) return;
+    if (/evaluaci/i.test(a.proc || "")) return;
+    if (a.patId) needSet.add("id:" + a.patId);
     const nm = (a.name || "").toLowerCase().trim();
-    if (nm) keys.push("nm:" + nm);
-    keys.forEach((k) => {
-      if (!info[k]) info[k] = { noShow: false, active: false };
-      if (a.status === "no_asistio") info[k].noShow = true;
-      else if (a.status === "anulada" || a.status === "cancelada") info[k].anulada = true;
-      else info[k].active = true;
-    });
+    if (nm) needSet.add("nm:" + nm);
   });
-  return (patients || []).filter((p) => {
+  return (patients || []).filter(function(p) {
     if (p.consent) return false;
-    const inf = info["id:" + p.id] || info["nm:" + (p.name || "").toLowerCase().trim()];
-    if (inf && inf.noShow && !inf.active) return false;
-    if (inf && inf.anulada && !inf.active && !inf.noShow) return false;
-    return true;
+    return needSet.has("id:" + p.id) || needSet.has("nm:" + (p.name || "").toLowerCase().trim());
   });
 }
 if (typeof window !== "undefined") window.jcmConsentPending = jcmConsentPending;
