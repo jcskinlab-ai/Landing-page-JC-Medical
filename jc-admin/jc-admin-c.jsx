@@ -2510,6 +2510,40 @@ function sumUnits(txt) {
 const FICHA_TIPOS = [["general", "Ficha general"], ["facial", "Facial"], ["corporal", "Corporal"], ["medgeneral", "Medicina general"]];
 const FICHA_ZONAS_FACIAL = ["Frente", "Entrecejo", "Patas de gallo", "Ojeras", "Pómulos", "Surcos nasogenianos", "Labios", "Código de barras", "Mentón", "Línea mandibular", "Cuello"];
 const FICHA_ZONAS_CORPORAL = ["Abdomen", "Flancos", "Espalda", "Brazos", "Muslos", "Glúteos", "Papada", "Rodillas", "Pantorrillas", "Dorso de manos"];
+// Posiciones aproximadas de cada zona sobre el mapa (Área 5: mapa interactivo).
+const FICHA_FACE_POS = { "Frente": [100, 42], "Entrecejo": [100, 74], "Patas de gallo": [150, 86], "Ojeras": [124, 100], "Pómulos": [142, 120], "Surcos nasogenianos": [120, 138], "Código de barras": [100, 150], "Labios": [100, 166], "Mentón": [100, 190], "Línea mandibular": [58, 172], "Cuello": [100, 222] };
+const FICHA_BODY_POS = { "Papada": [80, 40], "Espalda": [80, 96], "Brazos": [34, 116], "Flancos": [54, 130], "Abdomen": [80, 134], "Glúteos": [100, 170], "Muslos": [62, 196], "Dorso de manos": [27, 166], "Rodillas": [64, 232], "Pantorrillas": [64, 256] };
+// Mapa anatómico interactivo (facial / corporal): hotspots clicables que sincronizan con las zonas de la ficha.
+function FichaZoneMap({ T, kind, active, onToggle }) {
+  const facial = kind === "facial";
+  const pos = facial ? FICHA_FACE_POS : FICHA_BODY_POS;
+  return (
+    <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+      <svg viewBox={facial ? "0 0 200 240" : "0 0 160 280"} style={{ width: facial ? 170 : 130, maxWidth: "100%", height: "auto" }}>
+        {facial ? (
+          <g fill="none" stroke={T.line} strokeWidth="1.5">
+            <ellipse cx="100" cy="115" rx="62" ry="82" fill={T.surface2 || T.surface} />
+            <path d="M68 92q30 -20 64 0" />
+            <path d="M88 150q12 10 24 0" />
+            <line x1="100" y1="196" x2="100" y2="232" />
+          </g>
+        ) : (
+          <g fill={T.surface2 || T.surface} stroke={T.line} strokeWidth="1.5">
+            <circle cx="80" cy="26" r="17" />
+            <path d="M56 48h48l9 70-13 6 -5 58 4 62h-17l-6-58h-4l-6 58H53l4-62-5-58-13-6z" />
+          </g>
+        )}
+        {Object.keys(pos).map(z => { const p = pos[z]; const on = active(z); return (
+          <g key={z} style={{ cursor: "pointer" }} onClick={() => onToggle(z)}>
+            <circle cx={p[0]} cy={p[1]} r="8.5" fill={on ? T.accent : T.surface} stroke={on ? T.accent : T.textMute} strokeWidth="1.5" opacity={on ? 1 : .85} />
+            {on && <path d={"M" + (p[0] - 3.5) + " " + p[1] + "l2.5 2.5 4.5 -5"} fill="none" stroke={T.onAccent || "#fff"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />}
+            <title>{z}</title>
+          </g>
+        ); })}
+      </svg>
+    </div>
+  );
+}
 function calcIMC(peso, talla) {
   const p = parseFloat(peso), t = parseFloat(talla) / 100;
   if (!p || !t || t <= 0) return null;
@@ -2588,6 +2622,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       {tipo === "facial" && (
         <div style={card}>
           <div style={head}>Zonas faciales a tratar</div>
+          <FichaZoneMap T={T} kind="facial" active={t => chipActive("zonasFacial", t)} onToggle={t => tokenToggle("zonasFacial", t)} />
           {chips("zonasFacial", FICHA_ZONAS_FACIAL)}
           <div style={{ marginTop: 12 }}><span style={lbl}>Observaciones de zonas</span>{text("zonasFacialNota", "Detalle por zona…")}</div>
         </div>
@@ -2596,6 +2631,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       {tipo === "corporal" && (
         <div style={card}>
           <div style={head}>Zonas corporales a tratar</div>
+          <FichaZoneMap T={T} kind="corporal" active={t => chipActive("zonasCorporal", t)} onToggle={t => tokenToggle("zonasCorporal", t)} />
           {chips("zonasCorporal", FICHA_ZONAS_CORPORAL)}
           <div style={{ marginTop: 12 }}><span style={lbl}>Observaciones de zonas</span>{text("zonasCorporalNota", "Detalle por zona…")}</div>
         </div>
