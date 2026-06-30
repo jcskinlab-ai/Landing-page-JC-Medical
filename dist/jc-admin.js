@@ -90,10 +90,22 @@ const ADMIN_NAV = [
   { k: "config", l: "Configuraci\xF3n" }
 ];
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
+function isLosMedique() {
+  try {
+    var c = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic();
+    return !!(c && ((c.ownerEmail || "") + "").toLowerCase() === "makikarenina06@gmail.com");
+  } catch (e) {
+    return false;
+  }
+}
+var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
 function adminNavItems() {
   var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled) || (window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).jcApp === true;
+  var beta = !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
   return ADMIN_NAV.filter(function(n) {
-    return n.k !== "appjcm" || showJcApp;
+    if (n.k === "appjcm" && !showJcApp) return false;
+    if (ADMIN_BETA_SECTIONS[n.k] && !beta) return false;
+    return true;
   });
 }
 function scopeClinicData() {
