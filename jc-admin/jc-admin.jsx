@@ -900,6 +900,8 @@ function AdminApp() {
   }, []);
 
   const [navOpen, setNavOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  function toggleGroup(g) { setCollapsedGroups(s => ({ ...s, [g]: !s[g] })); }
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifVer, setNotifVer] = useState(0); // se incrementa al marcar notificaciones como leídas
@@ -1180,14 +1182,20 @@ function AdminApp() {
               {navOpen && <span style={{ fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" }}>medique</span>}
             </button>
             <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
-              {adminNavItems().map(n => {
+              {(() => { let curGroup = null; return adminNavItems().map(n => {
+                if (SIDE_GROUP_HEAD[n.k]) curGroup = SIDE_GROUP_HEAD[n.k];
+                const grp = curGroup;
+                const collapsed = navOpen && !!collapsedGroups[grp];
                 const active = section === n.k;
                 const head = SIDE_GROUP_HEAD[n.k];
                 return (
                   <React.Fragment key={n.k}>
-                    {navOpen && head && <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: .7, padding: "14px 19px 5px" }}>{head}</div>}
+                    {navOpen && head && <button onClick={() => toggleGroup(grp)} title={collapsedGroups[grp] ? "Mostrar" : "Ocultar"} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: .7, padding: "14px 19px 5px", textAlign: "left" }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: collapsedGroups[grp] ? "rotate(-90deg)" : "none", transition: "transform .18s", flexShrink: 0 }}><path d="M6 9l6 6 6-6" /></svg>
+                      {head}
+                    </button>}
                     {!navOpen && head && n.k !== "dashboard" && <div style={{ height: 1, background: SIDE_LINE, margin: "7px 14px" }} />}
-                    <button onClick={() => nav(n.k)} title={n.l} style={{
+                    {!collapsed && <button onClick={() => nav(n.k)} title={n.l} style={{
                       display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 14, width: "100%", padding: navOpen ? "12px 19px" : "12px 0", background: active ? SIDE_ACT : "none",
                       border: "none", borderLeft: "3px solid " + (active ? T.accent : "transparent"), cursor: "pointer", whiteSpace: "nowrap", position: "relative"
                     }}>
@@ -1196,10 +1204,10 @@ function AdminApp() {
                       {n.k === "pendientes" && pendCount > 0 && (navOpen
                         ? <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" }}>{pendCount}</span>
                         : <span style={{ position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" }} />)}
-                    </button>
+                    </button>}
                   </React.Fragment>
                 );
-              })}
+              }); })()}
             </div>
           </div>
         </div>

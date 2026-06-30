@@ -706,6 +706,10 @@ function AdminApp() {
     return () => window.removeEventListener("jcsaas:data", onData);
   }, []);
   const [navOpen, setNavOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  function toggleGroup(g) {
+    setCollapsedGroups((s) => ({ ...s, [g]: !s[g] }));
+  }
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifVer, setNotifVer] = useState(0);
@@ -1091,24 +1095,30 @@ function AdminApp() {
       onMouseLeave: () => setNavOpen(false),
       style: { width: RAIL, flexShrink: 0, background: SIDE_BG, position: "relative", zIndex: 20 }
     },
-    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => nav("dashboard"), title: "Ir al Dashboard", style: { display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } })), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" } }, "medique")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" } }, adminNavItems().map((n) => {
-      const active = section === n.k;
-      const head = SIDE_GROUP_HEAD[n.k];
-      return /* @__PURE__ */ React.createElement(React.Fragment, { key: n.k }, navOpen && head && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px" } }, head), !navOpen && head && n.k !== "dashboard" && /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: SIDE_LINE, margin: "7px 14px" } }), /* @__PURE__ */ React.createElement("button", { onClick: () => nav(n.k), title: n.l, style: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: navOpen ? "flex-start" : "center",
-        gap: 14,
-        width: "100%",
-        padding: navOpen ? "12px 19px" : "12px 0",
-        background: active ? SIDE_ACT : "none",
-        border: "none",
-        borderLeft: "3px solid " + (active ? T.accent : "transparent"),
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-        position: "relative"
-      } }, nIcon(n.k, active ? SIDE_TX : SIDE_MUTE), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE } }, n.l), n.k === "pendientes" && pendCount > 0 && (navOpen ? /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" } }, pendCount) : /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" } }))));
-    })))
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => nav("dashboard"), title: "Ir al Dashboard", style: { display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } })), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" } }, "medique")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" } }, (() => {
+      let curGroup = null;
+      return adminNavItems().map((n) => {
+        if (SIDE_GROUP_HEAD[n.k]) curGroup = SIDE_GROUP_HEAD[n.k];
+        const grp = curGroup;
+        const collapsed = navOpen && !!collapsedGroups[grp];
+        const active = section === n.k;
+        const head = SIDE_GROUP_HEAD[n.k];
+        return /* @__PURE__ */ React.createElement(React.Fragment, { key: n.k }, navOpen && head && /* @__PURE__ */ React.createElement("button", { onClick: () => toggleGroup(grp), title: collapsedGroups[grp] ? "Mostrar" : "Ocultar", style: { display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", style: { transform: collapsedGroups[grp] ? "rotate(-90deg)" : "none", transition: "transform .18s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), head), !navOpen && head && n.k !== "dashboard" && /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: SIDE_LINE, margin: "7px 14px" } }), !collapsed && /* @__PURE__ */ React.createElement("button", { onClick: () => nav(n.k), title: n.l, style: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: navOpen ? "flex-start" : "center",
+          gap: 14,
+          width: "100%",
+          padding: navOpen ? "12px 19px" : "12px 0",
+          background: active ? SIDE_ACT : "none",
+          border: "none",
+          borderLeft: "3px solid " + (active ? T.accent : "transparent"),
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          position: "relative"
+        } }, nIcon(n.k, active ? SIDE_TX : SIDE_MUTE), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE } }, n.l), n.k === "pendientes" && pendCount > 0 && (navOpen ? /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" } }, pendCount) : /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" } }))));
+      });
+    })()))
   ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "13px 18px 10px", borderBottom: "1px solid " + T.line, background: T.navBg, backdropFilter: "blur(14px)", position: "relative", zIndex: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(PatientSearch, { T, patients, onOpen: (id) => {
     setOpenPatient(id);
     setSection("pacientes");
