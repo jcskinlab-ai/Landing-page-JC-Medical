@@ -477,9 +477,10 @@ function ProfChips({ T, options, selected, onToggle, empty }) {
 }
 function ProfesionalForm({ T, member, onClose, onSave }) {
   const [f, setF] = useState(() => member
-    ? { ...member, perms: member.perms || {}, especialidades: member.especialidades || (member.role ? [member.role] : []), tratamientos: member.tratamientos || [], sucursales: member.sucursales || [] }
-    : { name: "", role: "", email: "", phone: "+56 9 ", active: true, access: false, perms: {}, especialidades: [], tratamientos: [], sucursales: [] });
+    ? { ...member, perms: member.perms || {}, especialidades: member.especialidades || (member.role ? [member.role] : []), tratamientos: member.tratamientos || [], sucursales: member.sucursales || [], horario: member.horario || sucHorarioDefault() }
+    : { name: "", role: "", email: "", phone: "+56 9 ", active: true, access: false, perms: {}, especialidades: [], tratamientos: [], sucursales: [], horario: sucHorarioDefault() });
   const [nuevaEsp, setNuevaEsp] = useState("");
+  function setDiaH(k, patch) { setF(s => ({ ...s, horario: { ...(s.horario || {}), [k]: { ...((s.horario || {})[k] || { on: false, from: "10:00", to: "19:00" }), ...patch } } })); }
   const ok = f.name.trim().length > 2;
   function tperm(p) { setF(s => ({ ...s, perms: { ...s.perms, [p]: !s.perms[p] } })); }
   function toggleArr(key, val) { setF(s => { const arr = s[key] || []; return { ...s, [key]: arr.indexOf(val) >= 0 ? arr.filter(x => x !== val) : [...arr, val] }; }); }
@@ -551,6 +552,23 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
         {/* 4 · Sucursales */}
         <ProfSec T={T} n="4" title="Sucursales" sub="¿En qué sucursales atiende este profesional?">
           <ProfChips T={T} options={sucList} selected={f.sucursales || []} onToggle={v => toggleArr("sucursales", v)} empty="Aún no hay sucursales. Créalas en el módulo Sucursales y vuelve a asignarlas aquí." />
+        </ProfSec>
+        {/* 5 · Horario de atención */}
+        <ProfSec T={T} n="5" title="Horario de atención" sub="Días y horas en que atiende este profesional.">
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {SUC_DIAS.map(([k, l]) => { const d = (f.horario || {})[k] || { on: false, from: "10:00", to: "19:00" }; return (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: d.on ? (T.surface2 || T.surface) : T.surface, border: "1px solid " + T.line }}>
+                <div style={{ width: 92, flexShrink: 0 }}><AdSwitch T={T} on={d.on} onClick={() => setDiaH(k, { on: !d.on })} /><span style={{ fontFamily: T.sans, fontSize: 12, color: T.text, marginLeft: 8 }}>{l.slice(0, 3)}</span></div>
+                {d.on ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1 }}>
+                    <input type="time" value={d.from} onChange={e => setDiaH(k, { from: e.target.value })} style={{ padding: "9px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
+                    <span style={{ color: T.textMute, fontFamily: T.sans, fontSize: 12 }}>a</span>
+                    <input type="time" value={d.to} onChange={e => setDiaH(k, { to: e.target.value })} style={{ padding: "9px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
+                  </div>
+                ) : <span style={{ flex: 1, fontFamily: T.sans, fontSize: 11.5, color: T.textFaint }}>No atiende</span>}
+              </div>
+            ); })}
+          </div>
         </ProfSec>
       </div>
     </AdModal>
