@@ -394,42 +394,111 @@ function EquipoView({ T }) {
   );
 }
 
+// Códigos de país para el teléfono del profesional (Chile primero).
+const PROF_PAISES = [["+56", "🇨🇱 Chile"], ["+54", "🇦🇷 Argentina"], ["+51", "🇵🇪 Perú"], ["+57", "🇨🇴 Colombia"], ["+58", "🇻🇪 Venezuela"], ["+593", "🇪🇨 Ecuador"], ["+591", "🇧🇴 Bolivia"], ["+598", "🇺🇾 Uruguay"], ["+595", "🇵🇾 Paraguay"], ["+52", "🇲🇽 México"], ["+34", "🇪🇸 España"], ["+1", "🇺🇸 EE.UU."]];
+// Especialidades sugeridas en medicina estética (toggle + se pueden agregar propias).
+const PROF_ESPECIALIDADES = ["Medicina estética", "Toxina botulínica", "Ácido hialurónico", "Bioestimuladores", "Mesoterapia", "Hilos tensores", "Peelings", "Cosmiatría", "Dermatología", "Nutrición", "Kinesiología estética", "Enfermería"];
+// Encabezado de sección dentro del formulario de profesional.
+function ProfSec({ T, n, title, sub, children }) {
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "15px 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: sub ? 4 : 12 }}>
+        <span style={{ width: 20, height: 20, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{n}</span>
+        <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>{title}</span>
+      </div>
+      {sub && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, margin: "0 0 12px 29px", lineHeight: 1.5 }}>{sub}</div>}
+      {children}
+    </div>
+  );
+}
+// Grupo de chips multi-selección reutilizable (especialidades, tratamientos, sucursales).
+function ProfChips({ T, options, selected, onToggle, empty }) {
+  if (!options || !options.length) return <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, lineHeight: 1.5 }}>{empty}</div>;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+      {options.map(o => { const on = selected.indexOf(o) >= 0; return (
+        <button key={o} type="button" onClick={() => onToggle(o)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "8px 12px", borderRadius: 999, cursor: "pointer", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMute, border: "1px solid " + (on ? T.accent : T.chipBorder) }}>{on ? "✓ " : ""}{o}</button>
+      ); })}
+    </div>
+  );
+}
 function ProfesionalForm({ T, member, onClose, onSave }) {
-  const [f, setF] = useState(() => member ? { ...member, perms: member.perms || {} } : { name: "", role: "", email: "", phone: "+56 9 ", active: true, access: false, perms: {} });
+  const [f, setF] = useState(() => member
+    ? { ...member, perms: member.perms || {}, especialidades: member.especialidades || (member.role ? [member.role] : []), tratamientos: member.tratamientos || [], sucursales: member.sucursales || [] }
+    : { name: "", role: "", email: "", phone: "+56 9 ", active: true, access: false, perms: {}, especialidades: [], tratamientos: [], sucursales: [] });
+  const [nuevaEsp, setNuevaEsp] = useState("");
   const ok = f.name.trim().length > 2;
   function tperm(p) { setF(s => ({ ...s, perms: { ...s.perms, [p]: !s.perms[p] } })); }
+  function toggleArr(key, val) { setF(s => { const arr = s[key] || []; return { ...s, [key]: arr.indexOf(val) >= 0 ? arr.filter(x => x !== val) : [...arr, val] }; }); }
+  function addEsp() { const v = nuevaEsp.trim(); if (!v) return; setF(s => ({ ...s, especialidades: (s.especialidades || []).indexOf(v) >= 0 ? s.especialidades : [...(s.especialidades || []), v] })); setNuevaEsp(""); }
+  // Código de país actual a partir del teléfono.
+  const curCC = ((f.phone || "").match(/^(\+\d+)/) || [])[1] || "+56";
+  function setCC(cc) { setF(s => { const num = (s.phone || "").replace(/^\+\d+\s*/, "").trim(); return { ...s, phone: (cc + " " + num).trim() }; }); }
+  // Tratamientos del catálogo real de la clínica.
+  let svcList = [];
+  try { svcList = (typeof window.clinicServiceList === "function" ? window.clinicServiceList() : []).map(s => s.name || s).filter(Boolean); } catch (e) {}
+  // Sucursales (módulo propio, Área 2). Vacío hasta crearlas.
+  let sucList = [];
+  try { sucList = ((window.DB && window.DB.get("sucursales")) || []).map(s => s.name || s).filter(Boolean); } catch (e) {}
   const togRow = (label, on, onClick) => (
-    <div onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
+    <div onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderRadius: 8, background: T.surface2 || T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
       <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{label}</span>
       <AdSwitch T={T} on={on} onClick={onClick} />
     </div>
   );
   return (
-    <AdModal T={T} title={member ? "Editar profesional" : "Nuevo profesional"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave(f)}>Guardar profesional</AdBtn>}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Dra. María Pérez" />
-        <AdField T={T} label="Especialidad" value={f.role} onChange={v => setF({ ...f, role: v })} placeholder="Ej: Médico estético" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <AdField T={T} label="Email" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" placeholder="correo@ejemplo.com" />
-          <AdField T={T} label="Teléfono" value={f.phone} onChange={v => setF({ ...f, phone: v })} inputMode="tel" />
-        </div>
-        <div>
-          <AdField T={T} label="Clave de confirmación (4–6 dígitos)" value={f.pin || ""} onChange={v => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} inputMode="numeric" placeholder="••••" />
-          <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 7, lineHeight: 1.5 }}>Clave personal del profesional. Se pide para confirmar cambios en las sesiones que él/ella realizó.</p>
-        </div>
-        {togRow("Profesional activo", f.active, () => setF({ ...f, active: !f.active }))}
-        {togRow("Crear cuenta de acceso al sistema", f.access, () => setF({ ...f, access: !f.access }))}
-        {f.access && (
-          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "13px 14px" }}>
-            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Permisos · ¿Qué secciones puede usar?</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-              {PERM_SECCIONES.map(p => { const on = !!f.perms[p]; return (
-                <button key={p} onClick={() => tperm(p)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "8px 12px", borderRadius: 999, cursor: "pointer", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMute, border: "1px solid " + (on ? T.accent : T.chipBorder) }}>{p}</button>
-              ); })}
+    <AdModal T={T} title={member ? "Editar profesional" : "Nuevo profesional"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" })}>Guardar profesional</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* 1 · Información básica */}
+        <ProfSec T={T} n="1" title="Información básica">
+          <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+            <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Dra. María Pérez" />
+            <AdField T={T} label="Título / cargo" value={f.role} onChange={v => setF({ ...f, role: v })} placeholder="Ej: Médico estético" />
+            <AdField T={T} label="Email" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" placeholder="correo@ejemplo.com" />
+            <div>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Teléfono</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select value={curCC} onChange={e => setCC(e.target.value)} style={{ flexShrink: 0, width: 130, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }}>
+                  {PROF_PAISES.map(([code, name]) => <option key={code} value={code}>{name} {code}</option>)}
+                </select>
+                <input value={(f.phone || "").replace(/^\+\d+\s*/, "")} onChange={e => setF({ ...f, phone: (curCC + " " + e.target.value).trim() })} inputMode="tel" placeholder="9 1234 5678" style={{ flex: 1, minWidth: 0, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
+              </div>
             </div>
-            <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>El administrador define a qué áreas del panel puede entrar este profesional.</p>
+            <div>
+              <AdField T={T} label="Clave de confirmación (4–6 dígitos)" value={f.pin || ""} onChange={v => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} inputMode="numeric" placeholder="••••" />
+              <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 7, lineHeight: 1.5 }}>Clave personal del profesional. Se pide para confirmar cambios en las sesiones que él/ella realizó.</p>
+            </div>
+            {togRow("Profesional activo", f.active, () => setF({ ...f, active: !f.active }))}
+            {togRow("Crear cuenta de acceso al sistema", f.access, () => setF({ ...f, access: !f.access }))}
+            {f.access && (
+              <div style={{ background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "13px 14px" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Permisos · ¿Qué secciones puede usar?</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                  {PERM_SECCIONES.map(p => { const on = !!f.perms[p]; return (
+                    <button key={p} type="button" onClick={() => tperm(p)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "8px 12px", borderRadius: 999, cursor: "pointer", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMute, border: "1px solid " + (on ? T.accent : T.chipBorder) }}>{p}</button>
+                  ); })}
+                </div>
+                <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>El administrador define a qué áreas del panel puede entrar este profesional.</p>
+              </div>
+            )}
           </div>
-        )}
+        </ProfSec>
+        {/* 2 · Especialidades */}
+        <ProfSec T={T} n="2" title="Especialidades" sub="Marca las que ejerce este profesional. Puedes agregar las tuyas.">
+          <ProfChips T={T} options={Array.from(new Set([...PROF_ESPECIALIDADES, ...(f.especialidades || [])]))} selected={f.especialidades || []} onToggle={v => toggleArr("especialidades", v)} empty="" />
+          <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
+            <input value={nuevaEsp} onChange={e => setNuevaEsp(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addEsp(); } }} placeholder="Agregar especialidad…" style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
+            <AdBtn T={T} onClick={addEsp}>Agregar</AdBtn>
+          </div>
+        </ProfSec>
+        {/* 3 · Tratamientos asignados */}
+        <ProfSec T={T} n="3" title="Tratamientos asignados" sub="Procedimientos que este profesional puede realizar (del catálogo de la clínica).">
+          <ProfChips T={T} options={svcList} selected={f.tratamientos || []} onToggle={v => toggleArr("tratamientos", v)} empty="Aún no hay servicios en el catálogo. Créalos en Tratamientos y vuelve a asignarlos aquí." />
+        </ProfSec>
+        {/* 4 · Sucursales */}
+        <ProfSec T={T} n="4" title="Sucursales" sub="¿En qué sucursales atiende este profesional?">
+          <ProfChips T={T} options={sucList} selected={f.sucursales || []} onToggle={v => toggleArr("sucursales", v)} empty="Aún no hay sucursales. Créalas en el módulo Sucursales y vuelve a asignarlas aquí." />
+        </ProfSec>
       </div>
     </AdModal>
   );
