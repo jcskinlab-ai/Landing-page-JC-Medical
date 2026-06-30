@@ -3572,11 +3572,14 @@ function AgenteIAView({ T, patients, addAppt }) {
   function aiSuggest() {
     if (!conv || aiBusy || !window.mediqueAI) return;
     setAiBusy(true);
+    const _ac = (() => { try { return (window.DB && window.DB.get("agent_cfg")) || {}; } catch (e) { return {}; } })();
+    const _cn = (window.clinicName && window.clinicName()) || "";
     const clinic = {
-      name: (window.clinicName && window.clinicName()) || "",
+      name: _cn,
       address: (window.clinicAddr && window.clinicAddr()) || "",
       hours: (() => { try { return DB.cfg().clinic_hours || ""; } catch (e) { return ""; } })(),
-      services: (window.clinicServiceList ? window.clinicServiceList() : []).slice(0, 30)
+      services: (window.clinicServiceList ? window.clinicServiceList() : []).slice(0, 30),
+      agentName: _ac.name || "", agentTone: _ac.tono || "", agentPrompt: (_ac.prompt || "").replace(/\{clinica\}/g, _cn)
     };
     const msgs = conv.msgs.map(m => ({ role: m.f === "out" ? "assistant" : "user", content: m.t }));
     window.mediqueAI(msgs, clinic).then(res => {

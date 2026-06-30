@@ -168,8 +168,16 @@ export default async function handler(req, res) {
   if (!userMessages.length) return res.status(400).json({ ok: false, error: "Faltan mensajes." });
 
   const clinic = body.clinic || {};
+  // Configuración del Asistente IA (Área 12): nombre, tono y prompt propios de la clínica.
+  const agentName = (clinic.agentName || "").toString().trim().slice(0, 60);
+  const agentTone = (clinic.agentTone || "").toString().trim().slice(0, 40);
+  const agentPrompt = (clinic.agentPrompt || "").toString().trim().slice(0, 2000);
   const defaultSystem = [
-    "Eres el asistente de WhatsApp de " + (clinic.name || "una clínica de medicina estética") + ".",
+    agentName
+      ? "Eres " + agentName + ", el asistente de " + (clinic.name || "una clínica de medicina estética") + "."
+      : "Eres el asistente de WhatsApp de " + (clinic.name || "una clínica de medicina estética") + ".",
+    agentPrompt || "",
+    agentTone ? "Tono de comunicación: " + agentTone + "." : "",
     "Responde en español de Chile, con cercanía y profesionalismo, mensajes breves.",
     clinic.address ? "Dirección: " + clinic.address + "." : "",
     clinic.hours ? "Horario: " + clinic.hours + "." : "",
