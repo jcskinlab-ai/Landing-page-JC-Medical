@@ -526,6 +526,43 @@ function ProfChips({ T, options, selected, onToggle, empty }) {
 function ProfesionalForm({ T, member, onClose, onSave }) {
   const [f, setF] = useState(() => member ? { ...member, perms: member.perms || {}, especialidades: member.especialidades || (member.role ? [member.role] : []), tratamientos: member.tratamientos || [], sucursales: member.sucursales || [], horario: member.horario || sucHorarioDefault() } : { name: "", role: "", email: "", phone: "+56 9 ", active: true, access: false, perms: {}, especialidades: [], tratamientos: [], sucursales: [], horario: sucHorarioDefault() });
   const [nuevaEsp, setNuevaEsp] = useState("");
+  const [accPass, setAccPass] = useState("");
+  const [accBusy, setAccBusy] = useState(false);
+  const [accMsg, setAccMsg] = useState("");
+  const [accErr, setAccErr] = useState("");
+  async function crearAcceso() {
+    setAccErr("");
+    setAccMsg("");
+    const email = (f.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAccErr("Ingresa un correo v\xE1lido para el profesional.");
+      return;
+    }
+    if ((accPass || "").length < 6) {
+      setAccErr("La clave debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (!(window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.idToken)) {
+      setAccErr("Disponible solo con sesi\xF3n en la nube.");
+      return;
+    }
+    setAccBusy(true);
+    try {
+      const tok = await window.JCSAAS.idToken();
+      const r = await fetch("/api/team-access", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tok }, body: JSON.stringify({ action: "create", email, password: accPass, name: f.name, perms: f.perms }) });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok) {
+        setF((s) => ({ ...s, authUid: d.uid }));
+        setAccMsg((d.updated ? "Acceso actualizado. " : "Acceso creado. ") + "El profesional ingresa en medique.cl con " + email + " y la clave que definiste.");
+        setAccPass("");
+      } else {
+        setAccErr(d.error || "No se pudo crear el acceso.");
+      }
+    } catch (e) {
+      setAccErr("No se pudo contactar el servidor.");
+    }
+    setAccBusy(false);
+  }
   function setDiaH(k, patch) {
     setF((s) => ({ ...s, horario: { ...s.horario || {}, [k]: { ...(s.horario || {})[k] || { on: false, from: "10:00", to: "19:00" }, ...patch } } }));
   }
@@ -566,7 +603,7 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: member ? "Editar profesional" : "Nuevo profesional", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" }) }, "Guardar profesional") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(ProfSec, { T, n: "1", title: "Informaci\xF3n b\xE1sica" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: v }), placeholder: "Ej: Dra. Mar\xEDa P\xE9rez" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "T\xEDtulo / cargo", value: f.role, onChange: (v) => setF({ ...f, role: v }), placeholder: "Ej: M\xE9dico est\xE9tico" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Email", value: f.email, onChange: (v) => setF({ ...f, email: v }), inputMode: "email", placeholder: "correo@ejemplo.com" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("select", { value: curCC, onChange: (e) => setCC(e.target.value), style: { flexShrink: 0, width: 130, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" } }, PROF_PAISES.map(([code, name]) => /* @__PURE__ */ React.createElement("option", { key: code, value: code }, name, " ", code))), /* @__PURE__ */ React.createElement("input", { value: (f.phone || "").replace(/^\+\d+\s*/, ""), onChange: (e) => setF({ ...f, phone: (curCC + " " + e.target.value).trim() }), inputMode: "tel", placeholder: "9 1234 5678", style: { flex: 1, minWidth: 0, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "Clave de confirmaci\xF3n (4\u20136 d\xEDgitos)", value: f.pin || "", onChange: (v) => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) }), inputMode: "numeric", placeholder: "\u2022\u2022\u2022\u2022" }), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 7, lineHeight: 1.5 } }, "Clave personal del profesional. Se pide para confirmar cambios en las sesiones que \xE9l/ella realiz\xF3.")), togRow("Profesional activo", f.active, () => setF({ ...f, active: !f.active })), togRow("Crear cuenta de acceso al sistema", f.access, () => setF({ ...f, access: !f.access })), f.access && /* @__PURE__ */ React.createElement("div", { style: { background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "13px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 } }, "Permisos \xB7 \xBFQu\xE9 secciones puede usar?"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, PERM_SECCIONES.map((p) => {
     const on = !!f.perms[p];
     return /* @__PURE__ */ React.createElement("button", { key: p, type: "button", onClick: () => tperm(p), style: { fontFamily: T.sans, fontSize: 11.5, padding: "8px 12px", borderRadius: 999, cursor: "pointer", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMute, border: "1px solid " + (on ? T.accent : T.chipBorder) } }, p);
-  })), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 } }, "El administrador define a qu\xE9 \xE1reas del panel puede entrar este profesional.")))), /* @__PURE__ */ React.createElement(ProfSec, { T, n: "2", title: "Especialidades", sub: "Marca las que ejerce este profesional. Puedes agregar las tuyas." }, /* @__PURE__ */ React.createElement(ProfChips, { T, options: Array.from(/* @__PURE__ */ new Set([...PROF_ESPECIALIDADES, ...f.especialidades || []])), selected: f.especialidades || [], onToggle: (v) => toggleArr("especialidades", v), empty: "" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 11 } }, /* @__PURE__ */ React.createElement("input", { value: nuevaEsp, onChange: (e) => setNuevaEsp(e.target.value), onKeyDown: (e) => {
+  })), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 } }, "El administrador define a qu\xE9 \xE1reas del panel puede entrar este profesional."), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 8 } }, "Cuenta de login"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 10, lineHeight: 1.5 } }, "Crea el acceso para que el profesional inicie sesi\xF3n con ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "su propio correo"), " (", f.email || "agrega el correo arriba", ") y vea solo las secciones permitidas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("input", { type: "text", value: accPass, onChange: (e) => setAccPass(e.target.value), placeholder: "Clave de acceso (m\xEDn. 6)", "data-nocap": true, style: { flex: 1, minWidth: 160, padding: "10px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" } }), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: crearAcceso }, accBusy ? "Creando\u2026" : f.authUid ? "Actualizar acceso" : "Crear acceso")), accMsg && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#1F8A5B", marginTop: 8, lineHeight: 1.5 } }, accMsg), accErr && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 8, lineHeight: 1.5 } }, accErr))))), /* @__PURE__ */ React.createElement(ProfSec, { T, n: "2", title: "Especialidades", sub: "Marca las que ejerce este profesional. Puedes agregar las tuyas." }, /* @__PURE__ */ React.createElement(ProfChips, { T, options: Array.from(/* @__PURE__ */ new Set([...PROF_ESPECIALIDADES, ...f.especialidades || []])), selected: f.especialidades || [], onToggle: (v) => toggleArr("especialidades", v), empty: "" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 11 } }, /* @__PURE__ */ React.createElement("input", { value: nuevaEsp, onChange: (e) => setNuevaEsp(e.target.value), onKeyDown: (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       addEsp();

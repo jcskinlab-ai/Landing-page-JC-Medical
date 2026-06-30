@@ -122,13 +122,35 @@ function isLosMedique() {
 }
 // Secciones NUEVAS del backlog: en SaaS solo visibles para Los Medique; en modo local, siempre (para probar).
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
+// Permiso (PERM_SECCIONES de la ficha del profesional) → claves de sección que desbloquea.
+var PERM_NAV = {
+  "Agenda": ["agenda", "salaespera", "pendientes"],
+  "Pacientes": ["pacientes"],
+  "Servicios": ["servicios", "equipo", "sucursales"],
+  "Inventario": ["inventario"],
+  "Reportes": ["reportes", "resumen", "caja"],
+  "Marketing": ["marketing", "crm", "difusiones", "agenteia", "copilot", "automatizaciones", "fidelidad", "colaboracion"],
+  "Configuración": ["config", "administracion", "consentimientos", "fichaeditor", "tutoriales", "integraciones"]
+};
 function adminNavItems() {
   var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled)
     || (((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}).jcApp === true);
   var beta = !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
+  // Multiusuario: si el que inició sesión es PROFESIONAL, limita las secciones a sus permisos.
+  // Solo se activa con role === 'professional'; el dueño (owner/staff) ve todo, sin cambios.
+  var allowed = null;
+  try {
+    var role = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole) ? window.JCSAAS.currentRole() : 'owner';
+    if (role === 'professional') {
+      var perms = (window.JCSAAS.currentPerms && window.JCSAAS.currentPerms()) || {};
+      allowed = { dashboard: 1, appjcm: 1 };
+      Object.keys(PERM_NAV).forEach(function (p) { if (perms[p]) PERM_NAV[p].forEach(function (k) { allowed[k] = 1; }); });
+    }
+  } catch (e) { allowed = null; }
   return ADMIN_NAV.filter(function (n) {
     if (n.k === "appjcm" && !showJcApp) return false;
     if (ADMIN_BETA_SECTIONS[n.k] && !beta) return false;
+    if (allowed && !allowed[n.k]) return false;
     return true;
   });
 }
@@ -1070,6 +1092,18 @@ function AdminApp() {
     }).catch(function (err) { return { ok: false, reason: (err && (err.code || err.message)) || "error" }; });
   }
   function nav(k) { setSection(k); setOpenPatient(null); setNavOpen(false); }
+
+  // Multiusuario: si un PROFESIONAL llega (por URL/atrás) a una sección que sus permisos no incluyen,
+  // se le redirige al Dashboard. Solo aplica a role 'professional'; al dueño no lo afecta.
+  useEffect(() => {
+    try {
+      var role = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole) ? window.JCSAAS.currentRole() : 'owner';
+      if (role !== 'professional') return;
+      if (section === 'dashboard' || openPatient) return;
+      var ok = adminNavItems().some(function (n) { return n.k === section; }) || section === 'pacientes';
+      if (!ok) setSection('dashboard');
+    } catch (e) {}
+  }, [section, openPatient]);
 
   // Mantiene la URL sincronizada con la sección/paciente (deep-linking): /panel/inventario, /panel/pacientes/<id>…
   useEffect(() => {

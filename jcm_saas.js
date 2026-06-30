@@ -321,7 +321,7 @@
       if (!uDoc.exists) return null;
       var u = uDoc.data();
       return db.collection('clinics').doc(u.clinicId).get().then(function (cDoc) {
-        return { clinicId: u.clinicId, role: u.role || 'staff', clinic: cDoc.exists ? cDoc.data() : null };
+        return { clinicId: u.clinicId, role: u.role || 'staff', perms: u.perms || null, name: u.name || '', clinic: cDoc.exists ? cDoc.data() : null };
       });
     });
   }
@@ -340,7 +340,7 @@
   function onAuthChange(user) {
     if (!user) {
       teardown();
-      state.user = null; state.clinicId = null; state.clinic = null;
+      state.user = null; state.clinicId = null; state.clinic = null; state.role = null; state.perms = null;
       fire(null);
       return;
     }
@@ -354,6 +354,7 @@
       }
       state.clinicId = info.clinicId;
       state.clinic = info.clinic;
+      state.role = info.role; state.perms = info.perms; state.userName = info.name;
       bindDB();
       pullAll().then(function () {
         liveKv();
@@ -521,6 +522,10 @@
     onAuth: onAuth,
     currentClinic: function () { return state.clinic; },
     currentClinicId: function () { return state.clinicId; },
+    // Rol y permisos del usuario con sesión (multiusuario por clínica). Dueño = 'owner'/'staff'; profesional = 'professional'.
+    currentRole: function () { return state.role || 'owner'; },
+    currentPerms: function () { return state.perms || null; },
+    currentUserName: function () { return state.userName || ''; },
     // Correo del usuario con sesión activa (para gating por cuenta). Vacío si no hay sesión.
     userEmail: function () { try { return (auth && auth.currentUser && auth.currentUser.email) ? ('' + auth.currentUser.email).trim().toLowerCase() : ''; } catch (e) { return ''; } },
     // ID token de Firebase del usuario logueado (para autenticar llamadas a /api/*). Corto (1h), no es secreto.

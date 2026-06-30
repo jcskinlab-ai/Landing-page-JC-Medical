@@ -1218,6 +1218,10 @@ function ConsentDoc({ T, tpl, prof }) {
 }
 function SignConsentModal({ T, data, onClose, onSign }) {
   const A = window.JCADMIN;
+  // Plantillas PROPIAS de la clínica (módulo Consentimientos) además de las base, disponibles para firmar.
+  // Se mapean a kind "extra" (texto libre + autorización), que ConsentDoc ya renderiza.
+  const customTpls = (function () { try { return ((window.DB && window.DB.get("consent_templates")) || []).filter(t => t && t.active !== false && (t.title || "").trim()).map(t => ({ id: t.id, title: t.title, kind: "extra", proc: t.cat || "", body: t.body || "" })); } catch (e) { return []; } })();
+  const allTpls = (A.consents || []).concat(customTpls);
   const [tpl, setTpl] = useState(data.template);
   const [nombre, setNombre] = useState(data.patient.name || "");
   const [ci, setCi] = useState(data.patient.rut || "");
@@ -1233,7 +1237,7 @@ function SignConsentModal({ T, data, onClose, onSign }) {
     <AdModal T={T} title="Consentimiento informado" onClose={onClose} wide
       footer={<AdBtn T={T} primary full onClick={() => ready && onSign({ tpl, sigPac, sigPro, fields: { nombre, ci, edad, prof, fecha } })}>{ready ? "Confirmar y guardar consentimiento firmado" : "Acepta y firma (paciente y enfermero) para continuar"}</AdBtn>}>
       <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap" }}>
-        {A.consents.map(c => <button key={c.id} onClick={() => setTpl(c)} style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".06em", padding: "8px 12px", borderRadius: 999, cursor: "pointer", background: tpl.id === c.id ? T.surface2 : T.surface, color: tpl.id === c.id ? T.text : T.textMute, border: "1px solid " + (tpl.id === c.id ? T.accent : T.line) }}>{c.title}</button>)}
+        {allTpls.map(c => <button key={c.id} onClick={() => setTpl(c)} style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".06em", padding: "8px 12px", borderRadius: 999, cursor: "pointer", background: tpl.id === c.id ? T.surface2 : T.surface, color: tpl.id === c.id ? T.text : T.textMute, border: "1px solid " + (tpl.id === c.id ? T.accent : T.line) }}>{c.title}</button>)}
       </div>
       <div style={{ background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px", maxHeight: 360, overflowY: "auto", marginBottom: 16 }}>
         <div style={{ textAlign: "right", fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 }}>Fecha: <input value={fecha} onChange={e => setFecha(e.target.value)} style={{ ...uline, color: "#111", borderColor: "#999", width: 100 }} /></div>

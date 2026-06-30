@@ -511,6 +511,30 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
     ? { ...member, perms: member.perms || {}, especialidades: member.especialidades || (member.role ? [member.role] : []), tratamientos: member.tratamientos || [], sucursales: member.sucursales || [], horario: member.horario || sucHorarioDefault() }
     : { name: "", role: "", email: "", phone: "+56 9 ", active: true, access: false, perms: {}, especialidades: [], tratamientos: [], sucursales: [], horario: sucHorarioDefault() });
   const [nuevaEsp, setNuevaEsp] = useState("");
+  // Acceso de login del profesional (multiusuario por clínica).
+  const [accPass, setAccPass] = useState("");
+  const [accBusy, setAccBusy] = useState(false);
+  const [accMsg, setAccMsg] = useState("");
+  const [accErr, setAccErr] = useState("");
+  async function crearAcceso() {
+    setAccErr(""); setAccMsg("");
+    const email = (f.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setAccErr("Ingresa un correo válido para el profesional."); return; }
+    if ((accPass || "").length < 6) { setAccErr("La clave debe tener al menos 6 caracteres."); return; }
+    if (!(window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.idToken)) { setAccErr("Disponible solo con sesión en la nube."); return; }
+    setAccBusy(true);
+    try {
+      const tok = await window.JCSAAS.idToken();
+      const r = await fetch("/api/team-access", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tok }, body: JSON.stringify({ action: "create", email: email, password: accPass, name: f.name, perms: f.perms }) });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok) {
+        setF(s => ({ ...s, authUid: d.uid }));
+        setAccMsg((d.updated ? "Acceso actualizado. " : "Acceso creado. ") + "El profesional ingresa en medique.cl con " + email + " y la clave que definiste.");
+        setAccPass("");
+      } else { setAccErr(d.error || "No se pudo crear el acceso."); }
+    } catch (e) { setAccErr("No se pudo contactar el servidor."); }
+    setAccBusy(false);
+  }
   function setDiaH(k, patch) { setF(s => ({ ...s, horario: { ...(s.horario || {}), [k]: { ...((s.horario || {})[k] || { on: false, from: "10:00", to: "19:00" }), ...patch } } })); }
   const ok = f.name.trim().length > 2;
   function tperm(p) { setF(s => ({ ...s, perms: { ...s.perms, [p]: !s.perms[p] } })); }
@@ -564,6 +588,17 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
                   ); })}
                 </div>
                 <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>El administrador define a qué áreas del panel puede entrar este profesional.</p>
+                {/* Crear cuenta de login (multiusuario) */}
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid " + T.line }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Cuenta de login</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 10, lineHeight: 1.5 }}>Crea el acceso para que el profesional inicie sesión con <b style={{ color: T.text }}>su propio correo</b> ({f.email || "agrega el correo arriba"}) y vea solo las secciones permitidas.</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input type="text" value={accPass} onChange={e => setAccPass(e.target.value)} placeholder="Clave de acceso (mín. 6)" data-nocap style={{ flex: 1, minWidth: 160, padding: "10px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
+                    <AdBtn T={T} onClick={crearAcceso}>{accBusy ? "Creando…" : (f.authUid ? "Actualizar acceso" : "Crear acceso")}</AdBtn>
+                  </div>
+                  {accMsg && <div style={{ fontFamily: T.sans, fontSize: 11, color: "#1F8A5B", marginTop: 8, lineHeight: 1.5 }}>{accMsg}</div>}
+                  {accErr && <div style={{ fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 8, lineHeight: 1.5 }}>{accErr}</div>}
+                </div>
               </div>
             )}
           </div>
