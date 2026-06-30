@@ -3,7 +3,7 @@
 /* System prompt para el modelo en vivo (window.claude). Define al copiloto como
    analista clínico-fotográfico de medicina estética facial. */
 const FACIAL_SYS = [
-  "Eres el Copiloto de Evaluación Facial de JC Medical (Talca, Chile), del enfermero universitario Juan Claudio Parra. Respondes SIEMPRE en español de Chile: claro, profesional y cercano.",
+  "Eres el copiloto clínico de evaluación facial en medicina estética. Respondes SIEMPRE en español de Chile: claro, profesional y cercano.",
   "Eres un especialista virtual en análisis fotográfico de medicina estética facial: toxina botulínica, rellenos, bioestimuladores, calidad de piel (skin quality), rinomodelación y procedimientos perioculares.",
   "Actúas como analista clínico RIGUROSO. Nunca asumes resultados positivos ni negativos sin evidencia; nunca afirmas una complicación si la evidencia es insuficiente.",
   "Cuando te compartan o describan fotos antes/después, sigue esta metodología: 1) Validación fotográfica (ángulo cefálico, rotación/inclinación de cabeza, distancia y zoom, perspectiva, iluminación y sombras, expresión, apertura ocular, posición mandibular) e indica cuánto afecta cada factor. 2) Sistema de referencia anatómica (línea media, dorso y punta nasal, glabela, cantos internos/externos, pupilas, comisuras, arcos supraorbitarios) — describe una malla facial virtual. 3) Medición relativa estimada: MRD1, MRD2, apertura palpebral, distancia ceja-párpado, altura de ceja medial/central/lateral, simetría ocular y de cejas, en mm estimados + % de cambio + nivel de confianza. 4) Frente (líneas horizontales, reclutamiento/compensación frontal, actividad residual, escala 0-3). 5) Glabela (corrugador, prócer, depresor superciliar). 6) Periocular (patas de gallo, apertura, edema, ptosis). 7) Detección de ptosis: A sin ptosis / B pesadez subjetiva / C descenso de ceja / D ptosis palpebral verdadera / E combinada, con probabilidad %. 8) Diferenciar cambio real vs fotográfico vs mixto (%). 9) Describir un overlay clínico (ejes, pupilas, cejas, flechas de desplazamiento). 10) Conclusión: resumen ejecutivo por zona (frente, entrecejo, patas de gallo, cejas, párpados), riesgo de ptosis (%), y conclusión clínica.",
@@ -62,8 +62,12 @@ function facialAnswer(q) {
 
 function Copilot({ T, patients, appts, addAppt, onDarCita }) {
   const D = window.JCDATA;
+  // Nombre del asistente (configurado en Asistente IA) y nombre de la clínica activa.
+  const _agentCfg = (function () { try { return (window.DB && window.DB.get("agent_cfg")) || {}; } catch (e) { return {}; } })();
+  const agentName = ((_agentCfg.name || "") + "").trim() || "Copiloto";
+  const clinicNm = (window.clinicName && window.clinicName()) || "tu clínica";
   const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Hola Juan Claudio 👋 Soy tu copiloto clínico. Puedo:\n• Agendar por voz o texto: «Agenda a María botox mañana a las 11».\n• Darte la auditoría del mes: escribe «auditoría».\n• Analizar evaluación facial (ptosis, cejas, MRD1/MRD2, simetría).\n\n¿Qué necesitas?" }]);
+  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Hola 👋 Soy " + agentName + ", tu copiloto de " + clinicNm + ". Puedo:\n• Agendar por voz o texto: «Agenda a María botox mañana a las 11».\n• Darte la auditoría del mes: escribe «auditoría».\n• Analizar evaluación facial (ptosis, cejas, MRD1/MRD2, simetría).\n\n¿Qué necesitas?" }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
@@ -222,7 +226,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
         "Cuando el profesional pida reservar/agendar y tengas PACIENTE, PROCEDIMIENTO, FECHA y HORA, agrega al FINAL de tu respuesta UNA sola línea EXACTA:\n" +
         "@@AGENDAR {\"paciente\":\"<nombre>\",\"proc\":\"<procedimiento>\",\"fecha\":\"YYYY-MM-DD\",\"hora\":\"HH:MM\"}\n" +
         "Si falta algún dato, NO pongas esa línea: pídelo de forma breve. NUNCA afirmes que agendaste si no incluiste la línea @@AGENDAR.";
-      const system = FACIAL_SYS + sched + "\n\nDATOS DEL PANEL: " + ctx();
+      const system = "Trabajas para la clínica " + clinicNm + ". Tu nombre es " + agentName + ". " + FACIAL_SYS + sched + "\n\nDATOS DEL PANEL: " + ctx();
       const res = await window.mediqueAI(next, {}, { system: system, max_tokens: 700 });
       if (!res || !res.ok || !res.reply) throw new Error((res && res.error) || "sin respuesta");
       let reply = res.reply.trim();
@@ -281,8 +285,8 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="4.5" y="8" width="15" height="10" rx="3" /><path d="M12 4.5V8" /><circle cx="12" cy="3.4" r="1.3" /><path d="M2.5 12v3M21.5 12v3" /><circle cx="9" cy="13" r="1.3" fill="#fff" stroke="none" /><circle cx="15" cy="13" r="1.3" fill="#fff" stroke="none" /></svg>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Copiloto JC</div>
-              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".06em", color: T.accent }}>Evaluación facial · IA</div>
+              <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{agentName}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".06em", color: T.accent }}>{clinicNm} · IA</div>
             </div>
             <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex" }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
           </div>
