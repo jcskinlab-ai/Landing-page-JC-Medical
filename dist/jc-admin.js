@@ -87,6 +87,7 @@ const ADMIN_NAV = [
   { k: "tutoriales", l: "Tutoriales" },
   { k: "config", l: "Configuraci\xF3n" }
 ];
+const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
 function adminNavItems() {
   var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled) || (window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).jcApp === true;
   return ADMIN_NAV.filter(function(n) {
@@ -1075,7 +1076,8 @@ function AdminApp() {
     },
     /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => nav("dashboard"), title: "Ir al Dashboard", style: { display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } })), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" } }, "medique")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" } }, adminNavItems().map((n) => {
       const active = section === n.k;
-      return /* @__PURE__ */ React.createElement("button", { key: n.k, onClick: () => nav(n.k), title: n.l, style: {
+      const head = SIDE_GROUP_HEAD[n.k];
+      return /* @__PURE__ */ React.createElement(React.Fragment, { key: n.k }, navOpen && head && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px" } }, head), !navOpen && head && n.k !== "dashboard" && /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: SIDE_LINE, margin: "7px 14px" } }), /* @__PURE__ */ React.createElement("button", { onClick: () => nav(n.k), title: n.l, style: {
         display: "flex",
         alignItems: "center",
         justifyContent: navOpen ? "flex-start" : "center",
@@ -1088,7 +1090,7 @@ function AdminApp() {
         cursor: "pointer",
         whiteSpace: "nowrap",
         position: "relative"
-      } }, nIcon(n.k, active ? SIDE_TX : SIDE_MUTE), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE } }, n.l), n.k === "pendientes" && pendCount > 0 && (navOpen ? /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" } }, pendCount) : /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" } })));
+      } }, nIcon(n.k, active ? SIDE_TX : SIDE_MUTE), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE } }, n.l), n.k === "pendientes" && pendCount > 0 && (navOpen ? /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" } }, pendCount) : /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" } }))));
     })))
   ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "13px 18px 10px", borderBottom: "1px solid " + T.line, background: T.navBg, backdropFilter: "blur(14px)", position: "relative", zIndex: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(PatientSearch, { T, patients, onOpen: (id) => {
     setOpenPatient(id);

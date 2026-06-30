@@ -72,6 +72,8 @@ const ADMIN_NAV = [
   { k: "resumen", l: "Resumen" }, { k: "colaboracion", l: "Colaboraciones" }, { k: "fidelidad", l: "Fidelidad" },
   { k: "integraciones", l: "Integraciones" }, { k: "reportes", l: "Reportes" }, { k: "administracion", l: "Administración" }, { k: "consentimientos", l: "Consentimientos" }, { k: "tutoriales", l: "Tutoriales" }, { k: "config", l: "Configuración" }
 ];
+// Encabezado de grupo del sidebar: la clave donde COMIENZA un grupo → su etiqueta (Área 1).
+const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "Marketing & Ventas", resumen: "Análisis", administracion: "Sistema" };
 
 // La pestaña "App JC Medical" es exclusiva: solo se muestra en modo local (sin SaaS)
 // o en clínicas con el flag jcApp activado (lo activa el super-admin). Las demás no la ven.
@@ -1160,17 +1162,22 @@ function AdminApp() {
             <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
               {adminNavItems().map(n => {
                 const active = section === n.k;
+                const head = SIDE_GROUP_HEAD[n.k];
                 return (
-                  <button key={n.k} onClick={() => nav(n.k)} title={n.l} style={{
-                    display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 14, width: "100%", padding: navOpen ? "12px 19px" : "12px 0", background: active ? SIDE_ACT : "none",
-                    border: "none", borderLeft: "3px solid " + (active ? T.accent : "transparent"), cursor: "pointer", whiteSpace: "nowrap", position: "relative"
-                  }}>
-                    {nIcon(n.k, active ? SIDE_TX : SIDE_MUTE)}
-                    {navOpen && <span style={{ fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE }}>{n.l}</span>}
-                    {n.k === "pendientes" && pendCount > 0 && (navOpen
-                      ? <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" }}>{pendCount}</span>
-                      : <span style={{ position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" }} />)}
-                  </button>
+                  <React.Fragment key={n.k}>
+                    {navOpen && head && <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: .7, padding: "14px 19px 5px" }}>{head}</div>}
+                    {!navOpen && head && n.k !== "dashboard" && <div style={{ height: 1, background: SIDE_LINE, margin: "7px 14px" }} />}
+                    <button onClick={() => nav(n.k)} title={n.l} style={{
+                      display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 14, width: "100%", padding: navOpen ? "12px 19px" : "12px 0", background: active ? SIDE_ACT : "none",
+                      border: "none", borderLeft: "3px solid " + (active ? T.accent : "transparent"), cursor: "pointer", whiteSpace: "nowrap", position: "relative"
+                    }}>
+                      {nIcon(n.k, active ? SIDE_TX : SIDE_MUTE)}
+                      {navOpen && <span style={{ fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE }}>{n.l}</span>}
+                      {n.k === "pendientes" && pendCount > 0 && (navOpen
+                        ? <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" }}>{pendCount}</span>
+                        : <span style={{ position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" }} />)}
+                    </button>
+                  </React.Fragment>
                 );
               })}
             </div>
