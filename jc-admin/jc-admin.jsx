@@ -1603,6 +1603,166 @@ function ApptBlock({ T, a, onClick, compact }) {
   );
 }
 
+function ICSImportModal({ T, onClose, onImport }) {
+  const [step, setStep] = useState(1);
+  const [rows, setRows] = useState([]);
+  const [drag, setDrag] = useState(false);
+
+  function parseICS(text) {
+    const unfolded = text.replace(/\r\n[ \t]/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const events = [];
+    const blocks = unfolded.split(/BEGIN:VEVENT/i);
+    blocks.slice(1).forEach(function(block) {
+      const endIdx = block.search(/END:VEVENT/i);
+      if (endIdx < 0) return;
+      const ev = {};
+      block.substring(0, endIdx).split("\n").forEach(function(line) {
+        const ci = line.indexOf(":");
+        if (ci < 0) return;
+        const key = line.substring(0, ci).split(";")[0].toUpperCase();
+        const val = line.substring(ci + 1).trim();
+        if (key === "DTSTART") ev.dtstart = val;
+        else if (key === "DTEND") ev.dtend = val;
+        else if (key === "SUMMARY") ev.summary = val.replace(/\\,/g, ",").replace(/\\n/g, " ").replace(/\\/g, "");
+        else if (key === "DESCRIPTION") ev.description = val.replace(/\\n/g, " ").replace(/\\,/g, ",").replace(/\\/g, "");
+      });
+      if (ev.dtstart && ev.summary) events.push(ev);
+    });
+    events.sort(function(a, b) { return (a.dtstart || "").localeCompare(b.dtstart || ""); });
+    return events;
+  }
+
+  function parseDate(dtStr) {
+    if (!dtStr) return { fecha: "", hora: "10:00" };
+    const clean = dtStr.replace(/Z$/, "").replace(/[^0-9T]/g, "");
+    const parts = clean.split("T");
+    const dp = parts[0] || "";
+    const tp = parts[1] || "";
+    const fecha = dp.length >= 8 ? dp.slice(0,4) + "-" + dp.slice(4,6) + "-" + dp.slice(6,8) : "";
+    const hora = tp.length >= 4 ? tp.slice(0,2) + ":" + tp.slice(2,4) : "10:00";
+    return { fecha, hora };
+  }
+
+  function handleFile(file) {
+    if (!file || !/\.ics$/i.test(file.name)) {
+      window.jcmToast && window.jcmToast("Selecciona un archivo .ics del calendario.", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const evs = parseICS(e.target.result);
+      if (!evs.length) { window.jcmToast && window.jcmToast("No se encontraron eventos en el archivo.", "error"); return; }
+      setRows(evs.map(function(ev) {
+        const { fecha, hora } = parseDate(ev.dtstart);
+        return { sel: true, fecha, hora, name: ev.summary || "", proc: "", nota: ev.description || "", _src: ev.summary || "" };
+      }));
+      setStep(2);
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  function upd(i, field, val) {
+    setRows(function(rs) { return rs.map(function(r, idx) { return idx === i ? Object.assign({}, r, { [field]: val }) : r; }); });
+  }
+
+  function doImport() {
+    const sel = rows.filter(function(r) { return r.sel && r.fecha; });
+    if (!sel.length) { window.jcmToast && window.jcmToast("Selecciona al menos una cita.", "error"); return; }
+    sel.forEach(function(r) {
+      onImport({ name: r.name || "Sin nombre", proc: r.proc || r._src || "Cita importada", fecha: r.fecha, time: r.hora || "10:00", comentario: r.nota || "", status: "pendiente", importadoICS: true });
+    });
+    window.jcmToast && window.jcmToast(sel.length + " cita(s) importadas desde el calendario.", "ok");
+    onClose();
+  }
+
+  const selCount = rows.filter(function(r) { return r.sel; }).length;
+  const inp = { fontFamily: T.sans, fontSize: 12, color: T.text, background: T.bg, border: "1px solid " + T.line, borderRadius: 6, padding: "4px 7px" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,.65)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: T.surface, borderRadius: 20, width: "100%", maxWidth: step === 2 ? 720 : 440, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 28px 70px rgba(0,0,0,.55)" }}>
+        <div style={{ padding: "22px 22px 16px", display: "flex", alignItems: "flex-start", gap: 12, borderBottom: "1px solid " + T.line }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>Importar desde calendario</div>
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3 }}>
+              {step === 1 ? "Sube un archivo .ics exportado desde iPhone, iCloud, Google Calendar u otro." : rows.length + " evento(s) encontrados — revisa y confirma cuales importar"}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ flexShrink: 0, width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: "none", color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {step === 1 && (
+          <div style={{ padding: "22px" }}>
+            <div style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 6 }}>Como exportar desde iPhone</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.65 }}>
+                1. Abre <strong>iCloud.com</strong> en Safari o Chrome<br />
+                2. Ve a <strong>Calendario</strong> y selecciona tu calendario<br />
+                3. Toca el icono de compartir y elige <strong>Exportar .ics</strong><br />
+                4. Descarga el archivo y subelo aqui
+              </div>
+            </div>
+            <div
+              onDragOver={function(e) { e.preventDefault(); setDrag(true); }}
+              onDragLeave={function() { setDrag(false); }}
+              onDrop={function(e) { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+              onClick={function() { document.getElementById("jcm-ics-input").click(); }}
+              style={{ border: "2px dashed " + (drag ? T.accent : T.line), borderRadius: 14, padding: "40px 20px", textAlign: "center", cursor: "pointer", transition: "border-color .2s, background .2s", background: drag ? T.accent + "0c" : "transparent" }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={drag ? T.accent : T.textMute} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 10 }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 500, color: T.text }}>Arrastra el archivo .ics aqui</div>
+              <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 4 }}>o haz clic para seleccionarlo</div>
+            </div>
+            <input id="jcm-ics-input" type="file" accept=".ics" style={{ display: "none" }} onChange={function(e) { if (e.target.files[0]) handleFile(e.target.files[0]); }} />
+          </div>
+        )}
+
+        {step === 2 && (
+          <>
+            <div style={{ padding: "12px 22px 8px", display: "flex", alignItems: "center", gap: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, color: T.textMute, cursor: "pointer" }}>
+                <input type="checkbox" checked={selCount === rows.length} onChange={function(e) { setRows(function(rs) { return rs.map(function(r) { return Object.assign({}, r, { sel: e.target.checked }); }); }); }} />
+                Seleccionar todas
+              </label>
+              <div style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 12, color: T.accent, fontWeight: 600 }}>{selCount} seleccionadas</div>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 22px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>{["", "Fecha", "Hora", "Nombre paciente", "Procedimiento", "Nota"].map(function(h, i) {
+                    return <th key={i} style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: T.textFaint, padding: "8px 5px", textAlign: "left", borderBottom: "1px solid " + T.line, whiteSpace: "nowrap" }}>{h}</th>;
+                  })}</tr>
+                </thead>
+                <tbody>
+                  {rows.map(function(r, i) {
+                    return (
+                      <tr key={i} style={{ opacity: r.sel ? 1 : 0.4, borderBottom: "1px solid " + T.line + "55" }}>
+                        <td style={{ padding: "8px 5px" }}><input type="checkbox" checked={r.sel} onChange={function(e) { upd(i, "sel", e.target.checked); }} /></td>
+                        <td style={{ padding: "8px 5px" }}><input type="date" value={r.fecha} onChange={function(e) { upd(i, "fecha", e.target.value); }} style={Object.assign({}, inp, { width: 130 })} /></td>
+                        <td style={{ padding: "8px 5px" }}><input type="time" value={r.hora} onChange={function(e) { upd(i, "hora", e.target.value); }} style={Object.assign({}, inp, { width: 82 })} /></td>
+                        <td style={{ padding: "8px 5px" }}><input value={r.name} onChange={function(e) { upd(i, "name", e.target.value); }} placeholder="Nombre del paciente" style={Object.assign({}, inp, { width: 160 })} /></td>
+                        <td style={{ padding: "8px 5px" }}><input value={r.proc} onChange={function(e) { upd(i, "proc", e.target.value); }} placeholder={r._src || "Procedimiento"} style={Object.assign({}, inp, { width: 150 })} /></td>
+                        <td style={{ padding: "8px 5px" }}><span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, display: "block", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.nota}>{r.nota || "—"}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: "14px 22px", borderTop: "1px solid " + T.line, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <AdBtn T={T} onClick={function() { setStep(1); }}>Otro archivo</AdBtn>
+              <AdBtn T={T} primary onClick={doImport}>Importar {selCount} cita(s)</AdBtn>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
   const [webBusy, setWebBusy] = useState(false);
   function traerWeb() {
@@ -1691,7 +1851,15 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       </button>
     </div>
   );
+  const [icsMod, setIcsMod] = useState(false);
   const nuevaBtnNode = <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>;
+  const icsBtnNode = (
+    <button onClick={() => setIcsMod(true)} title="Importar citas desde archivo de calendario (.ics)"
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, fontFamily: T.sans, fontSize: 12, color: T.textMute, cursor: "pointer", whiteSpace: "nowrap" }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4M12 14l-2 2 2 2M12 14h4" /></svg>
+      Importar .ics
+    </button>
+  );
 
   return (
     <div>
@@ -1715,12 +1883,13 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
           <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text }}>Reservas y Citas</div>
           {viewToggleNode}
+          {icsBtnNode}
           {nuevaBtnNode}
         </div>
       )}
 
       {view === "semana" ? (
-        <SemanaGrid T={T} week={week} appts={appts} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={setEdit} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
+        <SemanaGrid T={T} week={week} appts={appts} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} icsBtn={icsBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={setEdit} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
           const clean = s => (s || "").replace(/\D/g, "");
           const ap = clean(appt.phone || "");
           let found = null;
@@ -1805,6 +1974,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         </div>
       )}
 
+      {icsMod && <ICSImportModal T={T} onClose={() => setIcsMod(false)} onImport={addAppt} />}
       {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} onOpenPatient={onOpenPatient} />}
       {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
       {toast && <Toast T={T} data={toast} onClose={() => setToast(null)} />}
@@ -1916,7 +2086,7 @@ function ComentarioPopup({ T, appt, updateAppt, onClose }) {
     </>
   );
 }
-function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn }) {
+function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn }) {
   const D = window.JCDATA;
   const [wkOff, setWkOff] = useState(0);
   const [menu, setMenu] = useState(null); // appt id abierto
@@ -1988,6 +2158,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           {days[0].dd} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[start.getMonth()])}</span> – {last.getDate()} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[last.getMonth()])}</span>
         </div>
         {v2 && viewToggle}
+        {v2 && icsBtn}
         {v2 && nuevaBtn}
         {v2 && team.length > 0 && (
           <div style={{ position: "relative" }}>

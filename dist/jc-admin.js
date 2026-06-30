@@ -1379,6 +1379,140 @@ function ApptBlock({ T, a, onClick, compact }) {
     onClick(a);
   }, style: { cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderLeft: "3px solid " + st.color, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, nameLabel), !compact && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 } }, a.time)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, compact ? a.time + " \xB7 " + a.proc : a.proc), !compact && st.key !== "pendiente" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, display: "inline-block", fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".04em", color: st.color, background: st.color + "1a", borderRadius: 5, padding: "2px 6px" } }, st.label));
 }
+function ICSImportModal({ T, onClose, onImport }) {
+  const [step, setStep] = useState(1);
+  const [rows, setRows] = useState([]);
+  const [drag, setDrag] = useState(false);
+  function parseICS(text) {
+    const unfolded = text.replace(/\r\n[ \t]/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const events = [];
+    const blocks = unfolded.split(/BEGIN:VEVENT/i);
+    blocks.slice(1).forEach(function(block) {
+      const endIdx = block.search(/END:VEVENT/i);
+      if (endIdx < 0) return;
+      const ev = {};
+      block.substring(0, endIdx).split("\n").forEach(function(line) {
+        const ci = line.indexOf(":");
+        if (ci < 0) return;
+        const key = line.substring(0, ci).split(";")[0].toUpperCase();
+        const val = line.substring(ci + 1).trim();
+        if (key === "DTSTART") ev.dtstart = val;
+        else if (key === "DTEND") ev.dtend = val;
+        else if (key === "SUMMARY") ev.summary = val.replace(/\\,/g, ",").replace(/\\n/g, " ").replace(/\\/g, "");
+        else if (key === "DESCRIPTION") ev.description = val.replace(/\\n/g, " ").replace(/\\,/g, ",").replace(/\\/g, "");
+      });
+      if (ev.dtstart && ev.summary) events.push(ev);
+    });
+    events.sort(function(a, b) {
+      return (a.dtstart || "").localeCompare(b.dtstart || "");
+    });
+    return events;
+  }
+  function parseDate(dtStr) {
+    if (!dtStr) return { fecha: "", hora: "10:00" };
+    const clean = dtStr.replace(/Z$/, "").replace(/[^0-9T]/g, "");
+    const parts = clean.split("T");
+    const dp = parts[0] || "";
+    const tp = parts[1] || "";
+    const fecha = dp.length >= 8 ? dp.slice(0, 4) + "-" + dp.slice(4, 6) + "-" + dp.slice(6, 8) : "";
+    const hora = tp.length >= 4 ? tp.slice(0, 2) + ":" + tp.slice(2, 4) : "10:00";
+    return { fecha, hora };
+  }
+  function handleFile(file) {
+    if (!file || !/\.ics$/i.test(file.name)) {
+      window.jcmToast && window.jcmToast("Selecciona un archivo .ics del calendario.", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const evs = parseICS(e.target.result);
+      if (!evs.length) {
+        window.jcmToast && window.jcmToast("No se encontraron eventos en el archivo.", "error");
+        return;
+      }
+      setRows(evs.map(function(ev) {
+        const { fecha, hora } = parseDate(ev.dtstart);
+        return { sel: true, fecha, hora, name: ev.summary || "", proc: "", nota: ev.description || "", _src: ev.summary || "" };
+      }));
+      setStep(2);
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+  function upd(i, field, val) {
+    setRows(function(rs) {
+      return rs.map(function(r, idx) {
+        return idx === i ? Object.assign({}, r, { [field]: val }) : r;
+      });
+    });
+  }
+  function doImport() {
+    const sel = rows.filter(function(r) {
+      return r.sel && r.fecha;
+    });
+    if (!sel.length) {
+      window.jcmToast && window.jcmToast("Selecciona al menos una cita.", "error");
+      return;
+    }
+    sel.forEach(function(r) {
+      onImport({ name: r.name || "Sin nombre", proc: r.proc || r._src || "Cita importada", fecha: r.fecha, time: r.hora || "10:00", comentario: r.nota || "", status: "pendiente", importadoICS: true });
+    });
+    window.jcmToast && window.jcmToast(sel.length + " cita(s) importadas desde el calendario.", "ok");
+    onClose();
+  }
+  const selCount = rows.filter(function(r) {
+    return r.sel;
+  }).length;
+  const inp = { fontFamily: T.sans, fontSize: 12, color: T.text, background: T.bg, border: "1px solid " + T.line, borderRadius: 6, padding: "4px 7px" };
+  return /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,.65)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, borderRadius: 20, width: "100%", maxWidth: step === 2 ? 720 : 440, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 28px 70px rgba(0,0,0,.55)" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "22px 22px 16px", display: "flex", alignItems: "flex-start", gap: 12, borderBottom: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.text } }, "Importar desde calendario"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3 } }, step === 1 ? "Sube un archivo .ics exportado desde iPhone, iCloud, Google Calendar u otro." : rows.length + " evento(s) encontrados \u2014 revisa y confirma cuales importar")), /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { flexShrink: 0, width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: "none", color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), step === 1 && /* @__PURE__ */ React.createElement("div", { style: { padding: "22px" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.bg, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 6 } }, "Como exportar desde iPhone"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.65 } }, "1. Abre ", /* @__PURE__ */ React.createElement("strong", null, "iCloud.com"), " en Safari o Chrome", /* @__PURE__ */ React.createElement("br", null), "2. Ve a ", /* @__PURE__ */ React.createElement("strong", null, "Calendario"), " y selecciona tu calendario", /* @__PURE__ */ React.createElement("br", null), "3. Toca el icono de compartir y elige ", /* @__PURE__ */ React.createElement("strong", null, "Exportar .ics"), /* @__PURE__ */ React.createElement("br", null), "4. Descarga el archivo y subelo aqui")), /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      onDragOver: function(e) {
+        e.preventDefault();
+        setDrag(true);
+      },
+      onDragLeave: function() {
+        setDrag(false);
+      },
+      onDrop: function(e) {
+        e.preventDefault();
+        setDrag(false);
+        const f = e.dataTransfer.files[0];
+        if (f) handleFile(f);
+      },
+      onClick: function() {
+        document.getElementById("jcm-ics-input").click();
+      },
+      style: { border: "2px dashed " + (drag ? T.accent : T.line), borderRadius: 14, padding: "40px 20px", textAlign: "center", cursor: "pointer", transition: "border-color .2s, background .2s", background: drag ? T.accent + "0c" : "transparent" }
+    },
+    /* @__PURE__ */ React.createElement("svg", { width: "30", height: "30", viewBox: "0 0 24 24", fill: "none", stroke: drag ? T.accent : T.textMute, strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "17 8 12 3 7 8" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "3", x2: "12", y2: "15" })),
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14, fontWeight: 500, color: T.text } }, "Arrastra el archivo .ics aqui"),
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 4 } }, "o haz clic para seleccionarlo")
+  ), /* @__PURE__ */ React.createElement("input", { id: "jcm-ics-input", type: "file", accept: ".ics", style: { display: "none" }, onChange: function(e) {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  } })), step === 2 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 22px 8px", display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, color: T.textMute, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selCount === rows.length, onChange: function(e) {
+    setRows(function(rs) {
+      return rs.map(function(r) {
+        return Object.assign({}, r, { sel: e.target.checked });
+      });
+    });
+  } }), "Seleccionar todas"), /* @__PURE__ */ React.createElement("div", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 12, color: T.accent, fontWeight: 600 } }, selCount, " seleccionadas")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: "0 22px" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, ["", "Fecha", "Hora", "Nombre paciente", "Procedimiento", "Nota"].map(function(h, i) {
+    return /* @__PURE__ */ React.createElement("th", { key: i, style: { fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: T.textFaint, padding: "8px 5px", textAlign: "left", borderBottom: "1px solid " + T.line, whiteSpace: "nowrap" } }, h);
+  }))), /* @__PURE__ */ React.createElement("tbody", null, rows.map(function(r, i) {
+    return /* @__PURE__ */ React.createElement("tr", { key: i, style: { opacity: r.sel ? 1 : 0.4, borderBottom: "1px solid " + T.line + "55" } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 5px" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: r.sel, onChange: function(e) {
+      upd(i, "sel", e.target.checked);
+    } })), /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 5px" } }, /* @__PURE__ */ React.createElement("input", { type: "date", value: r.fecha, onChange: function(e) {
+      upd(i, "fecha", e.target.value);
+    }, style: Object.assign({}, inp, { width: 130 }) })), /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 5px" } }, /* @__PURE__ */ React.createElement("input", { type: "time", value: r.hora, onChange: function(e) {
+      upd(i, "hora", e.target.value);
+    }, style: Object.assign({}, inp, { width: 82 }) })), /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 5px" } }, /* @__PURE__ */ React.createElement("input", { value: r.name, onChange: function(e) {
+      upd(i, "name", e.target.value);
+    }, placeholder: "Nombre del paciente", style: Object.assign({}, inp, { width: 160 }) })), /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 5px" } }, /* @__PURE__ */ React.createElement("input", { value: r.proc, onChange: function(e) {
+      upd(i, "proc", e.target.value);
+    }, placeholder: r._src || "Procedimiento", style: Object.assign({}, inp, { width: 150 }) })), /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 5px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, display: "block", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: r.nota }, r.nota || "\u2014")));
+  })))), /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 22px", borderTop: "1px solid " + T.line, display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: function() {
+    setStep(1);
+  } }, "Otro archivo"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: doImport }, "Importar ", selCount, " cita(s)")))));
+}
 function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
   const [webBusy, setWebBusy] = useState(false);
   function traerWeb() {
@@ -1482,8 +1616,19 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const tabBtn = (k, l) => /* @__PURE__ */ React.createElement("button", { onClick: () => setView(k), style: { flex: 1, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 7, cursor: "pointer", background: view === k ? T.text : "transparent", color: view === k ? T.bg : T.textMute, border: "none" } }, l);
   const isBase = true;
   const viewToggleNode = /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setView("dia"), title: "Vista lista / d\xEDa", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setView("semana"), title: "Vista calendario / semana", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))));
+  const [icsMod, setIcsMod] = useState(false);
   const nuevaBtnNode = /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNueva({ time: "10:00", day: view === "dia" ? day : 0 }) }, "+ Nueva Cita");
-  return /* @__PURE__ */ React.createElement("div", null, !isBase && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), viewToggleNode, onSyncWeb && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: traerWeb }, webBusy ? "Trayendo\u2026" : "\u21BB Traer reservas web"), nuevaBtnNode), isBase && view === "dia" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text } }, "Reservas y Citas"), viewToggleNode, nuevaBtnNode), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: setEdit, updateAppt, removeAppt, onDay: (off) => {
+  const icsBtnNode = /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => setIcsMod(true),
+      title: "Importar citas desde archivo de calendario (.ics)",
+      style: { display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, fontFamily: T.sans, fontSize: 12, color: T.textMute, cursor: "pointer", whiteSpace: "nowrap" }
+    },
+    /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4M12 14l-2 2 2 2M12 14h4" })),
+    "Importar .ics"
+  );
+  return /* @__PURE__ */ React.createElement("div", null, !isBase && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), viewToggleNode, onSyncWeb && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: traerWeb }, webBusy ? "Trayendo\u2026" : "\u21BB Traer reservas web"), nuevaBtnNode), isBase && view === "dia" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text } }, "Reservas y Citas"), viewToggleNode, icsBtnNode, nuevaBtnNode), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, icsBtn: icsBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: setEdit, updateAppt, removeAppt, onDay: (off) => {
     setDay(off);
     setView("dia");
   }, onVerFicha: (appt) => {
@@ -1521,7 +1666,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     const group = anuladasByDay[k];
     const isOpen = openADays.has(k);
     return /* @__PURE__ */ React.createElement("div", { key: k, style: { borderTop: ki === 0 ? "1px solid " + T.lineSoft : "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("button", { onClick: () => toggleADay(k), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "#9AA0A6", strokeWidth: "2", strokeLinecap: "round", style: { flexShrink: 0, transition: "transform .2s", transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.textMute, flex: 1 } }, fmtADay(k)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, background: T.lineSoft, borderRadius: 999, padding: "2px 8px" } }, group.length, " cita", group.length !== 1 ? "s" : "")), isOpen && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid " + T.lineSoft } }, group.map((a, ai) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderBottom: ai < group.length - 1 ? "1px solid " + T.lineSoft : "none", background: T.bg } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.textMute, textDecoration: "line-through", textDecorationColor: "#9AA0A6" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, [a.proc, a.time && a.time + " h"].filter(Boolean).join("  \xB7  "), a.phone ? "  \xB7  " + a.phone : ""), a.anuladaAt && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 } }, "Anulada el ", new Date(a.anuladaAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" }), " \xB7 ", new Date(a.anuladaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => updateAppt(a.id, { status: "pendiente", anuladaAt: null }), style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer" } }, "Restaurar")))));
-  })), nueva && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: nueva.time, day: nueva.day, prefill: nueva.fromSlot ? { time: nueva.time, day: nueva.day } : void 0, onClose: () => setNueva(null), onSave: onCreate, onOpenPatient }), edit && /* @__PURE__ */ React.createElement(CitaEditModal, { T, appt: edit, patients, onClose: () => setEdit(null), onSave: (patch) => {
+  })), icsMod && /* @__PURE__ */ React.createElement(ICSImportModal, { T, onClose: () => setIcsMod(false), onImport: addAppt }), nueva && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: nueva.time, day: nueva.day, prefill: nueva.fromSlot ? { time: nueva.time, day: nueva.day } : void 0, onClose: () => setNueva(null), onSave: onCreate, onOpenPatient }), edit && /* @__PURE__ */ React.createElement(CitaEditModal, { T, appt: edit, patients, onClose: () => setEdit(null), onSave: (patch) => {
     updateAppt(edit.id, patch);
     setEdit(null);
   }, onCancel: () => {
@@ -1612,7 +1757,7 @@ function ComentarioPopup({ T, appt, updateAppt, onClose }) {
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 94, background: "rgba(0,0,0,.38)" } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 95, width: 340, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 24px 60px -16px rgba(0,0,0,.6)", padding: "22px 20px 18px", animation: "jcFade .16s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text, marginBottom: 4 } }, appt.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 } }, appt.time, " \xB7 ", appt.proc || "Procedimiento"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Comentario"), /* @__PURE__ */ React.createElement("textarea", { value: txt, onChange: (e) => setTxt(e.target.value), placeholder: "Ej. Abona el d\xEDa de la atenci\xF3n", rows: 3, style: { width: "100%", boxSizing: "border-box", background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 11px", fontFamily: T.sans, fontSize: 13, color: T.text, resize: "vertical", outline: "none" }, autoFocus: true }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 12 } }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { flex: 1, height: 36, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: save, style: { flex: 2, height: 36, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, cursor: "pointer" } }, "Guardar comentario"))));
 }
-function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn }) {
+function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn }) {
   const D = window.JCDATA;
   const [wkOff, setWkOff] = useState(0);
   const [menu, setMenu] = useState(null);
@@ -1683,7 +1828,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       return { ...a, _top: top, _h: h };
     });
   };
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, v2 && /* @__PURE__ */ React.createElement("div", { style: { width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 160, fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text } }, days[0].dd, " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[start.getMonth()])), " \u2013 ", last.getDate(), " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[last.getMonth()]))), v2 && viewToggle, v2 && nuevaBtn, v2 && team.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setProfOpen((o) => !o), title: "Ver agenda de un profesional", style: { display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: "50%", background: selProfColor, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, selProf || "Profesional"), /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), profOpen && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setProfOpen(false), style: { position: "fixed", inset: 0, zIndex: 60 } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 224, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, overflow: "hidden", zIndex: 61 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 14px 6px", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint } }, "Agenda por profesional"), team.map((m) => /* @__PURE__ */ React.createElement("button", { key: m.id || m.name, onClick: () => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, v2 && /* @__PURE__ */ React.createElement("div", { style: { width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 160, fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text } }, days[0].dd, " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[start.getMonth()])), " \u2013 ", last.getDate(), " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[last.getMonth()]))), v2 && viewToggle, v2 && icsBtn, v2 && nuevaBtn, v2 && team.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setProfOpen((o) => !o), title: "Ver agenda de un profesional", style: { display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: "50%", background: selProfColor, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, selProf || "Profesional"), /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), profOpen && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setProfOpen(false), style: { position: "fixed", inset: 0, zIndex: 60 } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 224, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, overflow: "hidden", zIndex: 61 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 14px 6px", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint } }, "Agenda por profesional"), team.map((m) => /* @__PURE__ */ React.createElement("button", { key: m.id || m.name, onClick: () => {
     setSelProf(m.name);
     setProfOpen(false);
   }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 14px", background: m.name === selProf ? T.accent + "14" : "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: m.name === selProf ? T.accent : T.textMute } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: "50%", background: m.color || T.accent, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, m.name), m.name === selProf && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10 } }, "\u2713")))))), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(0), style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "8px 16px", cursor: "pointer" } }, "Hoy"), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(wkOff - 1), title: "Semana anterior", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M15 18l-6-6 6-6" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(wkOff + 1), title: "Semana siguiente", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 900 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" } }, /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line } }), days.map((d, i) => v2 ? (

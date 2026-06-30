@@ -199,7 +199,7 @@ function HomeScreen({ T, D, go, openBooking, tone }) {
               style={{ flex: "0 0 44%", scrollSnapAlign: "start", textAlign: "left", padding: 0, cursor: "pointer", borderRadius: 14, overflow: "hidden", border: "1px solid " + T.line, background: T.surface, boxShadow: "0 8px 22px -14px rgba(40,38,30,.32)", flexShrink: 0 }}>
               <div style={{ position: "relative", aspectRatio: "4/3", background: T.surface2, overflow: "hidden" }}>
                 <img src={p.img} alt={p.brand} loading="lazy" decoding="async"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: p.imgPos || "center", display: "block" }}
                   onError={function(e){ e.target.style.display = "none"; }} />
                 <span style={{ position: "absolute", left: 7, top: 7, fontFamily: T.sans, fontSize: 7, letterSpacing: ".12em", textTransform: "uppercase", color: "#fff", background: "rgba(20,20,15,.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 999, padding: "3px 7px" }}>{p.origen}</span>
               </div>
@@ -493,7 +493,7 @@ function CatalogScreen({ T, D, go, openBooking, onBack }) {
               {(D.products || []).map((p, i) => (
                 <button key={i} onClick={() => setProdSheet(p)} style={{ textAlign: "left", padding: 0, cursor: "pointer", borderRadius: 14, overflow: "hidden", border: "1px solid " + T.line, background: T.surface, boxShadow: "0 10px 26px -18px rgba(40,38,30,.35)" }}>
                   <div style={{ position: "relative", aspectRatio: "4/3", background: T.surface2 }}>
-                    <img src={p.img} alt={p.brand} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={e => { e.target.style.display = "none"; }} />
+                    <img src={p.img} alt={p.brand} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: p.imgPos || "center", display: "block" }} onError={e => { e.target.style.display = "none"; }} />
                     <span style={{ position: "absolute", left: 8, top: 8, fontFamily: T.sans, fontSize: 7.5, letterSpacing: ".12em", textTransform: "uppercase", color: "#fff", background: "rgba(20,20,15,.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.25)", borderRadius: 999, padding: "4px 8px" }}>{p.origen}</span>
                   </div>
                   <div style={{ padding: "11px 13px" }}>

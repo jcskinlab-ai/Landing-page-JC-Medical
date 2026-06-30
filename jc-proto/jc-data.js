@@ -222,7 +222,7 @@
       uso: "Inyección subcutánea o supraperióstica, frecuentemente con cánula de bajo calibre para mayor seguridad y precisión.",
       beneficios: "Aporta volumen, define contornos e hidrata en profundidad. Resultado inmediato y natural. Dura 9–18 meses según la zona.",
       efectos: "Edema los primeros 3–5 días, posibles hematomas y sensibilidad al tacto; se resuelven solos." },
-    { brand: "NCTF® 135 HA · FILLMED", img: "assets/trust-nctf.jpg", tipo: "Cóctel revitalizante + ácido hialurónico", origen: "Francia", fabricante: "FILLMED Laboratoires",
+    { brand: "NCTF® 135 HA · FILLMED", img: "assets/trust-nctf.jpg", imgPos: "center 38%", tipo: "Cóctel revitalizante + ácido hialurónico", origen: "Francia", fabricante: "FILLMED Laboratoires",
       desc: "Solución polirrevitalizante con 55 ingredientes activos (vitaminas, aminoácidos, coenzimas y ácido hialurónico no reticulado). El estándar de referencia en mesoterapia facial.",
       uso: "Microinyecciones superficiales en la dermis de cara, cuello y escote. Sesiones cada 2–4 semanas en la fase inicial.",
       beneficios: "Hidratación profunda, luminosidad, firmeza y elasticidad visibles desde la primera sesión. Ideal como mantención y prevención.",
