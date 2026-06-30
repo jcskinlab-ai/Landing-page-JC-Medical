@@ -2019,6 +2019,73 @@ function sumUnits(txt) {
   while (m = re.exec(body)) sum += parseInt(m[1], 10);
   return sum;
 }
+const FE_TIPOS = [["texto", "Texto corto"], ["area", "Texto largo"], ["numero", "N\xFAmero"], ["selector", "Selector"], ["fecha", "Fecha"], ["email", "Email"], ["imagen", "Imagen"], ["pdf", "PDF"]];
+function loadFichaTpls() {
+  try {
+    const v = window.DB && window.DB.get("ficha_templates");
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveFichaTplsDB(v) {
+  try {
+    if (window.DB) window.DB.set("ficha_templates", v);
+  } catch (e) {
+  }
+}
+function FichaEditorView({ T }) {
+  const [tpls, setTpls] = useState(loadFichaTpls);
+  const [selId, setSelId] = useState(tpls[0] ? tpls[0].id : null);
+  function persist(n) {
+    setTpls(n);
+    saveFichaTplsDB(n);
+  }
+  function addTpl() {
+    const t = { id: "ft" + Date.now(), name: "Nueva plantilla", fields: [] };
+    const n = [...tpls, t];
+    persist(n);
+    setSelId(t.id);
+  }
+  async function delTpl(id) {
+    if (!await (window.jcmConfirm || window.confirm)("\xBFEliminar esta plantilla de ficha?", { danger: true })) return;
+    const n = tpls.filter((t) => t.id !== id);
+    persist(n);
+    if (selId === id) setSelId(n[0] ? n[0].id : null);
+  }
+  const sel = tpls.find((t) => t.id === selId) || null;
+  function updSel(patch) {
+    persist(tpls.map((t) => t.id === selId ? { ...t, ...patch } : t));
+  }
+  function addField(type) {
+    updSel({ fields: [...sel.fields || [], { id: "f" + Date.now(), type, label: "", required: false, options: "", placeholder: "" }] });
+  }
+  function updField(fid, patch) {
+    updSel({ fields: sel.fields.map((f) => f.id === fid ? { ...f, ...patch } : f) });
+  }
+  function delField(fid) {
+    updSel({ fields: sel.fields.filter((f) => f.id !== fid) });
+  }
+  function moveField(i, dir) {
+    const a = sel.fields.slice();
+    const j = i + dir;
+    if (j < 0 || j >= a.length) return;
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+    updSel({ fields: a });
+  }
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 };
+  const inp = { width: "100%", padding: "9px 11px", borderRadius: 4, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" };
+  const previewInput = (f) => {
+    const opts = (f.options || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (f.type === "area") return /* @__PURE__ */ React.createElement("textarea", { disabled: true, rows: 2, placeholder: f.placeholder, style: { ...inp, resize: "vertical" } });
+    if (f.type === "selector") return /* @__PURE__ */ React.createElement("select", { disabled: true, style: inp }, /* @__PURE__ */ React.createElement("option", null, opts[0] || "Opci\xF3n\u2026"));
+    if (f.type === "imagen" || f.type === "pdf") return /* @__PURE__ */ React.createElement("div", { style: { ...inp, color: T.textFaint } }, f.type === "imagen" ? "\u{1F4F7} Subir imagen" : "\u{1F4C4} Subir PDF");
+    return /* @__PURE__ */ React.createElement("input", { disabled: true, type: f.type === "numero" ? "number" : f.type === "fecha" ? "date" : f.type === "email" ? "email" : "text", placeholder: f.placeholder, style: inp });
+  };
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Editor de Fichas", sub: "Construye plantillas de ficha con tus propios campos" }), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: addTpl }, "+ Nueva plantilla")), tpls.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center", marginTop: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 16px" } }, "Crea tu primera plantilla de ficha y agr\xE9gale campos (texto, n\xFAmero, selector, imagen, PDF\u2026). La ver\xE1s en una vista previa lista para usar."), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: addTpl }, "+ Crear primera plantilla")) : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "190px 1fr", gap: 16, alignItems: "start", marginTop: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, tpls.map((t) => /* @__PURE__ */ React.createElement("button", { key: t.id, onClick: () => setSelId(t.id), style: { textAlign: "left", padding: "10px 12px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (selId === t.id ? T.accent : T.line), background: selId === t.id ? T.surface2 || T.surface : T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5 } }, t.name || "Sin nombre", /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2 } }, (t.fields || []).length, " campo", (t.fields || []).length === 1 ? "" : "s")))), sel && /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px,1fr))", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "15px 16px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("input", { value: sel.name, onChange: (e) => updSel({ name: e.target.value }), placeholder: "Nombre de la plantilla", style: { ...inp, fontWeight: 600 } }), /* @__PURE__ */ React.createElement("button", { onClick: () => delTpl(sel.id), title: "Eliminar plantilla", style: { background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "0 10px", cursor: "pointer", color: T.textFaint, display: "flex", alignItems: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, (sel.fields || []).map((f, i) => /* @__PURE__ */ React.createElement("div", { key: f.id, style: { background: T.bg, border: "1px solid " + T.line, borderRadius: 9, padding: "11px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.line, borderRadius: 999, padding: "2px 8px" } }, (FE_TIPOS.find((x) => x[0] === f.type) || [, f.type])[1]), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement("button", { onClick: () => moveField(i, -1), title: "Subir", style: { background: "none", border: "none", cursor: "pointer", color: T.textMute, padding: 2 } }, "\u25B2"), /* @__PURE__ */ React.createElement("button", { onClick: () => moveField(i, 1), title: "Bajar", style: { background: "none", border: "none", cursor: "pointer", color: T.textMute, padding: 2 } }, "\u25BC"), /* @__PURE__ */ React.createElement("button", { onClick: () => delField(f.id), title: "Eliminar campo", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("input", { value: f.label, onChange: (e) => updField(f.id, { label: e.target.value }), placeholder: "Etiqueta del campo", style: { ...inp, marginBottom: 7 } }), f.type === "selector" && /* @__PURE__ */ React.createElement("input", { value: f.options, onChange: (e) => updField(f.id, { options: e.target.value }), placeholder: "Opciones separadas por coma", style: { ...inp, marginBottom: 7 } }), (f.type === "texto" || f.type === "area" || f.type === "numero" || f.type === "email") && /* @__PURE__ */ React.createElement("input", { value: f.placeholder, onChange: (e) => updField(f.id, { placeholder: e.target.value }), placeholder: "Texto de ejemplo (placeholder)", style: { ...inp, marginBottom: 7 } }), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: !!f.required, onChange: (e) => updField(f.id, { required: e.target.checked }) }), " Campo obligatorio")))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Agregar campo"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, FE_TIPOS.map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => addField(k), style: { fontFamily: T.sans, fontSize: 11, padding: "7px 11px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent } }, "+ ", l))))), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "15px 16px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 } }, "Vista previa"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.text, marginBottom: 12 } }, sel.name || "Plantilla de ficha"), (sel.fields || []).length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "Agrega campos para ver la vista previa.") : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, (sel.fields || []).map((f) => /* @__PURE__ */ React.createElement("label", { key: f.id, style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, f.label || "Campo sin nombre", f.required && /* @__PURE__ */ React.createElement("span", { style: { color: "#C0285A" } }, " *")), previewInput(f))))))));
+}
 const FICHA_TIPOS = [["general", "Ficha general"], ["facial", "Facial"], ["corporal", "Corporal"], ["medgeneral", "Medicina general"]];
 const FICHA_ZONAS_FACIAL = ["Frente", "Entrecejo", "Patas de gallo", "Ojeras", "P\xF3mulos", "Surcos nasogenianos", "Labios", "C\xF3digo de barras", "Ment\xF3n", "L\xEDnea mandibular", "Cuello"];
 const FICHA_ZONAS_CORPORAL = ["Abdomen", "Flancos", "Espalda", "Brazos", "Muslos", "Gl\xFAteos", "Papada", "Rodillas", "Pantorrillas", "Dorso de manos"];
@@ -3795,4 +3862,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   }
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cierre del d\xEDa", onClose, footer: done ? /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: confirmarCierre }, "Confirmar cierre del d\xEDa") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" } }, fecha), [["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Egresos", egresos, "#C0285A", "\u2212 "]].map(([l, v, c, s]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: c } }, s, D.fmt(v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, fontFamily: T.sans, fontSize: 15, fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, "Neto (ganancia)"), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, D.fmt(neto))));
 }
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, FichaEditorView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });

@@ -2506,6 +2506,106 @@ function sumUnits(txt) {
   while ((m = re.exec(body))) sum += parseInt(m[1], 10);
   return sum;
 }
+/* ─────────── EDITOR DE FICHAS · constructor de plantillas (Área 5) ─────────── */
+const FE_TIPOS = [["texto", "Texto corto"], ["area", "Texto largo"], ["numero", "Número"], ["selector", "Selector"], ["fecha", "Fecha"], ["email", "Email"], ["imagen", "Imagen"], ["pdf", "PDF"]];
+function loadFichaTpls() { try { const v = window.DB && window.DB.get("ficha_templates"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveFichaTplsDB(v) { try { if (window.DB) window.DB.set("ficha_templates", v); } catch (e) {} }
+function FichaEditorView({ T }) {
+  const [tpls, setTpls] = useState(loadFichaTpls);
+  const [selId, setSelId] = useState(tpls[0] ? tpls[0].id : null);
+  function persist(n) { setTpls(n); saveFichaTplsDB(n); }
+  function addTpl() { const t = { id: "ft" + Date.now(), name: "Nueva plantilla", fields: [] }; const n = [...tpls, t]; persist(n); setSelId(t.id); }
+  async function delTpl(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta plantilla de ficha?", { danger: true }))) return; const n = tpls.filter(t => t.id !== id); persist(n); if (selId === id) setSelId(n[0] ? n[0].id : null); }
+  const sel = tpls.find(t => t.id === selId) || null;
+  function updSel(patch) { persist(tpls.map(t => t.id === selId ? { ...t, ...patch } : t)); }
+  function addField(type) { updSel({ fields: [...(sel.fields || []), { id: "f" + Date.now(), type, label: "", required: false, options: "", placeholder: "" }] }); }
+  function updField(fid, patch) { updSel({ fields: sel.fields.map(f => f.id === fid ? { ...f, ...patch } : f) }); }
+  function delField(fid) { updSel({ fields: sel.fields.filter(f => f.id !== fid) }); }
+  function moveField(i, dir) { const a = sel.fields.slice(); const j = i + dir; if (j < 0 || j >= a.length) return; const t = a[i]; a[i] = a[j]; a[j] = t; updSel({ fields: a }); }
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 };
+  const inp = { width: "100%", padding: "9px 11px", borderRadius: 4, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" };
+  const previewInput = f => {
+    const opts = (f.options || "").split(",").map(s => s.trim()).filter(Boolean);
+    if (f.type === "area") return <textarea disabled rows={2} placeholder={f.placeholder} style={{ ...inp, resize: "vertical" }} />;
+    if (f.type === "selector") return <select disabled style={inp}><option>{opts[0] || "Opción…"}</option></select>;
+    if (f.type === "imagen" || f.type === "pdf") return <div style={{ ...inp, color: T.textFaint }}>{f.type === "imagen" ? "📷 Subir imagen" : "📄 Subir PDF"}</div>;
+    return <input disabled type={f.type === "numero" ? "number" : f.type === "fecha" ? "date" : f.type === "email" ? "email" : "text"} placeholder={f.placeholder} style={inp} />;
+  };
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Editor de Fichas" sub="Construye plantillas de ficha con tus propios campos" />
+        <AdBtn T={T} primary onClick={addTpl}>+ Nueva plantilla</AdBtn>
+      </div>
+      {tpls.length === 0 ? (
+        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center", marginTop: 12 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 16px" }}>Crea tu primera plantilla de ficha y agrégale campos (texto, número, selector, imagen, PDF…). La verás en una vista previa lista para usar.</div>
+          <AdBtn T={T} primary onClick={addTpl}>+ Crear primera plantilla</AdBtn>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", gap: 16, alignItems: "start", marginTop: 4 }}>
+          {/* Lista de plantillas */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {tpls.map(t => (
+              <button key={t.id} onClick={() => setSelId(t.id)} style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (selId === t.id ? T.accent : T.line), background: selId === t.id ? T.surface2 || T.surface : T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5 }}>
+                {t.name || "Sin nombre"}<div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2 }}>{(t.fields || []).length} campo{(t.fields || []).length === 1 ? "" : "s"}</div>
+              </button>
+            ))}
+          </div>
+          {/* Constructor + preview */}
+          {sel && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px,1fr))", gap: 16, alignItems: "start" }}>
+              <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "15px 16px" }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                  <input value={sel.name} onChange={e => updSel({ name: e.target.value })} placeholder="Nombre de la plantilla" style={{ ...inp, fontWeight: 600 }} />
+                  <button onClick={() => delTpl(sel.id)} title="Eliminar plantilla" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "0 10px", cursor: "pointer", color: T.textFaint, display: "flex", alignItems: "center" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg></button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {(sel.fields || []).map((f, i) => (
+                    <div key={f.id} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 9, padding: "11px 12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
+                        <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.line, borderRadius: 999, padding: "2px 8px" }}>{(FE_TIPOS.find(x => x[0] === f.type) || [, f.type])[1]}</span>
+                        <div style={{ flex: 1 }} />
+                        <button onClick={() => moveField(i, -1)} title="Subir" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, padding: 2 }}>▲</button>
+                        <button onClick={() => moveField(i, 1)} title="Bajar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, padding: 2 }}>▼</button>
+                        <button onClick={() => delField(f.id)} title="Eliminar campo" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                      </div>
+                      <input value={f.label} onChange={e => updField(f.id, { label: e.target.value })} placeholder="Etiqueta del campo" style={{ ...inp, marginBottom: 7 }} />
+                      {f.type === "selector" && <input value={f.options} onChange={e => updField(f.id, { options: e.target.value })} placeholder="Opciones separadas por coma" style={{ ...inp, marginBottom: 7 }} />}
+                      {(f.type === "texto" || f.type === "area" || f.type === "numero" || f.type === "email") && <input value={f.placeholder} onChange={e => updField(f.id, { placeholder: e.target.value })} placeholder="Texto de ejemplo (placeholder)" style={{ ...inp, marginBottom: 7 }} />}
+                      <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
+                        <input type="checkbox" checked={!!f.required} onChange={e => updField(f.id, { required: e.target.checked })} /> Campo obligatorio
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <span style={lbl}>Agregar campo</span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {FE_TIPOS.map(([k, l]) => <button key={k} onClick={() => addField(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "7px 11px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent }}>+ {l}</button>)}
+                  </div>
+                </div>
+              </div>
+              {/* Preview */}
+              <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "15px 16px" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 }}>Vista previa</div>
+                <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, marginBottom: 12 }}>{sel.name || "Plantilla de ficha"}</div>
+                {(sel.fields || []).length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Agrega campos para ver la vista previa.</div>
+                  : <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{(sel.fields || []).map(f => (
+                      <label key={f.id} style={{ display: "block" }}>
+                        <span style={lbl}>{f.label || "Campo sin nombre"}{f.required && <span style={{ color: "#C0285A" }}> *</span>}</span>
+                        {previewInput(f)}
+                      </label>
+                    ))}</div>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Tipos de ficha clínica (Área 5) + zonas e IMC.
 const FICHA_TIPOS = [["general", "Ficha general"], ["facial", "Facial"], ["corporal", "Corporal"], ["medgeneral", "Medicina general"]];
 const FICHA_ZONAS_FACIAL = ["Frente", "Entrecejo", "Patas de gallo", "Ojeras", "Pómulos", "Surcos nasogenianos", "Labios", "Código de barras", "Mentón", "Línea mandibular", "Cuello"];
@@ -4740,4 +4840,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, FichaEditorView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
