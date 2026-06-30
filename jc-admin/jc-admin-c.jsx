@@ -3766,6 +3766,23 @@ function CajaView({ T }) {
   const neto = ingresos - egresos - costoPub;
   const porMetodo = {};
   movs.filter(m => m.type === "ingreso").forEach(m => { const k = m.method || "Otro"; porMetodo[k] = (porMetodo[k] || 0) + (m.amount || 0); });
+  // ── Registro de Ventas ──
+  // Cada atención cobrada es una venta del período.
+  const ventasCount = atenciones.length;
+  // Tratamiento que más vende: agrupa atenciones por nombre de procedimiento (parte antes de " · ").
+  const porTrat = {};
+  atenciones.forEach(m => {
+    const nombre = (((m.concept || "Atención").split(" · ")[0]) || "Atención").trim();
+    if (!porTrat[nombre]) porTrat[nombre] = { n: 0, total: 0 };
+    porTrat[nombre].n += 1; porTrat[nombre].total += (m.amount || 0);
+  });
+  const topTrat = Object.keys(porTrat).map(k => ({ name: k, n: porTrat[k].n, total: porTrat[k].total })).sort((a, b) => b.total - a.total).slice(0, 5);
+  // Pendiente de cobro: saldo del billing de pacientes que aún no se paga (total por cobrar).
+  let pendienteCobro = 0;
+  try {
+    const _pts = (window.DB && window.DB.get("patients")) || [];
+    _pts.forEach(p => (p.billing || []).forEach(b => { if (!b.paid && (b.amount > 0)) pendienteCobro += (b.amount || 0); }));
+  } catch (e) {}
   const hora = ts => { try { return new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
   const fechaTxt = now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   const periodoLbl = periodo === "hoy" ? ("de hoy · " + fechaTxt) : periodo === "semana" ? "de esta semana" : "de este mes";
@@ -3777,13 +3794,20 @@ function CajaView({ T }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-        <SecHead T={T} title="Caja" sub={"Resumen de caja " + periodoLbl} />
+        <SecHead T={T} title="Registro de Ventas" sub={ventasCount + " venta" + (ventasCount === 1 ? "" : "s") + " " + periodoLbl} />
         <div style={{ display: "flex", gap: 8 }}>
           <AdBtn T={T} onClick={() => setCierre(true)}>Cierre del día</AdBtn>
           <AdBtn T={T} primary onClick={() => setMov(true)}>+ Movimiento</AdBtn>
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>{chip("hoy", "Hoy")}{chip("semana", "Esta semana")}{chip("mes", "Este mes")}</div>
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Ventas</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
+        <CajaCard T={T} l={"N° de ventas · " + subLbl} v={ventasCount} c={T.accent} />
+        <CajaCard T={T} l={"Total cobrado · " + subLbl} v={D.fmt(ingresos)} c="#1F8A5B" />
+        <CajaCard T={T} l="Pendiente de cobro" v={D.fmt(pendienteCobro)} c="#B8860B" />
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Caja</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 4 : 3) + ",1fr)", gap: 10, marginBottom: 18 }}>
         <CajaCard T={T} l="Ingresos (bruto)" v={D.fmt(ingresos)} c="#1F8A5B" />
         {adCost > 0 && <CajaCard T={T} l="Publicidad" v={D.fmt(costoPub)} c="#B8860B" />}
@@ -3838,6 +3862,25 @@ function CajaView({ T }) {
           </div>
         </div>
       </div>
+      {topTrat.length > 0 && (
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginTop: 16 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Tratamientos que más venden · {subLbl}</div>
+          {topTrat.map((t, i) => {
+            const max = topTrat[0].total || 1;
+            return (
+              <div key={t.name} style={{ padding: "9px 0", borderBottom: i === topTrat.length - 1 ? "none" : "1px solid " + T.lineSoft }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{t.name}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{t.n} venta{t.n === 1 ? "" : "s"} · <b style={{ color: "#1F8A5B" }}>{D.fmt(t.total)}</b></span>
+                </div>
+                <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: Math.max(6, Math.round(t.total / max * 100)) + "%", background: T.accent, borderRadius: 999 }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {delMov && <AdminKeyModal T={T} title="Eliminar movimiento de Caja"
         message={"Vas a quitar \"" + (delMov.concept || "este movimiento") + "\" de Caja. Esto NO borra la sesión del paciente, solo el registro en Caja. Ingresa el PIN de admin (se configura en Configuración → PIN de seguridad)."}
         onClose={() => setDelMov(null)}

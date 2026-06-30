@@ -60,7 +60,7 @@ const ADMIN_NAV = [
   { k: "pacientes", l: "Pacientes" },
   { k: "salaespera", l: "Sala de espera" },
   { k: "pendientes", l: "Pendientes" },
-  { k: "caja", l: "Caja" },
+  { k: "caja", l: "Registro de Ventas" },
   { k: "inventario", l: "Inventario" },
   { k: "servicios", l: "Servicios" },
   { k: "equipo", l: "Equipo" },

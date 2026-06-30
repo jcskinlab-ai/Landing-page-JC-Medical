@@ -60,7 +60,7 @@ function PatientSearch({ T, patients, onOpen }) {
 const ADMIN_NAV = [
   { k: "dashboard", l: "Dashboard" },
   { k: "appjcm", l: "App JC Medical" },
-  { k: "agenda", l: "Agenda" }, { k: "pacientes", l: "Pacientes" }, { k: "salaespera", l: "Sala de espera" }, { k: "pendientes", l: "Pendientes" }, { k: "caja", l: "Caja" },
+  { k: "agenda", l: "Agenda" }, { k: "pacientes", l: "Pacientes" }, { k: "salaespera", l: "Sala de espera" }, { k: "pendientes", l: "Pendientes" }, { k: "caja", l: "Registro de Ventas" },
   { k: "inventario", l: "Inventario" }, { k: "servicios", l: "Servicios" }, { k: "equipo", l: "Equipo" }, { k: "marketing", l: "Marketing" },
   { k: "agenteia", l: "Agente IA" }, { k: "automatizaciones", l: "Automatizaciones" },
   { k: "resumen", l: "Resumen" }, { k: "colaboracion", l: "Colaboraciones" }, { k: "fidelidad", l: "Fidelidad" },
