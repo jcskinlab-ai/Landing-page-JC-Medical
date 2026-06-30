@@ -1287,7 +1287,7 @@ function AdminApp() {
           </div>
         </div>
         <Copilot T={T} patients={patients} appts={appts} addAppt={addAppt} onDarCita={(pf) => setDarCita(pf)} />
-        {darCita && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />}
+        {darCita && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} addAppt={addAppt} />}
         {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} onChanged={() => setNotifVer(v => v + 1)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
         {showTour && <WelcomeTour T={T} go={(k) => nav(k)} onClose={closeTour} />}
       </div>
@@ -2438,7 +2438,7 @@ function Summ({ T, k, v }) {
   );
 }
 
-function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, prefill, appts, onOpenPatient }) {
+function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, prefill, appts, onOpenPatient, addAppt }) {
   const D = window.JCDATA;
   const A = window.JCADMIN;
   const [savedPatId, setSavedPatId] = useState(""); // ficha del paciente recién agendado (para "Ir a la ficha")
@@ -2458,6 +2458,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   let sucursalesList = []; try { sucursalesList = ((window.DB && window.DB.get("sucursales")) || []).map(s => s.name).filter(Boolean); } catch (e) {}
   const [sucursal, setSucursal] = useState(pf.sucursal || (sucursalesList[0] || ""));
   const [notas, setNotas] = useState(pf.notas || "");
+  const [repetir, setRepetir] = useState(0); // repeticiones semanales adicionales
   // selección
   const [pick, setPick] = useState(pf.time ? { dayOff: pf.day || 0, time: pf.time } : null); // {dayOff, time}
   // paciente
@@ -2502,6 +2503,13 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         } catch (e) {}
       }
       setSavedPatId(resolvedPatId || "");
+      // Repetir cita: copias semanales adicionales a la misma hora (solo si hay addAppt).
+      if (repetir > 0 && typeof addAppt === "function") {
+        for (var _i = 1; _i <= repetir; _i++) {
+          var _rf = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff + 7 * _i).toISOString().slice(0, 10);
+          addAppt({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff + 7 * _i, fecha: _rf, status: "pendiente", paid: false });
+        }
+      }
       onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
       // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente
       try {
@@ -2712,6 +2720,17 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           <span style={lbl}>Notas de la cita <span style={{ color: T.textMute, textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· opcional</span></span>
           <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={2} placeholder="Observaciones, indicaciones o excepciones de pago…" style={{ width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", marginBottom: 4 }} />
         </div>
+        {addAppt && <div style={{ marginTop: 14, paddingTop: 16, borderTop: "1px solid " + T.line }}>
+          <span style={lbl}>Repetir esta cita</span>
+          <select value={repetir} onChange={e => setRepetir(parseInt(e.target.value, 10) || 0)} style={selStyle}>
+            <option value={0}>No repetir</option>
+            <option value={1}>Semanal · 1 cita extra</option>
+            <option value={3}>Semanal · 3 citas extra (4 sesiones)</option>
+            <option value={5}>Semanal · 5 citas extra (6 sesiones)</option>
+            <option value={7}>Semanal · 7 citas extra (8 sesiones)</option>
+          </select>
+          {repetir > 0 && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 7, lineHeight: 1.5 }}>Se crearán {repetir} cita{repetir === 1 ? "" : "s"} más, una por semana a la misma hora.</div>}
+        </div>}
         <div style={{ marginTop: 14, paddingTop: 16, borderTop: "1px solid " + T.line }}>
           <span style={lbl}>Campaña / Origen <span style={{ color: T.textMute, textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· para estadística</span></span>
           <select value={origen} onChange={e => setOrigen(e.target.value)} style={selStyle}>

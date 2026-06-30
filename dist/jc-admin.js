@@ -1162,7 +1162,7 @@ function AdminApp() {
   }, onOpenPatient: (id) => {
     setOpenPatient(id);
     setSection("pacientes");
-  } }), notifOpen && /* @__PURE__ */ React.createElement(NotifPopup, { T, patients, appts, onClose: () => setNotifOpen(false), onChanged: () => setNotifVer((v) => v + 1), go: (k) => {
+  }, addAppt }), notifOpen && /* @__PURE__ */ React.createElement(NotifPopup, { T, patients, appts, onClose: () => setNotifOpen(false), onChanged: () => setNotifVer((v) => v + 1), go: (k) => {
     setNotifOpen(false);
     nav(k);
   }, openP: (id) => {
@@ -2023,7 +2023,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
 function Summ({ T, k, v }) {
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, textAlign: "right" } }, v));
 }
-function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, prefill, appts, onOpenPatient }) {
+function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, prefill, appts, onOpenPatient, addAppt }) {
   const D = window.JCDATA;
   const A = window.JCADMIN;
   const [savedPatId, setSavedPatId] = useState("");
@@ -2044,6 +2044,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   }
   const [sucursal, setSucursal] = useState(pf.sucursal || (sucursalesList[0] || ""));
   const [notas, setNotas] = useState(pf.notas || "");
+  const [repetir, setRepetir] = useState(0);
   const [pick, setPick] = useState(pf.time ? { dayOff: pf.day || 0, time: pf.time } : null);
   const [tipo, setTipo] = useState(pf.patName && !pf.patId ? "nuevo" : "existente");
   const [pid, setPid] = useState(pf.patId || "");
@@ -2089,6 +2090,12 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         }
       }
       setSavedPatId(resolvedPatId || "");
+      if (repetir > 0 && typeof addAppt === "function") {
+        for (var _i = 1; _i <= repetir; _i++) {
+          var _rf = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff + 7 * _i).toISOString().slice(0, 10);
+          addAppt({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff + 7 * _i, fecha: _rf, status: "pendiente", paid: false });
+        }
+      }
       onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
       try {
         const dt = /* @__PURE__ */ new Date(apptFecha + "T00:00:00");
@@ -2224,6 +2231,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         setPhone(pfx + digits);
       }, inputMode: "tel", placeholder: "+56 9 1234 5678" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Correo", value: email, onChange: setEmail, inputMode: "email", placeholder: "correo@ejemplo.com" })),
       /* @__PURE__ */ React.createElement("div", { style: { marginTop: 18, paddingTop: 16, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Notas de la cita ", /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute, textTransform: "none", letterSpacing: 0, fontWeight: 400 } }, "\xB7 opcional")), /* @__PURE__ */ React.createElement("textarea", { value: notas, onChange: (e) => setNotas(e.target.value), rows: 2, placeholder: "Observaciones, indicaciones o excepciones de pago\u2026", style: { width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", marginBottom: 4 } })),
+      addAppt && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, paddingTop: 16, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Repetir esta cita"), /* @__PURE__ */ React.createElement("select", { value: repetir, onChange: (e) => setRepetir(parseInt(e.target.value, 10) || 0), style: selStyle }, /* @__PURE__ */ React.createElement("option", { value: 0 }, "No repetir"), /* @__PURE__ */ React.createElement("option", { value: 1 }, "Semanal \xB7 1 cita extra"), /* @__PURE__ */ React.createElement("option", { value: 3 }, "Semanal \xB7 3 citas extra (4 sesiones)"), /* @__PURE__ */ React.createElement("option", { value: 5 }, "Semanal \xB7 5 citas extra (6 sesiones)"), /* @__PURE__ */ React.createElement("option", { value: 7 }, "Semanal \xB7 7 citas extra (8 sesiones)")), repetir > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 7, lineHeight: 1.5 } }, "Se crear\xE1n ", repetir, " cita", repetir === 1 ? "" : "s", " m\xE1s, una por semana a la misma hora.")),
       /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, paddingTop: 16, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Campa\xF1a / Origen ", /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute, textTransform: "none", letterSpacing: 0, fontWeight: 400 } }, "\xB7 para estad\xEDstica")), /* @__PURE__ */ React.createElement("select", { value: origen, onChange: (e) => setOrigen(e.target.value), style: selStyle }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Seleccionar origen\u2026"), /* @__PURE__ */ React.createElement("optgroup", { label: "Org\xE1nico / directo" }, ORIGEN_ORG.map((o) => /* @__PURE__ */ React.createElement("option", { key: o, value: o }, o))), /* @__PURE__ */ React.createElement("optgroup", { label: "Publicidad \xB7 Meta Ads" + (metaConn ? " (campa\xF1as activas)" : "") }, metaCamps.length ? metaCamps.map((c) => /* @__PURE__ */ React.createElement("option", { key: c.id, value: "Meta \xB7 " + c.name }, c.name, c.net ? " \xB7 " + c.net : "")) : /* @__PURE__ */ React.createElement("option", { value: "Meta \xB7 campa\xF1a activa" }, "Conecta Meta para ver tus campa\xF1as"), /* @__PURE__ */ React.createElement("option", { value: "Meta \xB7 otra campa\xF1a" }, "Otra campa\xF1a de Meta\u2026"))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 7, lineHeight: 1.5 } }, metaConn ? "Las campa\xF1as pagadas se sincronizan desde Meta Ads. Se guarda en la cita para medir de d\xF3nde llega cada paciente." : "Conecta Meta Ads en Integraciones para listar tus campa\xF1as activas autom\xE1ticamente."))
     );
   }
