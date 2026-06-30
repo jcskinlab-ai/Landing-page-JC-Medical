@@ -28,7 +28,8 @@ function nIcon(name, c) {
     automatizaciones: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 3a4 4 0 0 0-4 4v1H6a3 3 0 0 0 0 6h.5M12 3a4 4 0 0 1 4 4v1h2a3 3 0 0 1 0 6h-.5M9 21l3-3 3 3M12 11v7" })),
     agenteia: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "4", y: "8", width: "16", height: "11", rx: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M12 8V5M9 13h.01M15 13h.01M2 13h2M20 13h2" })),
     sucursales: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 11h.01M15 11h.01" })),
-    crm: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M3 4h18M6 4v6l4 4v6l4-2v-4l4-4V4" }))
+    crm: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M3 4h18M6 4v6l4 4v6l4-2v-4l4-4V4" })),
+    tutoriales: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "9" }), /* @__PURE__ */ React.createElement("path", { d: "M10 8.5l5 3.5-5 3.5z" }))
   }[name];
   return /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: c, strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, p);
 }
@@ -77,6 +78,7 @@ const ADMIN_NAV = [
   { k: "integraciones", l: "Integraciones" },
   { k: "reportes", l: "Reportes" },
   { k: "administracion", l: "Administraci\xF3n" },
+  { k: "tutoriales", l: "Tutoriales" },
   { k: "config", l: "Configuraci\xF3n" }
 ];
 function adminNavItems() {
@@ -190,7 +192,7 @@ function importAllWeb() {
   }
   return p;
 }
-const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, agenteia: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, config: 1, appjcm: 1 };
+const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, agenteia: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, tutoriales: 1, config: 1, appjcm: 1 };
 function panelParseRoute() {
   try {
     var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1042,6 +1044,7 @@ function AdminApp() {
   else if (section === "equipo") body = /* @__PURE__ */ React.createElement(EquipoView, { T });
   else if (section === "sucursales") body = /* @__PURE__ */ React.createElement(SucursalesView, { T });
   else if (section === "crm") body = /* @__PURE__ */ React.createElement(CrmView, { T });
+  else if (section === "tutoriales") body = /* @__PURE__ */ React.createElement(TutorialesView, { T, go: nav });
   else if (section === "fidelidad") body = /* @__PURE__ */ React.createElement(FidelidadView, { T });
   else if (section === "marketing") body = /* @__PURE__ */ React.createElement(MarketingView, { T, go: nav });
   else if (section === "administracion") body = /* @__PURE__ */ React.createElement(AdministracionView, { T, go: nav, patients, appts, addPatient, updatePatient, markAllPaperConsent });

@@ -670,6 +670,81 @@ function SucursalModal({ T, suc, onClose, onSave }) {
   );
 }
 
+/* ─────────── CENTRO DE TUTORIALES (Área 7) ─────────── */
+const TUTO_PASOS = [
+  ["config", "Configura tu clínica", "Nombre, dirección, horario y datos de contacto.", "config"],
+  ["servicios", "Crea tus tratamientos", "Carga tus procedimientos con precio, duración y sesiones.", "servicios"],
+  ["equipo", "Agrega tu equipo", "Registra profesionales con especialidades y permisos.", "equipo"],
+  ["sucursales", "Define tus sucursales", "Dirección, contacto y horario de atención por sucursal.", "sucursales"],
+  ["agenda", "Agenda tu primera cita", "Da una cita desde la agenda o el botón Nueva cita.", "agenda"],
+  ["crm", "Organiza tus leads", "Lleva tus prospectos por el embudo de ventas.", "crm"],
+  ["integraciones", "Conecta WhatsApp y Meta", "Activa la mensajería y la publicidad de tu clínica.", "integraciones"]
+];
+const TUTO_NOVEDADES = [
+  ["Registro de Ventas", "Caja se transformó en Registro de Ventas: N° de ventas, total cobrado, pendiente de cobro y ranking de tratamientos más vendidos."],
+  ["Fichas por tipo", "Nueva ficha por tipo: General, Facial, Corporal y Medicina General con signos vitales e IMC automático."],
+  ["Sucursales", "Módulo nuevo de sucursales con dirección, contacto y horario semanal de atención."],
+  ["CRM · Embudo", "Gestiona tus leads por etapas (de nuevo lead hasta venta), listo para Meta."],
+  ["Profesionales y especialidades", "Ficha de profesional en secciones: especialidades, tratamientos y sucursales asignadas."]
+];
+function TutorialesView({ T, go }) {
+  const [done, setDone] = useState(() => { try { return (window.DB && window.DB.get("tutorial_done")) || {}; } catch (e) { return {}; } });
+  function toggle(k) { const n = { ...done, [k]: !done[k] }; setDone(n); try { window.DB && window.DB.set("tutorial_done", n); } catch (e) {} }
+  const completados = TUTO_PASOS.filter(([k]) => done[k]).length;
+  const pct = Math.round(completados / TUTO_PASOS.length * 100);
+  return (
+    <div>
+      <SecHead T={T} title="Centro de Tutoriales" sub="Pon en marcha tu clínica paso a paso y descubre lo nuevo de Medique" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
+        {/* Wizard de puesta en marcha */}
+        <div>
+          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>Puesta en marcha</span>
+              <span style={{ fontFamily: T.serif, fontSize: 18, color: T.accent }}>{completados}/{TUTO_PASOS.length}</span>
+            </div>
+            <div style={{ height: 7, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: pct + "%", background: T.accent, borderRadius: 999, transition: "width .3s" }} />
+            </div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 8 }}>{pct === 100 ? "🎉 ¡Tu clínica está lista!" : "Completa los pasos para sacarle todo el provecho a Medique."}</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {TUTO_PASOS.map(([k, title, desc, sec], i) => { const ok = !!done[k]; return (
+              <div key={k} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 14px", borderRadius: 10, background: T.surface, border: "1px solid " + (ok ? T.accent + "55" : T.line) }}>
+                <button onClick={() => toggle(k)} title={ok ? "Marcar como pendiente" : "Marcar como completado"} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: "1.5px solid " + (ok ? T.accent : T.line), background: ok ? T.accent : "transparent", color: ok ? (T.onAccent || "#fff") : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}><span style={{ color: T.textFaint }}>{i + 1}.</span> {title}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+                </div>
+                <button onClick={() => go && go(sec)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>Ir →</button>
+              </div>
+            ); })}
+          </div>
+        </div>
+        {/* Novedades / changelog */}
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1F8A5B" }} />
+            <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>Novedades de Medique</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {TUTO_NOVEDADES.map(([title, desc], i) => (
+              <div key={title} style={{ position: "relative", paddingLeft: 18, paddingBottom: i === TUTO_NOVEDADES.length - 1 ? 0 : 16 }}>
+                <span style={{ position: "absolute", left: 0, top: 4, width: 8, height: 8, borderRadius: "50%", background: T.accent }} />
+                {i < TUTO_NOVEDADES.length - 1 && <span style={{ position: "absolute", left: 3.5, top: 12, bottom: 0, width: 1, background: T.line }} />}
+                <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{title}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────── CRM · EMBUDO DE LEADS (Área 11) ─────────── */
 const CRM_STAGES = [["nuevo", "Nuevo lead", "#6A8296"], ["proceso", "En proceso", "#B8860B"], ["interesado", "Interesado", "#4E8A72"], ["agendado", "Agendado", "#54707F"], ["nocalifica", "No califica", "#9A8C7A"], ["compro", "Compró", "#1F8A5B"]];
 const CRM_ORIGENES = ["Instagram", "Facebook", "TikTok", "WhatsApp", "Meta Ads", "Google", "Referido", "Walk-in"];
@@ -4341,4 +4416,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
