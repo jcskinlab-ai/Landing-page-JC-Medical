@@ -98,6 +98,44 @@ const NAV_TOP_GROUPS = [
   { l: "An\xE1lisis", keys: ["resumen", "colaboracion", "fidelidad", "integraciones", "reportes"] },
   { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
 ];
+const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "caja"];
+function jcmCancelNotice(a) {
+  try {
+    if (!a || !window.mediqueEmail) return;
+    var todayISO = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (a.fecha && a.fecha < todayISO) return;
+    var email = a.email;
+    if (!email) {
+      try {
+        var pts = window.DB && window.DB.get("patients") || [];
+        var p = pts.find(function(x) {
+          return x.id === a.patId;
+        });
+        email = p && p.email;
+      } catch (e) {
+      }
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    var clinic = function() {
+      try {
+        return window.clinicName && window.clinicName() || window.DB && window.DB.cfg && window.DB.cfg().clinic_name || "tu cl\xEDnica";
+      } catch (e) {
+        return "tu cl\xEDnica";
+      }
+    }();
+    var nombre = ((a.name || "") + "").split(" ")[0] || "";
+    var cuando = (a.fecha || "") + (a.time ? " a las " + a.time : "");
+    var text = "Hola " + nombre + ",\n\nTe informamos que tu cita en " + clinic + (cuando ? " (" + cuando + ")" : "") + " fue cancelada. Si deseas reagendar, responde este correo y coordinamos una nueva hora.\n\n\u2014 " + clinic;
+    window.mediqueEmail({ to: ("" + email).trim(), subject: "Tu cita en " + clinic + " fue cancelada", text }).then(function(r) {
+      try {
+        if (r && r.ok) window.jcmToast && window.jcmToast("Se avis\xF3 al paciente por correo de la cancelaci\xF3n.", "ok");
+      } catch (e) {
+      }
+    }, function() {
+    });
+  } catch (e) {
+  }
+}
 var LOS_MEDIQUE_EMAIL = "makikarenina06@gmail.com";
 function isLosMedique() {
   try {
@@ -1181,8 +1219,12 @@ function AdminApp() {
     items.forEach((n) => {
       byKey[n.k] = n.l;
     });
-    return NAV_TOP_GROUPS.map((g) => {
-      const keys = g.keys.filter((k) => byKey[k]);
+    const pins = NAV_PINNED.filter((k) => byKey[k]).map((k) => {
+      const active = section === k;
+      return /* @__PURE__ */ React.createElement("button", { key: "pin-" + k, onClick: () => nav(k), style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? T.onAccent || "#fff" : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease } }, k === "pendientes" && pendCount > 0 && /* @__PURE__ */ React.createElement("span", { style: { width: 5, height: 5, borderRadius: "50%", background: active ? T.onAccent || "#fff" : "#C0285A" } }), byKey[k]);
+    });
+    const grps = NAV_TOP_GROUPS.map((g) => {
+      const keys = g.keys.filter((k) => byKey[k] && NAV_PINNED.indexOf(k) < 0);
       if (!keys.length) return null;
       const activeInGroup = keys.indexOf(section) >= 0;
       return /* @__PURE__ */ React.createElement(
@@ -1199,6 +1241,7 @@ function AdminApp() {
         /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))
       );
     });
+    return pins.concat(/* @__PURE__ */ React.createElement("span", { key: "nav-div", style: { flexShrink: 0, width: 1, alignSelf: "stretch", background: T.line, margin: "2px 4px" } })).concat(grps);
   })()), topGrp && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setTopGrp(null), style: { position: "fixed", inset: 0, zIndex: 50 } }), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { position: "fixed", left: topGrp.x, top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto" } }, topGrp.keys.map((k) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => {
     nav(k);
     setTopGrp(null);
@@ -2010,7 +2053,10 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         ["Confirmar", () => updateAppt(a.id, { status: "confirmada", attended: false }), "#16A34A", false],
         ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), "#C9A227", false],
         ["No asisti\xF3", () => updateAppt(a.id, { status: "no_asistio", attended: false }), "#C0285A", false],
-        ["Cancelar", () => updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }), "#C0285A", true],
+        ["Cancelar", () => {
+          updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() });
+          jcmCancelNotice(a);
+        }, "#C0285A", true],
         ["Ficha", () => {
           if (onVerFicha) onVerFicha(a);
         }, T.textMute, false],
@@ -2062,6 +2108,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     ["__sep", null],
     ["Anular cita", () => {
       updateAppt(activeAppt.id, { status: "anulada", attended: false, anuladaAt: Date.now() });
+      jcmCancelNotice(activeAppt);
       setMenu(null);
     }, "#C0285A"]
   ].map((it, i) => it[0] === "__sep" ? /* @__PURE__ */ React.createElement("div", { key: i, style: { height: 1, background: T.lineSoft, margin: "4px 0" } }) : /* @__PURE__ */ React.createElement("button", { key: i, onClick: it[1], style: { display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[2] || T.text } }, it[0])))), editCom && /* @__PURE__ */ React.createElement(ComentarioPopup, { T, appt: editCom, updateAppt, onClose: () => setEditCom(null) }));

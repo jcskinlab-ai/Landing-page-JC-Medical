@@ -84,6 +84,27 @@ const NAV_TOP_GROUPS = [
   { l: "Análisis", keys: ["resumen", "colaboracion", "fidelidad", "integraciones", "reportes"] },
   { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
 ];
+// Pestañas FIJAS de acceso rápido en la barra superior (siempre visibles, no dentro de un grupo).
+const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "caja"];
+
+// Al anular una cita: avisar al paciente por correo que quedó cancelada (si tiene email y la cita es
+// de hoy o futura). Así el recordatorio previo queda "anulado" para el paciente. Best-effort, no bloquea.
+function jcmCancelNotice(a) {
+  try {
+    if (!a || !window.mediqueEmail) return;
+    var todayISO = new Date().toISOString().slice(0, 10);
+    if (a.fecha && a.fecha < todayISO) return; // no avisar de citas pasadas
+    var email = a.email;
+    if (!email) { try { var pts = (window.DB && window.DB.get("patients")) || []; var p = pts.find(function (x) { return x.id === a.patId; }); email = p && p.email; } catch (e) {} }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    var clinic = (function () { try { return (window.clinicName && window.clinicName()) || (window.DB && window.DB.cfg && window.DB.cfg().clinic_name) || "tu clínica"; } catch (e) { return "tu clínica"; } })();
+    var nombre = (((a.name || "") + "").split(" ")[0]) || "";
+    var cuando = (a.fecha || "") + (a.time ? " a las " + a.time : "");
+    var text = "Hola " + nombre + ",\n\nTe informamos que tu cita en " + clinic + (cuando ? " (" + cuando + ")" : "") + " fue cancelada. Si deseas reagendar, responde este correo y coordinamos una nueva hora.\n\n— " + clinic;
+    window.mediqueEmail({ to: ("" + email).trim(), subject: "Tu cita en " + clinic + " fue cancelada", text: text })
+      .then(function (r) { try { if (r && r.ok) window.jcmToast && window.jcmToast("Se avisó al paciente por correo de la cancelación.", "ok"); } catch (e) {} }, function () {});
+  } catch (e) {}
+}
 
 // La pestaña "App JC Medical" es exclusiva: solo se muestra en modo local (sin SaaS)
 // o en clínicas con el flag jcApp activado (lo activa el super-admin). Las demás no la ven.
@@ -1298,8 +1319,19 @@ function AdminApp() {
           <div className="jc-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "7px 16px", borderBottom: "1px solid " + T.line, background: T.navBg, position: "relative", zIndex: 5, flexShrink: 0 }}>
             {(() => {
               const items = adminNavItems(); const byKey = {}; items.forEach(n => { byKey[n.k] = n.l; });
-              return NAV_TOP_GROUPS.map(g => {
-                const keys = g.keys.filter(k => byKey[k]); if (!keys.length) return null;
+              // Pestañas fijas (acceso rápido) primero.
+              const pins = NAV_PINNED.filter(k => byKey[k]).map(k => {
+                const active = section === k;
+                return (
+                  <button key={"pin-" + k} onClick={() => nav(k)} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease }}>
+                    {k === "pendientes" && pendCount > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? (T.onAccent || "#fff") : "#C0285A" }} />}
+                    {byKey[k]}
+                  </button>
+                );
+              });
+              // Grupos desplegables con el resto (sin las fijas).
+              const grps = NAV_TOP_GROUPS.map(g => {
+                const keys = g.keys.filter(k => byKey[k] && NAV_PINNED.indexOf(k) < 0); if (!keys.length) return null;
                 const activeInGroup = keys.indexOf(section) >= 0;
                 return (
                   <button key={g.l} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, y: r.bottom + 5, keys: keys, byKey: byKey }); }}
@@ -1309,6 +1341,7 @@ function AdminApp() {
                   </button>
                 );
               });
+              return pins.concat(<span key="nav-div" style={{ flexShrink: 0, width: 1, alignSelf: "stretch", background: T.line, margin: "2px 4px" }} />).concat(grps);
             })()}
           </div>
           {topGrp && (<>
@@ -2416,7 +2449,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                 ["Confirmar",  () => updateAppt(a.id, { status: "confirmada", attended: false }),                       "#16A34A",  false],
                 ["Atendido",   () => updateAppt(a.id, { status: "atendida",   attended: true }),                        "#C9A227",  false],
                 ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }),                       "#C0285A",  false],
-                ["Cancelar",   () => updateAppt(a.id, { status: "anulada",    attended: false, anuladaAt: Date.now() }), "#C0285A",  true],
+                ["Cancelar",   () => { updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(a); }, "#C0285A",  true],
                 ["Ficha",      () => { if (onVerFicha) onVerFicha(a); },                                                T.textMute, false],
                 ["Comentario", () => { setEditCom(a); },                                                                T.textMute, false]
               ].map(([lbl, fn, col, filled]) => (
@@ -2458,7 +2491,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               ["Marcar como atendido", () => { updateAppt(activeAppt.id, { status: "atendida", attended: true }); setMenu(null); }],
               ["No asistió", () => { updateAppt(activeAppt.id, { status: "no_asistio", attended: false }); setMenu(null); }, "#C0285A"],
               ["__sep", null],
-              ["Anular cita", () => { updateAppt(activeAppt.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); setMenu(null); }, "#C0285A"]
+              ["Anular cita", () => { updateAppt(activeAppt.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(activeAppt); setMenu(null); }, "#C0285A"]
             ].map((it, i) => it[0] === "__sep"
               ? <div key={i} style={{ height: 1, background: T.lineSoft, margin: "4px 0" }} />
               : <button key={i} onClick={it[1]} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[2] || T.text }}>{it[0]}</button>)}
