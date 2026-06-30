@@ -678,8 +678,15 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     </div>
   );
 
+  const _h = new Date().getHours();
+  const _greet = _h < 13 ? "Buenos días" : _h < 20 ? "Buenas tardes" : "Buenas noches";
   return (
     <div>
+      {/* Saludo personalizado */}
+      <div style={{ marginBottom: 18 }}>
+        <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, lineHeight: 1.1 }}>{_greet}{clinicDisplayName() ? ", " + clinicDisplayName().split(" ")[0] : ""}.</h1>
+        <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 5 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
+      </div>
       {/* pestañas tipo Medique */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 22 }}>
         <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: 4 }}>
