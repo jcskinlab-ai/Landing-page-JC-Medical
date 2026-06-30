@@ -160,7 +160,10 @@ function aureoCompute(lm, W, H, opts) {
   // Puntos del plano sagital medio (línea media de la nariz/rostro)
   const glabella = P(9), nasion = P(168), subnasale = P(2);
   // stomion = línea media de los labios (promedio de labio superior 13 y labio inferior 14) → más preciso.
-  const stomion = { x: (P(13).x + P(14).x) / 2, y: (P(13).y + P(14).y) / 2 }, menton = P(152);
+  const stomion = { x: (P(13).x + P(14).x) / 2, y: (P(13).y + P(14).y) / 2 };
+  const mentonDet = P(152);
+  // opts.mentonY permite ajuste manual del mentón (igual que trichY para el cabello).
+  const menton = { x: mentonDet.x, y: (opts && opts.mentonY != null) ? opts.mentonY : mentonDet.y };
   // Trichion (nacimiento del cabello): MediaPipe no lo detecta — usa el punto superior
   // de la frente (10) por defecto y admite ajuste manual fino (opts.trichY en px).
   const trichDet = P(10);
@@ -663,20 +666,21 @@ function AureoTool({ T, patient, updatePatient }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [res, setRes] = useState(saved || null);
-  const [trichAdj, setTrichAdj] = useState(0);     // ajuste fino de la línea del cabello (% del alto facial)
+  const [trichAdj, setTrichAdj] = useState(0);
+  const [mentonAdj, setMentonAdj] = useState(0);
   const [canAdjust, setCanAdjust] = useState(false); // hay landmarks en memoria para recalcular
   const [warn, setWarn] = useState(null);            // avisos de calidad de foto (ángulo / luz)
   const fileRef = useRef(null);
   const lmRef = useRef(null);                       // landmarks de la última detección
 
-  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { faceSetPhoto(patient && patient.id, "aureo", u); setPhoto(u); setRes(null); setErr(""); setWarn(null); setTrichAdj(0); setCanAdjust(false); lmRef.current = null; }); e.target.value = ""; }
+  function onUpload(e) { const f = e.target.files[0]; if (f) fileToDataURL(f, 1100, u => { faceSetPhoto(patient && patient.id, "aureo", u); setPhoto(u); setRes(null); setErr(""); setWarn(null); setTrichAdj(0); setMentonAdj(0); setCanAdjust(false); lmRef.current = null; }); e.target.value = ""; }
   async function analyze() {
     if (!photo || busy) return; setBusy(true); setErr("");
     try {
       const { lm, W, H } = await detectFaceMesh(photo);
       lmRef.current = { lm, W, H };
       const r = aureoCompute(lm, W, H); r.ts = Date.now();
-      setTrichAdj(0); setCanAdjust(true); setRes(r);
+      setTrichAdj(0); setMentonAdj(0); setCanAdjust(true); setRes(r);
       // Calidad de foto: avisa si no es frontal o la luz es deficiente (análisis menos fiable).
       const q = await photoQuality(photo);
       const reasons = [];
@@ -688,14 +692,16 @@ function AureoTool({ T, patient, updatePatient }) {
     } catch (e) { setErr(e.message || "No se pudo analizar."); }
     setBusy(false);
   }
-  // Ajuste fino de la línea del cabello → recalcula tercios y overlay con los mismos landmarks.
-  function applyTrich(adj) {
-    setTrichAdj(adj);
+  // Ajuste fino de cabello y mentón → recalcula tercios y overlay con los mismos landmarks.
+  function applyAdjustments(ta, ma) {
+    setTrichAdj(ta); setMentonAdj(ma);
     if (!lmRef.current) return;
     const { lm, W, H } = lmRef.current;
-    const detTrichY = lm[10].y * H, mentonY = lm[152].y * H;
-    const trichY = detTrichY - (adj / 100) * (mentonY - detTrichY);
-    const r = aureoCompute(lm, W, H, { trichY }); r.ts = Date.now();
+    const detTrichY = lm[10].y * H, detMentonY = lm[152].y * H;
+    const faceH = detMentonY - detTrichY;
+    const trichY = detTrichY - (ta / 100) * faceH;
+    const mentonY = detMentonY + (ma / 100) * faceH;
+    const r = aureoCompute(lm, W, H, { trichY, mentonY }); r.ts = Date.now();
     setRes(r);
     if (updatePatient && patient) updatePatient(patient.id, { aureo: { metrics: r.metrics, harmony: r.harmony, recs: r.recs, ts: r.ts, W: r.W, H: r.H, overlay: r.overlay } });
   }
@@ -716,7 +722,7 @@ function AureoTool({ T, patient, updatePatient }) {
           {res && canAdjust && (
             <div style={{ marginBottom: 10 }}>
               <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 4 }}>Línea del cabello · ajuste del tercio superior</span>
-              <input type="range" min="0" max="45" step="1" value={trichAdj} onChange={e => applyTrich(+e.target.value)} style={{ width: "100%" }} />
+              <input type="range" min="0" max="45" step="1" value={trichAdj} onChange={e => applyAdjustments(+e.target.value, mentonAdj)} style={{ width: "100%" }} />
               <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2, lineHeight: 1.45 }}>La IA no detecta el nacimiento del pelo. Súbelo hasta la línea de implantación para medir el tercio superior con exactitud.</div>
             </div>
           )}
@@ -748,6 +754,14 @@ function AureoTool({ T, patient, updatePatient }) {
             })()}
             {busy && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(8,11,15,.55)", fontFamily: T.sans, fontSize: 11.5, color: "#cfeee0" }}>Analizando rostro con IA…</div>}
           </div>
+          {/* Mentón — DEBAJO de la foto, donde está el punto inferior */}
+          {res && canAdjust && (
+            <div style={{ marginTop: 10 }}>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 4 }}>Mentón · ajuste del tercio inferior</span>
+              <input type="range" min="0" max="30" step="1" value={mentonAdj} onChange={e => applyAdjustments(trichAdj, +e.target.value)} style={{ width: "100%" }} />
+              <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2, lineHeight: 1.45 }}>MediaPipe puede no detectar con precisión el punto más bajo del mentón. Bájalo si el tercio inferior parece acortado.</div>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button onClick={() => fileRef.current.click()} style={ghostBtn(T)}>{photo ? "Cambiar foto" : "Subir foto"}</button>
             <button onClick={analyze} disabled={!photo || busy} style={{ ...primBtn(T), opacity: (!photo || busy) ? 0.5 : 1, cursor: (!photo || busy) ? "default" : "pointer" }}>{busy ? "Analizando…" : (res ? "Re-analizar" : "Analizar con IA")}</button>
@@ -998,6 +1012,14 @@ function MarquardtTool({ T, patient, updatePatient }) {
               ? <img src={photo} alt="Rostro frontal" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }} />
               : <div style={{ textAlign: "center", color: T.textFaint, fontFamily: T.sans, fontSize: 12, padding: 20 }}>Sin foto frontal</div>}
             <MarquardtMask color={photo ? "#7FE3C2" : T.accent} scale={scale} dy={dy} opacity={op} fit={photo ? fit : null} />
+            {comment && !busy && (
+              <div style={{ position: "absolute", bottom: 12, right: 12, background: "rgba(8,11,15,.72)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,.13)", borderRadius: 12, padding: "9px 15px", textAlign: "center", pointerEvents: "none" }}>
+                <div style={{ fontFamily: T.serif || T.sans, fontSize: 27, fontWeight: 600, lineHeight: 1, color: comment.harmony >= 85 ? "#1F8A5B" : comment.harmony >= 70 ? (T.gold || "#C9A227") : "#C0285A" }}>
+                  {comment.harmony}<span style={{ fontSize: 14, fontWeight: 400, opacity: .65 }}>%</span>
+                </div>
+                <div style={{ fontFamily: T.sans, fontSize: 8.5, color: "rgba(255,255,255,.5)", letterSpacing: ".1em", textTransform: "uppercase", marginTop: 3 }}>Máscara Φ</div>
+              </div>
+            )}
             {busy && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(8,11,15,.55)", fontFamily: T.sans, fontSize: 11.5, color: "#cfeee0" }}>Detectando rostro con IA…</div>}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
