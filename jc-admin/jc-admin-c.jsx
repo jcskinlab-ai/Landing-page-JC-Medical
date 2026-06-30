@@ -253,6 +253,33 @@ function ServiciosView({ T }) {
   // Profesionales asignados a un tratamiento (desde el campo tratamientos[] del equipo).
   let _team = []; try { _team = (window.DB && window.DB.get("team")) || []; } catch (e) {}
   const profsForSvc = nm => _team.filter(m => (m.tratamientos || []).indexOf(nm) >= 0).length;
+  // Importar servicios desde Excel/CSV (columnas: Nombre, Precio, Duración, Sesiones, Categoría).
+  const svcFileRef = useRef(null);
+  function importSvcRows(rows) {
+    if (!rows || rows.length < 2) { try { window.jcmError && window.jcmError("El archivo no tiene filas de datos."); } catch (e) {} return; }
+    const head = (rows[0] || []).map(h => ("" + h).toLowerCase().trim());
+    const col = (...names) => { for (const n of names) { const i = head.findIndex(h => h.indexOf(n) >= 0); if (i >= 0) return i; } return -1; };
+    const ci = { name: col("nombre", "name", "servicio", "tratamiento"), price: col("precio", "price", "valor"), dur: col("duraci", "dur"), ses: col("sesion", "sesión", "sesiones"), cat: col("categor", "cat") };
+    if (ci.name < 0) { try { window.jcmError && window.jcmError("Falta la columna 'Nombre' en el encabezado."); } catch (e) {} return; }
+    const nuevos = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i] || []; const nm = ("" + (r[ci.name] || "")).trim(); if (!nm) continue;
+      nuevos.push({ id: "svc" + Date.now() + i, name: nm, cat: ci.cat >= 0 ? (("" + (r[ci.cat] || "Otro")).trim() || "Otro") : "Otro", price: parseInt(("" + (r[ci.price] || "")).replace(/\D/g, ""), 10) || 0, dur: parseInt(("" + (r[ci.dur] || "")).replace(/\D/g, ""), 10) || 30, ses: parseInt(("" + (r[ci.ses] || "")).replace(/\D/g, ""), 10) || 1, pts: 0, desc: "" });
+    }
+    if (!nuevos.length) { try { window.jcmError && window.jcmError("No se encontraron servicios válidos."); } catch (e) {} return; }
+    const n = [...nuevos, ...custom]; setCustom(n); saveCustomServices(n);
+    try { window.jcmToast && window.jcmToast(nuevos.length + " servicio" + (nuevos.length === 1 ? "" : "s") + " importado" + (nuevos.length === 1 ? "" : "s") + ".", "ok"); } catch (e) {}
+  }
+  function onSvcFile(e) {
+    const file = e.target.files[0]; if (!file) return; const ext = (file.name.split(".").pop() || "").toLowerCase(); e.target.value = "";
+    const splitLine = l => { const out = []; let cur = "", q = false; for (let i = 0; i < l.length; i++) { const ch = l[i]; if (ch === '"') { if (q && l[i + 1] === '"') { cur += '"'; i++; } else q = !q; } else if ((ch === "," || ch === ";") && !q) { out.push(cur.trim()); cur = ""; } else cur += ch; } out.push(cur.trim()); return out; };
+    if (ext === "xlsx" || ext === "xls") {
+      const load = () => new Promise((res, rej) => { if (window.XLSX) return res(window.XLSX); const s = document.createElement("script"); s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"; s.onload = () => res(window.XLSX); s.onerror = () => rej(); document.head.appendChild(s); });
+      load().then(XLSX => { const rd = new FileReader(); rd.onload = () => { try { const wb = XLSX.read(rd.result, { type: "array" }); const ws = wb.Sheets[wb.SheetNames[0]]; importSvcRows(XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: "" })); } catch (err) { try { window.jcmError && window.jcmError("No se pudo leer el Excel."); } catch (e) {} } }; rd.readAsArrayBuffer(file); }).catch(() => { try { window.jcmError && window.jcmError("No se pudo cargar el lector de Excel. Exporta a CSV e inténtalo."); } catch (e) {} });
+      return;
+    }
+    const rd = new FileReader(); rd.onload = () => { try { const rows = ("" + rd.result).replace(/\r/g, "").split("\n").map(l => l.trim() ? splitLine(l.trim()) : []).filter(r => r.length); importSvcRows(rows); } catch (err) { try { window.jcmError && window.jcmError("No se pudo leer el archivo."); } catch (e) {} } }; rd.readAsText(file, "utf-8");
+  }
   function val(it) {
     const o = over[it.n] || {};
     const price = o.price != null ? o.price : it.price;
@@ -269,7 +296,11 @@ function ServiciosView({ T }) {
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <SecHead T={T} title="Tratamientos y Especialidades" sub={tab === "especialidades" ? "Especialidades de la clínica" : totalAll + " procedimiento" + (totalAll === 1 ? "" : "s") + " · crea los tuyos o edita los existentes"} />
-        {tab === "tratamientos" && <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Nuevo servicio</AdBtn>}
+        {tab === "tratamientos" && <div style={{ display: "flex", gap: 8 }}>
+          <input ref={svcFileRef} type="file" accept=".csv,.xlsx,.xls,text/csv" style={{ display: "none" }} onChange={onSvcFile} />
+          <AdBtn T={T} onClick={() => svcFileRef.current && svcFileRef.current.click()}>Importar Excel</AdBtn>
+          <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Nuevo servicio</AdBtn>
+        </div>}
       </div>
       <div style={{ display: "flex", gap: 6, margin: "4px 0 18px" }}>
         {[["tratamientos", "Tratamientos"], ["especialidades", "Especialidades"]].map(([k, l]) => (

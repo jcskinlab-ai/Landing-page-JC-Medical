@@ -275,6 +275,122 @@ function ServiciosView({ T }) {
   } catch (e) {
   }
   const profsForSvc = (nm) => _team.filter((m) => (m.tratamientos || []).indexOf(nm) >= 0).length;
+  const svcFileRef = useRef(null);
+  function importSvcRows(rows) {
+    if (!rows || rows.length < 2) {
+      try {
+        window.jcmError && window.jcmError("El archivo no tiene filas de datos.");
+      } catch (e) {
+      }
+      return;
+    }
+    const head = (rows[0] || []).map((h) => ("" + h).toLowerCase().trim());
+    const col = (...names) => {
+      for (const n2 of names) {
+        const i = head.findIndex((h) => h.indexOf(n2) >= 0);
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+    const ci = { name: col("nombre", "name", "servicio", "tratamiento"), price: col("precio", "price", "valor"), dur: col("duraci", "dur"), ses: col("sesion", "sesi\xF3n", "sesiones"), cat: col("categor", "cat") };
+    if (ci.name < 0) {
+      try {
+        window.jcmError && window.jcmError("Falta la columna 'Nombre' en el encabezado.");
+      } catch (e) {
+      }
+      return;
+    }
+    const nuevos = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i] || [];
+      const nm = ("" + (r[ci.name] || "")).trim();
+      if (!nm) continue;
+      nuevos.push({ id: "svc" + Date.now() + i, name: nm, cat: ci.cat >= 0 ? ("" + (r[ci.cat] || "Otro")).trim() || "Otro" : "Otro", price: parseInt(("" + (r[ci.price] || "")).replace(/\D/g, ""), 10) || 0, dur: parseInt(("" + (r[ci.dur] || "")).replace(/\D/g, ""), 10) || 30, ses: parseInt(("" + (r[ci.ses] || "")).replace(/\D/g, ""), 10) || 1, pts: 0, desc: "" });
+    }
+    if (!nuevos.length) {
+      try {
+        window.jcmError && window.jcmError("No se encontraron servicios v\xE1lidos.");
+      } catch (e) {
+      }
+      return;
+    }
+    const n = [...nuevos, ...custom];
+    setCustom(n);
+    saveCustomServices(n);
+    try {
+      window.jcmToast && window.jcmToast(nuevos.length + " servicio" + (nuevos.length === 1 ? "" : "s") + " importado" + (nuevos.length === 1 ? "" : "s") + ".", "ok");
+    } catch (e) {
+    }
+  }
+  function onSvcFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    e.target.value = "";
+    const splitLine = (l) => {
+      const out = [];
+      let cur = "", q2 = false;
+      for (let i = 0; i < l.length; i++) {
+        const ch = l[i];
+        if (ch === '"') {
+          if (q2 && l[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else q2 = !q2;
+        } else if ((ch === "," || ch === ";") && !q2) {
+          out.push(cur.trim());
+          cur = "";
+        } else cur += ch;
+      }
+      out.push(cur.trim());
+      return out;
+    };
+    if (ext === "xlsx" || ext === "xls") {
+      const load = () => new Promise((res, rej) => {
+        if (window.XLSX) return res(window.XLSX);
+        const s = document.createElement("script");
+        s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+        s.onload = () => res(window.XLSX);
+        s.onerror = () => rej();
+        document.head.appendChild(s);
+      });
+      load().then((XLSX) => {
+        const rd2 = new FileReader();
+        rd2.onload = () => {
+          try {
+            const wb = XLSX.read(rd2.result, { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            importSvcRows(XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: "" }));
+          } catch (err) {
+            try {
+              window.jcmError && window.jcmError("No se pudo leer el Excel.");
+            } catch (e2) {
+            }
+          }
+        };
+        rd2.readAsArrayBuffer(file);
+      }).catch(() => {
+        try {
+          window.jcmError && window.jcmError("No se pudo cargar el lector de Excel. Exporta a CSV e int\xE9ntalo.");
+        } catch (e2) {
+        }
+      });
+      return;
+    }
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const rows = ("" + rd.result).replace(/\r/g, "").split("\n").map((l) => l.trim() ? splitLine(l.trim()) : []).filter((r) => r.length);
+        importSvcRows(rows);
+      } catch (err) {
+        try {
+          window.jcmError && window.jcmError("No se pudo leer el archivo.");
+        } catch (e2) {
+        }
+      }
+    };
+    rd.readAsText(file, "utf-8");
+  }
   function val(it) {
     const o = over[it.n] || {};
     const price = o.price != null ? o.price : it.price;
@@ -291,7 +407,7 @@ function ServiciosView({ T }) {
   };
   const hits = ql ? sections.reduce((s, sec) => s + sec.groups.reduce((s2, g) => s2 + g.items.filter(matchItem).length, 0), 0) : totalItems;
   const totalAll = totalItems + custom.length;
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Tratamientos y Especialidades", sub: tab === "especialidades" ? "Especialidades de la cl\xEDnica" : totalAll + " procedimiento" + (totalAll === 1 ? "" : "s") + " \xB7 crea los tuyos o edita los existentes" }), tab === "tratamientos" && /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNewSvc("new") }, "+ Nuevo servicio")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, margin: "4px 0 18px" } }, [["tratamientos", "Tratamientos"], ["especialidades", "Especialidades"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setTab(k), style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? T.onAccent || "#fff" : T.textMute } }, l))), tab === "especialidades" ? /* @__PURE__ */ React.createElement(EspecialidadesTab, { T }) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginBottom: 22 } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "1.6", style: { position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" } }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "7" }), /* @__PURE__ */ React.createElement("path", { d: "M21 21l-4.3-4.3" })), /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "Buscar procedimiento por nombre\u2026", style: { width: "100%", padding: "12px 14px 12px 38px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" } }), ql && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6 } }, hits + custom.filter((s) => s.name.toLowerCase().includes(ql)).length, " resultado", hits + custom.filter((s) => s.name.toLowerCase().includes(ql)).length === 1 ? "" : "s")), (() => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Tratamientos y Especialidades", sub: tab === "especialidades" ? "Especialidades de la cl\xEDnica" : totalAll + " procedimiento" + (totalAll === 1 ? "" : "s") + " \xB7 crea los tuyos o edita los existentes" }), tab === "tratamientos" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("input", { ref: svcFileRef, type: "file", accept: ".csv,.xlsx,.xls,text/csv", style: { display: "none" }, onChange: onSvcFile }), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => svcFileRef.current && svcFileRef.current.click() }, "Importar Excel"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNewSvc("new") }, "+ Nuevo servicio"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, margin: "4px 0 18px" } }, [["tratamientos", "Tratamientos"], ["especialidades", "Especialidades"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setTab(k), style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? T.onAccent || "#fff" : T.textMute } }, l))), tab === "especialidades" ? /* @__PURE__ */ React.createElement(EspecialidadesTab, { T }) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginBottom: 22 } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "1.6", style: { position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" } }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "7" }), /* @__PURE__ */ React.createElement("path", { d: "M21 21l-4.3-4.3" })), /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "Buscar procedimiento por nombre\u2026", style: { width: "100%", padding: "12px 14px 12px 38px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" } }), ql && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6 } }, hits + custom.filter((s) => s.name.toLowerCase().includes(ql)).length, " resultado", hits + custom.filter((s) => s.name.toLowerCase().includes(ql)).length === 1 ? "" : "s")), (() => {
     const cv = custom.filter((s) => !ql || s.name.toLowerCase().includes(ql) || (s.desc || "").toLowerCase().includes(ql));
     if (!cv.length) return totalItems === 0 && !ql ? /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center", marginBottom: 22 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 420, margin: "0 auto 16px" } }, "A\xFAn no tienes servicios. Crea tu primer procedimiento con su nombre, precio, duraci\xF3n y categor\xEDa \u2014 aparecer\xE1 en la agenda y en la reserva online."), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNewSvc("new") }, "+ Crear primer servicio")) : null;
     return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 28 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600 } }, "Servicios de la cl\xEDnica"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, height: 1, background: T.line } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } }, cv.map((s) => /* @__PURE__ */ React.createElement("div", { key: s.id, onClick: () => setNewSvc(s), style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, s.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, s.cat, s.desc ? " \xB7 " + s.desc : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 3 } }, s.dur, " min", s.ses > 1 ? " \xB7 " + s.ses + " sesiones" : "", s.pts ? " \xB7 " + s.pts + " pts" : "", profsForSvc(s.name) ? " \xB7 " + profsForSvc(s.name) + " prof." : "")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 } }, D.fmt(s.price || 0)), /* @__PURE__ */ React.createElement("button", { onClick: async (e) => {
