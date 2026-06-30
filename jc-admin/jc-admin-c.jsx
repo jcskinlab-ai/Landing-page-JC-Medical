@@ -715,6 +715,19 @@ function ConsentimientosView({ T }) {
         <CajaCard T={T} l="Pendientes de firma" v={pendientes} c="#B8860B" />
         <CajaCard T={T} l="Plantillas activas" v={activasCount} c={T.accent} />
       </div>
+      {/* Cumplimiento legal — Ley 20.584 / Ficha Clínica Electrónica (Área 13) */}
+      <div style={{ background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line, borderRadius: 10, padding: "14px 16px", marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+          <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".04em", color: T.text }}>Cumplimiento · Ley 20.584 (derechos y deberes del paciente)</span>
+        </div>
+        <ul style={{ margin: 0, paddingLeft: 18, fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.7 }}>
+          <li><b style={{ color: T.text }}>Consentimiento informado:</b> debe firmarse antes de todo procedimiento, explicando alcances, riesgos y alternativas.</li>
+          <li><b style={{ color: T.text }}>Confidencialidad:</b> la ficha clínica es reservada; solo acceden el paciente, el profesional tratante y quien la ley autorice.</li>
+          <li><b style={{ color: T.text }}>Conservación:</b> la ficha y consentimientos se conservan como mínimo <b style={{ color: T.text }}>15 años</b>.</li>
+          <li><b style={{ color: T.text }}>Derecho de acceso:</b> el paciente puede solicitar copia íntegra de su ficha cuando lo requiera.</li>
+        </ul>
+      </div>
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 10 }}>Plantillas clínicas (base)</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 24 }}>
         {base.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin plantillas base en esta clínica.</div>
