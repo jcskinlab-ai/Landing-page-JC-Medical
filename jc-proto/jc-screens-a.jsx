@@ -310,7 +310,7 @@ function ProductSheet({ T, p, onClose, openBooking, D }) {
         {view === "info" ? (
           <div>
             <div style={{ position: "relative" }}>
-              <img src={p.img} alt={p.brand} onError={e => { e.target.style.display = "none"; }} style={{ width: "100%", height: 200, objectFit: "cover", display: "block", borderRadius: "18px 18px 0 0" }} />
+              <img src={p.img} alt={p.brand} onError={e => { e.target.style.display = "none"; }} style={{ width: "100%", height: 200, objectFit: "cover", objectPosition: p.imgPos || "center", display: "block", borderRadius: "18px 18px 0 0" }} />
               {closeBtn}
             </div>
             <div style={{ padding: "20px 22px 26px" }}>

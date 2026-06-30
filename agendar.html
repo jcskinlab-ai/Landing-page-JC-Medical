@@ -180,6 +180,11 @@
           <div class="errmsg">Ingresa tu nombre completo (mín. 3 caracteres).</div>
         </div>
         <div class="q">
+          <label class="lbl">RUT<span class="star">*</span></label>
+          <input type="text" id="frut" placeholder="Ej: 12.345.678-9" inputmode="numeric" data-nocap autocomplete="off">
+          <div class="errmsg">Ingresa tu RUT (ej: 12.345.678-9).</div>
+        </div>
+        <div class="q">
           <label class="lbl">Edad<span class="star">*</span></label>
           <input type="number" id="fage" placeholder="Tu edad" min="14" max="99" inputmode="numeric">
           <div class="errmsg">Ingresa una edad válida (14–99 años).</div>
@@ -572,6 +577,16 @@
     if((e.key==='Backspace' || e.key==='Delete') && atPrefix){ e.preventDefault(); }
   });
 
+  /* ─── RUT auto-formato ─── */
+  var rutEl = document.getElementById('frut');
+  rutEl.addEventListener('input', function(){
+    var d = rutEl.value.replace(/[^0-9kK]/g,'').toUpperCase();
+    if(d.length < 2){ rutEl.value = d; return; }
+    var body = d.slice(0,-1), dv = d.slice(-1), fmt = '';
+    while(body.length > 3){ fmt = '.'+body.slice(-3)+fmt; body = body.slice(0,-3); }
+    rutEl.value = body + fmt + '-' + dv;
+  });
+
   /* ─── Navegación ─── */
   function show(n){
     cur = n;
@@ -605,17 +620,19 @@
     if(n===2){
       var ok = true;
       var nm = document.getElementById('fname'),
+          rt = document.getElementById('frut'),
           ag = document.getElementById('fage'),
           ph = document.getElementById('fphone'),
           em = document.getElementById('femail');
-      [nm,ag,ph,em].forEach(function(el){ el.classList.remove('err'); el.nextElementSibling.classList.remove('show'); });
+      [nm,rt,ag,ph,em].forEach(function(el){ el.classList.remove('err'); el.nextElementSibling.classList.remove('show'); });
       if(!nm.value.trim() || nm.value.trim().length<3){ nm.classList.add('err'); nm.nextElementSibling.classList.add('show'); ok=false; }
+      if(rt.value.replace(/[^0-9kK]/g,'').length < 7){ rt.classList.add('err'); rt.nextElementSibling.classList.add('show'); ok=false; }
       var age = parseInt(ag.value,10);
       if(!ag.value || isNaN(age) || age<14 || age>99){ ag.classList.add('err'); ag.nextElementSibling.classList.add('show'); ok=false; }
       if((ph.value||'').replace(/\D/g,'').length < 11){ ph.classList.add('err'); ph.nextElementSibling.classList.add('show'); ok=false; }
       // Correo OPCIONAL: solo valida formato si escribieron algo
       if(em.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim())){ em.classList.add('err'); em.nextElementSibling.classList.add('show'); ok=false; }
-      if(!ok){ var first = [nm,ag,ph,em].filter(function(e){ return e.classList.contains('err'); })[0]; if(first) first.scrollIntoView({block:'center', behavior:'smooth'}); }
+      if(!ok){ var first = [nm,rt,ag,ph,em].filter(function(e){ return e.classList.contains('err'); })[0]; if(first) first.scrollIntoView({block:'center', behavior:'smooth'}); }
       return ok;
     }
     if(n===3){
@@ -662,6 +679,7 @@
   /* ─── Envío ─── */
   function submit(){
     var name  = document.getElementById('fname').value.trim();
+    var rut   = document.getElementById('frut').value.trim();
     var age   = document.getElementById('fage').value.trim();
     var phone = document.getElementById('fphone').value.trim();
     var email = document.getElementById('femail').value.trim();
@@ -675,7 +693,7 @@
     try{
       var list = JSON.parse(localStorage.getItem('jcm_bookings')||'[]');
       list.push({
-        id:'b'+Date.now(), name:name, age:age, phone:phone, email:email,
+        id:'b'+Date.now(), name:name, rut:rut, age:age, phone:phone, email:email,
         proc:procLabel, procs:procsArr, price:totalPrice, dur:totalMin+' min', durMin:totalMin,
         fecha:selDate.date, date:selDate.date, wd:selDate.wd, dd:selDate.dd, mm:selDate.mm,
         time:selTime, origen:'Web · agendar.html', status:'pendiente_pago',
@@ -684,7 +702,7 @@
       localStorage.setItem('jcm_bookings', JSON.stringify(list));
       var appts = JSON.parse(localStorage.getItem('jcm_appts')||'[]');
       appts.push({
-        id:'a'+Date.now(), name:name, phone:phone, email:email,
+        id:'a'+Date.now(), name:name, rut:rut, phone:phone, email:email,
         proc:procLabel, procs:procsArr, price:totalPrice, dur:totalMin+' min', durMin:totalMin,
         fecha:selDate.date, time:selTime, status:'pendiente_pago',
         day:Math.round((new Date(selDate.date+'T00:00:00')-new Date().setHours(0,0,0,0))/86400000),
@@ -696,7 +714,7 @@
     // Multi-clínica: además del localStorage local, deja la reserva en Firestore de la clínica activa.
     try{
       if(window.JCSAAS && window.JCSAAS.enabled && CLINIC && window.JCSAAS.submitBooking){
-        window.JCSAAS.submitBooking({ name:name, phone:phone, email:email, proc:procLabel,
+        window.JCSAAS.submitBooking({ name:name, rut:rut, phone:phone, email:email, proc:procLabel,
           fecha:selDate.date, time:selTime, dur:totalMin+' min',
           procs: procsArr.map(function(p){ return p.name+(p.qty>1?' x'+p.qty:''); }), source:'web' })
           .then(function(){ try{ console.log('Reserva registrada en la clínica.'); }catch(_){ } })
@@ -714,7 +732,7 @@
     var clinicPhone = (CLINIC && CLINIC.wa) ? (''+CLINIC.wa).replace(/\D/g,'') : '56997880877';
     var clinicName  = (CLINIC && CLINIC.name) ? CLINIC.name : 'JC Medical';
     var msg = 'Hola '+clinicName+' 👋 Quiero confirmar mi reserva:\n\n'
-      +'👤 '+name+'\n'
+      +'👤 '+name+(rut ? ' · RUT '+rut : '')+'\n'
       +'📅 '+DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm+'\n'
       +'🕐 '+selTime+' hrs\n'
       +'💉 '+procLabel+'\n'
@@ -810,7 +828,7 @@
   window.reinit = function(){
     cart = []; selDate=null; selTime=null; cur=0; _upsellShown = false;
     document.getElementById('fconsentimiento').checked = false;
-    ['fname','fage','femail'].forEach(function(id){ document.getElementById(id).value=''; });
+    ['fname','frut','fage','femail'].forEach(function(id){ document.getElementById(id).value=''; });
     document.getElementById('fphone').value = PREFIX;
     renderCart(); buildServices();
     resetWaButton();   // ← fix: reactiva "Enviar comprobante por WhatsApp"

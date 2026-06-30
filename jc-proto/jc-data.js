@@ -245,7 +245,7 @@
       uso: "Microinyecciones superficiales en la dermis de cara, cuello y escote. Sesiones cada 2–4 semanas en la fase inicial.",
       beneficios: "Hidratación profunda, luminosidad, firmeza y elasticidad visibles desde la primera sesión. Ideal como mantención y prevención.",
       efectos: "Pequeñas marcas de aguja y leve enrojecimiento pasajero; desaparecen en pocas horas." },
-    { brand: "CLH Lipase · MCCM", img: "assets/trust-clh.jpg", tipo: "Lipolítico inyectable profesional", origen: "España", fabricante: "MCCM Medical Cosmetics",
+    { brand: "CLH Lipase · MCCM", img: "assets/trust-clh.jpg", imgPos: "center 60%", tipo: "Lipolítico inyectable profesional", origen: "España", fabricante: "MCCM Medical Cosmetics",
       desc: "Cóctel lipolítico profesional con enzima lipasa y principios activos que actúan directamente sobre los depósitos de grasa localizada. Uso exclusivo médico.",
       uso: "Microinyecciones subcutáneas en zonas de adiposidad localizada (papada, flancos, abdomen). Protocolo de 3–6 sesiones según el caso.",
       beneficios: "Reduce grasa localizada y mejora la textura de la zona tratada. Resultados progresivos desde la segunda sesión.",
