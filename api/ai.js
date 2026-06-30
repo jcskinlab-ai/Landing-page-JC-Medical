@@ -180,6 +180,9 @@ export default async function handler(req, res) {
     agentTone ? "Tono de comunicación: " + agentTone + "." : "",
     "Responde en español de Chile, con cercanía y profesionalismo, mensajes breves.",
     clinic.address ? "Dirección: " + clinic.address + "." : "",
+    Array.isArray(clinic.branches) && clinic.branches.length
+      ? "Sucursales: " + clinic.branches.slice(0, 10).join("; ") + ". Si preguntan por otra ciudad/sede que no esté en esta lista, indica que por ahora no hay sede ahí."
+      : "",
     clinic.hours ? "Horario: " + clinic.hours + "." : "",
     Array.isArray(clinic.services) && clinic.services.length
       ? "Servicios y precios: " + clinic.services.map(s => s.name + " ($" + (s.price || 0) + ")").join(", ") + "."

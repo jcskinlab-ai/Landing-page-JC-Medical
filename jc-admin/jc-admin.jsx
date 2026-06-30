@@ -2037,7 +2037,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       )}
 
       {icsMod && <ICSImportModal T={T} onClose={() => setIcsMod(false)} onImport={addAppt} />}
-      {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} onOpenPatient={onOpenPatient} />}
+      {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} onOpenPatient={onOpenPatient} addAppt={addAppt} />}
       {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
       {toast && <Toast T={T} data={toast} onClose={() => setToast(null)} />}
       {fichaConfirm && (

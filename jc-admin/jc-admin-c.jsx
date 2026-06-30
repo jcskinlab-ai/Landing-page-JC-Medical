@@ -2562,6 +2562,7 @@ function saveFichaTplsDB(v) { try { if (window.DB) window.DB.set("ficha_template
 function FichaEditorView({ T }) {
   const [tpls, setTpls] = useState(loadFichaTpls);
   const [selId, setSelId] = useState(tpls[0] ? tpls[0].id : null);
+  const [dragI, setDragI] = useState(null);
   function persist(n) { setTpls(n); saveFichaTplsDB(n); }
   function addTpl() { const t = { id: "ft" + Date.now(), name: "Nueva plantilla", fields: [] }; const n = [...tpls, t]; persist(n); setSelId(t.id); }
   async function delTpl(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta plantilla de ficha?", { danger: true }))) return; const n = tpls.filter(t => t.id !== id); persist(n); if (selId === id) setSelId(n[0] ? n[0].id : null); }
@@ -2571,6 +2572,7 @@ function FichaEditorView({ T }) {
   function updField(fid, patch) { updSel({ fields: sel.fields.map(f => f.id === fid ? { ...f, ...patch } : f) }); }
   function delField(fid) { updSel({ fields: sel.fields.filter(f => f.id !== fid) }); }
   function moveField(i, dir) { const a = sel.fields.slice(); const j = i + dir; if (j < 0 || j >= a.length) return; const t = a[i]; a[i] = a[j]; a[j] = t; updSel({ fields: a }); }
+  function moveFieldTo(from, to) { if (from == null || to == null || from === to) return; const a = sel.fields.slice(); const m = a.splice(from, 1)[0]; a.splice(to, 0, m); updSel({ fields: a }); }
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 };
   const inp = { width: "100%", padding: "9px 11px", borderRadius: 4, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" };
   const previewInput = f => {
@@ -2611,8 +2613,9 @@ function FichaEditorView({ T }) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {(sel.fields || []).map((f, i) => (
-                    <div key={f.id} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 9, padding: "11px 12px" }}>
+                    <div key={f.id} onDragOver={e => e.preventDefault()} onDrop={() => { moveFieldTo(dragI, i); setDragI(null); }} style={{ background: T.bg, border: "1px solid " + (dragI != null && dragI !== i ? (T.accent + "88") : T.line), borderRadius: 9, padding: "11px 12px", transition: "border-color .15s" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
+                        <span draggable onDragStart={() => setDragI(i)} onDragEnd={() => setDragI(null)} title="Arrastra para reordenar" style={{ cursor: "grab", color: T.textFaint, fontSize: 14, lineHeight: 1, userSelect: "none", padding: "0 2px" }}>⠿</span>
                         <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.line, borderRadius: 999, padding: "2px 8px" }}>{(FE_TIPOS.find(x => x[0] === f.type) || [, f.type])[1]}</span>
                         <div style={{ flex: 1 }} />
                         <button onClick={() => moveField(i, -1)} title="Subir" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, padding: 2 }}>▲</button>
@@ -2733,6 +2736,9 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
   const chipField = (label, k, options, ph) => <div><span style={lbl}>{label}</span>{text(k, ph)}{chips(k, options)}</div>;
   const tipo = f.tipo || "general";
   const imc = calcIMC(f.peso, f.talla);
+  // Secciones estéticas (piel/hábitos/evaluación facial) solo aplican a ficha General y Facial.
+  // Los antecedentes médicos son compartidos y se muestran siempre (misma data clinica.*).
+  const showEstetica = tipo === "general" || tipo === "facial";
 
   return (
     <div>
@@ -2799,6 +2805,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
         </div>
       </div>
 
+      {showEstetica && <>
       {/* Piel y factores de riesgo */}
       <div style={card}>
         <div style={head}>Piel y factores de riesgo</div>
@@ -2859,6 +2866,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           );
         })}
       </div>
+      </>}
       {/* Campos personalizados (plantillas del Editor de Fichas) */}
       {(() => {
         const fts = (typeof loadFichaTpls === "function" ? loadFichaTpls() : []);
@@ -3488,6 +3496,7 @@ function CopilotConfigView({ T }) {
       name: clinica, address: (window.clinicAddr && window.clinicAddr()) || "",
       hours: (() => { try { return DB.cfg().clinic_hours || ""; } catch (e) { return ""; } })(),
       services: (window.clinicServiceList ? window.clinicServiceList() : []).slice(0, 30),
+      branches: ((window.DB && window.DB.get("sucursales")) || []).map(s => s.addr ? (s.name + " (" + s.addr + ")") : s.name).filter(Boolean),
       agentName: cfg.name, agentTone: cfg.tono, agentPrompt: (cfg.prompt || "").replace(/\{clinica\}/g, clinica)
     };
     window.mediqueAI(next, clinic).then(res => {
@@ -3579,6 +3588,7 @@ function AgenteIAView({ T, patients, addAppt }) {
       address: (window.clinicAddr && window.clinicAddr()) || "",
       hours: (() => { try { return DB.cfg().clinic_hours || ""; } catch (e) { return ""; } })(),
       services: (window.clinicServiceList ? window.clinicServiceList() : []).slice(0, 30),
+      branches: ((window.DB && window.DB.get("sucursales")) || []).map(s => s.addr ? (s.name + " (" + s.addr + ")") : s.name).filter(Boolean),
       agentName: _ac.name || "", agentTone: _ac.tono || "", agentPrompt: (_ac.prompt || "").replace(/\{clinica\}/g, _cn)
     };
     const msgs = conv.msgs.map(m => ({ role: m.f === "out" ? "assistant" : "user", content: m.t }));
@@ -4839,9 +4849,10 @@ function CajaView({ T }) {
           </div>
         </div>
       </div>
-      {topTrat.length > 0 && (
+      {movs.length > 0 && (
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginTop: 16 }}>
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Tratamientos que más venden · {subLbl}</div>
+          {topTrat.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aparecerá cuando cobres atenciones desde la ficha del paciente. Los movimientos manuales no cuentan como tratamiento.</div>}
           {topTrat.map((t, i) => {
             const max = topTrat[0].total || 1;
             return (
@@ -4858,9 +4869,10 @@ function CajaView({ T }) {
           })}
         </div>
       )}
-      {topProf.length > 0 && (
+      {movs.length > 0 && (
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginTop: 16 }}>
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Ventas por profesional · {subLbl}</div>
+          {topProf.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aparecerá cuando cobres atenciones con un profesional asignado desde la ficha del paciente.</div>}
           {topProf.map((p, i) => {
             const max = topProf[0].total || 1;
             return (
