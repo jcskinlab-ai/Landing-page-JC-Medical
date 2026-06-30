@@ -413,7 +413,16 @@
   }
   function logout() { return ready.then(function () { return auth.signOut(); }); }
   function resetPassword(email) {
-    return ready.then(function () { return auth.sendPasswordResetEmail((email || '').trim().toLowerCase()); });
+    var e = (email || '').trim().toLowerCase();
+    // Primero el correo propio (Resend, mejor entregabilidad). Si el endpoint no responde OK,
+    // cae al correo nativo de Firebase para no dejar al usuario sin recuperación.
+    function fbReset() { return ready.then(function () { return auth.sendPasswordResetEmail(e); }); }
+    try {
+      return fetch('/api/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) { if (res.ok && res.d && res.d.ok) return true; return fbReset(); })
+        .catch(function () { return fbReset(); });
+    } catch (x) { return fbReset(); }
   }
   function fire(payload) {
     settled = true; lastPayload = payload;
