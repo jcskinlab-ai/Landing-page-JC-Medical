@@ -454,6 +454,93 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
     }
   }, placeholder: "Agregar especialidad\u2026", style: { flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" } }), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: addEsp }, "Agregar"))), /* @__PURE__ */ React.createElement(ProfSec, { T, n: "3", title: "Tratamientos asignados", sub: "Procedimientos que este profesional puede realizar (del cat\xE1logo de la cl\xEDnica)." }, /* @__PURE__ */ React.createElement(ProfChips, { T, options: svcList, selected: f.tratamientos || [], onToggle: (v) => toggleArr("tratamientos", v), empty: "A\xFAn no hay servicios en el cat\xE1logo. Cr\xE9alos en Tratamientos y vuelve a asignarlos aqu\xED." })), /* @__PURE__ */ React.createElement(ProfSec, { T, n: "4", title: "Sucursales", sub: "\xBFEn qu\xE9 sucursales atiende este profesional?" }, /* @__PURE__ */ React.createElement(ProfChips, { T, options: sucList, selected: f.sucursales || [], onToggle: (v) => toggleArr("sucursales", v), empty: "A\xFAn no hay sucursales. Cr\xE9alas en el m\xF3dulo Sucursales y vuelve a asignarlas aqu\xED." }))));
 }
+const SUC_DIAS = [["lun", "Lunes"], ["mar", "Martes"], ["mie", "Mi\xE9rcoles"], ["jue", "Jueves"], ["vie", "Viernes"], ["sab", "S\xE1bado"], ["dom", "Domingo"]];
+function sucHorarioDefault() {
+  const h = {};
+  SUC_DIAS.forEach(([k]) => {
+    h[k] = { on: ["lun", "mar", "mie", "jue", "vie"].indexOf(k) >= 0, from: "10:00", to: "19:00" };
+  });
+  return h;
+}
+function loadSucursales() {
+  try {
+    const v = window.DB && window.DB.get("sucursales");
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveSucursalesDB(v) {
+  try {
+    if (window.DB) window.DB.set("sucursales", v);
+  } catch (e) {
+  }
+}
+function SucursalesView({ T }) {
+  const [list, setList] = useState(loadSucursales);
+  const [editing, setEditing] = useState(null);
+  let team = [];
+  try {
+    team = window.DB && window.DB.get("team") || [];
+  } catch (e) {
+  }
+  const profsForSuc = (nm) => team.filter((m) => (m.sucursales || []).indexOf(nm) >= 0).length;
+  function save(s) {
+    const exists = s.id && list.find((x) => x.id === s.id);
+    const n = exists ? list.map((x) => x.id === s.id ? s : x) : [...list, { ...s, id: "suc" + Date.now() }];
+    setList(n);
+    saveSucursalesDB(n);
+    setEditing(null);
+    try {
+      window.jcmToast && window.jcmToast("Sucursal " + (exists ? "actualizada" : "creada") + ".", "ok");
+    } catch (e) {
+    }
+  }
+  async function del(id) {
+    if (!await (window.jcmConfirm || window.confirm)("\xBFEliminar esta sucursal?", { danger: true })) return;
+    const n = list.filter((x) => x.id !== id);
+    setList(n);
+    saveSucursalesDB(n);
+  }
+  const diasTxt = (h) => SUC_DIAS.filter(([k]) => h && h[k] && h[k].on).map(([k, l]) => l.slice(0, 3)).join(", ") || "Sin horario";
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Sucursales", sub: (list.length || "Sin") + " sucursal" + (list.length === 1 ? "" : "es") + " \xB7 direcci\xF3n, contacto y horario de atenci\xF3n" }), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setEditing("new") }, "+ Nueva sucursal")), list.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center", marginTop: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 16px" } }, "A\xFAn no tienes sucursales. Crea la primera con su direcci\xF3n, contacto y horario \u2014 luego podr\xE1s asignar profesionales a cada una desde su ficha."), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setEditing("new") }, "+ Crear primera sucursal")) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 4 } }, list.map((s) => {
+    const np = profsForSuc(s.name);
+    return /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { width: 42, height: 42, borderRadius: 10, background: T.accentSoft || T.surface2, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 11h.01M15 11h.01" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text } }, s.name), s.addr && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 } }, s.addr), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 3 } }, [s.phone, s.email].filter(Boolean).join("  \xB7  ")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 5, display: "flex", flexWrap: "wrap", gap: 8 } }, /* @__PURE__ */ React.createElement("span", null, "\u{1F552} ", diasTxt(s.horario)), /* @__PURE__ */ React.createElement("span", null, "\xB7 ", np === 0 ? "Sin profesionales" : np + " profesional" + (np === 1 ? "" : "es")))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setEditing(s), style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, background: "none", border: "none", cursor: "pointer", padding: 0 } }, "Editar \u2192"), /* @__PURE__ */ React.createElement("button", { onClick: () => del(s.id), title: "Eliminar", style: { background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))));
+  })), editing && /* @__PURE__ */ React.createElement(SucursalModal, { T, suc: editing === "new" ? null : editing, onClose: () => setEditing(null), onSave: save }));
+}
+function SucursalModal({ T, suc, onClose, onSave }) {
+  const [f, setF] = useState(() => suc ? { ...suc, horario: suc.horario || sucHorarioDefault() } : { name: "", addr: "", phone: "+56 9 ", email: "", horario: sucHorarioDefault() });
+  const ok = (f.name || "").trim().length > 1;
+  const curCC = ((f.phone || "").match(/^(\+\d+)/) || [])[1] || "+56";
+  function setCC(cc) {
+    setF((s) => {
+      const num = (s.phone || "").replace(/^\+\d+\s*/, "").trim();
+      return { ...s, phone: (cc + " " + num).trim() };
+    });
+  }
+  function setDia(k, patch) {
+    setF((s) => ({ ...s, horario: { ...s.horario, [k]: { ...s.horario[k], ...patch } } }));
+  }
+  function aplicarATodos() {
+    const base = f.horario.lun;
+    setF((s) => {
+      const h = {};
+      SUC_DIAS.forEach(([k]) => {
+        h[k] = { ...s.horario[k], from: base.from, to: base.to };
+      });
+      return { ...s, horario: h };
+    });
+    try {
+      window.jcmToast && window.jcmToast("Horario de lunes copiado a todos los d\xEDas activos.", "info");
+    } catch (e) {
+    }
+  }
+  const inp = { padding: "9px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" };
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: suc ? "Editar sucursal" : "Nueva sucursal", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave(f) }, "Guardar sucursal") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(ProfSec, { T, n: "1", title: "Datos de la sucursal" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre", value: f.name, onChange: (v) => setF({ ...f, name: v }), placeholder: "Ej: Medique Centro" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Direcci\xF3n", value: f.addr, onChange: (v) => setF({ ...f, addr: v }), placeholder: "Calle, n\xFAmero, ciudad" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Email", value: f.email, onChange: (v) => setF({ ...f, email: v }), inputMode: "email", placeholder: "sucursal@clinica.cl" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("select", { value: curCC, onChange: (e) => setCC(e.target.value), style: { flexShrink: 0, width: 130, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" } }, PROF_PAISES.map(([code, name]) => /* @__PURE__ */ React.createElement("option", { key: code, value: code }, name, " ", code))), /* @__PURE__ */ React.createElement("input", { value: (f.phone || "").replace(/^\+\d+\s*/, ""), onChange: (e) => setF({ ...f, phone: (curCC + " " + e.target.value).trim() }), inputMode: "tel", placeholder: "9 1234 5678", style: { flex: 1, minWidth: 0, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }))))), /* @__PURE__ */ React.createElement(ProfSec, { T, n: "2", title: "Horario de atenci\xF3n", sub: "Activa los d\xEDas y define el rango. Usa \xABAplicar a todos\xBB para copiar el horario del lunes." }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, SUC_DIAS.map(([k, l]) => {
+    const d = f.horario[k] || { on: false, from: "10:00", to: "19:00" };
+    return /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: d.on ? T.surface2 || T.surface : T.surface, border: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { width: 92, flexShrink: 0 } }, /* @__PURE__ */ React.createElement(AdSwitch, { T, on: d.on, onClick: () => setDia(k, { on: !d.on }) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.text, marginLeft: 8 } }, l.slice(0, 3))), d.on ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, flex: 1 } }, /* @__PURE__ */ React.createElement("input", { type: "time", value: d.from, onChange: (e) => setDia(k, { from: e.target.value }), style: inp }), /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute, fontFamily: T.sans, fontSize: 12 } }, "a"), /* @__PURE__ */ React.createElement("input", { type: "time", value: d.to, onChange: (e) => setDia(k, { to: e.target.value }), style: inp })) : /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 11.5, color: T.textFaint } }, "Cerrado"));
+  })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: aplicarATodos }, "Aplicar horario del lunes a todos")))));
+}
 function FidelidadView({ T }) {
   const seeded = typeof clinicSeeded === "function" ? clinicSeeded() : true;
   const [on, setOn] = useState(() => {
@@ -3355,4 +3442,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   }
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cierre del d\xEDa", onClose, footer: done ? /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: confirmarCierre }, "Confirmar cierre del d\xEDa") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" } }, fecha), [["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Egresos", egresos, "#C0285A", "\u2212 "]].map(([l, v, c, s]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: c } }, s, D.fmt(v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, fontFamily: T.sans, fontSize: 15, fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, "Neto (ganancia)"), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, D.fmt(neto))));
 }
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });

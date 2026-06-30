@@ -26,7 +26,8 @@ function nIcon(name, c) {
     dashboard: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "8", height: "5", rx: "1.5" }), /* @__PURE__ */ React.createElement("rect", { x: "3", y: "11", width: "8", height: "10", rx: "1.5" }), /* @__PURE__ */ React.createElement("rect", { x: "13", y: "3", width: "8", height: "10", rx: "1.5" }), /* @__PURE__ */ React.createElement("rect", { x: "13", y: "16", width: "8", height: "5", rx: "1.5" })),
     salaespera: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "9" }), /* @__PURE__ */ React.createElement("path", { d: "M12 7v5l3 2" })),
     automatizaciones: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 3a4 4 0 0 0-4 4v1H6a3 3 0 0 0 0 6h.5M12 3a4 4 0 0 1 4 4v1h2a3 3 0 0 1 0 6h-.5M9 21l3-3 3 3M12 11v7" })),
-    agenteia: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "4", y: "8", width: "16", height: "11", rx: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M12 8V5M9 13h.01M15 13h.01M2 13h2M20 13h2" }))
+    agenteia: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "4", y: "8", width: "16", height: "11", rx: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M12 8V5M9 13h.01M15 13h.01M2 13h2M20 13h2" })),
+    sucursales: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 11h.01M15 11h.01" }))
   }[name];
   return /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: c, strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, p);
 }
@@ -62,8 +63,9 @@ const ADMIN_NAV = [
   { k: "pendientes", l: "Pendientes" },
   { k: "caja", l: "Registro de Ventas" },
   { k: "inventario", l: "Inventario" },
-  { k: "servicios", l: "Servicios" },
+  { k: "servicios", l: "Tratamientos" },
   { k: "equipo", l: "Equipo" },
+  { k: "sucursales", l: "Sucursales" },
   { k: "marketing", l: "Marketing" },
   { k: "agenteia", l: "Agente IA" },
   { k: "automatizaciones", l: "Automatizaciones" },
@@ -186,7 +188,7 @@ function importAllWeb() {
   }
   return p;
 }
-const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, marketing: 1, agenteia: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, config: 1, appjcm: 1 };
+const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, agenteia: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, config: 1, appjcm: 1 };
 function panelParseRoute() {
   try {
     var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1036,6 +1038,7 @@ function AdminApp() {
   }, updatePatient });
   else if (section === "servicios") body = /* @__PURE__ */ React.createElement(ServiciosView, { T });
   else if (section === "equipo") body = /* @__PURE__ */ React.createElement(EquipoView, { T });
+  else if (section === "sucursales") body = /* @__PURE__ */ React.createElement(SucursalesView, { T });
   else if (section === "fidelidad") body = /* @__PURE__ */ React.createElement(FidelidadView, { T });
   else if (section === "marketing") body = /* @__PURE__ */ React.createElement(MarketingView, { T, go: nav });
   else if (section === "administracion") body = /* @__PURE__ */ React.createElement(AdministracionView, { T, go: nav, patients, appts, addPatient, updatePatient, markAllPaperConsent });

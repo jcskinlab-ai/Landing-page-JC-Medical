@@ -557,6 +557,119 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
   );
 }
 
+/* ─────────── SUCURSALES (Área 2) ─────────── */
+const SUC_DIAS = [["lun", "Lunes"], ["mar", "Martes"], ["mie", "Miércoles"], ["jue", "Jueves"], ["vie", "Viernes"], ["sab", "Sábado"], ["dom", "Domingo"]];
+function sucHorarioDefault() {
+  const h = {};
+  SUC_DIAS.forEach(([k]) => { h[k] = { on: ["lun", "mar", "mie", "jue", "vie"].indexOf(k) >= 0, from: "10:00", to: "19:00" }; });
+  return h;
+}
+function loadSucursales() { try { const v = window.DB && window.DB.get("sucursales"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveSucursalesDB(v) { try { if (window.DB) window.DB.set("sucursales", v); } catch (e) {} }
+function SucursalesView({ T }) {
+  const [list, setList] = useState(loadSucursales);
+  const [editing, setEditing] = useState(null); // sucursal o "new"
+  let team = []; try { team = (window.DB && window.DB.get("team")) || []; } catch (e) {}
+  const profsForSuc = nm => team.filter(m => (m.sucursales || []).indexOf(nm) >= 0).length;
+  function save(s) {
+    const exists = s.id && list.find(x => x.id === s.id);
+    const n = exists ? list.map(x => x.id === s.id ? s : x) : [...list, { ...s, id: "suc" + Date.now() }];
+    setList(n); saveSucursalesDB(n); setEditing(null);
+    try { window.jcmToast && window.jcmToast("Sucursal " + (exists ? "actualizada" : "creada") + ".", "ok"); } catch (e) {}
+  }
+  async function del(id) {
+    if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta sucursal?", { danger: true }))) return;
+    const n = list.filter(x => x.id !== id); setList(n); saveSucursalesDB(n);
+  }
+  const diasTxt = h => SUC_DIAS.filter(([k]) => h && h[k] && h[k].on).map(([k, l]) => l.slice(0, 3)).join(", ") || "Sin horario";
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Sucursales" sub={(list.length || "Sin") + " sucursal" + (list.length === 1 ? "" : "es") + " · dirección, contacto y horario de atención"} />
+        <AdBtn T={T} primary onClick={() => setEditing("new")}>+ Nueva sucursal</AdBtn>
+      </div>
+      {list.length === 0 ? (
+        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center", marginTop: 12 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 16px" }}>Aún no tienes sucursales. Crea la primera con su dirección, contacto y horario — luego podrás asignar profesionales a cada una desde su ficha.</div>
+          <AdBtn T={T} primary onClick={() => setEditing("new")}>+ Crear primera sucursal</AdBtn>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+          {list.map(s => { const np = profsForSuc(s.name); return (
+            <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: T.accentSoft || T.surface2, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 11h.01M15 11h.01" /></svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{s.name}</div>
+                {s.addr && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>{s.addr}</div>}
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 3 }}>{[s.phone, s.email].filter(Boolean).join("  ·  ")}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 5, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <span>🕒 {diasTxt(s.horario)}</span>
+                  <span>· {np === 0 ? "Sin profesionales" : np + " profesional" + (np === 1 ? "" : "es")}</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
+                <button onClick={() => setEditing(s)} style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Editar →</button>
+                <button onClick={() => del(s.id)} title="Eliminar" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+              </div>
+            </div>
+          ); })}
+        </div>
+      )}
+      {editing && <SucursalModal T={T} suc={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSave={save} />}
+    </div>
+  );
+}
+function SucursalModal({ T, suc, onClose, onSave }) {
+  const [f, setF] = useState(() => suc ? { ...suc, horario: suc.horario || sucHorarioDefault() } : { name: "", addr: "", phone: "+56 9 ", email: "", horario: sucHorarioDefault() });
+  const ok = (f.name || "").trim().length > 1;
+  const curCC = ((f.phone || "").match(/^(\+\d+)/) || [])[1] || "+56";
+  function setCC(cc) { setF(s => { const num = (s.phone || "").replace(/^\+\d+\s*/, "").trim(); return { ...s, phone: (cc + " " + num).trim() }; }); }
+  function setDia(k, patch) { setF(s => ({ ...s, horario: { ...s.horario, [k]: { ...s.horario[k], ...patch } } })); }
+  function aplicarATodos() { const base = f.horario.lun; setF(s => { const h = {}; SUC_DIAS.forEach(([k]) => { h[k] = { ...s.horario[k], from: base.from, to: base.to }; }); return { ...s, horario: h }; }); try { window.jcmToast && window.jcmToast("Horario de lunes copiado a todos los días activos.", "info"); } catch (e) {} }
+  const inp = { padding: "9px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" };
+  return (
+    <AdModal T={T} title={suc ? "Editar sucursal" : "Nueva sucursal"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave(f)}>Guardar sucursal</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <ProfSec T={T} n="1" title="Datos de la sucursal">
+          <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+            <AdField T={T} label="Nombre" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Medique Centro" />
+            <AdField T={T} label="Dirección" value={f.addr} onChange={v => setF({ ...f, addr: v })} placeholder="Calle, número, ciudad" />
+            <AdField T={T} label="Email" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" placeholder="sucursal@clinica.cl" />
+            <div>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Teléfono</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select value={curCC} onChange={e => setCC(e.target.value)} style={{ flexShrink: 0, width: 130, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }}>
+                  {PROF_PAISES.map(([code, name]) => <option key={code} value={code}>{name} {code}</option>)}
+                </select>
+                <input value={(f.phone || "").replace(/^\+\d+\s*/, "")} onChange={e => setF({ ...f, phone: (curCC + " " + e.target.value).trim() })} inputMode="tel" placeholder="9 1234 5678" style={{ flex: 1, minWidth: 0, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
+              </div>
+            </div>
+          </div>
+        </ProfSec>
+        <ProfSec T={T} n="2" title="Horario de atención" sub="Activa los días y define el rango. Usa «Aplicar a todos» para copiar el horario del lunes.">
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {SUC_DIAS.map(([k, l]) => { const d = f.horario[k] || { on: false, from: "10:00", to: "19:00" }; return (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: d.on ? (T.surface2 || T.surface) : T.surface, border: "1px solid " + T.line }}>
+                <div style={{ width: 92, flexShrink: 0 }}><AdSwitch T={T} on={d.on} onClick={() => setDia(k, { on: !d.on })} /><span style={{ fontFamily: T.sans, fontSize: 12, color: T.text, marginLeft: 8 }}>{l.slice(0, 3)}</span></div>
+                {d.on ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1 }}>
+                    <input type="time" value={d.from} onChange={e => setDia(k, { from: e.target.value })} style={inp} />
+                    <span style={{ color: T.textMute, fontFamily: T.sans, fontSize: 12 }}>a</span>
+                    <input type="time" value={d.to} onChange={e => setDia(k, { to: e.target.value })} style={inp} />
+                  </div>
+                ) : <span style={{ flex: 1, fontFamily: T.sans, fontSize: 11.5, color: T.textFaint }}>Cerrado</span>}
+              </div>
+            ); })}
+          </div>
+          <div style={{ marginTop: 10 }}><AdBtn T={T} onClick={aplicarATodos}>Aplicar horario del lunes a todos</AdBtn></div>
+        </ProfSec>
+      </div>
+    </AdModal>
+  );
+}
+
 /* ─────────── FIDELIDAD ─────────── */
 function FidelidadView({ T }) {
   const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
@@ -4090,4 +4203,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
