@@ -189,13 +189,7 @@ function MobileShell({ T, D, onLogout }) {
             b.style.transform = "";
           }, 600);
         }
-        setTimeout(() => {
-          if ("caches" in window) {
-            caches.keys().then((ns) => Promise.all(ns.map((n) => caches.delete(n)))).finally(() => location.reload());
-          } else {
-            location.reload();
-          }
-        }, 200);
+        window.dispatchEvent(new CustomEvent("jcsaas:data"));
       },
       title: "Actualizar",
       "aria-label": "Actualizar datos",

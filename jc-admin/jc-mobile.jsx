@@ -160,7 +160,7 @@ function MobileShell({ T, D, onLogout }) {
               {pendPago.length} pendiente{pendPago.length>1?"s":""}
             </button>
           )}
-          <button onClick={() => { const b = document.getElementById("jcm-mob-rfab-icon"); if(b) { b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{ b.style.transition=""; b.style.transform=""; },600); } setTimeout(()=>{ if("caches" in window){ caches.keys().then(ns=>Promise.all(ns.map(n=>caches.delete(n)))).finally(()=>location.reload()); } else { location.reload(); } }, 200); }} title="Actualizar" aria-label="Actualizar datos"
+          <button onClick={() => { const b = document.getElementById("jcm-mob-rfab-icon"); if(b) { b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{ b.style.transition=""; b.style.transform=""; },600); } window.dispatchEvent(new CustomEvent("jcsaas:data")); }} title="Actualizar" aria-label="Actualizar datos"
             style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", background:"none", color:T.textMute, border:"1px solid "+T.line, borderRadius:999, width:36, height:36, cursor:"pointer", flexShrink:0 }}>
             <svg id="jcm-mob-rfab-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
