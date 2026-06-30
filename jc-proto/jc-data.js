@@ -258,7 +258,7 @@
     contact: {
       address: "1 Poniente 1258, Talca",
       region: "Maule, Chile",
-      ig: "@jcskinlab",
+      ig: "@jcmedical.cl",
       email: "jc.skinlab@gmail.com",
       pro: "Juan Claudio Parra",
       role: "Enfermero Universitario · Medicina Estética",

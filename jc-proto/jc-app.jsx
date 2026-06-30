@@ -107,9 +107,9 @@ function DesktopSidePanel({ T }) {
         ))}
       </div>
       <div style={{ width: 28, height: 1, background: T.line, marginBottom: 20 }} />
-      <a href="https://www.instagram.com/jcskinlab" target="_blank" rel="noopener" style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, textDecoration: "none", display: "flex", alignItems: "center", gap: 9, marginBottom: 10, transition: "color .2s" }}>
+      <a href="https://www.instagram.com/jcmedical.cl" target="_blank" rel="noopener" style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, textDecoration: "none", display: "flex", alignItems: "center", gap: 9, marginBottom: 10, transition: "color .2s" }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
-        @jcskinlab
+        @jcmedical.cl
       </a>
       <a href="https://wa.me/56997880877" target="_blank" rel="noopener" style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, textDecoration: "none", display: "flex", alignItems: "center", gap: 9, transition: "color .2s" }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z"/></svg>
@@ -248,7 +248,7 @@ function App() {
           borderBottom: heroMode ? "1px solid transparent" : "1px solid " + T.line,
           backdropFilter: heroMode ? "none" : "blur(14px)", WebkitBackdropFilter: heroMode ? "none" : "blur(14px)",
           transition: "background .35s " + T.ease + ", border-color .35s " + T.ease }}>
-          <a href="https://instagram.com/jcskinlab" target="_blank" rel="noopener" title="@jcskinlab en Instagram" aria-label="Instagram de JC Medical"
+          <a href="https://www.instagram.com/jcmedical.cl" target="_blank" rel="noopener" title="@jcmedical.cl en Instagram" aria-label="Instagram de JC Medical"
             style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 999,
               border: "1px solid " + (heroMode ? "rgba(242,237,230,.4)" : T.chipBorder),
               color: heroMode ? "#F2EDE6" : T.text, textDecoration: "none",
