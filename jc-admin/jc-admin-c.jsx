@@ -4673,6 +4673,10 @@ function CajaView({ T }) {
     porTrat[nombre].n += 1; porTrat[nombre].total += (m.amount || 0);
   });
   const topTrat = Object.keys(porTrat).map(k => ({ name: k, n: porTrat[k].n, total: porTrat[k].total })).sort((a, b) => b.total - a.total).slice(0, 5);
+  // Ventas por profesional (desde el campo prof del movimiento de atención).
+  const porProf = {};
+  atenciones.forEach(m => { const p = (m.prof || "").trim() || "Sin asignar"; if (!porProf[p]) porProf[p] = { n: 0, total: 0 }; porProf[p].n += 1; porProf[p].total += (m.amount || 0); });
+  const topProf = Object.keys(porProf).map(k => ({ name: k, n: porProf[k].n, total: porProf[k].total })).sort((a, b) => b.total - a.total);
   // Pendiente de cobro: saldo del billing de pacientes que aún no se paga (total por cobrar).
   let pendienteCobro = 0;
   try {
@@ -4771,6 +4775,25 @@ function CajaView({ T }) {
                 </div>
                 <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
                   <div style={{ height: "100%", width: Math.max(6, Math.round(t.total / max * 100)) + "%", background: T.accent, borderRadius: 999 }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {topProf.length > 0 && (
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginTop: 16 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Ventas por profesional · {subLbl}</div>
+          {topProf.map((p, i) => {
+            const max = topProf[0].total || 1;
+            return (
+              <div key={p.name} style={{ padding: "9px 0", borderBottom: i === topProf.length - 1 ? "none" : "1px solid " + T.lineSoft }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{p.name}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{p.n} atención{p.n === 1 ? "" : "es"} · <b style={{ color: "#1F8A5B" }}>{D.fmt(p.total)}</b></span>
+                </div>
+                <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: Math.max(6, Math.round(p.total / max * 100)) + "%", background: T.accent, borderRadius: 999 }} />
                 </div>
               </div>
             );

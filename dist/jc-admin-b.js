@@ -585,7 +585,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
       const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
       try {
-        window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atenci\xF3n").trim() + " \xB7 " + (patient.name || ""), patient: patient.name });
+        window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atenci\xF3n").trim() + " \xB7 " + (patient.name || ""), patient: patient.name, prof: e.proName || "" });
       } catch (e3) {
       }
     }
