@@ -541,6 +541,81 @@ function SucursalModal({ T, suc, onClose, onSave }) {
     return /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: d.on ? T.surface2 || T.surface : T.surface, border: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { width: 92, flexShrink: 0 } }, /* @__PURE__ */ React.createElement(AdSwitch, { T, on: d.on, onClick: () => setDia(k, { on: !d.on }) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.text, marginLeft: 8 } }, l.slice(0, 3))), d.on ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, flex: 1 } }, /* @__PURE__ */ React.createElement("input", { type: "time", value: d.from, onChange: (e) => setDia(k, { from: e.target.value }), style: inp }), /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute, fontFamily: T.sans, fontSize: 12 } }, "a"), /* @__PURE__ */ React.createElement("input", { type: "time", value: d.to, onChange: (e) => setDia(k, { to: e.target.value }), style: inp })) : /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 11.5, color: T.textFaint } }, "Cerrado"));
   })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: aplicarATodos }, "Aplicar horario del lunes a todos")))));
 }
+function loadConsentTpls() {
+  try {
+    const v = window.DB && window.DB.get("consent_templates");
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveConsentTplsDB(v) {
+  try {
+    if (window.DB) window.DB.set("consent_templates", v);
+  } catch (e) {
+  }
+}
+function ConsentimientosView({ T }) {
+  const [tpls, setTpls] = useState(loadConsentTpls);
+  const [active, setActive] = useState(() => {
+    try {
+      return window.DB && window.DB.get("consent_active") || {};
+    } catch (e) {
+      return {};
+    }
+  });
+  const [editing, setEditing] = useState(null);
+  let patients = [];
+  try {
+    patients = window.DB && window.DB.get("patients") || window.JCADMIN && window.JCADMIN.patients || [];
+  } catch (e) {
+  }
+  const firmados = patients.filter((p) => p.consent).length;
+  const pendientes = patients.filter((p) => !p.consent).length;
+  const base = window.JCADMIN && window.JCADMIN.consents || [];
+  function setActiveKey(k, on) {
+    const n = { ...active, [k]: on };
+    setActive(n);
+    try {
+      window.DB && window.DB.set("consent_active", n);
+    } catch (e) {
+    }
+  }
+  function persist(n) {
+    setTpls(n);
+    saveConsentTplsDB(n);
+  }
+  function save(t) {
+    const exists = t.id && tpls.find((x) => x.id === t.id);
+    persist(exists ? tpls.map((x) => x.id === t.id ? t : x) : [...tpls, { ...t, id: "ctpl" + Date.now() }]);
+    setEditing(null);
+    try {
+      window.jcmToast && window.jcmToast("Plantilla " + (exists ? "actualizada" : "creada") + ".", "ok");
+    } catch (e) {
+    }
+  }
+  async function del(id) {
+    if (!await (window.jcmConfirm || window.confirm)("\xBFEliminar esta plantilla?", { danger: true })) return;
+    persist(tpls.filter((x) => x.id !== id));
+  }
+  const activasCount = base.filter((b) => active[b.title] !== false).length + tpls.filter((t) => t.active !== false).length;
+  const card = { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px", display: "flex", alignItems: "center", gap: 12 };
+  const row = (titulo, cat, on, onTog, onEdit, onDel) => /* @__PURE__ */ React.createElement("div", { style: card }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, titulo), cat && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, cat)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", textTransform: "uppercase", color: on ? "#1F8A5B" : T.textFaint } }, on ? "Activa" : "Inactiva"), /* @__PURE__ */ React.createElement(AdSwitch, { T, on, onClick: onTog }), onEdit && /* @__PURE__ */ React.createElement("button", { onClick: onEdit, style: { fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" } }, "Editar"), onDel && /* @__PURE__ */ React.createElement("button", { onClick: onDel, title: "Eliminar", style: { background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }))));
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Consentimientos", sub: "Plantillas, estado de firma y firma digital JC-Sign" }), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setEditing("new") }, "+ Nueva plantilla")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, margin: "4px 0 20px" } }, /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Firmados", v: firmados, c: "#1F8A5B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Pendientes de firma", v: pendientes, c: "#B8860B" }), /* @__PURE__ */ React.createElement(CajaCard, { T, l: "Plantillas activas", v: activasCount, c: T.accent })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 10 } }, "Plantillas cl\xEDnicas (base)"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 24 } }, base.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "Sin plantillas base en esta cl\xEDnica.") : base.map((b, i) => {
+    const on = active[b.title] !== false;
+    return /* @__PURE__ */ React.createElement("div", { key: b.title || i }, row(b.title, b.cat, on, () => setActiveKey(b.title, !on)));
+  })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 10 } }, "Plantillas propias"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7 } }, tpls.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "A\xFAn no creas plantillas propias. Usa \u201C+ Nueva plantilla\u201D.") : tpls.map((t) => {
+    const on = t.active !== false;
+    return /* @__PURE__ */ React.createElement("div", { key: t.id }, row(t.title, t.cat, on, () => save({ ...t, active: !on }), () => setEditing(t), () => del(t.id)));
+  })), editing && /* @__PURE__ */ React.createElement(ConsentTplModal, { T, tpl: editing === "new" ? null : editing, onClose: () => setEditing(null), onSave: save }));
+}
+function ConsentTplModal({ T, tpl, onClose, onSave }) {
+  const [f, setF] = useState(() => tpl ? { ...tpl } : { title: "", cat: "", body: "", active: true });
+  const ok = (f.title || "").trim().length > 1;
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: tpl ? "Editar plantilla" : "Nueva plantilla de consentimiento", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave(f) }, "Guardar plantilla") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "T\xEDtulo", value: f.title, onChange: (v) => setF({ ...f, title: v }), placeholder: "Ej: Consentimiento toxina botul\xEDnica" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Categor\xEDa / procedimiento", value: f.cat, onChange: (v) => setF({ ...f, cat: v }), placeholder: "Ej: Toxina botul\xEDnica" }), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Texto del consentimiento"), /* @__PURE__ */ React.createElement("textarea", { value: f.body, onChange: (e) => setF({ ...f, body: e.target.value }), rows: 8, placeholder: "Redacta el consentimiento. Cada p\xE1rrafo en una l\xEDnea.", style: { ...inp, resize: "vertical", lineHeight: 1.5 } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 14px", borderRadius: 8, background: T.surface2 || T.surface, border: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, "Plantilla activa"), /* @__PURE__ */ React.createElement(AdSwitch, { T, on: f.active !== false, onClick: () => setF({ ...f, active: !(f.active !== false) }) })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 } }, "La firma se captura con JC-Sign al momento de firmar con el paciente. Integraci\xF3n al flujo de firma: en curso.")));
+}
 const TUTO_PASOS = [
   ["config", "Configura tu cl\xEDnica", "Nombre, direcci\xF3n, horario y datos de contacto.", "config"],
   ["servicios", "Crea tus tratamientos", "Carga tus procedimientos con precio, duraci\xF3n y sesiones.", "servicios"],
@@ -3558,4 +3633,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   }
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cierre del d\xEDa", onClose, footer: done ? /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: confirmarCierre }, "Confirmar cierre del d\xEDa") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" } }, fecha), [["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Egresos", egresos, "#C0285A", "\u2212 "]].map(([l, v, c, s]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: c } }, s, D.fmt(v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, fontFamily: T.sans, fontSize: 15, fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, "Neto (ganancia)"), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, D.fmt(neto))));
 }
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });

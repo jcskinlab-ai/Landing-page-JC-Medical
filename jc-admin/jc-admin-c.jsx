@@ -670,6 +670,86 @@ function SucursalModal({ T, suc, onClose, onSave }) {
   );
 }
 
+/* ─────────── CONSENTIMIENTOS · plantillas (Área 6) ─────────── */
+function loadConsentTpls() { try { const v = window.DB && window.DB.get("consent_templates"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveConsentTplsDB(v) { try { if (window.DB) window.DB.set("consent_templates", v); } catch (e) {} }
+function ConsentimientosView({ T }) {
+  const [tpls, setTpls] = useState(loadConsentTpls);
+  const [active, setActive] = useState(() => { try { return (window.DB && window.DB.get("consent_active")) || {}; } catch (e) { return {}; } });
+  const [editing, setEditing] = useState(null);
+  let patients = []; try { patients = (window.DB && window.DB.get("patients")) || (window.JCADMIN && window.JCADMIN.patients) || []; } catch (e) {}
+  const firmados = patients.filter(p => p.consent).length;
+  const pendientes = patients.filter(p => !p.consent).length;
+  const base = (window.JCADMIN && window.JCADMIN.consents) || [];
+  function setActiveKey(k, on) { const n = { ...active, [k]: on }; setActive(n); try { window.DB && window.DB.set("consent_active", n); } catch (e) {} }
+  function persist(n) { setTpls(n); saveConsentTplsDB(n); }
+  function save(t) {
+    const exists = t.id && tpls.find(x => x.id === t.id);
+    persist(exists ? tpls.map(x => x.id === t.id ? t : x) : [...tpls, { ...t, id: "ctpl" + Date.now() }]);
+    setEditing(null);
+    try { window.jcmToast && window.jcmToast("Plantilla " + (exists ? "actualizada" : "creada") + ".", "ok"); } catch (e) {}
+  }
+  async function del(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta plantilla?", { danger: true }))) return; persist(tpls.filter(x => x.id !== id)); }
+  const activasCount = base.filter(b => active[b.title] !== false).length + tpls.filter(t => t.active !== false).length;
+  const card = { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px", display: "flex", alignItems: "center", gap: 12 };
+  const row = (titulo, cat, on, onTog, onEdit, onDel) => (
+    <div style={card}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{titulo}</div>
+        {cat && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cat}</div>}
+      </div>
+      <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", textTransform: "uppercase", color: on ? "#1F8A5B" : T.textFaint }}>{on ? "Activa" : "Inactiva"}</span>
+      <AdSwitch T={T} on={on} onClick={onTog} />
+      {onEdit && <button onClick={onEdit} style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Editar</button>}
+      {onDel && <button onClick={onDel} title="Eliminar" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>}
+    </div>
+  );
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Consentimientos" sub="Plantillas, estado de firma y firma digital JC-Sign" />
+        <AdBtn T={T} primary onClick={() => setEditing("new")}>+ Nueva plantilla</AdBtn>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, margin: "4px 0 20px" }}>
+        <CajaCard T={T} l="Firmados" v={firmados} c="#1F8A5B" />
+        <CajaCard T={T} l="Pendientes de firma" v={pendientes} c="#B8860B" />
+        <CajaCard T={T} l="Plantillas activas" v={activasCount} c={T.accent} />
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 10 }}>Plantillas clínicas (base)</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 24 }}>
+        {base.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin plantillas base en esta clínica.</div>
+          : base.map((b, i) => { const on = active[b.title] !== false; return <div key={b.title || i}>{row(b.title, b.cat, on, () => setActiveKey(b.title, !on))}</div>; })}
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 10 }}>Plantillas propias</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {tpls.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no creas plantillas propias. Usa “+ Nueva plantilla”.</div>
+          : tpls.map(t => { const on = t.active !== false; return <div key={t.id}>{row(t.title, t.cat, on, () => save({ ...t, active: !on }), () => setEditing(t), () => del(t.id))}</div>; })}
+      </div>
+      {editing && <ConsentTplModal T={T} tpl={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSave={save} />}
+    </div>
+  );
+}
+function ConsentTplModal({ T, tpl, onClose, onSave }) {
+  const [f, setF] = useState(() => tpl ? { ...tpl } : { title: "", cat: "", body: "", active: true });
+  const ok = (f.title || "").trim().length > 1;
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return (
+    <AdModal T={T} title={tpl ? "Editar plantilla" : "Nueva plantilla de consentimiento"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave(f)}>Guardar plantilla</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <AdField T={T} label="Título" value={f.title} onChange={v => setF({ ...f, title: v })} placeholder="Ej: Consentimiento toxina botulínica" />
+        <AdField T={T} label="Categoría / procedimiento" value={f.cat} onChange={v => setF({ ...f, cat: v })} placeholder="Ej: Toxina botulínica" />
+        <label><span style={lbl}>Texto del consentimiento</span><textarea value={f.body} onChange={e => setF({ ...f, body: e.target.value })} rows={8} placeholder="Redacta el consentimiento. Cada párrafo en una línea." style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} /></label>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 14px", borderRadius: 8, background: T.surface2 || T.surface, border: "1px solid " + T.line }}>
+          <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>Plantilla activa</span>
+          <AdSwitch T={T} on={f.active !== false} onClick={() => setF({ ...f, active: !(f.active !== false) })} />
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>La firma se captura con JC-Sign al momento de firmar con el paciente. Integración al flujo de firma: en curso.</div>
+      </div>
+    </AdModal>
+  );
+}
+
 /* ─────────── CENTRO DE TUTORIALES (Área 7) ─────────── */
 const TUTO_PASOS = [
   ["config", "Configura tu clínica", "Nombre, dirección, horario y datos de contacto.", "config"],
@@ -4416,4 +4496,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
