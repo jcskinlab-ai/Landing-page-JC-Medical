@@ -2629,9 +2629,23 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           <AdBtn T={T} onClick={() => setStep(1)}>Atrás</AdBtn>
           <AdBtn T={T} primary onClick={() => ok && confirm()}>Continuar</AdBtn>
         </div>}>
-        <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid rgba(31,138,91,.3)", borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>
-          Cita seleccionada · <b>{wk.wd} {wk.dd} {wk.mm}</b> a las <b>{pick.time}</b> · {prof}
+        <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid rgba(31,138,91,.3)", borderRadius: 8, padding: "12px 14px", marginBottom: 12, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>
+          Cita seleccionada · <b>{wk.wd} {wk.dd} {wk.mm}</b> a las <b>{pick.time}</b> · {prof}{sucursalesList.length > 0 && sucursal ? " · " + sucursal : ""}
         </div>
+        {(() => {
+          const _sv = (window.clinicServiceList ? (window.clinicServiceList().find(s => s.name === proc) || {}) : {});
+          const _price = _sv.price || 0;
+          if (!_price) return null;
+          return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "11px 14px", marginBottom: 16 }}>
+              <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>Valor del tratamiento</span>
+              <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontFamily: T.serif, fontSize: 18, color: T.accent }}>{(window.JCDATA ? window.JCDATA.fmt(_price) : "$" + _price)}</span>
+                <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>se cobra al atender</span>
+              </span>
+            </div>
+          );
+        })()}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
           <div>
             <span style={lbl}>Tratamiento</span>
