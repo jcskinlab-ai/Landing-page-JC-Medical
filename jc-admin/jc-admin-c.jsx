@@ -2810,6 +2810,31 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           );
         })}
       </div>
+      {/* Campos personalizados (plantillas del Editor de Fichas) */}
+      {(() => {
+        const fts = (typeof loadFichaTpls === "function" ? loadFichaTpls() : []);
+        if (!fts.length) return null;
+        const selT = f.cfTpl || fts[0].id;
+        const tpl = fts.find(t => t.id === selT) || fts[0];
+        const fieldInput = fld => {
+          const key = "cf_" + fld.id;
+          const opts = (fld.options || "").split(",").map(s => s.trim()).filter(Boolean);
+          if (fld.type === "area") return <textarea value={f[key] || ""} onChange={e => setVal(key, e.target.value)} rows={2} placeholder={fld.placeholder} style={inp({ resize: "vertical" })} />;
+          if (fld.type === "selector") return <select value={f[key] || ""} onChange={e => setVal(key, e.target.value)} style={inp()}><option value="">— Selecciona —</option>{opts.map(o => <option key={o} value={o}>{o}</option>)}</select>;
+          if (fld.type === "imagen" || fld.type === "pdf") return <div style={inp({ color: T.textFaint })}>{fld.type === "imagen" ? "📷 Adjuntar imagen (próximamente)" : "📄 Adjuntar PDF (próximamente)"}</div>;
+          return <input value={f[key] || ""} onChange={e => setVal(key, e.target.value)} type={fld.type === "numero" ? "number" : fld.type === "fecha" ? "date" : fld.type === "email" ? "email" : "text"} placeholder={fld.placeholder} style={inp()} />;
+        };
+        return (
+          <div style={card}>
+            <div style={head}>Campos personalizados</div>
+            {fts.length > 1 && <select value={selT} onChange={e => setVal("cfTpl", e.target.value)} style={inp({ marginBottom: 14 })}>{fts.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>}
+            {(tpl.fields || []).length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Esta plantilla no tiene campos. Agrégalos en Editor de Fichas.</div>
+              : <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
+                  {(tpl.fields || []).map(fld => <label key={fld.id} style={{ display: "block" }}><span style={lbl}>{fld.label || "Campo"}{fld.required && <span style={{ color: "#C0285A" }}> *</span>}</span>{fieldInput(fld)}</label>)}
+                </div>}
+          </div>
+        );
+      })()}
       {/* Historial · timeline con versionado (Área 5) */}
       {(patient.history && patient.history.length > 0) && (
         <div style={card}>
