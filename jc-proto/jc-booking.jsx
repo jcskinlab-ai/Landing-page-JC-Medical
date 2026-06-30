@@ -19,9 +19,19 @@ function procGroupOf(p) {
   return "Otros";
 }
 
+function formatRut(v) {
+  const d = v.replace(/[^0-9kK]/g, "").toUpperCase();
+  if (d.length < 2) return d;
+  let body = d.slice(0, -1), dv = d.slice(-1), fmt = "";
+  while (body.length > 3) { fmt = "." + body.slice(-3) + fmt; body = body.slice(0, -3); }
+  return body + fmt + "-" + dv;
+}
+
 function validate(form) {
   const e = {};
   if (!form.name.trim() || form.name.trim().length < 3) e.name = "Ingresa tu nombre completo";
+  const rutClean = (form.rut || "").replace(/[^0-9kK]/gi, "");
+  if (rutClean.length < 7) e.rut = "Ingresa tu RUT (ej: 12.345.678-9)";
   const age = parseInt(form.age, 10);
   if (!form.age || isNaN(age) || age < 14 || age > 99) e.age = "Edad entre 14 y 99";
   const digits = (form.phone || "").replace(/\D/g, "");
@@ -41,6 +51,7 @@ function bookingText(D, cart, day, time, form, pay, secondOff) {
   L.push("NUEVA RESERVA · JC Medical");
   L.push("");
   L.push("Paciente: " + (form.name || "—"));
+  if (form.rut) L.push("RUT: " + form.rut);
   if (form.age) L.push("Edad: " + form.age);
   L.push("Teléfono: " + (form.phone || "—"));
   if (form.email) L.push("Correo: " + form.email);
@@ -112,7 +123,7 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
   }
   const [day, setDay] = useState((draft && draft.day) || null);
   const [time, setTime] = useState((draft && draft.time) || null);
-  const [form, setForm] = useState((draft && draft.form) || { name: "", age: "", phone: "+56 9 ", email: "" });
+  const [form, setForm] = useState((draft && draft.form) || { name: "", rut: "", age: "", phone: "+56 9 ", email: "" });
   const [touched, setTouched] = useState(false);
   const [pay, setPay] = useState(null);
   const [done, setDone] = useState(false);
@@ -322,6 +333,7 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     <Section T={T} title="Tus datos" hint="Para confirmar tu hora y enviarte el recordatorio.">
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <Field T={T} label="Nombre completo" value={form.name} err={touched && errs.name} onChange={v => setForm({ ...form, name: v.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "") })} placeholder="Ej: María González" />
+        <Field T={T} label="RUT" value={form.rut} err={touched && errs.rut} onChange={v => setForm({ ...form, rut: formatRut(v) })} placeholder="Ej: 12.345.678-9" inputMode="numeric" data-nocap="" />
         <Field T={T} label="Edad" value={form.age} err={touched && errs.age} onChange={v => setForm({ ...form, age: v.replace(/\D/g, "").slice(0, 2) })} placeholder="Ej: 32" inputMode="numeric" />
         <Field T={T} label="Teléfono (WhatsApp)" value={form.phone} err={touched && errs.phone} onChange={v => setForm({ ...form, phone: v.replace(/[^\d+\s]/g, "") })} placeholder="+56 9 XXXX XXXX" inputMode="tel" />
         <Field T={T} label="Correo electrónico (opcional)" value={form.email} err={touched && errs.email} onChange={v => setForm({ ...form, email: v })} placeholder="tucorreo@ejemplo.com" inputMode="email" />
@@ -337,6 +349,7 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
         <Summ T={T} k="Fecha" v={day ? (day.wd + " " + day.dd + " " + day.mm) : "—"} />
         <Summ T={T} k="Hora" v={time || "—"} />
         <Summ T={T} k="A nombre de" v={form.name || "—"} />
+        {form.rut && <Summ T={T} k="RUT" v={form.rut} />}
         <div style={{ borderTop: "1px solid " + T.line, marginTop: 10, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent }}>Abono reserva</span>
           <span style={{ fontFamily: T.serif, fontSize: 26, color: T.text }}>{D.fmt(amount)}</span>

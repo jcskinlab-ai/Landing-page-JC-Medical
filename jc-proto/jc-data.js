@@ -158,29 +158,47 @@
     var days = [];
     var now = new Date();
     var base = new Date(now); base.setHours(0, 0, 0, 0);
-    var nowMinutes = now.getHours() * 60 + now.getMinutes(); // minutos del día actual
+    var nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Mapa de slots ocupados: "YYYY-MM-DD|HH:MM" → true
+    // Usa las citas del panel si están disponibles (usuario autenticado o misma sesión).
+    var busyKey = {};
+    try {
+      var appts = (window.DB && window.DB.get("appointments")) || [];
+      appts.forEach(function (a) {
+        if (!a.time) return;
+        if (a.status === "anulada" || a.status === "no_asistio") return;
+        var fechaKey;
+        if (a.fecha) {
+          fechaKey = a.fecha;
+        } else if (typeof a.day === "number") {
+          var d2 = new Date(base); d2.setDate(d2.getDate() + a.day);
+          fechaKey = dKey(d2);
+        }
+        if (fechaKey) busyKey[fechaKey + "|" + a.time] = true;
+      });
+    } catch (e) {}
+
     for (var i = 0; i <= 21; i++) {  // i=0 incluye hoy
       var d = new Date(base); d.setDate(base.getDate() + i);
       var wd = d.getDay();
       var isToday = (i === 0);
       var av = availForDate(d);
       if (!av.open || !av.slots.length) continue;
+      var dateKey = dKey(d);
       var slots = av.slots
         .filter(function (time) {
           if (!isToday) return true;
-          // Para hoy: ocultar slots que ya pasaron (con 30 min de margen)
           var parts = time.split(':');
           var slotMinutes = parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10);
           return slotMinutes > nowMinutes + 30;
         })
         .map(function (time) {
-          // Todos los horarios configurados quedan disponibles (sin "ocupado" de demo).
-          // La disponibilidad real la confirma la clínica; así la app calza con el panel.
-          return { time: time, taken: false };
+          return { time: time, taken: !!busyKey[dateKey + "|" + time] };
         });
-      if (!slots.length) continue; // hoy sin horas disponibles → no mostrar
+      if (!slots.length) continue;
       days.push({
-        date: dKey(d),   // fecha LOCAL (Chile), no UTC — evita desfase de día cerca de medianoche
+        date: dateKey,
         wd: DAYS_ES[wd], dd: d.getDate(), mm: MONTHS_ES[d.getMonth()],
         slots: slots
       });
