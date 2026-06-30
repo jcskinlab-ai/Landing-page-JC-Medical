@@ -40,11 +40,12 @@
     } catch (e) { return null; }
   })();
   // Claves cuyo cambio re-publica el perfil público de la clínica.
-  var PUBLIC_TRIGGER = { config: 1, horarios_v1: 1, horarios_dates: 1, services_over: 1, services_custom: 1, collab_form: 1 };
+  var PUBLIC_TRIGGER = { config: 1, horarios_v1: 1, horarios_dates: 1, services_over: 1, services_custom: 1, collab_form: 1, appointments: 1 };
   var pubTimer = null;
 
   // Claves de window.DB que NO se sincronizan (sesión/seguridad local).
-  var NO_SYNC = { session: 1, admin_pass: 1, cloud_pulled: 1, saas_ns: 1 };
+  // busySlots lo escribe la app pública desde el perfil de Firestore; no debe subirse al KV.
+  var NO_SYNC = { session: 1, admin_pass: 1, cloud_pulled: 1, saas_ns: 1, busySlots: 1 };
 
   // ── Estado interno ────────────────────────────────────────────────────
   var fb = null, auth = null, db = null, storage = null;
@@ -195,7 +196,11 @@
         applyingRemote = false;
         if (changed) emit('jcsaas:data', {});
         // Notifica al panel de escritorio y al móvil que hay citas nuevas (ej: agendadas desde otro dispositivo)
-        if (apptChanged) { try { window.dispatchEvent(new Event('jcm:appts')); } catch (e) {} }
+        if (apptChanged) {
+          try { window.dispatchEvent(new Event('jcm:appts')); } catch (e) {}
+          // Re-publica el perfil público para que la app y el link de reserva vean los slots ocupados actualizados
+          clearTimeout(pubTimer); pubTimer = setTimeout(publishProfile, 900);
+        }
       }, noop);
   }
 
@@ -222,6 +227,19 @@
       // La reserva directa (agendar.html) muestra SOLO estos, no el catálogo de otra clínica.
       services: (typeof window.clinicServiceList === 'function') ? window.clinicServiceList() : [],
       collabForm: (window.DB && window.DB.get('collab_form')) || null,
+      // Slots ocupados: solo fechas futuras/actuales, sin anuladas/no_asistio. La app pública
+      // los lee para marcar horas no disponibles sin necesitar acceso al KV privado.
+      busySlots: (function () {
+        var today = new Date().toISOString().slice(0, 10);
+        var appts = (window.DB && window.DB.get('appointments')) || [];
+        return appts.filter(function (a) {
+          if (!a.fecha || !a.time) return false;
+          if (a.fecha < today) return false;
+          if (a.status === 'anulada' || a.status === 'no_asistio' || a.status === 'cancelada') return false;
+          if (a.attended) return false;
+          return true;
+        }).map(function (a) { return { fecha: a.fecha, time: a.time }; });
+      })(),
       updatedAt: Date.now()
     };
     try {
@@ -236,6 +254,7 @@
     if (p) {
       if (p.horarios && window.DB) { try { window.DB.set('horarios_v1', p.horarios); } catch (e) {} }
       if (p.horariosDates && window.DB) { try { window.DB.set('horarios_dates', p.horariosDates); } catch (e) {} }
+      if (p.busySlots && window.DB) { try { window.DB.set('busySlots', p.busySlots); } catch (e) {} }
       if (window.JCDATA && window.JCDATA.rebuildSchedule) { try { window.JCDATA.rebuildSchedule(); } catch (e) {} }
     }
     if (firstLoad) emit('jcsaas:public', { clinicId: state.clinicId, profile: p });

@@ -161,7 +161,8 @@
     var nowMinutes = now.getHours() * 60 + now.getMinutes();
 
     // Mapa de slots ocupados: "YYYY-MM-DD|HH:MM" → true
-    // Usa las citas del panel si están disponibles (usuario autenticado o misma sesión).
+    // Fuente 1: citas del panel (admin autenticado o misma sesión de la app).
+    // Fuente 2: busySlots publicados en el perfil público de Firestore (para la app y agendar.html sin auth).
     var busyKey = {};
     try {
       var appts = (window.DB && window.DB.get("appointments")) || [];
@@ -177,6 +178,10 @@
         }
         if (fechaKey) busyKey[fechaKey + "|" + a.time] = true;
       });
+    } catch (e) {}
+    try {
+      var busy = (window.DB && window.DB.get("busySlots")) || [];
+      busy.forEach(function (s) { if (s.fecha && s.time) busyKey[s.fecha + "|" + s.time] = true; });
     } catch (e) {}
 
     for (var i = 0; i <= 21; i++) {  // i=0 incluye hoy
