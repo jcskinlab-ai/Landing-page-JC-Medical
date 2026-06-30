@@ -112,6 +112,33 @@ export default async function handler(req, res) {
         const okSent = await sendEmail(from, email.trim(), replyTo, "Recordatorio de tu cita · " + clinicName, text);
         if (okSent) { sent[key] = true; changed = true; sentThis++; totalSent++; }
       }
+
+      // ── Automatizaciones de correo PROPIAS de la clínica (custom_automations) ──
+      const customAutos = await kvGet(pid, token, c.id, "custom_automations", []);
+      if (Array.isArray(customAutos) && customAutos.length) {
+        const fmtVars = (s, a, p) => ("" + (s || ""))
+          .replace(/\{nombre\}/g, ((((p && p.name) || a.name || "") + "").split(" ")[0]) || "")
+          .replace(/\{fecha\}/g, a.fecha || "")
+          .replace(/\{hora\}/g, a.time || "")
+          .replace(/\{tratamiento\}/g, a.proc || "tu tratamiento")
+          .replace(/\{clinica\}/g, clinicName);
+        for (const au of customAutos) {
+          if (!au || au.on === false || !au.subject || !au.body) continue;
+          const n = parseInt(au.days, 10) || 0;
+          const targetDate = au.dir === "after" ? dayCL(-n) : dayCL(n);
+          for (const a of appts) {
+            if (!a || a.status === "anulada" || a.status === "cancelada" || a.status === "no_asistio") continue;
+            if (a.fecha !== targetDate) continue;
+            const p = (Array.isArray(patients) ? patients : []).find(x => x.id === a.patId);
+            const email = (p && p.email) || a.email;
+            if (!isEmail(email)) continue;
+            const key = "custom:" + au.id + ":" + (a.id || ((a.patId || "") + a.fecha + (a.time || ""))) + ":" + a.fecha;
+            if (sent[key]) continue;
+            const okSent = await sendEmail(from, email.trim(), replyTo, fmtVars(au.subject, a, p), fmtVars(au.body, a, p));
+            if (okSent) { sent[key] = true; changed = true; sentThis++; totalSent++; }
+          }
+        }
+      }
       if (changed) { await kvSet(pid, token, c.id, "auto_email_sent", sent); clinicsConActividad++; }
     } catch (e) { /* una clínica que falle no frena al resto */ }
   }

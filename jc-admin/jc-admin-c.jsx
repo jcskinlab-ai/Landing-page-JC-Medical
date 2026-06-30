@@ -832,6 +832,15 @@ const TUTO_NOVEDADES = [
 function TutorialesView({ T, go }) {
   const [done, setDone] = useState(() => { try { return (window.DB && window.DB.get("tutorial_done")) || {}; } catch (e) { return {}; } });
   function toggle(k) { const n = { ...done, [k]: !done[k] }; setDone(n); try { window.DB && window.DB.set("tutorial_done", n); } catch (e) {} }
+  // Videos propios por paso (los pega la clínica). Persisten en DB.tutorial_videos.
+  const [videos, setVideos] = useState(() => { try { return (window.DB && window.DB.get("tutorial_videos")) || {}; } catch (e) { return {}; } });
+  async function setVid(k) {
+    const cur = videos[k] || "";
+    const url = await Promise.resolve(window.jcmPrompt ? window.jcmPrompt("Pega el link del video para este paso (YouTube, Drive, Loom, etc.):", cur) : window.prompt("Link del video:", cur));
+    if (url == null) return;
+    const n = { ...videos, [k]: ("" + url).trim() }; if (!n[k]) delete n[k];
+    setVideos(n); try { window.DB && window.DB.set("tutorial_videos", n); } catch (e) {}
+  }
   const completados = TUTO_PASOS.filter(([k]) => done[k]).length;
   const pct = Math.round(completados / TUTO_PASOS.length * 100);
   return (
@@ -860,7 +869,11 @@ function TutorialesView({ T, go }) {
                   <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}><span style={{ color: T.textFaint }}>{i + 1}.</span> {title}</div>
                   <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
                 </div>
-                <button onClick={() => go && go(sec)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>Ir →</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  {videos[k] && <a href={videos[k]} target="_blank" rel="noopener" title="Ver video" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#fff", background: "#C0285A", borderRadius: 7, padding: "6px 10px", textDecoration: "none" }}><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>Video</a>}
+                  <button onClick={() => setVid(k)} title={videos[k] ? "Cambiar video" : "Agregar video"} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>{videos[k] ? "✎" : "+ video"}</button>
+                  <button onClick={() => go && go(sec)} style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>Ir →</button>
+                </div>
               </div>
             ); })}
           </div>
@@ -3342,6 +3355,14 @@ function AutomatizacionesView({ T }) {
     return AUTO_SEED.map(r => ({ ...r, on: r.id in saved ? saved[r.id] : r.on }));
   });
   function toggle(id) { const n = rules.map(r => r.id === id ? { ...r, on: !r.on } : r); setRules(n); try { DB.set("automations", n); } catch (e) {} }
+  // Automatizaciones de correo PROPIAS (las ejecuta el cron diario). Persisten en DB.custom_automations.
+  const [autos, setAutos] = useState(() => { try { return (window.DB && window.DB.get("custom_automations")) || []; } catch (e) { return []; } });
+  const [editAuto, setEditAuto] = useState(null);
+  function persistAutos(n) { setAutos(n); try { window.DB && window.DB.set("custom_automations", n); } catch (e) {} }
+  function saveAuto(a) { const exists = a.id && autos.find(x => x.id === a.id); persistAutos(exists ? autos.map(x => x.id === a.id ? a : x) : [...autos, { ...a, id: "auto" + Date.now() }]); setEditAuto(null); try { window.jcmToast && window.jcmToast("Automatización guardada.", "ok"); } catch (e) {} }
+  async function delAuto(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta automatización?", { danger: true }))) return; persistAutos(autos.filter(x => x.id !== id)); }
+  function toggleAuto(id) { persistAutos(autos.map(x => x.id === id ? { ...x, on: !x.on } : x)); }
+  const autoWhen = a => (a.dir === "after" ? (a.days + " día" + (a.days === 1 ? "" : "s") + " después") : (a.days === 0 ? "el día de la cita" : a.days + " día" + (a.days === 1 ? "" : "s") + " antes"));
   // Enlace de reseña PROPIO de la clínica (formulario Medique): medique.cl/review?c=clinicId
   const reviewUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink)
     ? window.JCSAAS.reviewLink()
@@ -3386,6 +3407,30 @@ function AutomatizacionesView({ T }) {
           );
         })}
       </div>
+      {/* Automatizaciones de correo propias (las ejecuta el cron diario) */}
+      <div style={{ marginTop: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Mis automatizaciones de correo</div>
+          <AdBtn T={T} primary onClick={() => setEditAuto("new")}>+ Nueva automatización</AdBtn>
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Crea recordatorios o seguimientos por correo a tu medida. El servidor los envía solo (1×/día) a los pacientes con cita en la fecha que definas. Las anuladas se saltan. (WhatsApp a medida requiere conectar Meta.)</div>
+        {autos.length === 0
+          ? <Empty2 T={T}>Aún no creaste automatizaciones propias. Usa "+ Nueva automatización".</Empty2>
+          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {autos.map(a => (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + (a.on !== false ? T.accent + "55" : T.line), borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{a.name || "Sin nombre"}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📧 {autoWhen(a)} · "{a.subject || "(sin asunto)"}"</div>
+                  </div>
+                  <AdSwitch T={T} on={a.on !== false} onClick={() => toggleAuto(a.id)} />
+                  <button onClick={() => setEditAuto(a)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Editar</button>
+                  <button onClick={() => delAuto(a.id)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                </div>
+              ))}
+            </div>}
+      </div>
+      {editAuto && <AutoBuilderModal T={T} auto={editAuto === "new" ? null : editAuto} onClose={() => setEditAuto(null)} onSave={saveAuto} />}
       {/* Formulario de reseñas propio de la clínica (Medique). Va DEBAJO de las automatizaciones. */}
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -3418,6 +3463,38 @@ function AutomatizacionesView({ T }) {
         )}
       </div>
     </div>
+  );
+}
+
+const AUTO_VARS = ["{nombre}", "{fecha}", "{hora}", "{tratamiento}", "{clinica}"];
+function AutoBuilderModal({ T, auto, onClose, onSave }) {
+  const [f, setF] = useState(() => auto ? { ...auto } : { name: "", dir: "before", days: 1, subject: "", body: "", on: true });
+  const ok = (f.name || "").trim().length > 1 && (f.subject || "").trim().length > 0 && (f.body || "").trim().length > 0;
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  const dayOpts = f.dir === "before" ? [0, 1, 2, 3, 5, 7] : [1, 2, 3, 7, 14, 30];
+  return (
+    <AdModal T={T} title={auto ? "Editar automatización" : "Nueva automatización de correo"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ ...f, days: parseInt(f.days, 10) || 0 })}>Guardar automatización</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <AdField T={T} label="Nombre (interno)" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Seguimiento post-tratamiento" />
+        <div>
+          <span style={lbl}>Disparador</span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <select value={f.dir} onChange={e => setF({ ...f, dir: e.target.value })} style={inp}><option value="before">Antes de la cita</option><option value="after">Después de la cita</option></select>
+            <select value={f.days} onChange={e => setF({ ...f, days: parseInt(e.target.value, 10) })} style={inp}>{dayOpts.map(d => <option key={d} value={d}>{d === 0 ? "El mismo día" : d + " día" + (d === 1 ? "" : "s")}</option>)}</select>
+          </div>
+        </div>
+        <AdField T={T} label="Asunto del correo" value={f.subject} onChange={v => setF({ ...f, subject: v })} placeholder="Ej: ¿Cómo te fue con tu tratamiento?" />
+        <label><span style={lbl}>Mensaje</span><textarea value={f.body} onChange={e => setF({ ...f, body: e.target.value })} rows={5} placeholder="Hola {nombre}, …" style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} /></label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {AUTO_VARS.map(v => <button key={v} type="button" onClick={() => setF(s => ({ ...s, body: (s.body || "") + v }))} style={{ fontFamily: T.sans, fontSize: 11, padding: "5px 10px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent }}>+ {v}</button>)}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 14px", borderRadius: 8, background: T.surface2 || T.surface, border: "1px solid " + T.line }}>
+          <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>Automatización activa</span>
+          <AdSwitch T={T} on={f.on !== false} onClick={() => setF({ ...f, on: !(f.on !== false) })} />
+        </div>
+      </div>
+    </AdModal>
   );
 }
 
