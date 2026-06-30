@@ -2810,6 +2810,30 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           );
         })}
       </div>
+      {/* Historial · timeline con versionado (Área 5) */}
+      {(patient.history && patient.history.length > 0) && (
+        <div style={card}>
+          <div style={head}>Historial de la ficha · {patient.history.length} sesión{patient.history.length === 1 ? "" : "es"}</div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {patient.history.map((h, i) => {
+              const ver = patient.history.length - i; // historia newest-first → versión mayor arriba
+              const last = i === patient.history.length - 1;
+              return (
+                <div key={h.id || i} style={{ position: "relative", paddingLeft: 24, paddingBottom: last ? 0 : 16 }}>
+                  <span style={{ position: "absolute", left: 0, top: 3, width: 11, height: 11, borderRadius: "50%", background: T.accent, border: "2px solid " + T.surface }} />
+                  {!last && <span style={{ position: "absolute", left: 5, top: 14, bottom: 0, width: 1.5, background: T.line }} />}
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".06em", color: T.accent, background: T.accentSoft || "rgba(84,112,127,.12)", borderRadius: 999, padding: "2px 8px" }}>v{ver}</span>
+                    <span style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{h.proc || "Sesión"}</span>
+                    {h.cobro > 0 && <span style={{ fontFamily: T.sans, fontSize: 11, color: "#1F8A5B" }}>{window.JCDATA ? window.JCDATA.fmt(h.cobro) : "$" + h.cobro}</span>}
+                  </div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{h.date || ""}{h.prof ? " · " + h.prof : ""}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
