@@ -107,30 +107,47 @@ function photoQuality(dataUrl) {
 
 const FACEMESH_SRC = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js";
 const FACEMESH_CDN = f => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/" + f;
-// Instancia cacheada: el WASM (~9 MB) solo se descarga la primera vez.
+// Instancia cacheada. onResults se registra UNA SOLA VEZ al crear la instancia.
+// _fmPending guarda { resolve, reject, img } de la detección en vuelo.
 let _fmInstance = null;
+let _fmPending = null;
+
+async function _buildFaceMesh() {
+  const fm = new window.FaceMesh({ locateFile: FACEMESH_CDN });
+  // refineLandmarks=false elimina la dependencia de SharedArrayBuffer (requiere COOP/COEP)
+  // y evita el bloqueo en iPads donde esas cabeceras no están activas.
+  fm.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.4 });
+  fm.onResults(r => {
+    if (!_fmPending) return;
+    const { resolve, reject, img } = _fmPending;
+    _fmPending = null;
+    const l = r.multiFaceLandmarks && r.multiFaceLandmarks[0];
+    if (!l) reject(new Error("No se detectó un rostro. Usa una foto frontal, clara y bien iluminada."));
+    else resolve({ lm: l, W: img.naturalWidth, H: img.naturalHeight });
+  });
+  // initialize() compila el WASM explícitamente y lanza un error claro si la CSP lo bloquea.
+  await fm.initialize();
+  return fm;
+}
 
 // Detecta 468 landmarks faciales en el navegador. Devuelve {lm, W, H} o lanza error.
 async function detectFaceMesh(dataUrl) {
   await loadScriptOnce(FACEMESH_SRC);
   if (!window.FaceMesh) throw new Error("El modelo de IA no está disponible.");
   if (!_fmInstance) {
-    _fmInstance = new window.FaceMesh({ locateFile: FACEMESH_CDN });
-    _fmInstance.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.4 });
+    try { _fmInstance = await _buildFaceMesh(); }
+    catch (e) { _fmInstance = null; throw new Error("No se pudo inicializar el modelo de IA. " + (e.message || "")); }
   }
   const img = await loadImg(dataUrl);
   return await new Promise((resolve, reject) => {
-    // Primera detección puede tardar 20–40 s mientras el WASM se descarga del CDN.
-    const to = setTimeout(() => { _fmInstance = null; reject(new Error("La detección tardó demasiado. Revisa tu conexión e intenta de nuevo.")); }, 60000);
-    try {
-      _fmInstance.onResults(r => {
-        clearTimeout(to);
-        const l = r.multiFaceLandmarks && r.multiFaceLandmarks[0];
-        if (!l) reject(new Error("No se detectó un rostro. Usa una foto frontal, clara y bien iluminada."));
-        else resolve({ lm: l, W: img.naturalWidth, H: img.naturalHeight });
-      });
-      _fmInstance.send({ image: img });
-    } catch (e) { clearTimeout(to); _fmInstance = null; reject(e); }
+    const to = setTimeout(() => {
+      _fmPending = null; _fmInstance = null;
+      reject(new Error("La detección tardó demasiado. Revisa tu conexión e intenta de nuevo."));
+    }, 25000);
+    const done = (fn, v) => { clearTimeout(to); fn(v); };
+    _fmPending = { resolve: v => done(resolve, v), reject: v => done(reject, v), img };
+    try { _fmInstance.send({ image: img }); }
+    catch (e) { clearTimeout(to); _fmPending = null; _fmInstance = null; reject(e); }
   });
 }
 

@@ -168,29 +168,49 @@ function photoQuality(dataUrl) {
 const FACEMESH_SRC = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js";
 const FACEMESH_CDN = (f) => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/" + f;
 let _fmInstance = null;
+let _fmPending = null;
+async function _buildFaceMesh() {
+  const fm = new window.FaceMesh({ locateFile: FACEMESH_CDN });
+  fm.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.4 });
+  fm.onResults((r) => {
+    if (!_fmPending) return;
+    const { resolve, reject, img } = _fmPending;
+    _fmPending = null;
+    const l = r.multiFaceLandmarks && r.multiFaceLandmarks[0];
+    if (!l) reject(new Error("No se detect\xF3 un rostro. Usa una foto frontal, clara y bien iluminada."));
+    else resolve({ lm: l, W: img.naturalWidth, H: img.naturalHeight });
+  });
+  await fm.initialize();
+  return fm;
+}
 async function detectFaceMesh(dataUrl) {
   await loadScriptOnce(FACEMESH_SRC);
   if (!window.FaceMesh) throw new Error("El modelo de IA no est\xE1 disponible.");
   if (!_fmInstance) {
-    _fmInstance = new window.FaceMesh({ locateFile: FACEMESH_CDN });
-    _fmInstance.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.4 });
+    try {
+      _fmInstance = await _buildFaceMesh();
+    } catch (e) {
+      _fmInstance = null;
+      throw new Error("No se pudo inicializar el modelo de IA. " + (e.message || ""));
+    }
   }
   const img = await loadImg(dataUrl);
   return await new Promise((resolve, reject) => {
     const to = setTimeout(() => {
+      _fmPending = null;
       _fmInstance = null;
       reject(new Error("La detecci\xF3n tard\xF3 demasiado. Revisa tu conexi\xF3n e intenta de nuevo."));
-    }, 6e4);
+    }, 25e3);
+    const done = (fn, v) => {
+      clearTimeout(to);
+      fn(v);
+    };
+    _fmPending = { resolve: (v) => done(resolve, v), reject: (v) => done(reject, v), img };
     try {
-      _fmInstance.onResults((r) => {
-        clearTimeout(to);
-        const l = r.multiFaceLandmarks && r.multiFaceLandmarks[0];
-        if (!l) reject(new Error("No se detect\xF3 un rostro. Usa una foto frontal, clara y bien iluminada."));
-        else resolve({ lm: l, W: img.naturalWidth, H: img.naturalHeight });
-      });
       _fmInstance.send({ image: img });
     } catch (e) {
       clearTimeout(to);
+      _fmPending = null;
       _fmInstance = null;
       reject(e);
     }
