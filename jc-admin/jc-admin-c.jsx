@@ -1993,8 +1993,10 @@ function IndTemplatesEditor({ T }) {
 }
 
 /* ─────────── CONFIGURACIÓN ─────────── */
+const CFG_TABS = [["datos", "Datos de la clínica"], ["reserva", "Reserva y enlaces"], ["horarios", "Horarios"], ["plantillas", "Plantillas y firmas"], ["notif", "Notificaciones"]];
 function ConfigView({ T }) {
   const D = window.JCDATA;
+  const [cfgTab, setCfgTab] = useState(() => { try { var t = window.jcmConfigTab; if (t) { window.jcmConfigTab = null; return t; } } catch (e) {} return "datos"; });
   // Link de RESERVA DIRECTA, propio de cada clínica (no la app de pacientes).
   const bookUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.bookingLink)
     ? window.JCSAAS.bookingLink()
@@ -2027,6 +2029,10 @@ function ConfigView({ T }) {
   return (
     <div>
       <SecHead T={T} title="Configuración de la clínica" sub="Administra la información pública y los detalles de tu clínica." />
+      <div className="jc-scroll" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
+        {CFG_TABS.map(([k, l]) => <button key={k} onClick={() => setCfgTab(k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: cfgTab === k ? 600 : 500, padding: "8px 15px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (cfgTab === k ? T.accent : T.line), background: cfgTab === k ? T.accent : "transparent", color: cfgTab === k ? (T.onAccent || "#fff") : T.textMute, whiteSpace: "nowrap" }}>{l}</button>)}
+      </div>
+      {cfgTab === "reserva" && <>
       {/* Reserva online — comparte tu link */}
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
         <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
@@ -2090,19 +2096,24 @@ function ConfigView({ T }) {
           <a href={mobileUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, color: T.text, textDecoration: "none", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "9px 13px" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>Abrir</a>
         </div>
       </div>
-      <ClinicDataCard T={T} />
-      <AdminPinCard T={T} />
-      <PaymentDataCard T={T} />
-      <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>
-      <IndTemplatesEditor T={T} />
-      <FirmasMedicasEditor T={T} />
-      <RecitaDescCard T={T} />
-      <ClinCard T={T} title="Notificaciones">
+      </>}
+      {cfgTab === "datos" && <>
+        <ClinicDataCard T={T} />
+        <AdminPinCard T={T} />
+        <PaymentDataCard T={T} />
+      </>}
+      {cfgTab === "horarios" && <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>}
+      {cfgTab === "plantillas" && <>
+        <IndTemplatesEditor T={T} />
+        <FirmasMedicasEditor T={T} />
+        <RecitaDescCard T={T} />
+      </>}
+      {cfgTab === "notif" && <ClinCard T={T} title="Notificaciones">
         <ToggleRow T={T} label="Recordatorio 24 h antes (WhatsApp)" def={true} />
         <ToggleRow T={T} label="Recordatorio el día del tratamiento · 08:30 (WhatsApp)" def={true} />
         <ToggleRow T={T} label="Confirmación por correo (Gmail)" def={true} />
         <ToggleRow T={T} label="Resumen diario con Gemini" def={false} />
-      </ClinCard>
+      </ClinCard>}
     </div>
   );
 }

@@ -90,6 +90,14 @@ const ADMIN_NAV = [
   { k: "config", l: "Configuraci\xF3n" }
 ];
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
+const NAV_TOP_GROUPS = [
+  { l: "Inicio", keys: ["dashboard", "appjcm"] },
+  { l: "Cl\xEDnica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
+  { l: "Marketing", keys: ["marketing", "crm", "difusiones"] },
+  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
+  { l: "An\xE1lisis", keys: ["resumen", "colaboracion", "fidelidad", "integraciones", "reportes"] },
+  { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
+];
 var LOS_MEDIQUE_EMAIL = "makikarenina06@gmail.com";
 function isLosMedique() {
   try {
@@ -713,6 +721,7 @@ function AdminApp() {
   function toggleGroup(g) {
     setCollapsedGroups((s) => ({ ...s, [g]: !s[g] }));
   }
+  const [topGrp, setTopGrp] = useState(null);
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifVer, setNotifVer] = useState(0);
@@ -1166,10 +1175,34 @@ function AdminApp() {
       localStorage.setItem("jcm_theme_pref", JSON.stringify({ key: nk, period: autoPeriod() }));
     } catch (e) {
     }
-  }, title: T.dark ? "Modo d\xEDa" : "Modo noche", style: { width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, T.dark ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "4.5" }), /* @__PURE__ */ React.createElement("path", { d: "M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" })) : /* @__PURE__ */ React.createElement("path", { d: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" })))), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { display: "flex", gap: 5, overflowX: "auto", padding: "5px 16px", borderBottom: "1px solid " + T.line, background: T.navBg, position: "relative", zIndex: 5, flexShrink: 0 } }, adminNavItems().map((n) => {
-    const active = section === n.k;
-    return /* @__PURE__ */ React.createElement("button", { key: n.k, onClick: () => nav(n.k), style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? T.onAccent || "#fff" : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", boxShadow: active ? "0 3px 10px -4px " + T.accent : "none", transition: "all .2s " + T.ease } }, n.k === "pendientes" && pendCount > 0 && /* @__PURE__ */ React.createElement("span", { style: { width: 5, height: 5, borderRadius: "50%", background: active ? T.onAccent || "#fff" : "#C0285A" } }), n.l);
-  })), /* @__PURE__ */ React.createElement("div", { id: "jcm-main-scroll", className: "jc-scroll", style: { flex: 1, overflowY: "auto", padding: "18px 20px" } }, /* @__PURE__ */ React.createElement("div", { key: section + (openPatient || ""), style: { animation: "jcFade .3s " + T.ease, maxWidth: 1500, margin: "0 auto" } }, body))), /* @__PURE__ */ React.createElement(Copilot, { T, patients, appts, addAppt, onDarCita: (pf) => setDarCita(pf) }), darCita && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: darCita.time, day: darCita.day, prefill: darCita, onClose: () => setDarCita(null), onSave: (a) => {
+  }, title: T.dark ? "Modo d\xEDa" : "Modo noche", style: { width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, T.dark ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "4.5" }), /* @__PURE__ */ React.createElement("path", { d: "M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" })) : /* @__PURE__ */ React.createElement("path", { d: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" })))), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { display: "flex", gap: 6, overflowX: "auto", padding: "7px 16px", borderBottom: "1px solid " + T.line, background: T.navBg, position: "relative", zIndex: 5, flexShrink: 0 } }, (() => {
+    const items = adminNavItems();
+    const byKey = {};
+    items.forEach((n) => {
+      byKey[n.k] = n.l;
+    });
+    return NAV_TOP_GROUPS.map((g) => {
+      const keys = g.keys.filter((k) => byKey[k]);
+      if (!keys.length) return null;
+      const activeInGroup = keys.indexOf(section) >= 0;
+      return /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          key: g.l,
+          onClick: (e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, y: r.bottom + 5, keys, byKey });
+          },
+          style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (activeInGroup ? T.accent : T.line), background: activeInGroup ? T.accent : T.chipBg, color: activeInGroup ? T.onAccent || "#fff" : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: activeInGroup ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease }
+        },
+        activeInGroup ? g.l + " \xB7 " + byKey[section] : g.l,
+        /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))
+      );
+    });
+  })()), topGrp && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setTopGrp(null), style: { position: "fixed", inset: 0, zIndex: 50 } }), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { position: "fixed", left: topGrp.x, top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto" } }, topGrp.keys.map((k) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => {
+    nav(k);
+    setTopGrp(null);
+  }, style: { display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 13px", borderRadius: 7, border: "none", background: section === k ? T.accent : "transparent", color: section === k ? T.onAccent || "#fff" : T.text, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, whiteSpace: "nowrap" } }, k === "pendientes" && pendCount > 0 && /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: section === k ? T.onAccent || "#fff" : "#C0285A" } }), topGrp.byKey[k])))), /* @__PURE__ */ React.createElement("div", { id: "jcm-main-scroll", className: "jc-scroll", style: { flex: 1, overflowY: "auto", padding: "18px 20px" } }, /* @__PURE__ */ React.createElement("div", { key: section + (openPatient || ""), style: { animation: "jcFade .3s " + T.ease, maxWidth: 1500, margin: "0 auto" } }, body))), /* @__PURE__ */ React.createElement(Copilot, { T, patients, appts, addAppt, onDarCita: (pf) => setDarCita(pf) }), darCita && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: darCita.time, day: darCita.day, prefill: darCita, onClose: () => setDarCita(null), onSave: (a) => {
     addAppt(a);
     setDarCita(null);
   }, onOpenPatient: (id) => {

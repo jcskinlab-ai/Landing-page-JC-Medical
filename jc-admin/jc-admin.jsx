@@ -75,6 +75,15 @@ const ADMIN_NAV = [
 ];
 // Encabezado de grupo del sidebar: la clave donde COMIENZA un grupo → su etiqueta (Área 1).
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "Marketing & Ventas", resumen: "Análisis", administracion: "Sistema" };
+// Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
+const NAV_TOP_GROUPS = [
+  { l: "Inicio", keys: ["dashboard", "appjcm"] },
+  { l: "Clínica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
+  { l: "Marketing", keys: ["marketing", "crm", "difusiones"] },
+  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
+  { l: "Análisis", keys: ["resumen", "colaboracion", "fidelidad", "integraciones", "reportes"] },
+  { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
+];
 
 // La pestaña "App JC Medical" es exclusiva: solo se muestra en modo local (sin SaaS)
 // o en clínicas con el flag jcApp activado (lo activa el super-admin). Las demás no la ven.
@@ -909,6 +918,7 @@ function AdminApp() {
   const [navOpen, setNavOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState({});
   function toggleGroup(g) { setCollapsedGroups(s => ({ ...s, [g]: !s[g] })); }
+  const [topGrp, setTopGrp] = useState(null); // menú de grupo abierto en la barra superior
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifVer, setNotifVer] = useState(0); // se incrementa al marcar notificaciones como leídas
@@ -1284,18 +1294,34 @@ function AdminApp() {
             </button>
           </div>
 
-          {/* barra dashboard horizontal (pestañas superiores) · estilo moderno */}
-          <div className="jc-scroll" style={{ display: "flex", gap: 5, overflowX: "auto", padding: "5px 16px", borderBottom: "1px solid " + T.line, background: T.navBg, position: "relative", zIndex: 5, flexShrink: 0 }}>
-            {adminNavItems().map(n => {
-              const active = section === n.k;
-              return (
-                <button key={n.k} onClick={() => nav(n.k)} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", boxShadow: active ? "0 3px 10px -4px " + T.accent : "none", transition: "all .2s " + T.ease }}>
-                  {n.k === "pendientes" && pendCount > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? (T.onAccent || "#fff") : "#C0285A" }} />}
-                  {n.l}
-                </button>
-              );
-            })}
+          {/* barra dashboard horizontal · grupos desplegables (F8) */}
+          <div className="jc-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "7px 16px", borderBottom: "1px solid " + T.line, background: T.navBg, position: "relative", zIndex: 5, flexShrink: 0 }}>
+            {(() => {
+              const items = adminNavItems(); const byKey = {}; items.forEach(n => { byKey[n.k] = n.l; });
+              return NAV_TOP_GROUPS.map(g => {
+                const keys = g.keys.filter(k => byKey[k]); if (!keys.length) return null;
+                const activeInGroup = keys.indexOf(section) >= 0;
+                return (
+                  <button key={g.l} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, y: r.bottom + 5, keys: keys, byKey: byKey }); }}
+                    style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (activeInGroup ? T.accent : T.line), background: activeInGroup ? T.accent : T.chipBg, color: activeInGroup ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: activeInGroup ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease }}>
+                    {activeInGroup ? g.l + " · " + byKey[section] : g.l}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                );
+              });
+            })()}
           </div>
+          {topGrp && (<>
+            <div onClick={() => setTopGrp(null)} style={{ position: "fixed", inset: 0, zIndex: 50 }} />
+            <div className="jc-scroll" style={{ position: "fixed", left: topGrp.x, top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto" }}>
+              {topGrp.keys.map(k => (
+                <button key={k} onClick={() => { nav(k); setTopGrp(null); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 13px", borderRadius: 7, border: "none", background: section === k ? T.accent : "transparent", color: section === k ? (T.onAccent || "#fff") : T.text, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, whiteSpace: "nowrap" }}>
+                  {k === "pendientes" && pendCount > 0 && <span style={{ width: 6, height: 6, borderRadius: "50%", background: section === k ? (T.onAccent || "#fff") : "#C0285A" }} />}
+                  {topGrp.byKey[k]}
+                </button>
+              ))}
+            </div>
+          </>)}
 
           <div id="jcm-main-scroll" className="jc-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>
             <div key={section + (openPatient || "")} style={{ animation: "jcFade .3s " + T.ease, maxWidth: 1500, margin: "0 auto" }}>{body}</div>
