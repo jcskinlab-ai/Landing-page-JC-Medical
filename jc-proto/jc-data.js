@@ -176,7 +176,14 @@
           var d2 = new Date(base); d2.setDate(d2.getDate() + a.day);
           fechaKey = dKey(d2);
         }
-        if (fechaKey) busyKey[fechaKey + "|" + a.time] = true;
+        if (!fechaKey) return;
+        var sp = a.time.split(":");
+        var startMin = parseInt(sp[0]) * 60 + parseInt(sp[1]);
+        var durMin = a.durMin || parseInt(a.dur) || 30;
+        for (var t = startMin; t < startMin + durMin; t += 30) {
+          var hh = Math.floor(t / 60), mm = t % 60;
+          busyKey[fechaKey + "|" + (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm] = true;
+        }
       });
     } catch (e) {}
     try {

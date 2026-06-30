@@ -266,18 +266,16 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     border: "1px solid " + (day && day.date === dd.date ? T.accent : T.line),
     transition: "all .2s"
   } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: day && day.date === dd.date ? T.onAccent : T.textMute } }, dd.wd), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 22, color: day && day.date === dd.date ? T.onAccent : T.text, marginTop: 2 } }, dd.dd), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, color: day && day.date === dd.date ? T.onAccent : T.textFaint } }, dd.mm)))));
-  const SecHora = /* @__PURE__ */ React.createElement(Section, { T, title: "Hora disponible", hint: day ? day.wd + " " + day.dd + " " + day.mm : "Selecciona un d\xEDa primero" }, !day ? /* @__PURE__ */ React.createElement(Empty, { T }, "Primero elige un d\xEDa.") : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 } }, (D.schedule.find((dd) => dd.date === day.date) || day).slots.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.time, disabled: s.taken, onClick: () => setTime(s.time), style: {
+  const SecHora = /* @__PURE__ */ React.createElement(Section, { T, title: "Hora disponible", hint: day ? day.wd + " " + day.dd + " " + day.mm : "Selecciona un d\xEDa primero" }, !day ? /* @__PURE__ */ React.createElement(Empty, { T }, "Primero elige un d\xEDa.") : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 } }, (D.schedule.find((dd) => dd.date === day.date) || day).slots.filter((s) => !s.taken).map((s) => /* @__PURE__ */ React.createElement("button", { key: s.time, onClick: () => setTime(s.time), style: {
     padding: "12px 4px",
     borderRadius: 4,
-    cursor: s.taken ? "not-allowed" : "pointer",
+    cursor: "pointer",
     fontFamily: T.sans,
     fontSize: 13,
     letterSpacing: ".04em",
     background: time === s.time ? T.accent : T.surface,
-    color: s.taken ? T.textFaint : time === s.time ? T.onAccent : T.text,
+    color: time === s.time ? T.onAccent : T.text,
     border: "1px solid " + (time === s.time ? T.accent : T.line),
-    textDecoration: s.taken ? "line-through" : "none",
-    opacity: s.taken ? 0.5 : 1,
     transition: "all .2s"
   } }, s.time))));
   const SecDatos = /* @__PURE__ */ React.createElement(Section, { T, title: "Tus datos", hint: "Para confirmar tu hora y enviarte el recordatorio." }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(Field, { T, label: "Nombre completo", value: form.name, err: touched && errs.name, onChange: (v) => setForm({ ...form, name: v.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "") }), placeholder: "Ej: Mar\xEDa Gonz\xE1lez" }), /* @__PURE__ */ React.createElement(Field, { T, label: "RUT", value: form.rut, err: touched && errs.rut, onChange: (v) => setForm({ ...form, rut: formatRut(v) }), placeholder: "Ej: 12.345.678-9", inputMode: "numeric", "data-nocap": "" }), /* @__PURE__ */ React.createElement(Field, { T, label: "Edad", value: form.age, err: touched && errs.age, onChange: (v) => setForm({ ...form, age: v.replace(/\D/g, "").slice(0, 2) }), placeholder: "Ej: 32", inputMode: "numeric" }), /* @__PURE__ */ React.createElement(Field, { T, label: "Tel\xE9fono (WhatsApp)", value: form.phone, err: touched && errs.phone, onChange: (v) => setForm({ ...form, phone: v.replace(/[^\d+\s]/g, "") }), placeholder: "+56 9 XXXX XXXX", inputMode: "tel" }), /* @__PURE__ */ React.createElement(Field, { T, label: "Correo electr\xF3nico (opcional)", value: form.email, err: touched && errs.email, onChange: (v) => setForm({ ...form, email: v }), placeholder: "tucorreo@ejemplo.com", inputMode: "email" })));

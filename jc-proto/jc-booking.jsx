@@ -317,11 +317,11 @@ function BookingFlow({ T, D, initialProc, mode, onClose, onAskAssistant }) {
     <Section T={T} title="Hora disponible" hint={day ? day.wd + " " + day.dd + " " + day.mm : "Selecciona un día primero"}>
       {!day ? <Empty T={T}>Primero elige un día.</Empty> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-          {(D.schedule.find(dd => dd.date === day.date) || day).slots.map(s => (
-            <button key={s.time} disabled={s.taken} onClick={() => setTime(s.time)} style={{
-              padding: "12px 4px", borderRadius: 4, cursor: s.taken ? "not-allowed" : "pointer", fontFamily: T.sans, fontSize: 13, letterSpacing: ".04em",
-              background: time === s.time ? T.accent : T.surface, color: s.taken ? T.textFaint : (time === s.time ? T.onAccent : T.text),
-              border: "1px solid " + (time === s.time ? T.accent : T.line), textDecoration: s.taken ? "line-through" : "none", opacity: s.taken ? .5 : 1, transition: "all .2s"
+          {(D.schedule.find(dd => dd.date === day.date) || day).slots.filter(s => !s.taken).map(s => (
+            <button key={s.time} onClick={() => setTime(s.time)} style={{
+              padding: "12px 4px", borderRadius: 4, cursor: "pointer", fontFamily: T.sans, fontSize: 13, letterSpacing: ".04em",
+              background: time === s.time ? T.accent : T.surface, color: time === s.time ? T.onAccent : T.text,
+              border: "1px solid " + (time === s.time ? T.accent : T.line), transition: "all .2s"
             }}>{s.time}</button>
           ))}
         </div>

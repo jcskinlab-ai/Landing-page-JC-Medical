@@ -286,10 +286,10 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="jc-proto/jc-data.js?v=81"></script>
+<script src="jc-proto/jc-data.js?v=82"></script>
 <!-- Multi-clínica: si la URL trae ?c=clinicId, carga la marca/datos de esa clínica -->
 <script src="jcm_saas_config.js?v=7"></script>
-<script src="jcm_saas.js?v=24"></script>
+<script src="jcm_saas.js?v=25"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -307,8 +307,9 @@
       document.title = 'Agenda tu cita — ' + (p.name || 'Clínica');
       var tag = document.getElementById('clinic-tag');
       if(tag && p.name){ tag.textContent = p.name; tag.style.display = 'block'; }
-      // El perfil de la clínica llega async; re-render los servicios con los SUYOS.
       if(typeof buildServices === 'function') buildServices();
+      // Reconstruir fechas para aplicar los busySlots actualizados
+      if(typeof buildDates === 'function') buildDates();
       renderPago();
     }catch(e){}
   }
@@ -491,6 +492,11 @@
   /* ─── Paso 2: Fechas ─── */
   function futureSlotsForDate(ds, isToday){
     var slots = getSlotsForDate(ds);
+    // Filtrar slots ocupados del perfil público de la clínica
+    var busy = (CLINIC && CLINIC.busySlots) || (window.DB && window.DB.get('busySlots')) || [];
+    var busySet = {};
+    busy.forEach(function(b){ if(b.fecha === ds) busySet[b.time] = true; });
+    slots = slots.filter(function(s){ return !busySet[s]; });
     if(!isToday) return slots;
     var now = new Date(), cutMins = now.getHours()*60 + now.getMinutes() + 30;
     return slots.filter(function(s){ var p=s.split(':'); return parseInt(p[0])*60+parseInt(p[1]) >= cutMins; });

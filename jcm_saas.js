@@ -227,18 +227,26 @@
       // La reserva directa (agendar.html) muestra SOLO estos, no el catálogo de otra clínica.
       services: (typeof window.clinicServiceList === 'function') ? window.clinicServiceList() : [],
       collabForm: (window.DB && window.DB.get('collab_form')) || null,
-      // Slots ocupados: solo fechas futuras/actuales, sin anuladas/no_asistio. La app pública
-      // los lee para marcar horas no disponibles sin necesitar acceso al KV privado.
+      // Slots ocupados (expandidos por duración): un appointment de 60 min a las 13:00 bloquea
+      // 13:00 y 13:30. La app pública los lee sin necesitar acceso al KV privado.
       busySlots: (function () {
         var today = new Date().toISOString().slice(0, 10);
         var appts = (window.DB && window.DB.get('appointments')) || [];
-        return appts.filter(function (a) {
-          if (!a.fecha || !a.time) return false;
-          if (a.fecha < today) return false;
-          if (a.status === 'anulada' || a.status === 'no_asistio' || a.status === 'cancelada') return false;
-          if (a.attended) return false;
-          return true;
-        }).map(function (a) { return { fecha: a.fecha, time: a.time }; });
+        var slots = [];
+        appts.forEach(function (a) {
+          if (!a.fecha || !a.time) return;
+          if (a.fecha < today) return;
+          if (a.status === 'anulada' || a.status === 'no_asistio' || a.status === 'cancelada') return;
+          if (a.attended) return;
+          var sp = a.time.split(':');
+          var startMin = parseInt(sp[0]) * 60 + parseInt(sp[1]);
+          var durMin = a.durMin || parseInt(a.dur) || 30;
+          for (var t = startMin; t < startMin + durMin; t += 30) {
+            var hh = Math.floor(t / 60), mm = t % 60;
+            slots.push({ fecha: a.fecha, time: (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm });
+          }
+        });
+        return slots;
       })(),
       updatedAt: Date.now()
     };
