@@ -150,7 +150,7 @@ if (typeof window !== "undefined") window.clinicServiceList = clinicServiceList;
 
 /* Modal para crear / editar un servicio propio. */
 function NewServiceModal({ T, initial, onClose, onSave }) {
-  const [f, setF] = useState(initial || { name: "", cat: "Toxina botulínica", price: "", dur: "30", pts: "", desc: "" });
+  const [f, setF] = useState(initial || { name: "", cat: "Toxina botulínica", price: "", dur: "30", ses: "1", pts: "", desc: "" });
   const ok = (f.name || "").trim().length > 1;
   return (
     <AdModal T={T} title={initial ? "Editar servicio" : "Nuevo servicio"} onClose={onClose} footer={
@@ -159,6 +159,7 @@ function NewServiceModal({ T, initial, onClose, onSave }) {
         name: f.name.trim(), cat: f.cat, desc: (f.desc || "").trim(),
         price: parseInt((f.price + "").replace(/\D/g, ""), 10) || 0,
         dur: parseInt((f.dur + "").replace(/\D/g, ""), 10) || 30,
+        ses: parseInt((f.ses + "").replace(/\D/g, ""), 10) || 1,
         pts: parseInt((f.pts + "").replace(/\D/g, ""), 10) || 0
       })}>{initial ? "Guardar cambios" : "Crear servicio"}</AdBtn>
     }>
@@ -174,14 +175,20 @@ function NewServiceModal({ T, initial, onClose, onSave }) {
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Descripción / zonas (opcional)</span>
           <textarea value={f.desc} onChange={e => setF({ ...f, desc: e.target.value })} rows={2} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
         </label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 11 }}>
           <label style={{ display: "block" }}>
             <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Duración</span>
             <select value={f.dur} onChange={e => setF({ ...f, dur: e.target.value })} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}>
               {[15, 30, 45, 60, 90, 120].map(d => <option key={d} value={String(d)}>{d} min</option>)}
             </select>
           </label>
-          <AdField T={T} label="Puntos que otorga" value={f.pts} onChange={v => setF({ ...f, pts: v.replace(/\D/g, "") })} inputMode="numeric" placeholder="0" />
+          <label style={{ display: "block" }}>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Sesiones</span>
+            <select value={f.ses || "1"} onChange={e => setF({ ...f, ses: e.target.value })} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}>
+              {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(d => <option key={d} value={String(d)}>{d}</option>)}
+            </select>
+          </label>
+          <AdField T={T} label="Puntos" value={f.pts} onChange={v => setF({ ...f, pts: v.replace(/\D/g, "") })} inputMode="numeric" placeholder="0" />
         </div>
         <AdField T={T} label="Precio (CLP)" value={f.price} onChange={v => setF({ ...f, price: v.replace(/\D/g, "") })} inputMode="numeric" placeholder="150000" />
       </div>
@@ -189,8 +196,44 @@ function NewServiceModal({ T, initial, onClose, onSave }) {
   );
 }
 
+/* Especialidades de la clínica (persisten en DB). Seed desde las sugeridas de medicina estética. */
+function clinicEspecialidades() { try { var v = window.DB && window.DB.get("especialidades"); if (Array.isArray(v)) return v; } catch (e) {} return (typeof PROF_ESPECIALIDADES !== "undefined" ? PROF_ESPECIALIDADES.slice() : []); }
+function saveEspecialidades(v) { try { if (window.DB) window.DB.set("especialidades", v); } catch (e) {} }
+/* Tab de Especialidades dentro de Tratamientos & Especialidades (Área 4). */
+function EspecialidadesTab({ T }) {
+  const [list, setList] = useState(clinicEspecialidades);
+  const [nueva, setNueva] = useState("");
+  let team = []; try { team = (window.DB && window.DB.get("team")) || []; } catch (e) {}
+  function add() { const v = nueva.trim(); if (!v || list.indexOf(v) >= 0) { setNueva(""); return; } const n = [...list, v]; setList(n); saveEspecialidades(n); setNueva(""); try { window.jcmToast && window.jcmToast("Especialidad agregada.", "ok"); } catch (e) {} }
+  async function del(e) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar la especialidad \"" + e + "\"?", { danger: true }))) return; const n = list.filter(x => x !== e); setList(n); saveEspecialidades(n); }
+  const profCount = e => team.filter(m => (m.especialidades || []).indexOf(e) >= 0).length;
+  return (
+    <div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Define las especialidades que ofrece tu clínica. Se asignan a cada profesional en su ficha (sección Especialidades).</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+        <input value={nueva} onChange={e => setNueva(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Nueva especialidad…" style={{ flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        <AdBtn T={T} primary onClick={add}>+ Agregar</AdBtn>
+      </div>
+      {list.length === 0 ? <Empty2 T={T}>Aún no hay especialidades. Agrega la primera arriba.</Empty2> : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {list.map(e => { const n = profCount(e); return (
+            <div key={e} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{e}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{n === 0 ? "Sin profesionales asignados" : n + " profesional" + (n === 1 ? "" : "es")}</div>
+              </div>
+              <button onClick={() => del(e)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+            </div>
+          ); })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ServiciosView({ T }) {
   const D = window.JCDATA;
+  const [tab, setTab] = useState("tratamientos");
   const [custom, setCustom] = useState(customServices);
   const [newSvc, setNewSvc] = useState(null); // objeto en edición o "new"
   function saveSvc(s) {
@@ -207,6 +250,9 @@ function ServiciosView({ T }) {
   const [editing, setEditing] = useState(null);
   const [hover, setHover] = useState(null);
   const [q, setQ] = useState("");
+  // Profesionales asignados a un tratamiento (desde el campo tratamientos[] del equipo).
+  let _team = []; try { _team = (window.DB && window.DB.get("team")) || []; } catch (e) {}
+  const profsForSvc = nm => _team.filter(m => (m.tratamientos || []).indexOf(nm) >= 0).length;
   function val(it) {
     const o = over[it.n] || {};
     const price = o.price != null ? o.price : it.price;
@@ -222,9 +268,15 @@ function ServiciosView({ T }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <SecHead T={T} title="Servicios" sub={totalAll + " procedimiento" + (totalAll === 1 ? "" : "s") + " · crea los tuyos o edita los existentes"} />
-        <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Nuevo servicio</AdBtn>
+        <SecHead T={T} title="Tratamientos y Especialidades" sub={tab === "especialidades" ? "Especialidades de la clínica" : totalAll + " procedimiento" + (totalAll === 1 ? "" : "s") + " · crea los tuyos o edita los existentes"} />
+        {tab === "tratamientos" && <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Nuevo servicio</AdBtn>}
       </div>
+      <div style={{ display: "flex", gap: 6, margin: "4px 0 18px" }}>
+        {[["tratamientos", "Tratamientos"], ["especialidades", "Especialidades"]].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
+        ))}
+      </div>
+      {tab === "especialidades" ? <EspecialidadesTab T={T} /> : <>
       <div style={{ position: "relative", marginBottom: 22 }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar procedimiento por nombre…" style={{ width: "100%", padding: "12px 14px 12px 38px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
@@ -251,7 +303,7 @@ function ServiciosView({ T }) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{s.name}</div>
                     <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{s.cat}{s.desc ? " · " + s.desc : ""}</div>
-                    <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 3 }}>{s.dur} min{s.pts ? " · " + s.pts + " pts" : ""}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 3 }}>{s.dur} min{s.ses > 1 ? " · " + s.ses + " sesiones" : ""}{s.pts ? " · " + s.pts + " pts" : ""}{profsForSvc(s.name) ? " · " + profsForSvc(s.name) + " prof." : ""}</div>
                   </div>
                   <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 }}>{D.fmt(s.price || 0)}</div>
                   <button onClick={async e => { e.stopPropagation(); if (await (window.jcmConfirm || window.confirm)(`¿Eliminar el servicio "${s.name}"?`, {danger: true})) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
@@ -306,6 +358,7 @@ function ServiciosView({ T }) {
         </div>
         );
       })}
+      </>}
       {editing && (
         <AdModal T={T} title="Editar servicio" onClose={() => setEditing(null)} footer={
           <AdBtn T={T} primary full onClick={() => { const n = { ...over, [editing.key]: { name: editing.name.trim() || editing.key, desc: editing.desc, price: parseInt((editing.price + "").replace(/\D/g, ""), 10) || 0, dur: parseInt((editing.dur + "").replace(/\D/g, ""), 10) || 60, pts: parseInt((editing.pts + "").replace(/\D/g, ""), 10) || 0 } }; saveOver(n); setEditing(null); }}>Guardar cambios</AdBtn>
