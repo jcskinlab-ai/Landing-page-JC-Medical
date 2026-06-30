@@ -512,6 +512,8 @@
     onAuth: onAuth,
     currentClinic: function () { return state.clinic; },
     currentClinicId: function () { return state.clinicId; },
+    // Correo del usuario con sesión activa (para gating por cuenta). Vacío si no hay sesión.
+    userEmail: function () { try { return (auth && auth.currentUser && auth.currentUser.email) ? ('' + auth.currentUser.email).trim().toLowerCase() : ''; } catch (e) { return ''; } },
     // ID token de Firebase del usuario logueado (para autenticar llamadas a /api/*). Corto (1h), no es secreto.
     idToken: function () { try { return (auth && auth.currentUser) ? auth.currentUser.getIdToken() : Promise.resolve(null); } catch (e) { return Promise.resolve(null); } },
     // Verifica la contraseña de la cuenta (re-autenticación) para confirmar acciones sensibles

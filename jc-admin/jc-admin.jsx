@@ -79,8 +79,15 @@ const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "M
 // La pestaña "App JC Medical" es exclusiva: solo se muestra en modo local (sin SaaS)
 // o en clínicas con el flag jcApp activado (lo activa el super-admin). Las demás no la ven.
 // ¿La clínica activa es Los Medique? (cuenta de pruebas del backlog Medique vs Clinera)
+// Robusto: reconoce por ownerEmail de la clínica O por el correo de la sesión activa.
+var LOS_MEDIQUE_EMAIL = "makikarenina06@gmail.com";
 function isLosMedique() {
-  try { var c = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic(); return !!(c && ((c.ownerEmail || "") + "").toLowerCase() === "makikarenina06@gmail.com"); } catch (e) { return false; }
+  try {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
+    var owner = (((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}).ownerEmail || "").toString().trim().toLowerCase();
+    var sess = (window.JCSAAS.userEmail && window.JCSAAS.userEmail()) || "";
+    return owner === LOS_MEDIQUE_EMAIL || sess === LOS_MEDIQUE_EMAIL;
+  } catch (e) { return false; }
 }
 // Secciones NUEVAS del backlog: en SaaS solo visibles para Los Medique; en modo local, siempre (para probar).
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };

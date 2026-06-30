@@ -90,10 +90,13 @@ const ADMIN_NAV = [
   { k: "config", l: "Configuraci\xF3n" }
 ];
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
+var LOS_MEDIQUE_EMAIL = "makikarenina06@gmail.com";
 function isLosMedique() {
   try {
-    var c = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic();
-    return !!(c && ((c.ownerEmail || "") + "").toLowerCase() === "makikarenina06@gmail.com");
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
+    var owner = ((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).ownerEmail || "").toString().trim().toLowerCase();
+    var sess = window.JCSAAS.userEmail && window.JCSAAS.userEmail() || "";
+    return owner === LOS_MEDIQUE_EMAIL || sess === LOS_MEDIQUE_EMAIL;
   } catch (e) {
     return false;
   }
