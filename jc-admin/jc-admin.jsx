@@ -2417,6 +2417,10 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [recurso, setRecurso] = useState("No especificado");
   const [camilla, setCamilla] = useState("Box 1");
   const [dur, setDur] = useState("30 minutos");
+  // Sucursal (Área 2) y notas de la cita (Área 9).
+  let sucursalesList = []; try { sucursalesList = ((window.DB && window.DB.get("sucursales")) || []).map(s => s.name).filter(Boolean); } catch (e) {}
+  const [sucursal, setSucursal] = useState(pf.sucursal || (sucursalesList[0] || ""));
+  const [notas, setNotas] = useState(pf.notas || "");
   // selección
   const [pick, setPick] = useState(pf.time ? { dayOff: pf.day || 0, time: pf.time } : null); // {dayOff, time}
   // paciente
@@ -2461,7 +2465,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         } catch (e) {}
       }
       setSavedPatId(resolvedPatId || "");
-      onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, recurso, camilla, dur, origen, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
+      onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
       // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente
       try {
         const dt = new Date(apptFecha + "T00:00:00");
@@ -2551,6 +2555,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           <Summ T={T} k="Paciente" v={finalName || "—"} />
           <Summ T={T} k="Procedimiento" v={proc} />
           <Summ T={T} k="Profesional" v={prof} />
+          {sucursal && <Summ T={T} k="Sucursal" v={sucursal} />}
           <Summ T={T} k="Fecha" v={wk.wd + " " + wk.dd + " " + wk.mm} />
           <Summ T={T} k="Hora" v={pick.time} />
         </div>
@@ -2653,6 +2658,10 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
               <AdField T={T} label="Correo" value={email} onChange={setEmail} inputMode="email" placeholder="correo@ejemplo.com" />
             </div>}
         <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid " + T.line }}>
+          <span style={lbl}>Notas de la cita <span style={{ color: T.textMute, textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· opcional</span></span>
+          <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={2} placeholder="Observaciones, indicaciones o excepciones de pago…" style={{ width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", marginBottom: 4 }} />
+        </div>
+        <div style={{ marginTop: 14, paddingTop: 16, borderTop: "1px solid " + T.line }}>
           <span style={lbl}>Campaña / Origen <span style={{ color: T.textMute, textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· para estadística</span></span>
           <select value={origen} onChange={e => setOrigen(e.target.value)} style={selStyle}>
             <option value="">Seleccionar origen…</option>
@@ -2685,6 +2694,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
           <div><span style={lbl}>Especialidad</span><select value={esp} onChange={e => { setEsp(e.target.value); }} style={selStyle}><option>Todas</option>{especialidades.map(s => <option key={s}>{s}</option>)}</select></div>
           <div><span style={lbl}>Procedimiento</span><select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}><option value="Evaluación general">Evaluación general</option>{procOptionsByCat(procsByEsp)}</select></div>
           <div><span style={lbl}>Profesional</span><select value={prof} onChange={e => setProf(e.target.value)} style={selStyle}>{team.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
+          {sucursalesList.length > 0 && <div><span style={lbl}>Sucursal</span><select value={sucursal} onChange={e => setSucursal(e.target.value)} style={selStyle}>{sucursalesList.map(s => <option key={s} value={s}>{s}</option>)}</select></div>}
           <div><span style={lbl}>Recurso</span><select value={recurso} onChange={e => setRecurso(e.target.value)} style={selStyle}><option>No especificado</option><option>Sala de procedimientos</option><option>Sala de evaluación</option></select></div>
           <div><span style={lbl}>Box / Camilla</span><select value={camilla} onChange={e => setCamilla(e.target.value)} style={selStyle}><option>Box 1</option><option>Box 2</option><option>Camilla 1</option></select></div>
           <div><span style={lbl}>Duración</span><select value={dur} onChange={e => setDur(e.target.value)} style={selStyle}><option>15 minutos</option><option>30 minutos</option><option>45 minutos</option><option>60 minutos</option></select></div>
