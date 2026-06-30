@@ -2487,6 +2487,83 @@ function chanOf(c) {
 function chanMeta(id) {
   return INBOX_CHANNELS.find((x) => x.id === id) || INBOX_CHANNELS[0];
 }
+const COPILOT_TONOS = ["Cercano", "Profesional", "Formal", "Divertido"];
+const COPILOT_ACCIONES = [["agendar", "Agendar y reagendar citas"], ["buscar", "Buscar pacientes y fichas"], ["venta", "Registrar ventas en caja"], ["stats", "Consultar estad\xEDsticas"], ["dudas", "Responder dudas de tratamientos"]];
+function loadAgentCfg() {
+  try {
+    const v = window.DB && window.DB.get("agent_cfg");
+    if (v && typeof v === "object") return v;
+  } catch (e) {
+  }
+  return { name: "Medi", tono: "Cercano", prompt: "Eres el asistente virtual de {clinica}. Atiendes con calidez y criterio cl\xEDnico, resuelves dudas de tratamientos est\xE9ticos y ayudas a agendar. Nunca das diagn\xF3sticos m\xE9dicos definitivos; ante dudas cl\xEDnicas, derivas al profesional.", acciones: { agendar: true, buscar: true, venta: false, stats: true, dudas: true } };
+}
+function CopilotConfigView({ T }) {
+  const [cfg, setCfg] = useState(loadAgentCfg);
+  const [saved, setSaved] = useState(false);
+  const [msgs, setMsgs] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  function up(patch) {
+    setCfg((c) => ({ ...c, ...patch }));
+    setSaved(false);
+  }
+  function save() {
+    try {
+      window.DB && window.DB.set("agent_cfg", cfg);
+    } catch (e) {
+    }
+    setSaved(true);
+    try {
+      window.jcmToast && window.jcmToast("Asistente guardado.", "ok");
+    } catch (e) {
+    }
+  }
+  function send() {
+    const t = draft.trim();
+    if (!t || busy) return;
+    const next = [...msgs, { role: "user", content: t }];
+    setMsgs(next);
+    setDraft("");
+    if (!window.mediqueAI) {
+      setMsgs([...next, { role: "assistant", content: "(Demo) Conecta GROQ_API_KEY en el servidor para que el asistente responda de verdad. Con la configuraci\xF3n actual, " + cfg.name + " responder\xEDa en tono " + cfg.tono.toLowerCase() + "." }]);
+      return;
+    }
+    setBusy(true);
+    const clinica = window.clinicName && window.clinicName() || "la cl\xEDnica";
+    const clinic = {
+      name: clinica,
+      address: window.clinicAddr && window.clinicAddr() || "",
+      hours: (() => {
+        try {
+          return DB.cfg().clinic_hours || "";
+        } catch (e) {
+          return "";
+        }
+      })(),
+      services: (window.clinicServiceList ? window.clinicServiceList() : []).slice(0, 30),
+      agentName: cfg.name,
+      agentTone: cfg.tono,
+      agentPrompt: (cfg.prompt || "").replace(/\{clinica\}/g, clinica)
+    };
+    window.mediqueAI(next, clinic).then((res) => {
+      setBusy(false);
+      if (res && res.ok && res.reply) setMsgs((m) => [...m, { role: "assistant", content: res.reply }]);
+      else if (res && res.configured === false) setMsgs((m) => [...m, { role: "assistant", content: "Conecta tu API Key (GROQ_API_KEY) en el servidor para activar el asistente." }]);
+      else setMsgs((m) => [...m, { role: "assistant", content: "No pude responder ahora. Intenta de nuevo." }]);
+    });
+  }
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Asistente IA", sub: "Personaliza tu copiloto: nombre, personalidad, tono y qu\xE9 puede hacer" }), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: save }, saved ? "\u2713 Guardado" : "Guardar asistente")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px,1fr))", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 } }, "Personalidad"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Nombre del asistente"), /* @__PURE__ */ React.createElement("input", { value: cfg.name, onChange: (e) => up({ name: e.target.value }), placeholder: "Ej: Medi", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Tono"), /* @__PURE__ */ React.createElement("select", { value: cfg.tono, onChange: (e) => up({ tono: e.target.value }), style: inp }, COPILOT_TONOS.map((t) => /* @__PURE__ */ React.createElement("option", { key: t, value: t }, t))))), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Instrucciones / personalidad (prompt)"), /* @__PURE__ */ React.createElement("textarea", { value: cfg.prompt, onChange: (e) => up({ prompt: e.target.value }), rows: 5, placeholder: "Describe c\xF3mo debe comportarse\u2026", style: { ...inp, resize: "vertical", lineHeight: 1.5 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, display: "block", marginTop: 6 } }, "Usa ", "{clinica}", " para insertar el nombre de tu cl\xEDnica.")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Acciones que puede ejecutar"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 4 } }, COPILOT_ACCIONES.map(([k, l]) => {
+    const on = !!(cfg.acciones || {})[k];
+    return /* @__PURE__ */ React.createElement("div", { key: k, onClick: () => up({ acciones: { ...cfg.acciones, [k]: !on } }), style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", borderRadius: 8, background: T.surface2 || T.bg, border: "1px solid " + T.line, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, l), /* @__PURE__ */ React.createElement(AdSwitch, { T, on, onClick: () => up({ acciones: { ...cfg.acciones, [k]: !on } }) }));
+  }))))), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", display: "flex", flexDirection: "column", minHeight: 420 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 } }, "Playground \xB7 prueba a ", cfg.name || "tu asistente"), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 } }, msgs.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint, lineHeight: 1.5, margin: "auto 0", textAlign: "center", padding: "0 16px" } }, "Escr\xEDbele como si fueras un paciente y prueba c\xF3mo responde con la personalidad y tono que configuraste."), msgs.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%", background: m.role === "user" ? T.accent : T.surface2 || T.bg, color: m.role === "user" ? T.onAccent || "#fff" : T.text, border: "1px solid " + (m.role === "user" ? T.accent : T.line), borderRadius: 12, padding: "9px 13px", fontFamily: T.sans, fontSize: 12.5, lineHeight: 1.5, whiteSpace: "pre-wrap" } }, m.content)), busy && /* @__PURE__ */ React.createElement("div", { style: { alignSelf: "flex-start", fontFamily: T.sans, fontSize: 12, color: T.textMute, padding: "4px 6px" } }, cfg.name, " est\xE1 escribiendo\u2026")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("input", { value: draft, onChange: (e) => setDraft(e.target.value), onKeyDown: (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      send();
+    }
+  }, placeholder: "Escribe un mensaje de prueba\u2026", style: { ...inp, flex: 1 } }), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: send }, "Enviar")))));
+}
 function AgenteIAView({ T, patients, addAppt }) {
   const seeded = typeof clinicSeeded === "function" ? clinicSeeded() : true;
   const [convs, setConvs] = useState(() => {
@@ -3707,4 +3784,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   }
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cierre del d\xEDa", onClose, footer: done ? /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: confirmarCierre }, "Confirmar cierre del d\xEDa") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" } }, fecha), [["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Egresos", egresos, "#C0285A", "\u2212 "]].map(([l, v, c, s]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: c } }, s, D.fmt(v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, fontFamily: T.sans, fontSize: 15, fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, "Neto (ganancia)"), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, D.fmt(neto))));
 }
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });

@@ -3215,6 +3215,91 @@ const INBOX_CHANNELS = [
 function chanOf(c) { return (c && c.channel) || "whatsapp"; }
 function chanMeta(id) { return INBOX_CHANNELS.find(x => x.id === id) || INBOX_CHANNELS[0]; }
 
+/* ─────────── ASISTENTE IA · configuración + playground (Área 12) ─────────── */
+const COPILOT_TONOS = ["Cercano", "Profesional", "Formal", "Divertido"];
+const COPILOT_ACCIONES = [["agendar", "Agendar y reagendar citas"], ["buscar", "Buscar pacientes y fichas"], ["venta", "Registrar ventas en caja"], ["stats", "Consultar estadísticas"], ["dudas", "Responder dudas de tratamientos"]];
+function loadAgentCfg() {
+  try { const v = window.DB && window.DB.get("agent_cfg"); if (v && typeof v === "object") return v; } catch (e) {}
+  return { name: "Medi", tono: "Cercano", prompt: "Eres el asistente virtual de {clinica}. Atiendes con calidez y criterio clínico, resuelves dudas de tratamientos estéticos y ayudas a agendar. Nunca das diagnósticos médicos definitivos; ante dudas clínicas, derivas al profesional.", acciones: { agendar: true, buscar: true, venta: false, stats: true, dudas: true } };
+}
+function CopilotConfigView({ T }) {
+  const [cfg, setCfg] = useState(loadAgentCfg);
+  const [saved, setSaved] = useState(false);
+  const [msgs, setMsgs] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  function up(patch) { setCfg(c => ({ ...c, ...patch })); setSaved(false); }
+  function save() { try { window.DB && window.DB.set("agent_cfg", cfg); } catch (e) {} setSaved(true); try { window.jcmToast && window.jcmToast("Asistente guardado.", "ok"); } catch (e) {} }
+  function send() {
+    const t = draft.trim(); if (!t || busy) return;
+    const next = [...msgs, { role: "user", content: t }];
+    setMsgs(next); setDraft("");
+    if (!window.mediqueAI) { setMsgs([...next, { role: "assistant", content: "(Demo) Conecta GROQ_API_KEY en el servidor para que el asistente responda de verdad. Con la configuración actual, " + cfg.name + " respondería en tono " + cfg.tono.toLowerCase() + "." }]); return; }
+    setBusy(true);
+    const clinica = (window.clinicName && window.clinicName()) || "la clínica";
+    const clinic = {
+      name: clinica, address: (window.clinicAddr && window.clinicAddr()) || "",
+      hours: (() => { try { return DB.cfg().clinic_hours || ""; } catch (e) { return ""; } })(),
+      services: (window.clinicServiceList ? window.clinicServiceList() : []).slice(0, 30),
+      agentName: cfg.name, agentTone: cfg.tono, agentPrompt: (cfg.prompt || "").replace(/\{clinica\}/g, clinica)
+    };
+    window.mediqueAI(next, clinic).then(res => {
+      setBusy(false);
+      if (res && res.ok && res.reply) setMsgs(m => [...m, { role: "assistant", content: res.reply }]);
+      else if (res && res.configured === false) setMsgs(m => [...m, { role: "assistant", content: "Conecta tu API Key (GROQ_API_KEY) en el servidor para activar el asistente." }]);
+      else setMsgs(m => [...m, { role: "assistant", content: "No pude responder ahora. Intenta de nuevo." }]);
+    });
+  }
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Asistente IA" sub="Personaliza tu copiloto: nombre, personalidad, tono y qué puede hacer" />
+        <AdBtn T={T} primary onClick={save}>{saved ? "✓ Guardado" : "Guardar asistente"}</AdBtn>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px,1fr))", gap: 16, alignItems: "start" }}>
+        {/* Configuración */}
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 }}>Personalidad</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><span style={lbl}>Nombre del asistente</span><input value={cfg.name} onChange={e => up({ name: e.target.value })} placeholder="Ej: Medi" style={inp} /></div>
+              <div><span style={lbl}>Tono</span><select value={cfg.tono} onChange={e => up({ tono: e.target.value })} style={inp}>{COPILOT_TONOS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+            </div>
+            <label><span style={lbl}>Instrucciones / personalidad (prompt)</span><textarea value={cfg.prompt} onChange={e => up({ prompt: e.target.value })} rows={5} placeholder="Describe cómo debe comportarse…" style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} /><span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, display: "block", marginTop: 6 }}>Usa {"{clinica}"} para insertar el nombre de tu clínica.</span></label>
+            <div>
+              <span style={lbl}>Acciones que puede ejecutar</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                {COPILOT_ACCIONES.map(([k, l]) => { const on = !!(cfg.acciones || {})[k]; return (
+                  <div key={k} onClick={() => up({ acciones: { ...cfg.acciones, [k]: !on } })} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", borderRadius: 8, background: T.surface2 || T.bg, border: "1px solid " + T.line, cursor: "pointer" }}>
+                    <span style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{l}</span>
+                    <AdSwitch T={T} on={on} onClick={() => up({ acciones: { ...cfg.acciones, [k]: !on } })} />
+                  </div>
+                ); })}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Playground */}
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", display: "flex", flexDirection: "column", minHeight: 420 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 }}>Playground · prueba a {cfg.name || "tu asistente"}</div>
+          <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+            {msgs.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, lineHeight: 1.5, margin: "auto 0", textAlign: "center", padding: "0 16px" }}>Escríbele como si fueras un paciente y prueba cómo responde con la personalidad y tono que configuraste.</div>}
+            {msgs.map((m, i) => (
+              <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%", background: m.role === "user" ? T.accent : (T.surface2 || T.bg), color: m.role === "user" ? (T.onAccent || "#fff") : T.text, border: "1px solid " + (m.role === "user" ? T.accent : T.line), borderRadius: 12, padding: "9px 13px", fontFamily: T.sans, fontSize: 12.5, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{m.content}</div>
+            ))}
+            {busy && <div style={{ alignSelf: "flex-start", fontFamily: T.sans, fontSize: 12, color: T.textMute, padding: "4px 6px" }}>{cfg.name} está escribiendo…</div>}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); send(); } }} placeholder="Escribe un mensaje de prueba…" style={{ ...inp, flex: 1 }} />
+            <AdBtn T={T} primary onClick={send}>Enviar</AdBtn>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function AgenteIAView({ T, patients, addAppt }) {
   const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
   const [convs, setConvs] = useState(() => { try { const s = DB.get("wa_conversations"); if (s) return s; } catch (e) {} return seeded ? WA_SEED : []; });
@@ -4606,4 +4691,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
