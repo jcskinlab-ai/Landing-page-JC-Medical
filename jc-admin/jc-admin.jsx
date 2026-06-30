@@ -28,7 +28,8 @@ function nIcon(name, c) {
     sucursales: <><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 11h.01M15 11h.01" /></>,
     crm: <><path d="M3 4h18M6 4v6l4 4v6l4-2v-4l4-4V4" /></>,
     tutoriales: <><circle cx="12" cy="12" r="9" /><path d="M10 8.5l5 3.5-5 3.5z" /></>,
-    consentimientos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 14l2 2 4-4" /></>
+    consentimientos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 14l2 2 4-4" /></>,
+    difusiones: <><path d="M3 11l16-6v14L3 13zM3 11v4M9 13v4a2 2 0 0 0 3 1.7" /></>
   }[name];
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{p}</svg>;
 }
@@ -66,7 +67,7 @@ const ADMIN_NAV = [
   { k: "appjcm", l: "App JC Medical" },
   { k: "agenda", l: "Agenda" }, { k: "pacientes", l: "Pacientes" }, { k: "salaespera", l: "Sala de espera" }, { k: "pendientes", l: "Pendientes" }, { k: "caja", l: "Registro de Ventas" },
   { k: "inventario", l: "Inventario" }, { k: "servicios", l: "Tratamientos" }, { k: "equipo", l: "Equipo" }, { k: "sucursales", l: "Sucursales" }, { k: "marketing", l: "Marketing" },
-  { k: "crm", l: "CRM · Embudo" }, { k: "agenteia", l: "Agente IA" }, { k: "automatizaciones", l: "Automatizaciones" },
+  { k: "crm", l: "CRM · Embudo" }, { k: "difusiones", l: "Difusiones" }, { k: "agenteia", l: "Agente IA" }, { k: "automatizaciones", l: "Automatizaciones" },
   { k: "resumen", l: "Resumen" }, { k: "colaboracion", l: "Colaboraciones" }, { k: "fidelidad", l: "Fidelidad" },
   { k: "integraciones", l: "Integraciones" }, { k: "reportes", l: "Reportes" }, { k: "administracion", l: "Administración" }, { k: "consentimientos", l: "Consentimientos" }, { k: "tutoriales", l: "Tutoriales" }, { k: "config", l: "Configuración" }
 ];
@@ -157,7 +158,7 @@ function importAllWeb() {
 
 /* ─────────── ENRUTAMIENTO DEL PANEL (URLs por sección y por paciente) ─────────── */
 // Cada apartado tiene su URL: /panel/inventario, /panel/agenda, etc.; y cada paciente /panel/pacientes/<id>.
-const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, agenteia: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, tutoriales: 1, config: 1, appjcm: 1 };
+const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, tutoriales: 1, config: 1, appjcm: 1 };
 function panelParseRoute() {
   try {
     var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1121,6 +1122,7 @@ function AdminApp() {
   else if (section === "crm") body = <CrmView T={T} />;
   else if (section === "tutoriales") body = <TutorialesView T={T} go={nav} />;
   else if (section === "consentimientos") body = <ConsentimientosView T={T} />;
+  else if (section === "difusiones") body = <DifusionesView T={T} />;
   else if (section === "fidelidad") body = <FidelidadView T={T} />;
   else if (section === "marketing") body = <MarketingView T={T} go={nav} />;
   else if (section === "administracion") body = <AdministracionView T={T} go={nav} patients={patients} appts={appts} addPatient={addPatient} updatePatient={updatePatient} markAllPaperConsent={markAllPaperConsent} />;

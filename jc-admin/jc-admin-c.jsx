@@ -1014,6 +1014,116 @@ function FidelidadView({ T }) {
 }
 
 /* ─────────── MARKETING ─────────── */
+/* ─────────── DIFUSIONES + PLANTILLAS (Área 10) ─────────── */
+const MSG_VARS = ["{nombre}", "{tratamiento}", "{fecha}", "{clinica}"];
+function loadMsgTpls() {
+  try { const v = window.DB && window.DB.get("msg_templates"); if (Array.isArray(v) && v.length) return v; } catch (e) {}
+  return [
+    { id: "m1", name: "Recordatorio de cita", channel: "whatsapp", body: "Hola {nombre} 👋 Te recordamos tu cita en {clinica}. ¡Te esperamos! 🌿" },
+    { id: "m2", name: "Promoción del mes", channel: "whatsapp", body: "Hola {nombre} ✨ Este mes tenemos una promoción especial en {tratamiento}. ¿Te agendamos? 💉" }
+  ];
+}
+function saveMsgTplsDB(v) { try { if (window.DB) window.DB.set("msg_templates", v); } catch (e) {} }
+function applyVars(body, vars) { return (body || "").replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null && vars[k] !== "") ? vars[k] : m); }
+function DifusionesView({ T }) {
+  const [tab, setTab] = useState("difusiones");
+  const [tpls, setTpls] = useState(loadMsgTpls);
+  const [editing, setEditing] = useState(null);
+  const [selTpl, setSelTpl] = useState(null);
+  const [aud, setAud] = useState("pacientes");
+  function persist(n) { setTpls(n); saveMsgTplsDB(n); }
+  function save(t) { const exists = t.id && tpls.find(x => x.id === t.id); persist(exists ? tpls.map(x => x.id === t.id ? t : x) : [...tpls, { ...t, id: "mtpl" + Date.now() }]); setEditing(null); try { window.jcmToast && window.jcmToast("Plantilla guardada.", "ok"); } catch (e) {} }
+  async function del(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta plantilla?", { danger: true }))) return; persist(tpls.filter(x => x.id !== id)); }
+  let pacientes = [], leads = [];
+  try { pacientes = (window.DB && window.DB.get("patients")) || []; } catch (e) {}
+  try { leads = (window.DB && window.DB.get("crm_leads")) || []; } catch (e) {}
+  const clinica = (typeof window.clinicName === "function") ? window.clinicName() : "la clínica";
+  const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long" });
+  const recipients = (aud === "leads" ? leads : pacientes).map(r => ({ name: r.name || "Paciente", phone: (r.phone || "").replace(/[^0-9]/g, ""), proc: r.proc || r.procInteres || "" })).filter(r => r.name);
+  const conTel = recipients.filter(r => r.phone.length >= 8);
+  const tplObj = tpls.find(t => t.id === selTpl) || null;
+  const tabBtn = (k, l) => <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Difusiones" sub="Envía mensajes masivos por WhatsApp con plantillas y variables" />
+        {tab === "plantillas" && <AdBtn T={T} primary onClick={() => setEditing("new")}>+ Nueva plantilla</AdBtn>}
+      </div>
+      <div style={{ display: "flex", gap: 6, margin: "4px 0 18px" }}>{tabBtn("difusiones", "Difusiones")}{tabBtn("plantillas", "Plantillas")}</div>
+      {tab === "plantillas" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {tpls.map(t => (
+            <div key={t.id} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: t.channel === "email" ? "#54707F" : "#1F8A5B", border: "1px solid " + T.line, borderRadius: 999, padding: "2px 8px" }}>{t.channel === "email" ? "Email" : "WhatsApp"}</span>
+                <span style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{t.name}</span>
+                <button onClick={() => setEditing(t)} style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Editar</button>
+                <button onClick={() => del(t.id)} title="Eliminar" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 8, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{t.body}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px,1fr))", gap: 16, alignItems: "start" }}>
+          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 12 }}>1 · Arma tu difusión</div>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Audiencia</span>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+              {[["pacientes", "Pacientes (" + pacientes.length + ")"], ["leads", "Leads CRM (" + leads.length + ")"]].map(([k, l]) => <button key={k} onClick={() => setAud(k)} style={{ flex: 1, fontFamily: T.sans, fontSize: 11.5, padding: "9px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (aud === k ? T.accent : T.line), background: aud === k ? T.surface2 || T.surface : "transparent", color: aud === k ? T.text : T.textMute }}>{l}</button>)}
+            </div>
+            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Plantilla</span>
+            <select value={selTpl || ""} onChange={e => setSelTpl(e.target.value)} style={{ width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }}>
+              <option value="">— Elige una plantilla —</option>
+              {tpls.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>Variables: {MSG_VARS.join("  ")}. Se reemplazan por cada destinatario. {conTel.length} de {recipients.length} tienen teléfono válido.</div>
+          </div>
+          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 12 }}>2 · Envía uno por uno por WhatsApp</div>
+            {!tplObj ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Elige una plantilla para previsualizar y enviar.</div>
+              : conTel.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Esta audiencia no tiene teléfonos válidos.</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }} className="jc-scroll">
+                  {conTel.map((r, i) => { const msg = applyVars(tplObj.body, { nombre: r.name.split(" ")[0], tratamiento: r.proc || "tu tratamiento", fecha: hoy, clinica }); return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: T.bg, border: "1px solid " + T.line }}>
+                      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{r.name}</div><div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{msg}</div></div>
+                      <a href={"https://api.whatsapp.com/send?phone=" + r.phone + "&text=" + encodeURIComponent(msg)} target="_blank" rel="noopener" style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#fff", background: "#25D366", borderRadius: 7, padding: "7px 12px", textDecoration: "none" }}>WhatsApp →</a>
+                    </div>
+                  ); })}
+                </div>}
+          </div>
+        </div>
+      )}
+      {editing && <MsgTplModal T={T} tpl={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSave={save} />}
+    </div>
+  );
+}
+function MsgTplModal({ T, tpl, onClose, onSave }) {
+  const [f, setF] = useState(() => tpl ? { ...tpl } : { name: "", channel: "whatsapp", subject: "", body: "" });
+  const ok = (f.name || "").trim().length > 1 && (f.body || "").trim().length > 1;
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  function addVar(v) { setF(s => ({ ...s, body: (s.body || "") + v })); }
+  return (
+    <AdModal T={T} title={tpl ? "Editar plantilla" : "Nueva plantilla de mensaje"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave(f)}>Guardar plantilla</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <AdField T={T} label="Nombre" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Recordatorio de cita" />
+        <div>
+          <span style={lbl}>Canal</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[["whatsapp", "WhatsApp"], ["email", "Email"]].map(([k, l]) => <button key={k} type="button" onClick={() => setF({ ...f, channel: k })} style={{ flex: 1, fontFamily: T.sans, fontSize: 12, padding: "10px", borderRadius: 7, cursor: "pointer", border: "1px solid " + (f.channel === k ? T.accent : T.line), background: f.channel === k ? T.surface2 || T.surface : "transparent", color: f.channel === k ? T.text : T.textMute }}>{l}</button>)}
+          </div>
+        </div>
+        {f.channel === "email" && <AdField T={T} label="Asunto" value={f.subject} onChange={v => setF({ ...f, subject: v })} placeholder="Asunto del correo" />}
+        <label><span style={lbl}>Mensaje</span><textarea value={f.body} onChange={e => setF({ ...f, body: e.target.value })} rows={5} placeholder="Escribe el mensaje. Usa variables como {nombre}." style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} /></label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {MSG_VARS.map(v => <button key={v} type="button" onClick={() => addVar(v)} style={{ fontFamily: T.sans, fontSize: 11, padding: "5px 10px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent }}>+ {v}</button>)}
+        </div>
+      </div>
+    </AdModal>
+  );
+}
+
 function MarketingView({ T, go }) {
   const D = window.JCDATA;
   const connected = (typeof metaConnected === "function") && metaConnected();
@@ -4496,4 +4606,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });

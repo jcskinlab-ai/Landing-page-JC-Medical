@@ -784,6 +784,80 @@ function FidelidadView({ T }) {
     ].map(([n, t]) => /* @__PURE__ */ React.createElement("div", { key: n, style: { display: "flex", gap: 9, alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 20, height: 20, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 } }, n), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, t))))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, lineHeight: 1.5 } }, "Puedes cambiar los puntos por procedimiento y el umbral de canje en cualquier momento desde esta misma pantalla."))
   ));
 }
+const MSG_VARS = ["{nombre}", "{tratamiento}", "{fecha}", "{clinica}"];
+function loadMsgTpls() {
+  try {
+    const v = window.DB && window.DB.get("msg_templates");
+    if (Array.isArray(v) && v.length) return v;
+  } catch (e) {
+  }
+  return [
+    { id: "m1", name: "Recordatorio de cita", channel: "whatsapp", body: "Hola {nombre} \u{1F44B} Te recordamos tu cita en {clinica}. \xA1Te esperamos! \u{1F33F}" },
+    { id: "m2", name: "Promoci\xF3n del mes", channel: "whatsapp", body: "Hola {nombre} \u2728 Este mes tenemos una promoci\xF3n especial en {tratamiento}. \xBFTe agendamos? \u{1F489}" }
+  ];
+}
+function saveMsgTplsDB(v) {
+  try {
+    if (window.DB) window.DB.set("msg_templates", v);
+  } catch (e) {
+  }
+}
+function applyVars(body, vars) {
+  return (body || "").replace(/\{(\w+)\}/g, (m, k) => vars[k] != null && vars[k] !== "" ? vars[k] : m);
+}
+function DifusionesView({ T }) {
+  const [tab, setTab] = useState("difusiones");
+  const [tpls, setTpls] = useState(loadMsgTpls);
+  const [editing, setEditing] = useState(null);
+  const [selTpl, setSelTpl] = useState(null);
+  const [aud, setAud] = useState("pacientes");
+  function persist(n) {
+    setTpls(n);
+    saveMsgTplsDB(n);
+  }
+  function save(t) {
+    const exists = t.id && tpls.find((x) => x.id === t.id);
+    persist(exists ? tpls.map((x) => x.id === t.id ? t : x) : [...tpls, { ...t, id: "mtpl" + Date.now() }]);
+    setEditing(null);
+    try {
+      window.jcmToast && window.jcmToast("Plantilla guardada.", "ok");
+    } catch (e) {
+    }
+  }
+  async function del(id) {
+    if (!await (window.jcmConfirm || window.confirm)("\xBFEliminar esta plantilla?", { danger: true })) return;
+    persist(tpls.filter((x) => x.id !== id));
+  }
+  let pacientes = [], leads = [];
+  try {
+    pacientes = window.DB && window.DB.get("patients") || [];
+  } catch (e) {
+  }
+  try {
+    leads = window.DB && window.DB.get("crm_leads") || [];
+  } catch (e) {
+  }
+  const clinica = typeof window.clinicName === "function" ? window.clinicName() : "la cl\xEDnica";
+  const hoy = (/* @__PURE__ */ new Date()).toLocaleDateString("es-CL", { day: "numeric", month: "long" });
+  const recipients = (aud === "leads" ? leads : pacientes).map((r) => ({ name: r.name || "Paciente", phone: (r.phone || "").replace(/[^0-9]/g, ""), proc: r.proc || r.procInteres || "" })).filter((r) => r.name);
+  const conTel = recipients.filter((r) => r.phone.length >= 8);
+  const tplObj = tpls.find((t) => t.id === selTpl) || null;
+  const tabBtn = (k, l) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setTab(k), style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? T.onAccent || "#fff" : T.textMute } }, l);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Difusiones", sub: "Env\xEDa mensajes masivos por WhatsApp con plantillas y variables" }), tab === "plantillas" && /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setEditing("new") }, "+ Nueva plantilla")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, margin: "4px 0 18px" } }, tabBtn("difusiones", "Difusiones"), tabBtn("plantillas", "Plantillas")), tab === "plantillas" ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, tpls.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: t.channel === "email" ? "#54707F" : "#1F8A5B", border: "1px solid " + T.line, borderRadius: 999, padding: "2px 8px" } }, t.channel === "email" ? "Email" : "WhatsApp"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, t.name), /* @__PURE__ */ React.createElement("button", { onClick: () => setEditing(t), style: { fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" } }, "Editar"), /* @__PURE__ */ React.createElement("button", { onClick: () => del(t.id), title: "Eliminar", style: { background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 8, lineHeight: 1.5, whiteSpace: "pre-wrap" } }, t.body)))) : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px,1fr))", gap: 16, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 12 } }, "1 \xB7 Arma tu difusi\xF3n"), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Audiencia"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 14 } }, [["pacientes", "Pacientes (" + pacientes.length + ")"], ["leads", "Leads CRM (" + leads.length + ")"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setAud(k), style: { flex: 1, fontFamily: T.sans, fontSize: 11.5, padding: "9px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (aud === k ? T.accent : T.line), background: aud === k ? T.surface2 || T.surface : "transparent", color: aud === k ? T.text : T.textMute } }, l))), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Plantilla"), /* @__PURE__ */ React.createElement("select", { value: selTpl || "", onChange: (e) => setSelTpl(e.target.value), style: { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 Elige una plantilla \u2014"), tpls.map((t) => /* @__PURE__ */ React.createElement("option", { key: t.id, value: t.id }, t.name))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 } }, "Variables: ", MSG_VARS.join("  "), ". Se reemplazan por cada destinatario. ", conTel.length, " de ", recipients.length, " tienen tel\xE9fono v\xE1lido.")), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 12 } }, "2 \xB7 Env\xEDa uno por uno por WhatsApp"), !tplObj ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "Elige una plantilla para previsualizar y enviar.") : conTel.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "Esta audiencia no tiene tel\xE9fonos v\xE1lidos.") : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }, className: "jc-scroll" }, conTel.map((r, i) => {
+    const msg = applyVars(tplObj.body, { nombre: r.name.split(" ")[0], tratamiento: r.proc || "tu tratamiento", fecha: hoy, clinica });
+    return /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: T.bg, border: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, r.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, msg)), /* @__PURE__ */ React.createElement("a", { href: "https://api.whatsapp.com/send?phone=" + r.phone + "&text=" + encodeURIComponent(msg), target: "_blank", rel: "noopener", style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#fff", background: "#25D366", borderRadius: 7, padding: "7px 12px", textDecoration: "none" } }, "WhatsApp \u2192"));
+  })))), editing && /* @__PURE__ */ React.createElement(MsgTplModal, { T, tpl: editing === "new" ? null : editing, onClose: () => setEditing(null), onSave: save }));
+}
+function MsgTplModal({ T, tpl, onClose, onSave }) {
+  const [f, setF] = useState(() => tpl ? { ...tpl } : { name: "", channel: "whatsapp", subject: "", body: "" });
+  const ok = (f.name || "").trim().length > 1 && (f.body || "").trim().length > 1;
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  function addVar(v) {
+    setF((s) => ({ ...s, body: (s.body || "") + v }));
+  }
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: tpl ? "Editar plantilla" : "Nueva plantilla de mensaje", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave(f) }, "Guardar plantilla") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre", value: f.name, onChange: (v) => setF({ ...f, name: v }), placeholder: "Ej: Recordatorio de cita" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Canal"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, [["whatsapp", "WhatsApp"], ["email", "Email"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, type: "button", onClick: () => setF({ ...f, channel: k }), style: { flex: 1, fontFamily: T.sans, fontSize: 12, padding: "10px", borderRadius: 7, cursor: "pointer", border: "1px solid " + (f.channel === k ? T.accent : T.line), background: f.channel === k ? T.surface2 || T.surface : "transparent", color: f.channel === k ? T.text : T.textMute } }, l)))), f.channel === "email" && /* @__PURE__ */ React.createElement(AdField, { T, label: "Asunto", value: f.subject, onChange: (v) => setF({ ...f, subject: v }), placeholder: "Asunto del correo" }), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Mensaje"), /* @__PURE__ */ React.createElement("textarea", { value: f.body, onChange: (e) => setF({ ...f, body: e.target.value }), rows: 5, placeholder: "Escribe el mensaje. Usa variables como {nombre}.", style: { ...inp, resize: "vertical", lineHeight: 1.5 } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, MSG_VARS.map((v) => /* @__PURE__ */ React.createElement("button", { key: v, type: "button", onClick: () => addVar(v), style: { fontFamily: T.sans, fontSize: 11, padding: "5px 10px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent } }, "+ ", v)))));
+}
 function MarketingView({ T, go }) {
   const D = window.JCDATA;
   const connected = typeof metaConnected === "function" && metaConnected();
@@ -3633,4 +3707,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   }
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cierre del d\xEDa", onClose, footer: done ? /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: confirmarCierre }, "Confirmar cierre del d\xEDa") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" } }, fecha), [["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Egresos", egresos, "#C0285A", "\u2212 "]].map(([l, v, c, s]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: c } }, s, D.fmt(v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, fontFamily: T.sans, fontSize: 15, fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, "Neto (ganancia)"), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, D.fmt(neto))));
 }
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
