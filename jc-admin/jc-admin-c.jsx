@@ -2150,6 +2150,21 @@ function sumUnits(txt) {
   while ((m = re.exec(body))) sum += parseInt(m[1], 10);
   return sum;
 }
+// Tipos de ficha clínica (Área 5) + zonas e IMC.
+const FICHA_TIPOS = [["general", "Ficha general"], ["facial", "Facial"], ["corporal", "Corporal"], ["medgeneral", "Medicina general"]];
+const FICHA_ZONAS_FACIAL = ["Frente", "Entrecejo", "Patas de gallo", "Ojeras", "Pómulos", "Surcos nasogenianos", "Labios", "Código de barras", "Mentón", "Línea mandibular", "Cuello"];
+const FICHA_ZONAS_CORPORAL = ["Abdomen", "Flancos", "Espalda", "Brazos", "Muslos", "Glúteos", "Papada", "Rodillas", "Pantorrillas", "Dorso de manos"];
+function calcIMC(peso, talla) {
+  const p = parseFloat(peso), t = parseFloat(talla) / 100;
+  if (!p || !t || t <= 0) return null;
+  const imc = p / (t * t);
+  let cat = "Normal", col = "#1F8A5B";
+  if (imc < 18.5) { cat = "Bajo peso"; col = "#B8860B"; }
+  else if (imc < 25) { cat = "Normal"; col = "#1F8A5B"; }
+  else if (imc < 30) { cat = "Sobrepeso"; col = "#B8860B"; }
+  else { cat = "Obesidad"; col = "#C0285A"; }
+  return { v: imc.toFixed(1), cat, col };
+}
 function FichaClinicaForm({ T, patient, updatePatient }) {
   const [f, setF] = useState(patient.clinica || {});
   const [saved, setSaved] = useState(false);
@@ -2177,6 +2192,8 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
   const nrField = (label, k, ph, only) => <div><span style={lbl}>{label}</span>{text(k, ph, only)}{nrBtn(k)}</div>;
   // Barra primero (alineada entre columnas) y los botones debajo, dentro del mismo parámetro.
   const chipField = (label, k, options, ph) => <div><span style={lbl}>{label}</span>{text(k, ph)}{chips(k, options)}</div>;
+  const tipo = f.tipo || "general";
+  const imc = calcIMC(f.peso, f.talla);
 
   return (
     <div>
@@ -2184,6 +2201,49 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Ficha clínica</div>
         <AdBtn T={T} small primary onClick={() => { try { updatePatient(patient.id, { clinica: f }); setSaved(true); } catch(e) { if(window.jcmError) window.jcmError("Error al guardar la ficha. Intenta de nuevo."); } }}>{saved ? "✓ Guardada" : "Guardar ficha"}</AdBtn>
       </div>
+      {/* Selector de tipo de ficha */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+        {FICHA_TIPOS.map(([k, l]) => <button key={k} type="button" onClick={() => setVal("tipo", k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: tipo === k ? 600 : 500, padding: "8px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tipo === k ? T.accent : T.line), background: tipo === k ? T.accent : "transparent", color: tipo === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>)}
+      </div>
+      {/* Signos vitales y antropometría (Medicina general / Corporal) */}
+      {(tipo === "medgeneral" || tipo === "corporal") && (
+        <div style={card}>
+          <div style={head}>Signos vitales y antropometría</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+            {field("Peso (kg)", <input value={f.peso || ""} onChange={e => setVal("peso", e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="0" style={inp()} />)}
+            {field("Talla (cm)", <input value={f.talla || ""} onChange={e => setVal("talla", e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="0" style={inp()} />)}
+            {field("IMC (automático)", <div style={inp({ display: "flex", alignItems: "center", justifyContent: "space-between", background: T.surface2 || T.bg })}>{imc ? <><span style={{ color: T.text, fontWeight: 600 }}>{imc.v}</span><span style={{ fontFamily: T.sans, fontSize: 10, color: imc.col }}>{imc.cat}</span></> : <span style={{ color: T.textFaint }}>—</span>}</div>)}
+            {field("Presión arterial", <input value={f.presion || ""} onChange={e => setVal("presion", e.target.value)} placeholder="120/80 mmHg" style={inp()} />)}
+            {field("Frec. cardíaca (lpm)", <input value={f.fc || ""} onChange={e => setVal("fc", e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={inp()} />)}
+            {field("Frec. respiratoria (rpm)", <input value={f.fr || ""} onChange={e => setVal("fr", e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={inp()} />)}
+            {field("Temperatura (°C)", <input value={f.temp || ""} onChange={e => setVal("temp", e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="36.5" style={inp()} />)}
+            {field("Saturación O₂ (%)", <input value={f.sato2 || ""} onChange={e => setVal("sato2", e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="98" style={inp()} />)}
+            {field("Glicemia (mg/dL)", <input value={f.glicemia || ""} onChange={e => setVal("glicemia", e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="—" style={inp()} />)}
+          </div>
+          {tipo === "medgeneral" && (
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: "block", marginBottom: 12 }}><span style={lbl}>Motivo de consulta</span><textarea value={f.motivo || ""} onChange={e => setVal("motivo", e.target.value)} rows={2} placeholder="—" style={inp({ resize: "vertical" })} /></label>
+              <label style={{ display: "block" }}><span style={lbl}>Diagnóstico / indicaciones</span><textarea value={f.diagnostico || ""} onChange={e => setVal("diagnostico", e.target.value)} rows={2} placeholder="—" style={inp({ resize: "vertical" })} /></label>
+            </div>
+          )}
+        </div>
+      )}
+      {/* Zonas faciales (Facial) */}
+      {tipo === "facial" && (
+        <div style={card}>
+          <div style={head}>Zonas faciales a tratar</div>
+          {chips("zonasFacial", FICHA_ZONAS_FACIAL)}
+          <div style={{ marginTop: 12 }}><span style={lbl}>Observaciones de zonas</span>{text("zonasFacialNota", "Detalle por zona…")}</div>
+        </div>
+      )}
+      {/* Zonas corporales (Corporal) */}
+      {tipo === "corporal" && (
+        <div style={card}>
+          <div style={head}>Zonas corporales a tratar</div>
+          {chips("zonasCorporal", FICHA_ZONAS_CORPORAL)}
+          <div style={{ marginTop: 12 }}><span style={lbl}>Observaciones de zonas</span>{text("zonasCorporalNota", "Detalle por zona…")}</div>
+        </div>
+      )}
 
       {/* Antecedentes médicos */}
       <div style={card}>
