@@ -541,6 +541,58 @@ function SucursalModal({ T, suc, onClose, onSave }) {
     return /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: d.on ? T.surface2 || T.surface : T.surface, border: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { width: 92, flexShrink: 0 } }, /* @__PURE__ */ React.createElement(AdSwitch, { T, on: d.on, onClick: () => setDia(k, { on: !d.on }) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.text, marginLeft: 8 } }, l.slice(0, 3))), d.on ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, flex: 1 } }, /* @__PURE__ */ React.createElement("input", { type: "time", value: d.from, onChange: (e) => setDia(k, { from: e.target.value }), style: inp }), /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute, fontFamily: T.sans, fontSize: 12 } }, "a"), /* @__PURE__ */ React.createElement("input", { type: "time", value: d.to, onChange: (e) => setDia(k, { to: e.target.value }), style: inp })) : /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 11.5, color: T.textFaint } }, "Cerrado"));
   })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: aplicarATodos }, "Aplicar horario del lunes a todos")))));
 }
+const CRM_STAGES = [["nuevo", "Nuevo lead", "#6A8296"], ["proceso", "En proceso", "#B8860B"], ["interesado", "Interesado", "#4E8A72"], ["agendado", "Agendado", "#54707F"], ["nocalifica", "No califica", "#9A8C7A"], ["compro", "Compr\xF3", "#1F8A5B"]];
+const CRM_ORIGENES = ["Instagram", "Facebook", "TikTok", "WhatsApp", "Meta Ads", "Google", "Referido", "Walk-in"];
+function loadLeads() {
+  try {
+    const v = window.DB && window.DB.get("crm_leads");
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveLeadsDB(v) {
+  try {
+    if (window.DB) window.DB.set("crm_leads", v);
+  } catch (e) {
+  }
+}
+function CrmView({ T }) {
+  const [leads, setLeads] = useState(loadLeads);
+  const [editing, setEditing] = useState(null);
+  function persist(n) {
+    setLeads(n);
+    saveLeadsDB(n);
+  }
+  function save(l) {
+    const exists = l.id && leads.find((x) => x.id === l.id);
+    persist(exists ? leads.map((x) => x.id === l.id ? l : x) : [...leads, { ...l, id: "lead" + Date.now(), ts: Date.now() }]);
+    setEditing(null);
+    try {
+      window.jcmToast && window.jcmToast("Lead " + (exists ? "actualizado" : "agregado") + ".", "ok");
+    } catch (e) {
+    }
+  }
+  function moveLead(id, stage) {
+    persist(leads.map((x) => x.id === id ? { ...x, stage } : x));
+  }
+  async function del(id) {
+    if (!await (window.jcmConfirm || window.confirm)("\xBFEliminar este lead?", { danger: true })) return;
+    persist(leads.filter((x) => x.id !== id));
+  }
+  const byStage = (st) => leads.filter((l) => (l.stage || "nuevo") === st);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(SecHead, { T, title: "CRM \xB7 Embudo de leads", sub: leads.length + " lead" + (leads.length === 1 ? "" : "s") + " \xB7 listo para Meta API" }), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setEditing("new") }, "+ Nuevo lead")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 4 } }, CRM_STAGES.map(([k, label, col]) => {
+    const items = byStage(k);
+    return /* @__PURE__ */ React.createElement("div", { key: k, style: { flexShrink: 0, width: 230, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: "50%", background: col, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text } }, label), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 11, color: T.textMute, background: T.surface2 || T.bg, borderRadius: 999, padding: "1px 8px" } }, items.length)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7 } }, items.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, padding: "10px 2px", textAlign: "center" } }, "\u2014"), items.map((l) => /* @__PURE__ */ React.createElement("div", { key: l.id, style: { background: T.bg, border: "1px solid " + T.line, borderRadius: 9, padding: "10px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => setEditing(l) }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text } }, l.name), l.proc && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, l.proc), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2 } }, [l.phone, l.origen].filter(Boolean).join(" \xB7 "))), /* @__PURE__ */ React.createElement("button", { onClick: () => del(l.id), title: "Eliminar", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("select", { value: l.stage || "nuevo", onChange: (e) => moveLead(l.id, e.target.value), style: { width: "100%", marginTop: 8, padding: "5px 7px", borderRadius: 5, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 10.5, outline: "none", cursor: "pointer" } }, CRM_STAGES.map(([sk, sl]) => /* @__PURE__ */ React.createElement("option", { key: sk, value: sk }, sl)))))));
+  })), editing && /* @__PURE__ */ React.createElement(CrmLeadModal, { T, lead: editing === "new" ? null : editing, onClose: () => setEditing(null), onSave: save }));
+}
+function CrmLeadModal({ T, lead, onClose, onSave }) {
+  const [f, setF] = useState(() => lead ? { ...lead } : { name: "", phone: "+56 9 ", proc: "", origen: "Instagram", stage: "nuevo", note: "" });
+  const ok = (f.name || "").trim().length > 1;
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: lead ? "Editar lead" : "Nuevo lead", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave(f) }, "Guardar lead") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre", value: f.name, onChange: (v) => setF({ ...f, name: v }), placeholder: "Nombre del lead" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Tel\xE9fono / WhatsApp", value: f.phone, onChange: (v) => setF({ ...f, phone: v }), inputMode: "tel" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Tratamiento de inter\xE9s", value: f.proc, onChange: (v) => setF({ ...f, proc: v }), placeholder: "Ej: Botox, \xE1cido hialur\xF3nico\u2026" }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Origen"), /* @__PURE__ */ React.createElement("select", { value: f.origen, onChange: (e) => setF({ ...f, origen: e.target.value }), style: inp }, CRM_ORIGENES.map((o) => /* @__PURE__ */ React.createElement("option", { key: o, value: o }, o)))), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Etapa"), /* @__PURE__ */ React.createElement("select", { value: f.stage, onChange: (e) => setF({ ...f, stage: e.target.value }), style: inp }, CRM_STAGES.map(([sk, sl]) => /* @__PURE__ */ React.createElement("option", { key: sk, value: sk }, sl))))), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Nota"), /* @__PURE__ */ React.createElement("textarea", { value: f.note, onChange: (e) => setF({ ...f, note: e.target.value }), rows: 2, placeholder: "Seguimiento, observaciones\u2026", style: { ...inp, resize: "vertical" } }))));
+}
 function FidelidadView({ T }) {
   const seeded = typeof clinicSeeded === "function" ? clinicSeeded() : true;
   const [on, setOn] = useState(() => {
@@ -3467,4 +3519,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   }
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cierre del d\xEDa", onClose, footer: done ? /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") : /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: confirmarCierre }, "Confirmar cierre del d\xEDa") }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 14, textTransform: "capitalize" } }, fecha), [["Ingresos (bruto)", ingresos, "#1F8A5B", ""], ["Egresos", egresos, "#C0285A", "\u2212 "]].map(([l, v, c, s]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: c } }, s, D.fmt(v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 12, fontFamily: T.sans, fontSize: 15, fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.text } }, "Neto (ganancia)"), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, D.fmt(neto))));
 }
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });

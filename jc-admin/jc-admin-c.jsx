@@ -670,6 +670,84 @@ function SucursalModal({ T, suc, onClose, onSave }) {
   );
 }
 
+/* ─────────── CRM · EMBUDO DE LEADS (Área 11) ─────────── */
+const CRM_STAGES = [["nuevo", "Nuevo lead", "#6A8296"], ["proceso", "En proceso", "#B8860B"], ["interesado", "Interesado", "#4E8A72"], ["agendado", "Agendado", "#54707F"], ["nocalifica", "No califica", "#9A8C7A"], ["compro", "Compró", "#1F8A5B"]];
+const CRM_ORIGENES = ["Instagram", "Facebook", "TikTok", "WhatsApp", "Meta Ads", "Google", "Referido", "Walk-in"];
+function loadLeads() { try { const v = window.DB && window.DB.get("crm_leads"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveLeadsDB(v) { try { if (window.DB) window.DB.set("crm_leads", v); } catch (e) {} }
+function CrmView({ T }) {
+  const [leads, setLeads] = useState(loadLeads);
+  const [editing, setEditing] = useState(null);
+  function persist(n) { setLeads(n); saveLeadsDB(n); }
+  function save(l) {
+    const exists = l.id && leads.find(x => x.id === l.id);
+    persist(exists ? leads.map(x => x.id === l.id ? l : x) : [...leads, { ...l, id: "lead" + Date.now(), ts: Date.now() }]);
+    setEditing(null);
+    try { window.jcmToast && window.jcmToast("Lead " + (exists ? "actualizado" : "agregado") + ".", "ok"); } catch (e) {}
+  }
+  function moveLead(id, stage) { persist(leads.map(x => x.id === id ? { ...x, stage } : x)); }
+  async function del(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar este lead?", { danger: true }))) return; persist(leads.filter(x => x.id !== id)); }
+  const byStage = st => leads.filter(l => (l.stage || "nuevo") === st);
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <SecHead T={T} title="CRM · Embudo de leads" sub={leads.length + " lead" + (leads.length === 1 ? "" : "s") + " · listo para Meta API"} />
+        <AdBtn T={T} primary onClick={() => setEditing("new")}>+ Nuevo lead</AdBtn>
+      </div>
+      <div className="jc-scroll" style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 4 }}>
+        {CRM_STAGES.map(([k, label, col]) => { const items = byStage(k); return (
+          <div key={k} style={{ flexShrink: 0, width: 230, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 11px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: col, flexShrink: 0 }} />
+              <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>{label}</span>
+              <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 11, color: T.textMute, background: T.surface2 || T.bg, borderRadius: 999, padding: "1px 8px" }}>{items.length}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {items.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, padding: "10px 2px", textAlign: "center" }}>—</div>}
+              {items.map(l => (
+                <div key={l.id} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 9, padding: "10px 11px" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                    <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setEditing(l)}>
+                      <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>{l.name}</div>
+                      {l.proc && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{l.proc}</div>}
+                      <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2 }}>{[l.phone, l.origen].filter(Boolean).join(" · ")}</div>
+                    </div>
+                    <button onClick={() => del(l.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex", flexShrink: 0 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  </div>
+                  <select value={l.stage || "nuevo"} onChange={e => moveLead(l.id, e.target.value)} style={{ width: "100%", marginTop: 8, padding: "5px 7px", borderRadius: 5, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 10.5, outline: "none", cursor: "pointer" }}>
+                    {CRM_STAGES.map(([sk, sl]) => <option key={sk} value={sk}>{sl}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        ); })}
+      </div>
+      {editing && <CrmLeadModal T={T} lead={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSave={save} />}
+    </div>
+  );
+}
+function CrmLeadModal({ T, lead, onClose, onSave }) {
+  const [f, setF] = useState(() => lead ? { ...lead } : { name: "", phone: "+56 9 ", proc: "", origen: "Instagram", stage: "nuevo", note: "" });
+  const ok = (f.name || "").trim().length > 1;
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return (
+    <AdModal T={T} title={lead ? "Editar lead" : "Nuevo lead"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave(f)}>Guardar lead</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <AdField T={T} label="Nombre" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Nombre del lead" />
+        <AdField T={T} label="Teléfono / WhatsApp" value={f.phone} onChange={v => setF({ ...f, phone: v })} inputMode="tel" />
+        <AdField T={T} label="Tratamiento de interés" value={f.proc} onChange={v => setF({ ...f, proc: v })} placeholder="Ej: Botox, ácido hialurónico…" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <label><span style={lbl}>Origen</span><select value={f.origen} onChange={e => setF({ ...f, origen: e.target.value })} style={inp}>{CRM_ORIGENES.map(o => <option key={o} value={o}>{o}</option>)}</select></label>
+          <label><span style={lbl}>Etapa</span><select value={f.stage} onChange={e => setF({ ...f, stage: e.target.value })} style={inp}>{CRM_STAGES.map(([sk, sl]) => <option key={sk} value={sk}>{sl}</option>)}</select></label>
+        </div>
+        <label><span style={lbl}>Nota</span><textarea value={f.note} onChange={e => setF({ ...f, note: e.target.value })} rows={2} placeholder="Seguimiento, observaciones…" style={{ ...inp, resize: "vertical" }} /></label>
+      </div>
+    </AdModal>
+  );
+}
+
 /* ─────────── FIDELIDAD ─────────── */
 function FidelidadView({ T }) {
   const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
@@ -4263,4 +4341,4 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
