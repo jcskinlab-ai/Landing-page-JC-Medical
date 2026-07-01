@@ -187,6 +187,10 @@ function isLosMedique() {
     return false;
   }
 }
+function jcmNewFeat() {
+  return !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
+}
+if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
 var PERM_NAV = {
   "Agenda": ["agenda", "salaespera", "pendientes"],

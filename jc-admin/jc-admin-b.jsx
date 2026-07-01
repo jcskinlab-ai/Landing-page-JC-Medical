@@ -600,7 +600,9 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const [confirmDel, setConfirmDel] = useState(false);
   const [delInput, setDelInput] = useState("");
   const points = patient.points || [];
-  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ["facturacion", "Atenciones"], ["campana", "Campaña"], ["notas", "Notas"], ["resumen", "Resumen IA"], ["auditoria", "Auditoría IA"]];
+  // Pestañas NUEVAS (presupuesto, esquema facial) solo para Los Medique hasta el push global.
+  const _newFeat = !(window.jcmNewFeat) || window.jcmNewFeat();
+  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ["campana", "Campaña"], ["notas", "Notas"], ["resumen", "Resumen IA"], ["auditoria", "Auditoría IA"]];
   const estado = patient.estado || "Activo";
   const activo = estado === "Activo";
   const wa = "https://wa.me/" + (patient.phone || "").replace(/\D/g, "");
@@ -766,6 +768,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       {tab === "imagenes" && <ImagenesTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "consent" && <ConsentTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "receta" && <RecetaTab T={T} patient={patient} updatePatient={updatePatient} />}
+      {tab === "presupuesto" && <PresupuestoTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "facturacion" && <FacturacionTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "campana" && <CampanaTab T={T} patient={patient} updatePatient={updatePatient} />}
 
@@ -2192,6 +2195,116 @@ function ResumenIA({ T, patient }) {
 }
 
 /* ─────────── RECETA MÉDICA / INDICACIONES POST TRATAMIENTO ─────────── */
+/* ── N1 · Presupuestos (misma línea gráfica de las indicaciones) ── */
+function PresupuestoTab({ T, patient, updatePatient }) {
+  const D = window.JCDATA;
+  const fmt = n => (D && D.fmt) ? D.fmt(n) : ("$" + (n || 0).toLocaleString("es-CL"));
+  const servicios = (() => { try { return (window.clinicServiceList ? window.clinicServiceList() : []) || []; } catch (e) { return []; } })();
+  const [items, setItems] = useState([]);
+  const [pick, setPick] = useState("");
+  const [descuento, setDescuento] = useState("");
+  const [validez, setValidez] = useState("15");
+  const [nota, setNota] = useState("");
+  const presupuestos = patient.presupuestos || [];
+  function addSvc() { const s = servicios.find(x => x.name === pick); if (!s) return; const ex = items.find(i => i.name === s.name); if (ex) setItems(items.map(i => i.name === s.name ? { ...i, qty: i.qty + 1 } : i)); else setItems([...items, { name: s.name, price: s.price || 0, qty: 1 }]); setPick(""); }
+  function addCustom() { setItems([...items, { name: "", price: 0, qty: 1 }]); }
+  function upd(i, patch) { setItems(items.map((it, j) => j === i ? { ...it, ...patch } : it)); }
+  function del(i) { setItems(items.filter((_, j) => j !== i)); }
+  const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0);
+  const desc = Math.min(subtotal, parseInt(descuento, 10) || 0);
+  const total = subtotal - desc;
+  const inp = { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", boxSizing: "border-box" };
+  function docInner() {
+    const e = jcmDocEsc; const b = jcmDocBrand(); const now = new Date();
+    const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const dot = String(now.getDate()).padStart(2, "0") + " · " + String(now.getMonth() + 1).padStart(2, "0") + " · " + now.getFullYear();
+    const rows = items.filter(i => (i.name || "").trim()).map(i => "<tr><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e(i.name) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:center'>" + (i.qty || 1) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:right'>" + fmt(i.price) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:right'>" + fmt((i.price || 0) * (i.qty || 1)) + "</td></tr>").join("");
+    const inner = jcmMasthead(b)
+      + "<div class='titleblock'><div><div class='eyebrow'>Cotización</div><h1 class='doc-title'>Presupuesto <span class='it'>de tratamiento</span></h1></div><div class='folio'><span class='k'>Fecha</span><span class='v vbig'>" + e(dot) + "</span></div></div>"
+      + jcmPband(patient, [["RUT", patient.rut], ["Vigencia", (parseInt(validez, 10) || 15) + " días"]])
+      + "<div class='body'><div class='section' style='margin-top:20px'><div class='section-head'><span class='sh-label'>Detalle</span><span class='sh-rule'></span></div>"
+      + "<table style=\"width:100%;border-collapse:collapse;font-family:'Jost',sans-serif;font-size:13px;color:#121A26\"><thead><tr><th style='text-align:left;padding:6px 4px;border-bottom:2px solid #121A26'>Tratamiento</th><th style='text-align:center;padding:6px 4px;border-bottom:2px solid #121A26'>Cant.</th><th style='text-align:right;padding:6px 4px;border-bottom:2px solid #121A26'>Valor</th><th style='text-align:right;padding:6px 4px;border-bottom:2px solid #121A26'>Total</th></tr></thead><tbody>" + rows + "</tbody></table>"
+      + "<div style=\"margin-top:14px;text-align:right;font-family:'Jost',sans-serif;font-size:13px;color:#121A26\">Subtotal: " + fmt(subtotal) + (desc ? "<br>Descuento: − " + fmt(desc) : "") + "<br><span style='font-size:20px;font-weight:600'>Total: " + fmt(total) + "</span></div></div>"
+      + (nota.trim() ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas</span><span class='sh-rule'></span></div><div class='textbox'>" + e(nota).replace(/\n/g, "<br>") + "</div></div>" : "")
+      + "</div>" + jcmSignFoot(b, b.proName, "Presupuesto", patient.name || "", hoy, null);
+    return { title: "Presupuesto · " + e(patient.name || ""), inner: inner, b: b };
+  }
+  function imprimir(save) { if (!items.length) { window.jcmToast && window.jcmToast("Agrega al menos un tratamiento.", "info"); return; } const d = docInner(); if (save) { window.jcmSaveDocToFolder && window.jcmSaveDocToFolder("Presupuesto - " + (patient.name || "Paciente") + " - " + new Date().toISOString().slice(0, 10), window.jcmDocHTML(d.title, d.b, d.inner)); } else { jcmPrintDoc(d.title, d.b, d.inner); } }
+  function guardar() { if (!items.length) { window.jcmToast && window.jcmToast("Agrega al menos un tratamiento.", "info"); return; } const p = { id: "pp" + Date.now(), fecha: new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" }), items: items.filter(i => (i.name || "").trim()), subtotal, desc, total, validez: parseInt(validez, 10) || 15, nota: nota.trim() }; updatePatient(patient.id, { presupuestos: [p, ...presupuestos] }); setItems([]); setDescuento(""); setNota(""); window.jcmToast && window.jcmToast("Presupuesto guardado.", "ok"); try { window.jcmAudit && window.jcmAudit("Presupuesto creado · " + patient.name + " · " + fmt(total)); } catch (e) {} }
+  function waLink() { const ph = (patient.phone || "").replace(/\D/g, ""); if (ph.length < 8) { window.jcmToast && window.jcmToast("El paciente no tiene teléfono.", "info"); return; } const clin = (window.clinicName && window.clinicName()) || "Medique"; const L = ["*Presupuesto · " + clin + "*", "Hola " + (patient.name || "") + " 👋 Te compartimos tu presupuesto:", ""]; items.filter(i => (i.name || "").trim()).forEach(i => L.push("• " + i.name + (i.qty > 1 ? " x" + i.qty : "") + " — " + fmt((i.price || 0) * (i.qty || 1)))); if (desc) L.push("Descuento: − " + fmt(desc)); L.push("*Total: " + fmt(total) + "*", "Válido por " + (parseInt(validez, 10) || 15) + " días."); window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener"); }
+  async function enviarCorreo() { const to = (patient.email || "").trim(); if (!to) { window.jcmToast && window.jcmToast("El paciente no tiene correo.", "info"); return; } if (!window.mediqueEmail) { window.jcmToast && window.jcmToast("El correo no está disponible.", "info"); return; } const clin = (window.clinicName && window.clinicName()) || "Medique"; const L = ["Hola " + (patient.name || "") + ",", "", "Te compartimos tu presupuesto en " + clin + ":", ""]; items.filter(i => (i.name || "").trim()).forEach(i => L.push("- " + i.name + (i.qty > 1 ? " x" + i.qty : "") + ": " + fmt((i.price || 0) * (i.qty || 1)))); if (desc) L.push("Descuento: -" + fmt(desc)); L.push("Total: " + fmt(total), "Válido por " + (parseInt(validez, 10) || 15) + " días."); try { const r = await window.mediqueEmail({ to: to, subject: "Presupuesto · " + clin, text: L.join("\n"), replyTo: window.clinicReplyTo && window.clinicReplyTo() }); window.jcmToast && window.jcmToast(r && r.ok ? "Presupuesto enviado a " + to : "No se pudo enviar el correo.", r && r.ok ? "ok" : "error"); } catch (e) { window.jcmToast && window.jcmToast("No se pudo enviar el correo.", "error"); } }
+  // N8.1 · Esquema Facial: documento con esquema del rostro + zonas marcadas + tabla de prestaciones.
+  const FACE_POS = { "frente": [100, 46], "frontal": [100, 46], "entrecejo": [100, 74], "glabela": [100, 74], "patas de gallo": [150, 88], "ojeras": [124, 100], "nariz": [100, 108], "dorso nasal": [100, 108], "pómulos": [140, 120], "pomulos": [140, 120], "surcos nasogenianos": [122, 138], "código de barras": [100, 150], "labios": [100, 168], "mentón": [100, 192], "menton": [100, 192], "línea mandibular": [58, 172], "mandíbula": [58, 172], "cuello": [100, 224] };
+  function zonaDe(nombre) { const n = (nombre || "").toLowerCase(); for (const k in FACE_POS) if (n.indexOf(k) >= 0) return { k: k, p: FACE_POS[k] }; return null; }
+  function esquemaFacial() {
+    const e = jcmDocEsc; const b = jcmDocBrand(); const now = new Date();
+    const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const withZone = items.filter(i => (i.name || "").trim());
+    const marks = withZone.map(i => zonaDe(i.name)).filter(Boolean);
+    const dots = marks.map(m => "<circle cx='" + m.p[0] + "' cy='" + m.p[1] + "' r='9' fill='none' stroke='#C0285A' stroke-width='1.5' stroke-dasharray='3 2'/><circle cx='" + m.p[0] + "' cy='" + m.p[1] + "' r='2' fill='#C0285A'/>").join("");
+    const face = "<svg viewBox='0 0 200 250' width='230' height='288' xmlns='http://www.w3.org/2000/svg'>"
+      + "<ellipse cx='100' cy='120' rx='62' ry='84' fill='#F7EFE9' stroke='#D8C7BB' stroke-width='1.5'/>"
+      + "<path d='M66 96q30 -18 68 0' fill='none' stroke='#C9B4A6' stroke-width='1.5'/>"
+      + "<path d='M92 100 L92 128 Q100 134 108 128' fill='none' stroke='#C9B4A6' stroke-width='1.5'/>"
+      + "<path d='M86 154 q14 10 28 0' fill='none' stroke='#C9B4A6' stroke-width='1.5'/>"
+      + "<circle cx='80' cy='108' r='3' fill='#7C6A5E'/><circle cx='120' cy='108' r='3' fill='#7C6A5E'/>"
+      + dots + "</svg>";
+    const rows = withZone.map(i => "<tr><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e(hoy) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e((zonaDe(i.name) ? zonaDe(i.name).k : "—")) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e(i.name) + (i.qty > 1 ? " x" + i.qty : "") + "</td></tr>").join("");
+    const inner = "<h1 class='doc-title' style='text-align:center;margin:0 0 10px'>Esquema <span class='it'>Facial</span></h1>"
+      + jcmPband(patient, [["RUT", patient.rut], ["Fecha", hoy]])
+      + "<div style='text-align:center;margin:18px 0'>" + face + "</div>"
+      + "<div class='section'><div class='section-head'><span class='sh-label'>Prestaciones por zona</span><span class='sh-rule'></span></div>"
+      + "<table style=\"width:100%;border-collapse:collapse;font-family:'Jost',sans-serif;font-size:13px;color:#121A26\"><thead><tr><th style='text-align:left;padding:6px 4px;border-bottom:2px solid #121A26'>Fecha</th><th style='text-align:left;padding:6px 4px;border-bottom:2px solid #121A26'>Zona</th><th style='text-align:left;padding:6px 4px;border-bottom:2px solid #121A26'>Prestación</th></tr></thead><tbody>" + rows + "</tbody></table></div>"
+      + jcmSignFoot(b, b.proName, "Esquema Facial", patient.name || "", hoy, null);
+    if (!withZone.length) { window.jcmToast && window.jcmToast("Agrega tratamientos para armar el esquema.", "info"); return; }
+    jcmPrintDoc("Esquema Facial · " + e(patient.name || ""), b, inner);
+  }
+  return (
+    <div>
+      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Arma un presupuesto para el paciente y compártelo. Sale con el <b style={{ color: T.text }}>mismo diseño</b> que tus indicaciones.</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <select value={pick} onChange={e => setPick(e.target.value)} style={{ ...inp, flex: 1, minWidth: 200 }}><option value="">Agregar tratamiento…</option>{servicios.map(s => <option key={s.name} value={s.name}>{s.name} · {fmt(s.price)}</option>)}</select>
+        <AdBtn T={T} onClick={addSvc}>+ Agregar</AdBtn>
+        <AdBtn T={T} onClick={addCustom}>+ Ítem libre</AdBtn>
+      </div>
+      {items.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "14px 0" }}>Aún sin ítems. Agrega tratamientos arriba.</div>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>{items.map((i, idx) => (
+            <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 70px 120px 40px", gap: 8, alignItems: "center" }}>
+              <input value={i.name} onChange={e => upd(idx, { name: e.target.value })} placeholder="Tratamiento" style={inp} />
+              <input value={i.qty} onChange={e => upd(idx, { qty: parseInt(e.target.value.replace(/\D/g, ""), 10) || 1 })} inputMode="numeric" style={{ ...inp, textAlign: "center" }} />
+              <input value={i.price} onChange={e => upd(idx, { price: parseInt(e.target.value.replace(/\D/g, ""), 10) || 0 })} inputMode="numeric" placeholder="Valor" style={{ ...inp, textAlign: "right" }} />
+              <button onClick={() => del(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", justifyContent: "center" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+            </div>))}</div>}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 }}>
+        <label style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Descuento $<br /><input value={descuento} onChange={e => setDescuento(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={{ ...inp, width: 120, marginTop: 3 }} /></label>
+        <label style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Vigencia (días)<br /><input value={validez} onChange={e => setValidez(e.target.value.replace(/\D/g, ""))} inputMode="numeric" style={{ ...inp, width: 100, marginTop: 3 }} /></label>
+        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>Subtotal {fmt(subtotal)}{desc ? " · Dcto − " + fmt(desc) : ""}</div>
+          <div style={{ fontFamily: T.serif, fontSize: 26, color: T.accent }}>Total {fmt(total)}</div>
+        </div>
+      </div>
+      <textarea value={nota} onChange={e => setNota(e.target.value)} rows={2} placeholder="Notas del presupuesto (opcional)…" style={{ ...inp, resize: "vertical", marginBottom: 12 }} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <AdBtn T={T} primary onClick={guardar}>Guardar presupuesto</AdBtn>
+        <AdBtn T={T} onClick={() => imprimir(false)}>Imprimir</AdBtn>
+        <AdBtn T={T} onClick={esquemaFacial}>Esquema facial</AdBtn>
+        <AdBtn T={T} onClick={() => imprimir(true)}>Guardar en carpeta</AdBtn>
+        <button onClick={waLink} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", background: "none", border: "1px solid #1F8A5B", borderRadius: 4, padding: "12px 16px", cursor: "pointer" }}>WhatsApp</button>
+        <button onClick={enviarCorreo} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, background: "none", border: "1px solid " + T.accent, borderRadius: 4, padding: "12px 16px", cursor: "pointer" }}>Correo</button>
+      </div>
+      {presupuestos.length > 0 && <div style={{ marginTop: 22 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Presupuestos guardados ({presupuestos.length})</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{presupuestos.map(p => (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px" }}>
+            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{(p.items || []).length} tratamiento(s) · {fmt(p.total)}</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{p.fecha} · vigencia {p.validez} días</div></div>
+            <button onClick={() => { setItems(p.items || []); setDescuento(String(p.desc || "")); setValidez(String(p.validez || 15)); setNota(p.nota || ""); }} style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Reabrir</button>
+            <button onClick={() => updatePatient(patient.id, { presupuestos: presupuestos.filter(x => x.id !== p.id) })} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+          </div>))}</div>
+      </div>}
+    </div>
+  );
+}
+
 function RecetaTab({ T, patient, updatePatient }) {
   const D = window.JCDATA;
   const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
@@ -2203,6 +2316,15 @@ function RecetaTab({ T, patient, updatePatient }) {
   const [ctrl, setCtrl] = useState(""); // fecha de control (solo indicaciones)
   const [preview, setPreview] = useState(null); // documento abierto en popup
   const [sigMedId, setSigMedId] = useState("auto");
+  // N5 · Vademécum: constructor de medicamento con posología estructurada.
+  const [vadeOpen, setVadeOpen] = useState(false);
+  const [med, setMed] = useState({ nombre: "", dosis: "1", forma: "comprimido", cada: "8", unidad: "horas", via: "Oral", indic: "" });
+  function addMed() {
+    if (!med.nombre.trim()) { window.jcmToast && window.jcmToast("Escribe el medicamento.", "info"); return; }
+    const linea = med.nombre.trim() + " — " + med.dosis + " " + med.forma + (parseInt(med.dosis, 10) > 1 ? "s" : "") + " cada " + med.cada + " " + med.unidad + " · vía " + med.via + (med.indic.trim() ? " (" + med.indic.trim() + ")" : "");
+    setRp(rp ? rp + "\n" + linea : linea);
+    setMed({ nombre: "", dosis: "1", forma: "comprimido", cada: "8", unidad: "horas", via: "Oral", indic: "" });
+  }
   // Formatea "YYYY-MM-DD" a fecha larga en español para el documento.
   const fmtCtrl = s => { if (!s) return ""; const m = ("" + s).match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return s; const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d) ? s : d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); };
   const recetas = patient.recetas || [];
@@ -2306,6 +2428,33 @@ function RecetaTab({ T, patient, updatePatient }) {
               {tpls.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           ) : null; })()}
+          {tipo === "receta" && (
+            <div style={{ marginBottom: 8, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" }}>
+              <button type="button" onClick={() => setVadeOpen(o => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 13px", background: T.surface2 || T.surface, border: "none", cursor: "pointer", textAlign: "left", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7"><path d="M9 2v6l-5 9a2 2 0 0 0 1.8 3h12.4A2 2 0 0 0 20 17l-5-9V2M8 2h8" /></svg>
+                Vademécum · agregar medicamento con posología
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ marginLeft: "auto", transform: vadeOpen ? "rotate(180deg)" : "none", transition: ".2s" }}><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+              {vadeOpen && (
+                <div style={{ padding: "12px 13px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input value={med.nombre} onChange={e => setMed({ ...med, nombre: e.target.value })} list="jcm-vademecum" placeholder="Medicamento (ej: Paracetamol 500 mg)" style={{ ...inp }} />
+                  <datalist id="jcm-vademecum">{["Paracetamol 500 mg","Ibuprofeno 400 mg","Amoxicilina 500 mg","Ácido tranexámico 500 mg","Diclofenaco 50 mg","Cetirizina 10 mg","Omeprazol 20 mg","Clorfenamina 4 mg","Metamizol 300 mg","Ketoprofeno 100 mg","Betametasona crema","Mupirocina 2% ungüento","Árnica tópica","Vitamina C 1 g"].map(m => <option key={m} value={m} />)}</datalist>
+                  <div style={{ display: "grid", gridTemplateColumns: "70px 1fr 70px 1fr", gap: 6, alignItems: "center" }}>
+                    <input value={med.dosis} onChange={e => setMed({ ...med, dosis: e.target.value.replace(/[^0-9.]/g, "") })} inputMode="decimal" style={{ ...inp, textAlign: "center" }} />
+                    <select value={med.forma} onChange={e => setMed({ ...med, forma: e.target.value })} style={inp}>{["comprimido","cápsula","ml","gota","aplicación","sobre","puff"].map(o => <option key={o}>{o}</option>)}</select>
+                    <div style={{ textAlign: "center", fontFamily: T.sans, fontSize: 12, color: T.textMute }}>cada</div>
+                    <div style={{ display: "flex", gap: 6 }}><input value={med.cada} onChange={e => setMed({ ...med, cada: e.target.value.replace(/\D/g, "") })} inputMode="numeric" style={{ ...inp, width: 60, textAlign: "center" }} /><select value={med.unidad} onChange={e => setMed({ ...med, unidad: e.target.value })} style={inp}>{["horas","días"].map(o => <option key={o}>{o}</option>)}</select></div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <select value={med.via} onChange={e => setMed({ ...med, via: e.target.value })} style={{ ...inp, flex: "0 0 150px" }}>{["Oral","Tópica","Subcutánea","Intramuscular","Sublingual","Oftálmica"].map(o => <option key={o}>{o}</option>)}</select>
+                    <input value={med.indic} onChange={e => setMed({ ...med, indic: e.target.value })} placeholder="Indicaciones (ej: con comidas, por 5 días)" style={{ ...inp, flex: 1 }} />
+                  </div>
+                  <div><AdBtn T={T} small primary onClick={addMed}>+ Agregar a la receta</AdBtn></div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>Vademécum de medicamentos genéricos. Al agregar, la línea se suma abajo con su posología.</div>
+                </div>
+              )}
+            </div>
+          )}
           <textarea style={{ ...inp, minHeight: 120, resize: "vertical" }} value={rp} onChange={e => setRp(e.target.value)} placeholder={tipo === "indicaciones" ? "Elige una plantilla arriba o escribe aquí…" : "Ej.\nParacetamol 500 mg — 1 comprimido cada 8 h por 3 días\nÁrnica tópica — aplicar 2 veces al día"} /></label>
         <label style={{ display: "block", marginTop: 13 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Notas adicionales (opcional)</span>
           <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={ind} onChange={e => setInd(e.target.value)} placeholder="Reposo relativo, control en 7 días…" /></label>

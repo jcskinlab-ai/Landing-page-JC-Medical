@@ -148,6 +148,10 @@ function isLosMedique() {
     return owner === LOS_MEDIQUE_EMAIL || sess === LOS_MEDIQUE_EMAIL;
   } catch (e) { return false; }
 }
+// Gate de la SUITE NUEVA (N1–N10): solo Los Medique (o modo local) hasta el push global.
+// Se expone para gatear también features dentro de la ficha (presupuesto, esquema facial, vademécum).
+function jcmNewFeat() { return !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique(); }
+if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
 // Secciones NUEVAS del backlog: en SaaS solo visibles para Los Medique; en modo local, siempre (para probar).
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
 // Permiso (PERM_SECCIONES de la ficha del profesional) → claves de sección que desbloquea.
