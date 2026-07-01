@@ -251,7 +251,9 @@ function clinicPro() { try { var p = window.DB && DB.cfg().professional; if (p) 
 function clinicMapsLink() {
   try { var m = window.DB && DB.cfg().clinic_maps; if (m && ("" + m).trim()) return ("" + m).trim(); } catch (e) {}
   var a = clinicAddr();
-  return a ? ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(a)) : "";
+  // Link inteligente: pasa por medique.cl/ir, que detecta el dispositivo del paciente y abre la
+  // app NATIVA de mapas (iPhone/iPad → Apple Maps · Android/PC → Google Maps). (P11)
+  return a ? ("https://medique.cl/ir?to=" + encodeURIComponent(a)) : "";
 }
 // Mensaje único de confirmación de cita por WhatsApp: incluye dirección y "Cómo llegar" con
 // el link inteligente de mapa. Devuelve el texto SIN codificar (el llamador hace encodeURIComponent).
@@ -273,7 +275,21 @@ function jcmRecordatorioMsg(a) {
   L.push("", "¡Te esperamos! 🌿");
   return L.join("\n");
 }
-window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro; window.clinicMapsLink = clinicMapsLink; window.jcmCitaConfirmMsg = jcmCitaConfirmMsg; window.jcmRecordatorioMsg = jcmRecordatorioMsg;
+// Botón manual "Confirmar asistencia" (P4): se envía por WhatsApp ~1 día antes a quien NO tiene
+// correo, pidiendo que confirme su asistencia (responde SÍ/NO). Incluye fecha, hora y "cómo llegar".
+function jcmConfirmAsistMsg(a) {
+  var maps = clinicMapsLink();
+  var fecha = "";
+  try { if (a.fecha) fecha = new Date(a.fecha + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }); } catch (e) {}
+  var cuando = (fecha ? "el " + fecha : "") + (a.time ? ((fecha ? " a las " : "a las ") + a.time + " hrs") : "");
+  var L = ["Hola " + (a.name || "") + " 👋", "",
+    "Te escribimos de " + clinicDisplayName() + " para confirmar tu asistencia a tu cita" + (cuando ? " " + cuando : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "",
+    "¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar 🙌"];
+  if (maps) L.push("", "🗺️ Cómo llegar: " + maps);
+  L.push("", "¡Te esperamos! 🌿");
+  return L.join("\n");
+}
+window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro; window.clinicMapsLink = clinicMapsLink; window.jcmCitaConfirmMsg = jcmCitaConfirmMsg; window.jcmRecordatorioMsg = jcmRecordatorioMsg; window.jcmConfirmAsistMsg = jcmConfirmAsistMsg;
 // Registro de actividad real del sistema (P25): guarda cada acción importante en DB.audit_log
 // (máx. 200, más reciente primero) con quién y cuándo. La vista Administración → Registro lo muestra.
 function jcmAudit(action) {
@@ -2628,13 +2644,15 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" }}>
               {(() => {
                 const isConf = a.status === "confirmada";
-                const recordar = () => { const ph = (a.phone || "").replace(/\D/g, ""); if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmRecordatorioMsg(a)), "_blank", "noopener"); else window.jcmToast && window.jcmToast("Este paciente no tiene teléfono registrado.", "info"); };
+                // Manual, ~1 día antes: pide al paciente confirmar su asistencia por WhatsApp (para
+                // quienes no tienen correo). Abre WhatsApp con el mensaje jcmConfirmAsistMsg. (P4)
+                const confirmarAsist = () => { const ph = (a.phone || "").replace(/\D/g, ""); if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmConfirmAsistMsg(a)), "_blank", "noopener"); else window.jcmToast && window.jcmToast("Este paciente no tiene teléfono registrado.", "info"); };
                 // [label, fn, color, style]  style: "" normal · "red" cancelar · "green" confirmado activo
                 return [
                   ["Ficha",      () => { if (onVerFicha) onVerFicha(a); },                                                T.textMute, ""],
                   // Confirmar es un TOGGLE: si ya está confirmada, vuelve a "agendado" (pendiente). (P1)
                   [isConf ? "Confirmada ✓" : "Confirmar", () => updateAppt(a.id, { status: isConf ? "pendiente" : "confirmada", attended: false }), "#16A34A", isConf ? "green" : ""],
-                  ["Recordar",   recordar,                                                                                "#1F8A5B",  ""],
+                  ["Confirmar asist.", confirmarAsist,                                                                     "#1F8A5B",  ""],
                   ["Atendido",   () => updateAppt(a.id, { status: "atendida",   attended: true }),                        "#C9A227",  ""],
                   ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }),                       "#C0285A",  ""],
                   ["Cancelar",   () => { updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(a); }, "#C0285A",  "red"],
@@ -2644,7 +2662,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   const bg = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.surface;
                   const brd = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.line;
                   const fg = (filledRed || filledGreen) ? "#fff" : col;
-                  return <button key={lbl} onClick={() => { fn(); if (lbl !== "Recordar") setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: (filledRed || filledGreen) ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>;
+                  return <button key={lbl} onClick={() => { fn(); if (lbl !== "Confirmar asist.") setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: (filledRed || filledGreen) ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>;
                 });
               })()}
             </div>

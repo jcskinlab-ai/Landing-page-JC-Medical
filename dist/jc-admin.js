@@ -300,7 +300,7 @@ function clinicMapsLink() {
   } catch (e) {
   }
   var a = clinicAddr();
-  return a ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(a) : "";
+  return a ? "https://medique.cl/ir?to=" + encodeURIComponent(a) : "";
 }
 function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
   var addr = clinicAddr(), maps = clinicMapsLink();
@@ -327,12 +327,32 @@ function jcmRecordatorioMsg(a) {
   L.push("", "\xA1Te esperamos! \u{1F33F}");
   return L.join("\n");
 }
+function jcmConfirmAsistMsg(a) {
+  var maps = clinicMapsLink();
+  var fecha = "";
+  try {
+    if (a.fecha) fecha = (/* @__PURE__ */ new Date(a.fecha + "T00:00:00")).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  } catch (e) {
+  }
+  var cuando = (fecha ? "el " + fecha : "") + (a.time ? (fecha ? " a las " : "a las ") + a.time + " hrs" : "");
+  var L = [
+    "Hola " + (a.name || "") + " \u{1F44B}",
+    "",
+    "Te escribimos de " + clinicDisplayName() + " para confirmar tu asistencia a tu cita" + (cuando ? " " + cuando : "") + (a.proc ? " (" + a.proc + ")" : "") + ".",
+    "",
+    "\xBFNos confirmas? Responde *S\xCD* para confirmar o *NO* si necesitas reagendar \u{1F64C}"
+  ];
+  if (maps) L.push("", "\u{1F5FA}\uFE0F C\xF3mo llegar: " + maps);
+  L.push("", "\xA1Te esperamos! \u{1F33F}");
+  return L.join("\n");
+}
 window.clinicName = clinicName;
 window.clinicAddr = clinicAddr;
 window.clinicPro = clinicPro;
 window.clinicMapsLink = clinicMapsLink;
 window.jcmCitaConfirmMsg = jcmCitaConfirmMsg;
 window.jcmRecordatorioMsg = jcmRecordatorioMsg;
+window.jcmConfirmAsistMsg = jcmConfirmAsistMsg;
 function jcmAudit(action) {
   try {
     if (!window.DB || !action) return;
@@ -2239,9 +2259,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       a.comentario && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 15px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)),
       /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" } }, (() => {
         const isConf = a.status === "confirmada";
-        const recordar = () => {
+        const confirmarAsist = () => {
           const ph = (a.phone || "").replace(/\D/g, "");
-          if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmRecordatorioMsg(a)), "_blank", "noopener");
+          if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmConfirmAsistMsg(a)), "_blank", "noopener");
           else window.jcmToast && window.jcmToast("Este paciente no tiene tel\xE9fono registrado.", "info");
         };
         return [
@@ -2250,7 +2270,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           }, T.textMute, ""],
           // Confirmar es un TOGGLE: si ya está confirmada, vuelve a "agendado" (pendiente). (P1)
           [isConf ? "Confirmada \u2713" : "Confirmar", () => updateAppt(a.id, { status: isConf ? "pendiente" : "confirmada", attended: false }), "#16A34A", isConf ? "green" : ""],
-          ["Recordar", recordar, "#1F8A5B", ""],
+          ["Confirmar asist.", confirmarAsist, "#1F8A5B", ""],
           ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), "#C9A227", ""],
           ["No asisti\xF3", () => updateAppt(a.id, { status: "no_asistio", attended: false }), "#C0285A", ""],
           ["Cancelar", () => {
@@ -2267,7 +2287,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           const fg = filledRed || filledGreen ? "#fff" : col;
           return /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: () => {
             fn();
-            if (lbl !== "Recordar") setHover(null);
+            if (lbl !== "Confirmar asist.") setHover(null);
           }, style: { height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: filledRed || filledGreen ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" } }, lbl);
         });
       })())
