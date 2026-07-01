@@ -2774,7 +2774,16 @@ function PendRow({ T, name, desc, action, onClick, href, onDelete }) {
 }
 const WAIT_COLS = [["porllegar", "Por llegar"], ["espera", "En espera"], ["atencion", "En atenci\xF3n"], ["fin", "Finalizado"]];
 function SalaEsperaView({ T, appts, patients, updatePatient }) {
-  const hoy = appts.filter((a) => a.day === 0);
+  const _t0 = /* @__PURE__ */ new Date();
+  _t0.setHours(0, 0, 0, 0);
+  const esHoy = (a) => {
+    if (a.fecha) {
+      const t = /* @__PURE__ */ new Date(a.fecha + "T00:00:00");
+      return !isNaN(t.getTime()) && t.getTime() === _t0.getTime();
+    }
+    return a.day === 0;
+  };
+  const hoy = appts.filter((a) => esHoy(a) && a.status !== "anulada" && a.status !== "cancelada" && a.status !== "no_asistio");
   const [status, setStatus] = useState(() => {
     try {
       return DB.get("waiting_status") || {};
@@ -2790,7 +2799,7 @@ function SalaEsperaView({ T, appts, patients, updatePatient }) {
     } catch (e) {
     }
   }
-  const stOf = (a) => status[a.id] || "espera";
+  const stOf = (a) => status[a.id] || "porllegar";
   const next = (st) => ({ porllegar: "espera", espera: "atencion", atencion: "fin" })[st];
   const lbl = { porllegar: "Marcar llegada", espera: "Pasar a atenci\xF3n", atencion: "Finalizar" };
   const today = (/* @__PURE__ */ new Date()).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });

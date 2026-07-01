@@ -3439,10 +3439,15 @@ function PendRow({ T, name, desc, action, onClick, href, onDelete }) {
 /* ─────────── SALA DE ESPERA (kanban) ─────────── */
 const WAIT_COLS = [["porllegar", "Por llegar"], ["espera", "En espera"], ["atencion", "En atención"], ["fin", "Finalizado"]];
 function SalaEsperaView({ T, appts, patients, updatePatient }) {
-  const hoy = appts.filter(a => a.day === 0);
+  // "Hoy" se determina por la FECHA real de la cita (a.fecha), no por a.day (que es relativo y
+  // queda desfasado). Se excluyen anuladas y no-asistió.
+  const _t0 = new Date(); _t0.setHours(0, 0, 0, 0);
+  const esHoy = a => { if (a.fecha) { const t = new Date(a.fecha + "T00:00:00"); return !isNaN(t.getTime()) && t.getTime() === _t0.getTime(); } return a.day === 0; };
+  const hoy = appts.filter(a => esHoy(a) && a.status !== "anulada" && a.status !== "cancelada" && a.status !== "no_asistio");
   const [status, setStatus] = useState(() => { try { return DB.get("waiting_status") || {}; } catch (e) { return {}; } });
   function setS(id, st) { const n = { ...status, [id]: st }; setStatus(n); try { DB.set("waiting_status", n); } catch (e) {} }
-  const stOf = a => status[a.id] || "espera";
+  // Por defecto, una cita agendada de hoy aparece en "Por llegar" (aún no llega el paciente).
+  const stOf = a => status[a.id] || "porllegar";
   const next = st => ({ porllegar: "espera", espera: "atencion", atencion: "fin" })[st];
   const lbl = { porllegar: "Marcar llegada", espera: "Pasar a atención", atencion: "Finalizar" };
   const today = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
