@@ -77,7 +77,8 @@ const ADMIN_NAV = [
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "Marketing & Ventas", resumen: "Análisis", administracion: "Sistema" };
 // Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
 const NAV_TOP_GROUPS = [
-  { l: "Inicio", keys: ["dashboard", "appjcm"] },
+  // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
+  // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
   { l: "Clínica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones"] },
   { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
@@ -89,7 +90,7 @@ const NAV_TOP_GROUPS = [
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (siempre visibles, no dentro de un grupo).
 // Incluye todo el grupo Clínica (a pedido): el desplegable "Clínica" desaparece.
-const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"];
+const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"];
 
 // Al anular una cita: avisar al paciente por correo que quedó cancelada (si tiene email y la cita es
 // de hoy o futura). Así el recordatorio previo queda "anulado" para el paciente. Best-effort, no bloquea.

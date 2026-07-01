@@ -91,7 +91,8 @@ const ADMIN_NAV = [
 ];
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
 const NAV_TOP_GROUPS = [
-  { l: "Inicio", keys: ["dashboard", "appjcm"] },
+  // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
+  // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
   { l: "Cl\xEDnica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones"] },
   { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
@@ -101,7 +102,7 @@ const NAV_TOP_GROUPS = [
   { l: "Herramientas", keys: ["fidelidad", "colaboracion", "integraciones"] },
   { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
 ];
-const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"];
+const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"];
 function jcmCancelNotice(a) {
   try {
     if (!a || !window.mediqueEmail) return;

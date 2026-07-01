@@ -88,6 +88,19 @@ function MobileShell({ T, D, onLogout }) {
     return () => { window.removeEventListener("jcm:appts", reload); window.removeEventListener("jcsaas:data", reload); };
   }, []);
 
+  // Título de la pestaña según la clínica (no "JC Medical" para todas). Usa el nombre de la
+  // clínica si está configurado; si no, "Medique". Se re-evalúa cuando llegan los datos.
+  useEffect(() => {
+    function setTitle() {
+      let nombre = "Medique";
+      try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; if (n && ("" + n).trim()) nombre = ("" + n).trim(); } catch (e) {}
+      document.title = nombre + " · Panel Móvil";
+    }
+    setTitle();
+    window.addEventListener("jcsaas:data", setTitle);
+    return () => window.removeEventListener("jcsaas:data", setTitle);
+  }, []);
+
   function saveAppts(updated) { window.DB&&window.DB.set("appointments", updated); setAppts(updated); }
   function updateAppt(id, patch) { const all=(window.DB&&window.DB.get("appointments"))||[]; saveAppts(all.map(x=>x.id===id?{...x,...patch}:x)); }
 
@@ -291,6 +304,9 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt, updateAppt }) {
   const procOpts = (() => { try { return (window.JCDATA && window.JCDATA.catalog ? window.JCDATA.catalog.map(s => s.name) : []) || []; } catch (e) { return []; } })();
   const st = apptStateM(a, T);
   const ac = st.color;
+  // Nombre y dirección de la CLÍNICA (no "JC Medical" para todas). Dinámicos desde la config.
+  const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && ("" + n).trim()) || "la clínica"; } catch (e) { return "la clínica"; } })();
+  const clinDir = (() => { try { const d = window.DB && window.DB.cfg && window.DB.cfg().clinic_addr; return (d && ("" + d).trim()) || ""; } catch (e) { return ""; } })();
   const rawPhone = (a.phone||"").replace(/\D/g,"");
   const waPhone = rawPhone.length>=8 ? rawPhone : "";
   const durLabel = durOf(a);
@@ -371,7 +387,7 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt, updateAppt }) {
 
           <div style={{ display:"flex", gap:8 }}>
             {waPhone && (
-              <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+a.name+", confirmamos tu cita en JC Medical:\n📅 "+(a.fecha||"")+" · "+a.time+" hrs\n📍 Dirección 1 poniente 1258, edificio plaza poniente, oficina 101. A media cuadra de la plaza de armas de Talca.\n💉 "+(a.proc||"")+" ("+durLabel+")\n⏰ La espera máxima para su atención es de 15 minutos, para no retrasar las atenciones siguientes")}
+              <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+a.name+", confirmamos tu cita en "+clinNombre+":\n📅 "+(a.fecha||"")+" · "+a.time+" hrs"+(clinDir?"\n📍 "+clinDir:"")+"\n💉 "+(a.proc||"")+" ("+durLabel+")\n⏰ La espera máxima para su atención es de 15 minutos, para no retrasar las atenciones siguientes")}
                 target="_blank" rel="noopener"
                 style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"#1F8A5B22", border:"1px solid #1F8A5B55", borderRadius:8, padding:"12px", textDecoration:"none", color:"#1F8A5B", fontFamily:T.sans, fontSize:12, fontWeight:500 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="#1F8A5B"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z"/></svg>

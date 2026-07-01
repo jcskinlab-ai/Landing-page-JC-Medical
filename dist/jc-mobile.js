@@ -109,6 +109,20 @@ function MobileShell({ T, D, onLogout }) {
       window.removeEventListener("jcsaas:data", reload);
     };
   }, []);
+  useEffect(() => {
+    function setTitle() {
+      let nombre = "Medique";
+      try {
+        const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name;
+        if (n && ("" + n).trim()) nombre = ("" + n).trim();
+      } catch (e) {
+      }
+      document.title = nombre + " \xB7 Panel M\xF3vil";
+    }
+    setTitle();
+    window.addEventListener("jcsaas:data", setTitle);
+    return () => window.removeEventListener("jcsaas:data", setTitle);
+  }, []);
   function saveAppts(updated) {
     window.DB && window.DB.set("appointments", updated);
     setAppts(updated);
@@ -301,6 +315,22 @@ function ApptCard({ T, D, appt: a, confirmPago, cancelAppt, updateAppt }) {
   })();
   const st = apptStateM(a, T);
   const ac = st.color;
+  const clinNombre = (() => {
+    try {
+      const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name;
+      return n && ("" + n).trim() || "la cl\xEDnica";
+    } catch (e) {
+      return "la cl\xEDnica";
+    }
+  })();
+  const clinDir = (() => {
+    try {
+      const d = window.DB && window.DB.cfg && window.DB.cfg().clinic_addr;
+      return d && ("" + d).trim() || "";
+    } catch (e) {
+      return "";
+    }
+  })();
   const rawPhone = (a.phone || "").replace(/\D/g, "");
   const waPhone = rawPhone.length >= 8 ? rawPhone : "";
   const durLabel = durOf(a);
@@ -342,7 +372,7 @@ function ApptCard({ T, D, appt: a, confirmPago, cancelAppt, updateAppt }) {
   }, style: { display: "flex", alignItems: "center", gap: 8, width: "100%", background: T.bg, border: "1px solid " + T.lineSoft, borderRadius: 8, padding: "11px 12px", cursor: "pointer", textAlign: "left", color: T.text, fontFamily: T.sans, fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" })), "Editar cita (fecha, hora, duraci\xF3n, procedimiento)"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, waPhone && /* @__PURE__ */ React.createElement(
     "a",
     {
-      href: "https://wa.me/56" + waPhone.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent("Hola " + a.name + ", confirmamos tu cita en JC Medical:\n\u{1F4C5} " + (a.fecha || "") + " \xB7 " + a.time + " hrs\n\u{1F4CD} Direcci\xF3n 1 poniente 1258, edificio plaza poniente, oficina 101. A media cuadra de la plaza de armas de Talca.\n\u{1F489} " + (a.proc || "") + " (" + durLabel + ")\n\u23F0 La espera m\xE1xima para su atenci\xF3n es de 15 minutos, para no retrasar las atenciones siguientes"),
+      href: "https://wa.me/56" + waPhone.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent("Hola " + a.name + ", confirmamos tu cita en " + clinNombre + ":\n\u{1F4C5} " + (a.fecha || "") + " \xB7 " + a.time + " hrs" + (clinDir ? "\n\u{1F4CD} " + clinDir : "") + "\n\u{1F489} " + (a.proc || "") + " (" + durLabel + ")\n\u23F0 La espera m\xE1xima para su atenci\xF3n es de 15 minutos, para no retrasar las atenciones siguientes"),
       target: "_blank",
       rel: "noopener",
       style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#1F8A5B22", border: "1px solid #1F8A5B55", borderRadius: 8, padding: "12px", textDecoration: "none", color: "#1F8A5B", fontFamily: T.sans, fontSize: 12, fontWeight: 500 }
