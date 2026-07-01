@@ -300,7 +300,7 @@ function clinicMapsLink() {
   } catch (e) {
   }
   var a = clinicAddr();
-  return a ? "https://medique.cl/ir?to=" + encodeURIComponent(a) : "";
+  return a ? "https://www.medique.cl/ir?to=" + encodeURIComponent(a) : "";
 }
 function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
   var addr = clinicAddr(), maps = clinicMapsLink();

@@ -251,9 +251,9 @@ function clinicPro() { try { var p = window.DB && DB.cfg().professional; if (p) 
 function clinicMapsLink() {
   try { var m = window.DB && DB.cfg().clinic_maps; if (m && ("" + m).trim()) return ("" + m).trim(); } catch (e) {}
   var a = clinicAddr();
-  // Link inteligente: pasa por medique.cl/ir, que detecta el dispositivo del paciente y abre la
-  // app NATIVA de mapas (iPhone/iPad → Apple Maps · Android/PC → Google Maps). (P11)
-  return a ? ("https://medique.cl/ir?to=" + encodeURIComponent(a)) : "";
+  // Link inteligente: pasa por www.medique.cl/ir (directo, sin el 308 apex→www), que detecta el
+  // dispositivo del paciente y abre la app NATIVA de mapas (iPhone/iPad → Apple Maps · Android/PC → Google Maps). (P11)
+  return a ? ("https://www.medique.cl/ir?to=" + encodeURIComponent(a)) : "";
 }
 // Mensaje único de confirmación de cita por WhatsApp: incluye dirección y "Cómo llegar" con
 // el link inteligente de mapa. Devuelve el texto SIN codificar (el llamador hace encodeURIComponent).
