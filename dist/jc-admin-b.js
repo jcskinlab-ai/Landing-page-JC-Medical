@@ -1555,9 +1555,14 @@ function ImagenesTab({ T, patient, updatePatient }) {
 function FacturacionTab({ T, patient, updatePatient }) {
   const D = window.JCDATA;
   const [editAt, setEditAt] = useState(null);
-  const [delIdx, setDelIdx] = useState(null);
+  const [delAt, setDelAt] = useState(null);
   const metodos = ["Transferencia", "Efectivo", "Tarjeta d\xE9bito", "Tarjeta cr\xE9dito", "Otro"];
-  const items = (patient.history || []).filter((h) => (h.cobro || 0) > 0).map((h) => ({ concept: h.proc || "Atenci\xF3n", metodo: h.metodo || "\u2014", amount: h.cobro || 0, date: h.date || "" }));
+  const items = (patient.history || []).map((h, hi) => ({ h, hi })).filter((x) => (x.h.cobro || 0) > 0).map(({ h, hi }) => ({ concept: h.proc || "Atenci\xF3n", metodo: h.metodo || "\u2014", amount: h.cobro || 0, date: h.date || "", hi }));
+  function removeAtencion(hi) {
+    const hist = (patient.history || []).map((h, i) => i === hi ? { ...h, cobro: 0, metodo: "", comprobante: "" } : h);
+    updatePatient(patient.id, { history: hist });
+    setDelAt(null);
+  }
   const total = items.reduce((s, i) => s + (i.amount || 0), 0);
   function addNew() {
     setEditAt({ idx: -1, item: { id: "b" + Date.now(), concept: "", date: (/* @__PURE__ */ new Date()).toLocaleDateString("es-CL"), amount: 0, paid: false, metodo: "Transferencia", comprobante: "" } });
@@ -1569,16 +1574,29 @@ function FacturacionTab({ T, patient, updatePatient }) {
     updatePatient(patient.id, { billing: updated });
     setEditAt(null);
   }
-  function deleteAt(idx) {
-    updatePatient(patient.id, { billing: items.filter((_, i) => i !== idx) });
-    setDelIdx(null);
-  }
   function setF(k, v) {
     setEditAt((prev) => ({ ...prev, item: { ...prev.item, [k]: v } }));
   }
   const iconEdit = /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, /* @__PURE__ */ React.createElement("path", { d: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" }), /* @__PURE__ */ React.createElement("path", { d: "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" }));
   const iconDel = /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, /* @__PURE__ */ React.createElement("polyline", { points: "3 6 5 6 21 6" }), /* @__PURE__ */ React.createElement("path", { d: "M19 6l-1 14H6L5 6" }), /* @__PURE__ */ React.createElement("path", { d: "M10 11v6M14 11v6" }), /* @__PURE__ */ React.createElement("path", { d: "M9 6V4h6v2" }));
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Atenciones y pagos"), items.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Total ", D.fmt(total))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 } }, "Los pagos se registran en cada ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "sesi\xF3n"), " (pesta\xF1a Procedimientos). Aqu\xED ves solo el procedimiento, el m\xE9todo de pago y el monto."), items.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, textAlign: "center", padding: "24px 0" } }, "A\xFAn no hay pagos. Registra el cobro al crear una sesi\xF3n en ", /* @__PURE__ */ React.createElement("b", null, "Procedimientos"), "."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column" } }, items.map((b, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, style: { display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text } }, b.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, b.metodo)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 } }, D.fmt(b.amount || 0))))), editAt && /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Atenciones y pagos"), items.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, "Total ", D.fmt(total))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 } }, "Los pagos se registran en cada ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, "sesi\xF3n"), " (pesta\xF1a Procedimientos). Aqu\xED ves solo el procedimiento, el m\xE9todo de pago y el monto."), items.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, textAlign: "center", padding: "24px 0" } }, "A\xFAn no hay pagos. Registra el cobro al crear una sesi\xF3n en ", /* @__PURE__ */ React.createElement("b", null, "Procedimientos"), "."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column" } }, items.map((b, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, style: { display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text } }, b.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, b.metodo)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 } }, D.fmt(b.amount || 0)), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      title: "Eliminar atenci\xF3n (requiere clave de admin)",
+      onClick: () => setDelAt(b),
+      style: { flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer" },
+      onMouseEnter: (e) => {
+        e.currentTarget.style.color = "#C0285A";
+        e.currentTarget.style.borderColor = "#C0285A";
+      },
+      onMouseLeave: (e) => {
+        e.currentTarget.style.color = T.textMute;
+        e.currentTarget.style.borderColor = T.line;
+      }
+    },
+    iconDel
+  )))), editAt && /* @__PURE__ */ React.createElement(
     AdModal,
     {
       T,
@@ -1603,16 +1621,16 @@ function FacturacionTab({ T, patient, updatePatient }) {
         setF("concept", v === "__other__" ? " " : v);
       }, style: sel2 }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Selecciona un servicio\u2026"), cats.map((c) => /* @__PURE__ */ React.createElement("optgroup", { key: c, label: c }, byCat[c].map((s, i) => /* @__PURE__ */ React.createElement("option", { key: c + i, value: s.name }, s.name)))), /* @__PURE__ */ React.createElement("option", { value: "__other__" }, "Otro (especificar)\u2026"))), isOther && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(AdField, { T, value: editAt.item.concept.trim(), onChange: (v) => setF("concept", v), placeholder: "Concepto o procedimiento" })));
     })(), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Monto ($)"), /* @__PURE__ */ React.createElement("input", { "data-nocap": true, "data-only": "num", value: editAt.item.amount || "", onChange: (e) => setF("amount", parseInt(e.target.value.replace(/\D/g, ""), 10) || 0), placeholder: "0", style: { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } })), /* @__PURE__ */ React.createElement(AdField, { T, label: "Fecha", value: editAt.item.date, onChange: (v) => setF("date", v), placeholder: (/* @__PURE__ */ new Date()).toLocaleDateString("es-CL") })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "M\xE9todo de pago"), /* @__PURE__ */ React.createElement("select", { value: editAt.item.metodo || "Transferencia", onChange: (e) => setF("metodo", e.target.value), style: { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }, metodos.map((m) => /* @__PURE__ */ React.createElement("option", { key: m }, m)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Estado de pago"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, [["Pagado", true], ["Pendiente", false]].map(([l, v]) => /* @__PURE__ */ React.createElement("button", { key: l, onClick: () => setF("paid", v), style: { flex: 1, padding: "11px", borderRadius: 6, cursor: "pointer", background: editAt.item.paid === v ? T.accent : T.surface, color: editAt.item.paid === v ? T.onAccent || "#fff" : T.textMute, border: "1px solid " + (editAt.item.paid === v ? T.accent : T.line), fontFamily: T.sans, fontSize: 13 } }, l)))), /* @__PURE__ */ React.createElement(AdField, { T, label: "Comprobante / N\xB0 transferencia (opcional)", value: editAt.item.comprobante || "", onChange: (v) => setF("comprobante", v), placeholder: "Ej: 0012345" }))
-  ), delIdx !== null && /* @__PURE__ */ React.createElement(
-    AdModal,
+  ), delAt && window.AdminKeyModal && /* @__PURE__ */ React.createElement(
+    window.AdminKeyModal,
     {
       T,
       title: "Eliminar atenci\xF3n",
-      onClose: () => setDelIdx(null),
-      footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => setDelIdx(null) }, "Cancelar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => deleteAt(delIdx), style: { background: "#b23535" } }, "Eliminar"))
-    },
-    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text } }, "\xBFEliminar ", /* @__PURE__ */ React.createElement("b", null, items[delIdx] && (items[delIdx].concept || "esta atenci\xF3n")), "?"),
-    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 } }, items[delIdx] && D.fmt(items[delIdx].amount || 0), " \u2014 Esta acci\xF3n no se puede deshacer.")
+      message: 'Vas a eliminar la atenci\xF3n "' + (delAt.concept || "atenci\xF3n") + '" (' + D.fmt(delAt.amount || 0) + "). Se quita el cobro y deja de contar en las ventas. La sesi\xF3n cl\xEDnica se conserva; para borrarla usa Procedimientos. Ingresa la clave de admin (PIN de admin o contrase\xF1a de la cuenta) para confirmar.",
+      confirmLabel: "Eliminar atenci\xF3n",
+      onClose: () => setDelAt(null),
+      onOk: () => removeAtencion(delAt.hi)
+    }
   ));
 }
 const ORIGEN_ORG = ["Paciente antiguo / fidelizado", "Org\xE1nico \xB7 Instagram", "Org\xE1nico \xB7 Facebook", "Org\xE1nico \xB7 TikTok", "Referido de paciente", "Pas\xF3 por la cl\xEDnica (walk-in)", "B\xFAsqueda en Google"];

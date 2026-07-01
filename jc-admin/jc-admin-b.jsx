@@ -1857,13 +1857,23 @@ function ImagenesTab({ T, patient, updatePatient }) {
 function FacturacionTab({ T, patient, updatePatient }) {
   const D = window.JCDATA;
   const [editAt, setEditAt] = useState(null); // { idx: -1 (nuevo) | n, item: {...} }
-  const [delIdx, setDelIdx] = useState(null);
+  const [delAt, setDelAt] = useState(null); // atención a eliminar (pide clave de admin)
   const metodos = ["Transferencia", "Efectivo", "Tarjeta débito", "Tarjeta crédito", "Otro"];
 
   // Atenciones = los pagos registrados en cada SESIÓN (pestaña Procedimientos). Fuente única.
+  // Guardamos hi = índice en patient.history para poder quitar el cobro de esa sesión.
   const items = (patient.history || [])
-    .filter(h => (h.cobro || 0) > 0)
-    .map(h => ({ concept: (h.proc || "Atención"), metodo: h.metodo || "—", amount: h.cobro || 0, date: h.date || "" }));
+    .map((h, hi) => ({ h, hi }))
+    .filter(x => (x.h.cobro || 0) > 0)
+    .map(({ h, hi }) => ({ concept: (h.proc || "Atención"), metodo: h.metodo || "—", amount: h.cobro || 0, date: h.date || "", hi }));
+
+  // Eliminar una atención = quitar el cobro de esa sesión (protegido con clave de admin).
+  // La sesión clínica (procedimiento) se conserva; se borra aparte en Procedimientos con el PIN del profesional.
+  function removeAtencion(hi) {
+    const hist = (patient.history || []).map((h, i) => i === hi ? { ...h, cobro: 0, metodo: "", comprobante: "" } : h);
+    updatePatient(patient.id, { history: hist });
+    setDelAt(null);
+  }
   const total = items.reduce((s, i) => s + (i.amount || 0), 0);
 
   function addNew() {
@@ -1875,10 +1885,6 @@ function FacturacionTab({ T, patient, updatePatient }) {
     else updated[editAt.idx] = editAt.item;
     updatePatient(patient.id, { billing: updated });
     setEditAt(null);
-  }
-  function deleteAt(idx) {
-    updatePatient(patient.id, { billing: items.filter((_, i) => i !== idx) });
-    setDelIdx(null);
   }
   function setF(k, v) { setEditAt(prev => ({ ...prev, item: { ...prev.item, [k]: v } })); }
 
@@ -1907,6 +1913,12 @@ function FacturacionTab({ T, patient, updatePatient }) {
               <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.metodo}</div>
             </div>
             <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 }}>{D.fmt(b.amount || 0)}</div>
+            <button type="button" title="Eliminar atención (requiere clave de admin)" onClick={() => setDelAt(b)}
+              style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer" }}
+              onMouseEnter={e => { e.currentTarget.style.color = "#C0285A"; e.currentTarget.style.borderColor = "#C0285A"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = T.textMute; e.currentTarget.style.borderColor = T.line; }}>
+              {iconDel}
+            </button>
           </div>
         ))}
       </div>
@@ -1964,16 +1976,10 @@ function FacturacionTab({ T, patient, updatePatient }) {
         </AdModal>
       )}
 
-      {delIdx !== null && (
-        <AdModal T={T} title="Eliminar atención" onClose={() => setDelIdx(null)}
-          footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={() => setDelIdx(null)}>Cancelar</AdBtn><AdBtn T={T} primary onClick={() => deleteAt(delIdx)} style={{ background: "#b23535" }}>Eliminar</AdBtn></div>}>
-          <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>
-            ¿Eliminar <b>{items[delIdx] && (items[delIdx].concept || "esta atención")}</b>?
-          </div>
-          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>
-            {items[delIdx] && D.fmt(items[delIdx].amount || 0)} — Esta acción no se puede deshacer.
-          </div>
-        </AdModal>
+      {delAt && window.AdminKeyModal && (
+        <window.AdminKeyModal T={T} title="Eliminar atención"
+          message={"Vas a eliminar la atención \"" + (delAt.concept || "atención") + "\" (" + D.fmt(delAt.amount || 0) + "). Se quita el cobro y deja de contar en las ventas. La sesión clínica se conserva; para borrarla usa Procedimientos. Ingresa la clave de admin (PIN de admin o contraseña de la cuenta) para confirmar."}
+          confirmLabel="Eliminar atención" onClose={() => setDelAt(null)} onOk={() => removeAtencion(delAt.hi)} />
       )}
     </div>
   );
