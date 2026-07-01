@@ -7,3 +7,9 @@ node_modules/
 serviceAccount*.json
 **/serviceAccount*.json
 *.serviceaccount.json
+
+# Prototipos de diseño (no publicar) y documentos/PDF sueltos
+designs/
+Documentos-Legales/
+Medique-Resumen.pdf
+/assets/logoof *.png

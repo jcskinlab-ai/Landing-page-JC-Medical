@@ -81,7 +81,10 @@ const NAV_TOP_GROUPS = [
   { l: "Clínica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones"] },
   { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
-  { l: "Análisis", keys: ["resumen", "colaboracion", "fidelidad", "integraciones", "reportes"] },
+  // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes). Fidelidad, Colaboración
+  // e Integraciones pasan a su propio menú "Herramientas". (P22)
+  { l: "Análisis", keys: ["resumen", "reportes"] },
+  { l: "Herramientas", keys: ["fidelidad", "colaboracion", "integraciones"] },
   { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (siempre visibles, no dentro de un grupo).
@@ -209,7 +212,49 @@ window.clinicSeeded = clinicSeeded;
 function clinicName() { try { var n = window.DB && DB.cfg().clinic_name; if (n) return n; } catch (e) {} return clinicSeeded() ? (((window.JCDATA || {}).brand) || "Medique") : "Medique"; }
 function clinicAddr() { try { var a = window.DB && DB.cfg().clinic_addr; if (a) return a; } catch (e) {} return clinicSeeded() ? ((((window.JCDATA || {}).contact) || {}).address || "") : ""; }
 function clinicPro() { try { var p = window.DB && DB.cfg().professional; if (p) return p; } catch (e) {} return clinicSeeded() ? ((((window.JCDATA || {}).contact) || {}).pro || "") : ""; }
-window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro;
+// Link "inteligente" de mapa: si la clínica guardó su propio link (Google Business), se usa;
+// si no, se arma desde la dirección con el formato universal de Google Maps, que en iPhone/
+// Android abre la app nativa de Maps y en PC abre la web. (P11 · link inteligente)
+function clinicMapsLink() {
+  try { var m = window.DB && DB.cfg().clinic_maps; if (m && ("" + m).trim()) return ("" + m).trim(); } catch (e) {}
+  var a = clinicAddr();
+  return a ? ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(a)) : "";
+}
+// Mensaje único de confirmación de cita por WhatsApp: incluye dirección y "Cómo llegar" con
+// el link inteligente de mapa. Devuelve el texto SIN codificar (el llamador hace encodeURIComponent).
+function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
+  var addr = clinicAddr(), maps = clinicMapsLink();
+  var L = ["Hola " + name + " 👋", "", "Tu cita en " + clinicDisplayName() + " quedó confirmada:", "",
+           "📅 " + wk.wd + " " + wk.dd + " " + wk.mm, "🕐 " + time + " hrs", "💉 " + proc, "👨‍⚕️ " + prof];
+  if (addr) L.push("📍 " + addr);
+  if (maps) L.push("🗺️ Cómo llegar: " + maps);
+  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.", "", "¡Nos vemos pronto! 🌿");
+  return L.join("\n");
+}
+// Recordatorio manual para pedir al paciente que confirme su asistencia (P4). Texto sin codificar.
+function jcmRecordatorioMsg(a) {
+  var addr = clinicAddr(), maps = clinicMapsLink();
+  var when = (a.fecha ? "" : "") + (a.time ? ("a las " + a.time + " hrs") : "");
+  var L = ["Hola " + (a.name || "") + " 👋", "", "Te recordamos tu cita en " + clinicDisplayName() + (when ? " " + when : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "", "¿Nos confirmas tu asistencia? Responde *SÍ* para confirmar 🙌"];
+  if (maps) L.push("", "🗺️ Cómo llegar: " + maps);
+  L.push("", "¡Te esperamos! 🌿");
+  return L.join("\n");
+}
+window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro; window.clinicMapsLink = clinicMapsLink; window.jcmCitaConfirmMsg = jcmCitaConfirmMsg; window.jcmRecordatorioMsg = jcmRecordatorioMsg;
+// Registro de actividad real del sistema (P25): guarda cada acción importante en DB.audit_log
+// (máx. 200, más reciente primero) con quién y cuándo. La vista Administración → Registro lo muestra.
+function jcmAudit(action) {
+  try {
+    if (!window.DB || !action) return;
+    var who = "";
+    try { who = (window.JCSAAS && window.JCSAAS.currentUserName && window.JCSAAS.currentUserName()) || (window.JCSAAS && window.JCSAAS.userEmail && window.JCSAAS.userEmail()) || ""; } catch (e) {}
+    var log = window.DB.get("audit_log"); if (!Array.isArray(log)) log = [];
+    log.unshift({ ts: new Date().toISOString(), action: "" + action, user: who });
+    if (log.length > 200) log = log.slice(0, 200);
+    window.DB.set("audit_log", log);
+  } catch (e) {}
+}
+window.jcmAudit = jcmAudit;
 // Correo al que responde el paciente los recordatorios/correos (reply-to). Si NO se setea, las
 // respuestas se van a noreply@medique.cl y se pierden. Orden: campo de config "clinic_email" (lo
 // setea la clínica en Configuración) → correo dueño de la clínica (con el que inicia sesión) →
@@ -249,6 +294,11 @@ function panelRoutePath(sec, pid) {
   if (sec === "pacientes" && pid) return "/pacientes/" + encodeURIComponent(pid);
   if (!sec || sec === "dashboard") return "/";
   return "/" + sec;
+}
+// Abre la ficha del paciente en una PESTAÑA NUEVA del navegador (la app la reabre sola por su
+// URL /pacientes/<id>). Se usa desde la Agenda para no perder la vista de la agenda.
+function jcmOpenFichaTab(id) {
+  try { if (id) window.open(location.origin + panelRoutePath("pacientes", id), "_blank", "noopener"); } catch (e) {}
 }
 
 /* ─────────── DASHBOARD (estilo Medique: indicadores + evolución + accesos) ─────────── */
@@ -368,6 +418,16 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
+  // ESC cierra los popups del dashboard (KPI / movimientos de caja) para que nunca queden
+  // "pegados" tapando la vista. Se apoya en la pila global de popups. (P19 · robustez)
+  useEffect(() => {
+    if (!kpiPopup && !movCaja) return;
+    const close = () => { setKpiPopup(null); setMovCaja(false); };
+    if (window.jcEscStack) { window.jcEscStack.push(close); return () => { const i = window.jcEscStack.lastIndexOf(close); if (i >= 0) window.jcEscStack.splice(i, 1); }; }
+    const onKey = e => { if (e.key === "Escape") close(); };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [kpiPopup, movCaja]);
 
   // Evolución de ingresos — en SaaS parte en 0 (cada clínica acumula lo suyo); demo solo en modo local.
   const dias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -416,7 +476,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     const hasOwn = !!(creds && creds.token && creds.account);
     const isBase = window.JCM_BASE === true;
     if (!hasOwn && !isBase) return; // clínica nueva sin Meta propio → solo carga manual
-    const bodyObj = hasOwn ? { token: creds.token, account: creds.account } : {};
+    // Pedimos también el desglose por campaña (con nombre) para mostrarlas en el embudo. (P8)
+    const bodyObj = hasOwn ? { token: creds.token, account: creds.account, campaigns: true } : { campaigns: true };
     // /api/meta exige el ID token de Firebase del usuario logueado (verificación RS256 en el server).
     const tokP = (window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
     tokP.then(tok => {
@@ -450,7 +511,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     // Vendidos cargados a mano tienen prioridad sobre el conteo automático de atenciones de caja.
     if (soldManual != null) compras = soldManual;
     const roas = spend > 0 ? (ingresos / spend) : 0;
-    return { spend, leads, mensajes, reservas, asistieron, compras, ingresos, roas, demo, live: !!(liveMeta && liveMeta.ok) };
+    const campaigns = (liveMeta && Array.isArray(liveMeta.campaigns)) ? liveMeta.campaigns : [];
+    return { spend, leads, mensajes, reservas, asistieron, compras, ingresos, roas, demo, live: !!(liveMeta && liveMeta.ok), campaigns };
   })();
 
   function FunnelBlock() {
@@ -526,14 +588,29 @@ function DashboardView({ T, D, A, appts, patients, go }) {
               <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1.1, marginTop: 4 }}>{fmt(funnel.ingresos)}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10, color: T.accent, marginTop: 3 }}>Ver movimientos del mes →</div>
             </div>
-            <div style={{ background: green + "12", border: "1px solid " + green + "44", borderRadius: 12, padding: "16px 16px" }}>
-              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: green }}>ROAS real</div>
+            <div title={"ROAS (Return On Ad Spend) = ingresos ÷ inversión en publicidad.\n" + funnel.roas.toFixed(1) + "x significa que por cada $1 invertido en Meta recuperaste $" + funnel.roas.toFixed(1) + " en facturación.\nSobre 3x se considera muy bueno; bajo 1x estás perdiendo dinero."} style={{ background: green + "12", border: "1px solid " + green + "44", borderRadius: 12, padding: "16px 16px", cursor: "help" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: green }}>ROAS real</span>
+                <span title="Retorno de la inversión publicitaria: ingresos ÷ gasto en Meta." style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: "1px solid " + green + "88", color: green, fontFamily: T.sans, fontSize: 9, fontWeight: 700, cursor: "help" }}>?</span>
+              </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span style={{ fontFamily: T.serif, fontSize: 40, color: green, lineHeight: 1.05 }}>{funnel.roas.toFixed(1)}x</span>
                 <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>por cada $1 en Meta</span>
               </div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6, lineHeight: 1.5 }}>Invertiste {fmt(funnel.spend)} y facturaste {fmt(funnel.ingresos)}.</div>
             </div>
+            {/* Campañas activas por nombre (cuando Meta está conectado). (P8) */}
+            {funnel.campaigns.length > 0 && (
+              <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 14px" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Campañas activas</div>
+                {funnel.campaigns.slice(0, 5).map((c, i) => (
+                  <div key={c.id || i} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, padding: "5px 0", borderBottom: i < Math.min(funnel.campaigns.length, 5) - 1 ? "1px solid " + T.lineSoft : "none" }}>
+                    <span style={{ fontFamily: T.sans, fontSize: 12, color: T.text, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Campaña"}</span>
+                    <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", flexShrink: 0 }}>{fmt(c.spend || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1038,6 +1115,7 @@ function AdminApp() {
     // aparezcan ordenados en el filtro "Calendario". Los importados conservan la del Excel.
     if (np.fechaTs == null && !np.imported) np.fechaTs = Date.now();
     setPatients(ps => savePatients([np, ...ps]));
+    if (!np.imported) jcmAudit("Paciente creado: " + (np.name || "—"));
     try { window.jcmToast && window.jcmToast("Paciente \"" + (np.name || "") + "\" guardado.", "ok"); } catch (e) {}
     return np;
   }
@@ -1047,9 +1125,18 @@ function AdminApp() {
   }
   function addAppt(a) {
     setAppts(as => saveAppts([...as, { ...a, id: (window.jcmUid ? window.jcmUid("a") : "a" + Date.now()) }]));
+    jcmAudit("Cita agendada: " + (a.name || "—") + (a.fecha ? " · " + a.fecha : "") + (a.time ? " " + a.time : "") + (a.proc ? " · " + a.proc : ""));
     try { window.jcmToast && window.jcmToast("Cita agendada.", "ok"); } catch (e) {}
   }
   function updateAppt(id, patch) {
+    // Registro de actividad para cambios de estado de una cita (P25).
+    if (patch && patch.status) {
+      try {
+        const prevA = appts.find(a => a.id === id);
+        const lbl = { confirmada: "confirmada", atendida: "marcada como atendida", no_asistio: "marcada como no asistió", anulada: "anulada", pendiente: "vuelta a agendada" }[patch.status] || ("→ " + patch.status);
+        if (prevA) jcmAudit("Cita " + lbl + ": " + (prevA.name || "—") + (prevA.time ? " " + prevA.time : ""));
+      } catch (e) {}
+    }
     setAppts(as => {
       // Si se confirma una cita que estaba pendiente de pago, bloquear el slot ahora
       if (patch.status === "confirmada") {
@@ -1205,7 +1292,7 @@ function AdminApp() {
   if (section === "dashboard") body = <DashboardView T={T} D={D} A={A} appts={appts} patients={patients} go={nav} />;
   else if (section === "appjcm") body = <AppJCMView T={T} />;
   else if (section === "resumen") body = <Resumen T={T} D={D} A={A} appts={appts} patients={patients} go={nav} updateAppt={updateAppt} removeAppt={removeAppt} themeKey={themeKey} setThemeKey={setThemeKey} />;
-  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
+  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => jcmOpenFichaTab(id)} />;
   else if (section === "pacientes") body = current
     ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} />
     : <PacientesView T={T} patients={patients} appts={appts} onOpen={setOpenPatient} updatePatient={updatePatient} addPatient={addPatient} />;
@@ -2328,13 +2415,22 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                 <div onClick={() => setProfOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
                 <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 224, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, overflow: "hidden", zIndex: 61 }}>
                   <div style={{ padding: "9px 14px 6px", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Agenda por profesional</div>
-                  {team.map(m => (
+                  {team.map(m => {
+                    // Si el profesional trabaja en más de una sucursal, se muestra debajo del
+                    // nombre para distinguir su agenda (P5).
+                    const sucs = Array.isArray(m.sucursales) ? m.sucursales.filter(Boolean) : [];
+                    const showSuc = sucs.length > 1;
+                    return (
                     <button key={m.id || m.name} onClick={() => { setSelProf(m.name); setProfOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 14px", background: m.name === selProf ? T.accent + "14" : "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: m.name === selProf ? T.accent : T.textMute }}>
                       <span style={{ width: 9, height: 9, borderRadius: "50%", background: m.color || T.accent, flexShrink: 0 }} />
-                      <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
+                        {showSuc && <span style={{ display: "block", fontSize: 10, color: T.textFaint, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 }}>{sucs.join(" · ")}</span>}
+                      </span>
                       {m.name === selProf && <span style={{ fontSize: 10 }}>✓</span>}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -2480,16 +2576,27 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             </div>
             {a.comentario && <div style={{ padding: "0 15px 11px" }}><div style={{ padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.comentario}</div></div>}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" }}>
-              {[
-                ["Confirmar",  () => updateAppt(a.id, { status: "confirmada", attended: false }),                       "#16A34A",  false],
-                ["Atendido",   () => updateAppt(a.id, { status: "atendida",   attended: true }),                        "#C9A227",  false],
-                ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }),                       "#C0285A",  false],
-                ["Cancelar",   () => { updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(a); }, "#C0285A",  true],
-                ["Ficha",      () => { if (onVerFicha) onVerFicha(a); },                                                T.textMute, false],
-                ["Comentario", () => { setEditCom(a); },                                                                T.textMute, false]
-              ].map(([lbl, fn, col, filled]) => (
-                <button key={lbl} onClick={() => { fn(); setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + (filled ? "#C0285A" : T.line), background: filled ? "#C0285A" : T.surface, color: filled ? "#fff" : col, fontFamily: T.sans, fontSize: 10.5, fontWeight: filled ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>
-              ))}
+              {(() => {
+                const isConf = a.status === "confirmada";
+                const recordar = () => { const ph = (a.phone || "").replace(/\D/g, ""); if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmRecordatorioMsg(a)), "_blank", "noopener"); else window.jcmToast && window.jcmToast("Este paciente no tiene teléfono registrado.", "info"); };
+                // [label, fn, color, style]  style: "" normal · "red" cancelar · "green" confirmado activo
+                return [
+                  // Confirmar es un TOGGLE: si ya está confirmada, vuelve a "agendado" (pendiente). (P1)
+                  [isConf ? "Confirmada ✓" : "Confirmar", () => updateAppt(a.id, { status: isConf ? "pendiente" : "confirmada", attended: false }), "#16A34A", isConf ? "green" : ""],
+                  ["Recordar",   recordar,                                                                                "#1F8A5B",  ""],
+                  ["Atendido",   () => updateAppt(a.id, { status: "atendida",   attended: true }),                        "#C9A227",  ""],
+                  ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }),                       "#C0285A",  ""],
+                  ["Cancelar",   () => { updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(a); }, "#C0285A",  "red"],
+                  ["Ficha",      () => { if (onVerFicha) onVerFicha(a); },                                                T.textMute, ""],
+                  ["Comentario", () => { setEditCom(a); },                                                                T.textMute, ""]
+                ].map(([lbl, fn, col, st]) => {
+                  const filledRed = st === "red", filledGreen = st === "green";
+                  const bg = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.surface;
+                  const brd = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.line;
+                  const fg = (filledRed || filledGreen) ? "#fff" : col;
+                  return <button key={lbl} onClick={() => { fn(); if (lbl !== "Recordar") setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: (filledRed || filledGreen) ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>;
+                });
+              })()}
             </div>
           </div>
         ) : (
@@ -2516,9 +2623,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           <div onClick={() => setMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 79 }} />
           <div onClick={e => e.stopPropagation()} style={{ position: "fixed", left: menuPos.x, top: menuPos.y, zIndex: 80, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 8, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", overflow: "hidden", padding: "4px 0", animation: "jcSlideUp .2s ease" }}>
             {[
+              ["✎ Editar cita (fecha, hora, duración, procedimiento)", () => { onEdit(activeAppt); setMenu(null); }, T.accent],
               ["Ver ficha del paciente", () => { if (onVerFicha) onVerFicha(activeAppt); setMenu(null); }],
-              ["Cambiar fecha / hora", () => { onEdit(activeAppt); setMenu(null); }],
-              ["Modificar duración", () => { onEdit(activeAppt); setMenu(null); }],
               ["Agregar comentario", () => { setEditCom(activeAppt); setMenu(null); }],
               ["__sep", null],
               ...(activeAppt.status === "pendiente_pago" ? [["✓ Confirmar transferencia", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#1F8A5B"]] : []),
@@ -2574,6 +2680,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [tipo, setTipo] = useState(pf.patName && !pf.patId ? "nuevo" : "existente");
   const [pid, setPid] = useState(pf.patId || "");
   const [patQ, setPatQ] = useState("");
+  const [showAllPat, setShowAllPat] = useState(false); // P9: por defecto solo 2 pacientes recientes
   const [nombre, setNombre] = useState(pf.patName && !pf.patId ? pf.patName : "");
   const [rut, setRut] = useState("");
   const [phone, setPhone] = useState("+56 9 ");
@@ -2631,7 +2738,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         const waP = (finalPhone || "").replace(/[^0-9]/g, "");
         if (waP.length >= 8) {
           const wk2 = dayInfo(pick.dayOff);
-          const msg2 = encodeURIComponent("Hola " + finalName + " 👋\n\nTu cita en " + clinicDisplayName() + " quedó confirmada:\n\n📅 " + wk2.wd + " " + wk2.dd + " " + wk2.mm + "\n🕐 " + pick.time + " hrs\n💉 " + proc + "\n👨‍⚕️ " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.\n\n¡Nos vemos pronto! 🌿");
+          const msg2 = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk2, pick.time, proc, prof));
           setTimeout(() => window.open("https://api.whatsapp.com/send?phone=" + waP + "&text=" + msg2, "_blank", "noopener"), 400);
         }
       }
@@ -2646,7 +2753,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
     const wk = dayInfo(pick.dayOff);
     const apptFecha = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff).toISOString().slice(0, 10);
     const waPhone = (finalPhone || "").replace(/[^0-9]/g, "");
-    const waMsg = encodeURIComponent("Hola " + finalName + " 👋\n\nTu cita en " + clinicDisplayName() + " quedó confirmada:\n\n📅 " + wk.wd + " " + wk.dd + " " + wk.mm + "\n🕐 " + pick.time + " hrs\n💉 " + proc + "\n👨‍⚕️ " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.\n\n¡Nos vemos pronto! 🌿");
+    const waMsg = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk, pick.time, proc, prof));
     const waUrl = "https://api.whatsapp.com/send?phone=" + waPhone + "&text=" + waMsg;
     const daySlots = D ? (D.availability(new Date(apptFecha + "T00:00:00").getDay()).slots || []) : [];
     // Generar y descargar un evento .ics para el calendario nativo, con recordatorio 24 h antes
@@ -2811,12 +2918,27 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                 <input value={patQ} onChange={e => setPatQ(e.target.value)} placeholder="Buscar por nombre o RUT…" style={{ ...selStyle, paddingLeft: 34 }} />
               </div>
               <div className="jc-scroll" style={{ maxHeight: 230, overflowY: "auto", border: "1px solid " + T.line, borderRadius: 8 }}>
-                {(() => { const q = patQ.trim().toLowerCase(); const qNorm = q.replace(/[^0-9k]/g, ""); const fl = q ? patients.filter(p => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q) || (qNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qNorm))) : patients; return fl.length ? fl.map(p => (
-                  <button key={p.id} onClick={() => setPid(p.id)} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 13px", background: pid === p.id ? (T.surface2 || T.accent + "14") : "transparent", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
-                    <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{p.name}</div>
-                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.rut || p.phone || "Paciente"}</div>
-                  </button>
-                )) : <div style={{ padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin resultados para "{patQ}".</div>; })()}
+                {(() => {
+                  const q = patQ.trim().toLowerCase(); const qNorm = q.replace(/[^0-9k]/g, "");
+                  const recency = p => p.updatedAt || p.created || p.lastVisit || p.ts || 0;
+                  const btn = p => (
+                    <button key={p.id} onClick={() => setPid(p.id)} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 13px", background: pid === p.id ? (T.surface2 || T.accent + "14") : "transparent", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
+                      <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{p.name}</div>
+                      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.rut || p.phone || "Paciente"}</div>
+                    </button>
+                  );
+                  if (q) {
+                    const fl = patients.filter(p => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q) || (qNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qNorm)));
+                    return fl.length ? fl.map(btn) : <div style={{ padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin resultados para "{patQ}".</div>;
+                  }
+                  // Sin búsqueda: solo los 2 pacientes más recientes; el resto queda desplegable. (P9)
+                  const ord = [...patients].sort((a, b) => recency(b) - recency(a));
+                  const shown = showAllPat ? ord : ord.slice(0, 2);
+                  return <>
+                    {shown.length ? shown.map(btn) : <div style={{ padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no hay pacientes. Usa "Paciente nuevo" o busca por nombre.</div>}
+                    {patients.length > 2 && <button onClick={() => setShowAllPat(s => !s)} style={{ display: "block", width: "100%", textAlign: "center", padding: "10px 13px", background: "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent }}>{showAllPat ? "Ver menos" : "Ver todos los pacientes (" + patients.length + ")"}</button>}
+                  </>;
+                })()}
               </div>
             </div>
           : <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>

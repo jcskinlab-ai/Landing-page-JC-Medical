@@ -80,15 +80,45 @@ function jcmSignFoot(b, proName, docLabel, patientName, fechaLarga, medSig) {
     + "<footer class='docfooter'><span class='f-l'>" + e(docLabel) + " · " + e(patientName) + " · Emitida <span class='fdate'>" + e(fechaLarga) + "</span></span><span class='f-r'>" + e(b.handle || b.clinName) + "</span></footer>";
 }
 // Envuelve el cuerpo en una hoja A4 completa y lo manda a imprimir.
-function jcmPrintDoc(title, b, inner) {
+// Devuelve el HTML COMPLETO del documento (para imprimir o guardar a archivo).
+function jcmDocHTML(title, b, inner) {
   const e = jcmDocEsc;
-  const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + e(title) + "</title>"
+  return "<!doctype html><html><head><meta charset='utf-8'><title>" + e(title) + "</title>"
     + "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
     + "<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap' rel='stylesheet'>"
     + "<style>" + JCM_DOC_CSS + "</style></head><body><div class='sheet'><div class='wm'>" + e(b.wm) + "</div>" + inner + "</div></body></html>";
+}
+function jcmPrintDoc(title, b, inner) {
+  const html = jcmDocHTML(title, b, inner);
   if (window.jcmPrintHTML) window.jcmPrintHTML(html);
   else { const w = window.open("", "_blank"); if (w) { w.document.write(html + "<script>window.print()<\/script>"); w.document.close(); } }
 }
+// Carpeta elegida por el usuario (recordada durante la sesión) para guardar indicaciones/recetas.
+window._jcmDocDir = window._jcmDocDir || null;
+// Guarda el documento en una carpeta que el usuario elige (File System Access API, Chrome/Edge).
+// Si el navegador no lo soporta (Safari/Firefox), descarga el archivo a la carpeta de Descargas.
+async function jcmSaveDocToFolder(filename, html) {
+  filename = (filename || "documento").replace(/[\\/:*?"<>|]+/g, " ").trim() + ".html";
+  if (window.showDirectoryPicker) {
+    try {
+      if (!window._jcmDocDir) window._jcmDocDir = await window.showDirectoryPicker({ mode: "readwrite", id: "medique-indicaciones", startIn: "documents" });
+      const dir = window._jcmDocDir;
+      if (dir.queryPermission) { let p = await dir.queryPermission({ mode: "readwrite" }); if (p !== "granted" && dir.requestPermission) p = await dir.requestPermission({ mode: "readwrite" }); if (p !== "granted") { window._jcmDocDir = null; throw new Error("sin permiso"); } }
+      const fh = await dir.getFileHandle(filename, { create: true });
+      const w = await fh.createWritable(); await w.write(html); await w.close();
+      window.jcmToast && window.jcmToast("Guardado en tu carpeta: " + filename, "ok");
+      return true;
+    } catch (e) { if (e && e.name === "AbortError") return false; /* cae al fallback */ }
+  }
+  try {
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    window.jcmToast && window.jcmToast("Descargado: " + filename + " · tu navegador no permite elegir carpeta (revisa Descargas).", "info");
+    return true;
+  } catch (e) { return false; }
+}
+if (typeof window !== "undefined") { window.jcmDocHTML = jcmDocHTML; window.jcmSaveDocToFolder = jcmSaveDocToFolder; }
 
 function Avatar({ T, name, src, size }) {
   const s = size || 40;
@@ -115,11 +145,34 @@ function AdField({ T, label, value, onChange, placeholder, inputMode }) {
   </label>;
 }
 
+// Pila global de popups: ESC cierra SIEMPRE el más reciente (el de arriba), nunca el de
+// abajo. Un único listener de teclado atiende toda la app. Lo usan AdModal y cualquier
+// popup que llame useEscClose(onClose).
+window.jcEscStack = window.jcEscStack || [];
+if (!window._jcEscBound) {
+  window._jcEscBound = true;
+  window.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") return;
+    var stack = window.jcEscStack;
+    if (stack.length) { var fn = stack[stack.length - 1]; if (typeof fn === "function") { ev.stopPropagation(); fn(); } }
+  }, true);
+}
+function useEscClose(onClose) {
+  useEffect(() => {
+    if (!onClose) return;
+    const entry = onClose;
+    window.jcEscStack.push(entry);
+    return () => { const i = window.jcEscStack.lastIndexOf(entry); if (i >= 0) window.jcEscStack.splice(i, 1); };
+  }, [onClose]);
+}
+window.useEscClose = useEscClose;
+
 function AdModal({ T, title, onClose, children, footer, wide, huge }) {
   // El popup SIEMPRE queda entre la barra superior (≈66px) y el borde inferior, con
   // márgenes de seguridad (incluida el área segura de iOS). maxHeight:100% del área
   // disponible → el contenido largo (p. ej. "Nuevo procedimiento") hace scroll interno
   // sin salirse de pantalla ni quedar cortado.
+  useEscClose(onClose); // ESC cierra este popup (el más reciente)
   return (
     <div onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: huge ? 12 : 16, paddingRight: huge ? 12 : 16 }}>
       <div onClick={e => e.stopPropagation()} style={{ width: huge ? "97vw" : "100%", maxWidth: huge ? 1180 : (wide ? 720 : 460), maxHeight: "100%", background: T.bg, borderRadius: 16, border: "1px solid " + T.line, display: "flex", flexDirection: "column", animation: "jcSlideUp .3s " + T.ease, overflow: "hidden" }}>
@@ -498,20 +551,29 @@ function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
 // en la agenda y no tienen otra cita activa (si no vinieron, no se les pide consentimiento).
 function jcmConsentPending(patients, appts) {
   appts = appts || [];
-  // Solo pacientes con cita activa (no atendida/anulada/no_asistio) y cuyo
-  // procedimiento NO sea evaluación (ellos ya traen o no necesitan consentimiento).
-  const needSet = new Set();
+  // Pacientes con cita ACTIVA próxima (hoy o futura, o pasada sin atender) cuyo procedimiento
+  // NO sea evaluación. El matcheo cita↔paciente se hace por patId, nombre, RUT y teléfono para
+  // no perder a los pacientes de mañana (p. ej. una cita de botox creada desde la agenda). (P10)
+  const rutN = r => ("" + (r || "")).replace(/[^0-9kK]/g, "").toLowerCase();
+  const telN = t => ("" + (t || "")).replace(/\D/g, "").slice(-8);
+  const needId = new Set(), needNm = new Set(), needRut = new Set(), needTel = new Set();
   (appts || []).forEach(function(a) {
     const st = a.status;
     if (st === "anulada" || st === "cancelada" || st === "no_asistio" || st === "atendida") return;
     if (a.attended) return;
     if (/evaluaci/i.test(a.proc || "")) return;
-    if (a.patId) needSet.add("id:" + a.patId);
-    const nm = (a.name || "").toLowerCase().trim(); if (nm) needSet.add("nm:" + nm);
+    if (a.patId) needId.add(a.patId);
+    const nm = (a.name || "").toLowerCase().trim(); if (nm) needNm.add(nm);
+    const r = rutN(a.rut); if (r.length >= 6) needRut.add(r);
+    const t = telN(a.phone); if (t.length === 8) needTel.add(t);
   });
   return (patients || []).filter(function(p) {
     if (p.consent) return false;
-    return needSet.has("id:" + p.id) || needSet.has("nm:" + (p.name || "").toLowerCase().trim());
+    if (needId.has(p.id)) return true;
+    if (needNm.has((p.name || "").toLowerCase().trim())) return true;
+    var r = rutN(p.rut); if (r.length >= 6 && needRut.has(r)) return true;
+    var t = telN(p.phone); if (t.length === 8 && needTel.has(t)) return true;
+    return false;
   });
 }
 if (typeof window !== "undefined") window.jcmConsentPending = jcmConsentPending;
@@ -1221,7 +1283,8 @@ function SignConsentModal({ T, data, onClose, onSign }) {
   // Plantillas PROPIAS de la clínica (módulo Consentimientos) además de las base, disponibles para firmar.
   // Se mapean a kind "extra" (texto libre + autorización), que ConsentDoc ya renderiza.
   const customTpls = (function () { try { return ((window.DB && window.DB.get("consent_templates")) || []).filter(t => t && t.active !== false && (t.title || "").trim()).map(t => ({ id: t.id, title: t.title, kind: "extra", proc: t.cat || "", body: t.body || "" })); } catch (e) { return []; } })();
-  const allTpls = (A.consents || []).concat(customTpls);
+  // Las plantillas PROPIAS de la clínica van primero; las predeterminadas (base) después.
+  const allTpls = customTpls.concat(A.consents || []);
   const [tpl, setTpl] = useState(data.template);
   const [nombre, setNombre] = useState(data.patient.name || "");
   const [ci, setCi] = useState(data.patient.rut || "");
@@ -2152,7 +2215,7 @@ function RecetaTab({ T, patient, updatePatient }) {
     updatePatient(patient.id, { recetas: [r, ...recetas] });
     setDiag(""); setRp(""); setInd(""); setCtrl("");
   }
-  function imprimir(r) {
+  function imprimir(r, save) {
     const e = jcmDocEsc;
     const b = jcmDocBrand();
     const now = new Date();
@@ -2180,16 +2243,31 @@ function RecetaTab({ T, patient, updatePatient }) {
       + jcmSignFoot(b, b.proName, titleOf(r.tipo), patient.name || "", hoy, (function() {
         try { var ms = window.DB.get("medic_sigs"); if (!ms || !ms.length) return null; return sigMedId === "none" ? null : (ms.find(function(s) { return s.id === sigMedId; }) || ms[0]); } catch (_) { return null; }
       })());
-    jcmPrintDoc(titleOf(r.tipo) + " · " + e(patient.name || ""), b, inner);
+    const docTitle = titleOf(r.tipo) + " · " + e(patient.name || "");
+    if (save) {
+      const fname = titleOf(r.tipo) + " - " + (patient.name || "Paciente") + " - " + (r.fecha || hoy);
+      window.jcmSaveDocToFolder && window.jcmSaveDocToFolder(fname, jcmDocHTML(docTitle, b, inner));
+    } else {
+      jcmPrintDoc(docTitle, b, inner);
+    }
   }
   function enviarWa(r) {
+    // Mensaje de WhatsApp con el MISMO formato del PDF (encabezado, datos, secciones, control,
+    // firma) y el link de reseñas propio de la clínica al final. (P21)
+    const clin = (window.clinicName && window.clinicName()) || "Medique";
     const pro = (window.clinicPro && window.clinicPro()) || "";
-    const L = ["*" + titleOf(r.tipo) + " — " + ((window.clinicName && window.clinicName()) || "Medique") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " años)" : "")];
-    if (r.diag) L.push("Diagnóstico: " + r.diag);
-    L.push((r.tipo === "indicaciones" ? "Indicaciones:" : "Rp.:"), r.rp);
-    if (r.ind) L.push("Notas: " + r.ind);
-    if (r.ctrl) L.push("Control de evaluación: " + fmtCtrl(r.ctrl));
-    L.push("— " + pro);
+    const isInd = r.tipo === "indicaciones";
+    const L = ["*" + titleOf(r.tipo).toUpperCase() + "*", "_" + clin + "_", "",
+               "🗓️ " + r.fecha, "👤 " + (patient.name || "") + (patient.age ? " · " + patient.age + " años" : "")];
+    if (r.diag) L.push("🩺 " + (isInd ? "Procedimiento" : "Diagnóstico") + ": " + r.diag);
+    L.push("", "*" + (isInd ? "Indicaciones y cuidados" : "Prescripción (Rp.)") + "*");
+    const lines = r.rp.split("\n").map(l => l.replace(/^[•\-\*]\s*/, "").trim()).filter(Boolean);
+    if (isInd) lines.forEach(l => L.push("• " + l)); else L.push(r.rp);
+    if (r.ind) { L.push("", "*Notas adicionales*", r.ind); }
+    if (r.ctrl) { L.push("", "📅 Control de evaluación: " + fmtCtrl(r.ctrl)); }
+    L.push("", "— " + [pro, clin].filter(Boolean).join(" · "));
+    const reviewUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink) ? window.JCSAAS.reviewLink() : "";
+    if (reviewUrl) L.push("", "⭐ ¿Cómo fue tu experiencia? Déjanos tu reseña aquí: " + reviewUrl);
     window.open("https://wa.me/" + (patient.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener");
   }
 
@@ -2258,6 +2336,7 @@ function RecetaTab({ T, patient, updatePatient }) {
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.fecha} · {r.rp.split("\n")[0]}</div>
             </div>
             <AdBtn T={T} small onClick={() => imprimir(r)}>Imprimir</AdBtn>
+            <button onClick={() => imprimir(r, true)} title="Guardar el documento en una carpeta que elijas" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "8px 11px", cursor: "pointer" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8M7 3v5h8" /></svg>Guardar</button>
             <button onClick={() => enviarWa(r)} title="Enviar por WhatsApp" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", background: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px", cursor: "pointer" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>WhatsApp</button>
             <button onClick={() => updatePatient(patient.id, { recetas: recetas.filter(x => x.id !== r.id) })} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
           </div>
@@ -2266,8 +2345,9 @@ function RecetaTab({ T, patient, updatePatient }) {
       {/* Popup de visualización del documento (sin imprimir) */}
       {preview && (
         <AdModal T={T} title={titleOf(preview.tipo)} onClose={() => setPreview(null)} footer={
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
             <AdBtn T={T} onClick={() => imprimir(preview)}>Imprimir</AdBtn>
+            <AdBtn T={T} onClick={() => imprimir(preview, true)}>Guardar en carpeta</AdBtn>
             <AdBtn T={T} primary onClick={() => enviarWa(preview)}>WhatsApp</AdBtn>
           </div>}>
           <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 }}>{preview.fecha} · {patient.name}{patient.age ? " · " + patient.age + " años" : ""}</div>

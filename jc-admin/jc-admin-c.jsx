@@ -209,11 +209,27 @@ function EspecialidadesTab({ T }) {
   const profCount = e => team.filter(m => (m.especialidades || []).indexOf(e) >= 0).length;
   return (
     <div>
-      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Define las especialidades que ofrece tu clínica. Se asignan a cada profesional en su ficha (sección Especialidades).</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 6, lineHeight: 1.5 }}>Define las especialidades que ofrece tu clínica. Se asignan a cada profesional en su ficha (sección Especialidades).</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 14, lineHeight: 1.5, background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.lineSoft, borderRadius: 8, padding: "9px 12px" }}>💡 <b style={{ color: T.textMute }}>Toxina botulínica, Ácido hialurónico, Bioestimuladores…</b> son <b style={{ color: T.textMute }}>procedimientos</b>, no especialidades: se administran en la pestaña <b style={{ color: T.textMute }}>Tratamientos</b>.</div>
+      {/* Sugerencias por área (P14): agregar con un clic. */}
+      <div style={{ marginBottom: 16 }}>
+        {ESPECIALIDAD_CATS.map(([cat, sugs]) => (
+          <div key={cat} style={{ marginBottom: 10 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginBottom: 6 }}>{cat}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {sugs.map(s => { const yes = list.indexOf(s) >= 0; return (
+                <button key={s} onClick={() => { if (yes) return; const n = [...list, s]; setList(n); saveEspecialidades(n); }} disabled={yes} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "6px 12px", borderRadius: 999, cursor: yes ? "default" : "pointer", border: "1px solid " + (yes ? T.accent : T.line), background: yes ? T.accent + "16" : "transparent", color: yes ? T.accent : T.textMute }}>{yes ? "✓ " : "+ "}{s}</button>
+              ); })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>O agrega una propia</div>
       <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
         <input value={nueva} onChange={e => setNueva(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Nueva especialidad…" style={{ flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         <AdBtn T={T} primary onClick={add}>+ Agregar</AdBtn>
       </div>
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Especialidades de tu clínica</div>
       {list.length === 0 ? <Empty2 T={T}>Aún no hay especialidades. Agrega la primera arriba.</Empty2> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {list.map(e => { const n = profCount(e); return (
@@ -453,6 +469,16 @@ function EquipoView({ T }) {
     try { window.DB && window.DB.set("team", CADMIN.team); } catch (e) {} // persiste por clínica
     setTeam(CADMIN.team); setEditing(null);
   }
+  // Eliminar profesional (P6). El equipo nunca queda vacío: se bloquea borrar al último.
+  async function remove(id) {
+    if (team.length <= 1) { window.jcmToast && window.jcmToast("Debe quedar al menos un profesional en el equipo.", "info"); return; }
+    const m = team.find(x => x.id === id);
+    if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar a " + ((m && m.name) || "este profesional") + " del equipo? Sus citas y fichas no se borran.", { danger: true }))) return;
+    CADMIN.team = team.filter(x => x.id !== id);
+    try { window.DB && window.DB.set("team", CADMIN.team); } catch (e) {}
+    setTeam(CADMIN.team); setEditing(null);
+    window.jcmToast && window.jcmToast("Profesional eliminado.", "ok");
+  }
   return (
     <div>
       <SecHead T={T} title="Equipo" sub="Profesionales y permisos" />
@@ -473,7 +499,7 @@ function EquipoView({ T }) {
         ))}
       </div>
       <div style={{ marginTop: 14 }}><AdBtn T={T} primary onClick={() => setEditing("new")}>+ Añadir miembro</AdBtn></div>
-      {editing && <ProfesionalForm T={T} member={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSave={save} />}
+      {editing && <ProfesionalForm T={T} member={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSave={save} onDelete={editing !== "new" && editing.id ? () => remove(editing.id) : null} />}
     </div>
   );
 }
@@ -481,7 +507,15 @@ function EquipoView({ T }) {
 // Códigos de país para el teléfono del profesional (Chile primero).
 const PROF_PAISES = [["+56", "🇨🇱 Chile"], ["+54", "🇦🇷 Argentina"], ["+51", "🇵🇪 Perú"], ["+57", "🇨🇴 Colombia"], ["+58", "🇻🇪 Venezuela"], ["+593", "🇪🇨 Ecuador"], ["+591", "🇧🇴 Bolivia"], ["+598", "🇺🇾 Uruguay"], ["+595", "🇵🇾 Paraguay"], ["+52", "🇲🇽 México"], ["+34", "🇪🇸 España"], ["+1", "🇺🇸 EE.UU."]];
 // Especialidades sugeridas en medicina estética (toggle + se pueden agregar propias).
-const PROF_ESPECIALIDADES = ["Medicina estética", "Toxina botulínica", "Ácido hialurónico", "Bioestimuladores", "Mesoterapia", "Hilos tensores", "Peelings", "Cosmiatría", "Dermatología", "Nutrición", "Kinesiología estética", "Enfermería"];
+// Especialidades por ÁREA (P14). Son especialidades reales del profesional, NO procedimientos:
+// Toxina botulínica, Ácido hialurónico, etc. son categorías de PROCEDIMIENTOS y viven en Tratamientos.
+const ESPECIALIDAD_CATS = [
+  ["Facial", ["Medicina estética facial", "Armonización orofacial", "Dermatología"]],
+  ["Corporal", ["Medicina estética corporal", "Kinesiología estética", "Nutrición y control de peso"]],
+  ["Estética", ["Medicina estética", "Enfermería estética", "Tricología"]],
+  ["Cosmetología", ["Cosmetología", "Cosmiatría", "Dermopigmentación / micropigmentación"]]
+];
+const PROF_ESPECIALIDADES = ESPECIALIDAD_CATS.reduce((a, c) => a.concat(c[1]), []);
 // Encabezado de sección dentro del formulario de profesional.
 function ProfSec({ T, n, title, sub, children }) {
   return (
@@ -506,7 +540,7 @@ function ProfChips({ T, options, selected, onToggle, empty }) {
     </div>
   );
 }
-function ProfesionalForm({ T, member, onClose, onSave }) {
+function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
   const [f, setF] = useState(() => member
     ? { ...member, perms: member.perms || {}, especialidades: member.especialidades || (member.role ? [member.role] : []), tratamientos: member.tratamientos || [], sucursales: member.sucursales || [], horario: member.horario || sucHorarioDefault() }
     : { name: "", role: "", email: "", phone: "+56 9 ", active: true, access: false, perms: {}, especialidades: [], tratamientos: [], sucursales: [], horario: sucHorarioDefault() });
@@ -556,7 +590,7 @@ function ProfesionalForm({ T, member, onClose, onSave }) {
     </div>
   );
   return (
-    <AdModal T={T} title={member ? "Editar profesional" : "Nuevo profesional"} onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" })}>Guardar profesional</AdBtn>}>
+    <AdModal T={T} title={member ? "Editar profesional" : "Nuevo profesional"} onClose={onClose} footer={<div style={{ display: "flex", gap: 10, alignItems: "center" }}>{onDelete && <button onClick={onDelete} title="Eliminar profesional" style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 44, borderRadius: 8, border: "1px solid #C0285A55", background: "transparent", color: "#C0285A", fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>Eliminar</button>}<AdBtn T={T} primary full onClick={() => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" })}>Guardar profesional</AdBtn></div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {/* 1 · Información básica */}
         <ProfSec T={T} n="1" title="Información básica">
@@ -680,7 +714,7 @@ function SucursalesView({ T }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
           {list.map(s => { const np = profsForSuc(s.name); return (
-            <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line }}>
+            <div key={s.id} onClick={() => setEditing(s)} title="Editar sucursal" style={{ display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
               <div style={{ width: 42, height: 42, borderRadius: 10, background: T.accentSoft || T.surface2, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 11h.01M15 11h.01" /></svg>
               </div>
@@ -694,8 +728,8 @@ function SucursalesView({ T }) {
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
-                <button onClick={() => setEditing(s)} style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Editar →</button>
-                <button onClick={() => del(s.id)} title="Eliminar" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent }}>Editar →</span>
+                <button onClick={(e) => { e.stopPropagation(); del(s.id); }} title="Eliminar" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
               </div>
             </div>
           ); })}
@@ -774,6 +808,15 @@ function ConsentimientosView({ T }) {
     try { window.jcmToast && window.jcmToast("Plantilla " + (exists ? "actualizada" : "creada") + ".", "ok"); } catch (e) {}
   }
   async function del(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta plantilla?", { danger: true }))) return; persist(tpls.filter(x => x.id !== id)); }
+  // "Personalizar" una plantilla predeterminada: crea una COPIA editable en las plantillas
+  // propias de la clínica (el documento maestro base no se toca nunca) y abre el editor.
+  function baseBodyText(b) { return b.body || (Array.isArray(b.paragraphs) ? b.paragraphs.join("\n\n") : "") || ""; }
+  function personalizar(b) {
+    const copia = { id: "ctpl" + Date.now(), title: (b.title || "Consentimiento") + " (personalizada)", cat: b.cat || "", body: baseBodyText(b), active: true, fromBase: b.title || "" };
+    persist([...tpls, copia]);
+    setEditing(copia);
+    try { window.jcmToast && window.jcmToast("Copia editable creada en tus plantillas propias.", "ok"); } catch (e) {}
+  }
   const activasCount = base.filter(b => active[b.title] !== false).length + tpls.filter(t => t.active !== false).length;
   const card = { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px", display: "flex", alignItems: "center", gap: 12 };
   const row = (titulo, cat, on, onTog, onEdit, onDel) => (
@@ -786,6 +829,17 @@ function ConsentimientosView({ T }) {
       <AdSwitch T={T} on={on} onClick={onTog} />
       {onEdit && <button onClick={onEdit} style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Editar</button>}
       {onDel && <button onClick={onDel} title="Eliminar" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>}
+    </div>
+  );
+  const baseRow = (b, on) => (
+    <div style={card}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{b.title}</div>
+        {b.cat && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.cat}</div>}
+      </div>
+      <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", textTransform: "uppercase", color: on ? "#1F8A5B" : T.textFaint }}>{on ? "Activa" : "Inactiva"}</span>
+      <AdSwitch T={T} on={on} onClick={() => setActiveKey(b.title, !on)} />
+      <button onClick={() => personalizar(b)} title="Crear copia editable para tu clínica" style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>Personalizar</button>
     </div>
   );
   return (
@@ -812,15 +866,17 @@ function ConsentimientosView({ T }) {
           <li><b style={{ color: T.text }}>Derecho de acceso:</b> el paciente puede solicitar copia íntegra de su ficha cuando lo requiera.</li>
         </ul>
       </div>
-      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 10 }}>Plantillas clínicas (base)</div>
+      {/* Plantillas PROPIAS primero (las que la clínica usa a diario), luego las base. */}
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 10 }}>Plantillas propias</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 24 }}>
+        {tpls.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no creas plantillas propias. Usa “+ Nueva plantilla” o “Personalizar” una plantilla base.</div>
+          : tpls.map(t => { const on = t.active !== false; return <div key={t.id}>{row(t.title, t.cat, on, () => save({ ...t, active: !on }), () => setEditing(t), () => del(t.id))}</div>; })}
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 4 }}>Plantillas clínicas (predeterminadas)</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 10, lineHeight: 1.5 }}>Las predeterminadas no se modifican. Usa <b style={{ color: T.textMute }}>Personalizar</b> para crear una copia editable para tu clínica sin alterar el documento maestro.</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 24 }}>
         {base.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin plantillas base en esta clínica.</div>
-          : base.map((b, i) => { const on = active[b.title] !== false; return <div key={b.title || i}>{row(b.title, b.cat, on, () => setActiveKey(b.title, !on))}</div>; })}
-      </div>
-      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 10 }}>Plantillas propias</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-        {tpls.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no creas plantillas propias. Usa “+ Nueva plantilla”.</div>
-          : tpls.map(t => { const on = t.active !== false; return <div key={t.id}>{row(t.title, t.cat, on, () => save({ ...t, active: !on }), () => setEditing(t), () => del(t.id))}</div>; })}
+          : base.map((b, i) => { const on = active[b.title] !== false; return <div key={b.title || i}>{baseRow(b, on)}</div>; })}
       </div>
       {editing && <ConsentTplModal T={T} tpl={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSave={save} />}
     </div>
@@ -841,7 +897,7 @@ function ConsentTplModal({ T, tpl, onClose, onSave }) {
           <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>Plantilla activa</span>
           <AdSwitch T={T} on={f.active !== false} onClick={() => setF({ ...f, active: !(f.active !== false) })} />
         </div>
-        <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>La firma se captura con JC-Sign al momento de firmar con el paciente. Integración al flujo de firma: en curso.</div>
+        <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.5 }}>La firma se captura con JC-Sign al momento de firmar con el paciente. Esta plantilla ya aparece disponible en el flujo de firma.</div>
       </div>
     </AdModal>
   );
@@ -906,7 +962,8 @@ function TutorialesView({ T, go }) {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   {videos[k] && <a href={videos[k]} target="_blank" rel="noopener" title="Ver video" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#fff", background: "#C0285A", borderRadius: 7, padding: "6px 10px", textDecoration: "none" }}><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>Video</a>}
-                  <button onClick={() => setVid(k)} title={videos[k] ? "Cambiar video" : "Agregar video"} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>{videos[k] ? "✎" : "+ video"}</button>
+                  {/* Agregar/cambiar el video solo lo puede el SUPER ADMIN (Medique/JC Medical), no las clínicas. (P30) */}
+                  {window.JCM_BASE === true && <button onClick={() => setVid(k)} title={videos[k] ? "Cambiar video (super admin)" : "Agregar video (super admin)"} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>{videos[k] ? "✎" : "+ video"}</button>}
                   <button onClick={() => go && go(sec)} style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>Ir →</button>
                 </div>
               </div>
@@ -1019,7 +1076,7 @@ function FidelidadView({ T }) {
   const [on, setOn] = useState(() => { try { const v = window.DB && DB.get("fidelity_on"); return v == null ? seeded : !!v; } catch (e) { return seeded; } });
   function setFid(v) { setOn(v); try { if (window.DB) DB.set("fidelity_on", v); } catch (e) {} }
   // Config de puntos: puntos por procedimiento y puntos para canjear
-  const [cfg, setCfg] = useState(() => { try { return DB.get("fidelity_cfg") || { ptsProc: 10, ptsCanje: 100 }; } catch (e) { return { ptsProc: 10, ptsCanje: 100 }; } });
+  const [cfg, setCfg] = useState(() => { try { return DB.get("fidelity_cfg") || { ptsProc: 10, ptsCanje: 100, premio: "" }; } catch (e) { return { ptsProc: 10, ptsCanje: 100, premio: "" }; } });
   const [editCfg, setEditCfg] = useState(false);
   const [tmpCfg, setTmpCfg] = useState(cfg);
   function saveCfg() { setCfg(tmpCfg); try { DB.set("fidelity_cfg", tmpCfg); } catch (e) {} setEditCfg(false); try { window.jcmToast && window.jcmToast("Configuración guardada.", "ok"); } catch(e){} }
@@ -1050,12 +1107,14 @@ function FidelidadView({ T }) {
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
             <AdField T={T} label="Puntos por procedimiento (default por sesión)" value={String(tmpCfg.ptsProc)} onChange={v => setTmpCfg(c => ({ ...c, ptsProc: parseInt(v) || 0 }))} />
             <AdField T={T} label="Puntos necesarios para canjear un beneficio" value={String(tmpCfg.ptsCanje)} onChange={v => setTmpCfg(c => ({ ...c, ptsCanje: parseInt(v) || 0 }))} />
+            <AdField T={T} label="Premio al canjear (qué recibe el paciente)" value={tmpCfg.premio || ""} onChange={v => setTmpCfg(c => ({ ...c, premio: v }))} placeholder="Ej: 20% de descuento · sesión de limpieza facial · masaje gratis" />
             <AdBtn T={T} primary onClick={saveCfg}>Guardar configuración</AdBtn>
           </div>
         ) : (
-          <div style={{ marginTop: 8, display: "flex", gap: 24 }}>
+          <div style={{ marginTop: 8, display: "flex", gap: 24, flexWrap: "wrap" }}>
             <div><span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Por procedimiento: </span><span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>{cfg.ptsProc} pts</span></div>
             <div><span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Para canjear: </span><span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>{cfg.ptsCanje} pts</span></div>
+            <div><span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Premio: </span><span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: cfg.premio ? T.text : T.textFaint }}>{cfg.premio || "Sin definir"}</span></div>
           </div>
         )}
       </div>}
@@ -1159,7 +1218,21 @@ function DifusionesView({ T }) {
         <SecHead T={T} title="Difusiones" sub="Envía mensajes masivos por WhatsApp con plantillas y variables" />
         {tab === "plantillas" && <AdBtn T={T} primary onClick={() => setEditing("new")}>+ Nueva plantilla</AdBtn>}
       </div>
-      <div style={{ display: "flex", gap: 6, margin: "4px 0 18px" }}>{tabBtn("difusiones", "Difusiones")}{tabBtn("plantillas", "Plantillas")}</div>
+      {/* Encabezado con degradado suave Marfil + resumen de audiencia (P16). */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, background: "linear-gradient(135deg," + T.accent + "14, " + (T.surface2 || T.surface) + ")", border: "1px solid " + T.line, borderRadius: 16, padding: "16px 18px", margin: "6px 0 16px", flexWrap: "wrap" }}>
+        <div style={{ width: 48, height: 48, borderRadius: 14, background: T.accent + "22", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1.15 }}>Llega a tus pacientes en un clic</div>
+          <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3, lineHeight: 1.5 }}>Elige una audiencia y una plantilla con variables ({"{nombre}"}, {"{tratamiento}"}…) y envía por WhatsApp uno a uno, listo para personalizar.</div>
+        </div>
+        <div style={{ display: "flex", gap: 18, flexShrink: 0 }}>
+          <div style={{ textAlign: "center" }}><div style={{ fontFamily: T.serif, fontSize: 24, color: T.accent, lineHeight: 1 }}>{pacientes.length}</div><div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginTop: 3 }}>Pacientes</div></div>
+          <div style={{ textAlign: "center" }}><div style={{ fontFamily: T.serif, fontSize: 24, color: T.accent, lineHeight: 1 }}>{tpls.length}</div><div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginTop: 3 }}>Plantillas</div></div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 6, margin: "0 0 18px" }}>{tabBtn("difusiones", "Difusiones")}{tabBtn("plantillas", "Plantillas")}</div>
       {tab === "plantillas" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {tpls.map(t => (
@@ -1813,7 +1886,8 @@ function ReportesView({ T, patients, appts }) {
   const green = "#1F8A5B";
   // Gráfico de área con curva suave (mismo estilo que el dashboard).
   function RevChart() {
-    const W = 720, H = 210, padL = 8, padR = 8, padT = 14, padB = 26;
+    // Gráfico más compacto (P24): así la información de abajo se ve sin tanto scroll.
+    const W = 720, H = 150, padL = 8, padR = 8, padT = 12, padB = 24;
     const innerW = W - padL - padR, innerH = H - padT - padB;
     const maxY = (Math.max.apply(null, serie) || 1) * 1.18, n = serie.length; // evita 0/0 cuando no hay ingresos
     const X = i => padL + i * innerW / (n - 1);
@@ -2010,30 +2084,52 @@ function FirmasMedicasEditor({ T }) {
 // Diagnósticos sugeridos (desplegable en Receta / Indicaciones).
 const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"];
 function IndTemplatesEditor({ T }) {
+  // Cada plantilla tiene dueño (owner = correo del profesional que la creó). El profesional
+  // edita SOLO las suyas desde su cuenta; el admin/dueño VE todas pero solo edita las suyas
+  // (las de otros profesionales quedan de solo lectura). Las heredadas sin dueño las
+  // administra el dueño de la clínica.
+  const SA = window.JCSAAS;
+  const me = (SA && SA.userEmail && SA.userEmail()) || "";
+  const myName = (SA && SA.currentUserName && SA.currentUserName()) || "";
+  const isProf = !!(SA && SA.currentRole && SA.currentRole() === "professional");
+  const isAdmin = !isProf; // dueño / administrador de la clínica
   const [tpls, setTpls] = useState(getIndTemplates);
   const [saved, setSaved] = useState(false);
   function save(n) { setTpls(n); try { DB.set("config", Object.assign({}, DB.cfg(), { ind_templates: n })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {} }
-  function upd(i, patch) { save(tpls.map((t, j) => j === i ? { ...t, ...patch } : t)); }
-  function add() { save([...tpls, { id: "tpl_" + Date.now(), name: "Nueva plantilla", body: "" }]); }
-  async function del(i) { if (await (window.jcmConfirm || window.confirm)(`¿Eliminar la plantilla "${tpls[i] && tpls[i].name}"?`, {danger: true})) save(tpls.filter((_, j) => j !== i)); }
+  function updId(id, patch) { save(tpls.map(t => t.id === id ? { ...t, ...patch } : t)); }
+  function add() { save([...tpls, { id: "tpl_" + Date.now(), name: "Nueva plantilla", body: "", owner: me, ownerName: myName || (isAdmin ? "Clínica" : "") }]); }
+  async function delId(id) { const t = tpls.find(x => x.id === id); if (await (window.jcmConfirm || window.confirm)(`¿Eliminar la plantilla "${t && t.name}"?`, { danger: true })) save(tpls.filter(x => x.id !== id)); }
+  // Puedo editar: si tiene dueño, solo si soy ese dueño; si es heredada (sin dueño), solo el admin.
+  const canEdit = (t) => t.owner ? (!!me && t.owner === me) : isAdmin;
+  // Qué veo: el admin ve todas; el profesional ve las suyas + las heredadas (referencia).
+  const visible = isAdmin ? tpls : tpls.filter(t => (t.owner === me) || !t.owner);
   const inp = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
+  const inpRO = { ...inp, background: T.surface2, color: T.textMute, cursor: "default" };
   return (
     <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
       <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
         Indicaciones post tratamiento
       </div>
-      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px" }}>Plantillas que podrás seleccionar al registrar indicaciones, sin tipear a mano. {saved && <span style={{ color: "#1F8A5B" }}>✓ Guardado</span>}</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 4px" }}>Plantillas que podrás seleccionar al registrar indicaciones, sin tipear a mano. {saved && <span style={{ color: "#1F8A5B" }}>✓ Guardado</span>}</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 14, lineHeight: 1.5 }}>{isAdmin ? "Ves las plantillas de todo el equipo. Cada profesional edita solo las suyas desde su cuenta; las de otros aparecen de solo lectura." : "Estas son tus plantillas. Solo tú puedes editarlas desde tu cuenta."}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {tpls.map((t, i) => (
-          <div key={t.id} style={{ border: "1px solid " + T.line, borderRadius: 10, padding: "12px 13px" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-              <input value={t.name} onChange={e => upd(i, { name: e.target.value })} style={{ ...inp, fontWeight: 600 }} placeholder="Nombre de la plantilla" />
-              <button onClick={() => del(i)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+        {visible.map(t => {
+          const editable = canEdit(t);
+          return (
+            <div key={t.id} style={{ border: "1px solid " + (editable ? T.line : T.lineSoft), borderRadius: 10, padding: "12px 13px", background: editable ? "transparent" : T.surface2 + "80" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <input value={t.name} readOnly={!editable} onChange={editable ? (e => updId(t.id, { name: e.target.value })) : undefined} style={{ ...(editable ? inp : inpRO), fontWeight: 600 }} placeholder="Nombre de la plantilla" />
+                {editable
+                  ? <button onClick={() => delId(t.id)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  : <span title="Solo el profesional creador puede editarla" style={{ flexShrink: 0, display: "flex", alignItems: "center", color: T.textFaint, padding: "8px 6px" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>}
+              </div>
+              <textarea value={t.body} readOnly={!editable} onChange={editable ? (e => updId(t.id, { body: e.target.value })) : undefined} rows={5} placeholder="Indicaciones / cuidados…" style={{ ...(editable ? inp : inpRO), resize: "vertical", lineHeight: 1.5 }} />
+              {t.owner && t.owner !== me && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>Creada por {t.ownerName || "otro profesional"} · solo lectura</div>}
             </div>
-            <textarea value={t.body} onChange={e => upd(i, { body: e.target.value })} rows={5} placeholder="Indicaciones / cuidados…" style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
-          </div>
-        ))}
+          );
+        })}
+        {visible.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "8px 2px" }}>Aún no tienes plantillas. Crea la primera con el botón de abajo.</div>}
       </div>
       <div style={{ marginTop: 12 }}><AdBtn T={T} onClick={add}>+ Añadir plantilla</AdBtn></div>
     </div>
@@ -2041,7 +2137,7 @@ function IndTemplatesEditor({ T }) {
 }
 
 /* ─────────── CONFIGURACIÓN ─────────── */
-const CFG_TABS = [["datos", "Datos de la clínica"], ["reserva", "Reserva y enlaces"], ["horarios", "Horarios"], ["plantillas", "Plantillas y firmas"], ["notif", "Notificaciones"]];
+const CFG_TABS = [["datos", "Datos de la clínica"], ["reserva", "Reserva y enlaces"], ["horarios", "Horarios"], ["plantillas", "Plantillas y firmas"]];
 function ConfigView({ T }) {
   const D = window.JCDATA;
   const [cfgTab, setCfgTab] = useState(() => { try { var t = window.jcmConfigTab; if (t) { window.jcmConfigTab = null; return t; } } catch (e) {} return "datos"; });
@@ -2081,6 +2177,19 @@ function ConfigView({ T }) {
         {CFG_TABS.map(([k, l]) => <button key={k} onClick={() => setCfgTab(k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: cfgTab === k ? 600 : 500, padding: "8px 15px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (cfgTab === k ? T.accent : T.line), background: cfgTab === k ? T.accent : "transparent", color: cfgTab === k ? (T.onAccent || "#fff") : T.textMute, whiteSpace: "nowrap" }}>{l}</button>)}
       </div>
       {cfgTab === "reserva" && <>
+      {/* Panel móvil del equipo — ARRIBA (P32): confirmar y crear citas desde el teléfono */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
+        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><rect x="6" y="2" width="12" height="20" rx="3" /><path d="M11 18h2" /></svg>
+          Panel móvil del equipo
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px" }}>Página móvil para que tú o tu equipo <b style={{ color: T.text }}>confirmen y creen citas directas</b> desde el teléfono. Inicia sesión con tu cuenta del panel.</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input readOnly value={mobileUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220, fontFamily: T.sans, fontSize: 12.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" }} />
+          <button onClick={copyMobile} title="Copiar" style={{ flexShrink: 0, padding: "0 13px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{copiedMob ? "✓" : "Copiar"}</button>
+          <a href={mobileUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, color: T.text, textDecoration: "none", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "9px 13px" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>Abrir</a>
+        </div>
+      </div>
       {/* Reserva online — comparte tu link */}
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
         <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
@@ -2131,24 +2240,14 @@ function ConfigView({ T }) {
           </div>
         )}
       </div>
-      {/* Panel móvil del equipo — confirmar y crear citas desde el teléfono */}
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
-        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><rect x="6" y="2" width="12" height="20" rx="3" /><path d="M11 18h2" /></svg>
-          Panel móvil del equipo
-        </div>
-        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px" }}>Página móvil para que tú o tu equipo <b style={{ color: T.text }}>confirmen y creen citas directas</b> desde el teléfono. Inicia sesión con tu cuenta del panel.</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input readOnly value={mobileUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220, fontFamily: T.sans, fontSize: 12.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" }} />
-          <button onClick={copyMobile} title="Copiar" style={{ flexShrink: 0, padding: "0 13px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{copiedMob ? "✓" : "Copiar"}</button>
-          <a href={mobileUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, color: T.text, textDecoration: "none", border: "1px solid " + T.chipBorder, borderRadius: 8, padding: "9px 13px" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>Abrir</a>
-        </div>
-      </div>
       </>}
       {cfgTab === "datos" && <>
-        <ClinicDataCard T={T} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 14, alignItems: "start" }}>
+          <ClinicDataCard T={T} />
+          <PaymentDataCard T={T} />
+        </div>
+        <AccountEmailCard T={T} />
         <AdminPinCard T={T} />
-        <PaymentDataCard T={T} />
       </>}
       {cfgTab === "horarios" && <div style={{ marginBottom: 14 }}><HorariosEditor T={T} /></div>}
       {cfgTab === "plantillas" && <>
@@ -2156,12 +2255,6 @@ function ConfigView({ T }) {
         <FirmasMedicasEditor T={T} />
         <RecitaDescCard T={T} />
       </>}
-      {cfgTab === "notif" && <ClinCard T={T} title="Notificaciones">
-        <ToggleRow T={T} label="Recordatorio 24 h antes (WhatsApp)" def={true} />
-        <ToggleRow T={T} label="Recordatorio el día del tratamiento · 08:30 (WhatsApp)" def={true} />
-        <ToggleRow T={T} label="Confirmación por correo (Gmail)" def={true} />
-        <ToggleRow T={T} label="Resumen diario con Gemini" def={false} />
-      </ClinCard>}
     </div>
   );
 }
@@ -2170,11 +2263,39 @@ function ClinCard({ T, title, children }) {
     <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{title}</div>{children}
   </div>;
 }
+// Notificaciones automáticas. Vive DENTRO de Automatizaciones (no en Configuración), como
+// un botón desplegable. Las de WhatsApp quedan listas para activarse al conectar Meta.
+function NotificacionesCard({ T }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, marginBottom: 16, overflow: "hidden" }}>
+      <button onClick={() => setOpen(o => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+        <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 11, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Notificaciones automáticas</div>
+          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>Confirmación por correo 24 h antes · recordatorios por WhatsApp</div>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {open && <div style={{ padding: "0 18px 16px" }}>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 8, lineHeight: 1.5, paddingTop: 4, borderTop: "1px solid " + T.lineSoft }}>La confirmación por correo se envía <b style={{ color: T.text }}>24 horas antes</b> de la cita. Los avisos por WhatsApp quedarán activos al conectar el permiso de Meta.</div>
+        <ToggleRow T={T} label="Confirmación por correo · 24 h antes (Gmail)" def={true} />
+        <ToggleRow T={T} label="Recordatorio 24 h antes (WhatsApp)" def={true} badge="Requiere Meta" />
+        <ToggleRow T={T} label="Recordatorio el día del tratamiento · 08:30 (WhatsApp)" def={true} badge="Requiere Meta" />
+        <ToggleRow T={T} label="Resumen diario con Gemini" def={false} />
+      </div>}
+    </div>
+  );
+}
 function RecitaDescCard({ T }) {
   const DB = _db();
   const cfg0 = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
   const [tipo, setTipo] = useState(cfg0.recita_desc_tipo || "fijo");
-  const [val, setVal]   = useState(String(cfg0.recita_desc_val != null ? cfg0.recita_desc_val : 20000));
+  // Sin valor guardado, el campo queda VACÍO y muestra un ejemplo como placeholder (no un
+  // valor prellenado que parezca fijo). Al escribir, es totalmente editable.
+  const [val, setVal]   = useState(cfg0.recita_desc_val != null ? String(cfg0.recita_desc_val) : "");
   const [saved, setSaved] = useState(false);
   function save() {
     const n = parseInt(val, 10);
@@ -2219,6 +2340,7 @@ function ClinicDataCard({ T }) {
   const [f, setF] = useState({
     clinic_name: cfg0.clinic_name || clinicName || "",
     clinic_addr: cfg0.clinic_addr || "",
+    clinic_maps: cfg0.clinic_maps || "",
     professional: cfg0.professional || "",
     clinic_email: cfg0.clinic_email || "",
     wa_number: cfg0.wa_number || ""
@@ -2236,7 +2358,7 @@ function ClinicDataCard({ T }) {
   const waDisplay = "+569 " + ((f.wa_number || "").replace(/^569/, ""));
   function save() {
     if (!emailReplyOk) { window.jcmToast && window.jcmToast("El correo para respuestas no es válido.", "error"); return; }
-    try { DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {}
+    try { DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {}
   }
   return (
     <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
@@ -2247,6 +2369,10 @@ function ClinicDataCard({ T }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <AdField T={T} label="Nombre de la clínica" value={f.clinic_name} onChange={v => { setF({ ...f, clinic_name: v }); setSaved(false); }} placeholder="Ej: Clínica Karenina" />
         <AdField T={T} label="Dirección" value={f.clinic_addr} onChange={v => { setF({ ...f, clinic_addr: v }); setSaved(false); }} placeholder="Ej: 1 Norte 123, oficina 4, Talca" />
+        <div>
+          <AdField T={T} label="Link de Google Maps (opcional)" value={f.clinic_maps} onChange={v => { setF({ ...f, clinic_maps: v }); setSaved(false); }} placeholder="Pega el enlace de tu ficha en Google Maps" />
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 }}>Se envía como “Cómo llegar” en el WhatsApp de confirmación. Si lo dejas vacío, se genera automáticamente desde la dirección. Abre la app de mapas en el teléfono del paciente.</div>
+        </div>
         <AdField T={T} label="Profesional a cargo" value={f.professional} onChange={v => { setF({ ...f, professional: v.replace(/[0-9]/g, "") }); setSaved(false); }} placeholder="Ej: Dra. Karenina Soto" />
         <div>
           <AdField T={T} label="Correo para respuestas de pacientes" value={f.clinic_email} onChange={v => { setF({ ...f, clinic_email: v }); setSaved(false); }} placeholder="Ej: contacto@tuclinica.cl" />
@@ -2297,6 +2423,48 @@ function AdminPinCard({ T }) {
         </label>
         {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A" }}>{err}</div>}
         <AdBtn T={T} small primary onClick={save}>{saved ? "✓ PIN guardado" : (hasSaved ? "Cambiar PIN" : "Guardar PIN")}</AdBtn>
+      </div>
+    </div>
+  );
+}
+
+/* Correo de la cuenta (login) — el dueño lo cambia re-autenticándose con su contraseña. (P26)
+   Solo se muestra en modo nube y para el dueño (no profesionales). */
+function AccountEmailCard({ T }) {
+  const SA = window.JCSAAS;
+  const enabled = !!(SA && SA.enabled);
+  const isProf = !!(SA && SA.currentRole && SA.currentRole() === "professional");
+  const current = (enabled && SA.userEmail && SA.userEmail()) || "";
+  const [nuevo, setNuevo] = useState("");
+  const [pass, setPass] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null); // {ok, text}
+  if (!enabled || isProf || !current) return null;
+  const okMail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nuevo.trim());
+  async function cambiar() {
+    if (busy) return; setMsg(null);
+    if (!okMail) { setMsg({ ok: false, text: "Escribe un correo nuevo válido." }); return; }
+    if (!pass) { setMsg({ ok: false, text: "Ingresa tu contraseña actual para confirmar." }); return; }
+    setBusy(true);
+    try {
+      const r = await SA.changeEmail(nuevo.trim(), pass);
+      if (r && r.ok && r.verify) { setMsg({ ok: true, text: "Te enviamos un enlace a " + nuevo.trim() + ". Ábrelo para confirmar el cambio de correo." }); setPass(""); }
+      else if (r && r.ok) { setMsg({ ok: true, text: "Correo actualizado a " + nuevo.trim() + "." }); setNuevo(""); setPass(""); try { window.jcmAudit && window.jcmAudit("Correo de la cuenta cambiado a " + nuevo.trim()); } catch (e) {} }
+      else { setMsg({ ok: false, text: (r && r.error) || "No se pudo cambiar el correo." }); }
+    } catch (e) { setMsg({ ok: false, text: "No se pudo cambiar el correo." }); }
+    setBusy(false);
+  }
+  const inp = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  return (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+      <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 4 }}>Correo de la cuenta</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Correo con el que inicias sesión. Cambiarlo requiere <b style={{ color: T.text }}>tu contraseña actual</b>. Correo actual: <b style={{ color: T.text }}>{current}</b>.</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <label><span style={lbl}>Nuevo correo</span><input type="email" value={nuevo} data-nocap="" onChange={e => { setNuevo(e.target.value); setMsg(null); }} placeholder="nuevo@correo.cl" style={inp} /></label>
+        <label><span style={lbl}>Tu contraseña actual</span><input type="password" value={pass} onChange={e => { setPass(e.target.value); setMsg(null); }} onKeyDown={e => { if (e.key === "Enter") cambiar(); }} placeholder="••••••••" style={inp} /></label>
+        {msg && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: msg.ok ? "#1F8A5B" : "#C0285A", lineHeight: 1.5 }}>{msg.ok ? "✓ " : "⚠ "}{msg.text}</div>}
+        <div style={{ textAlign: "right" }}><AdBtn T={T} small primary onClick={cambiar}>{busy ? "Verificando…" : "Cambiar correo"}</AdBtn></div>
       </div>
     </div>
   );
@@ -2373,7 +2541,7 @@ function PaymentDataCard({ T }) {
   );
 }
 function Row({ T, k, v }) { return <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{k}</span><span style={{ color: T.text, textAlign: "right" }}>{v}</span></div>; }
-function ToggleRow({ T, label, def }) { const [on, setOn] = useState(def); return <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0" }}><span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{label}</span><AdSwitch T={T} on={on} onClick={() => setOn(!on)} /></div>; }
+function ToggleRow({ T, label, def, badge }) { const [on, setOn] = useState(def); return <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", gap: 10 }}><span style={{ fontFamily: T.sans, fontSize: 13, color: T.text, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{label}{badge && <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, background: T.accent + "18", border: "1px solid " + T.accent + "40", borderRadius: 999, padding: "2px 8px" }}>{badge}</span>}</span><AdSwitch T={T} on={on} onClick={() => setOn(!on)} /></div>; }
 
 /* ─────────── COLABORACIÓN ─────────── */
 // Mensajes de respuesta (aceptada/rechazada), editables por clínica. {nombre} y {clinica} se reemplazan al enviar.
@@ -2615,99 +2783,130 @@ function sumUnits(txt) {
   return sum;
 }
 /* ─────────── EDITOR DE FICHAS · constructor de plantillas (Área 5) ─────────── */
-const FE_TIPOS = [["texto", "Texto corto"], ["area", "Texto largo"], ["numero", "Número"], ["selector", "Selector"], ["fecha", "Fecha"], ["email", "Email"], ["imagen", "Imagen"], ["pdf", "PDF"]];
+const FE_TIPOS = [["texto", "Texto corto", "Una línea: nombre, RUT…"], ["area", "Texto largo", "Varias líneas: anamnesis, notas…"], ["numero", "Número", "Edad, peso, dosis…"], ["selector", "Selector", "Elegir de una lista"], ["fecha", "Fecha", "Selector de calendario"], ["email", "Email", "Correo electrónico"], ["imagen", "Imagen", "Subir foto clínica"], ["pdf", "PDF", "Adjuntar documento"]];
+const FE_ICON = {
+  texto: "M4 7h16M4 12h9", area: "M4 6h16M4 11h16M4 16h10", numero: "M9 7v10M15 7v10M6 10h12M6 14h12",
+  selector: "M4 6h16M4 12h16M4 18h10M20 15l-3 3-3-3", fecha: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
+  email: "M3 6h18v12H3zM3 7l9 6 9-6", imagen: "M3 5h18v14H3zM7 11l2.5 2.5L13 10l6 7", pdf: "M6 2h9l4 4v16H6zM14 2v4h4"
+};
+function FeIcon({ t, c, s }) { return <svg width={s || 15} height={s || 15} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={FE_ICON[t] || FE_ICON.texto} /></svg>; }
 function loadFichaTpls() { try { const v = window.DB && window.DB.get("ficha_templates"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 function saveFichaTplsDB(v) { try { if (window.DB) window.DB.set("ficha_templates", v); } catch (e) {} }
 function FichaEditorView({ T }) {
   const [tpls, setTpls] = useState(loadFichaTpls);
   const [selId, setSelId] = useState(tpls[0] ? tpls[0].id : null);
   const [dragI, setDragI] = useState(null);
+  const [expandId, setExpandId] = useState(null); // campo con opciones abiertas
   function persist(n) { setTpls(n); saveFichaTplsDB(n); }
   function addTpl() { const t = { id: "ft" + Date.now(), name: "Nueva plantilla", fields: [] }; const n = [...tpls, t]; persist(n); setSelId(t.id); }
   async function delTpl(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta plantilla de ficha?", { danger: true }))) return; const n = tpls.filter(t => t.id !== id); persist(n); if (selId === id) setSelId(n[0] ? n[0].id : null); }
   const sel = tpls.find(t => t.id === selId) || null;
   function updSel(patch) { persist(tpls.map(t => t.id === selId ? { ...t, ...patch } : t)); }
-  function addField(type) { updSel({ fields: [...(sel.fields || []), { id: "f" + Date.now(), type, label: "", required: false, options: "", placeholder: "" }] }); }
+  function addField(type) { const nf = { id: "f" + Date.now(), type, label: "", required: false, options: "", placeholder: "" }; updSel({ fields: [...(sel.fields || []), nf] }); setExpandId(nf.id); }
   function updField(fid, patch) { updSel({ fields: sel.fields.map(f => f.id === fid ? { ...f, ...patch } : f) }); }
   function delField(fid) { updSel({ fields: sel.fields.filter(f => f.id !== fid) }); }
   function moveField(i, dir) { const a = sel.fields.slice(); const j = i + dir; if (j < 0 || j >= a.length) return; const t = a[i]; a[i] = a[j]; a[j] = t; updSel({ fields: a }); }
   function moveFieldTo(from, to) { if (from == null || to == null || from === to) return; const a = sel.fields.slice(); const m = a.splice(from, 1)[0]; a.splice(to, 0, m); updSel({ fields: a }); }
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 };
-  const inp = { width: "100%", padding: "9px 11px", borderRadius: 4, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" };
+  const inp = { width: "100%", padding: "9px 11px", borderRadius: 6, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" };
+  const tipoLabel = t => (FE_TIPOS.find(x => x[0] === t) || [, t])[1];
+  // Renderiza el campo como se verá en la ficha real (con estilo, no solo un input gris).
   const previewInput = f => {
+    const pInp = { ...inp, background: T.surface, cursor: "default" };
     const opts = (f.options || "").split(",").map(s => s.trim()).filter(Boolean);
-    if (f.type === "area") return <textarea disabled rows={2} placeholder={f.placeholder} style={{ ...inp, resize: "vertical" }} />;
-    if (f.type === "selector") return <select disabled style={inp}><option>{opts[0] || "Opción…"}</option></select>;
-    if (f.type === "imagen" || f.type === "pdf") return <div style={{ ...inp, color: T.textFaint }}>{f.type === "imagen" ? "📷 Subir imagen" : "📄 Subir PDF"}</div>;
-    return <input disabled type={f.type === "numero" ? "number" : f.type === "fecha" ? "date" : f.type === "email" ? "email" : "text"} placeholder={f.placeholder} style={inp} />;
+    if (f.type === "area") return <div style={{ ...pInp, minHeight: 46, color: T.textFaint, display: "flex", alignItems: "flex-start" }}>{f.placeholder || "Escribe aquí…"}</div>;
+    if (f.type === "selector") return <div style={{ ...pInp, display: "flex", justifyContent: "space-between", alignItems: "center", color: opts[0] ? T.text : T.textFaint }}>{opts[0] || "Elegir…"}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8"><path d="M6 9l6 6 6-6" /></svg></div>;
+    if (f.type === "imagen" || f.type === "pdf") return <div style={{ ...pInp, border: "1px dashed " + T.line, color: T.textFaint, display: "flex", alignItems: "center", gap: 8, padding: "14px 11px" }}><FeIcon t={f.type} c={T.accent} s={16} />{f.type === "imagen" ? "Subir imagen" : "Adjuntar PDF"}</div>;
+    if (f.type === "fecha") return <div style={{ ...pInp, display: "flex", justifyContent: "space-between", alignItems: "center", color: T.textFaint }}>dd / mm / aaaa<FeIcon t="fecha" c={T.textMute} s={15} /></div>;
+    return <div style={{ ...pInp, color: T.textFaint }}>{f.placeholder || (f.type === "email" ? "correo@ejemplo.com" : f.type === "numero" ? "0" : "Escribe aquí…")}</div>;
   };
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <SecHead T={T} title="Editor de Fichas" sub="Construye plantillas de ficha con tus propios campos" />
+        <SecHead T={T} title="Editor de Fichas" sub="Arma tu plantilla a la izquierda y mírala en vivo a la derecha" />
         <AdBtn T={T} primary onClick={addTpl}>+ Nueva plantilla</AdBtn>
       </div>
       {tpls.length === 0 ? (
-        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center", marginTop: 12 }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 16px" }}>Crea tu primera plantilla de ficha y agrégale campos (texto, número, selector, imagen, PDF…). La verás en una vista previa lista para usar.</div>
+        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 14, padding: "44px 24px", textAlign: "center", marginTop: 12 }}>
+          <div style={{ width: 54, height: 54, borderRadius: 15, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg></div>
+          <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, marginBottom: 6 }}>Crea tu primera plantilla de ficha</div>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 460, margin: "0 auto 18px" }}>Agrega campos (texto, número, selector, imagen, PDF…) y mira cómo queda la ficha en tiempo real, lista para usar con tus pacientes.</div>
           <AdBtn T={T} primary onClick={addTpl}>+ Crear primera plantilla</AdBtn>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", gap: 16, alignItems: "start", marginTop: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 16, alignItems: "start", marginTop: 4 }}>
           {/* Lista de plantillas */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, margin: "2px 2px 4px" }}>Mis plantillas</div>
             {tpls.map(t => (
-              <button key={t.id} onClick={() => setSelId(t.id)} style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (selId === t.id ? T.accent : T.line), background: selId === t.id ? T.surface2 || T.surface : T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5 }}>
+              <button key={t.id} onClick={() => setSelId(t.id)} style={{ textAlign: "left", padding: "10px 12px", borderRadius: 9, cursor: "pointer", border: "1px solid " + (selId === t.id ? T.accent : T.line), background: selId === t.id ? T.accent + "12" : T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5 }}>
                 {t.name || "Sin nombre"}<div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2 }}>{(t.fields || []).length} campo{(t.fields || []).length === 1 ? "" : "s"}</div>
               </button>
             ))}
           </div>
-          {/* Constructor + preview */}
+          {/* Constructor + preview en vivo */}
           {sel && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px,1fr))", gap: 16, alignItems: "start" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px,1fr))", gap: 16, alignItems: "start" }}>
+              {/* Constructor */}
               <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "15px 16px" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, fontWeight: 600, marginBottom: 10 }}>✏️ Editas aquí</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                   <input value={sel.name} onChange={e => updSel({ name: e.target.value })} placeholder="Nombre de la plantilla" style={{ ...inp, fontWeight: 600 }} />
                   <button onClick={() => delTpl(sel.id)} title="Eliminar plantilla" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "0 10px", cursor: "pointer", color: T.textFaint, display: "flex", alignItems: "center" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg></button>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {(sel.fields || []).map((f, i) => (
-                    <div key={f.id} onDragOver={e => e.preventDefault()} onDrop={() => { moveFieldTo(dragI, i); setDragI(null); }} style={{ background: T.bg, border: "1px solid " + (dragI != null && dragI !== i ? (T.accent + "88") : T.line), borderRadius: 9, padding: "11px 12px", transition: "border-color .15s" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
-                        <span draggable onDragStart={() => setDragI(i)} onDragEnd={() => setDragI(null)} title="Arrastra para reordenar" style={{ cursor: "grab", color: T.textFaint, fontSize: 14, lineHeight: 1, userSelect: "none", padding: "0 2px" }}>⠿</span>
-                        <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.line, borderRadius: 999, padding: "2px 8px" }}>{(FE_TIPOS.find(x => x[0] === f.type) || [, f.type])[1]}</span>
-                        <div style={{ flex: 1 }} />
-                        <button onClick={() => moveField(i, -1)} title="Subir" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, padding: 2 }}>▲</button>
-                        <button onClick={() => moveField(i, 1)} title="Bajar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, padding: 2 }}>▼</button>
-                        <button onClick={() => delField(f.id)} title="Eliminar campo" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  {(sel.fields || []).length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, textAlign: "center", padding: "14px 0", border: "1px dashed " + T.line, borderRadius: 9 }}>Aún sin campos. Agrega el primero abajo. 👇</div>}
+                  {(sel.fields || []).map((f, i) => {
+                    const openOpts = expandId === f.id;
+                    return (
+                    <div key={f.id} onDragOver={e => e.preventDefault()} onDrop={() => { moveFieldTo(dragI, i); setDragI(null); }} style={{ background: T.bg, border: "1px solid " + (dragI != null && dragI !== i ? (T.accent + "88") : T.line), borderRadius: 9, padding: "10px 11px", transition: "border-color .15s" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span draggable onDragStart={() => setDragI(i)} onDragEnd={() => setDragI(null)} title="Arrastra para reordenar" style={{ cursor: "grab", color: T.textFaint, fontSize: 15, lineHeight: 1, userSelect: "none", padding: "0 2px" }}>⠿</span>
+                        <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><FeIcon t={f.type} c={T.accent} s={14} /></span>
+                        <input value={f.label} onChange={e => updField(f.id, { label: e.target.value })} placeholder={"Etiqueta (" + tipoLabel(f.type) + ")"} style={{ ...inp, flex: 1, marginBottom: 0, border: "none", background: "transparent", padding: "4px 2px", fontWeight: 600 }} />
+                        <button onClick={() => setExpandId(openOpts ? null : f.id)} title="Opciones del campo" style={{ background: "none", border: "none", cursor: "pointer", color: openOpts ? T.accent : T.textMute, padding: 3, display: "flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="3" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></svg></button>
+                        <button onClick={() => moveField(i, -1)} disabled={i === 0} title="Subir" style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? T.textFaint : T.textMute, padding: 2, opacity: i === 0 ? .4 : 1 }}>▲</button>
+                        <button onClick={() => moveField(i, 1)} disabled={i === sel.fields.length - 1} title="Bajar" style={{ background: "none", border: "none", cursor: i === sel.fields.length - 1 ? "default" : "pointer", color: T.textMute, padding: 2, opacity: i === sel.fields.length - 1 ? .4 : 1 }}>▼</button>
+                        <button onClick={() => delField(f.id)} title="Eliminar campo" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
                       </div>
-                      <input value={f.label} onChange={e => updField(f.id, { label: e.target.value })} placeholder="Etiqueta del campo" style={{ ...inp, marginBottom: 7 }} />
-                      {f.type === "selector" && <input value={f.options} onChange={e => updField(f.id, { options: e.target.value })} placeholder="Opciones separadas por coma" style={{ ...inp, marginBottom: 7 }} />}
-                      {(f.type === "texto" || f.type === "area" || f.type === "numero" || f.type === "email") && <input value={f.placeholder} onChange={e => updField(f.id, { placeholder: e.target.value })} placeholder="Texto de ejemplo (placeholder)" style={{ ...inp, marginBottom: 7 }} />}
-                      <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
-                        <input type="checkbox" checked={!!f.required} onChange={e => updField(f.id, { required: e.target.checked })} /> Campo obligatorio
-                      </label>
+                      {openOpts && (
+                        <div style={{ marginTop: 9, paddingTop: 9, borderTop: "1px solid " + T.lineSoft, display: "flex", flexDirection: "column", gap: 7 }}>
+                          {f.type === "selector" && <input value={f.options} onChange={e => updField(f.id, { options: e.target.value })} placeholder="Opciones separadas por coma (ej: Sí, No, A veces)" style={inp} />}
+                          {(f.type === "texto" || f.type === "area" || f.type === "numero" || f.type === "email") && <input value={f.placeholder} onChange={e => updField(f.id, { placeholder: e.target.value })} placeholder="Texto de ejemplo (placeholder)" style={inp} />}
+                          <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
+                            <input type="checkbox" checked={!!f.required} onChange={e => updField(f.id, { required: e.target.checked })} /> Campo obligatorio
+                          </label>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <div style={{ marginTop: 12 }}>
+                <div style={{ marginTop: 14 }}>
                   <span style={lbl}>Agregar campo</span>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {FE_TIPOS.map(([k, l]) => <button key={k} onClick={() => addField(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "7px 11px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent }}>+ {l}</button>)}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {FE_TIPOS.map(([k, l, d]) => <button key={k} onClick={() => addField(k)} title={d} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: T.sans, fontSize: 11.5, padding: "9px 11px", borderRadius: 9, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.text, textAlign: "left" }}>
+                      <span style={{ flexShrink: 0, width: 24, height: 24, borderRadius: 6, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><FeIcon t={k} c={T.accent} s={13} /></span>
+                      <span style={{ minWidth: 0 }}><span style={{ display: "block", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l}</span><span style={{ display: "block", fontSize: 9.5, color: T.textFaint, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d}</span></span>
+                    </button>)}
                   </div>
                 </div>
               </div>
-              {/* Preview */}
-              <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "15px 16px" }}>
-                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 }}>Vista previa</div>
-                <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, marginBottom: 12 }}>{sel.name || "Plantilla de ficha"}</div>
-                {(sel.fields || []).length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Agrega campos para ver la vista previa.</div>
-                  : <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{(sel.fields || []).map(f => (
-                      <label key={f.id} style={{ display: "block" }}>
-                        <span style={lbl}>{f.label || "Campo sin nombre"}{f.required && <span style={{ color: "#C0285A" }}> *</span>}</span>
-                        {previewInput(f)}
-                      </label>
-                    ))}</div>}
+              {/* Vista previa EN VIVO — se ve como la ficha real, sticky mientras editas */}
+              <div style={{ position: "sticky", top: 8 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, fontWeight: 600, marginBottom: 8 }}>👁️ Así se verá · en vivo</div>
+                <div style={{ background: "linear-gradient(180deg," + (T.surface2 || T.surface) + ", " + T.surface + ")", border: "1px solid " + T.line, borderRadius: 14, padding: "20px 20px", boxShadow: "0 14px 40px -28px rgba(0,0,0,.4)" }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent, marginBottom: 4 }}>Ficha clínica</div>
+                  <div style={{ fontFamily: T.serif, fontSize: 21, color: T.text, marginBottom: 2 }}>{sel.name || "Plantilla de ficha"}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid " + T.lineSoft }}>Paciente · Fecha de atención</div>
+                  {(sel.fields || []).length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0", textAlign: "center" }}>Los campos que agregues aparecerán aquí al instante.</div>
+                    : <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>{(sel.fields || []).map(f => (
+                        <div key={f.id}>
+                          <span style={lbl}>{f.label || <span style={{ color: T.textFaint, textTransform: "none", letterSpacing: 0 }}>Campo sin nombre</span>}{f.required && <span style={{ color: "#C0285A" }}> *</span>}</span>
+                          {previewInput(f)}
+                        </div>
+                      ))}</div>}
+                </div>
               </div>
             </div>
           )}
@@ -3120,10 +3319,10 @@ function HorariosEditor({ T }) {
             return (
               <button key={s} onClick={()=>toggle(s)} disabled={isBooked}
                 style={{ padding:"9px 4px",borderRadius:5,cursor:isBooked?"default":"pointer",
-                  fontFamily:T.sans,fontSize:12,lineHeight:1.3,
-                  background:isBooked?"rgba(196,154,106,.15)":(isOpen?T.accent:T.bg),
-                  color:isBooked?"#C49A6A":(isOpen?T.onAccent:T.textMute),
-                  border:"1px solid "+(isBooked?"rgba(196,154,106,.5)":(isOpen?T.accent:T.line)) }}>
+                  fontFamily:T.sans,fontSize:12,lineHeight:1.3,fontWeight:500,
+                  background:isBooked?"rgba(196,154,106,.15)":(isOpen?"#1F8A5B":"rgba(192,40,90,.10)"),
+                  color:isBooked?"#C49A6A":(isOpen?"#fff":"#C0285A"),
+                  border:"1px solid "+(isBooked?"rgba(196,154,106,.5)":(isOpen?"#1F8A5B":"rgba(192,40,90,.35)")) }}>
                 {s}{isBooked&&<div style={{fontSize:9,opacity:.8}}>cita</div>}
               </button>
             );
@@ -3131,37 +3330,14 @@ function HorariosEditor({ T }) {
         </div>
       )}
 
-      <p style={{ fontFamily:T.sans,fontSize:10.5,color:T.textFaint,marginTop:12,lineHeight:1.5 }}>
-        "Guardar y publicar" escribe el override para este día y lo sincroniza con la app de pacientes y el link de reserva. Los cambios a la plantilla semanal (abajo) solo afectan días sin override.
+      <div style={{ display:"flex",alignItems:"center",gap:14,marginTop:12,flexWrap:"wrap" }}>
+        <span style={{ display:"flex",alignItems:"center",gap:6,fontFamily:T.sans,fontSize:10.5,color:T.textMute }}><span style={{width:11,height:11,borderRadius:3,background:"#1F8A5B"}} />Hora abierta</span>
+        <span style={{ display:"flex",alignItems:"center",gap:6,fontFamily:T.sans,fontSize:10.5,color:T.textMute }}><span style={{width:11,height:11,borderRadius:3,background:"rgba(192,40,90,.10)",border:"1px solid rgba(192,40,90,.35)"}} />Hora cerrada</span>
+        <span style={{ display:"flex",alignItems:"center",gap:6,fontFamily:T.sans,fontSize:10.5,color:T.textMute }}><span style={{width:11,height:11,borderRadius:3,background:"rgba(196,154,106,.15)",border:"1px solid rgba(196,154,106,.5)"}} />Con cita</span>
+      </div>
+      <p style={{ fontFamily:T.sans,fontSize:10.5,color:T.textFaint,marginTop:10,lineHeight:1.5 }}>
+        Toca cada hora para abrirla (verde) o cerrarla (rojo). "Guardar y publicar" lo sincroniza con la app de pacientes y el link de reserva.
       </p>
-
-      {/* Plantilla semanal — colapsable */}
-      <button onClick={()=>setShowPlantilla(!showPlantilla)} style={{ marginTop:8,fontFamily:T.sans,fontSize:11,color:T.textMute,background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:0 }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{transform:showPlantilla?"rotate(90deg)":"none",transition:".2s"}}><path d="M9 18l6-6-6-6"/></svg>
-        Plantilla semanal (defaults por día de la semana)
-      </button>
-      {showPlantilla && (
-        <div style={{ marginTop:12,paddingTop:12,borderTop:"1px solid "+T.lineSoft }}>
-          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
-            <span style={{ fontFamily:T.sans,fontSize:11.5,color:T.textMute }}>Día de la semana</span>
-            <AdBtn T={T} small primary onClick={saveTemplate}>{tmplSaved?"✓ Guardado":"Guardar plantilla"}</AdBtn>
-          </div>
-          <div style={{ display:"flex",gap:5,flexWrap:"wrap",marginBottom:12 }}>
-            {DOW7.map(([l,v])=><button key={v} onClick={()=>setTmplWd(v)} style={{ fontFamily:T.sans,fontSize:11,padding:"6px 10px",borderRadius:999,cursor:"pointer",background:tmplWd===v?T.text:T.surface,color:tmplWd===v?T.bg:T.textMute,border:"1px solid "+(tmplWd===v?T.text:T.line) }}>{l}</button>)}
-          </div>
-          <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0 12px",borderBottom:"1px solid "+T.lineSoft,marginBottom:12 }}>
-            <span style={{ fontFamily:T.sans,fontSize:12.5,color:T.text }}>{tmplOpen?"Día abierto":"Día cerrado"}</span>
-            <AdSwitch T={T} on={tmplOpen} onClick={()=>{setTmplOpen(!tmplOpen);setTmplSaved(false);}} />
-          </div>
-          {tmplOpen && (
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6 }}>
-              {_FULL_GRID.map(s=>{ const on=tmplSlots.includes(s); return (
-                <button key={s} onClick={()=>{setTmplSlots(on?tmplSlots.filter(x=>x!==s):[...tmplSlots,s].sort());setTmplSaved(false);}} style={{ padding:"8px 4px",borderRadius:5,cursor:"pointer",fontFamily:T.sans,fontSize:12,background:on?T.accent:T.bg,color:on?T.onAccent:T.textMute,border:"1px solid "+(on?T.accent:T.line) }}>{s}</button>
-              );})}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -3415,6 +3591,37 @@ function AutomatizacionesView({ T }) {
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
         El envío real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aquí configuras y visualizas las reglas.
       </div>
+      <NotificacionesCard T={T} />
+      {/* Formulario de reseñas de la clínica — ARRIBA (P18). */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Formulario de reseñas de tu clínica</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {reviews.length > 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(avg)} <span style={{ color: T.textMute }}>{avg.toFixed(1)} · {reviews.length} reseña{reviews.length === 1 ? "" : "s"}</span></div>}
+            <button onClick={() => setShowReviews(true)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, padding: "7px 13px", borderRadius: 8, cursor: "pointer", border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text }}>Ver reseñas{reviews.length ? " (" + reviews.length + ")" : ""}</button>
+          </div>
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Comparte este enlace con tus pacientes (se incluye al final del mensaje de indicaciones cuando "Solicitud de reseña" está activa). Las reseñas que dejen llegan a este panel.</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input readOnly value={reviewUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
+          <button onClick={copyReview} style={{ padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{copiedRev ? "✓" : "Copiar"}</button>
+          <a href={reviewUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, textDecoration: "none", fontFamily: T.sans, fontSize: 11.5 }}>Abrir ↗</a>
+        </div>
+        {reviews.length > 0 && (
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            {reviews.slice(0, 5).map(r => (
+              <div key={r.id} style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{r.name || "Anónimo"}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(r.stars || 0)}</span>
+                </div>
+                {r.comment && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3, lineHeight: 1.5 }}>{r.comment}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text, marginBottom: 10 }}>Recordatorios automáticos</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {rules.map(r => {
           const cc = AUTO_CH_COLOR[r.ch] || T.accent;
@@ -3466,37 +3673,7 @@ function AutomatizacionesView({ T }) {
             </div>}
       </div>
       {editAuto && <AutoBuilderModal T={T} auto={editAuto === "new" ? null : editAuto} onClose={() => setEditAuto(null)} onSave={saveAuto} />}
-      {/* Formulario de reseñas propio de la clínica (Medique). Va DEBAJO de las automatizaciones. */}
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginTop: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Formulario de reseñas de tu clínica</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            {reviews.length > 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(avg)} <span style={{ color: T.textMute }}>{avg.toFixed(1)} · {reviews.length} reseña{reviews.length === 1 ? "" : "s"}</span></div>}
-            <button onClick={() => setShowReviews(true)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, padding: "7px 13px", borderRadius: 8, cursor: "pointer", border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text }}>Ver reseñas{reviews.length ? " (" + reviews.length + ")" : ""}</button>
-          </div>
-        </div>
-        {showReviews && <ReviewsModal T={T} reviews={reviews} stars={stars} onClose={() => setShowReviews(false)} />}
-        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Comparte este enlace con tus pacientes (se incluye al final del mensaje de indicaciones cuando "Solicitud de reseña" está activa). Las reseñas que dejen llegan a este panel.</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input readOnly value={reviewUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
-          <button onClick={copyReview} style={{ padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{copiedRev ? "✓" : "Copiar"}</button>
-          <a href={reviewUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, textDecoration: "none", fontFamily: T.sans, fontSize: 11.5 }}>Abrir ↗</a>
-        </div>
-        {/* Últimas reseñas recibidas */}
-        {reviews.length > 0 && (
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            {reviews.slice(0, 5).map(r => (
-              <div key={r.id} style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{r.name || "Anónimo"}</span>
-                  <span style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(r.stars || 0)}</span>
-                </div>
-                {r.comment && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3, lineHeight: 1.5 }}>{r.comment}</div>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {showReviews && <ReviewsModal T={T} reviews={reviews} stars={stars} onClose={() => setShowReviews(false)} />}
     </div>
   );
 }
@@ -3870,7 +4047,7 @@ const INV_SEED = [
   { id: "i19", name: "Lápices de pasta", cat: "Fungible", stock: 12, min: 5, unit: "unidades", price: 500 }
 ];
 const PROC_SEED = [
-  { id: "pr1", name: "Botox 3 zonas", cobro: 150000, method: "Transferencia", uses: [["i1", 1], ["i4", 3], ["i7", 1], ["i8", 1]] },
+  { id: "pr1", name: "Botox 3 zonas", cobro: 150000, method: "Transferencia", uses: [["i1", 0.5], ["i4", 3], ["i7", 1], ["i8", 1]] },
   { id: "pr2", name: "Rinomodelación", cobro: 170000, method: "Transferencia", uses: [["i2", 1], ["i6", 1], ["i4", 2], ["i8", 4]] },
   { id: "pr3", name: "Bioestimulación (Sculptra)", cobro: 450000, method: "Transferencia", uses: [["i3", 2], ["i4", 2], ["i8", 5]] }
 ];
@@ -3878,7 +4055,7 @@ const PROC_SEED = [
 function cashAll() { try { return (window.DB && DB.get("cash_moves")) || []; } catch (e) { return []; } }
 function cashNotify() { try { window.dispatchEvent(new Event("jcm:cash")); } catch (e) {} }
 function cashSave(v) { try { if (window.DB) DB.set("cash_moves", v); } catch (e) {} cashNotify(); }
-function cashAdd(mv) { const all = cashAll(); all.push({ id: "cm" + Date.now() + Math.random().toString(36).slice(2, 5), ts: new Date().toISOString(), ...mv }); cashSave(all); }
+function cashAdd(mv) { const all = cashAll(); all.push({ id: "cm" + Date.now() + Math.random().toString(36).slice(2, 5), ts: new Date().toISOString(), ...mv }); cashSave(all); try { if (window.jcmAudit) { const D = window.JCDATA; const monto = D && D.fmt ? D.fmt(mv.amount || 0) : ("$" + (mv.amount || 0)); window.jcmAudit((mv.type === "egreso" ? "Egreso" : "Cobro") + " " + monto + (mv.concept ? " · " + mv.concept : "") + (mv.method ? " · " + mv.method : "")); } } catch (e) {} }
 function cashDelete(id) { cashSave(cashAll().filter(m => m.id !== id)); }
 // Día LOCAL (no UTC): evita que un cobro de las 23:00 de Chile cuente como del día siguiente.
 function _localDay(d) { d = d ? new Date(d) : new Date(); if (isNaN(d)) return ""; return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
@@ -4121,7 +4298,7 @@ function InventarioView({ T }) {
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 9 }}>
               {p.uses.map((u, k) => (
-                <span key={k} style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, background: T.bg, border: "1px solid " + T.lineSoft, borderRadius: 999, padding: "4px 9px" }}>{invName(u[0])} × {u[1]}</span>
+                <span key={k} style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, background: T.bg, border: "1px solid " + T.lineSoft, borderRadius: 999, padding: "4px 9px" }}>{invName(u[0])} × {u[1] % 1 === 0 ? u[1] : ("" + u[1]).replace(".", ",") + " vial"}</span>
               ))}
             </div>
           </div>
@@ -4305,7 +4482,10 @@ function NewProcModal({ T, items, onClose, onSave, initial }) {
   const [cobro, setCobro] = useState(initial && initial.cobro ? "" + initial.cobro : "");
   const [method, setMethod] = useState(initial && initial.method ? initial.method : "Efectivo");
   const [uses, setUses] = useState(initial ? (initial.uses || []).reduce((a, u) => (a[u[0]] = u[1], a), {}) : {}); // { invId: qty }
-  function setQty(id, q) { q = Math.max(0, q); setUses(u => { const n = { ...u }; if (q === 0) delete n[id]; else n[id] = q; return n; }); }
+  // Insumos medidos en "viales" (ej. Toxina botulínica 100U que rinde para 2 pacientes) se
+  // pueden consumir por MEDIO vial (paso 0,5); el resto por unidad entera. (P13)
+  const stepFor = it => (/vial/i.test((it && it.unit) || "") ? 0.5 : 1);
+  function setQty(id, q, step) { step = step || 1; q = Math.max(0, Math.round(q / step) * step); q = Math.round(q * 100) / 100; setUses(u => { const n = { ...u }; if (q === 0) delete n[id]; else n[id] = q; return n; }); }
   const ok = name.trim().length > 1 && Object.keys(uses).length > 0;
   const costo = Object.keys(uses).reduce((s, id) => { const it = items.find(x => x.id === id); return s + (it ? it.price * uses[id] : 0); }, 0);
   return (
@@ -4318,14 +4498,15 @@ function NewProcModal({ T, items, onClose, onSave, initial }) {
         </div>
         <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Costo insumos seleccionados: <b style={{ color: T.text }}>{(window.JCDATA).fmt(costo)}</b> · líquido estimado <b style={{ color: (parseInt(cobro, 10) || 0) - costo >= 0 ? "#1F8A5B" : "#C0285A" }}>{(window.JCDATA).fmt((parseInt(cobro, 10) || 0) - costo)}</b></div>
         <div>
-          <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Insumos que consume</div>
+          <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 4 }}>Insumos que consume</div>
+          <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 8, lineHeight: 1.5 }}>Los insumos en <b style={{ color: T.textMute }}>viales</b> (ej. toxina botulínica) se descuentan por <b style={{ color: T.textMute }}>medio vial</b> (0,5) o vial completo, ya que un vial rinde para varios pacientes.</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 7, maxHeight: 280, overflowY: "auto" }}>
-            {items.map(i => { const q = uses[i.id] || 0; return (
+            {items.map(i => { const q = uses[i.id] || 0; const step = stepFor(i); const isVial = step < 1; return (
               <div key={i.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 8, background: q ? T.surface2 : T.surface, border: "1px solid " + (q ? T.accent : T.line) }}>
-                <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 12.5, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.name}</span>
-                <button onClick={() => setQty(i.id, q - 1)} style={invAdj(T)}>−</button>
-                <span style={{ fontFamily: T.serif, fontSize: 16, color: T.text, minWidth: 22, textAlign: "center" }}>{q}</span>
-                <button onClick={() => setQty(i.id, q + 1)} style={invAdj(T)}>+</button>
+                <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 12.5, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.name}{isVial && <span style={{ color: T.textFaint, fontSize: 10.5 }}> · por vial</span>}</span>
+                <button onClick={() => setQty(i.id, q - step, step)} style={invAdj(T)}>−</button>
+                <span style={{ fontFamily: T.serif, fontSize: 16, color: T.text, minWidth: isVial ? 46 : 22, textAlign: "center" }}>{isVial ? (q % 1 === 0 ? q : q.toString().replace(".", ",")) + (q ? " v" : "") : q}</span>
+                <button onClick={() => setQty(i.id, q + step, step)} style={invAdj(T)}>+</button>
               </div>
             ); })}
           </div>
@@ -4473,10 +4654,25 @@ if (typeof window !== "undefined") {
 }
 
 // Diagnóstico de sincronización con la nube: tamaño de cada bloque, qué falta subir y por qué.
-function SyncStatusCard({ T }) {
+function SyncStatusCard({ T, compact }) {
   const [, force] = useState(0);
+  const [open, setOpen] = useState(!compact);
   const s = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.syncStatus) ? window.JCSAAS.syncStatus() : null;
   if (!s) return null; // solo en modo nube
+  // Modo compacto (P27): una barra delgada; se despliega al tocar "Ver detalle".
+  if (compact && !open) {
+    const pendC = (s.dirty || []).length;
+    return (
+      <button onClick={() => setOpen(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: pendC ? "rgba(192,40,90,.06)" : T.surface, border: "1px solid " + (pendC ? "#C0285A55" : T.line), borderRadius: 10, padding: "12px 14px", cursor: "pointer", textAlign: "left" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: pendC ? "#C0285A" : "#1F8A5B", flexShrink: 0 }} />
+          <span style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>Estado de sincronización</span>
+          <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{pendC === 0 ? "todo sincronizado ✓" : pendC + " pendiente(s)"}</span>
+        </span>
+        <span style={{ fontFamily: T.sans, fontSize: 11, color: T.accent }}>Ver detalle ↓</span>
+      </button>
+    );
+  }
   const fmtSize = b => b >= 1048576 ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB";
   const dirtySet = {}; (s.dirty || []).forEach(k => { dirtySet[k] = true; });
   const labelOf = k => k.indexOf("pcons_") === 0 ? "Consentimientos · un paciente" : ({ patients: "Pacientes", appointments: "Agenda", cash_moves: "Caja", inv_items: "Inventario", inv_procs: "Procedimientos", config: "Configuración", team: "Equipo", services_custom: "Servicios", horarios_v1: "Horarios", bookings: "Reservas web", admin_tasks: "Pendientes" })[k] || k;
@@ -4738,7 +4934,8 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
 
       {tab === "respaldo" && (
         <div>
-          <SyncStatusCard T={T} />
+          {/* P27: 1) exportar, 2) respaldo completo, 3) importar pacientes; el estado de
+              sincronización pasa al final y ocupa menos espacio. */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 14 }}>
             {expCard("Pacientes", "Nombre, RUT, contacto y estado.", expPac)}
             {expCard("Citas", "Fecha, paciente, servicio, estado y precio.", expCitas)}
@@ -4772,26 +4969,65 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
               }}>Marcar pacientes existentes como consentimiento en papel</AdBtn>
             </div>
           )}
+          {/* Estado de sincronización — al final y compacto (P27). */}
+          <div style={{ marginTop: 18 }}><SyncStatusCard T={T} compact /></div>
         </div>
       )}
 
-      {tab === "equipo" && (
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "24px 20px", textAlign: "center" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 420, margin: "0 auto 16px" }}>Gestiona los profesionales, sus datos y permisos por sección desde el módulo Equipo.</div>
-          <AdBtn T={T} primary onClick={() => go("equipo")}>Ir a Equipo</AdBtn>
-        </div>
-      )}
+      {tab === "equipo" && (() => {
+        let team = []; try { team = (window.DB && DB.get("team")) || (window.CADMIN && CADMIN.team) || []; } catch (e) {}
+        return (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5, maxWidth: 520 }}>Integrantes del equipo y sus permisos por sección. Para editar datos, permisos o crear la cuenta de login, entra a cada profesional en Equipo.</div>
+              <AdBtn T={T} primary onClick={() => go("equipo")}>Gestionar en Equipo</AdBtn>
+            </div>
+            {team.length === 0 ? <Empty2 T={T}>Aún no hay profesionales en el equipo.</Empty2>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {team.map(m => {
+                    const perms = m.perms || {};
+                    const activos = PERM_SECCIONES.filter(p => perms[p]);
+                    const owner = m.role && /a cargo|dueñ|owner|admin/i.test(m.role);
+                    return (
+                      <div key={m.id || m.name} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: "50%", background: m.color || T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 16, flexShrink: 0 }}>{(m.name || "?").split(" ").map(w => w[0]).slice(0, 2).join("")}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{m.name}</div>
+                            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[m.role, m.email].filter(Boolean).join("  ·  ")}</div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
+                            <AdTag T={T} tone={m.active ? "ok" : "muted"}>{m.active ? "Activo" : "Inactivo"}</AdTag>
+                            {m.access && <span style={{ fontFamily: T.sans, fontSize: 9.5, color: "#1F8A5B" }}>● con login</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                          {owner
+                            ? <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.accent, background: T.accent + "16", border: "1px solid " + T.accent + "40", borderRadius: 999, padding: "3px 10px" }}>Acceso total (dueño)</span>
+                            : (activos.length ? activos.map(p => <span key={p} style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, background: T.bg, border: "1px solid " + T.lineSoft, borderRadius: 999, padding: "3px 10px" }}>{p}</span>)
+                              : <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>Sin permisos asignados</span>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>}
+          </div>
+        );
+      })()}
 
       {tab === "registro" && (() => {
-        let log = []; try { log = (DB.get("audit_log") || []).slice(0, 30); } catch (e) {}
+        let log = []; try { log = (DB.get("audit_log") || []).slice(0, 60); } catch (e) {}
+        const cuando = ts => { try { return new Date(ts).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch (e) { return (ts || "").slice(0, 16).replace("T", " "); } };
         return (
           <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 16 }}>
-            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Actividad reciente</div>
+            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 4 }}>Actividad reciente</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 12, lineHeight: 1.5 }}>Cada cita agendada, cambio de estado, paciente creado y cobro queda registrado con la fecha y quién lo hizo.</div>
             {log.length ? log.map((e, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5 }}>
-                <span style={{ color: T.text }}>{e.action || e.msg || "Acción"}</span><span style={{ color: T.textFaint, fontSize: 11 }}>{(e.ts || "").slice(0, 16).replace("T", " ")}</span>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, padding: "9px 0", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5 }}>
+                <span style={{ color: T.text, minWidth: 0 }}>{e.action || e.msg || "Acción"}{e.user ? <span style={{ color: T.textFaint, fontSize: 11 }}> · {e.user}</span> : null}</span>
+                <span style={{ color: T.textFaint, fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }}>{cuando(e.ts)}</span>
               </div>
-            )) : <Empty2 T={T}>Aún no hay actividad registrada en este dispositivo.</Empty2>}
+            )) : <Empty2 T={T}>Aún no hay actividad registrada. Se irá llenando a medida que uses el panel (citas, pacientes, cobros).</Empty2>}
           </div>
         );
       })()}
@@ -4845,6 +5081,8 @@ function CajaView({ T }) {
   const [editMov, setEditMov] = useState(null); // movimiento al que se le cambia el método de pago
   const [cierre, setCierre] = useState(false);
   const [periodo, setPeriodo] = useState("hoy"); // hoy | semana | mes
+  const [payQ, setPayQ] = useState(""); // P12: buscador de pagos
+  const [tratScope, setTratScope] = useState("mes"); // P12: ranking mensual | histórico (no diario)
   const now = new Date();
   const hoyDay = _localDay(now);
   // Rango de la semana actual (lunes a domingo, en hora local).
@@ -4864,6 +5102,10 @@ function CajaView({ T }) {
   const costoIns = movs.reduce((s, m) => s + (m.cost || 0), 0);
   const atenciones = movs.filter(m => m.kind === "atencion");
   const manuales = movs.filter(m => m.kind !== "atencion");
+  // Filtro del buscador de pagos (P12).
+  const payMatch = m => { const q = payQ.trim().toLowerCase(); if (!q) return true; return (((m.concept || "") + " " + (m.method || "") + " " + (m.patient || "") + " " + (m.prof || "")).toLowerCase().includes(q)); };
+  const atencionesF = atenciones.filter(payMatch);
+  const manualesF = manuales.filter(payMatch);
   // Costo de publicidad por paciente atendido (solo JC Medical: $5.000 c/u). El líquido lo descuenta.
   const adCost = (typeof jcmAdCostPerPatient === "function") ? jcmAdCostPerPatient() : 0;
   const costoPub = atenciones.length * adCost;
@@ -4882,7 +5124,14 @@ function CajaView({ T }) {
     if (!porTrat[nombre]) porTrat[nombre] = { n: 0, total: 0 };
     porTrat[nombre].n += 1; porTrat[nombre].total += (m.amount || 0);
   });
-  const topTrat = Object.keys(porTrat).map(k => ({ name: k, n: porTrat[k].n, total: porTrat[k].total })).sort((a, b) => b.total - a.total).slice(0, 5);
+  // El ranking de "más vendidos" NO usa el filtro diario: se calcula por MES actual o HISTÓRICO
+  // completo (toggle tratScope), como pidió el usuario. (P12)
+  const mesKeyCaja = hoyDay.slice(0, 7);
+  const allAtenc = cashMovimientos().filter(m => m.kind === "atencion");
+  const atencTrat = tratScope === "mes" ? allAtenc.filter(m => (m._day || "").slice(0, 7) === mesKeyCaja) : allAtenc;
+  const porTratR = {};
+  atencTrat.forEach(m => { const nombre = (((m.concept || "Atención").split(" · ")[0]) || "Atención").trim(); if (!porTratR[nombre]) porTratR[nombre] = { n: 0, total: 0 }; porTratR[nombre].n += 1; porTratR[nombre].total += (m.amount || 0); });
+  const topTrat = Object.keys(porTratR).map(k => ({ name: k, n: porTratR[k].n, total: porTratR[k].total })).sort((a, b) => b.total - a.total).slice(0, 5);
   // Ventas por profesional (desde el campo prof del movimiento de atención).
   const porProf = {};
   atenciones.forEach(m => { const p = (m.prof || "").trim() || "Sin asignar"; if (!porProf[p]) porProf[p] = { n: 0, total: 0 }; porProf[p].n += 1; porProf[p].total += (m.amount || 0); });
@@ -4924,11 +5173,18 @@ function CajaView({ T }) {
         <CajaCard T={T} l="Egresos" v={D.fmt(egresos)} c="#C0285A" />
         <CajaCard T={T} l={adCost > 0 ? "Líquido (ganancia)" : "Neto (ganancia)"} v={D.fmt(neto)} c={T.accent} strong />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Atenciones cobradas {subLbl}</div>
-          {atenciones.length === 0 ? <Empty2 T={T}>Sin atenciones cobradas {subLbl}.</Empty2>
-            : atenciones.map(m => (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Atenciones cobradas {subLbl}</div>
+          </div>
+          {/* Buscador de pagos (P12): filtra atenciones y movimientos por concepto, método, paciente o profesional. */}
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.7" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+            <input value={payQ} onChange={e => setPayQ(e.target.value)} placeholder="Buscar pago (concepto, método, paciente…)" style={{ width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" }} />
+          </div>
+          {atencionesF.length === 0 ? <Empty2 T={T}>{payQ.trim() ? "Sin pagos que coincidan con la búsqueda." : "Sin atenciones cobradas " + subLbl + "."}</Empty2>
+            : atencionesF.map(m => (
               <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
                 <div onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div>
@@ -4944,8 +5200,8 @@ function CajaView({ T }) {
               </div>
             ))}
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" }}>Movimientos manuales</div>
-          {manuales.length === 0 ? <Empty2 T={T}>Sin movimientos manuales {subLbl}.</Empty2>
-            : manuales.map(m => (
+          {manualesF.length === 0 ? <Empty2 T={T}>{payQ.trim() ? "Sin movimientos que coincidan." : "Sin movimientos manuales " + subLbl + "."}</Empty2>
+            : manualesF.map(m => (
               <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")}</div>
@@ -4972,10 +5228,17 @@ function CajaView({ T }) {
           </div>
         </div>
       </div>
-      {movs.length > 0 && (
+      {allAtenc.length > 0 && (
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginTop: 16 }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Tratamientos que más venden · {subLbl}</div>
-          {topTrat.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aparecerá cuando cobres atenciones desde la ficha del paciente. Los movimientos manuales no cuentan como tratamiento.</div>}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Tratamientos que más venden · {tratScope === "mes" ? "este mes" : "histórico"}</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[["mes", "Este mes"], ["hist", "Histórico"]].map(([k, l]) => (
+                <button key={k} onClick={() => setTratScope(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "6px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tratScope === k ? T.accent : T.line), background: tratScope === k ? T.surface2 : T.surface, color: tratScope === k ? T.text : T.textMute }}>{l}</button>
+              ))}
+            </div>
+          </div>
+          {topTrat.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no hay ventas {tratScope === "mes" ? "este mes" : "registradas"}. Aparecerá cuando cobres atenciones desde la ficha del paciente.</div>}
           {topTrat.map((t, i) => {
             const max = topTrat[0].total || 1;
             return (

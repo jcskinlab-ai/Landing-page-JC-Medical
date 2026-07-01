@@ -42,9 +42,12 @@ function jcmSignFoot(b, proName, docLabel, patientName, fechaLarga, medSig) {
   }
   return "<div class='signature'><div class='sign-block'><div class='sign-line'></div><div class='sign-name'>" + e(proName || b.clinName) + "</div><div class='sign-role'>" + e(b.proRole) + "</div></div>" + medBlock + "<div class='sign-stamp'>" + stamp + "</div></div><footer class='docfooter'><span class='f-l'>" + e(docLabel) + " \xB7 " + e(patientName) + " \xB7 Emitida <span class='fdate'>" + e(fechaLarga) + "</span></span><span class='f-r'>" + e(b.handle || b.clinName) + "</span></footer>";
 }
-function jcmPrintDoc(title, b, inner) {
+function jcmDocHTML(title, b, inner) {
   const e = jcmDocEsc;
-  const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + e(title) + "</title><link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin><link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap' rel='stylesheet'><style>" + JCM_DOC_CSS + "</style></head><body><div class='sheet'><div class='wm'>" + e(b.wm) + "</div>" + inner + "</div></body></html>";
+  return "<!doctype html><html><head><meta charset='utf-8'><title>" + e(title) + "</title><link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin><link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap' rel='stylesheet'><style>" + JCM_DOC_CSS + "</style></head><body><div class='sheet'><div class='wm'>" + e(b.wm) + "</div>" + inner + "</div></body></html>";
+}
+function jcmPrintDoc(title, b, inner) {
+  const html = jcmDocHTML(title, b, inner);
   if (window.jcmPrintHTML) window.jcmPrintHTML(html);
   else {
     const w = window.open("", "_blank");
@@ -53,6 +56,50 @@ function jcmPrintDoc(title, b, inner) {
       w.document.close();
     }
   }
+}
+window._jcmDocDir = window._jcmDocDir || null;
+async function jcmSaveDocToFolder(filename, html) {
+  filename = (filename || "documento").replace(/[\\/:*?"<>|]+/g, " ").trim() + ".html";
+  if (window.showDirectoryPicker) {
+    try {
+      if (!window._jcmDocDir) window._jcmDocDir = await window.showDirectoryPicker({ mode: "readwrite", id: "medique-indicaciones", startIn: "documents" });
+      const dir = window._jcmDocDir;
+      if (dir.queryPermission) {
+        let p = await dir.queryPermission({ mode: "readwrite" });
+        if (p !== "granted" && dir.requestPermission) p = await dir.requestPermission({ mode: "readwrite" });
+        if (p !== "granted") {
+          window._jcmDocDir = null;
+          throw new Error("sin permiso");
+        }
+      }
+      const fh = await dir.getFileHandle(filename, { create: true });
+      const w = await fh.createWritable();
+      await w.write(html);
+      await w.close();
+      window.jcmToast && window.jcmToast("Guardado en tu carpeta: " + filename, "ok");
+      return true;
+    } catch (e) {
+      if (e && e.name === "AbortError") return false;
+    }
+  }
+  try {
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4e3);
+    window.jcmToast && window.jcmToast("Descargado: " + filename + " \xB7 tu navegador no permite elegir carpeta (revisa Descargas).", "info");
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+if (typeof window !== "undefined") {
+  window.jcmDocHTML = jcmDocHTML;
+  window.jcmSaveDocToFolder = jcmSaveDocToFolder;
 }
 function Avatar({ T, name, src, size }) {
   const s = size || 40;
@@ -93,7 +140,35 @@ function AdField({ T, label, value, onChange, placeholder, inputMode }) {
     }
   ));
 }
+window.jcEscStack = window.jcEscStack || [];
+if (!window._jcEscBound) {
+  window._jcEscBound = true;
+  window.addEventListener("keydown", function(ev) {
+    if (ev.key !== "Escape") return;
+    var stack = window.jcEscStack;
+    if (stack.length) {
+      var fn = stack[stack.length - 1];
+      if (typeof fn === "function") {
+        ev.stopPropagation();
+        fn();
+      }
+    }
+  }, true);
+}
+function useEscClose(onClose) {
+  useEffect(() => {
+    if (!onClose) return;
+    const entry = onClose;
+    window.jcEscStack.push(entry);
+    return () => {
+      const i = window.jcEscStack.lastIndexOf(entry);
+      if (i >= 0) window.jcEscStack.splice(i, 1);
+    };
+  }, [onClose]);
+}
+window.useEscClose = useEscClose;
 function AdModal({ T, title, onClose, children, footer, wide, huge }) {
+  useEscClose(onClose);
   return /* @__PURE__ */ React.createElement("div", { onMouseDown: (e) => {
     if (e.target === e.currentTarget) onClose();
   }, style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: huge ? 12 : 16, paddingRight: huge ? 12 : 16 } }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { width: huge ? "97vw" : "100%", maxWidth: huge ? 1180 : wide ? 720 : 460, maxHeight: "100%", background: T.bg, borderRadius: 16, border: "1px solid " + T.line, display: "flex", flexDirection: "column", animation: "jcSlideUp .3s " + T.ease, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 22, fontWeight: 300, color: T.text } }, title), /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 4 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("div", { style: { padding: "20px", overflowY: "auto", flex: 1 } }, children), footer && /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 20px", borderTop: "1px solid " + T.line } }, footer)));
@@ -435,19 +510,31 @@ function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
 }
 function jcmConsentPending(patients, appts) {
   appts = appts || [];
-  const needSet = /* @__PURE__ */ new Set();
+  const rutN = (r) => ("" + (r || "")).replace(/[^0-9kK]/g, "").toLowerCase();
+  const telN = (t) => ("" + (t || "")).replace(/\D/g, "").slice(-8);
+  const needId = /* @__PURE__ */ new Set(), needNm = /* @__PURE__ */ new Set(), needRut = /* @__PURE__ */ new Set(), needTel = /* @__PURE__ */ new Set();
   (appts || []).forEach(function(a) {
     const st = a.status;
     if (st === "anulada" || st === "cancelada" || st === "no_asistio" || st === "atendida") return;
     if (a.attended) return;
     if (/evaluaci/i.test(a.proc || "")) return;
-    if (a.patId) needSet.add("id:" + a.patId);
+    if (a.patId) needId.add(a.patId);
     const nm = (a.name || "").toLowerCase().trim();
-    if (nm) needSet.add("nm:" + nm);
+    if (nm) needNm.add(nm);
+    const r = rutN(a.rut);
+    if (r.length >= 6) needRut.add(r);
+    const t = telN(a.phone);
+    if (t.length === 8) needTel.add(t);
   });
   return (patients || []).filter(function(p) {
     if (p.consent) return false;
-    return needSet.has("id:" + p.id) || needSet.has("nm:" + (p.name || "").toLowerCase().trim());
+    if (needId.has(p.id)) return true;
+    if (needNm.has((p.name || "").toLowerCase().trim())) return true;
+    var r = rutN(p.rut);
+    if (r.length >= 6 && needRut.has(r)) return true;
+    var t = telN(p.phone);
+    if (t.length === 8 && needTel.has(t)) return true;
+    return false;
   });
 }
 if (typeof window !== "undefined") window.jcmConsentPending = jcmConsentPending;
@@ -941,7 +1028,7 @@ function SignConsentModal({ T, data, onClose, onSign }) {
       return [];
     }
   }();
-  const allTpls = (A.consents || []).concat(customTpls);
+  const allTpls = customTpls.concat(A.consents || []);
   const [tpl, setTpl] = useState(data.template);
   const [nombre, setNombre] = useState(data.patient.name || "");
   const [ci, setCi] = useState(data.patient.rut || "");
@@ -1716,7 +1803,7 @@ function RecetaTab({ T, patient, updatePatient }) {
     setInd("");
     setCtrl("");
   }
-  function imprimir(r) {
+  function imprimir(r, save) {
     const e = jcmDocEsc;
     const b = jcmDocBrand();
     const now = /* @__PURE__ */ new Date();
@@ -1738,16 +1825,39 @@ function RecetaTab({ T, patient, updatePatient }) {
         return null;
       }
     }());
-    jcmPrintDoc(titleOf(r.tipo) + " \xB7 " + e(patient.name || ""), b, inner);
+    const docTitle = titleOf(r.tipo) + " \xB7 " + e(patient.name || "");
+    if (save) {
+      const fname = titleOf(r.tipo) + " - " + (patient.name || "Paciente") + " - " + (r.fecha || hoy2);
+      window.jcmSaveDocToFolder && window.jcmSaveDocToFolder(fname, jcmDocHTML(docTitle, b, inner));
+    } else {
+      jcmPrintDoc(docTitle, b, inner);
+    }
   }
   function enviarWa(r) {
+    const clin = window.clinicName && window.clinicName() || "Medique";
     const pro = window.clinicPro && window.clinicPro() || "";
-    const L = ["*" + titleOf(r.tipo) + " \u2014 " + (window.clinicName && window.clinicName() || "Medique") + "*", r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " (" + patient.age + " a\xF1os)" : "")];
-    if (r.diag) L.push("Diagn\xF3stico: " + r.diag);
-    L.push(r.tipo === "indicaciones" ? "Indicaciones:" : "Rp.:", r.rp);
-    if (r.ind) L.push("Notas: " + r.ind);
-    if (r.ctrl) L.push("Control de evaluaci\xF3n: " + fmtCtrl(r.ctrl));
-    L.push("\u2014 " + pro);
+    const isInd = r.tipo === "indicaciones";
+    const L = [
+      "*" + titleOf(r.tipo).toUpperCase() + "*",
+      "_" + clin + "_",
+      "",
+      "\u{1F5D3}\uFE0F " + r.fecha,
+      "\u{1F464} " + (patient.name || "") + (patient.age ? " \xB7 " + patient.age + " a\xF1os" : "")
+    ];
+    if (r.diag) L.push("\u{1FA7A} " + (isInd ? "Procedimiento" : "Diagn\xF3stico") + ": " + r.diag);
+    L.push("", "*" + (isInd ? "Indicaciones y cuidados" : "Prescripci\xF3n (Rp.)") + "*");
+    const lines = r.rp.split("\n").map((l) => l.replace(/^[•\-\*]\s*/, "").trim()).filter(Boolean);
+    if (isInd) lines.forEach((l) => L.push("\u2022 " + l));
+    else L.push(r.rp);
+    if (r.ind) {
+      L.push("", "*Notas adicionales*", r.ind);
+    }
+    if (r.ctrl) {
+      L.push("", "\u{1F4C5} Control de evaluaci\xF3n: " + fmtCtrl(r.ctrl));
+    }
+    L.push("", "\u2014 " + [pro, clin].filter(Boolean).join(" \xB7 "));
+    const reviewUrl = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink ? window.JCSAAS.reviewLink() : "";
+    if (reviewUrl) L.push("", "\u2B50 \xBFC\xF3mo fue tu experiencia? D\xE9janos tu rese\xF1a aqu\xED: " + reviewUrl);
     window.open("https://wa.me/" + (patient.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener");
   }
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", boxSizing: "border-box" };
@@ -1776,6 +1886,6 @@ function RecetaTab({ T, patient, updatePatient }) {
     } catch (_) {
       return null;
     }
-  })(), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16, textAlign: "right" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: guardar }, "Guardar ", tipo === "indicaciones" ? "indicaciones" : "receta"))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 } }, "Documentos del paciente (", recetas.length, ")"), recetas.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "A\xFAn no hay documentos. Crea el primero arriba."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, recetas.map((r) => /* @__PURE__ */ React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { onClick: () => setPreview(r), title: "Ver indicaciones", style: { flex: 1, minWidth: 0, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.accent } }, titleOf(r.tipo), r.diag ? " \xB7 " + r.diag : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, r.fecha, " \xB7 ", r.rp.split("\n")[0])), /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, onClick: () => imprimir(r) }, "Imprimir"), /* @__PURE__ */ React.createElement("button", { onClick: () => enviarWa(r), title: "Enviar por WhatsApp", style: { display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", background: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" })), "WhatsApp"), /* @__PURE__ */ React.createElement("button", { onClick: () => updatePatient(patient.id, { recetas: recetas.filter((x) => x.id !== r.id) }), title: "Eliminar", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))))), preview && /* @__PURE__ */ React.createElement(AdModal, { T, title: titleOf(preview.tipo), onClose: () => setPreview(null), footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => imprimir(preview) }, "Imprimir"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => enviarWa(preview) }, "WhatsApp")) }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 } }, preview.fecha, " \xB7 ", patient.name, patient.age ? " \xB7 " + patient.age + " a\xF1os" : ""), preview.diag && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 } }, "Diagn\xF3stico"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text } }, preview.diag)), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: preview.ind ? 14 : 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 } }, preview.tipo === "indicaciones" ? "Indicaciones / cuidados" : "Rp. (medicamentos)"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14, color: T.text, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, preview.rp)), preview.ind && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 } }, "Notas adicionales"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, preview.ind)), preview.ctrl && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 } }, "Control de evaluaci\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text, textTransform: "capitalize" } }, fmtCtrl(preview.ctrl)))));
+  })(), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16, textAlign: "right" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: guardar }, "Guardar ", tipo === "indicaciones" ? "indicaciones" : "receta"))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 } }, "Documentos del paciente (", recetas.length, ")"), recetas.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "A\xFAn no hay documentos. Crea el primero arriba."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, recetas.map((r) => /* @__PURE__ */ React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { onClick: () => setPreview(r), title: "Ver indicaciones", style: { flex: 1, minWidth: 0, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.accent } }, titleOf(r.tipo), r.diag ? " \xB7 " + r.diag : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, r.fecha, " \xB7 ", r.rp.split("\n")[0])), /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, onClick: () => imprimir(r) }, "Imprimir"), /* @__PURE__ */ React.createElement("button", { onClick: () => imprimir(r, true), title: "Guardar el documento en una carpeta que elijas", style: { display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "8px 11px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" }), /* @__PURE__ */ React.createElement("path", { d: "M17 21v-8H7v8M7 3v5h8" })), "Guardar"), /* @__PURE__ */ React.createElement("button", { onClick: () => enviarWa(r), title: "Enviar por WhatsApp", style: { display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", background: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" })), "WhatsApp"), /* @__PURE__ */ React.createElement("button", { onClick: () => updatePatient(patient.id, { recetas: recetas.filter((x) => x.id !== r.id) }), title: "Eliminar", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))))), preview && /* @__PURE__ */ React.createElement(AdModal, { T, title: titleOf(preview.tipo), onClose: () => setPreview(null), footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => imprimir(preview) }, "Imprimir"), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => imprimir(preview, true) }, "Guardar en carpeta"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => enviarWa(preview) }, "WhatsApp")) }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 } }, preview.fecha, " \xB7 ", patient.name, patient.age ? " \xB7 " + patient.age + " a\xF1os" : ""), preview.diag && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 } }, "Diagn\xF3stico"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text } }, preview.diag)), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: preview.ind ? 14 : 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 } }, preview.tipo === "indicaciones" ? "Indicaciones / cuidados" : "Rp. (medicamentos)"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14, color: T.text, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, preview.rp)), preview.ind && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 } }, "Notas adicionales"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, preview.ind)), preview.ctrl && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 } }, "Control de evaluaci\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text, textTransform: "capitalize" } }, fmtCtrl(preview.ctrl)))));
 }
 Object.assign(window, { initials, Avatar, AdBtn, AdField, AdModal, AdTag, PacientesView, NewPatientModal, FichaMedica, NotasTab, NewEntryModal, ConsentView, SignConsentModal, ConsentTab, RecetaTab, ImagenesTab, FacturacionTab, CampanaTab, AuditoriaIA, ResumenIA, recitaFor, recitaDue, recitaMsg, recitaWa });

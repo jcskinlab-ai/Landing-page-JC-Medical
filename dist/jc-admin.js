@@ -95,7 +95,10 @@ const NAV_TOP_GROUPS = [
   { l: "Cl\xEDnica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones"] },
   { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
-  { l: "An\xE1lisis", keys: ["resumen", "colaboracion", "fidelidad", "integraciones", "reportes"] },
+  // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes). Fidelidad, Colaboración
+  // e Integraciones pasan a su propio menú "Herramientas". (P22)
+  { l: "An\xE1lisis", keys: ["resumen", "reportes"] },
+  { l: "Herramientas", keys: ["fidelidad", "colaboracion", "integraciones"] },
   { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
 ];
 const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"];
@@ -249,9 +252,63 @@ function clinicPro() {
   }
   return clinicSeeded() ? ((window.JCDATA || {}).contact || {}).pro || "" : "";
 }
+function clinicMapsLink() {
+  try {
+    var m = window.DB && DB.cfg().clinic_maps;
+    if (m && ("" + m).trim()) return ("" + m).trim();
+  } catch (e) {
+  }
+  var a = clinicAddr();
+  return a ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(a) : "";
+}
+function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
+  var addr = clinicAddr(), maps = clinicMapsLink();
+  var L = [
+    "Hola " + name + " \u{1F44B}",
+    "",
+    "Tu cita en " + clinicDisplayName() + " qued\xF3 confirmada:",
+    "",
+    "\u{1F4C5} " + wk.wd + " " + wk.dd + " " + wk.mm,
+    "\u{1F550} " + time + " hrs",
+    "\u{1F489} " + proc,
+    "\u{1F468}\u200D\u2695\uFE0F " + prof
+  ];
+  if (addr) L.push("\u{1F4CD} " + addr);
+  if (maps) L.push("\u{1F5FA}\uFE0F C\xF3mo llegar: " + maps);
+  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.", "", "\xA1Nos vemos pronto! \u{1F33F}");
+  return L.join("\n");
+}
+function jcmRecordatorioMsg(a) {
+  var addr = clinicAddr(), maps = clinicMapsLink();
+  var when = (a.fecha ? "" : "") + (a.time ? "a las " + a.time + " hrs" : "");
+  var L = ["Hola " + (a.name || "") + " \u{1F44B}", "", "Te recordamos tu cita en " + clinicDisplayName() + (when ? " " + when : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "", "\xBFNos confirmas tu asistencia? Responde *S\xCD* para confirmar \u{1F64C}"];
+  if (maps) L.push("", "\u{1F5FA}\uFE0F C\xF3mo llegar: " + maps);
+  L.push("", "\xA1Te esperamos! \u{1F33F}");
+  return L.join("\n");
+}
 window.clinicName = clinicName;
 window.clinicAddr = clinicAddr;
 window.clinicPro = clinicPro;
+window.clinicMapsLink = clinicMapsLink;
+window.jcmCitaConfirmMsg = jcmCitaConfirmMsg;
+window.jcmRecordatorioMsg = jcmRecordatorioMsg;
+function jcmAudit(action) {
+  try {
+    if (!window.DB || !action) return;
+    var who = "";
+    try {
+      who = window.JCSAAS && window.JCSAAS.currentUserName && window.JCSAAS.currentUserName() || window.JCSAAS && window.JCSAAS.userEmail && window.JCSAAS.userEmail() || "";
+    } catch (e) {
+    }
+    var log = window.DB.get("audit_log");
+    if (!Array.isArray(log)) log = [];
+    log.unshift({ ts: (/* @__PURE__ */ new Date()).toISOString(), action: "" + action, user: who });
+    if (log.length > 200) log = log.slice(0, 200);
+    window.DB.set("audit_log", log);
+  } catch (e) {
+  }
+}
+window.jcmAudit = jcmAudit;
 function clinicReplyTo() {
   var ok = function(e2) {
     return e2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e2 + "").trim());
@@ -304,6 +361,12 @@ function panelRoutePath(sec, pid) {
   if (sec === "pacientes" && pid) return "/pacientes/" + encodeURIComponent(pid);
   if (!sec || sec === "dashboard") return "/";
   return "/" + sec;
+}
+function jcmOpenFichaTab(id) {
+  try {
+    if (id) window.open(location.origin + panelRoutePath("pacientes", id), "_blank", "noopener");
+  } catch (e) {
+  }
 }
 const DASH_IC = {
   pacientes: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "8", r: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M3 20a6 6 0 0 1 12 0" }), /* @__PURE__ */ React.createElement("path", { d: "M16 8a3 3 0 0 1 0 6" }), /* @__PURE__ */ React.createElement("path", { d: "M21 20a6 6 0 0 0-4-5.5" })),
@@ -414,6 +477,25 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const ingresosHoy = typeof window.cashToday === "function" ? (window.cashToday() || []).filter((m) => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
+  useEffect(() => {
+    if (!kpiPopup && !movCaja) return;
+    const close = () => {
+      setKpiPopup(null);
+      setMovCaja(false);
+    };
+    if (window.jcEscStack) {
+      window.jcEscStack.push(close);
+      return () => {
+        const i = window.jcEscStack.lastIndexOf(close);
+        if (i >= 0) window.jcEscStack.splice(i, 1);
+      };
+    }
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [kpiPopup, movCaja]);
   const dias = ["Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b", "Dom"];
   const serie = window.JCSAAS && window.JCSAAS.enabled ? [0, 0, 0, 0, 0, 0, 0] : [38e4, 42e4, 51e4, 47e4, 54e4, 61e4, 74e4];
   const totalSemana = serie.reduce((a, b) => a + b, 0);
@@ -455,7 +537,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     const hasOwn = !!(creds && creds.token && creds.account);
     const isBase = window.JCM_BASE === true;
     if (!hasOwn && !isBase) return;
-    const bodyObj = hasOwn ? { token: creds.token, account: creds.account } : {};
+    const bodyObj = hasOwn ? { token: creds.token, account: creds.account, campaigns: true } : { campaigns: true };
     const tokP = window.JCSAAS && window.JCSAAS.idToken ? window.JCSAAS.idToken() : Promise.resolve(null);
     tokP.then((tok) => {
       const headers = { "Content-Type": "application/json" };
@@ -511,7 +593,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     }
     if (soldManual != null) compras = soldManual;
     const roas = spend > 0 ? ingresos / spend : 0;
-    return { spend, leads, mensajes, reservas, asistieron, compras, ingresos, roas, demo, live: !!(liveMeta && liveMeta.ok) };
+    const campaigns = liveMeta && Array.isArray(liveMeta.campaigns) ? liveMeta.campaigns : [];
+    return { spend, leads, mensajes, reservas, asistieron, compras, ingresos, roas, demo, live: !!(liveMeta && liveMeta.ok), campaigns };
   }();
   function FunnelBlock() {
     const stages = [
@@ -527,7 +610,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       const pct = Math.max(6, Math.round(st.n / top * 100));
       const conv = i > 0 && stages[i - 1].n ? Math.round(st.n / stages[i - 1].n * 100) : null;
       return /* @__PURE__ */ React.createElement("div", { key: st.k, style: { marginBottom: 11 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, st.k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text } }, st.n, conv != null && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 400, color: T.textMute, marginLeft: 7 } }, conv, "%"))), /* @__PURE__ */ React.createElement("div", { style: { height: 8, borderRadius: 999, background: T.lineSoft, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: pct + "%", background: st.c, borderRadius: 999, transition: "width .6s " + T.ease } })));
-    })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("div", { onClick: () => setMovCaja(true), title: "Ver los movimientos de caja (d\xEDa, semana, mes) con saldo", style: { background: T.surface2, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 15px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute } }, "Facturaste este mes"), /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" }))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1.1, marginTop: 4 } }, fmt(funnel.ingresos)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.accent, marginTop: 3 } }, "Ver movimientos del mes \u2192")), /* @__PURE__ */ React.createElement("div", { style: { background: green + "12", border: "1px solid " + green + "44", borderRadius: 12, padding: "16px 16px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: green } }, "ROAS real"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 40, color: green, lineHeight: 1.05 } }, funnel.roas.toFixed(1), "x"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "por cada $1 en Meta")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6, lineHeight: 1.5 } }, "Invertiste ", fmt(funnel.spend), " y facturaste ", fmt(funnel.ingresos), ".")))));
+    })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("div", { onClick: () => setMovCaja(true), title: "Ver los movimientos de caja (d\xEDa, semana, mes) con saldo", style: { background: T.surface2, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 15px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute } }, "Facturaste este mes"), /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" }))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1.1, marginTop: 4 } }, fmt(funnel.ingresos)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.accent, marginTop: 3 } }, "Ver movimientos del mes \u2192")), /* @__PURE__ */ React.createElement("div", { title: "ROAS (Return On Ad Spend) = ingresos \xF7 inversi\xF3n en publicidad.\n" + funnel.roas.toFixed(1) + "x significa que por cada $1 invertido en Meta recuperaste $" + funnel.roas.toFixed(1) + " en facturaci\xF3n.\nSobre 3x se considera muy bueno; bajo 1x est\xE1s perdiendo dinero.", style: { background: green + "12", border: "1px solid " + green + "44", borderRadius: 12, padding: "16px 16px", cursor: "help" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: green } }, "ROAS real"), /* @__PURE__ */ React.createElement("span", { title: "Retorno de la inversi\xF3n publicitaria: ingresos \xF7 gasto en Meta.", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: "1px solid " + green + "88", color: green, fontFamily: T.sans, fontSize: 9, fontWeight: 700, cursor: "help" } }, "?")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 40, color: green, lineHeight: 1.05 } }, funnel.roas.toFixed(1), "x"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "por cada $1 en Meta")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6, lineHeight: 1.5 } }, "Invertiste ", fmt(funnel.spend), " y facturaste ", fmt(funnel.ingresos), ".")), funnel.campaigns.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { background: T.surface2, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Campa\xF1as activas"), funnel.campaigns.slice(0, 5).map((c, i) => /* @__PURE__ */ React.createElement("div", { key: c.id || i, style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, padding: "5px 0", borderBottom: i < Math.min(funnel.campaigns.length, 5) - 1 ? "1px solid " + T.lineSoft : "none" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.text, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name || "Campa\xF1a"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", flexShrink: 0 } }, fmt(c.spend || 0))))))));
   }
   const KpiPopup = () => {
     if (!kpiPopup) return null;
@@ -881,6 +964,7 @@ function AdminApp() {
     const np = { ...p, id: window.jcmUid ? window.jcmUid("p") : "p" + Date.now(), tags: p.tags || [], consent: p.consent === true, points: p.points || [], history: p.history || [] };
     if (np.fechaTs == null && !np.imported) np.fechaTs = Date.now();
     setPatients((ps) => savePatients([np, ...ps]));
+    if (!np.imported) jcmAudit("Paciente creado: " + (np.name || "\u2014"));
     try {
       window.jcmToast && window.jcmToast('Paciente "' + (np.name || "") + '" guardado.', "ok");
     } catch (e) {
@@ -896,12 +980,21 @@ function AdminApp() {
   }
   function addAppt(a) {
     setAppts((as) => saveAppts([...as, { ...a, id: window.jcmUid ? window.jcmUid("a") : "a" + Date.now() }]));
+    jcmAudit("Cita agendada: " + (a.name || "\u2014") + (a.fecha ? " \xB7 " + a.fecha : "") + (a.time ? " " + a.time : "") + (a.proc ? " \xB7 " + a.proc : ""));
     try {
       window.jcmToast && window.jcmToast("Cita agendada.", "ok");
     } catch (e) {
     }
   }
   function updateAppt(id, patch) {
+    if (patch && patch.status) {
+      try {
+        const prevA = appts.find((a) => a.id === id);
+        const lbl = { confirmada: "confirmada", atendida: "marcada como atendida", no_asistio: "marcada como no asisti\xF3", anulada: "anulada", pendiente: "vuelta a agendada" }[patch.status] || "\u2192 " + patch.status;
+        if (prevA) jcmAudit("Cita " + lbl + ": " + (prevA.name || "\u2014") + (prevA.time ? " " + prevA.time : ""));
+      } catch (e) {
+      }
+    }
     setAppts((as) => {
       if (patch.status === "confirmada") {
         const prev = as.find((a) => a.id === id);
@@ -1138,10 +1231,7 @@ function AdminApp() {
   if (section === "dashboard") body = /* @__PURE__ */ React.createElement(DashboardView, { T, D, A, appts, patients, go: nav });
   else if (section === "appjcm") body = /* @__PURE__ */ React.createElement(AppJCMView, { T });
   else if (section === "resumen") body = /* @__PURE__ */ React.createElement(Resumen, { T, D, A, appts, patients, go: nav, updateAppt, removeAppt, themeKey, setThemeKey });
-  else if (section === "agenda") body = /* @__PURE__ */ React.createElement(Agenda, { T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onSyncWeb: syncWebBookings, onOpenPatient: (id) => {
-    setOpenPatient(id);
-    setSection("pacientes");
-  } });
+  else if (section === "agenda") body = /* @__PURE__ */ React.createElement(Agenda, { T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onSyncWeb: syncWebBookings, onOpenPatient: (id) => jcmOpenFichaTab(id) });
   else if (section === "pacientes") body = current ? /* @__PURE__ */ React.createElement(FichaMedica, { T, patient: current, updatePatient, removePatient, onBack: () => {
     setOpenPatient(null);
     setOpenPatientTab(null);
@@ -1991,10 +2081,14 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       return { ...a, _top: top, _h: h };
     });
   };
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, v2 && /* @__PURE__ */ React.createElement("div", { style: { width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 160, fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text } }, days[0].dd, " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[start.getMonth()])), " \u2013 ", last.getDate(), " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[last.getMonth()]))), v2 && viewToggle, v2 && icsBtn, v2 && nuevaBtn, v2 && team.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setProfOpen((o) => !o), title: "Ver agenda de un profesional", style: { display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: "50%", background: selProfColor, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, selProf || "Profesional"), /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), profOpen && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setProfOpen(false), style: { position: "fixed", inset: 0, zIndex: 60 } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 224, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, overflow: "hidden", zIndex: 61 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 14px 6px", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint } }, "Agenda por profesional"), team.map((m) => /* @__PURE__ */ React.createElement("button", { key: m.id || m.name, onClick: () => {
-    setSelProf(m.name);
-    setProfOpen(false);
-  }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 14px", background: m.name === selProf ? T.accent + "14" : "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: m.name === selProf ? T.accent : T.textMute } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: "50%", background: m.color || T.accent, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, m.name), m.name === selProf && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10 } }, "\u2713")))))), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(0), style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "8px 16px", cursor: "pointer" } }, "Hoy"), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(wkOff - 1), title: "Semana anterior", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M15 18l-6-6 6-6" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(wkOff + 1), title: "Semana siguiente", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 900 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" } }, /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line } }), days.map((d, i) => v2 ? (
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, v2 && /* @__PURE__ */ React.createElement("div", { style: { width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 160, fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text } }, days[0].dd, " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[start.getMonth()])), " \u2013 ", last.getDate(), " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[last.getMonth()]))), v2 && viewToggle, v2 && icsBtn, v2 && nuevaBtn, v2 && team.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setProfOpen((o) => !o), title: "Ver agenda de un profesional", style: { display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: "50%", background: selProfColor, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, selProf || "Profesional"), /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), profOpen && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setProfOpen(false), style: { position: "fixed", inset: 0, zIndex: 60 } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 224, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, overflow: "hidden", zIndex: 61 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 14px 6px", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint } }, "Agenda por profesional"), team.map((m) => {
+    const sucs = Array.isArray(m.sucursales) ? m.sucursales.filter(Boolean) : [];
+    const showSuc = sucs.length > 1;
+    return /* @__PURE__ */ React.createElement("button", { key: m.id || m.name, onClick: () => {
+      setSelProf(m.name);
+      setProfOpen(false);
+    }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 14px", background: m.name === selProf ? T.accent + "14" : "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: m.name === selProf ? T.accent : T.textMute } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: "50%", background: m.color || T.accent, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, m.name), showSuc && /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 10, color: T.textFaint, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 } }, sucs.join(" \xB7 "))), m.name === selProf && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10 } }, "\u2713"));
+  })))), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(0), style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "8px 16px", cursor: "pointer" } }, "Hoy"), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(wkOff - 1), title: "Semana anterior", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M15 18l-6-6 6-6" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(wkOff + 1), title: "Semana siguiente", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 900 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" } }, /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line } }), days.map((d, i) => v2 ? (
     /* Encabezado horizontal en una línea (ahorra espacio): "Lunes 22 jun" */
     /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: "11px 6px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "12" : "transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 15.5, color: d.isToday ? T.accent : T.text } }, DOWS_FULL[d.date.getDay()], " ", d.dd), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: d.isToday ? T.accent : T.textMute, marginLeft: 5 } }, MES[d.date.getMonth()].slice(0, 3)))
   ) : /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: "12px 4px 10px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", color: d.isToday ? T.accent : T.textMute } }, d.dow), d.isToday ? /* @__PURE__ */ React.createElement("div", { style: { margin: "3px auto 0", width: 30, height: 30, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", fontFamily: T.serif, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" } }, d.dd) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text, marginTop: 2 } }, d.dd))), v2 && /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" } }, ADMIN_HALF_HOURS.map((hhmm, i) => {
@@ -2086,39 +2180,51 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 15px 11px", borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 36, borderRadius: 9, background: ac, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, flexShrink: 0 } }, ini), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text, lineHeight: 1.15 } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: ac, marginTop: 3 } }, estado))),
       /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 15px 11px" } }, rows.map(([k, v, c], i) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid " + T.lineSoft : "none" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, flexShrink: 0 } }, k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: c || T.text, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, v)))),
       a.comentario && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 15px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)),
-      /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" } }, [
-        ["Confirmar", () => updateAppt(a.id, { status: "confirmada", attended: false }), "#16A34A", false],
-        ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), "#C9A227", false],
-        ["No asisti\xF3", () => updateAppt(a.id, { status: "no_asistio", attended: false }), "#C0285A", false],
-        ["Cancelar", () => {
-          updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() });
-          jcmCancelNotice(a);
-        }, "#C0285A", true],
-        ["Ficha", () => {
-          if (onVerFicha) onVerFicha(a);
-        }, T.textMute, false],
-        ["Comentario", () => {
-          setEditCom(a);
-        }, T.textMute, false]
-      ].map(([lbl, fn, col, filled]) => /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: () => {
-        fn();
-        setHover(null);
-      }, style: { height: 30, borderRadius: 7, border: "1px solid " + (filled ? "#C0285A" : T.line), background: filled ? "#C0285A" : T.surface, color: filled ? "#fff" : col, fontFamily: T.sans, fontSize: 10.5, fontWeight: filled ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" } }, lbl)))
+      /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" } }, (() => {
+        const isConf = a.status === "confirmada";
+        const recordar = () => {
+          const ph = (a.phone || "").replace(/\D/g, "");
+          if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmRecordatorioMsg(a)), "_blank", "noopener");
+          else window.jcmToast && window.jcmToast("Este paciente no tiene tel\xE9fono registrado.", "info");
+        };
+        return [
+          // Confirmar es un TOGGLE: si ya está confirmada, vuelve a "agendado" (pendiente). (P1)
+          [isConf ? "Confirmada \u2713" : "Confirmar", () => updateAppt(a.id, { status: isConf ? "pendiente" : "confirmada", attended: false }), "#16A34A", isConf ? "green" : ""],
+          ["Recordar", recordar, "#1F8A5B", ""],
+          ["Atendido", () => updateAppt(a.id, { status: "atendida", attended: true }), "#C9A227", ""],
+          ["No asisti\xF3", () => updateAppt(a.id, { status: "no_asistio", attended: false }), "#C0285A", ""],
+          ["Cancelar", () => {
+            updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() });
+            jcmCancelNotice(a);
+          }, "#C0285A", "red"],
+          ["Ficha", () => {
+            if (onVerFicha) onVerFicha(a);
+          }, T.textMute, ""],
+          ["Comentario", () => {
+            setEditCom(a);
+          }, T.textMute, ""]
+        ].map(([lbl, fn, col, st]) => {
+          const filledRed = st === "red", filledGreen = st === "green";
+          const bg = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.surface;
+          const brd = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.line;
+          const fg = filledRed || filledGreen ? "#fff" : col;
+          return /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: () => {
+            fn();
+            if (lbl !== "Recordar") setHover(null);
+          }, style: { height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: filledRed || filledGreen ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" } }, lbl);
+        });
+      })())
     ) : (
       /* Vista clásica (otras clínicas): tabla simple, sin acciones */
       /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 } }, a.name), [["Hora", a.time], ["Duraci\xF3n", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "\u2014"], ["Estado", estado]].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 500, textAlign: "right" } }, v))), a.comentario && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 3 } }, "Comentario"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)))
     );
   })(), menu && activeAppt && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setMenu(null), style: { position: "fixed", inset: 0, zIndex: 79 } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: menuPos.x, top: menuPos.y, zIndex: 80, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 8, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", overflow: "hidden", padding: "4px 0", animation: "jcSlideUp .2s ease" } }, [
+    ["\u270E Editar cita (fecha, hora, duraci\xF3n, procedimiento)", () => {
+      onEdit(activeAppt);
+      setMenu(null);
+    }, T.accent],
     ["Ver ficha del paciente", () => {
       if (onVerFicha) onVerFicha(activeAppt);
-      setMenu(null);
-    }],
-    ["Cambiar fecha / hora", () => {
-      onEdit(activeAppt);
-      setMenu(null);
-    }],
-    ["Modificar duraci\xF3n", () => {
-      onEdit(activeAppt);
       setMenu(null);
     }],
     ["Agregar comentario", () => {
@@ -2179,6 +2285,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [tipo, setTipo] = useState(pf.patName && !pf.patId ? "nuevo" : "existente");
   const [pid, setPid] = useState(pf.patId || "");
   const [patQ, setPatQ] = useState("");
+  const [showAllPat, setShowAllPat] = useState(false);
   const [nombre, setNombre] = useState(pf.patName && !pf.patId ? pf.patName : "");
   const [rut, setRut] = useState("");
   const [phone, setPhone] = useState("+56 9 ");
@@ -2237,7 +2344,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         const waP = (finalPhone || "").replace(/[^0-9]/g, "");
         if (waP.length >= 8) {
           const wk2 = dayInfo(pick.dayOff);
-          const msg2 = encodeURIComponent("Hola " + finalName + " \u{1F44B}\n\nTu cita en " + clinicDisplayName() + " qued\xF3 confirmada:\n\n\u{1F4C5} " + wk2.wd + " " + wk2.dd + " " + wk2.mm + "\n\u{1F550} " + pick.time + " hrs\n\u{1F489} " + proc + "\n\u{1F468}\u200D\u2695\uFE0F " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.\n\n\xA1Nos vemos pronto! \u{1F33F}");
+          const msg2 = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk2, pick.time, proc, prof));
           setTimeout(() => window.open("https://api.whatsapp.com/send?phone=" + waP + "&text=" + msg2, "_blank", "noopener"), 400);
         }
       }
@@ -2302,7 +2409,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
     const wk = dayInfo(pick.dayOff);
     const apptFecha = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff).toISOString().slice(0, 10);
     const waPhone = (finalPhone || "").replace(/[^0-9]/g, "");
-    const waMsg = encodeURIComponent("Hola " + finalName + " \u{1F44B}\n\nTu cita en " + clinicDisplayName() + " qued\xF3 confirmada:\n\n\u{1F4C5} " + wk.wd + " " + wk.dd + " " + wk.mm + "\n\u{1F550} " + pick.time + " hrs\n\u{1F489} " + proc + "\n\u{1F468}\u200D\u2695\uFE0F " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.\n\n\xA1Nos vemos pronto! \u{1F33F}");
+    const waMsg = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk, pick.time, proc, prof));
     const waUrl = "https://api.whatsapp.com/send?phone=" + waPhone + "&text=" + waMsg;
     const daySlots = D ? D.availability((/* @__PURE__ */ new Date(apptFecha + "T00:00:00")).getDay()).slots || [] : [];
     return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cita agendada", onClose, wide: true, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cerrar"), savedPatId && onOpenPatient && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => {
@@ -2353,8 +2460,15 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       tipo === "existente" ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Paciente"), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginBottom: 8 } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "1.7", style: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "7" }), /* @__PURE__ */ React.createElement("path", { d: "M21 21l-4.3-4.3" })), /* @__PURE__ */ React.createElement("input", { value: patQ, onChange: (e) => setPatQ(e.target.value), placeholder: "Buscar por nombre o RUT\u2026", style: { ...selStyle, paddingLeft: 34 } })), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { maxHeight: 230, overflowY: "auto", border: "1px solid " + T.line, borderRadius: 8 } }, (() => {
         const q = patQ.trim().toLowerCase();
         const qNorm = q.replace(/[^0-9k]/g, "");
-        const fl = q ? patients.filter((p) => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q) || qNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qNorm)) : patients;
-        return fl.length ? fl.map((p) => /* @__PURE__ */ React.createElement("button", { key: p.id, onClick: () => setPid(p.id), style: { display: "block", width: "100%", textAlign: "left", padding: "10px 13px", background: pid === p.id ? T.surface2 || T.accent + "14" : "transparent", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, p.rut || p.phone || "Paciente"))) : /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, 'Sin resultados para "', patQ, '".');
+        const recency = (p) => p.updatedAt || p.created || p.lastVisit || p.ts || 0;
+        const btn = (p) => /* @__PURE__ */ React.createElement("button", { key: p.id, onClick: () => setPid(p.id), style: { display: "block", width: "100%", textAlign: "left", padding: "10px 13px", background: pid === p.id ? T.surface2 || T.accent + "14" : "transparent", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, p.rut || p.phone || "Paciente"));
+        if (q) {
+          const fl = patients.filter((p) => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q) || qNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qNorm));
+          return fl.length ? fl.map(btn) : /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, 'Sin resultados para "', patQ, '".');
+        }
+        const ord = [...patients].sort((a, b) => recency(b) - recency(a));
+        const shown = showAllPat ? ord : ord.slice(0, 2);
+        return /* @__PURE__ */ React.createElement(React.Fragment, null, shown.length ? shown.map(btn) : /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, 'A\xFAn no hay pacientes. Usa "Paciente nuevo" o busca por nombre.'), patients.length > 2 && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowAllPat((s) => !s), style: { display: "block", width: "100%", textAlign: "center", padding: "10px 13px", background: "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent } }, showAllPat ? "Ver menos" : "Ver todos los pacientes (" + patients.length + ")"));
       })())) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: nombre, onChange: setNombre, placeholder: "Ej: Paciente nuevo" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "RUT", value: rut, onChange: (v) => setRut(window.jcmFmtRut ? window.jcmFmtRut(v) : v), placeholder: "12.345.678-9" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Tel\xE9fono m\xF3vil (WhatsApp)", value: phone, onChange: (v) => {
         const pfx = "+56 9 ";
         const digits = v.startsWith(pfx) ? v.slice(pfx.length).replace(/\D/g, "") : v.replace(/\D/g, "");

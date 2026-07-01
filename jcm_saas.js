@@ -539,6 +539,31 @@
         return auth.currentUser.reauthenticateWithCredential(cred).then(function () { return true; }).catch(function () { return false; });
       } catch (e) { return Promise.resolve(false); }
     },
+    // Cambia el correo de LA CUENTA (login) re-autenticando con la contraseña actual. Devuelve
+    // Promise<{ok, verify?, error?}>. Si Firebase exige verificar el nuevo correo, envía un enlace
+    // de verificación (verify:true) y el cambio se aplica al confirmarlo. Solo el dueño debería usarlo.
+    changeEmail: function (newEmail, pass) {
+      try {
+        if (!auth || !auth.currentUser || !auth.currentUser.email) return Promise.resolve({ ok: false, error: 'No hay sesión activa.' });
+        newEmail = ('' + (newEmail || '')).trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) return Promise.resolve({ ok: false, error: 'El correo nuevo no es válido.' });
+        if (newEmail === ('' + auth.currentUser.email).trim().toLowerCase()) return Promise.resolve({ ok: false, error: 'Es el mismo correo actual.' });
+        var mapErr = function (e) { var c = (e && e.code) || ''; return /wrong-password|invalid-credential/i.test(c) ? 'Contraseña incorrecta.' : /email-already-in-use/i.test(c) ? 'Ese correo ya está en uso por otra cuenta.' : /invalid-email/i.test(c) ? 'El correo nuevo no es válido.' : /requires-recent-login/i.test(c) ? 'Vuelve a iniciar sesión e inténtalo de nuevo.' : 'No se pudo cambiar el correo.'; };
+        var cred = fb.auth.EmailAuthProvider.credential(auth.currentUser.email, pass);
+        return auth.currentUser.reauthenticateWithCredential(cred).then(function () {
+          return auth.currentUser.updateEmail(newEmail).then(function () {
+            try { if (db && auth.currentUser.uid) db.collection('users').doc(auth.currentUser.uid).set({ email: newEmail }, { merge: true }); } catch (e) {}
+            return { ok: true };
+          }).catch(function (e) {
+            // Firebase con "email enumeration protection" exige verificar el nuevo correo primero.
+            if (auth.currentUser.verifyBeforeUpdateEmail) {
+              return auth.currentUser.verifyBeforeUpdateEmail(newEmail).then(function () { return { ok: true, verify: true, email: newEmail }; }).catch(function (e2) { return { ok: false, error: mapErr(e2) }; });
+            }
+            return { ok: false, error: mapErr(e) };
+          });
+        }).catch(function (e) { return { ok: false, error: mapErr(e) }; });
+      } catch (e) { return Promise.resolve({ ok: false, error: 'No se pudo cambiar el correo.' }); }
+    },
     access: access,
     migrateLocal: migrateLocal,
     hasLegacyData: hasLegacyData,

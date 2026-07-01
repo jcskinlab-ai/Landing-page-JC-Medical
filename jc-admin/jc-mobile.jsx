@@ -285,6 +285,10 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt, updateAppt }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [editCom, setEditCom] = useState(false);
   const [comTxt, setComTxt] = useState(a.comentario||"");
+  // Edición de la cita ya creada (fecha, hora, duración, procedimiento) desde el móvil (P33).
+  const [edit, setEdit] = useState(false);
+  const [ef, setEf] = useState({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
+  const procOpts = (() => { try { return (window.JCDATA && window.JCDATA.catalog ? window.JCDATA.catalog.map(s => s.name) : []) || []; } catch (e) { return []; } })();
   const st = apptStateM(a, T);
   const ac = st.color;
   const rawPhone = (a.phone||"").replace(/\D/g,"");
@@ -335,6 +339,33 @@ function ApptCard({ T, D, appt:a, confirmPago, cancelAppt, updateAppt }) {
               <span style={{ fontFamily:T.sans, fontSize:12, color:a.comentario?T.text:T.textFaint, flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                 {a.comentario || "Agregar comentario"}
               </span>
+            </button>
+          )}
+
+          {/* Edición de la cita (P33) */}
+          {edit ? (
+            <div style={{ display:"flex", flexDirection:"column", gap:8, background:T.bg, border:"1px solid "+T.line, borderRadius:8, padding:"11px 12px" }}>
+              <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".12em", textTransform:"uppercase", color:T.accent }}>Editar cita</div>
+              <label style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>Fecha
+                <input type="date" value={ef.fecha} onChange={e=>setEf(f=>({...f,fecha:e.target.value}))} style={{ width:"100%", boxSizing:"border-box", marginTop:3, fontFamily:T.sans, fontSize:14, padding:"10px 11px", borderRadius:7, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none" }} /></label>
+              <div style={{ display:"flex", gap:8 }}>
+                <label style={{ flex:1, fontFamily:T.sans, fontSize:11, color:T.textMute }}>Hora
+                  <select value={ef.time} onChange={e=>setEf(f=>({...f,time:e.target.value}))} style={{ width:"100%", boxSizing:"border-box", marginTop:3, fontFamily:T.sans, fontSize:14, padding:"10px 11px", borderRadius:7, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none" }}>{(typeof HALF_HOURS!=="undefined"?HALF_HOURS:[a.time]).map(h=><option key={h} value={h}>{h}</option>)}{(typeof HALF_HOURS==="undefined"||HALF_HOURS.indexOf(ef.time)<0)&&<option value={ef.time}>{ef.time}</option>}</select></label>
+                <label style={{ flex:1, fontFamily:T.sans, fontSize:11, color:T.textMute }}>Duración
+                  <select value={ef.dur} onChange={e=>setEf(f=>({...f,dur:e.target.value}))} style={{ width:"100%", boxSizing:"border-box", marginTop:3, fontFamily:T.sans, fontSize:14, padding:"10px 11px", borderRadius:7, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none" }}>{["15","30","45","60","90","120"].map(d=><option key={d} value={d}>{d} min</option>)}</select></label>
+              </div>
+              <label style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>Procedimiento
+                {procOpts.length ? <select value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} style={{ width:"100%", boxSizing:"border-box", marginTop:3, fontFamily:T.sans, fontSize:14, padding:"10px 11px", borderRadius:7, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none" }}>{[ef.proc, ...procOpts.filter(p=>p!==ef.proc)].filter(Boolean).map(p=><option key={p} value={p}>{p}</option>)}</select>
+                  : <input value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} placeholder="Procedimiento" style={{ width:"100%", boxSizing:"border-box", marginTop:3, fontFamily:T.sans, fontSize:14, padding:"10px 11px", borderRadius:7, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none" }} />}</label>
+              <div style={{ display:"flex", gap:6, marginTop:2 }}>
+                <button onClick={()=>setEdit(false)} style={{ flex:1, height:38, borderRadius:8, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+                <button onClick={()=>{ updateAppt(a.id,{ fecha:ef.fecha, day:isoToDayOff(ef.fecha), time:ef.time, dur:ef.dur+" minutos", proc:ef.proc }); setEdit(false); }} style={{ flex:2, height:38, borderRadius:8, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer" }}>Guardar cambios</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={()=>{ setEf({ fecha:a.fecha||todayISO(), time:a.time||"10:00", dur:(parseInt(a.dur)||30)+"", proc:a.proc||"" }); setEdit(true); }} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", background:T.bg, border:"1px solid "+T.lineSoft, borderRadius:8, padding:"11px 12px", cursor:"pointer", textAlign:"left", color:T.text, fontFamily:T.sans, fontSize:12.5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              Editar cita (fecha, hora, duración, procedimiento)
             </button>
           )}
 
@@ -470,7 +501,27 @@ function AgendaTab({ T, appts }) {
   const today = todayISO();
   const days = weekDays();
   const [selDay, setSelDay] = useState(today);
+  const [view, setView] = useState("dia"); // "dia" | "mes" (P37: visual mensual estilo Medique)
+  const [monthCur, setMonthCur] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const dayRef = useMemo(() => React.createRef(), []);
+  // Conteo de citas por fecha (para los puntos del calendario mensual).
+  const apptCountByDate = useMemo(() => {
+    const map = {};
+    appts.forEach(a => { if (a.status === "anulada") return; const f = a.fecha || offToISO(a.day || 0); map[f] = (map[f] || 0) + 1; });
+    return map;
+  }, [appts]);
+  // Rejilla del mes: semanas Lun→Dom, 6 filas.
+  const monthGrid = useMemo(() => {
+    const first = new Date(monthCur.y, monthCur.m, 1);
+    const startDow = (first.getDay() + 6) % 7; // 0=Lunes
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(monthCur.y, monthCur.m, 1 - startDow + i);
+      cells.push({ iso: localISO(d), dd: d.getDate(), inMonth: d.getMonth() === monthCur.m });
+    }
+    return cells;
+  }, [monthCur]);
+  const MESES_LARGOS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
   // Citas del día seleccionado, excluyendo anuladas
   const dayAppts = appts
@@ -524,8 +575,56 @@ function AgendaTab({ T, appts }) {
     );
   }
 
+  if (view === "mes") {
+    const WD = ["L","M","M","J","V","S","D"];
+    return (
+      <div style={{ display:"flex", flexDirection:"column", height:"calc(100dvh - 130px)" }}>
+        {/* Toggle Día / Mes */}
+        <div style={{ display:"flex", gap:6, padding:"10px 12px", borderBottom:"1px solid "+T.line, flexShrink:0 }}>
+          {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:12.5, fontWeight:view===k?700:500, padding:"9px", borderRadius:8, border:"1px solid "+(view===k?T.accent:T.line), background:view===k?T.accent:"transparent", color:view===k?T.onAccent:T.textMute, cursor:"pointer" }}>{l}</button>
+          ))}
+        </div>
+        {/* Cabecera del mes con navegación */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px 8px", flexShrink:0 }}>
+          <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, border:"1px solid "+T.line, background:T.surface, color:T.text, cursor:"pointer" }}>‹</button>
+          <div style={{ fontFamily:T.serif, fontSize:19, color:T.text }}>{MESES_LARGOS[monthCur.m]} {monthCur.y}</div>
+          <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, border:"1px solid "+T.line, background:T.surface, color:T.text, cursor:"pointer" }}>›</button>
+        </div>
+        {/* Encabezado de días de la semana */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0 10px 4px", flexShrink:0 }}>
+          {WD.map((w,i)=><div key={i} style={{ textAlign:"center", fontFamily:T.sans, fontSize:10, letterSpacing:".08em", color:T.textFaint }}>{w}</div>)}
+        </div>
+        {/* Rejilla del mes */}
+        <div style={{ flex:1, overflowY:"auto", padding:"0 10px 16px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+            {monthGrid.map(c=>{
+              const n = apptCountByDate[c.iso] || 0;
+              const isToday = c.iso === today;
+              return (
+                <button key={c.iso} onClick={()=>{ setSelDay(c.iso); setView("dia"); }} style={{ aspectRatio:"1/1", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, borderRadius:10, cursor:"pointer",
+                  background: isToday ? T.accent+"18" : (n?T.surface:"transparent"),
+                  border:"1px solid "+(isToday?T.accent:(n?T.line:"transparent")),
+                  opacity: c.inMonth?1:.32 }}>
+                  <span style={{ fontFamily:T.sans, fontSize:14, fontWeight:isToday?700:500, color:isToday?T.accent:T.text }}>{c.dd}</span>
+                  {n>0 && <span style={{ display:"flex", gap:2 }}>{Array.from({length:Math.min(n,3)}).map((_,i)=><span key={i} style={{ width:5, height:5, borderRadius:"50%", background:T.accent }} />)}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"calc(100dvh - 130px)" }}>
+      {/* Toggle Día / Mes (P37) */}
+      <div style={{ display:"flex", gap:6, padding:"10px 12px 8px", flexShrink:0 }}>
+        {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:12.5, fontWeight:view===k?700:500, padding:"9px", borderRadius:8, border:"1px solid "+(view===k?T.accent:T.line), background:view===k?T.accent:"transparent", color:view===k?T.onAccent:T.textMute, cursor:"pointer" }}>{l}</button>
+        ))}
+      </div>
       {/* Selector de días: 7 días con scroll horizontal */}
       <div style={{ overflowX:"auto", borderBottom:"1px solid "+T.line, flexShrink:0, WebkitOverflowScrolling:"touch" }}>
         <div style={{ display:"flex", padding:"10px 10px 8px", minWidth:"max-content", gap:2 }}>
@@ -582,7 +681,10 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const procs = procList();
   const [name,  setName]  = useState("");
   const [rut,   setRut]   = useState("");
-  const [phone, setPhone] = useState("");
+  const PHONE_PFX = "+56 9 ";
+  const [phone, setPhone] = useState(PHONE_PFX); // el prefijo +56 9 no se puede borrar (P34)
+  function onPhone(v) { const digits = v.startsWith(PHONE_PFX) ? v.slice(PHONE_PFX.length).replace(/\D/g, "") : v.replace(/\D/g, "").replace(/^569?/, ""); setPhone(PHONE_PFX + digits.slice(0, 8)); }
+  const phoneOk = phone.replace(/\D/g, "").length >= 11; // 56 + 9 + 8 dígitos
   const [email, setEmail] = useState("");
   const [fecha, setFecha] = useState(todayISO());
   const [time,  setTime]  = useState("10:00");
@@ -607,13 +709,13 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const occupied = new Set(appts.filter(a=>a.fecha===fecha).map(a=>a.time));
   const freeSlots = avail.filter(s=>!occupied.has(s));
 
-  const valid = name.trim() && phone.trim();
+  const valid = name.trim() && phoneOk;
   function save() {
     if (!valid) return;
     addAppt({ id:Date.now().toString(36), name:name.trim(), rut:rut.trim(), phone:phone.trim(), email:email.trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"confirmada", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
     setSaved(true);
     setTimeout(()=>setSaved(false),2000);
-    setName(""); setRut(""); setPhone(""); setEmail(""); setComment(""); setTime(freeSlots[0]||"10:00");
+    setName(""); setRut(""); setPhone(PHONE_PFX); setEmail(""); setComment(""); setTime(freeSlots[0]||"10:00");
   }
 
   const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"13px 15px", borderRadius:8, border:"1px solid "+T.line, background:T.surface, color:T.text, outline:"none", boxSizing:"border-box" };
@@ -624,7 +726,7 @@ function NuevaTab({ T, D, appts, addAppt }) {
       <div style={{ fontFamily:T.serif, fontSize:26, fontWeight:300, color:T.text }}>Nueva cita</div>
       <div><label style={lbl}>Paciente</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre completo" style={inp} /></div>
       <div><label style={lbl}>RUT</label><input value={rut} onChange={e=>setRut(e.target.value)} placeholder="12.345.678-9" style={inp} /></div>
-      <div><label style={lbl}>Teléfono</label><input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+56 9 ···" style={{...inp, borderColor: phone.trim()?T.line:"#C0285A55"}} /></div>
+      <div><label style={lbl}>Teléfono</label><input type="tel" inputMode="numeric" value={phone} onChange={e=>onPhone(e.target.value)} placeholder="+56 9 1234 5678" style={{...inp, borderColor: phoneOk?T.line:"#C0285A55"}} /></div>
       <div><label style={lbl}>Correo (opcional)</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="correo@ejemplo.com" style={inp} /></div>
       <div><label style={lbl}>Procedimiento</label>
         <select value={proc} onChange={e=>setProc(e.target.value)} style={{...inp,appearance:"none"}}>
@@ -635,9 +737,11 @@ function NuevaTab({ T, D, appts, addAppt }) {
       <div><label style={lbl}>Fecha</label><input type="date" value={fecha} onChange={e=>setFecha(e.target.value)} style={inp} /></div>
       <div>
         <label style={lbl}>Hora</label>
-        <input type="time" value={time} step="1800" list="jcm-mob-times" onChange={e=>setTime(e.target.value)} style={inp} />
-        <datalist id="jcm-mob-times">{freeSlots.map(s=><option key={s} value={s}/>)}</datalist>
-        {freeSlots.length===0&&<div style={{ fontFamily:T.sans, fontSize:11, color:"#C0285A", marginTop:5 }}>Sin horas disponibles — puedes escribir una hora manualmente</div>}
+        {/* Selector de hora tipo iPhone: en iOS el <select> se muestra como rueda deslizable. (P35) */}
+        <select value={time} onChange={e=>setTime(e.target.value)} style={{...inp,appearance:"none"}}>
+          {(() => { const base = freeSlots.length ? freeSlots : (typeof HALF_HOURS!=="undefined"?HALF_HOURS:[time]); const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
+        </select>
+        {freeSlots.length===0&&<div style={{ fontFamily:T.sans, fontSize:11, color:"#C0285A", marginTop:5 }}>No hay horas marcadas como disponibles para este día.</div>}
       </div>
       <div><label style={lbl}>Duración</label>
         <select value={dur} onChange={e=>setDur(e.target.value)} style={{...inp,appearance:"none"}}>
@@ -649,7 +753,7 @@ function NuevaTab({ T, D, appts, addAppt }) {
         <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ej. Evaluación de botox, control rinomodelación…" rows={2}
           style={{...inp, resize:"none", height:"auto"}} />
       </div>
-      {!valid && (name.trim() && !phone.trim()) && <div style={{ fontFamily:T.sans, fontSize:11.5, color:"#C0285A", marginTop:-4 }}>El teléfono es obligatorio.</div>}
+      {!valid && (name.trim() && !phoneOk) && <div style={{ fontFamily:T.sans, fontSize:11.5, color:"#C0285A", marginTop:-4 }}>Ingresa los 8 dígitos del teléfono.</div>}
       <button onClick={save} disabled={!valid}
         style={{ background:saved?"#1F8A5B":T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".12em", textTransform:"uppercase", border:"none", borderRadius:8, padding:"17px", cursor:valid?"pointer":"not-allowed", opacity:valid?1:.5, marginTop:4, transition:"background .3s" }}>
         {saved?"✓ Cita guardada":"Confirmar cita"}

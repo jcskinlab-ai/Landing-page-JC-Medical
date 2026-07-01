@@ -31,13 +31,13 @@ function jcSetupCanvas(c) {
 }
 function jcPos(c, e) { var r = c.getBoundingClientRect(); var t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
 
-function SignaturePad({ T, onChange, height }) {
+function SignaturePad({ T, onChange, height, maxW }) {
   const canRef = useRef(null);
   const drawing = useRef(false);
   const last = useRef(null);
   const [hasInk, setHasInk] = useState(false);
   const [big, setBig] = useState(false);
-  const H = height || 180;
+  const H = height || 200;
 
   useEffect(() => { if (canRef.current) jcSetupCanvas(canRef.current); }, []);
 
@@ -62,14 +62,15 @@ function SignaturePad({ T, onChange, height }) {
   }
 
   return (
-    <div>
-      <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid " + T.line, background: "#fff" }}>
+    <div style={maxW ? { maxWidth: maxW } : undefined}>
+      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: "1px solid " + T.line, background: "#fff", boxShadow: "inset 0 1px 3px rgba(20,20,15,.05)" }}>
         <canvas ref={canRef}
           onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
           onTouchStart={start} onTouchMove={move} onTouchEnd={end}
           style={{ width: "100%", height: H + "px", display: "block", touchAction: "none", cursor: "crosshair" }} />
         {!hasInk && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", fontFamily: T.sans, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", color: "#B8B2A4" }}>Firma aquí</div>}
-        <div style={{ position: "absolute", left: 16, right: 16, bottom: 22, height: 1, background: "rgba(20,20,15,.18)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", left: 22, right: 22, bottom: 26, height: 1, background: "rgba(20,20,15,.18)", pointerEvents: "none" }} />
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(20,20,15,.28)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 22, bottom: 30, pointerEvents: "none" }}><path d="m12 19 7-7 3 3-7 7-3-3z" /><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="m2 2 7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <button onClick={clear} style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, background: "none", border: "1px solid " + T.chipBorder, borderRadius: 4, padding: "8px 14px", cursor: "pointer" }}>Borrar</button>
@@ -94,7 +95,18 @@ function SignatureFullscreen({ T, onCancel, onCapture }) {
   useEffect(() => {
     const c = canRef.current; if (c) jcSetupCanvas(c);
     const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    // ESC: se apoya en la pila global de popups (window.jcEscStack) para cerrar solo este
+    // modal y no el consentimiento que hay debajo. Fallback a listener propio si aún no existe.
+    const entry = () => { onCancel && onCancel(); };
+    let usedStack = false;
+    if (window.jcEscStack) { window.jcEscStack.push(entry); usedStack = true; }
+    const onKey = (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); onCancel && onCancel(); } };
+    if (!usedStack) window.addEventListener("keydown", onKey, true);
+    return () => {
+      document.body.style.overflow = prev;
+      if (usedStack) { const i = window.jcEscStack.lastIndexOf(entry); if (i >= 0) window.jcEscStack.splice(i, 1); }
+      else window.removeEventListener("keydown", onKey, true);
+    };
   }, []);
 
   function start(e) { e.preventDefault(); drawing.current = true; last.current = jcPos(canRef.current, e); }
@@ -108,24 +120,32 @@ function SignatureFullscreen({ T, onCancel, onCapture }) {
   function clear() { const c = canRef.current; c._ctx.clearRect(0, 0, c.width, c.height); setHasInk(false); }
   function done() { onCapture(hasInk ? jcExportSignature(canRef.current) : null); }
 
-  const btn = (extra) => ({ fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".06em", borderRadius: 10, padding: "14px 20px", cursor: "pointer", border: "none", ...extra });
+  const btn = (extra) => ({ fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".06em", borderRadius: 12, padding: "15px 24px", cursor: "pointer", border: "none", transition: "transform .12s ease, opacity .12s ease", ...extra });
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,10,8,.92)", display: "flex", flexDirection: "column", padding: "16px", boxSizing: "border-box" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontFamily: T.sans, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", color: "#fff" }}>Firma aquí · gira el teléfono para más espacio</span>
-        <button onClick={onCancel} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", display: "flex", padding: 4 }}><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
-      </div>
-      <div style={{ position: "relative", flex: 1, borderRadius: 12, overflow: "hidden", background: "#fff" }}>
-        <canvas ref={canRef}
-          onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
-          onTouchStart={start} onTouchMove={move} onTouchEnd={end}
-          style={{ width: "100%", height: "100%", display: "block", touchAction: "none", cursor: "crosshair" }} />
-        {!hasInk && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", fontFamily: T.serif, fontSize: 22, color: "#C9C3B5" }}>Firma con el dedo</div>}
-        <div style={{ position: "absolute", left: 40, right: 40, bottom: "30%", height: 1, background: "rgba(20,20,15,.18)", pointerEvents: "none" }} />
-      </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <button onClick={clear} style={btn({ flex: "0 0 auto", background: "rgba(255,255,255,.14)", color: "#fff" })}>Borrar</button>
-        <button onClick={done} style={btn({ flex: 1, background: T.accent, color: T.onAccent || "#fff" })}>Listo</button>
+    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel && onCancel(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(14,13,10,.72)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(16px,4vw,48px)", boxSizing: "border-box", animation: "jcFade .2s ease" }}>
+      <div style={{ width: "100%", maxWidth: 940, maxHeight: "100%", display: "flex", flexDirection: "column", background: T.bg || "#F7F4ED", borderRadius: 20, boxShadow: "0 40px 90px -30px rgba(10,10,8,.6)", overflow: "hidden", border: "1px solid " + (T.line || "rgba(0,0,0,.08)") }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 14px" }}>
+          <div>
+            <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text || "#26251f", lineHeight: 1.1 }}>Firma aquí</div>
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute || "#8a8578", marginTop: 3 }}>Usa tu lápiz óptico o el mouse · gira el teléfono para más espacio</div>
+          </div>
+          <button onClick={onCancel} title="Cerrar (Esc)" style={{ background: "none", border: "1px solid " + (T.chipBorder || "rgba(0,0,0,.12)"), borderRadius: 999, width: 38, height: 38, color: T.textMute || "#8a8578", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+        </div>
+        <div style={{ padding: "0 24px" }}>
+          <div style={{ position: "relative", height: "min(46vh, 380px)", borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid " + (T.line || "rgba(0,0,0,.08)"), boxShadow: "inset 0 1px 4px rgba(20,20,15,.05)" }}>
+            <canvas ref={canRef}
+              onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+              onTouchStart={start} onTouchMove={move} onTouchEnd={end}
+              style={{ width: "100%", height: "100%", display: "block", touchAction: "none", cursor: "crosshair" }} />
+            {!hasInk && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", fontFamily: T.serif, fontSize: 24, color: "#C9C3B5" }}>Firma aquí</div>}
+            <div style={{ position: "absolute", left: "8%", right: "8%", bottom: "26%", height: 1, background: "rgba(20,20,15,.16)", pointerEvents: "none" }} />
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 12, padding: "16px 24px 22px" }}>
+          <button onClick={clear} style={btn({ flex: "0 0 auto", background: "transparent", color: T.textMute || "#8a8578", border: "1px solid " + (T.chipBorder || "rgba(0,0,0,.14)") })}>Borrar</button>
+          <button onClick={done} style={btn({ flex: 1, background: T.accent, color: T.onAccent || "#fff", boxShadow: "0 8px 20px -8px " + (T.accent || "#4e8a72") })}>Listo</button>
+        </div>
       </div>
     </div>
   );

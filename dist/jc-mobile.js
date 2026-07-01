@@ -290,6 +290,15 @@ function ApptCard({ T, D, appt: a, confirmPago, cancelAppt, updateAppt }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [editCom, setEditCom] = useState(false);
   const [comTxt, setComTxt] = useState(a.comentario || "");
+  const [edit, setEdit] = useState(false);
+  const [ef, setEf] = useState({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
+  const procOpts = (() => {
+    try {
+      return (window.JCDATA && window.JCDATA.catalog ? window.JCDATA.catalog.map((s) => s.name) : []) || [];
+    } catch (e) {
+      return [];
+    }
+  })();
   const st = apptStateM(a, T);
   const ac = st.color;
   const rawPhone = (a.phone || "").replace(/\D/g, "");
@@ -324,7 +333,13 @@ function ApptCard({ T, D, appt: a, confirmPago, cancelAppt, updateAppt }) {
     },
     /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: a.comentario ? "#1A50A3" : T.textFaint, strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })),
     /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: a.comentario ? T.text : T.textFaint, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.comentario || "Agregar comentario")
-  ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, waPhone && /* @__PURE__ */ React.createElement(
+  ), edit ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "11px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent } }, "Editar cita"), /* @__PURE__ */ React.createElement("label", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "Fecha", /* @__PURE__ */ React.createElement("input", { type: "date", value: ef.fecha, onChange: (e) => setEf((f) => ({ ...f, fecha: e.target.value })), style: { width: "100%", boxSizing: "border-box", marginTop: 3, fontFamily: T.sans, fontSize: 14, padding: "10px 11px", borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("label", { style: { flex: 1, fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "Hora", /* @__PURE__ */ React.createElement("select", { value: ef.time, onChange: (e) => setEf((f) => ({ ...f, time: e.target.value })), style: { width: "100%", boxSizing: "border-box", marginTop: 3, fontFamily: T.sans, fontSize: 14, padding: "10px 11px", borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" } }, (typeof HALF_HOURS !== "undefined" ? HALF_HOURS : [a.time]).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, h)), (typeof HALF_HOURS === "undefined" || HALF_HOURS.indexOf(ef.time) < 0) && /* @__PURE__ */ React.createElement("option", { value: ef.time }, ef.time))), /* @__PURE__ */ React.createElement("label", { style: { flex: 1, fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "Duraci\xF3n", /* @__PURE__ */ React.createElement("select", { value: ef.dur, onChange: (e) => setEf((f) => ({ ...f, dur: e.target.value })), style: { width: "100%", boxSizing: "border-box", marginTop: 3, fontFamily: T.sans, fontSize: 14, padding: "10px 11px", borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" } }, ["15", "30", "45", "60", "90", "120"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d, " min"))))), /* @__PURE__ */ React.createElement("label", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "Procedimiento", procOpts.length ? /* @__PURE__ */ React.createElement("select", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), style: { width: "100%", boxSizing: "border-box", marginTop: 3, fontFamily: T.sans, fontSize: 14, padding: "10px 11px", borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" } }, [ef.proc, ...procOpts.filter((p) => p !== ef.proc)].filter(Boolean).map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p))) : /* @__PURE__ */ React.createElement("input", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), placeholder: "Procedimiento", style: { width: "100%", boxSizing: "border-box", marginTop: 3, fontFamily: T.sans, fontSize: 14, padding: "10px 11px", borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 2 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setEdit(false), style: { flex: 1, height: 38, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    updateAppt(a.id, { fecha: ef.fecha, day: isoToDayOff(ef.fecha), time: ef.time, dur: ef.dur + " minutos", proc: ef.proc });
+    setEdit(false);
+  }, style: { flex: 2, height: 38, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "Guardar cambios"))) : /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    setEf({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
+    setEdit(true);
+  }, style: { display: "flex", alignItems: "center", gap: 8, width: "100%", background: T.bg, border: "1px solid " + T.lineSoft, borderRadius: 8, padding: "11px 12px", cursor: "pointer", textAlign: "left", color: T.text, fontFamily: T.sans, fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" })), "Editar cita (fecha, hora, duraci\xF3n, procedimiento)"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, waPhone && /* @__PURE__ */ React.createElement(
     "a",
     {
       href: "https://wa.me/56" + waPhone.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent("Hola " + a.name + ", confirmamos tu cita en JC Medical:\n\u{1F4C5} " + (a.fecha || "") + " \xB7 " + a.time + " hrs\n\u{1F4CD} Direcci\xF3n 1 poniente 1258, edificio plaza poniente, oficina 101. A media cuadra de la plaza de armas de Talca.\n\u{1F489} " + (a.proc || "") + " (" + durLabel + ")\n\u23F0 La espera m\xE1xima para su atenci\xF3n es de 15 minutos, para no retrasar las atenciones siguientes"),
@@ -446,7 +461,32 @@ function AgendaTab({ T, appts }) {
   const today = todayISO();
   const days = weekDays();
   const [selDay, setSelDay] = useState(today);
+  const [view, setView] = useState("dia");
+  const [monthCur, setMonthCur] = useState(() => {
+    const d = /* @__PURE__ */ new Date();
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
   const dayRef = useMemo(() => React.createRef(), []);
+  const apptCountByDate = useMemo(() => {
+    const map = {};
+    appts.forEach((a) => {
+      if (a.status === "anulada") return;
+      const f = a.fecha || offToISO(a.day || 0);
+      map[f] = (map[f] || 0) + 1;
+    });
+    return map;
+  }, [appts]);
+  const monthGrid = useMemo(() => {
+    const first = new Date(monthCur.y, monthCur.m, 1);
+    const startDow = (first.getDay() + 6) % 7;
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(monthCur.y, monthCur.m, 1 - startDow + i);
+      cells.push({ iso: localISO(d), dd: d.getDate(), inMonth: d.getMonth() === monthCur.m });
+    }
+    return cells;
+  }, [monthCur]);
+  const MESES_LARGOS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   const dayAppts = appts.filter((a) => {
     const f = a.fecha || offToISO(a.day || 0);
     return f === selDay && a.status !== "anulada";
@@ -478,7 +518,36 @@ function AgendaTab({ T, appts }) {
       cursor: "default"
     } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 700, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 } }, a.name), heightPx > 30 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time, " \xB7 ", a.proc || "\u2014"), heightPx > 50 && a.comentario && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontStyle: "italic", marginTop: 1 } }, a.comentario));
   }
-  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", height: "calc(100dvh - 130px)" } }, /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto", borderBottom: "1px solid " + T.line, flexShrink: 0, WebkitOverflowScrolling: "touch" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", padding: "10px 10px 8px", minWidth: "max-content", gap: 2 } }, days.map((d) => {
+  if (view === "mes") {
+    const WD = ["L", "M", "M", "J", "V", "S", "D"];
+    return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", height: "calc(100dvh - 130px)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, padding: "10px 12px", borderBottom: "1px solid " + T.line, flexShrink: 0 } }, [["dia", "D\xEDa"], ["mes", "Mes"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setView(k), style: { flex: 1, fontFamily: T.sans, fontSize: 12.5, fontWeight: view === k ? 700 : 500, padding: "9px", borderRadius: 8, border: "1px solid " + (view === k ? T.accent : T.line), background: view === k ? T.accent : "transparent", color: view === k ? T.onAccent : T.textMute, cursor: "pointer" } }, l))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 8px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthCur((c) => {
+      const m = c.m - 1;
+      return m < 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m };
+    }), style: { width: 36, height: 36, borderRadius: 999, border: "1px solid " + T.line, background: T.surface, color: T.text, cursor: "pointer" } }, "\u2039"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text } }, MESES_LARGOS[monthCur.m], " ", monthCur.y), /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthCur((c) => {
+      const m = c.m + 1;
+      return m > 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m };
+    }), style: { width: 36, height: 36, borderRadius: 999, border: "1px solid " + T.line, background: T.surface, color: T.text, cursor: "pointer" } }, "\u203A")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", padding: "0 10px 4px", flexShrink: 0 } }, WD.map((w, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { textAlign: "center", fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", color: T.textFaint } }, w))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: "0 10px 16px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 } }, monthGrid.map((c) => {
+      const n = apptCountByDate[c.iso] || 0;
+      const isToday = c.iso === today;
+      return /* @__PURE__ */ React.createElement("button", { key: c.iso, onClick: () => {
+        setSelDay(c.iso);
+        setView("dia");
+      }, style: {
+        aspectRatio: "1/1",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 3,
+        borderRadius: 10,
+        cursor: "pointer",
+        background: isToday ? T.accent + "18" : n ? T.surface : "transparent",
+        border: "1px solid " + (isToday ? T.accent : n ? T.line : "transparent"),
+        opacity: c.inMonth ? 1 : 0.32
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 14, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text } }, c.dd), n > 0 && /* @__PURE__ */ React.createElement("span", { style: { display: "flex", gap: 2 } }, Array.from({ length: Math.min(n, 3) }).map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { width: 5, height: 5, borderRadius: "50%", background: T.accent } }))));
+    }))));
+  }
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", height: "calc(100dvh - 130px)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, padding: "10px 12px 8px", flexShrink: 0 } }, [["dia", "D\xEDa"], ["mes", "Mes"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setView(k), style: { flex: 1, fontFamily: T.sans, fontSize: 12.5, fontWeight: view === k ? 700 : 500, padding: "9px", borderRadius: 8, border: "1px solid " + (view === k ? T.accent : T.line), background: view === k ? T.accent : "transparent", color: view === k ? T.onAccent : T.textMute, cursor: "pointer" } }, l))), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto", borderBottom: "1px solid " + T.line, flexShrink: 0, WebkitOverflowScrolling: "touch" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", padding: "10px 10px 8px", minWidth: "max-content", gap: 2 } }, days.map((d) => {
     const isSel = d.iso === selDay;
     const isToday = d.iso === today;
     return /* @__PURE__ */ React.createElement(
@@ -507,7 +576,13 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const procs = procList();
   const [name, setName] = useState("");
   const [rut, setRut] = useState("");
-  const [phone, setPhone] = useState("");
+  const PHONE_PFX = "+56 9 ";
+  const [phone, setPhone] = useState(PHONE_PFX);
+  function onPhone(v) {
+    const digits = v.startsWith(PHONE_PFX) ? v.slice(PHONE_PFX.length).replace(/\D/g, "") : v.replace(/\D/g, "").replace(/^569?/, "");
+    setPhone(PHONE_PFX + digits.slice(0, 8));
+  }
+  const phoneOk = phone.replace(/\D/g, "").length >= 11;
   const [email, setEmail] = useState("");
   const [fecha, setFecha] = useState(todayISO());
   const [time, setTime] = useState("10:00");
@@ -534,7 +609,7 @@ function NuevaTab({ T, D, appts, addAppt }) {
   const avail = slotsMap[fecha] != null ? slotsMap[fecha] : weeklyDef;
   const occupied = new Set(appts.filter((a) => a.fecha === fecha).map((a) => a.time));
   const freeSlots = avail.filter((s) => !occupied.has(s));
-  const valid = name.trim() && phone.trim();
+  const valid = name.trim() && phoneOk;
   function save() {
     if (!valid) return;
     addAppt({ id: Date.now().toString(36), name: name.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), proc, dur, time, fecha, day: isoToDayOff(fecha), status: "confirmada", source: "movil", comentario: comment.trim() || void 0, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
@@ -542,14 +617,18 @@ function NuevaTab({ T, D, appts, addAppt }) {
     setTimeout(() => setSaved(false), 2e3);
     setName("");
     setRut("");
-    setPhone("");
+    setPhone(PHONE_PFX);
     setEmail("");
     setComment("");
     setTime(freeSlots[0] || "10:00");
   }
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 15, padding: "13px 15px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", boxSizing: "border-box" };
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 };
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 16px 50px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, fontWeight: 300, color: T.text } }, "Nueva cita"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Paciente"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Nombre completo", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => setRut(e.target.value), placeholder: "12.345.678-9", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), placeholder: "+56 9 \xB7\xB7\xB7", style: { ...inp, borderColor: phone.trim() ? T.line : "#C0285A55" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: { ...inp, appearance: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("input", { type: "date", value: fecha, onChange: (e) => setFecha(e.target.value), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("input", { type: "time", value: time, step: "1800", list: "jcm-mob-times", onChange: (e) => setTime(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("datalist", { id: "jcm-mob-times" }, freeSlots.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }))), freeSlots.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 5 } }, "Sin horas disponibles \u2014 puedes escribir una hora manualmente")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, appearance: "none" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "90 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 16px 50px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, fontWeight: 300, color: T.text } }, "Nueva cita"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Paciente"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Nombre completo", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => setRut(e.target.value), placeholder: "12.345.678-9", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", inputMode: "numeric", value: phone, onChange: (e) => onPhone(e.target.value), placeholder: "+56 9 1234 5678", style: { ...inp, borderColor: phoneOk ? T.line : "#C0285A55" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: { ...inp, appearance: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("input", { type: "date", value: fecha, onChange: (e) => setFecha(e.target.value), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("select", { value: time, onChange: (e) => setTime(e.target.value), style: { ...inp, appearance: "none" } }, (() => {
+    const base = freeSlots.length ? freeSlots : typeof HALF_HOURS !== "undefined" ? HALF_HOURS : [time];
+    const opts = base.indexOf(time) >= 0 ? base : [time, ...base];
+    return opts.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s, " hrs"));
+  })()), freeSlots.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 5 } }, "No hay horas marcadas como disponibles para este d\xEDa.")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, appearance: "none" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "90 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement(
     "textarea",
     {
       value: comment,
@@ -558,7 +637,7 @@ function NuevaTab({ T, D, appts, addAppt }) {
       rows: 2,
       style: { ...inp, resize: "none", height: "auto" }
     }
-  )), !valid && (name.trim() && !phone.trim()) && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: -4 } }, "El tel\xE9fono es obligatorio."), /* @__PURE__ */ React.createElement(
+  )), !valid && (name.trim() && !phoneOk) && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: -4 } }, "Ingresa los 8 d\xEDgitos del tel\xE9fono."), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: save,
