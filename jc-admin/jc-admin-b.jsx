@@ -2209,12 +2209,6 @@ function FichaMedilinkPanel({ T, patient, onAgendar }) {
   const proximas = mine.filter(a => (a.fecha || "") > today).sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
   const hoy = mine.filter(a => (a.fecha || "") === today);
   const pasadas = mine.filter(a => (a.fecha || "") < today).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
-  const cl = patient.clinica || patient.ficha || {};
-  const g = (...ks) => { for (const k of ks) { if (patient[k] != null && patient[k] !== "") return patient[k]; if (cl[k] != null && cl[k] !== "") return cl[k]; } return null; };
-  const peso = g("peso", "kg"), talla = g("talla", "estatura", "cm"), pa = g("presion", "presionArterial", "pa"), temp = g("temp", "temperatura"), sat = g("sat", "saturacion"), fc = g("fc", "frecuencia");
-  const imc = (peso && talla) ? (parseFloat(peso) / Math.pow(parseFloat(talla) / 100, 2)) : null;
-  const vitals = [["Edad", patient.age ? patient.age + " años" : "—"], ["Peso", peso ? peso + " kg" : "—"], ["Talla", talla ? talla + " cm" : "—"], ["P. Arterial", pa || "—"], ["Temp", temp ? temp + "°" : "—"], ["Sat O₂", sat ? sat + "%" : "—"], ["Frec. C.", fc || "—"], ["IMC", imc ? imc.toFixed(1) : "—"]];
-  const preex = (() => { const out = []; const al = g("alergias", "allergies"); if (al) out.push(["Alergias", al]); const ant = g("antecedentes", "preexistencias", "condiciones"); if (ant) out.push(["Antecedentes", ant]); const med = g("medicamentos", "medicacion"); if (med) out.push(["Medicación", med]); return out; })();
   const estadoCol = a => (window.jcmApptState ? window.jcmApptState(a, T).color : T.accent);
   const wd = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const mm = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -2235,26 +2229,16 @@ function FichaMedilinkPanel({ T, patient, onAgendar }) {
   return (
     <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "14px 16px", margin: "16px 0 4px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: open ? 14 : 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9 }}><span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>Resumen del paciente</span><span style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, border: "1px solid " + T.line, borderRadius: 999, padding: "2px 8px" }}>Vista Medilink · preview</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}><span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>Atenciones del paciente</span></div>
         <button onClick={() => setOpen(o => !o)} style={{ background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: T.textMute, fontFamily: T.sans, fontSize: 11 }}>{open ? "Ocultar" : "Mostrar"}</button>
       </div>
       {open && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 340px) 1fr", gap: 16, alignItems: "start" }}>
-          <div>
-            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Signos vitales</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-              {vitals.map(([l, v]) => <div key={l} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 11px" }}><div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>{l}</div><div style={{ fontFamily: T.serif, fontSize: 17, color: T.text, marginTop: 2 }}>{v}</div></div>)}
-            </div>
-            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Preexistencias y medicamentos</div>
-            {preex.length ? <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{preex.map(([k, v]) => <div key={k} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 11px" }}><div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>{k}</div><div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, marginTop: 2, lineHeight: 1.4 }}>{v}</div></div>)}</div>
-              : <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint }}>Sin preexistencias registradas. Complétalas en la Ficha Clínica.</div>}
-          </div>
-          <div>
-            {grupo("próximas atenciones", proximas, T.accent)}
-            {grupo("atención hoy", hoy, "#1F8A5B")}
-            {grupo("atenciones pasadas", pasadas, T.textMute)}
-            {mine.length === 0 && <div style={{ textAlign: "center", padding: "10px 0" }}><AdBtn T={T} small primary onClick={() => onAgendar && onAgendar()}>Agendar primera cita</AdBtn></div>}
-          </div>
+        <div>
+          {/* Solo estética: resumen de atenciones (sin signos vitales ni preexistencias). */}
+          {grupo("próximas atenciones", proximas, T.accent)}
+          {grupo("atención hoy", hoy, "#1F8A5B")}
+          {grupo("atenciones pasadas", pasadas, T.textMute)}
+          {mine.length === 0 && <div style={{ textAlign: "center", padding: "10px 0" }}><AdBtn T={T} small primary onClick={() => onAgendar && onAgendar()}>Agendar primera cita</AdBtn></div>}
         </div>
       )}
     </div>

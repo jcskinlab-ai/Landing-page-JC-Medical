@@ -2917,7 +2917,8 @@ function FichaEditorView({ T }) {
 }
 
 // Tipos de ficha clínica (Área 5) + zonas e IMC.
-const FICHA_TIPOS = [["general", "Ficha general"], ["facial", "Facial"], ["corporal", "Corporal"], ["medgeneral", "Medicina general"]];
+// Solo estética: se quitó "Medicina general" (queda para un futuro software médico general).
+const FICHA_TIPOS = [["general", "Ficha general"], ["facial", "Facial"], ["corporal", "Corporal"]];
 const FICHA_ZONAS_FACIAL = ["Frente", "Entrecejo", "Patas de gallo", "Ojeras", "Pómulos", "Surcos nasogenianos", "Labios", "Código de barras", "Mentón", "Línea mandibular", "Cuello"];
 const FICHA_ZONAS_CORPORAL = ["Abdomen", "Flancos", "Espalda", "Brazos", "Muslos", "Glúteos", "Papada", "Rodillas", "Pantorrillas", "Dorso de manos"];
 // Posiciones aproximadas de cada zona sobre el mapa (Área 5: mapa interactivo).
