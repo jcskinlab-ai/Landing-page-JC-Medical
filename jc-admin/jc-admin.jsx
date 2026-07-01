@@ -2631,13 +2631,13 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                 const recordar = () => { const ph = (a.phone || "").replace(/\D/g, ""); if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmRecordatorioMsg(a)), "_blank", "noopener"); else window.jcmToast && window.jcmToast("Este paciente no tiene teléfono registrado.", "info"); };
                 // [label, fn, color, style]  style: "" normal · "red" cancelar · "green" confirmado activo
                 return [
+                  ["Ficha",      () => { if (onVerFicha) onVerFicha(a); },                                                T.textMute, ""],
                   // Confirmar es un TOGGLE: si ya está confirmada, vuelve a "agendado" (pendiente). (P1)
                   [isConf ? "Confirmada ✓" : "Confirmar", () => updateAppt(a.id, { status: isConf ? "pendiente" : "confirmada", attended: false }), "#16A34A", isConf ? "green" : ""],
                   ["Recordar",   recordar,                                                                                "#1F8A5B",  ""],
                   ["Atendido",   () => updateAppt(a.id, { status: "atendida",   attended: true }),                        "#C9A227",  ""],
                   ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }),                       "#C0285A",  ""],
                   ["Cancelar",   () => { updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(a); }, "#C0285A",  "red"],
-                  ["Ficha",      () => { if (onVerFicha) onVerFicha(a); },                                                T.textMute, ""],
                   ["Comentario", () => { setEditCom(a); },                                                                T.textMute, ""]
                 ].map(([lbl, fn, col, st]) => {
                   const filledRed = st === "red", filledGreen = st === "green";

@@ -2245,6 +2245,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           else window.jcmToast && window.jcmToast("Este paciente no tiene tel\xE9fono registrado.", "info");
         };
         return [
+          ["Ficha", () => {
+            if (onVerFicha) onVerFicha(a);
+          }, T.textMute, ""],
           // Confirmar es un TOGGLE: si ya está confirmada, vuelve a "agendado" (pendiente). (P1)
           [isConf ? "Confirmada \u2713" : "Confirmar", () => updateAppt(a.id, { status: isConf ? "pendiente" : "confirmada", attended: false }), "#16A34A", isConf ? "green" : ""],
           ["Recordar", recordar, "#1F8A5B", ""],
@@ -2254,9 +2257,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() });
             jcmCancelNotice(a);
           }, "#C0285A", "red"],
-          ["Ficha", () => {
-            if (onVerFicha) onVerFicha(a);
-          }, T.textMute, ""],
           ["Comentario", () => {
             setEditCom(a);
           }, T.textMute, ""]
