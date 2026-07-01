@@ -602,7 +602,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const points = patient.points || [];
   // Pestañas NUEVAS (presupuesto, esquema facial) solo para Los Medique hasta el push global.
   const _newFeat = !(window.jcmNewFeat) || window.jcmNewFeat();
-  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ["campana", "Campaña"], ["notas", "Notas"], ["resumen", "Resumen IA"], ["auditoria", "Auditoría IA"]];
+  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ["campana", "Campaña"], ["notas", "Notas"], ["resumen", "Resumen IA"], ["auditoria", "Auditoría IA"]];
   const estado = patient.estado || "Activo";
   const activo = estado === "Activo";
   const wa = "https://wa.me/" + (patient.phone || "").replace(/\D/g, "");
@@ -772,6 +772,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       {tab === "consent" && <ConsentTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "receta" && <RecetaTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "presupuesto" && <PresupuestoTab T={T} patient={patient} updatePatient={updatePatient} />}
+      {tab === "examenes" && <ExamenesTab T={T} patient={patient} />}
       {tab === "facturacion" && <FacturacionTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "campana" && <CampanaTab T={T} patient={patient} updatePatient={updatePatient} />}
 
@@ -2256,6 +2257,54 @@ function FichaMedilinkPanel({ T, patient, onAgendar }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── N7/ficha · Exámenes: subir PDF/foto de exámenes ya existentes (clave aparte) ── */
+function patExamKey(id) { return "pexam_" + id; }
+function ExamenesTab({ T, patient }) {
+  const [files, setFiles] = useState(() => { try { const v = window.DB && window.DB.get(patExamKey(patient.id)); return Array.isArray(v) ? v : []; } catch (e) { return []; } });
+  const fileRef = useRef(null);
+  let ordenes = []; try { ordenes = ((window.DB && window.DB.get("lab_orders")) || []).filter(o => o.patId === patient.id); } catch (e) {}
+  function persist(n) { setFiles(n); try { window.DB && window.DB.set(patExamKey(patient.id), n); } catch (e) {} }
+  function onPick(e) {
+    const fs = Array.from(e.target.files || []); e.target.value = "";
+    fs.forEach(file => {
+      if (file.size > 3 * 1024 * 1024) { window.jcmToast && window.jcmToast("\"" + file.name + "\" supera 3 MB. Usa un archivo más liviano.", "info"); return; }
+      const rd = new FileReader();
+      rd.onload = () => persist([{ id: "ex" + Date.now() + Math.random().toString(36).slice(2, 5), name: file.name, type: /pdf/i.test(file.type) ? "pdf" : "img", data: rd.result, ts: Date.now() }, ...(window.DB && window.DB.get(patExamKey(patient.id)) || files)]);
+      rd.readAsDataURL(file);
+    });
+  }
+  function ver(f) { try { const parts = ("" + f.data).split(","); const bin = atob(parts[1] || ""); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const mime = (parts[0].match(/:(.*?);/) || [, f.type === "pdf" ? "application/pdf" : "image/jpeg"])[1]; const url = URL.createObjectURL(new Blob([arr], { type: mime })); window.open(url, "_blank"); setTimeout(() => URL.revokeObjectURL(url), 20000); } catch (e) { window.open(f.data, "_blank"); } }
+  async function del(id) { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este examen?", { danger: true })) persist(files.filter(x => x.id !== id)); }
+  const hora = ts => { try { return new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch (e) { return ""; } };
+  return (
+    <div>
+      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Carga los <b style={{ color: T.text }}>exámenes ya existentes</b> del paciente (PDF o foto) para tenerlos siempre a mano en su ficha.</div>
+      <AdBtn T={T} primary onClick={() => fileRef.current && fileRef.current.click()}>+ Subir examen (PDF o foto)</AdBtn>
+      <input ref={fileRef} type="file" accept=".pdf,application/pdf,image/*" multiple onChange={onPick} style={{ display: "none" }} />
+      {ordenes.length > 0 && <div style={{ marginTop: 18 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Órdenes solicitadas</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{ordenes.map(o => (
+          <div key={o.id} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 12px", fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{o.examenes} <span style={{ color: T.textFaint, fontSize: 11 }}>· {o.tipo} · {o.estado} · {o.fecha}</span></div>))}</div>
+      </div>}
+      <div style={{ marginTop: 18 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Exámenes cargados ({files.length})</div>
+        {files.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Aún no hay exámenes cargados.</div>
+          : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 10 }}>{files.map(f => (
+              <div key={f.id} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" }}>
+                <div onClick={() => ver(f)} title="Ver" style={{ height: 120, background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden" }}>
+                  {f.type === "img" ? <img src={f.data} alt={f.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "cover" }} /> : <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#C0285A" strokeWidth="1.4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 15h6M9 18h4" /></svg>}
+                </div>
+                <div style={{ padding: "9px 11px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 12, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div><div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}>{hora(f.ts)}</div></div>
+                  <button onClick={() => ver(f)} title="Ver" style={{ background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.accent, fontFamily: T.sans, fontSize: 11 }}>Ver</button>
+                  <button onClick={() => del(f.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 3, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                </div>
+              </div>))}</div>}
+      </div>
     </div>
   );
 }
