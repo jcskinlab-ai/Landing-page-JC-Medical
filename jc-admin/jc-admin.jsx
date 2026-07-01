@@ -493,11 +493,17 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     const mes = new Date().toISOString().slice(0, 7);
     const inMonth = ts => (ts || "").slice(0, 7) === mes;
     let cash = []; try { cash = (typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || []); } catch (e) {}
+    // Un procedimiento NO es una evaluación (se filtran del embudo).
+    const esProc = s => !/evaluaci/i.test(s || "");
     let ingresos = cash.filter(m => m.type === "ingreso" && inMonth(m.ts)).reduce((s, m) => s + (m.amount || 0), 0);
-    let compras = cash.filter(m => m.kind === "atencion" && inMonth(m.ts)).length;
+    // Vendidos: sesiones cobradas ESTE MES en procedimientos (movimiento de caja "atencion" con pago),
+    // excluyendo evaluaciones.
+    let compras = cash.filter(m => m.kind === "atencion" && inMonth(m.ts) && esProc(m.concept)).length;
     let allAppts = []; try { allAppts = (window.DB && DB.get("appts")) || appts || []; } catch (e) { allAppts = appts || []; }
-    let reservas = allAppts.length;
-    let asistieron = allAppts.filter(a => a.attended || a.status === "atendida" || a.status === "confirmada").length;
+    // Reservaron: citas de ESTE MES (por su fecha real), procedimientos (no evaluaciones) y no anuladas.
+    const apptMes = allAppts.filter(a => (a.fecha || "").slice(0, 7) === mes && a.status !== "anulada" && a.status !== "cancelada" && esProc(a.proc));
+    let reservas = apptMes.length;
+    let asistieron = apptMes.filter(a => a.attended || a.status === "atendida" || a.status === "confirmada").length;
     let spend = 0, leads = 0, mensajes = 0, soldManual = null;
     try {
       const cfg = (window.DB && DB.get("config")) || {};
