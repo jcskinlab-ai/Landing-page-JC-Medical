@@ -1360,7 +1360,9 @@ function AdminApp() {
           key: g.l,
           onClick: (e) => {
             const r = e.currentTarget.getBoundingClientRect();
-            setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, y: r.bottom + 5, keys, byKey });
+            const MENU_W = 210;
+            const rightAlign = r.left + MENU_W > window.innerWidth - 8;
+            setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, right: rightAlign ? Math.max(8, window.innerWidth - r.right) : null, y: r.bottom + 5, keys, byKey });
           },
           style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (activeInGroup ? T.accent : T.line), background: activeInGroup ? T.accent : T.chipBg, color: activeInGroup ? T.onAccent || "#fff" : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: activeInGroup ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease }
         },
@@ -1369,7 +1371,7 @@ function AdminApp() {
       );
     });
     return pins.concat(/* @__PURE__ */ React.createElement("span", { key: "nav-div", style: { flexShrink: 0, width: 1, alignSelf: "stretch", background: T.line, margin: "2px 4px" } })).concat(grps);
-  })()), topGrp && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setTopGrp(null), style: { position: "fixed", inset: 0, zIndex: 50 } }), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { position: "fixed", left: topGrp.x, top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto" } }, topGrp.keys.map((k) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => {
+  })()), topGrp && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setTopGrp(null), style: { position: "fixed", inset: 0, zIndex: 50 } }), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { position: "fixed", top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto", ...topGrp.right != null ? { right: topGrp.right } : { left: topGrp.x } } }, topGrp.keys.map((k) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => {
     nav(k);
     setTopGrp(null);
   }, style: { display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 13px", borderRadius: 7, border: "none", background: section === k ? T.accent : "transparent", color: section === k ? T.onAccent || "#fff" : T.text, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, whiteSpace: "nowrap" } }, k === "pendientes" && pendCount > 0 && /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: section === k ? T.onAccent || "#fff" : "#C0285A" } }), topGrp.byKey[k])))), /* @__PURE__ */ React.createElement("div", { id: "jcm-main-scroll", className: "jc-scroll", style: { flex: 1, overflowY: "auto", padding: "18px 20px" } }, /* @__PURE__ */ React.createElement("div", { key: section + (openPatient || ""), style: { animation: "jcFade .3s " + T.ease, maxWidth: 1500, margin: "0 auto" } }, body))), /* @__PURE__ */ React.createElement(Copilot, { T, patients, appts, addAppt, onDarCita: (pf) => setDarCita(pf) }), darCita && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: darCita.time, day: darCita.day, prefill: darCita, onClose: () => setDarCita(null), onSave: (a) => {

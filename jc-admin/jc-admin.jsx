@@ -1456,7 +1456,7 @@ function AdminApp() {
                 const keys = g.keys.filter(k => byKey[k] && NAV_PINNED.indexOf(k) < 0); if (!keys.length) return null;
                 const activeInGroup = keys.indexOf(section) >= 0;
                 return (
-                  <button key={g.l} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, y: r.bottom + 5, keys: keys, byKey: byKey }); }}
+                  <button key={g.l} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const MENU_W = 210; const rightAlign = r.left + MENU_W > window.innerWidth - 8; setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, right: rightAlign ? Math.max(8, window.innerWidth - r.right) : null, y: r.bottom + 5, keys: keys, byKey: byKey }); }}
                     style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (activeInGroup ? T.accent : T.line), background: activeInGroup ? T.accent : T.chipBg, color: activeInGroup ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: activeInGroup ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease }}>
                     {activeInGroup ? g.l + " · " + byKey[section] : g.l}
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>
@@ -1468,7 +1468,7 @@ function AdminApp() {
           </div>
           {topGrp && (<>
             <div onClick={() => setTopGrp(null)} style={{ position: "fixed", inset: 0, zIndex: 50 }} />
-            <div className="jc-scroll" style={{ position: "fixed", left: topGrp.x, top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto" }}>
+            <div className="jc-scroll" style={{ position: "fixed", top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto", ...(topGrp.right != null ? { right: topGrp.right } : { left: topGrp.x }) }}>
               {topGrp.keys.map(k => (
                 <button key={k} onClick={() => { nav(k); setTopGrp(null); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 13px", borderRadius: 7, border: "none", background: section === k ? T.accent : "transparent", color: section === k ? (T.onAccent || "#fff") : T.text, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, whiteSpace: "nowrap" }}>
                   {k === "pendientes" && pendCount > 0 && <span style={{ width: 6, height: 6, borderRadius: "50%", background: section === k ? (T.onAccent || "#fff") : "#C0285A" }} />}
