@@ -163,7 +163,7 @@ var PERM_NAV = {
 };
 function adminNavItems() {
   var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled) || (window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).jcApp === true;
-  var beta = !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
+  var beta = true;
   var allowed = null;
   try {
     var role = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole ? window.JCSAAS.currentRole() : "owner";

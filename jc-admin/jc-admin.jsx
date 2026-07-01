@@ -139,7 +139,9 @@ var PERM_NAV = {
 function adminNavItems() {
   var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled)
     || (((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}).jcApp === true);
-  var beta = !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
+  // Las secciones nuevas del backlog YA están liberadas para TODAS las clínicas (antes eran
+  // beta solo para Los Medique). El push es global: quien tenga el código nuevo las ve.
+  var beta = true;
   // Multiusuario: si el que inició sesión es PROFESIONAL, limita las secciones a sus permisos.
   // Solo se activa con role === 'professional'; el dueño (owner/staff) ve todo, sin cambios.
   var allowed = null;
