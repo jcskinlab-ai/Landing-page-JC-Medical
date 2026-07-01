@@ -58,6 +58,34 @@ async function verifyToken(token) {
 
 function isEmail(s) { return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim()); }
 
+// ── Pagos online (fusionado desde pay-link para no exceder el límite de funciones de Vercel) ──
+// Genera un link de cobro con la pasarela de la clínica. Credenciales SOLO en el servidor.
+//   Mercado Pago: MP_ACCESS_TOKEN   ·   Flow: FLOW_API_KEY + FLOW_SECRET (+ FLOW_BASE opcional)
+async function mercadoPago(amount, desc, back) {
+  const tok = process.env.MP_ACCESS_TOKEN;
+  if (!tok) return { ok: false, configured: false, error: "Falta MP_ACCESS_TOKEN en el servidor." };
+  const r = await fetch("https://api.mercadopago.com/checkout/preferences", {
+    method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tok },
+    body: JSON.stringify({ items: [{ title: desc || "Atención", quantity: 1, unit_price: amount, currency_id: "CLP" }], back_urls: { success: back, pending: back, failure: back }, auto_return: "approved" })
+  });
+  const d = await r.json();
+  if (!r.ok || !(d.init_point || d.sandbox_init_point)) return { ok: false, error: (d.message || "Mercado Pago rechazó la solicitud.") };
+  return { ok: true, url: d.init_point || d.sandbox_init_point, id: d.id };
+}
+async function flow(amount, desc, back) {
+  const apiKey = process.env.FLOW_API_KEY, secret = process.env.FLOW_SECRET;
+  if (!apiKey || !secret) return { ok: false, configured: false, error: "Faltan FLOW_API_KEY / FLOW_SECRET en el servidor." };
+  const base = process.env.FLOW_BASE || "https://www.flow.cl/api";
+  const params = { apiKey, commerceOrder: "MQ" + Date.now(), subject: (desc || "Atención").slice(0, 80), currency: "CLP", amount: Math.round(amount), email: "pagos@medique.cl", urlConfirmation: back, urlReturn: back };
+  const toSign = Object.keys(params).sort().map(k => k + params[k]).join("");
+  const s = crypto.createHmac("sha256", secret).update(toSign).digest("hex");
+  const body = new URLSearchParams({ ...params, s }).toString();
+  const r = await fetch(base + "/payment/create", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
+  const d = await r.json();
+  if (!r.ok || !d.url || !d.token) return { ok: false, error: (d.message || "Flow rechazó la solicitud.") };
+  return { ok: true, url: d.url + "?token=" + d.token };
+}
+
 export default async function handler(req, res) {
   const origin = req.headers.origin || "";
   const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -73,6 +101,21 @@ export default async function handler(req, res) {
     if (!token) return res.status(401).json({ ok: false, error: "Sin sesión." });
     const payload = await verifyToken(token);
     const callerUid = payload.sub;
+
+    const preBody = req.body && typeof req.body === "object" ? req.body : {};
+
+    // ── Generar link de pago (cualquier usuario del panel; no requiere Admin SDK) ──
+    if (preBody.action === "pay-link") {
+      const provider = ("" + (preBody.provider || "")).toLowerCase();
+      const amount = Math.round(parseFloat(preBody.amount) || 0);
+      const desc = ("" + (preBody.desc || "Atención")).slice(0, 120);
+      if (amount < 100) return res.status(400).json({ ok: false, error: "Monto inválido." });
+      let pr;
+      if (provider.indexOf("mercado") >= 0) pr = await mercadoPago(amount, desc, safeOrigin);
+      else if (provider.indexOf("flow") >= 0) pr = await flow(amount, desc, safeOrigin);
+      else return res.status(400).json({ ok: false, error: "Proveedor no soportado aún. Usa Mercado Pago o Flow." });
+      return res.status(pr.ok ? 200 : 502).json(pr);
+    }
 
     const { auth, db } = await getAdmin();
 

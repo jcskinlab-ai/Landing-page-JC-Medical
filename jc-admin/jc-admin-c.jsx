@@ -5979,7 +5979,7 @@ function PagosOnlineView({ T, patients }) {
     setBusy(true);
     try {
       const tok = (window.JCSAAS && window.JCSAAS.idToken) ? await window.JCSAAS.idToken() : null;
-      const r = await fetch("/api/pay-link", { method: "POST", headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}) }, body: JSON.stringify({ provider: cfg.provider, amount: amt, desc: (concepto.trim() || "Atención") + (pat ? " · " + pat.name : "") }) }).then(x => x.json());
+      const r = await fetch("/api/team-access", { method: "POST", headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}) }, body: JSON.stringify({ action: "pay-link", provider: cfg.provider, amount: amt, desc: (concepto.trim() || "Atención") + (pat ? " · " + pat.name : "") }) }).then(x => x.json());
       if (r && r.ok && r.url) setLink(r.url);
       else if (r && r.configured === false) setErr("Aún no está activo: el administrador debe cargar las credenciales del proveedor en el servidor.");
       else setErr((r && r.error) || "No se pudo generar el link.");
