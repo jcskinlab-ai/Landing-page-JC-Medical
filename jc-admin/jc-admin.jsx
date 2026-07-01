@@ -31,7 +31,24 @@ function nIcon(name, c) {
     consentimientos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 14l2 2 4-4" /></>,
     difusiones: <><path d="M3 11l16-6v14L3 13zM3 11v4M9 13v4a2 2 0 0 0 3 1.7" /></>,
     copilot: <><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6zM18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z" /></>,
-    fichaeditor: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>
+    fichaeditor: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+    // ── Secciones nuevas (suite N1–N10) ──
+    notasia: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></>,
+    resumenia: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5M9 3h4v3H9z" /></>,
+    contactcenter: <><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /><path d="M8 12h.01M12 12h.01M16 12h.01" /></>,
+    reportesia: <><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M12 3v9l6.4-6.4" /></>,
+    contraloria: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>,
+    telemedicina: <><rect x="2" y="4" width="14" height="12" rx="2" /><path d="M16 9l6-3v10l-6-3z" /><path d="M4 20h10" /></>,
+    desempeno: <><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4" /></>,
+    encuestas: <><path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z" /></>,
+    chatinterno: <><path d="M8 10h8M8 14h5" /><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></>,
+    pagosgastos: <><path d="M12 3a9 9 0 1 0 9 9" /><path d="M12 3v9h9" /><path d="M12 12l6-6" /></>,
+    remuneraciones: <><rect x="4" y="2" width="16" height="20" rx="2" /><path d="M8 6h8M8 10h2M12 10h4M8 14h2M12 14h4M8 18h4" /></>,
+    laboratorios: <><path d="M9 2v6l-5 9a2 2 0 0 0 1.8 3h12.4A2 2 0 0 0 20 17l-5-9V2M8 2h8M7 14h10" /></>,
+    convenios: <><path d="M8 12l2 2 4-4" /><path d="M2 12l4-4 3 2 3-3 3 3 3-2 4 4-4 4-3-2-3 3-3-3-3 2z" /></>,
+    flujocaja: <><path d="M3 17l6-6 4 4 8-8M21 7h-4M21 7v4" /></>,
+    boletas: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4" /></>,
+    pagosonline: <><rect x="2.5" y="5" width="19" height="14" rx="2" /><path d="M2.5 9h19M6 15h4" /></>
   }[name];
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{p}</svg>;
 }
@@ -71,21 +88,28 @@ const ADMIN_NAV = [
   { k: "inventario", l: "Inventario" }, { k: "servicios", l: "Tratamientos" }, { k: "equipo", l: "Equipo" }, { k: "sucursales", l: "Sucursales" }, { k: "marketing", l: "Marketing" },
   { k: "crm", l: "CRM · Embudo" }, { k: "difusiones", l: "Difusiones" }, { k: "agenteia", l: "Agente IA" }, { k: "copilot", l: "Asistente IA" }, { k: "automatizaciones", l: "Automatizaciones" },
   { k: "resumen", l: "Resumen" }, { k: "colaboracion", l: "Colaboraciones" }, { k: "fidelidad", l: "Fidelidad" },
-  { k: "integraciones", l: "Integraciones" }, { k: "reportes", l: "Reportes" }, { k: "administracion", l: "Administración" }, { k: "consentimientos", l: "Consentimientos" }, { k: "fichaeditor", l: "Editor de Fichas" }, { k: "tutoriales", l: "Tutoriales" }, { k: "config", l: "Configuración" }
+  { k: "integraciones", l: "Integraciones" }, { k: "reportes", l: "Reportes" }, { k: "administracion", l: "Administración" }, { k: "consentimientos", l: "Consentimientos" }, { k: "fichaeditor", l: "Editor de Fichas" }, { k: "tutoriales", l: "Tutoriales" }, { k: "config", l: "Configuración" },
+  // ── Suite nueva (N1–N10), gateada a Los Medique hasta aprobación ──
+  { k: "notasia", l: "Notas Clínicas" }, { k: "resumenia", l: "Resumen Clínico" }, { k: "contactcenter", l: "Contact Center" }, { k: "reportesia", l: "Reportes IA" }, { k: "contraloria", l: "Contralor IA" },
+  { k: "telemedicina", l: "Telemedicina" }, { k: "desempeno", l: "Panel de desempeño" }, { k: "encuestas", l: "Encuestas" }, { k: "chatinterno", l: "Chat interno" },
+  { k: "pagosgastos", l: "Pagos y Gastos" }, { k: "remuneraciones", l: "Remuneraciones" }, { k: "laboratorios", l: "Laboratorios" }, { k: "convenios", l: "Convenios" }, { k: "flujocaja", l: "Flujo de caja" }, { k: "boletas", l: "Boletas" }, { k: "pagosonline", l: "Pagos online" }
 ];
+// Secciones NUEVAS (suite N1–N10): visibles SOLO para Los Medique (preview) hasta el push global.
+var NEW_SECT = { notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, telemedicina: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
 // Encabezado de grupo del sidebar: la clave donde COMIENZA un grupo → su etiqueta (Área 1).
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "Marketing & Ventas", resumen: "Análisis", administracion: "Sistema" };
 // Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
-  { l: "Clínica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
-  { l: "Marketing", keys: ["marketing", "crm", "difusiones"] },
-  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
+  { l: "Clínica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales", "telemedicina"] },
+  { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
+  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones", "notasia", "resumenia", "contactcenter", "reportesia", "contraloria"] },
   // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes). Fidelidad, Colaboración
   // e Integraciones pasan a su propio menú "Herramientas". (P22)
-  { l: "Análisis", keys: ["resumen", "reportes"] },
-  { l: "Herramientas", keys: ["fidelidad", "colaboracion", "integraciones"] },
+  { l: "Análisis", keys: ["resumen", "reportes", "desempeno"] },
+  { l: "Herramientas", keys: ["fidelidad", "colaboracion", "integraciones", "chatinterno"] },
+  { l: "Gestión", keys: ["pagosgastos", "remuneraciones", "laboratorios", "convenios", "flujocaja", "boletas", "pagosonline"] },
   { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (siempre visibles, no dentro de un grupo).
@@ -153,9 +177,12 @@ function adminNavItems() {
       Object.keys(PERM_NAV).forEach(function (p) { if (perms[p]) PERM_NAV[p].forEach(function (k) { allowed[k] = 1; }); });
     }
   } catch (e) { allowed = null; }
+  // Suite nueva: solo Los Medique (o modo local) hasta el push global.
+  var newBeta = !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
   return ADMIN_NAV.filter(function (n) {
     if (n.k === "appjcm" && !showJcApp) return false;
     if (ADMIN_BETA_SECTIONS[n.k] && !beta) return false;
+    if (NEW_SECT[n.k] && !newBeta) return false;
     if (allowed && !allowed[n.k]) return false;
     return true;
   });
@@ -281,7 +308,7 @@ function importAllWeb() {
 
 /* ─────────── ENRUTAMIENTO DEL PANEL (URLs por sección y por paciente) ─────────── */
 // Cada apartado tiene su URL: /panel/inventario, /panel/agenda, etc.; y cada paciente /panel/pacientes/<id>.
-const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, copilot: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1, config: 1, appjcm: 1 };
+const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, copilot: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1, config: 1, appjcm: 1, notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, telemedicina: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
 function panelParseRoute() {
   try {
     var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1327,6 +1354,23 @@ function AdminApp() {
   else if (section === "reportes") body = <ReportesView T={T} patients={patients} appts={appts} />;
   else if (section === "colaboracion") body = <ColaboracionView T={T} />;
   else if (section === "config") body = <ConfigView T={T} />;
+  // ── Suite nueva (N1–N10) ──
+  else if (section === "notasia") body = <NotasClinicasView T={T} patients={patients} updatePatient={updatePatient} />;
+  else if (section === "resumenia") body = <ResumenClinicoView T={T} patients={patients} appts={appts} />;
+  else if (section === "contactcenter") body = <ContactCenterView T={T} patients={patients} />;
+  else if (section === "reportesia") body = <ReportesIAView T={T} patients={patients} appts={appts} />;
+  else if (section === "contraloria") body = <ContraloriaView T={T} patients={patients} appts={appts} />;
+  else if (section === "telemedicina") body = <TelemedicinaView T={T} appts={appts} patients={patients} />;
+  else if (section === "desempeno") body = <DesempenoView T={T} patients={patients} appts={appts} />;
+  else if (section === "encuestas") body = <EncuestasView T={T} patients={patients} />;
+  else if (section === "chatinterno") body = <ChatInternoView T={T} />;
+  else if (section === "pagosgastos") body = <PagosGastosView T={T} />;
+  else if (section === "remuneraciones") body = <RemuneracionesView T={T} />;
+  else if (section === "laboratorios") body = <LaboratoriosView T={T} patients={patients} />;
+  else if (section === "convenios") body = <ConveniosView T={T} />;
+  else if (section === "flujocaja") body = <FlujoCajaView T={T} />;
+  else if (section === "boletas") body = <BoletasView T={T} patients={patients} />;
+  else if (section === "pagosonline") body = <PagosOnlineView T={T} patients={patients} />;
 
   const RAIL = 60, EXP = 212;
   // Barra izquierda oscura (color de la pestaña seleccionada): única navegación del panel.

@@ -5367,4 +5367,602 @@ function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, FichaEditorView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient });
+/* ═══════════════════ SUITE NUEVA (N1–N10) — gateada a Los Medique ═══════════════════ */
+// Contexto de clínica para la IA (nombre, sucursales, etc.).
+function jcmClinicCtx() { try { return (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}; } catch (e) { return {}; } }
+// Encabezado con degradado para las soluciones IA.
+function IAHero({ T, icon, color, title, sub }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16, background: "linear-gradient(135deg," + color + "18, " + (T.surface2 || T.surface) + ")", border: "1px solid " + T.line, borderRadius: 16, padding: "18px 20px", marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: color + "22", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text, lineHeight: 1.1 }}>{title}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 4, lineHeight: 1.5 }}>{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── N2 · Notas Clínicas (voz → nota clínica) ── */
+function NotasClinicasView({ T, patients, updatePatient }) {
+  const [pid, setPid] = useState("");
+  const [txt, setTxt] = useState("");
+  const [rec, setRec] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const recRef = useRef(null);
+  const SR = (typeof window !== "undefined") && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const pat = patients.find(p => p.id === pid);
+  function toggleRec() {
+    if (!SR) { window.jcmToast && window.jcmToast("Tu navegador no permite dictado por voz. Usa Chrome/Edge o escribe la nota.", "info"); return; }
+    if (rec) { try { recRef.current && recRef.current.stop(); } catch (e) {} setRec(false); return; }
+    const r = new SR(); r.lang = "es-CL"; r.continuous = true; r.interimResults = true;
+    let base = txt ? txt + " " : "";
+    r.onresult = e => { let s = ""; for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript; setTxt(base + s); };
+    r.onend = () => setRec(false);
+    r.onerror = () => setRec(false);
+    recRef.current = r; try { r.start(); setRec(true); } catch (e) {}
+  }
+  async function formatear() {
+    if (!txt.trim() || busy || !window.mediqueAI) { if (!window.mediqueAI) window.jcmToast && window.jcmToast("La IA no está disponible (falta GROQ_API_KEY en el servidor).", "info"); return; }
+    setBusy(true);
+    try {
+      const msg = [{ role: "user", content: "Convierte el siguiente dictado en una NOTA CLÍNICA ordenada en formato SOAP (Subjetivo, Objetivo, Análisis, Plan), en español de Chile, concisa y profesional. Solo la nota, sin comentarios:\n\n" + txt }];
+      const r = await window.mediqueAI(msg, jcmClinicCtx(), { max_tokens: 600 });
+      const out = (r && (r.content || r.text || r)) || "";
+      if (out && typeof out === "string") setTxt(out.trim());
+    } catch (e) {}
+    setBusy(false);
+  }
+  function guardar() {
+    if (!pat || !txt.trim()) { window.jcmToast && window.jcmToast(pat ? "Escribe o dicta la nota primero." : "Elige un paciente.", "info"); return; }
+    const nota = { id: "rx" + Date.now(), tipo: "indicaciones", fecha: new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" }), diag: "Nota clínica", rp: txt.trim(), ind: "", ctrl: "" };
+    updatePatient(pat.id, { recetas: [nota, ...(pat.recetas || [])] });
+    setSaved(true); setTimeout(() => setSaved(false), 2000); setTxt("");
+    try { window.jcmAudit && window.jcmAudit("Nota clínica guardada · " + pat.name); } catch (e) {}
+  }
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return (
+    <div>
+      <SecHead T={T} title="Notas Clínicas" sub="Dicta por voz y la IA arma la nota en formato clínico" />
+      <IAHero T={T} color="#8B5CF6" title="Registrar deja de ser una carga" sub="Transcripción de voz en tiempo real · formato clínico automático · notas completas y precisas." icon={<><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></>} />
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 760 }}>
+        <label style={{ display: "block", marginBottom: 12 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Paciente</span>
+          <select value={pid} onChange={e => setPid(e.target.value)} style={inp}><option value="">Elegir paciente…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          <button onClick={toggleRec} style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: T.sans, fontSize: 12, fontWeight: 600, padding: "10px 16px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (rec ? "#C0285A" : T.line), background: rec ? "#C0285A" : "transparent", color: rec ? "#fff" : T.text }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: rec ? "#fff" : "#C0285A", ...(rec ? { animation: "jcFade 1s infinite alternate" } : {}) }} />{rec ? "Detener dictado" : "Dictar por voz"}</button>
+          <button onClick={formatear} disabled={busy || !txt.trim()} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, padding: "10px 16px", borderRadius: 999, cursor: txt.trim() ? "pointer" : "default", border: "1px solid " + T.accent, background: "transparent", color: T.accent, opacity: txt.trim() ? 1 : .5 }}>{busy ? "Formateando…" : "✦ Formatear con IA (SOAP)"}</button>
+        </div>
+        <textarea value={txt} onChange={e => setTxt(e.target.value)} rows={9} placeholder="Dicta o escribe la nota clínica aquí…" style={{ ...inp, resize: "vertical", lineHeight: 1.6 }} />
+        <div style={{ marginTop: 12 }}><AdBtn T={T} primary onClick={guardar}>{saved ? "✓ Guardada en la ficha" : "Guardar en la ficha del paciente"}</AdBtn></div>
+        {!SR && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 8 }}>El dictado por voz funciona en Chrome/Edge. En otros navegadores, escribe la nota y usa "Formatear con IA".</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ── N2 · Resumen Clínico (IA resume la historia del paciente) ── */
+function ResumenClinicoView({ T, patients, appts }) {
+  const [pid, setPid] = useState("");
+  const [out, setOut] = useState("");
+  const [busy, setBusy] = useState(false);
+  const pat = patients.find(p => p.id === pid);
+  const alergias = pat ? (pat.alergias || pat.allergies || "").toString() : "";
+  async function generar() {
+    if (!pat || busy) return;
+    if (!window.mediqueAI) { window.jcmToast && window.jcmToast("La IA no está disponible (falta GROQ_API_KEY).", "info"); return; }
+    setBusy(true); setOut("");
+    const hist = (pat.recetas || []).slice(0, 12).map(r => "- " + r.fecha + ": " + (r.diag || r.tipo) + " · " + (r.rp || "").slice(0, 120)).join("\n");
+    const cxt = "Paciente: " + (pat.name || "") + (pat.age ? " (" + pat.age + " años)" : "") + "\nRUT: " + (pat.rut || "—") + "\nAlergias/condiciones: " + (alergias || "no registradas") + "\nEtiquetas: " + ((pat.tags || []).join(", ") || "—") + "\nHistorial:\n" + (hist || "sin registros");
+    try {
+      const r = await window.mediqueAI([{ role: "user", content: "Eres asistente clínico. Resume la historia del paciente en 5-8 viñetas claras (condiciones activas, tratamientos en curso, alertas de alergias, y próximos controles sugeridos). Español de Chile. Datos:\n\n" + cxt }], jcmClinicCtx(), { max_tokens: 550 });
+      setOut(((r && (r.content || r.text || r)) || "").toString().trim());
+    } catch (e) { setOut(""); }
+    setBusy(false);
+  }
+  const inp = { width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box", maxWidth: 420 };
+  return (
+    <div>
+      <SecHead T={T} title="Resumen Clínico" sub="La historia deja de acumularse: se organiza y se vuelve accionable" />
+      <IAHero T={T} color="#3AAE8C" title="Historial resumido por IA" sub="Alertas de alergias y condiciones · acceso rápido a tratamientos activos." icon={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" /></>} />
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+        <label style={{ flex: 1, minWidth: 220 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Paciente</span>
+          <select value={pid} onChange={e => { setPid(e.target.value); setOut(""); }} style={inp}><option value="">Elegir paciente…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <AdBtn T={T} primary onClick={generar}>{busy ? "Generando…" : "✦ Generar resumen"}</AdBtn>
+      </div>
+      {pat && alergias && <div style={{ background: "rgba(192,40,90,.08)", border: "1px solid #C0285A44", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>⚠ <b>Alergias / condiciones:</b> {alergias}</div>}
+      {out ? <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 20px", maxWidth: 760, fontFamily: T.sans, fontSize: 13.5, color: T.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{out}</div>
+        : pat ? <Empty2 T={T}>Toca "Generar resumen" para que la IA resuma la historia de {pat.name}.</Empty2> : <Empty2 T={T}>Elige un paciente para generar su resumen clínico.</Empty2>}
+    </div>
+  );
+}
+
+/* ── N2 · Contact Center (bandeja conversacional) ── */
+function ContactCenterView({ T, patients }) {
+  const waMsgs = (() => { try { return ((window.CADMIN || {}).waMessages) || []; } catch (e) { return []; } })();
+  const metaOn = (() => { try { return !!(window.DB && window.DB.get("wa_connected")); } catch (e) { return false; } })();
+  return (
+    <div>
+      <SecHead T={T} title="Contact Center" sub="Atención conversacional centralizada" />
+      <IAHero T={T} color="#3AAE8C" title="Todas tus conversaciones en un lugar" sub="WhatsApp, correo e Instagram en una sola bandeja, con respuestas sugeridas por IA." icon={<><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></>} />
+      {!metaOn && (
+        <div style={{ background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 11, background: "#25D36622", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="20" height="20" viewBox="0 0 24 24" fill="#25D366"><path d="M19 4.9A9.8 9.8 0 0 0 12 2C6.6 2 2.1 6.4 2.1 11.9c0 1.8.5 3.5 1.3 5L2 22l5.2-1.4a9.9 9.9 0 0 0 4.8 1.2c5.5 0 9.9-4.4 9.9-9.9 0-2.6-1-5.1-2.9-7z" /></svg></span>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Conecta WhatsApp para activar el Contact Center</div>
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 4, lineHeight: 1.5 }}>El bot de WhatsApp ya está programado (responde y agenda con IA). Falta conectar tu cuenta de Meta (WhatsApp Cloud API). Cuando esté, las conversaciones aparecen aquí y podrás responder con ayuda de la IA.</div>
+          </div>
+          <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#B8860B", border: "1px solid #B8860B55", borderRadius: 999, padding: "5px 11px", alignSelf: "center" }}>Pendiente Meta</span>
+        </div>
+      )}
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Conversaciones recientes</div>
+      {waMsgs.length === 0 ? <Empty2 T={T}>Aún no hay conversaciones. Aparecerán aquí al conectar WhatsApp.</Empty2>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 760 }}>{waMsgs.map((m, i) => (
+            <div key={i} style={{ display: "flex", gap: 12, alignItems: "center", background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" }}>
+              <Avatar T={T} name={m.name} size={38} />
+              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{m.name}</div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.msg}</div></div>
+              <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, flexShrink: 0 }}>{m.ago}</span>
+            </div>))}</div>}
+    </div>
+  );
+}
+
+/* ── N2 · Reportes IA (pregunta en lenguaje natural sobre tu clínica) ── */
+function ReportesIAView({ T, patients, appts }) {
+  const [q, setQ] = useState("");
+  const [msgs, setMsgs] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const ctx = (() => {
+    let cash = []; try { cash = (window.cashAll && window.cashAll()) || []; } catch (e) {}
+    const mes = new Date().toISOString().slice(0, 7);
+    const inM = ts => (ts || "").slice(0, 7) === mes;
+    const ingresosMes = cash.filter(m => m.type === "ingreso" && inM(m.ts)).reduce((s, m) => s + (m.amount || 0), 0);
+    const atMes = cash.filter(m => m.kind === "atencion" && inM(m.ts));
+    const porTrat = {}; atMes.forEach(m => { const k = (m.concept || "").split(" · ")[0]; porTrat[k] = (porTrat[k] || 0) + 1; });
+    const top = Object.keys(porTrat).sort((a, b) => porTrat[b] - porTrat[a]).slice(0, 5).map(k => k + " (" + porTrat[k] + ")").join(", ");
+    const citasMes = (appts || []).filter(a => (a.fecha || "").slice(0, 7) === mes && a.status !== "anulada").length;
+    return "Datos de la clínica (este mes):\n- Pacientes totales: " + patients.length + "\n- Citas del mes: " + citasMes + "\n- Ingresos del mes: $" + ingresosMes.toLocaleString("es-CL") + "\n- Atenciones cobradas del mes: " + atMes.length + "\n- Tratamientos más hechos: " + (top || "—");
+  })();
+  async function pregunta(texto) {
+    const pregunta = (texto || q).trim(); if (!pregunta || busy) return;
+    setQ(""); const next = [...msgs, { role: "user", content: pregunta }]; setMsgs(next);
+    if (!window.mediqueAI) { setMsgs([...next, { role: "assistant", content: "(La IA no está disponible: falta GROQ_API_KEY en el servidor.)" }]); return; }
+    setBusy(true);
+    try {
+      const r = await window.mediqueAI([{ role: "user", content: "Eres analista de una clínica estética. Responde en español de Chile, breve y accionable, usando SOLO estos datos:\n\n" + ctx + "\n\nPregunta: " + pregunta }], jcmClinicCtx(), { max_tokens: 500 });
+      setMsgs([...next, { role: "assistant", content: ((r && (r.content || r.text || r)) || "").toString().trim() }]);
+    } catch (e) { setMsgs([...next, { role: "assistant", content: "No pude responder ahora, intenta de nuevo." }]); }
+    setBusy(false);
+  }
+  const sug = ["¿Cómo va el mes vs. lo esperado?", "¿Qué tratamiento conviene promocionar?", "¿Dónde estoy perdiendo ingresos?"];
+  const inp = { flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
+  return (
+    <div>
+      <SecHead T={T} title="Reportes IA" sub="Los datos dejan de ser números: se convierten en decisiones" />
+      <IAHero T={T} color="#E8952A" title="Reportes conversacionales" sub="Pregunta en lenguaje natural · visualizaciones automáticas · insights accionables." icon={<><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M12 3v9l6.4-6.4" /></>} />
+      <div style={{ maxWidth: 780 }}>
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 16, minHeight: 220, marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          {msgs.length === 0 && <div style={{ margin: "auto", textAlign: "center", maxWidth: 420 }}><div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 12 }}>Pregúntale a la IA sobre el rendimiento de tu clínica.</div><div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>{sug.map(s => <button key={s} onClick={() => pregunta(s)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "8px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent }}>{s}</button>)}</div></div>}
+          {msgs.map((m, i) => <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%", background: m.role === "user" ? T.accent : T.surface2, color: m.role === "user" ? (T.onAccent || "#fff") : T.text, border: m.role === "user" ? "none" : "1px solid " + T.line, borderRadius: 12, padding: "11px 14px", fontFamily: T.sans, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{m.content}</div>)}
+          {busy && <div style={{ alignSelf: "flex-start", fontFamily: T.sans, fontSize: 12, color: T.textMute }}>Analizando…</div>}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === "Enter") pregunta(); }} placeholder="Escribe tu pregunta…" style={inp} />
+          <AdBtn T={T} primary onClick={() => pregunta()}>Preguntar</AdBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── N2 · Contralor IA (verificación automática de registros) ── */
+function ContraloriaView({ T, patients, appts }) {
+  const alertas = (() => {
+    const A = [];
+    const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : []).length;
+    if (sinConsent) A.push({ t: "Consentimientos pendientes", n: sinConsent, d: sinConsent + " paciente(s) con cita de procedimiento sin consentimiento firmado.", to: "pendientes", c: "#C9A227" });
+    const sinRut = patients.filter(p => !(p.rut || "").trim()).length;
+    if (sinRut) A.push({ t: "Fichas sin RUT", n: sinRut, d: sinRut + " paciente(s) sin RUT registrado (dificulta boletas y trazabilidad).", to: "pacientes", c: "#C0285A" });
+    const sinTel = patients.filter(p => !(p.phone || "").replace(/\D/g, "")).length;
+    if (sinTel) A.push({ t: "Fichas sin teléfono", n: sinTel, d: sinTel + " paciente(s) sin teléfono (no reciben recordatorios).", to: "pacientes", c: "#C9A227" });
+    const citasSinProf = (appts || []).filter(a => a.status !== "anulada" && !(a.prof || "").trim() && (a.fecha || "") >= new Date().toISOString().slice(0, 10)).length;
+    if (citasSinProf) A.push({ t: "Citas sin profesional", n: citasSinProf, d: citasSinProf + " cita(s) futura(s) sin profesional asignado.", to: "agenda", c: "#C0285A" });
+    let cash = []; try { cash = (window.cashAll && window.cashAll()) || []; } catch (e) {}
+    let pend = 0; try { patients.forEach(p => (p.billing || []).forEach(b => { if (!b.paid && b.amount > 0) pend++; })); } catch (e) {}
+    if (pend) A.push({ t: "Cobros pendientes", n: pend, d: pend + " atención(es) registrada(s) sin pago.", to: "caja", c: "#C9A227" });
+    return A;
+  })();
+  const ok = alertas.length === 0;
+  return (
+    <div>
+      <SecHead T={T} title="Contralor IA" sub="Gestionar deja de ser reaccionar: la inteligencia anticipa y alerta" />
+      <IAHero T={T} color="#8B5CF6" title="Control de calidad continuo" sub="Verificación automática de registros · alertas de inconsistencias · control de calidad continuo." icon={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>} />
+      {ok ? <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid #1F8A5B44", borderRadius: 12, padding: "24px", textAlign: "center", maxWidth: 760 }}><div style={{ fontFamily: T.serif, fontSize: 19, color: "#1F8A5B" }}>✓ Todo en orden</div><div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, marginTop: 6 }}>No se detectaron inconsistencias en los registros.</div></div>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 780 }}>{alertas.map((a, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderLeft: "4px solid " + a.c, borderRadius: 10, padding: "14px 16px" }}>
+              <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: a.c + "1c", color: a.c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 600 }}>{a.n}</span>
+              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{a.t}</div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 }}>{a.d}</div></div>
+              <button onClick={() => { try { window.jcmNav ? window.jcmNav(a.to) : (location.href = "/" + a.to); } catch (e) {} }} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}>Revisar →</button>
+            </div>))}</div>}
+    </div>
+  );
+}
+
+/* ── N4 · Telemedicina (videoconsulta con sala Jitsi) ── */
+function TelemedicinaView({ T, appts, patients }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const clin = (window.clinicName && window.clinicName()) || "Medique";
+  const roomOf = a => "medique-" + (a.id || Math.random().toString(36).slice(2)) + "-" + (a.fecha || today).replace(/-/g, "");
+  const linkOf = a => "https://meet.jit.si/" + roomOf(a);
+  const proximas = (appts || []).filter(a => a.status !== "anulada" && (a.fecha || "") >= today).sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "") || (a.time || "").localeCompare(b.time || "")).slice(0, 20);
+  function waLink(a) { const ph = (a.phone || "").replace(/\D/g, ""); const msg = "Hola " + (a.name || "") + " 👋 Tu videoconsulta en " + clin + " es el " + (a.fecha || "") + " a las " + (a.time || "") + " hrs.\nEntra aquí a la hora de tu cita: " + linkOf(a); return ph.length >= 8 ? "https://wa.me/" + ph + "?text=" + encodeURIComponent(msg) : null; }
+  return (
+    <div>
+      <SecHead T={T} title="Telemedicina" sub="Videoconsulta con tus pacientes, sin instalar nada" />
+      <IAHero T={T} color="#2AA5C9" title="Conecta con tus pacientes donde estén" sub="Cada cita genera una sala de video segura. Comparte el link por WhatsApp y entra con un clic." icon={<><rect x="2" y="4" width="14" height="12" rx="2" /><path d="M16 9l6-3v10l-6-3z" /><path d="M4 20h10" /></>} />
+      {proximas.length === 0 ? <Empty2 T={T}>No hay citas próximas. Las salas de video se generan por cada cita agendada.</Empty2>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 820 }}>{proximas.map(a => {
+            const wa = waLink(a);
+            return (
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 16px", flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{a.name}</div><div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>{a.fecha === today ? "Hoy" : a.fecha} · {a.time} hrs · {a.proc || "Consulta"}</div></div>
+                <a href={linkOf(a)} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: "#fff", background: T.accent, borderRadius: 9, padding: "10px 16px", textDecoration: "none" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="5" width="14" height="14" rx="2" /><path d="M16 10l6-3v10l-6-3z" /></svg>Entrar a la sala</a>
+                {wa && <a href={wa} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: "#1F8A5B", border: "1px solid #1F8A5B", borderRadius: 9, padding: "9px 13px", textDecoration: "none" }}>Enviar link</a>}
+              </div>);
+          })}</div>}
+      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 14, maxWidth: 760, lineHeight: 1.5 }}>Las salas usan Jitsi Meet (gratis, cifrado, sin cuenta). Para una solución de marca propia con grabación se puede integrar un proveedor dedicado más adelante.</div>
+    </div>
+  );
+}
+
+/* ── N7 · Pagos y Gastos ── */
+const GASTO_CATS = ["Arriendo", "Sueldos", "Insumos", "Marketing", "Servicios básicos", "Equipamiento", "Impuestos", "Otros"];
+function PagosGastosView({ T }) {
+  const D = window.JCDATA;
+  const [items, setItems] = useState(() => { try { return (window.DB && window.DB.get("expenses")) || []; } catch (e) { return []; } });
+  const [f, setF] = useState({ categoria: GASTO_CATS[0], concepto: "", monto: "", recurrente: false });
+  function persist(n) { setItems(n); try { window.DB && window.DB.set("expenses", n); } catch (e) {} }
+  function add() { const m = parseInt(f.monto, 10) || 0; if (!f.concepto.trim() || !m) { window.jcmToast && window.jcmToast("Completa concepto y monto.", "info"); return; } persist([{ id: "g" + Date.now(), fecha: new Date().toISOString().slice(0, 10), categoria: f.categoria, concepto: f.concepto.trim(), monto: m, recurrente: f.recurrente }, ...items]); setF({ ...f, concepto: "", monto: "" }); }
+  async function del(id) { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este gasto?", { danger: true })) persist(items.filter(x => x.id !== id)); }
+  const mes = new Date().toISOString().slice(0, 7);
+  const mesItems = items.filter(g => (g.fecha || "").slice(0, 7) === mes);
+  const totalMes = mesItems.reduce((s, g) => s + (g.monto || 0), 0);
+  const porCat = {}; mesItems.forEach(g => { porCat[g.categoria] = (porCat[g.categoria] || 0) + g.monto; });
+  const cats = Object.keys(porCat).sort((a, b) => porCat[b] - porCat[a]);
+  const inp = { padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return (
+    <div>
+      <SecHead T={T} title="Pagos y Gastos" sub="Identifica y registra el detalle de tus gastos" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
+        <CajaCard T={T} l="Gasto del mes" v={D.fmt(totalMes)} c="#C0285A" />
+        <CajaCard T={T} l="N° de gastos" v={mesItems.length} c={T.accent} />
+        <CajaCard T={T} l="Recurrentes" v={items.filter(g => g.recurrente).length} c="#C9A227" />
+      </div>
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "160px 1fr 130px auto", gap: 8, alignItems: "center" }}>
+        <select value={f.categoria} onChange={e => setF({ ...f, categoria: e.target.value })} style={inp}>{GASTO_CATS.map(c => <option key={c}>{c}</option>)}</select>
+        <input value={f.concepto} onChange={e => setF({ ...f, concepto: e.target.value })} placeholder="Concepto del gasto" style={inp} />
+        <input value={f.monto} onChange={e => setF({ ...f, monto: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="Monto $" style={inp} />
+        <AdBtn T={T} primary onClick={add}>+ Registrar</AdBtn>
+      </div>
+      {cats.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{cats.map(c => <span key={c} style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: "6px 12px" }}>{c}: <b style={{ color: T.text }}>{D.fmt(porCat[c])}</b></span>)}</div>}
+      {mesItems.length === 0 ? <Empty2 T={T}>Aún no registras gastos este mes.</Empty2>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{mesItems.map(g => (
+            <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px" }}>
+              <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".06em", textTransform: "uppercase", color: T.accent, background: T.accent + "12", borderRadius: 6, padding: "3px 8px", flexShrink: 0 }}>{g.categoria}</span>
+              <div style={{ flex: 1, minWidth: 0 }}><span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{g.concepto}</span>{g.recurrente && <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}> · recurrente</span>}<div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{g.fecha}</div></div>
+              <span style={{ fontFamily: T.serif, fontSize: 16, color: "#C0285A" }}>− {D.fmt(g.monto)}</span>
+              <button onClick={() => del(g.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg></button>
+            </div>))}</div>}
+    </div>
+  );
+}
+
+/* ── N7 · Remuneraciones (sueldo base + comisión sobre ventas del mes) ── */
+function RemuneracionesView({ T }) {
+  const D = window.JCDATA;
+  let team = []; try { team = (window.DB && window.DB.get("team")) || []; } catch (e) {}
+  const [cfg, setCfg] = useState(() => { try { return (window.DB && window.DB.get("remun_cfg")) || {}; } catch (e) { return {}; } });
+  function setC(id, patch) { const n = { ...cfg, [id]: { ...(cfg[id] || { base: 0, comision: 0 }), ...patch } }; setCfg(n); try { window.DB && window.DB.set("remun_cfg", n); } catch (e) {} }
+  const mes = new Date().toISOString().slice(0, 7);
+  let cash = []; try { cash = (window.cashAll && window.cashAll()) || []; } catch (e) {}
+  const ventasProf = {}; cash.filter(m => m.kind === "atencion" && (m.ts || "").slice(0, 7) === mes).forEach(m => { const p = (m.prof || "").trim(); if (p) ventasProf[p] = (ventasProf[p] || 0) + (m.amount || 0); });
+  const inp = { width: 110, padding: "8px 10px", borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
+  return (
+    <div>
+      <SecHead T={T} title="Remuneraciones" sub="Sueldo base + comisión sobre las ventas del mes de cada profesional" />
+      {team.length === 0 ? <Empty2 T={T}>Agrega profesionales en Equipo para calcular remuneraciones.</Empty2>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 860 }}>{team.map(m => {
+            const c = cfg[m.id] || { base: 0, comision: 0 };
+            const ventas = ventasProf[m.name] || 0;
+            const comMonto = Math.round(ventas * (parseFloat(c.comision) || 0) / 100);
+            const total = (parseInt(c.base, 10) || 0) + comMonto;
+            return (
+              <div key={m.id} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: m.color || T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 16, flexShrink: 0 }}>{(m.name || "?").split(" ").map(w => w[0]).slice(0, 2).join("")}</div>
+                  <div style={{ flex: 1, minWidth: 140 }}><div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{m.name}</div><div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Ventas del mes: {D.fmt(ventas)}</div></div>
+                  <label style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Sueldo base<br /><input value={c.base || ""} onChange={e => setC(m.id, { base: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="0" style={{ ...inp, marginTop: 3 }} /></label>
+                  <label style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Comisión %<br /><input value={c.comision || ""} onChange={e => setC(m.id, { comision: e.target.value.replace(/[^0-9.]/g, "") })} inputMode="decimal" placeholder="0" style={{ ...inp, width: 70, marginTop: 3 }} /></label>
+                  <div style={{ textAlign: "right", minWidth: 120 }}><div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute }}>Liquidación</div><div style={{ fontFamily: T.serif, fontSize: 20, color: T.accent }}>{D.fmt(total)}</div>{comMonto > 0 && <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}>incl. comisión {D.fmt(comMonto)}</div>}</div>
+                </div>
+              </div>);
+          })}</div>}
+      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 14, maxWidth: 760, lineHeight: 1.5 }}>Cálculo referencial (base + % sobre ventas cobradas del mes con ese profesional). No incluye leyes sociales ni impuestos; para liquidación legal formal se puede integrar un módulo previsional más adelante.</div>
+    </div>
+  );
+}
+
+/* ── N7 · Laboratorios y exámenes ── */
+function LaboratoriosView({ T, patients }) {
+  const [orders, setOrders] = useState(() => { try { return (window.DB && window.DB.get("lab_orders")) || []; } catch (e) { return []; } });
+  const [f, setF] = useState({ patId: "", examenes: "", tipo: "Interno" });
+  function persist(n) { setOrders(n); try { window.DB && window.DB.set("lab_orders", n); } catch (e) {} }
+  function add() { const p = patients.find(x => x.id === f.patId); if (!p || !f.examenes.trim()) { window.jcmToast && window.jcmToast("Elige paciente y escribe los exámenes.", "info"); return; } persist([{ id: "lo" + Date.now(), patId: p.id, patName: p.name, examenes: f.examenes.trim(), tipo: f.tipo, estado: "Solicitado", fecha: new Date().toISOString().slice(0, 10) }, ...orders]); setF({ ...f, examenes: "" }); }
+  const EST = ["Solicitado", "En proceso", "Listo", "Entregado"];
+  const estColor = e => ({ "Solicitado": "#C9A227", "En proceso": "#2AA5C9", "Listo": "#1F8A5B", "Entregado": T.textMute })[e] || T.textMute;
+  function nextEst(o) { const i = EST.indexOf(o.estado); const ne = EST[(i + 1) % EST.length]; persist(orders.map(x => x.id === o.id ? { ...x, estado: ne } : x)); }
+  async function del(id) { if (await (window.jcmConfirm || window.confirm)("¿Eliminar esta orden?", { danger: true })) persist(orders.filter(x => x.id !== id)); }
+  const inp = { padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return (
+    <div>
+      <SecHead T={T} title="Laboratorios y exámenes" sub="Gestiona solicitudes de exámenes internas y externas" />
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "180px 1fr 130px auto", gap: 8, alignItems: "center" }}>
+        <select value={f.patId} onChange={e => setF({ ...f, patId: e.target.value })} style={inp}><option value="">Paciente…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+        <input value={f.examenes} onChange={e => setF({ ...f, examenes: e.target.value })} placeholder="Exámenes solicitados (ej: hemograma, perfil bioquímico)" style={inp} />
+        <select value={f.tipo} onChange={e => setF({ ...f, tipo: e.target.value })} style={inp}><option>Interno</option><option>Externo</option></select>
+        <AdBtn T={T} primary onClick={add}>+ Crear orden</AdBtn>
+      </div>
+      {orders.length === 0 ? <Empty2 T={T}>Aún no hay órdenes de laboratorio.</Empty2>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{orders.map(o => (
+            <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 200 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{o.patName} <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, fontWeight: 400 }}>· {o.tipo} · {o.fecha}</span></div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 }}>{o.examenes}</div></div>
+              <button onClick={() => nextEst(o)} title="Cambiar estado" style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: estColor(o.estado), background: estColor(o.estado) + "18", border: "1px solid " + estColor(o.estado) + "55", borderRadius: 999, padding: "6px 12px", cursor: "pointer" }}>{o.estado} ↻</button>
+              <button onClick={() => del(o.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+            </div>))}</div>}
+    </div>
+  );
+}
+
+/* ── N7 · Convenios ── */
+function ConveniosView({ T }) {
+  const [items, setItems] = useState(() => { try { return (window.DB && window.DB.get("convenios")) || []; } catch (e) { return []; } });
+  const [f, setF] = useState({ empresa: "", contacto: "", descuento: "", notas: "" });
+  function persist(n) { setItems(n); try { window.DB && window.DB.set("convenios", n); } catch (e) {} }
+  function add() { if (!f.empresa.trim()) { window.jcmToast && window.jcmToast("Escribe el nombre de la empresa/entidad.", "info"); return; } persist([{ id: "cv" + Date.now(), ...f, empresa: f.empresa.trim(), descuento: parseInt(f.descuento, 10) || 0 }, ...items]); setF({ empresa: "", contacto: "", descuento: "", notas: "" }); }
+  async function del(id) { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este convenio?", { danger: true })) persist(items.filter(x => x.id !== id)); }
+  const inp = { padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  return (
+    <div>
+      <SecHead T={T} title="Convenios" sub="Gestiona los convenios con empresas y otras entidades" />
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 120px auto", gap: 8, alignItems: "center" }}>
+        <input value={f.empresa} onChange={e => setF({ ...f, empresa: e.target.value })} placeholder="Empresa / entidad" style={inp} />
+        <input value={f.contacto} onChange={e => setF({ ...f, contacto: e.target.value })} placeholder="Contacto (teléfono/correo)" style={inp} />
+        <input value={f.descuento} onChange={e => setF({ ...f, descuento: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="Dcto %" style={inp} />
+        <AdBtn T={T} primary onClick={add}>+ Agregar</AdBtn>
+      </div>
+      {items.length === 0 ? <Empty2 T={T}>Aún no tienes convenios registrados.</Empty2>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{items.map(c => (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{c.empresa}</div><div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>{[c.contacto, c.notas].filter(Boolean).join(" · ")}</div></div>
+              {c.descuento > 0 && <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, background: T.accent + "14", borderRadius: 999, padding: "5px 12px" }}>{c.descuento}% dcto</span>}
+              <button onClick={() => del(c.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+            </div>))}</div>}
+    </div>
+  );
+}
+
+/* ── N9 · Chat interno del equipo ── */
+function ChatInternoView({ T }) {
+  const yo = (() => { try { return (window.JCSAAS && window.JCSAAS.currentUserName && window.JCSAAS.currentUserName()) || (window.JCSAAS && window.JCSAAS.userEmail && window.JCSAAS.userEmail()) || "Yo"; } catch (e) { return "Yo"; } })();
+  const [msgs, setMsgs] = useState(() => { try { return (window.DB && window.DB.get("team_chat")) || []; } catch (e) { return []; } });
+  const [txt, setTxt] = useState("");
+  const endRef = useRef(null);
+  useEffect(() => { function reload() { try { setMsgs((window.DB && window.DB.get("team_chat")) || []); } catch (e) {} } window.addEventListener("jcsaas:data", reload); return () => window.removeEventListener("jcsaas:data", reload); }, []);
+  useEffect(() => { if (endRef.current) endRef.current.scrollTop = endRef.current.scrollHeight; }, [msgs]);
+  function send() { const t = txt.trim(); if (!t) return; const n = [...msgs, { id: "m" + Date.now(), author: yo, text: t, ts: Date.now() }].slice(-300); setMsgs(n); try { window.DB && window.DB.set("team_chat", n); } catch (e) {} setTxt(""); }
+  const hora = ts => { try { return new Date(ts).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  return (
+    <div>
+      <SecHead T={T} title="Chat interno" sub="Conversa con tu equipo dentro del panel" />
+      <div style={{ maxWidth: 760, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column", height: "62vh" }}>
+        <div ref={endRef} className="jc-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {msgs.length === 0 && <div style={{ margin: "auto", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Sin mensajes aún. Escribe el primero 👇</div>}
+          {msgs.map(m => { const mine = m.author === yo; return (
+            <div key={m.id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "80%" }}>
+              {!mine && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, margin: "0 4px 3px" }}>{m.author}</div>}
+              <div style={{ background: mine ? T.accent : T.surface2, color: mine ? (T.onAccent || "#fff") : T.text, border: mine ? "none" : "1px solid " + T.line, borderRadius: 12, padding: "9px 13px", fontFamily: T.sans, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, margin: "3px 4px 0", textAlign: mine ? "right" : "left" }}>{hora(m.ts)}</div>
+            </div>); })}
+        </div>
+        <div style={{ display: "flex", gap: 8, padding: "12px 14px", borderTop: "1px solid " + T.line }}>
+          <input value={txt} onChange={e => setTxt(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Escribe un mensaje…" style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
+          <AdBtn T={T} primary onClick={send}>Enviar</AdBtn>
+        </div>
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 10 }}>Los mensajes se sincronizan con todo el equipo de la clínica.</div>
+    </div>
+  );
+}
+
+/* ── N9 · Flujo de caja (ingresos vs egresos por mes) ── */
+function FlujoCajaView({ T }) {
+  const D = window.JCDATA;
+  let cash = []; try { cash = (window.cashMovimientos && window.cashMovimientos()) || (window.cashAll && window.cashAll()) || []; } catch (e) {}
+  const now = new Date();
+  const meses = []; for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); meses.push({ key: d.toISOString().slice(0, 7), lbl: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][d.getMonth()] }); }
+  const data = meses.map(m => { const ms = cash.filter(x => ((x._day || x.ts || "")).slice(0, 7) === m.key); const ing = ms.filter(x => x.type !== "egreso").reduce((s, x) => s + (x.amount || 0), 0); const egr = ms.filter(x => x.type === "egreso").reduce((s, x) => s + (x.amount || 0), 0); return { ...m, ing, egr, neto: ing - egr }; });
+  const maxV = Math.max(1, ...data.map(d => Math.max(d.ing, d.egr)));
+  const cur = data[data.length - 1] || { ing: 0, egr: 0, neto: 0 };
+  return (
+    <div>
+      <SecHead T={T} title="Flujo de caja" sub="Visualiza tus movimientos de dinero" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 18 }}>
+        <CajaCard T={T} l="Ingresos del mes" v={D.fmt(cur.ing)} c="#1F8A5B" />
+        <CajaCard T={T} l="Egresos del mes" v={D.fmt(cur.egr)} c="#C0285A" />
+        <CajaCard T={T} l="Neto del mes" v={D.fmt(cur.neto)} c={T.accent} strong />
+      </div>
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "18px 20px", maxWidth: 820 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 16 }}>Últimos 6 meses</div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 200 }}>
+          {data.map(m => (
+            <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 4 }}>
+                <div title={"Ingresos " + D.fmt(m.ing)} style={{ width: "40%", height: Math.round(m.ing / maxV * 160) + "px", minHeight: 2, background: "#1F8A5B", borderRadius: "4px 4px 0 0" }} />
+                <div title={"Egresos " + D.fmt(m.egr)} style={{ width: "40%", height: Math.round(m.egr / maxV * 160) + "px", minHeight: 2, background: "#C0285A", borderRadius: "4px 4px 0 0" }} />
+              </div>
+              <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>{m.lbl}</span>
+            </div>))}
+        </div>
+        <div style={{ display: "flex", gap: 16, marginTop: 14, justifyContent: "center" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11, color: T.textMute }}><span style={{ width: 11, height: 11, borderRadius: 3, background: "#1F8A5B" }} />Ingresos</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11, color: T.textMute }}><span style={{ width: 11, height: 11, borderRadius: 3, background: "#C0285A" }} />Egresos</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── N9 · Boletas (emisión / registro; scaffold SII) ── */
+function BoletasView({ T, patients }) {
+  const D = window.JCDATA;
+  const connected = (() => { try { return !!(window.DB && window.DB.get("sii_connected")); } catch (e) { return false; } })();
+  let cash = []; try { cash = (window.cashMovimientos && window.cashMovimientos()) || (window.cashAll && window.cashAll()) || []; } catch (e) {}
+  const mes = new Date().toISOString().slice(0, 7);
+  const atenc = cash.filter(m => m.kind === "atencion" && ((m._day || m.ts || "")).slice(0, 7) === mes);
+  const [emitidas, setEmitidas] = useState(() => { try { return (window.DB && window.DB.get("boletas_emitidas")) || {}; } catch (e) { return {}; } });
+  function emitir(m) {
+    // Documento de boleta (mismo motor de documentos). La e-boleta al SII requiere facturador conectado.
+    const b = { wm: (window.clinicName && window.clinicName()) || "Medique" };
+    const num = "B-" + Date.now().toString().slice(-6);
+    const inner = "<div class='titleblock'><div><div class='eyebrow'>Comprobante</div><h1 class='doc-title'>Boleta <span class='it'>de atención</span></h1></div><div class='folio'><span class='k'>N°</span><span class='v vbig'>" + num + "</span></div></div>"
+      + "<div class='body'><div class='section'><div class='section-head'><span class='sh-label'>Detalle</span><span class='sh-rule'></span></div>"
+      + "<div class='textbox'>" + (m.concept || "Atención") + "<br>Fecha: " + ((m.ts || "").slice(0, 10)) + "<br>Método: " + (m.method || "—") + "<br><br><b>Total: " + (D.fmt(m.amount || 0)) + "</b></div></div></div>";
+    try { if (window.jcmDocHTML && window.jcmPrintHTML) window.jcmPrintHTML(window.jcmDocHTML("Boleta " + num, b, inner)); } catch (e) {}
+    const n = { ...emitidas, [m.id]: num }; setEmitidas(n); try { window.DB && window.DB.set("boletas_emitidas", n); } catch (e) {}
+  }
+  return (
+    <div>
+      <SecHead T={T} title="Boletas" sub="Emite comprobantes de tus atenciones cobradas" />
+      {!connected && <div style={{ background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.5 }}>
+        Puedes <b style={{ color: T.text }}>imprimir/guardar</b> el comprobante ahora mismo. Para <b style={{ color: T.text }}>boleta electrónica al SII</b> (con folio válido) se conecta un facturador (ej. Bsale/LibreDTE/Nubox) — queda listo para activar con tus credenciales.
+      </div>}
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Atenciones cobradas este mes</div>
+      {atenc.length === 0 ? <Empty2 T={T}>Sin atenciones cobradas este mes.</Empty2>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{atenc.map(m => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{(m.ts || "").slice(0, 10)} · {m.method}</div></div>
+              <span style={{ fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" }}>{D.fmt(m.amount || 0)}</span>
+              {emitidas[m.id] ? <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Boleta {emitidas[m.id]}</span> : null}
+              <AdBtn T={T} small onClick={() => emitir(m)}>{emitidas[m.id] ? "Reimprimir" : "Emitir boleta"}</AdBtn>
+            </div>))}</div>}
+    </div>
+  );
+}
+
+/* ── N10 · Panel de desempeño ── */
+function DesempenoView({ T, patients, appts }) {
+  const D = window.JCDATA;
+  const mes = new Date().toISOString().slice(0, 7);
+  const A = (appts || []).filter(a => a.status !== "anulada");
+  const citasMes = A.filter(a => (a.fecha || "").slice(0, 7) === mes);
+  const noShow = A.filter(a => a.status === "no_asistio").length;
+  const atendidas = A.filter(a => a.status === "atendida" || a.attended).length;
+  const totalCerradas = noShow + atendidas;
+  const noShowPct = totalCerradas ? Math.round(noShow / totalCerradas * 100) : 0;
+  // Retención: pacientes con 2+ atenciones registradas.
+  const recurrentes = patients.filter(p => (p.recetas || []).length + (p.history || []).length >= 2).length;
+  const retencion = patients.length ? Math.round(recurrentes / patients.length * 100) : 0;
+  let cash = []; try { cash = (window.cashAll && window.cashAll()) || []; } catch (e) {}
+  const atMes = cash.filter(m => m.kind === "atencion" && (m.ts || "").slice(0, 7) === mes);
+  const ingMes = atMes.reduce((s, m) => s + (m.amount || 0), 0);
+  const ticket = atMes.length ? Math.round(ingMes / atMes.length) : 0;
+  const nuevosMes = patients.filter(p => { const t = p.fechaTs || 0; if (!t) return false; return new Date(t).toISOString().slice(0, 7) === mes; }).length;
+  const card = (l, v, c, sub) => <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}><div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</div><div style={{ fontFamily: T.serif, fontSize: 30, color: c || T.text, lineHeight: 1.1, marginTop: 4 }}>{v}</div>{sub && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 3 }}>{sub}</div>}</div>;
+  return (
+    <div>
+      <SecHead T={T} title="Panel de desempeño" sub="El diagnóstico oportuno para tu centro de salud" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginBottom: 14 }}>
+        {card("Citas del mes", citasMes.length, T.accent, "agendadas")}
+        {card("Atendidas", atendidas, "#1F8A5B", "en total")}
+        {card("Inasistencia", noShowPct + "%", noShowPct > 20 ? "#C0285A" : "#C9A227", noShow + " no asistió")}
+        {card("Retención", retencion + "%", "#1F8A5B", recurrentes + " con 2+ atenciones")}
+        {card("Ticket promedio", D.fmt(ticket), T.accent, "por atención")}
+        {card("Pacientes nuevos", nuevosMes, "#2AA5C9", "este mes")}
+      </div>
+      <div style={{ background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", maxWidth: 760, fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.6 }}>
+        {noShowPct > 20 ? "⚠ Tu inasistencia está alta (" + noShowPct + "%). Activa recordatorios y confirmación de citas para bajarla." : "✓ Tu inasistencia está controlada."} {retencion < 30 ? " La retención es baja: considera campañas de re-cita y fidelidad." : " Buena retención de pacientes."}
+      </div>
+    </div>
+  );
+}
+
+/* ── N10 · Encuestas de satisfacción ── */
+function EncuestasView({ T, patients }) {
+  const [cfg, setCfg] = useState(() => { try { return (window.DB && window.DB.get("survey_cfg")) || { pregunta: "¿Qué tan satisfecho quedaste con tu atención?", activa: true }; } catch (e) { return { pregunta: "¿Qué tan satisfecho quedaste con tu atención?", activa: true }; } });
+  const [resp, setResp] = useState(() => { try { return (window.DB && window.DB.get("survey_responses")) || []; } catch (e) { return []; } });
+  function saveCfg(n) { setCfg(n); try { window.DB && window.DB.set("survey_cfg", n); } catch (e) {} }
+  function addResp(nota) { const n = [{ id: "s" + Date.now(), nota, ts: Date.now() }, ...resp].slice(0, 500); setResp(n); try { window.DB && window.DB.set("survey_responses", n); } catch (e) {} }
+  const prom = resp.length ? (resp.reduce((s, r) => s + (r.nota || 0), 0) / resp.length) : 0;
+  const promotores = resp.filter(r => r.nota >= 9).length, detractores = resp.filter(r => r.nota <= 6).length;
+  const nps = resp.length ? Math.round((promotores - detractores) / resp.length * 100) : 0;
+  const reviewUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink) ? window.JCSAAS.reviewLink() : "";
+  return (
+    <div>
+      <SecHead T={T} title="Encuestas de satisfacción" sub="Conoce la opinión de tus pacientes y potencia tu atención" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
+        <CajaCard T={T} l="Respuestas" v={resp.length} c={T.accent} />
+        <CajaCard T={T} l="Promedio (0–10)" v={prom.toFixed(1)} c="#1F8A5B" />
+        <CajaCard T={T} l="NPS" v={nps} c={nps >= 50 ? "#1F8A5B" : nps >= 0 ? "#C9A227" : "#C0285A"} />
+      </div>
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16, maxWidth: 760 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Pregunta de la encuesta</div>
+        <input value={cfg.pregunta} onChange={e => saveCfg({ ...cfg, pregunta: e.target.value })} style={{ width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+        {reviewUrl && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10, lineHeight: 1.5 }}>Compártela junto a tu enlace de reseñas: <a href={reviewUrl} target="_blank" rel="noopener" style={{ color: T.accent }}>{reviewUrl}</a></div>}
+      </div>
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 760 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 10 }}>Registrar respuesta (0 = malo, 10 = excelente):</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <button key={n} onClick={() => addResp(n)} style={{ width: 40, height: 40, borderRadius: 9, cursor: "pointer", border: "1px solid " + (n <= 6 ? "#C0285A55" : n <= 8 ? "#C9A22755" : "#1F8A5B55"), background: "transparent", color: n <= 6 ? "#C0285A" : n <= 8 ? "#C9A227" : "#1F8A5B", fontFamily: T.sans, fontSize: 14, fontWeight: 600 }}>{n}</button>)}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 10 }}>Cuando conectemos WhatsApp/Meta, estas respuestas podrán llegar solas tras cada atención.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── N6 · Pagos online (UI + conectar proveedor) ── */
+function PagosOnlineView({ T, patients }) {
+  const [cfg, setCfg] = useState(() => { try { return (window.DB && window.DB.get("pay_cfg")) || { provider: "", anticipado: false }; } catch (e) { return { provider: "", anticipado: false }; } });
+  function saveCfg(n) { setCfg(n); try { window.DB && window.DB.set("pay_cfg", n); } catch (e) {} }
+  const conectado = !!cfg.provider;
+  const feats = [["Pago anticipado de citas", "Asegura la asistencia cobrando al reservar.", "M19 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zM3 10h18"],
+    ["POS integrado", "Conciliación bancaria automática de tus cobros.", "M7 4h10a2 2 0 0 1 2 2v14l-3-2-2 2-2-2-2 2-2-2-3 2V6a2 2 0 0 1 2-2z"],
+    ["Links de pago a morosos", "Envío automático de links a pacientes con saldo.", "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"],
+    ["Tarjetas y QR", "Débito, crédito o QR desde el panel.", "M3 5h18v14H3zM3 10h18M7 15h4"]];
+  return (
+    <div>
+      <SecHead T={T} title="Pagos online" sub="Cobra en línea, asegura asistencia y concilia automático" />
+      <div style={{ background: conectado ? "rgba(31,138,91,.08)" : (T.accentSoft || "rgba(84,112,127,.10)"), border: "1px solid " + (conectado ? "#1F8A5B44" : T.line), borderRadius: 14, padding: "18px 20px", marginBottom: 18, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text }}>{conectado ? "Conectado con " + cfg.provider : "Conecta tu proveedor de pagos"}</div>
+          <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 4, lineHeight: 1.5 }}>{conectado ? "Ya puedes generar links de pago y cobrar en línea." : "Elige tu pasarela y vincula tu cuenta de comercio. Nosotros dejamos todo listo; tú ingresas tus credenciales."}</div>
+        </div>
+        <select value={cfg.provider} onChange={e => saveCfg({ ...cfg, provider: e.target.value })} style={{ padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}>
+          <option value="">Elegir proveedor…</option><option>Transbank (Webpay)</option><option>Flow</option><option>Mercado Pago</option><option>Khipu</option>
+        </select>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
+        {feats.map(([t, d, ic]) => (
+          <div key={t} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", opacity: conectado ? 1 : .75 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 11, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d={ic} /></svg></div>
+            <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>{t}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 4, lineHeight: 1.5 }}>{d}</div>
+            {!conectado && <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#B8860B", marginTop: 8 }}>Requiere conectar proveedor</div>}
+          </div>))}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, FichaEditorView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient, NotasClinicasView, ResumenClinicoView, ContactCenterView, ReportesIAView, ContraloriaView, TelemedicinaView, PagosGastosView, RemuneracionesView, LaboratoriosView, ConveniosView, ChatInternoView, FlujoCajaView, BoletasView, DesempenoView, EncuestasView, PagosOnlineView });
