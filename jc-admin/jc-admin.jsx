@@ -38,7 +38,6 @@ function nIcon(name, c) {
     contactcenter: <><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /><path d="M8 12h.01M12 12h.01M16 12h.01" /></>,
     reportesia: <><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M12 3v9l6.4-6.4" /></>,
     contraloria: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>,
-    telemedicina: <><rect x="2" y="4" width="14" height="12" rx="2" /><path d="M16 9l6-3v10l-6-3z" /><path d="M4 20h10" /></>,
     desempeno: <><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4" /></>,
     encuestas: <><path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z" /></>,
     chatinterno: <><path d="M8 10h8M8 14h5" /><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></>,
@@ -91,18 +90,18 @@ const ADMIN_NAV = [
   { k: "integraciones", l: "Integraciones" }, { k: "reportes", l: "Reportes" }, { k: "administracion", l: "Administración" }, { k: "consentimientos", l: "Consentimientos" }, { k: "fichaeditor", l: "Editor de Fichas" }, { k: "tutoriales", l: "Tutoriales" }, { k: "config", l: "Configuración" },
   // ── Suite nueva (N1–N10), gateada a Los Medique hasta aprobación ──
   { k: "notasia", l: "Notas Clínicas" }, { k: "resumenia", l: "Resumen Clínico" }, { k: "contactcenter", l: "Contact Center" }, { k: "reportesia", l: "Reportes IA" }, { k: "contraloria", l: "Contralor IA" },
-  { k: "telemedicina", l: "Telemedicina" }, { k: "desempeno", l: "Panel de desempeño" }, { k: "encuestas", l: "Encuestas" }, { k: "chatinterno", l: "Chat interno" },
+  { k: "desempeno", l: "Panel de desempeño" }, { k: "encuestas", l: "Encuestas" }, { k: "chatinterno", l: "Chat interno" },
   { k: "pagosgastos", l: "Pagos y Gastos" }, { k: "remuneraciones", l: "Remuneraciones" }, { k: "laboratorios", l: "Laboratorios" }, { k: "convenios", l: "Convenios" }, { k: "flujocaja", l: "Flujo de caja" }, { k: "boletas", l: "Boletas" }, { k: "pagosonline", l: "Pagos online" }
 ];
 // Secciones NUEVAS (suite N1–N10): visibles SOLO para Los Medique (preview) hasta el push global.
-var NEW_SECT = { notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, telemedicina: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
+var NEW_SECT = { notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
 // Encabezado de grupo del sidebar: la clave donde COMIENZA un grupo → su etiqueta (Área 1).
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "Marketing & Ventas", resumen: "Análisis", administracion: "Sistema" };
 // Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
-  { l: "Clínica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales", "telemedicina"] },
+  { l: "Clínica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
   { l: "IA", keys: ["agenteia", "copilot", "automatizaciones", "notasia", "resumenia", "contactcenter", "reportesia", "contraloria"] },
   // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes). Fidelidad, Colaboración
@@ -312,7 +311,7 @@ function importAllWeb() {
 
 /* ─────────── ENRUTAMIENTO DEL PANEL (URLs por sección y por paciente) ─────────── */
 // Cada apartado tiene su URL: /panel/inventario, /panel/agenda, etc.; y cada paciente /panel/pacientes/<id>.
-const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, copilot: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1, config: 1, appjcm: 1, notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, telemedicina: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
+const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, copilot: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1, config: 1, appjcm: 1, notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
 function panelParseRoute() {
   try {
     var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1364,7 +1363,6 @@ function AdminApp() {
   else if (section === "contactcenter") body = <ContactCenterView T={T} patients={patients} />;
   else if (section === "reportesia") body = <ReportesIAView T={T} patients={patients} appts={appts} />;
   else if (section === "contraloria") body = <ContraloriaView T={T} patients={patients} appts={appts} />;
-  else if (section === "telemedicina") body = <TelemedicinaView T={T} appts={appts} patients={patients} />;
   else if (section === "desempeno") body = <DesempenoView T={T} patients={patients} appts={appts} />;
   else if (section === "encuestas") body = <EncuestasView T={T} patients={patients} />;
   else if (section === "chatinterno") body = <ChatInternoView T={T} />;

@@ -5592,32 +5592,6 @@ function ContraloriaView({ T, patients, appts }) {
 }
 
 /* ── N4 · Telemedicina (videoconsulta con sala Jitsi) ── */
-function TelemedicinaView({ T, appts, patients }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const clin = (window.clinicName && window.clinicName()) || "Medique";
-  const roomOf = a => "medique-" + (a.id || Math.random().toString(36).slice(2)) + "-" + (a.fecha || today).replace(/-/g, "");
-  const linkOf = a => "https://meet.jit.si/" + roomOf(a);
-  const proximas = (appts || []).filter(a => a.status !== "anulada" && (a.fecha || "") >= today).sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "") || (a.time || "").localeCompare(b.time || "")).slice(0, 20);
-  function waLink(a) { const ph = (a.phone || "").replace(/\D/g, ""); const msg = "Hola " + (a.name || "") + " 👋 Tu videoconsulta en " + clin + " es el " + (a.fecha || "") + " a las " + (a.time || "") + " hrs.\nEntra aquí a la hora de tu cita: " + linkOf(a); return ph.length >= 8 ? "https://wa.me/" + ph + "?text=" + encodeURIComponent(msg) : null; }
-  return (
-    <div>
-      <SecHead T={T} title="Telemedicina" sub="Videoconsulta con tus pacientes, sin instalar nada" />
-      <IAHero T={T} color="#2AA5C9" title="Conecta con tus pacientes donde estén" sub="Cada cita genera una sala de video segura. Comparte el link por WhatsApp y entra con un clic." icon={<><rect x="2" y="4" width="14" height="12" rx="2" /><path d="M16 9l6-3v10l-6-3z" /><path d="M4 20h10" /></>} />
-      {proximas.length === 0 ? <Empty2 T={T}>No hay citas próximas. Las salas de video se generan por cada cita agendada.</Empty2>
-        : <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 820 }}>{proximas.map(a => {
-            const wa = waLink(a);
-            return (
-              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 16px", flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{a.name}</div><div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>{a.fecha === today ? "Hoy" : a.fecha} · {a.time} hrs · {a.proc || "Consulta"}</div></div>
-                <a href={linkOf(a)} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: "#fff", background: T.accent, borderRadius: 9, padding: "10px 16px", textDecoration: "none" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="5" width="14" height="14" rx="2" /><path d="M16 10l6-3v10l-6-3z" /></svg>Entrar a la sala</a>
-                {wa && <a href={wa} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: "#1F8A5B", border: "1px solid #1F8A5B", borderRadius: 9, padding: "9px 13px", textDecoration: "none" }}>Enviar link</a>}
-              </div>);
-          })}</div>}
-      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 14, maxWidth: 760, lineHeight: 1.5 }}>Las salas usan Jitsi Meet (gratis, cifrado, sin cuenta). Para una solución de marca propia con grabación se puede integrar un proveedor dedicado más adelante.</div>
-    </div>
-  );
-}
-
 /* ── N7 · Pagos y Gastos ── */
 const GASTO_CATS = ["Arriendo", "Sueldos", "Insumos", "Marketing", "Servicios básicos", "Equipamiento", "Impuestos", "Otros"];
 function PagosGastosView({ T }) {
@@ -5965,4 +5939,4 @@ function PagosOnlineView({ T, patients }) {
   );
 }
 
-Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, FichaEditorView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient, NotasClinicasView, ResumenClinicoView, ContactCenterView, ReportesIAView, ContraloriaView, TelemedicinaView, PagosGastosView, RemuneracionesView, LaboratoriosView, ConveniosView, ChatInternoView, FlujoCajaView, BoletasView, DesempenoView, EncuestasView, PagosOnlineView });
+Object.assign(window, { CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, FichaEditorView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient, NotasClinicasView, ResumenClinicoView, ContactCenterView, ReportesIAView, ContraloriaView, PagosGastosView, RemuneracionesView, LaboratoriosView, ConveniosView, ChatInternoView, FlujoCajaView, BoletasView, DesempenoView, EncuestasView, PagosOnlineView });

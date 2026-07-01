@@ -40,7 +40,6 @@ function nIcon(name, c) {
     contactcenter: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" }), /* @__PURE__ */ React.createElement("path", { d: "M8 12h.01M12 12h.01M16 12h.01" })),
     reportesia: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 3a9 9 0 1 0 9 9h-9z" }), /* @__PURE__ */ React.createElement("path", { d: "M12 3v9l6.4-6.4" })),
     contraloria: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" }), /* @__PURE__ */ React.createElement("path", { d: "M9 12l2 2 4-4" })),
-    telemedicina: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "2", y: "4", width: "14", height: "12", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M16 9l6-3v10l-6-3z" }), /* @__PURE__ */ React.createElement("path", { d: "M4 20h10" })),
     desempeno: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4" })),
     encuestas: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 3l2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z" })),
     chatinterno: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M8 10h8M8 14h5" }), /* @__PURE__ */ React.createElement("path", { d: "M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" })),
@@ -111,7 +110,6 @@ const ADMIN_NAV = [
   { k: "contactcenter", l: "Contact Center" },
   { k: "reportesia", l: "Reportes IA" },
   { k: "contraloria", l: "Contralor IA" },
-  { k: "telemedicina", l: "Telemedicina" },
   { k: "desempeno", l: "Panel de desempe\xF1o" },
   { k: "encuestas", l: "Encuestas" },
   { k: "chatinterno", l: "Chat interno" },
@@ -123,12 +121,12 @@ const ADMIN_NAV = [
   { k: "boletas", l: "Boletas" },
   { k: "pagosonline", l: "Pagos online" }
 ];
-var NEW_SECT = { notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, telemedicina: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
+var NEW_SECT = { notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
-  { l: "Cl\xEDnica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales", "telemedicina"] },
+  { l: "Cl\xEDnica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
   { l: "IA", keys: ["agenteia", "copilot", "automatizaciones", "notasia", "resumenia", "contactcenter", "reportesia", "contraloria"] },
   // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes). Fidelidad, Colaboración
@@ -387,7 +385,7 @@ function importAllWeb() {
   }
   return p;
 }
-const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, copilot: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1, config: 1, appjcm: 1, notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, telemedicina: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
+const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, copilot: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1, config: 1, appjcm: 1, notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
 function panelParseRoute() {
   try {
     var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1312,7 +1310,6 @@ function AdminApp() {
   else if (section === "contactcenter") body = /* @__PURE__ */ React.createElement(ContactCenterView, { T, patients });
   else if (section === "reportesia") body = /* @__PURE__ */ React.createElement(ReportesIAView, { T, patients, appts });
   else if (section === "contraloria") body = /* @__PURE__ */ React.createElement(ContraloriaView, { T, patients, appts });
-  else if (section === "telemedicina") body = /* @__PURE__ */ React.createElement(TelemedicinaView, { T, appts, patients });
   else if (section === "desempeno") body = /* @__PURE__ */ React.createElement(DesempenoView, { T, patients, appts });
   else if (section === "encuestas") body = /* @__PURE__ */ React.createElement(EncuestasView, { T, patients });
   else if (section === "chatinterno") body = /* @__PURE__ */ React.createElement(ChatInternoView, { T });
