@@ -403,12 +403,6 @@ function panelRoutePath(sec, pid) {
   if (!sec || sec === "dashboard") return "/";
   return "/" + sec;
 }
-function jcmOpenFichaTab(id) {
-  try {
-    if (id) window.open(location.origin + panelRoutePath("pacientes", id), "_blank", "noopener");
-  } catch (e) {
-  }
-}
 const DASH_IC = {
   pacientes: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "8", r: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M3 20a6 6 0 0 1 12 0" }), /* @__PURE__ */ React.createElement("path", { d: "M16 8a3 3 0 0 1 0 6" }), /* @__PURE__ */ React.createElement("path", { d: "M21 20a6 6 0 0 0-4-5.5" })),
   citas: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" })),
@@ -1274,7 +1268,10 @@ function AdminApp() {
   if (section === "dashboard") body = /* @__PURE__ */ React.createElement(DashboardView, { T, D, A, appts, patients, go: nav });
   else if (section === "appjcm") body = /* @__PURE__ */ React.createElement(AppJCMView, { T });
   else if (section === "resumen") body = /* @__PURE__ */ React.createElement(Resumen, { T, D, A, appts, patients, go: nav, updateAppt, removeAppt, themeKey, setThemeKey });
-  else if (section === "agenda") body = /* @__PURE__ */ React.createElement(Agenda, { T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onSyncWeb: syncWebBookings, onOpenPatient: (id) => jcmOpenFichaTab(id) });
+  else if (section === "agenda") body = /* @__PURE__ */ React.createElement(Agenda, { T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onSyncWeb: syncWebBookings, onOpenPatient: (id) => {
+    setOpenPatient(id);
+    setSection("pacientes");
+  } });
   else if (section === "pacientes") body = current ? /* @__PURE__ */ React.createElement(FichaMedica, { T, patient: current, updatePatient, removePatient, onBack: () => {
     setOpenPatient(null);
     setOpenPatientTab(null);

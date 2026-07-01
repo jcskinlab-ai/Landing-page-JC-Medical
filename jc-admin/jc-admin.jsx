@@ -328,11 +328,6 @@ function panelRoutePath(sec, pid) {
   if (!sec || sec === "dashboard") return "/";
   return "/" + sec;
 }
-// Abre la ficha del paciente en una PESTAÑA NUEVA del navegador (la app la reabre sola por su
-// URL /pacientes/<id>). Se usa desde la Agenda para no perder la vista de la agenda.
-function jcmOpenFichaTab(id) {
-  try { if (id) window.open(location.origin + panelRoutePath("pacientes", id), "_blank", "noopener"); } catch (e) {}
-}
 
 /* ─────────── DASHBOARD (estilo Medique: indicadores + evolución + accesos) ─────────── */
 const DASH_IC = {
@@ -1331,7 +1326,7 @@ function AdminApp() {
   if (section === "dashboard") body = <DashboardView T={T} D={D} A={A} appts={appts} patients={patients} go={nav} />;
   else if (section === "appjcm") body = <AppJCMView T={T} />;
   else if (section === "resumen") body = <Resumen T={T} D={D} A={A} appts={appts} patients={patients} go={nav} updateAppt={updateAppt} removeAppt={removeAppt} themeKey={themeKey} setThemeKey={setThemeKey} />;
-  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => jcmOpenFichaTab(id)} />;
+  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
   else if (section === "pacientes") body = current
     ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} />
     : <PacientesView T={T} patients={patients} appts={appts} onOpen={setOpenPatient} updatePatient={updatePatient} addPatient={addPatient} />;
