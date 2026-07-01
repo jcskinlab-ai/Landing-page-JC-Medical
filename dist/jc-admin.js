@@ -67,6 +67,12 @@ function PatientSearch({ T, patients, onOpen }) {
       },
       onFocus: () => setOpen(true),
       onBlur: () => setTimeout(() => setOpen(false), 150),
+      type: "search",
+      name: "jcm-buscar-paciente",
+      autoComplete: "off",
+      "data-nocap": "",
+      "data-1p-ignore": "true",
+      "data-lpignore": "true",
       placeholder: "Buscar pacientes\u2026",
       style: { width: "100%", fontFamily: T.sans, fontSize: 12.5, padding: "8px 12px 8px 32px", borderRadius: 999, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, outline: "none" }
     }
