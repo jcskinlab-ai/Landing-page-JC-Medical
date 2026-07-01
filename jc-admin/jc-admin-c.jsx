@@ -5160,11 +5160,31 @@ function CajaView({ T }) {
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>{chip("hoy", "Hoy")}{chip("semana", "Esta semana")}{chip("mes", "Este mes")}</div>
-      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Ventas</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
-        <CajaCard T={T} l={"N° de ventas · " + subLbl} v={ventasCount} c={T.accent} />
-        <CajaCard T={T} l={"Total cobrado · " + subLbl} v={D.fmt(ingresos)} c="#1F8A5B" />
-        <CajaCard T={T} l="Pendiente de cobro" v={D.fmt(pendienteCobro)} c="#B8860B" />
+      {/* Arriba: ranking de tratamientos que más venden (reemplaza la antigua fila de KPIs de Ventas). */}
+      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Tratamientos que más venden · {tratScope === "mes" ? "este mes" : "histórico"}</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[["mes", "Este mes"], ["hist", "Histórico"]].map(([k, l]) => (
+              <button key={k} onClick={() => setTratScope(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "6px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tratScope === k ? T.accent : T.line), background: tratScope === k ? T.surface2 : T.surface, color: tratScope === k ? T.text : T.textMute }}>{l}</button>
+            ))}
+          </div>
+        </div>
+        {topTrat.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no hay ventas {tratScope === "mes" ? "este mes" : "registradas"}. Aparecerá cuando cobres atenciones desde la ficha del paciente.</div>}
+        {topTrat.map((t, i) => {
+          const max = topTrat[0].total || 1;
+          return (
+            <div key={t.name} style={{ padding: "9px 0", borderBottom: i === topTrat.length - 1 ? "none" : "1px solid " + T.lineSoft }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{t.name}</span>
+                <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{t.n} venta{t.n === 1 ? "" : "s"} · <b style={{ color: "#1F8A5B" }}>{D.fmt(t.total)}</b></span>
+              </div>
+              <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: Math.max(6, Math.round(t.total / max * 100)) + "%", background: T.accent, borderRadius: 999 }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Caja</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 4 : 3) + ",1fr)", gap: 10, marginBottom: 18 }}>
@@ -5230,33 +5250,6 @@ function CajaView({ T }) {
           </div>
         </div>
       </div>
-      {allAtenc.length > 0 && (
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginTop: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Tratamientos que más venden · {tratScope === "mes" ? "este mes" : "histórico"}</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {[["mes", "Este mes"], ["hist", "Histórico"]].map(([k, l]) => (
-                <button key={k} onClick={() => setTratScope(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "6px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tratScope === k ? T.accent : T.line), background: tratScope === k ? T.surface2 : T.surface, color: tratScope === k ? T.text : T.textMute }}>{l}</button>
-              ))}
-            </div>
-          </div>
-          {topTrat.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no hay ventas {tratScope === "mes" ? "este mes" : "registradas"}. Aparecerá cuando cobres atenciones desde la ficha del paciente.</div>}
-          {topTrat.map((t, i) => {
-            const max = topTrat[0].total || 1;
-            return (
-              <div key={t.name} style={{ padding: "9px 0", borderBottom: i === topTrat.length - 1 ? "none" : "1px solid " + T.lineSoft }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{t.name}</span>
-                  <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{t.n} venta{t.n === 1 ? "" : "s"} · <b style={{ color: "#1F8A5B" }}>{D.fmt(t.total)}</b></span>
-                </div>
-                <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: Math.max(6, Math.round(t.total / max * 100)) + "%", background: T.accent, borderRadius: 999 }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
       {movs.length > 0 && (
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginTop: 16 }}>
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Ventas por profesional · {subLbl}</div>
