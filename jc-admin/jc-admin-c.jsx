@@ -2969,6 +2969,8 @@ function calcIMC(peso, talla) {
 function FichaClinicaForm({ T, patient, updatePatient }) {
   const [f, setF] = useState(patient.clinica || {});
   const [saved, setSaved] = useState(false);
+  const [showAnt, setShowAnt] = useState(false); // antecedentes: colapsados en facial/corporal
+  const [showVit, setShowVit] = useState(false); // signos vitales: colapsados (corporal)
   useEffect(() => { setF(patient.clinica || {}); setSaved(false); }, [patient.id]);
   const setVal = (k, v) => { setF(prev => ({ ...prev, [k]: v })); setSaved(false); };
   // Al tocar un chip, su texto se escribe (o se quita) en la barra del propio parámetro.
@@ -2993,6 +2995,17 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
   const nrField = (label, k, ph, only) => <div><span style={lbl}>{label}</span>{text(k, ph, only)}{nrBtn(k)}</div>;
   // Barra primero (alineada entre columnas) y los botones debajo, dentro del mismo parámetro.
   const chipField = (label, k, options, ph) => <div><span style={lbl}>{label}</span>{text(k, ph)}{chips(k, options)}</div>;
+  // Al seleccionar una zona (mapa o chip) se abre una casilla propia para anotarla.
+  const zoneNotes = (zoneKey) => {
+    const zs = (f[zoneKey] || "").split(",").map(s => s.trim()).filter(Boolean).filter(z => z.toLowerCase() !== "no refiere");
+    if (!zs.length) return <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, marginTop: 12, padding: "10px 12px", border: "1px dashed " + T.line, borderRadius: 8 }}>Selecciona una zona en el mapa o los chips para abrir su casilla de anotaciones. 👆</div>;
+    return <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>{zs.map(z => { const key = "zn_" + zoneKey + "_" + z; return (
+      <div key={z} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, marginBottom: 6 }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: T.accent }} />{z}</span>
+        <textarea value={f[key] || ""} onChange={e => setVal(key, e.target.value)} rows={2} placeholder={"Anotaciones de " + z.toLowerCase() + " (producto, unidades, técnica, observación)…"} style={inp({ resize: "vertical" })} />
+      </div>
+    ); })}</div>;
+  };
   const tipo = f.tipo || "general";
   const imc = calcIMC(f.peso, f.talla);
   // Secciones estéticas (piel/hábitos/evaluación facial) solo aplican a ficha General y Facial.
@@ -3009,25 +3022,18 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {FICHA_TIPOS.map(([k, l]) => <button key={k} type="button" onClick={() => setVal("tipo", k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: tipo === k ? 600 : 500, padding: "8px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tipo === k ? T.accent : T.line), background: tipo === k ? T.accent : "transparent", color: tipo === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>)}
       </div>
-      {/* Signos vitales y antropometría (Medicina general / Corporal) */}
-      {(tipo === "medgeneral" || tipo === "corporal") && (
-        <div style={card}>
-          <div style={head}>Signos vitales y antropometría</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-            {field("Peso (kg)", <input value={f.peso || ""} onChange={e => setVal("peso", e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="0" style={inp()} />)}
-            {field("Talla (cm)", <input value={f.talla || ""} onChange={e => setVal("talla", e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="0" style={inp()} />)}
-            {field("IMC (automático)", <div style={inp({ display: "flex", alignItems: "center", justifyContent: "space-between", background: T.surface2 || T.bg })}>{imc ? <><span style={{ color: T.text, fontWeight: 600 }}>{imc.v}</span><span style={{ fontFamily: T.sans, fontSize: 10, color: imc.col }}>{imc.cat}</span></> : <span style={{ color: T.textFaint }}>—</span>}</div>)}
-            {field("Presión arterial", <input value={f.presion || ""} onChange={e => setVal("presion", e.target.value)} placeholder="120/80 mmHg" style={inp()} />)}
-            {field("Frec. cardíaca (lpm)", <input value={f.fc || ""} onChange={e => setVal("fc", e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={inp()} />)}
-            {field("Frec. respiratoria (rpm)", <input value={f.fr || ""} onChange={e => setVal("fr", e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={inp()} />)}
-            {field("Temperatura (°C)", <input value={f.temp || ""} onChange={e => setVal("temp", e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="36.5" style={inp()} />)}
-            {field("Saturación O₂ (%)", <input value={f.sato2 || ""} onChange={e => setVal("sato2", e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="98" style={inp()} />)}
-            {field("Glicemia (mg/dL)", <input value={f.glicemia || ""} onChange={e => setVal("glicemia", e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="—" style={inp()} />)}
-          </div>
-          {tipo === "medgeneral" && (
-            <div style={{ marginTop: 14 }}>
-              <label style={{ display: "block", marginBottom: 12 }}><span style={lbl}>Motivo de consulta</span><textarea value={f.motivo || ""} onChange={e => setVal("motivo", e.target.value)} rows={2} placeholder="—" style={inp({ resize: "vertical" })} /></label>
-              <label style={{ display: "block" }}><span style={lbl}>Diagnóstico / indicaciones</span><textarea value={f.diagnostico || ""} onChange={e => setVal("diagnostico", e.target.value)} rows={2} placeholder="—" style={inp({ resize: "vertical" })} /></label>
+      {/* Antropometría (Corporal) — compacta y colapsable: peso/talla/IMC en una fila. */}
+      {tipo === "corporal" && (
+        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, marginBottom: 14, overflow: "hidden" }}>
+          <button type="button" onClick={() => setShowVit(v => !v)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+            <span style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flex: 1 }}>Peso, talla e IMC {(f.peso && f.talla) ? "· " + f.peso + " kg / " + f.talla + " cm" + (imc ? " · IMC " + imc.v : "") : ""}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ transform: showVit ? "rotate(180deg)" : "none", transition: ".2s" }}><path d="m6 9 6 6 6-6" /></svg>
+          </button>
+          {showVit && (
+            <div style={{ padding: "0 16px 16px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+              {field("Peso (kg)", <input value={f.peso || ""} onChange={e => setVal("peso", e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="0" style={inp()} />)}
+              {field("Talla (cm)", <input value={f.talla || ""} onChange={e => setVal("talla", e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="0" style={inp()} />)}
+              {field("IMC (automático)", <div style={inp({ display: "flex", alignItems: "center", justifyContent: "space-between", background: T.surface2 || T.bg })}>{imc ? <><span style={{ color: T.text, fontWeight: 600 }}>{imc.v}</span><span style={{ fontFamily: T.sans, fontSize: 10, color: imc.col }}>{imc.cat}</span></> : <span style={{ color: T.textFaint }}>—</span>}</div>)}
             </div>
           )}
         </div>
@@ -3038,7 +3044,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           <div style={head}>Zonas faciales a tratar</div>
           <FichaZoneMap T={T} kind="facial" active={t => chipActive("zonasFacial", t)} onToggle={t => tokenToggle("zonasFacial", t)} />
           {chips("zonasFacial", FICHA_ZONAS_FACIAL)}
-          <div style={{ marginTop: 12 }}><span style={lbl}>Observaciones de zonas</span>{text("zonasFacialNota", "Detalle por zona…")}</div>
+          {zoneNotes("zonasFacial")}
         </div>
       )}
       {/* Zonas corporales (Corporal) */}
@@ -3047,22 +3053,35 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           <div style={head}>Zonas corporales a tratar</div>
           <FichaZoneMap T={T} kind="corporal" active={t => chipActive("zonasCorporal", t)} onToggle={t => tokenToggle("zonasCorporal", t)} />
           {chips("zonasCorporal", FICHA_ZONAS_CORPORAL)}
-          <div style={{ marginTop: 12 }}><span style={lbl}>Observaciones de zonas</span>{text("zonasCorporalNota", "Detalle por zona…")}</div>
+          {zoneNotes("zonasCorporal")}
         </div>
       )}
 
-      {/* Antecedentes médicos */}
-      <div style={card}>
-        <div style={head}>Antecedentes médicos</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
-          {chipField("Antecedentes mórbidos", "morbidos", ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
-          {nrField("Alergias", "alergias", "Ej. Penicilina, AINEs…", "alpha")}
-          {nrField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
-          {chipField("Procedimientos estéticos previos", "esteticos", ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
-          {nrField("Hospitalizaciones", "hospital", "—")}
-          {nrField("Medicamentos de uso diario", "medicamentos", "—")}
-        </div>
-      </div>
+      {/* Antecedentes médicos — compartidos entre fichas. En facial/corporal se colapsan (ya vistos en la general). */}
+      {(() => {
+        const grid = (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
+            {chipField("Antecedentes mórbidos", "morbidos", ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
+            {nrField("Alergias", "alergias", "Ej. Penicilina, AINEs…", "alpha")}
+            {nrField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
+            {chipField("Procedimientos estéticos previos", "esteticos", ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
+            {nrField("Hospitalizaciones", "hospital", "—")}
+            {nrField("Medicamentos de uso diario", "medicamentos", "—")}
+          </div>
+        );
+        if (tipo === "general") return <div style={card}><div style={head}>Antecedentes médicos</div>{grid}</div>;
+        // Facial / Corporal: encabezado desplegable, oculto por defecto.
+        return (
+          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, marginBottom: 14, overflow: "hidden" }}>
+            <button type="button" onClick={() => setShowAnt(v => !v)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flex: 1 }}>Antecedentes médicos</span>
+              <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}>{showAnt ? "Ocultar" : "Ver / editar"}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ transform: showAnt ? "rotate(180deg)" : "none", transition: ".2s" }}><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+            {showAnt && <div style={{ padding: "0 16px 16px" }}>{grid}</div>}
+          </div>
+        );
+      })()}
 
       {showEstetica && <>
       {/* Piel y factores de riesgo */}
@@ -3126,31 +3145,6 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
         })}
       </div>
       </>}
-      {/* Campos personalizados (plantillas del Editor de Fichas) */}
-      {(() => {
-        const fts = (typeof loadFichaTpls === "function" ? loadFichaTpls() : []);
-        if (!fts.length) return null;
-        const selT = f.cfTpl || fts[0].id;
-        const tpl = fts.find(t => t.id === selT) || fts[0];
-        const fieldInput = fld => {
-          const key = "cf_" + fld.id;
-          const opts = (fld.options || "").split(",").map(s => s.trim()).filter(Boolean);
-          if (fld.type === "area") return <textarea value={f[key] || ""} onChange={e => setVal(key, e.target.value)} rows={2} placeholder={fld.placeholder} style={inp({ resize: "vertical" })} />;
-          if (fld.type === "selector") return <select value={f[key] || ""} onChange={e => setVal(key, e.target.value)} style={inp()}><option value="">— Selecciona —</option>{opts.map(o => <option key={o} value={o}>{o}</option>)}</select>;
-          if (fld.type === "imagen" || fld.type === "pdf") return <div style={inp({ color: T.textFaint })}>{fld.type === "imagen" ? "📷 Adjuntar imagen (próximamente)" : "📄 Adjuntar PDF (próximamente)"}</div>;
-          return <input value={f[key] || ""} onChange={e => setVal(key, e.target.value)} type={fld.type === "numero" ? "number" : fld.type === "fecha" ? "date" : fld.type === "email" ? "email" : "text"} placeholder={fld.placeholder} style={inp()} />;
-        };
-        return (
-          <div style={card}>
-            <div style={head}>Campos personalizados</div>
-            {fts.length > 1 && <select value={selT} onChange={e => setVal("cfTpl", e.target.value)} style={inp({ marginBottom: 14 })}>{fts.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>}
-            {(tpl.fields || []).length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Esta plantilla no tiene campos. Agrégalos en Editor de Fichas.</div>
-              : <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
-                  {(tpl.fields || []).map(fld => <label key={fld.id} style={{ display: "block" }}><span style={lbl}>{fld.label || "Campo"}{fld.required && <span style={{ color: "#C0285A" }}> *</span>}</span>{fieldInput(fld)}</label>)}
-                </div>}
-          </div>
-        );
-      })()}
       {/* Historial · timeline con versionado (Área 5) */}
       {(patient.history && patient.history.length > 0) && (
         <div style={card}>
