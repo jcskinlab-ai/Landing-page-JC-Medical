@@ -724,6 +724,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const [delSession, setDelSession] = useState(null); // { h, i } sesión a eliminar (pide clave del profesional)
   const [editD, setEditD] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [printPick, setPrintPick] = useState(null); // lista de consentimientos a elegir antes de imprimir la ficha
   const [delInput, setDelInput] = useState("");
   const points = patient.points || [];
   // Pestañas NUEVAS (presupuesto, esquema facial) solo para Los Medique hasta el push global.
@@ -738,7 +739,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   // Imprime la ficha clínica completa en formato clínico con identidad de la clínica.
   // Ficha COMPLETA: antecedentes → signos vitales/IMC → hábitos → evaluación y plan →
   // historial de procedimientos realizados, con opción de anexar el detalle de consentimientos.
-  async function imprimirFicha() {
+  async function imprimirFicha(consentDoc) {
     const c = patient.clinica || {};
     const cv = k => (window.clinVal ? window.clinVal(c, k) : (c[k] || ""));
     const hist = patient.history || [];
@@ -758,14 +759,6 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     // Numeración romana correlativa (las secciones opcionales no dejan huecos).
     let _n = 0; const _R = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"]; const N = () => _R[_n++] || String(_n);
     const secHead = label => "<div class='section-head'><span class='sh-num'>" + N() + "</span><span class='sh-label'>" + label + "</span><span class='sh-rule'></span></div>";
-    // Consentimientos firmados del paciente. Se ofrece anexar su detalle a la ficha.
-    const consList = ((typeof patConsents === "function" ? patConsents(patient) : (patient.consents || [])) || []);
-    let incluirConsent = false;
-    if (consList.length || patient.consent) {
-      const ask = window.jcmConfirm || window.confirm;
-      incluirConsent = await ask("¿Incluir también el detalle de los consentimientos firmados en la impresión de la ficha?");
-    }
-
     let body = "";
     body += "<div class='section'>" + secHead("Antecedentes") + "<div class='dgrid'>"
       + drow("Alergias", cv("alergias")) + drow("Antecedentes mórbidos", cv("morbidos")) + drow("Proc. estéticos previos", cv("esteticos"), true) + drow("Antecedentes quirúrgicos", cv("quirurgicos") || c.cirugias) + drow("Medicamentos", cv("medicamentos")) + drow("Correo", patient.email)
@@ -781,19 +774,26 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     if (patient.notes) body += "<div class='section'><div class='section-head'><span class='sh-label'>Notas internas</span><span class='sh-rule'></span></div><div class='textbox'>" + e(patient.notes) + "</div></div>";
     body += "<div class='section'>" + secHead("Procedimientos realizados")
       + (hist.length ? hist.map(sesion).join("") : "<div class='empty-note'>Sin procedimientos registrados a la fecha.</div>") + "</div>";
-    if (incluirConsent) {
-      const crow = h => { const fc = h.fecha || (h.ts ? new Date(h.ts).toLocaleDateString("es-CL") : ""); return drow(h.title || h.proc || "Consentimiento", fc || "Firmado", true); };
-      body += "<div class='section'>" + secHead("Consentimientos firmados") + "<div class='dgrid'>"
-        + (consList.length ? consList.map(crow).join("") : drow("Consentimiento", patient.consentInfo || "Firmado", true)) + "</div></div>";
-    }
-
-    const inner = jcmMasthead(b)
+    let inner = jcmMasthead(b)
       + "<div class='titleblock'><div><div class='eyebrow'>Documento clínico</div><h1 class='doc-title'>Ficha <span class='it'>clínica</span></h1></div>"
       + "<div class='folio'><span class='k'>Expediente</span><span class='v'>" + (e((patient.id || "").replace(/[^a-z0-9]/gi, "").slice(-8).toUpperCase()) || "—") + "</span></div></div>"
       + jcmPband(patient, [["RUT", patient.rut], ["Edad", patient.age ? patient.age + " años" : ""], ["Teléfono", patient.phone]], patient.estado || "Activo")
       + "<div class='body'>" + body + "</div>"
       + jcmSignFoot(b, b.proName, "Ficha clínica", patient.name, hoy);
+    // Consentimiento elegido: se anexa COMPLETO (texto legal + firmas) en página aparte tras la ficha.
+    if (consentDoc) {
+      const cInner = await jcmConsentInnerHTML(consentDoc, patient);
+      inner += "<div style='page-break-before:always;padding-top:4px'>"
+        + "<div class='section-head' style='margin-bottom:16px'><span class='sh-label'>Consentimiento informado" + (consentDoc.title ? " · " + e(consentDoc.title) : "") + "</span><span class='sh-rule'></span></div>"
+        + cInner + "</div>";
+    }
     jcmPrintDoc("Ficha clínica · " + e(patient.name), b, inner);
+  }
+  // Elegir qué consentimiento anexar antes de imprimir la ficha (o ninguno).
+  function startPrintFicha() {
+    const consList = ((typeof patConsents === "function" ? patConsents(patient) : (patient.consents || [])) || []);
+    if (!consList.length) { imprimirFicha(null); return; }
+    setPrintPick(consList);
   }
 
   // Imprime UNA sesión/procedimiento en formato clínico con identidad de la clínica.
@@ -865,7 +865,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             else window.jcmError && window.jcmError("No se pudo enviar el recordatorio", (r && r.error) || r);
           }} icon={<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>}>Recordatorio</FAct>
           <FAct T={T} onClick={() => setEditD(true)} icon={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></>}>Editar datos</FAct>
-          <FAct T={T} onClick={imprimirFicha} icon={<><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></>}>Imprimir ficha</FAct>
+          <FAct T={T} onClick={startPrintFicha} icon={<><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></>}>Imprimir ficha</FAct>
           <FAct T={T} primary onClick={() => onAgendar && onAgendar()} icon={<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>}>Agendar cita</FAct>
           {removePatient && <FAct T={T} onClick={() => { setConfirmDel(true); setDelInput(""); }} icon={<><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></>}>Eliminar</FAct>}
         </div>
@@ -1011,6 +1011,30 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       )}
       </div>
       {editD && <EditDatosModal T={T} patient={patient} onClose={() => setEditD(false)} onSave={(d) => { updatePatient(patient.id, d); setEditD(false); }} />}
+      {printPick && (
+        <AdModal T={T} title="Imprimir ficha" onClose={() => setPrintPick(null)}>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.55, marginBottom: 14 }}>Elige un consentimiento para anexarlo <b>completo</b> (texto legal y firmas) al final de la ficha, o imprime solo la ficha.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {printPick.map((doc, i) => {
+              const fecha = doc.fecha || (doc.ts ? new Date(doc.ts).toLocaleDateString("es-CL") : "");
+              return (
+                <button key={doc.ts || i} onClick={() => { setPrintPick(null); imprimirFicha(doc); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line, cursor: "pointer", textAlign: "left", width: "100%" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent + "88"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = T.line; }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, border: "1px solid " + T.accent, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap", flexShrink: 0 }}>{doc.cat || "Consent."}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.title || doc.proc || "Consentimiento"}</div>
+                    {fecha && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{fecha}</div>}
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.8" style={{ flexShrink: 0 }}><path d="M9 6l6 6-6 6" /></svg>
+                </button>
+              );
+            })}
+            <button onClick={() => { setPrintPick(null); imprimirFicha(null); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: "transparent", border: "1px dashed " + T.line, cursor: "pointer", textAlign: "left", width: "100%", marginTop: 2 }}>
+              <span style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.textMute }}>Solo la ficha (sin consentimiento)</span>
+            </button>
+          </div>
+        </AdModal>
+      )}
       {confirmDel && (
         <AdModal T={T} title="Eliminar paciente" onClose={() => { setConfirmDel(false); setDelInput(""); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1410,6 +1434,70 @@ const CONSENT_EXCL = [
   "Discrasias sanguíneas o alteraciones de la coagulación (anemia aguda, leucemia, porfiria, protrombinemia u otras).",
   "Si previamente me sometí a procedimientos con biopolímeros, puesto que puede desencadenar reacciones inflamatorias e infecciosas."
 ];
+// Cuerpo legal del consentimiento (párrafos) según la plantilla firmada. Reutilizable por la impresión
+// del consentimiento suelto y por la impresión combinada con la ficha.
+function jcmConsentLegalBody(doc) {
+  const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const EU = esc(doc.prof || "____________________");
+  const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
+  let body = "";
+  if (doc.kind === "custom") {
+    let paras = doc.paragraphs;
+    if (!paras || !paras.length) { try { var tmpl = ((window.JCADMIN && window.JCADMIN.consents) || []).find(function (c) { return c.title === doc.title || c.id === doc.id; }); if (tmpl) paras = tmpl.paragraphs; } catch (e) {} }
+    (paras || []).forEach(function (pa) { body += p(esc(pa.n || ""), esc(pa.t || "").replace(/\{EU\}/g, "<b>" + EU + "</b>")); });
+    if (!paras || !paras.length) body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento " + esc(doc.proc || "") + ".");
+  } else if (doc.kind === "extra") {
+    if (doc.proc) body += p("", "Procedimiento: <b>" + esc(doc.proc) + "</b>.");
+    body += "<div style='white-space:pre-wrap;font-size:12px;line-height:1.6;margin-bottom:11px'>" + esc(doc.body || "—") + "</div>";
+    body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento descrito, habiéndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes clínicos.");
+  } else if (doc.kind === "toxina") {
+    body += p("1.-", "Por el presente documento, autorizo a EU <b>" + EU + "</b> a realizar el procedimiento conocido como \"tratamiento cosmético para arrugas\" mediante la aplicación de Toxina Botulínica tipo A, producto que al ser utilizado en la musculatura facial de manera adecuada, produce relajamiento de la expresión con la disminución de las arrugas de expresión. El procedimiento mencionado me ha sido totalmente explicado por el profesional, entendiendo la naturaleza y las consecuencias del mismo. Los siguientes puntos me han sido especialmente aclarados:");
+    body += "<p style='margin:0 0 8px 16px;font-size:12px;line-height:1.6'><b>a)</b> En los sitios de la(s) aplicación(es) pueden quedar pequeñas marcas transitorias, enrojecimiento de la piel, hematomas, inflamación y efectos no deseados descritos en el prospecto, los mismos son comunes y reversibles.</p>";
+    body += "<p style='margin:0 0 11px 16px;font-size:12px;line-height:1.6'><b>b)</b> Todos los pacientes que estén siendo tratados con antibióticos del tipo de espectinomicina o amino glucósidos, enfermedades neuromusculares, embarazadas, mujeres en periodos de lactancia, que presenten rellenos con biopolímeros, siliconas, así como infección o signos de inflamación en los sitios de aplicación no pueden ser sometidos a la aplicación de Toxina Botulínica.</p>";
+    body += p("2.-", "He entendido que la duración de los resultados es variable y reversible, siendo aproximadamente de entre 3 a 6 meses y me ha sido explicado que los efectos comenzarán a evidenciarse después del cuarto día de la aplicación.");
+    body += p("3.-", "Soy consciente que la práctica de la medicina no es una ciencia exacta y reconozco que a pesar de que el profesional me ha informado adecuadamente las posibilidades absolutas y relativas de lograr los objetivos indicados en el punto 1, los resultados no pueden ser predecibles.");
+    body += p("4.-", "Doy fe de no haber omitido o alterado datos al exponer mis antecedentes clínicos.");
+    body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Congresos, cursos, demostraciones, capacitaciones).");
+    body += p("6.-", "He leído detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional nombrado a realizarme el procedimiento antes explicado.");
+  } else {
+    body += p("1.-", "Por el presente documento, autorizo a EU <b>" + EU + "</b> a realizar el procedimiento <b>" + esc(doc.proc || "") + "</b>, el cual me fue claramente explicado.");
+    body += p("2.-", "Reconozco que pueden existir las siguientes complicaciones temporales: hematomas (moretones), inflamación, dolor leve transitorio, cambios de sensibilidad de la piel, enrojecimiento de la piel, asimetrías leves, los cuales son comunes y totalmente reversibles." + (doc.vascular ? " Aunque el riesgo es menor al 1% existe la posibilidad de complicaciones graves como: obstrucción u oclusión vascular, en dicho caso el profesional pondrá todos los medios a su disposición para resolver el cuadro clínico de forma eficaz." : ""));
+    body += p("3.-", "Estoy consciente que la práctica de la Medicina no es una ciencia exacta y estoy en conocimiento que los resultados del procedimiento no son totalmente predecibles.");
+    body += p("4.-", "Entiendo que no puedo ser tratada(o) con " + esc(doc.proc4 || doc.proc || "") + ", en los siguientes casos y confirmo que no padezco ninguno de ellos:");
+    body += "<ul style='margin:0 0 11px;padding-left:20px'>" + CONSENT_EXCL.map(e => "<li style='font-size:12px;line-height:1.6;margin-bottom:5px'>" + esc(e) + "</li>").join("") + "</ul>";
+    body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Demostraciones).");
+    body += p("6.-", "Doy fe de no haber omitido o alterado mis antecedentes clínicos. Leí detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.");
+  }
+  return body;
+}
+// Consentimiento como HTML embebible (estilos inline, sin CSS externo) para anexarlo a la ficha.
+// Resuelve las firmas (recorte async). Los "subidos" imagen se incrustan; el PDF va como nota.
+function jcmConsentInnerHTML(doc, patient) {
+  const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (doc && doc.kind === "upload") {
+    if (doc.img && doc.fileType !== "pdf") return Promise.resolve("<div style='text-align:center'><img src='" + doc.img + "' style='max-width:100%;max-height:940px;object-fit:contain'/></div>");
+    return Promise.resolve("<p style='font-size:12px;color:#444;line-height:1.6'>Consentimiento adjunto como archivo PDF (<b>" + esc(doc.title || "documento") + "</b>). Imprímelo por separado desde la pestaña Consentimientos.</p>");
+  }
+  const body = jcmConsentLegalBody(doc);
+  var medicoSig = null;
+  try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {}
+  return Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
+    const sp = crops[0], spr = crops[1];
+    const numCols = medicoSig ? 3 : 2;
+    const sigH = medicoSig ? 130 : 175;
+    const cell = (label, img) => "<div><div style='font-size:12px;color:#444;margin-bottom:6px'>" + label + "</div><div style='height:" + sigH + "px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px'>" + (img ? "<img src='" + img + "' style='max-height:100%;max-width:100%;object-fit:contain'/>" : "") + "</div></div>";
+    return "<div style='color:#111'>"
+      + "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>"
+      + "<div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || (patient && patient.name) || "") + "</b></div>"
+      + "<div style='font-size:12px;margin-bottom:16px'>Identificado con CI N° <b>" + esc(doc.ci || (patient && patient.rut) || "") + "</b> · Edad <b>" + esc(doc.edad || (patient && patient.age) || "") + "</b></div>"
+      + body
+      + "<div style='display:grid;grid-template-columns:repeat(" + numCols + ",1fr);gap:18px;margin-top:22px'>"
+      + cell("Firma paciente", sp)
+      + cell("Firma profesional · " + esc(doc.prof || ""), spr)
+      + (medicoSig ? cell("Médico responsable · " + esc(medicoSig.name) + (medicoSig.rut ? " · RUT " + esc(medicoSig.rut) : "") + (medicoSig.registro ? " · Reg. " + esc(medicoSig.registro) : ""), medicoSig.sig) : "")
+      + "</div></div>";
+  });
+}
 // Documento de consentimiento con el texto real de JC Medical (3 plantillas).
 function ConsentDoc({ T, tpl, prof }) {
   const P = ({ n, children }) => <p style={{ margin: "0 0 11px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}><b>{n}</b> {children}</p>;
@@ -1664,37 +1752,7 @@ function ConsentTab({ T, patient, updatePatient }) {
       return;
     }
     const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const EU = esc(doc.prof || "____________________");
-    const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
-    let body = "";
-    if (doc.kind === "custom") {
-      // Plantilla con cláusulas propias (ej. Bruxismo). Respaldo a la plantilla si no se guardaron.
-      let paras = doc.paragraphs;
-      if (!paras || !paras.length) { try { var tmpl = ((window.JCADMIN && window.JCADMIN.consents) || []).find(function (c) { return c.title === doc.title || c.id === doc.id; }); if (tmpl) paras = tmpl.paragraphs; } catch (e) {} }
-      (paras || []).forEach(function (pa) { body += p(esc(pa.n || ""), esc(pa.t || "").replace(/\{EU\}/g, "<b>" + EU + "</b>")); });
-      if (!paras || !paras.length) body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento " + esc(doc.proc || "") + ".");
-    } else if (doc.kind === "extra") {
-      if (doc.proc) body += p("", "Procedimiento: <b>" + esc(doc.proc) + "</b>.");
-      body += "<div style='white-space:pre-wrap;font-size:12px;line-height:1.6;margin-bottom:11px'>" + esc(doc.body || "—") + "</div>";
-      body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento descrito, habiéndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes clínicos.");
-    } else if (doc.kind === "toxina") {
-      body += p("1.-", "Por el presente documento, autorizo a EU <b>" + EU + "</b> a realizar el procedimiento conocido como \"tratamiento cosmético para arrugas\" mediante la aplicación de Toxina Botulínica tipo A, producto que al ser utilizado en la musculatura facial de manera adecuada, produce relajamiento de la expresión con la disminución de las arrugas de expresión. El procedimiento mencionado me ha sido totalmente explicado por el profesional, entendiendo la naturaleza y las consecuencias del mismo. Los siguientes puntos me han sido especialmente aclarados:");
-      body += "<p style='margin:0 0 8px 16px;font-size:12px;line-height:1.6'><b>a)</b> En los sitios de la(s) aplicación(es) pueden quedar pequeñas marcas transitorias, enrojecimiento de la piel, hematomas, inflamación y efectos no deseados descritos en el prospecto, los mismos son comunes y reversibles.</p>";
-      body += "<p style='margin:0 0 11px 16px;font-size:12px;line-height:1.6'><b>b)</b> Todos los pacientes que estén siendo tratados con antibióticos del tipo de espectinomicina o amino glucósidos, enfermedades neuromusculares, embarazadas, mujeres en periodos de lactancia, que presenten rellenos con biopolímeros, siliconas, así como infección o signos de inflamación en los sitios de aplicación no pueden ser sometidos a la aplicación de Toxina Botulínica.</p>";
-      body += p("2.-", "He entendido que la duración de los resultados es variable y reversible, siendo aproximadamente de entre 3 a 6 meses y me ha sido explicado que los efectos comenzarán a evidenciarse después del cuarto día de la aplicación.");
-      body += p("3.-", "Soy consciente que la práctica de la medicina no es una ciencia exacta y reconozco que a pesar de que el profesional me ha informado adecuadamente las posibilidades absolutas y relativas de lograr los objetivos indicados en el punto 1, los resultados no pueden ser predecibles.");
-      body += p("4.-", "Doy fe de no haber omitido o alterado datos al exponer mis antecedentes clínicos.");
-      body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Congresos, cursos, demostraciones, capacitaciones).");
-      body += p("6.-", "He leído detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional nombrado a realizarme el procedimiento antes explicado.");
-    } else {
-      body += p("1.-", "Por el presente documento, autorizo a EU <b>" + EU + "</b> a realizar el procedimiento <b>" + esc(doc.proc || "") + "</b>, el cual me fue claramente explicado.");
-      body += p("2.-", "Reconozco que pueden existir las siguientes complicaciones temporales: hematomas (moretones), inflamación, dolor leve transitorio, cambios de sensibilidad de la piel, enrojecimiento de la piel, asimetrías leves, los cuales son comunes y totalmente reversibles." + (doc.vascular ? " Aunque el riesgo es menor al 1% existe la posibilidad de complicaciones graves como: obstrucción u oclusión vascular, en dicho caso el profesional pondrá todos los medios a su disposición para resolver el cuadro clínico de forma eficaz." : ""));
-      body += p("3.-", "Estoy consciente que la práctica de la Medicina no es una ciencia exacta y estoy en conocimiento que los resultados del procedimiento no son totalmente predecibles.");
-      body += p("4.-", "Entiendo que no puedo ser tratada(o) con " + esc(doc.proc4 || doc.proc || "") + ", en los siguientes casos y confirmo que no padezco ninguno de ellos:");
-      body += "<ul style='margin:0 0 11px;padding-left:20px'>" + CONSENT_EXCL.map(e => "<li style='font-size:12px;line-height:1.6;margin-bottom:5px'>" + esc(e) + "</li>").join("") + "</ul>";
-      body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Demostraciones).");
-      body += p("6.-", "Doy fe de no haber omitido o alterado mis antecedentes clínicos. Leí detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.");
-    }
+    const body = jcmConsentLegalBody(doc);
     // En iOS, la pestaña debe abrirse DENTRO del gesto del usuario; se rellena al recortar las firmas.
     const winIOS = openOnly ? window.open("", "_blank") : null;
     if (winIOS) { try { winIOS.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento…</body>"); } catch (e) {} }
