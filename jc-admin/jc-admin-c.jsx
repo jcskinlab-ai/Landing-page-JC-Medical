@@ -3213,6 +3213,15 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
 
 /* helpers compartidos */
 function SecHead({ T, title, sub }) {
+  const DS = window.JCDS, lux = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  if (lux) return <div style={{ marginBottom: DS.sp[6] }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+      <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
+      <span style={{ fontFamily: T.sans, fontSize: DS.ft.eyebrow, fontWeight: 500, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent }}>Medique</span>
+    </div>
+    <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: DS.ft.display, letterSpacing: "-.01em", color: T.text, lineHeight: 1.05 }}>{title}</h1>
+    {sub && <div style={{ ...DS.text(T, "sub"), marginTop: 8 }}>{sub}</div>}
+  </div>;
   return <div style={{ marginBottom: 18 }}>
     <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, lineHeight: 1 }}>{title}</h1>
     {sub && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 6 }}>{sub}</div>}
@@ -5256,6 +5265,16 @@ function MetodoPagoModal({ T, mov, onClose, onSave }) {
   );
 }
 function CajaCard({ T, l, v, c, strong }) {
+  const DS = window.JCDS, lux = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  if (lux) return (
+    <div style={{ ...DS.card(T), padding: "18px 20px", borderColor: strong ? T.accent + "88" : T.line }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: c || T.accent }} />
+        <span style={{ fontFamily: T.sans, fontSize: DS.ft.eyebrow, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</span>
+      </div>
+      <div style={{ ...DS.text(T, "stat"), color: T.text }}>{v}</div>
+    </div>
+  );
   return (
     <div style={{ background: strong ? T.surface2 : T.surface, border: "1px solid " + (strong ? T.accent : T.line), borderRadius: 10, padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: c }} /><span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</span></div>

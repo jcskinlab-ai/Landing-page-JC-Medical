@@ -126,22 +126,62 @@ function Avatar({ T, name, src, size }) {
   return <div style={{ width: s, height: s, borderRadius: "50%", background: T.surface2, border: "1px solid " + T.line, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: s * 0.4, color: T.accent, flexShrink: 0 }}>{initials(name)}</div>;
 }
 
-function AdBtn({ T, children, onClick, primary, full, small }) {
-  return <button onClick={onClick} style={{
-    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: full ? "100%" : "auto",
-    fontFamily: T.sans, fontSize: small ? 10.5 : 11, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase",
-    padding: small ? "9px 14px" : "13px 20px", borderRadius: 4, cursor: "pointer",
-    background: primary ? T.primaryBg : "transparent", color: primary ? T.primaryText : T.text, border: primary ? "none" : "1px solid " + T.chipBorder
-  }}>{children}</button>;
+// ── Fase 1 del rediseño (JCDS): los componentes base consumen los tokens de window.JCDS
+//    SOLO para Los Medique (flag lux, mismo gate del Dashboard). Las demás clínicas
+//    conservan la UI actual hasta el push global. Misma API en ambos caminos.
+function jcdsLux() {
+  try { return !!(window.JCDS && typeof isLosMedique === "function" && isLosMedique()); } catch (e) { return false; }
 }
 
-function AdField({ T, label, value, onChange, placeholder, inputMode }) {
+function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, disabled }) {
+  const DS = window.JCDS;
+  if (!(DS && jcdsLux())) return <button onClick={disabled ? undefined : onClick} disabled={disabled} style={{
+    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: full ? "100%" : "auto",
+    fontFamily: T.sans, fontSize: small ? 10.5 : 11, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase",
+    padding: small ? "9px 14px" : "13px 20px", borderRadius: 4, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1,
+    background: primary ? T.primaryBg : "transparent", color: primary ? T.primaryText : T.text, border: primary ? "none" : "1px solid " + T.chipBorder
+  }}>{children}</button>;
+  // 4 variantes (primary / ghost / danger / subtle) × 5 estados (hover, focus, active, disabled, normal)
+  let bg, color, border;
+  if (primary && danger) { bg = DS.danger; color = "#fff"; border = "none"; }
+  else if (primary) { bg = T.primaryBg || T.accent; color = T.primaryText || T.onAccent || "#fff"; border = "none"; }
+  else if (danger) { bg = "transparent"; color = DS.danger; border = "1px solid " + DS.dangerLine; }
+  else if (subtle) { bg = T.chipBg; color = T.text; border = "1px solid transparent"; }
+  else { bg = "transparent"; color = T.text; border = "1px solid " + T.line; }
+  return <button onClick={disabled ? undefined : onClick} disabled={disabled}
+    onMouseEnter={e => { if (disabled) return; const s = e.currentTarget.style; if (primary) s.filter = "brightness(1.07)"; else if (danger) s.background = DS.dangerBg; else { s.background = T.chipBg; s.borderColor = T.accent + "66"; } }}
+    onMouseLeave={e => { const s = e.currentTarget.style; s.filter = ""; s.background = bg; if (border !== "none") s.border = border; s.transform = ""; }}
+    onMouseDown={e => { if (!disabled) e.currentTarget.style.transform = "scale(.985)"; }}
+    onMouseUp={e => { e.currentTarget.style.transform = ""; }}
+    onFocus={e => { e.currentTarget.style.boxShadow = DS.focus(T); }}
+    onBlur={e => { e.currentTarget.style.boxShadow = ""; }}
+    style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: full ? "100%" : "auto",
+      height: small ? DS.h.ctlSm : DS.h.ctl, padding: small ? "0 12px" : "0 16px", boxSizing: "border-box",
+      fontFamily: T.sans, fontSize: small ? 12 : DS.ft.body, fontWeight: 600, letterSpacing: ".01em", whiteSpace: "nowrap",
+      borderRadius: DS.r.ctl, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, outline: "none",
+      background: bg, color: color, border: border,
+      transition: DS.trans("background, border-color, box-shadow, transform, opacity, filter")
+    }}>{children}</button>;
+}
+
+function AdField({ T, label, value, onChange, placeholder, inputMode, error }) {
   const nocap = inputMode === "email" || inputMode === "url";
-  return <label style={{ display: "block" }}>
+  const DS = window.JCDS;
+  if (!(DS && jcdsLux())) return <label style={{ display: "block" }}>
     <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{label}</span>
     <input value={value} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       data-nocap={nocap ? "" : undefined}
       style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
+  </label>;
+  return <label style={{ display: "block" }}>
+    <span style={{ ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 }}>{label}</span>
+    <input value={value} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      data-nocap={nocap ? "" : undefined}
+      onFocus={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.boxShadow = DS.focus(T); }}
+      onBlur={e => { e.currentTarget.style.borderColor = error ? DS.danger : T.line; e.currentTarget.style.boxShadow = ""; }}
+      style={{ ...DS.ctl(T), width: "100%", background: T.surface, ...(error ? { borderColor: DS.danger } : {}) }} />
+    {error && typeof error === "string" && <span style={{ display: "block", marginTop: 5, fontFamily: T.sans, fontSize: DS.ft.sub, color: DS.danger }}>{error}</span>}
   </label>;
 }
 
@@ -173,11 +213,12 @@ function AdModal({ T, title, onClose, children, footer, wide, huge }) {
   // disponible → el contenido largo (p. ej. "Nuevo procedimiento") hace scroll interno
   // sin salirse de pantalla ni quedar cortado.
   useEscClose(onClose); // ESC cierra este popup (el más reciente)
+  const DS = window.JCDS, lux = DS && jcdsLux(); // Fase 1 JCDS: elevación overlay + título calibrado
   return (
     <div onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", paddingTop: "calc(66px + env(safe-area-inset-top,0px))", paddingBottom: "calc(20px + env(safe-area-inset-bottom,0px))", paddingLeft: huge ? 12 : 16, paddingRight: huge ? 12 : 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: huge ? "97vw" : "100%", maxWidth: huge ? 1180 : (wide ? 720 : 460), maxHeight: "100%", background: T.bg, borderRadius: 16, border: "1px solid " + T.line, display: "flex", flexDirection: "column", animation: "jcSlideUp .3s " + T.ease, overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid " + T.line }}>
-          <div style={{ fontFamily: T.serif, fontSize: 22, fontWeight: 300, color: T.text }}>{title}</div>
+      <div onClick={e => e.stopPropagation()} style={{ width: huge ? "97vw" : "100%", maxWidth: huge ? 1180 : (wide ? 720 : 460), maxHeight: "100%", background: T.bg, borderRadius: lux ? DS.r.panel : 16, border: "1px solid " + T.line, boxShadow: lux ? DS.el.overlay : undefined, display: "flex", flexDirection: "column", animation: "jcSlideUp .3s " + T.ease, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: lux ? "16px 20px" : "18px 20px", borderBottom: "1px solid " + T.line }}>
+          <div style={{ fontFamily: T.serif, fontSize: lux ? 20 : 22, fontWeight: lux ? 400 : 300, letterSpacing: lux ? "-.01em" : undefined, color: T.text }}>{title}</div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMute, display: "flex", padding: 4 }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
         </div>
         <div style={{ padding: "20px", overflowY: "auto", flex: 1 }}>{children}</div>
@@ -268,8 +309,19 @@ function patConsents(p) {
 }
 
 function AdTag({ T, tone, children }) {
-  const c = { ok: "#1F8A5B", warn: T.gold, danger: "#C0285A", muted: T.textFaint }[tone] || T.accent;
-  return <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: c, border: "1px solid " + c, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap" }}>{children}</span>;
+  const DS = window.JCDS;
+  if (!(DS && jcdsLux())) {
+    const c = { ok: "#1F8A5B", warn: T.gold, danger: "#C0285A", muted: T.textFaint }[tone] || T.accent;
+    return <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: c, border: "1px solid " + c, borderRadius: 999, padding: "4px 9px", whiteSpace: "nowrap" }}>{children}</span>;
+  }
+  // Fase 1 JCDS: chips con fondo semántico suave (una sola fuente de verdad para ok/warn/danger)
+  const m = {
+    ok: [DS.ok, DS.okBg, DS.okLine],
+    warn: [DS.warn, DS.warnBg, DS.warnLine],
+    danger: [DS.danger, DS.dangerBg, DS.dangerLine],
+    muted: [T.textMute, "transparent", T.line]
+  }[tone] || [T.accent, T.chipBg, T.chipBorder];
+  return <span style={{ display: "inline-flex", alignItems: "center", fontFamily: T.sans, fontSize: DS.ft.eyebrow, fontWeight: 500, letterSpacing: ".08em", textTransform: "uppercase", color: m[0], background: m[1], border: "1px solid " + m[2], borderRadius: DS.r.pill, padding: "3px 9px", whiteSpace: "nowrap", lineHeight: 1.4 }}>{children}</span>;
 }
 
 /* ─────────── PACIENTES ─────────── */
