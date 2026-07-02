@@ -2440,12 +2440,17 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   // Cabecera colapsada a una sola línea para TODAS las clínicas (el toggle de vista y
   // "+ Nueva Cita" se inyectan dentro de la barra de la semana, SemanaGrid).
   const isBase = true;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const viewToggleNode = (
-    <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
-      <button onClick={() => setView("dia")} title="Vista lista / día" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? (T.onAccent || "#fff") : T.textMute }}>
+    <div style={luxF ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3 } : { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
+      <button onClick={() => setView("dia")} title="Vista lista / día" style={luxF
+        ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "dia" ? T.surface : "transparent", boxShadow: view === "dia" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "dia" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
+        : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? (T.onAccent || "#fff") : T.textMute }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
       </button>
-      <button onClick={() => setView("semana")} title="Vista calendario / semana" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? (T.onAccent || "#fff") : T.textMute }}>
+      <button onClick={() => setView("semana")} title="Vista calendario / semana" style={luxF
+        ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "semana" ? T.surface : "transparent", boxShadow: view === "semana" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "semana" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
+        : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? (T.onAccent || "#fff") : T.textMute }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
       </button>
     </div>
@@ -2687,6 +2692,7 @@ function ComentarioPopup({ T, appt, updateAppt, onClose }) {
 }
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn }) {
   const D = window.JCDATA;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [wkOff, setWkOff] = useState(0);
   const [menu, setMenu] = useState(null); // appt id abierto
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
@@ -2914,7 +2920,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         if ((a.prof || "").trim()) rows.push(["Profesional", a.prof, (team.find(x => x.name === a.prof) || {}).color || T.accent]);
         return v2 ? (
           <div onMouseEnter={() => { if (hideT.current) clearTimeout(hideT.current); }} onMouseLeave={() => setHover(null)}
-            style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 280, background: T.bg, border: "1px solid " + T.line, borderRadius: 12, boxShadow: "0 20px 50px -16px rgba(0,0,0,.55)", overflow: "hidden", animation: "jcFade .14s ease" }}>
+            style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 280, background: T.bg, border: "1px solid " + T.line, borderRadius: luxF ? DS.r.panel : 12, boxShadow: "0 20px 50px -16px rgba(0,0,0,.55)", overflow: "hidden", animation: "jcFade .14s ease" }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 15px 11px", borderBottom: "1px solid " + T.lineSoft }}>
               <div style={{ width: 36, height: 36, borderRadius: 9, background: ac, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>{ini}</div>
               <div style={{ minWidth: 0 }}>
