@@ -216,6 +216,8 @@ function EspecialidadesTab({ T }) {
   async function del(e) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar la especialidad \"" + e + "\"?", { danger: true }))) return; const n = list.filter(x => x !== e); setList(n); saveEspecialidades(n); }
   const profCount = e => team.filter(m => (m.especialidades || []).indexOf(e) >= 0).length;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" && jcdsLux());
+  // Solo el administrador/dueño puede agregar, eliminar o asignar especialidades. Los profesionales las ven de solo lectura.
+  const _SA = window.JCSAAS; const isAdmin = !(_SA && _SA.currentRole && _SA.currentRole() === "professional");
   // Cuántas de las sugeridas por área faltan por agregar (para el contador del panel colapsable).
   const sugRestantes = ESPECIALIDAD_CATS.reduce((acc, c) => acc + c[1].filter(s => list.indexOf(s) < 0).length, 0);
   return (
@@ -223,12 +225,16 @@ function EspecialidadesTab({ T }) {
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 6, lineHeight: 1.5 }}>Define las especialidades que ofrece tu clínica y asigna qué profesionales las realizan.</div>
       <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 18, lineHeight: 1.5, background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.lineSoft, borderRadius: 8, padding: "9px 12px" }}>💡 <b style={{ color: T.textMute }}>Toxina botulínica, Ácido hialurónico, Bioestimuladores…</b> son <b style={{ color: T.textMute }}>procedimientos</b>, no especialidades: se administran en la pestaña <b style={{ color: T.textMute }}>Tratamientos</b>.</div>
 
-      {/* Agregar una propia — arriba, antes de las especialidades ya definidas. */}
-      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, margin: "0 0 8px" }}>Agregar especialidad</div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <input value={nueva} onChange={e => setNueva(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Nueva especialidad…" style={{ flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-        <AdBtn T={T} primary onClick={add}>+ Agregar</AdBtn>
-      </div>
+      {/* Agregar una propia — arriba, antes de las especialidades ya definidas. Solo admin. */}
+      {isAdmin
+        ? (<>
+            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, margin: "0 0 8px" }}>Agregar especialidad</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+              <input value={nueva} onChange={e => setNueva(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Nueva especialidad…" style={{ flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              <AdBtn T={T} primary onClick={add}>+ Agregar</AdBtn>
+            </div>
+          </>)
+        : <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 18, lineHeight: 1.5, background: T.surface, border: "1px solid " + T.lineSoft, borderRadius: 8, padding: "9px 12px" }}>🔒 Solo el administrador de la clínica puede agregar o modificar especialidades. Aquí puedes consultarlas.</div>}
 
       {/* PRIMARIO: las especialidades de la clínica. Cada una es clicable para asignar profesionales. */}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
@@ -242,24 +248,24 @@ function EspecialidadesTab({ T }) {
         : (
           <div style={{ display: "flex", flexDirection: "column", gap: luxF ? 7 : 5 }}>
             {list.map((e, ei) => { const n = profCount(e); const ec = window.jcmAvatarColor ? window.jcmAvatarColor(e) : T.accent; return (
-              <div key={e} onClick={() => setAssignTo(e)} title={"Asignar profesionales a " + e}
-                style={luxF ? { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer", ...DS.card(T), ...DS.reveal(ei), transition: DS.trans("border-color,background") } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}
-                onMouseEnter={ev => { ev.currentTarget.style.borderColor = T.accent + (luxF ? "66" : "99"); }}
-                onMouseLeave={ev => { ev.currentTarget.style.borderColor = luxF ? "" : T.line; }}>
+              <div key={e} onClick={isAdmin ? () => setAssignTo(e) : undefined} title={isAdmin ? "Asignar profesionales a " + e : e}
+                style={luxF ? { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: isAdmin ? "pointer" : "default", ...DS.card(T), ...DS.reveal(ei), transition: DS.trans("border-color,background") } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: isAdmin ? "pointer" : "default" }}
+                onMouseEnter={isAdmin ? ev => { ev.currentTarget.style.borderColor = T.accent + (luxF ? "66" : "99"); } : undefined}
+                onMouseLeave={isAdmin ? ev => { ev.currentTarget.style.borderColor = luxF ? "" : T.line; } : undefined}>
                 {luxF && <span style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 9, background: ec + "22", color: ec, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 14, fontWeight: 600 }}>{(e || "?").trim()[0].toUpperCase()}</span>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{e}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 11, color: n === 0 ? T.textFaint : T.textMute, marginTop: 2 }}>{n === 0 ? "Sin profesionales · toca para asignar" : n + " profesional" + (n === 1 ? "" : "es")}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: n === 0 ? T.textFaint : T.textMute, marginTop: 2 }}>{n === 0 ? (isAdmin ? "Sin profesionales · toca para asignar" : "Sin profesionales asignados") : n + " profesional" + (n === 1 ? "" : "es")}</div>
                 </div>
-                <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.accent, padding: "5px 9px", borderRadius: DS ? DS.r.pill : 999, background: T.accent + "12", border: "1px solid " + (T.chipBorder || T.line) }}>Asignar<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6" /></svg></span>
-                <button onClick={ev => { ev.stopPropagation(); del(e); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                {isAdmin && <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.accent, padding: "5px 9px", borderRadius: DS ? DS.r.pill : 999, background: T.accent + "12", border: "1px solid " + (T.chipBorder || T.line) }}>Asignar<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6" /></svg></span>}
+                {isAdmin && <button onClick={ev => { ev.stopPropagation(); del(e); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>}
               </div>
             ); })}
           </div>
         )}
 
-      {/* SECUNDARIO: sugeridas por área, contenidas en un panel colapsable (no botones sueltos). */}
-      {sugRestantes > 0 && (
+      {/* SECUNDARIO: sugeridas por área, contenidas en un panel colapsable (no botones sueltos). Solo admin. */}
+      {isAdmin && sugRestantes > 0 && (
         <div style={luxF ? { ...DS.card(T), overflow: "hidden", marginTop: 18 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden", marginTop: 18 }}>
           <button onClick={() => setShowSug(v => !v)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="M12 5v14M5 12h14" /></svg>
@@ -401,11 +407,13 @@ function ServiciosView({ T }) {
   const hits = ql ? sections.reduce((s, sec) => s + sec.groups.reduce((s2, g) => s2 + g.items.filter(matchItem).length, 0), 0) : totalItems;
   const totalAll = totalItems + custom.length;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  // Solo el administrador/dueño agrega, edita, importa o elimina tratamientos. Profesionales: solo lectura.
+  const _SA = window.JCSAAS; const isAdmin = !(_SA && _SA.currentRole && _SA.currentRole() === "professional");
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <SecHead T={T} title="Tratamientos y Especialidades" sub={tab === "especialidades" ? "Especialidades de la clínica" : totalAll + " procedimiento" + (totalAll === 1 ? "" : "s") + " · crea los tuyos o edita los existentes"} />
-        {tab === "tratamientos" && <div style={{ display: "flex", gap: 8 }}>
+        <SecHead T={T} title="Tratamientos y Especialidades" sub={tab === "especialidades" ? "Especialidades de la clínica" : totalAll + " procedimiento" + (totalAll === 1 ? "" : "s") + (isAdmin ? " · crea los tuyos o edita los existentes" : " · catálogo de la clínica")} />
+        {isAdmin && tab === "tratamientos" && <div style={{ display: "flex", gap: 8 }}>
           <input ref={svcFileRef} type="file" accept=".csv,.xlsx,.xls,text/csv" style={{ display: "none" }} onChange={onSvcFile} />
           <AdBtn T={T} onClick={() => svcFileRef.current && svcFileRef.current.click()}>Importar Excel</AdBtn>
           <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Nuevo servicio</AdBtn>
@@ -433,8 +441,8 @@ function ServiciosView({ T }) {
         const cv = custom.filter(s => !ql || s.name.toLowerCase().includes(ql) || (s.desc || "").toLowerCase().includes(ql));
         if (!cv.length) return totalItems === 0 && !ql ? (
           <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "40px 24px", textAlign: "center", marginBottom: 22 }}>
-            <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 420, margin: "0 auto 16px" }}>Aún no tienes servicios. Crea tu primer procedimiento con su nombre, precio, duración y categoría — aparecerá en la agenda y en la reserva online.</div>
-            <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Crear primer servicio</AdBtn>
+            <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6, maxWidth: 420, margin: "0 auto 16px" }}>{isAdmin ? "Aún no tienes servicios. Crea tu primer procedimiento con su nombre, precio, duración y categoría — aparecerá en la agenda y en la reserva online." : "El administrador de la clínica aún no ha cargado tratamientos en el catálogo."}</div>
+            {isAdmin && <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Crear primer servicio</AdBtn>}
           </div>
         ) : null;
         return (
@@ -445,14 +453,14 @@ function ServiciosView({ T }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               {cv.map(s => (
-                <div key={s.id} onClick={() => setNewSvc(s)} style={luxF ? { ...DS.card(T), display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", cursor: "pointer" } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
+                <div key={s.id} onClick={isAdmin ? () => setNewSvc(s) : undefined} style={luxF ? { ...DS.card(T), display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", cursor: isAdmin ? "pointer" : "default" } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: isAdmin ? "pointer" : "default" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{s.name}</div>
                     <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{s.cat}{s.desc ? " · " + s.desc : ""}</div>
                     <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, marginTop: 3 }}>{s.dur} min{s.ses > 1 ? " · " + s.ses + " sesiones" : ""}{s.pts ? " · " + s.pts + " pts" : ""}{profsForSvc(s.name) ? " · " + profsForSvc(s.name) + " prof." : ""}</div>
                   </div>
                   <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 }}>{D.fmt(s.price || 0)}</div>
-                  <button onClick={async e => { e.stopPropagation(); if (await (window.jcmConfirm || window.confirm)(`¿Eliminar el servicio "${s.name}"?`, {danger: true})) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                  {isAdmin && <button onClick={async e => { e.stopPropagation(); if (await (window.jcmConfirm || window.confirm)(`¿Eliminar el servicio "${s.name}"?`, {danger: true})) delSvc(s.id); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>}
                 </div>
               ))}
             </div>
@@ -480,11 +488,11 @@ function ServiciosView({ T }) {
                   const v = val(it);
                   const hk = section.sec + group.cat + i;
                   return (
-                    <div key={i} onClick={() => setEditing({ key: it.n, name: v.name, desc: v.desc, price: String(v.price), dur: String(v.dur), pts: String(v.pts) })}
-                      onMouseEnter={() => setHover(hk)} onMouseLeave={() => setHover(null)}
+                    <div key={i} onClick={isAdmin ? () => setEditing({ key: it.n, name: v.name, desc: v.desc, price: String(v.price), dur: String(v.dur), pts: String(v.pts) }) : undefined}
+                      onMouseEnter={isAdmin ? () => setHover(hk) : undefined} onMouseLeave={isAdmin ? () => setHover(null) : undefined}
                       style={luxF
-                        ? { ...DS.card(T), display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", cursor: "pointer", borderColor: hover === hk ? T.accent + "88" : T.line, transition: DS.trans("border-color") }
-                        : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + (hover === hk ? T.accent : T.line), cursor: "pointer", transition: "border-color .15s" }}>
+                        ? { ...DS.card(T), display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", cursor: isAdmin ? "pointer" : "default", borderColor: hover === hk ? T.accent + "88" : T.line, transition: DS.trans("border-color") }
+                        : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + (hover === hk ? T.accent : T.line), cursor: isAdmin ? "pointer" : "default", transition: "border-color .15s" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{v.name}</div>
                         {v.desc && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.desc}</div>}
@@ -494,9 +502,11 @@ function ServiciosView({ T }) {
                         </div>
                       </div>
                       <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flexShrink: 0 }}>{D.fmt(v.price)}</div>
-                      <div onClick={e => { e.stopPropagation(); saveActive({ ...active, [it.n]: !on }); }}>
-                        <AdSwitch T={T} on={on} onClick={() => {}} />
-                      </div>
+                      {isAdmin
+                        ? <div onClick={e => { e.stopPropagation(); saveActive({ ...active, [it.n]: !on }); }}>
+                            <AdSwitch T={T} on={on} onClick={() => {}} />
+                          </div>
+                        : <AdTag T={T} tone={on ? "ok" : "muted"}>{on ? "Activo" : "Inactivo"}</AdTag>}
                     </div>
                   );
                 })}
@@ -875,20 +885,22 @@ function SucursalesView({ T }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-          {list.map((s, i) => { const np = profsForSuc(s.name); return (
+          {list.map((s, i) => { const np = profsForSuc(s.name); const sc = luxF && window.jcmAvatarColor ? window.jcmAvatarColor(s.name || "") : T.accent; return (
             <div key={s.id} onClick={() => setEditing(s)} title="Editar sucursal" style={luxF
-              ? { display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", ...DS.card(T), cursor: "pointer", ...DS.reveal(i) }
-              : { display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
-              <div style={{ width: 42, height: 42, borderRadius: 10, background: T.accentSoft || T.surface2, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              ? { display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", ...DS.card(T), cursor: "pointer", transition: DS.trans("border-color"), ...DS.reveal(i) }
+              : { display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}
+              onMouseEnter={luxF ? e => { e.currentTarget.style.borderColor = sc + "66"; } : undefined}
+              onMouseLeave={luxF ? e => { e.currentTarget.style.borderColor = ""; } : undefined}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: luxF ? sc + "22" : (T.accentSoft || T.surface2), color: luxF ? sc : T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 11h.01M15 11h.01" /></svg>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{s.name}</div>
                 {s.addr && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>{s.addr}</div>}
                 <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 3 }}>{[s.phone, s.email].filter(Boolean).join("  ·  ")}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 5, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 5, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                   <span>🕒 {diasTxt(s.horario)}</span>
-                  <span>· {np === 0 ? "Sin profesionales" : np + " profesional" + (np === 1 ? "" : "es")}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: np === 0 ? T.textFaint : "#1F8A5B" }}><span style={{ width: 5, height: 5, borderRadius: 999, background: np === 0 ? T.textFaint : "#1F8A5B" }} />{np === 0 ? "Sin profesionales" : np + " profesional" + (np === 1 ? "" : "es")}</span>
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
@@ -1288,9 +1300,9 @@ function FidelidadView({ T }) {
       </div>}
       {on ? <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
-          <AdStat T={T} n={members.length} l="Miembros" />
-          <AdStat T={T} n={ptsActivos.toLocaleString("es-CL")} l="Puntos activos" />
-          <AdStat T={T} n={oro} l="Miembros Oro" />
+          <AdStat T={T} n={members.length} l="Miembros" accent={T.accent} />
+          <AdStat T={T} n={ptsActivos.toLocaleString("es-CL")} l="Puntos activos" accent="#1F8A5B" />
+          <AdStat T={T} n={oro} l="Miembros Oro" accent={T.gold || "#C9A227"} />
         </div>
         <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>
           Los puntos por procedimiento específico se pueden ajustar en <b>Servicios</b> (campo "Puntos que otorga" al editar un servicio). El valor por defecto es <b>{cfg.ptsProc} puntos</b>.
@@ -3658,7 +3670,12 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
 function Group({ T, title, children }) { return <div style={{ marginBottom: 20 }}><div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{title}</div><div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{children}</div></div>; }
 function Empty2({ T, children }) {
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-  return <div style={luxF ? { ...DS.text(T, "sub"), color: T.textFaint, padding: "4px 0", lineHeight: 1.5 } : { fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "4px 0" }}>{children}</div>;
+  if (!luxF) return <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "4px 0" }}>{children}</div>;
+  // Empty-state enterprise: ícono suave + texto centrado en un bloque punteado, en vez de texto suelto.
+  return <div style={{ textAlign: "center", padding: "22px 18px", border: "1px dashed " + T.line, borderRadius: DS.r.card, background: T.surface2 ? T.surface2 + "44" : "transparent" }}>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.4" style={{ opacity: .7, marginBottom: 8 }}><path d="M3 8l2-4h14l2 4M3 8v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8M3 8h6l1 2h4l1-2h6" /></svg>
+    <div style={{ ...DS.text(T, "sub"), color: T.textFaint, lineHeight: 1.55 }}>{children}</div>
+  </div>;
 }
 function PendRow({ T, name, desc, action, onClick, href, onDelete }) {
   const xBtn = onDelete ? React.createElement("button", {

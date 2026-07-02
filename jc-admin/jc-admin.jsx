@@ -2175,7 +2175,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
               <div style={{ display: "flex", alignItems: "flex-end", gap: 9, height: 92 }}>
                 {week.map((v, i) => (
                   <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: "100%", maxWidth: 30, height: (v / maxw * 66 + 4) + "px", background: i === _todayIdx ? T.accent : (T.dark ? "rgba(242,237,230,.16)" : "rgba(20,20,15,.12)"), borderRadius: 6, transition: "height .3s " + T.ease }} title={v + " cita" + (v === 1 ? "" : "s")} />
+                    <div style={{ width: "100%", maxWidth: 30, height: (v / maxw * 66 + 4) + "px", background: i === _todayIdx ? T.accent : (T.dark ? "rgba(242,237,230,.16)" : "rgba(20,20,15,.12)"), borderRadius: 6, transition: "height .3s " + T.ease, ...(window.JCDS ? window.JCDS.barGrow(i) : {}) }} title={v + " cita" + (v === 1 ? "" : "s")} />
                     <span style={{ fontFamily: T.sans, fontSize: 9.5, color: i === _todayIdx ? T.accent : T.textMute, fontWeight: i === _todayIdx ? 600 : 400 }}>{wd[i]}</span>
                   </div>
                 ))}
@@ -2359,14 +2359,17 @@ function linkBtn(T) { return { fontFamily: T.sans, fontSize: 10.5, letterSpacing
 
 function AdStat({ T, n, l, accent }) {
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  // accent puede ser un color (string) o true (=crimson por defecto); null = neutro.
+  const c = typeof accent === "string" ? accent : (accent ? "#C0285A" : null);
   if (luxF) return (
-    <div style={{ ...DS.card(T), padding: "14px 12px", textAlign: "center", borderColor: accent ? "#C0285A55" : T.line }}>
-      <div style={{ ...DS.text(T, "stat"), fontSize: 24, color: accent ? "#C0285A" : T.text }}>{n}</div>
+    <div style={{ ...DS.card(T), padding: "14px 12px", textAlign: "center", borderColor: c ? c + "55" : T.line, ...DS.reveal(0) }}>
+      {c && <div style={{ width: 5, height: 5, borderRadius: 999, background: c, margin: "0 auto 8px" }} />}
+      <div style={{ ...DS.text(T, "stat"), fontSize: 24, color: c || T.text }}>{n}</div>
       <div style={{ fontFamily: T.sans, fontSize: DS.ft.eyebrow, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginTop: 6 }}>{l}</div>
     </div>
   );
-  return <div style={{ background: accent ? "rgba(192,40,90,.08)" : (T.dark ? "rgba(242,237,230,.03)" : "rgba(20,20,15,.02)"), border: "1px solid " + (accent ? "rgba(192,40,90,.4)" : T.line), borderRadius: 8, padding: "14px 8px", textAlign: "center" }}>
-    <div style={{ fontFamily: T.serif, fontSize: 26, color: accent ? "#C0285A" : T.text, lineHeight: 1 }}>{n}</div>
+  return <div style={{ background: c ? c + "14" : (T.dark ? "rgba(242,237,230,.03)" : "rgba(20,20,15,.02)"), border: "1px solid " + (c ? c + "66" : T.line), borderRadius: 8, padding: "14px 8px", textAlign: "center" }}>
+    <div style={{ fontFamily: T.serif, fontSize: 26, color: c || T.text, lineHeight: 1 }}>{n}</div>
     <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, marginTop: 7 }}>{l}</div>
   </div>;
 }

@@ -184,8 +184,11 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
       onMouseEnter: (e) => {
         if (disabled) return;
         const s = e.currentTarget.style;
-        if (primary) s.filter = "brightness(1.07)";
-        else if (danger) s.background = DS.dangerBg;
+        if (primary) {
+          s.filter = "brightness(1.07)";
+          s.transform = "translateY(-1px)";
+          s.boxShadow = "0 6px 16px -6px " + (T.accent || "#000") + "66";
+        } else if (danger) s.background = DS.dangerBg;
         else {
           s.background = glassOn;
           s.borderColor = T.accent + "66";
@@ -197,6 +200,7 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
         s.background = bg;
         if (border !== "none") s.border = border;
         s.transform = "";
+        if (primary) s.boxShadow = "";
       },
       onMouseDown: (e) => {
         if (!disabled) e.currentTarget.style.transform = "scale(.985)";

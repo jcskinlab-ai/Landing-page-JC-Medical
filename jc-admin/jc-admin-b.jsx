@@ -163,8 +163,8 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
   else if (subtle) { bg = glassOff; color = T.text; border = "1px solid " + glassBorder; extra = glassBlur; }
   else { bg = glassOff; color = T.text; border = "1px solid " + glassBorder; extra = glassBlur; }
   return <button onClick={disabled ? undefined : onClick} disabled={disabled}
-    onMouseEnter={e => { if (disabled) return; const s = e.currentTarget.style; if (primary) s.filter = "brightness(1.07)"; else if (danger) s.background = DS.dangerBg; else { s.background = glassOn; s.borderColor = T.accent + "66"; } }}
-    onMouseLeave={e => { const s = e.currentTarget.style; s.filter = ""; s.background = bg; if (border !== "none") s.border = border; s.transform = ""; }}
+    onMouseEnter={e => { if (disabled) return; const s = e.currentTarget.style; if (primary) { s.filter = "brightness(1.07)"; s.transform = "translateY(-1px)"; s.boxShadow = "0 6px 16px -6px " + (T.accent || "#000") + "66"; } else if (danger) s.background = DS.dangerBg; else { s.background = glassOn; s.borderColor = T.accent + "66"; } }}
+    onMouseLeave={e => { const s = e.currentTarget.style; s.filter = ""; s.background = bg; if (border !== "none") s.border = border; s.transform = ""; if (primary) s.boxShadow = ""; }}
     onMouseDown={e => { if (!disabled) e.currentTarget.style.transform = "scale(.985)"; }}
     onMouseUp={e => { e.currentTarget.style.transform = ""; }}
     onFocus={e => { e.currentTarget.style.boxShadow = DS.focus(T); }}
