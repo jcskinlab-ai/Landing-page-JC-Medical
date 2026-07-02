@@ -2016,11 +2016,12 @@ function FirmasMedicasEditor({ T }) {
   }
 
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
-  const inp = { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none", boxSizing: "border-box" };
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const inp = luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none", boxSizing: "border-box" };
 
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
-      <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Firmas de médicos</div>
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+      <div style={luxF ? { ...DS.text(T, "eyebrow"), marginBottom: 8 } : { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Firmas de médicos</div>
       <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>
         Las firmas aquí configuradas se insertan automáticamente en las recetas e indicaciones al imprimir, y aparecen como <em>Médico responsable</em> en los consentimientos firmados.
       </div>
@@ -2109,10 +2110,11 @@ function IndTemplatesEditor({ T }) {
   const canEdit = (t) => t.owner ? (!!me && t.owner === me) : isAdmin;
   // Qué veo: el admin ve todas; el profesional ve las suyas + las heredadas (referencia).
   const visible = isAdmin ? tpls : tpls.filter(t => (t.owner === me) || !t.owner);
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const inp = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
   const inpRO = { ...inp, background: T.surface2, color: T.textMute, cursor: "default" };
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
       <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
         Indicaciones post tratamiento
@@ -2320,9 +2322,10 @@ function RecitaDescCard({ T }) {
     const desc = tipo === "pct" ? Math.round(ejemplo * (1 - n / 100) / 1000) * 1000 : Math.max(0, ejemplo - n);
     return "Ej. Botox $150.000 → precio preferente $" + desc.toLocaleString("es-CL");
   })();
-  const inp = { fontFamily: T.sans, fontSize: 13, padding: "9px 11px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, outline: "none", width: "100%", boxSizing: "border-box" };
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const inp = luxF ? { ...DS.ctl(T), width: "100%" } : { fontFamily: T.sans, fontSize: 13, padding: "9px 11px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, outline: "none", width: "100%", boxSizing: "border-box" };
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
       <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         Campaña re-cita · Descuento preferente
@@ -2371,10 +2374,11 @@ function ClinicDataCard({ T }) {
     if (!emailReplyOk) { window.jcmToast && window.jcmToast("El correo para respuestas no es válido.", "error"); return; }
     try { DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {}
   }
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Datos de la clínica</div>
+        <div style={luxF ? DS.text(T, "eyebrow") : { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Datos de la clínica</div>
         <AdBtn T={T} small primary onClick={save}>{saved ? "✓ Guardado" : "Guardar"}</AdBtn>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -2393,7 +2397,7 @@ function ClinicDataCard({ T }) {
         </div>
         <label style={{ display: "block" }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>WhatsApp</span>
-          <input value={waDisplay} onChange={e => onWa(e.target.value)} inputMode="numeric" placeholder="+569 1234 5678" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+          <input value={waDisplay} onChange={e => onWa(e.target.value)} inputMode="numeric" placeholder="+569 1234 5678" style={luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
         </label>
       </div>
     </div>
@@ -2414,11 +2418,13 @@ function AdminPinCard({ T }) {
     try { window.DB && window.DB.set("admin_pin", pin.trim()); setSaved(true); setPin2(""); setTimeout(() => setSaved(false), 1800); } catch (e) { setErr("No se pudo guardar."); }
   }
   const hasSaved = (() => { try { return !!(window.DB && window.DB.get("admin_pin")); } catch (e) { return false; } })();
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const pinInp = luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, outline: "none", boxSizing: "border-box" };
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div>
-          <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>PIN de seguridad</div>
+          <div style={luxF ? DS.text(T, "eyebrow") : { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>PIN de seguridad</div>
           <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>Requerido para borrar movimientos de Caja y otras acciones sensibles.</div>
         </div>
         {hasSaved && <span style={{ fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", background: "#1F8A5B18", borderRadius: 6, padding: "3px 9px" }}>PIN activo</span>}
@@ -2426,11 +2432,11 @@ function AdminPinCard({ T }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <label style={{ display: "block" }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{hasSaved ? "Nuevo PIN" : "PIN de admin"}</span>
-          <input type="password" value={pin} data-nocap="1" onChange={e => { setPin(e.target.value); setSaved(false); setErr(""); }} placeholder="Mínimo 4 caracteres" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, outline: "none", boxSizing: "border-box" }} />
+          <input type="password" value={pin} data-nocap="1" onChange={e => { setPin(e.target.value); setSaved(false); setErr(""); }} placeholder="Mínimo 4 caracteres" style={pinInp} />
         </label>
         <label style={{ display: "block" }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Confirmar PIN</span>
-          <input type="password" value={pin2} data-nocap="1" onChange={e => { setPin2(e.target.value); setSaved(false); setErr(""); }} placeholder="Repite el PIN" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, outline: "none", boxSizing: "border-box" }} />
+          <input type="password" value={pin2} data-nocap="1" onChange={e => { setPin2(e.target.value); setSaved(false); setErr(""); }} placeholder="Repite el PIN" style={pinInp} />
         </label>
         {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A" }}>{err}</div>}
         <AdBtn T={T} small primary onClick={save}>{saved ? "✓ PIN guardado" : (hasSaved ? "Cambiar PIN" : "Guardar PIN")}</AdBtn>
@@ -2465,11 +2471,12 @@ function AccountEmailCard({ T }) {
     } catch (e) { setMsg({ ok: false, text: "No se pudo cambiar el correo." }); }
     setBusy(false);
   }
-  const inp = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const inp = luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
-      <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 4 }}>Correo de la cuenta</div>
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+      <div style={luxF ? { ...DS.text(T, "eyebrow"), marginBottom: 4 } : { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 4 }}>Correo de la cuenta</div>
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Correo con el que inicias sesión. Cambiarlo requiere <b style={{ color: T.text }}>tu contraseña actual</b>. Correo actual: <b style={{ color: T.text }}>{current}</b>.</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <label><span style={lbl}>Nuevo correo</span><input type="email" value={nuevo} data-nocap="" onChange={e => { setNuevo(e.target.value); setMsg(null); }} placeholder="nuevo@correo.cl" style={inp} /></label>
@@ -2518,10 +2525,12 @@ function PaymentDataCard({ T }) {
     } catch (e) {}
   }
   const tipos = ["Cuenta corriente", "Cuenta vista", "Cuenta de ahorro", "Cuenta RUT", "Chequera electrónica"];
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const inpBase = luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Datos de pago (transferencia)</div>
+        <div style={luxF ? DS.text(T, "eyebrow") : { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Datos de pago (transferencia)</div>
         <AdBtn T={T} small primary onClick={save}>{saved ? "✓ Guardado" : "Guardar"}</AdBtn>
       </div>
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "0 0 14px", lineHeight: 1.5 }}>
@@ -2532,19 +2541,19 @@ function PaymentDataCard({ T }) {
         <AdField T={T} label="Titular de la cuenta" value={f.pay_titular} onChange={v => up("pay_titular", v)} placeholder="Ej: Clínica Karenina SpA" />
         <label style={{ display: "block" }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>RUT del titular</span>
-          <input value={f.pay_rut} onChange={e => up("pay_rut", window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value)} placeholder="Ej: 76.123.456-7" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + (rutOk === false ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+          <input value={f.pay_rut} onChange={e => up("pay_rut", window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value)} placeholder="Ej: 76.123.456-7" style={{ ...inpBase, border: (luxF ? inpBase.border : "1px solid " + T.line), borderColor: rutOk === false ? "#C0285A" : (luxF ? T.line : undefined) }} />
           {rutOk === false && <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: "#C0285A", marginTop: 5 }}>El dígito verificador no calza — revisa que el RUT esté correcto.</span>}
           {rutOk === true && <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: "#1F8A5B", marginTop: 5 }}>RUT válido ✓</span>}
         </label>
         <label style={{ display: "block" }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Tipo de cuenta</span>
-          <select value={f.pay_tipo} onChange={e => up("pay_tipo", e.target.value)} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }}>
+          <select value={f.pay_tipo} onChange={e => up("pay_tipo", e.target.value)} style={inpBase}>
             {tipos.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>
         <label style={{ display: "block" }}>
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>N° de cuenta</span>
-          <input value={f.pay_numero} onChange={e => up("pay_numero", e.target.value)} inputMode="numeric" placeholder="Ej: 00-123-45678-90" style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
+          <input value={f.pay_numero} onChange={e => up("pay_numero", e.target.value)} inputMode="numeric" placeholder="Ej: 00-123-45678-90" style={inpBase} />
         </label>
         <AdField T={T} label="Correo (para el comprobante)" value={f.pay_email} onChange={v => up("pay_email", v)} placeholder="Ej: pagos@tuclinica.cl" />
       </div>
@@ -3323,10 +3332,11 @@ function HorariosEditor({ T }) {
   const btnBase = { fontFamily:T.sans,fontSize:11,padding:"6px 12px",borderRadius:999,cursor:"pointer",border:"1px solid "+T.line,background:T.chipBg||T.surface,color:T.textMute };
   const DOW7=[["Lunes",1],["Martes",2],["Miércoles",3],["Jueves",4],["Viernes",5],["Sábado",6],["Domingo",0]];
 
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
-    <div style={{ background:T.surface,border:"1px solid "+T.line,borderRadius:8,padding:"16px",marginBottom:14 }}>
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background:T.surface,border:"1px solid "+T.line,borderRadius:8,padding:"16px",marginBottom:14 }}>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
-        <div style={{ fontFamily:T.sans,fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:T.accent }}>Horarios disponibles por día</div>
+        <div style={luxF ? DS.text(T, "eyebrow") : { fontFamily:T.sans,fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:T.accent }}>Horarios disponibles por día</div>
         <AdBtn T={T} small primary onClick={save}>{saving?"Publicando…":saved?"✓ Publicado":"Guardar y publicar"}</AdBtn>
       </div>
 
@@ -3430,16 +3440,23 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
         <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} placeholder="Nuevo pendiente…" style={{ flex: 1, fontFamily: T.sans, fontSize: 13, padding: "11px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" }} />
         <button onClick={addTask} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "0 18px", cursor: "pointer", whiteSpace: "nowrap" }}>+ Agregar</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
-        <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: 14 }}>
-          <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 }}>Pendientes ({totalPend})</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tPend.length ? tPend.map(taskCard) : (otrosPend > 0 ? <Empty2 T={T}>Sin tareas manuales. Abajo tienes {sinConsent.length} consentimiento(s) y {recitas.length} re-cita(s) por gestionar.</Empty2> : <Empty2 T={T}>Nada pendiente. 🎉</Empty2>)}</div>
-        </div>
-        <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: 14 }}>
-          <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 }}>Completadas ({tDone.length})</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tDone.length ? tDone.map(taskCard) : <Empty2 T={T}>Aún nada completado.</Empty2>}</div>
-        </div>
-      </div>
+      {(() => {
+        const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+        const panel = luxF ? { ...DS.card(T), padding: "16px 18px" } : { background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: 14 };
+        const heading = luxF ? DS.text(T, "title") : { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 };
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
+            <div style={panel}>
+              <div style={{ ...heading, marginBottom: 10 }}>Pendientes ({totalPend})</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tPend.length ? tPend.map(taskCard) : (otrosPend > 0 ? <Empty2 T={T}>Sin tareas manuales. Abajo tienes {sinConsent.length} consentimiento(s) y {recitas.length} re-cita(s) por gestionar.</Empty2> : <Empty2 T={T}>Nada pendiente. 🎉</Empty2>)}</div>
+            </div>
+            <div style={panel}>
+              <div style={{ ...heading, marginBottom: 10 }}>Completadas ({tDone.length})</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tDone.length ? tDone.map(taskCard) : <Empty2 T={T}>Aún nada completado.</Empty2>}</div>
+            </div>
+          </div>
+        );
+      })()}
       <Group T={T} title={"Consentimientos por firmar (" + sinConsent.length + ")"}>
         {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Ir a consentimientos" onClick={() => openP(p.id, "consent")} onDelete={() => updatePatient(p.id, { consent: true, consentInfo: "Marcado como firmado", consentTs: Date.now() })} />)}
         {!sinConsent.length && <Empty2 T={T}>Todo firmado.</Empty2>}
@@ -3486,7 +3503,8 @@ function PendRow({ T, name, desc, action, onClick, href, onDelete }) {
     React.createElement("span", { key: "b", style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, whiteSpace: "nowrap" } }, action + " →"),
     xBtn
   ].filter(Boolean);
-  const st = { display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer", textDecoration: "none" };
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const st = luxF ? { ...DS.card(T), display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", cursor: "pointer", textDecoration: "none" } : { display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer", textDecoration: "none" };
   return href
     ? React.createElement("a", { href: href, target: "_blank", rel: "noopener", style: st }, inner)
     : React.createElement("button", { onClick: onClick, style: { ...st, width: "100%", textAlign: "left" } }, inner);
