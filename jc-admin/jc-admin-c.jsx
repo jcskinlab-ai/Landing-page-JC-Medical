@@ -320,7 +320,7 @@ function ServiciosView({ T }) {
         </div>}
       </div>
       <div style={luxF
-        ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3, margin: "4px 0 18px" }
+        ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, margin: "4px 0 18px" }
         : { display: "flex", gap: 6, margin: "4px 0 18px" }}>
         {[["tratamientos", "Tratamientos"], ["especialidades", "Especialidades"]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={luxF
@@ -1312,7 +1312,7 @@ function DifusionesView({ T }) {
         </div>
       </div>
       <div style={luxF
-        ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3, margin: "0 0 18px" }
+        ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, margin: "0 0 18px" }
         : { display: "flex", gap: 6, margin: "0 0 18px" }}>{tabBtn("difusiones", "Difusiones")}{tabBtn("plantillas", "Plantillas")}</div>
       {tab === "plantillas" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2266,7 +2266,7 @@ function ConfigView({ T }) {
     <div>
       <SecHead T={T} title="Configuración de la clínica" sub="Administra la información pública y los detalles de tu clínica." />
       <div className="jc-scroll" style={luxF
-        ? { display: "inline-flex", gap: 2, flexWrap: "wrap", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3, marginBottom: 18 }
+        ? { display: "inline-flex", gap: 2, flexWrap: "wrap", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, marginBottom: 18 }
         : { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
         {CFG_TABS.map(([k, l]) => <button key={k} onClick={() => setCfgTab(k)} style={luxF
           ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: cfgTab === k ? 600 : 500, padding: "8px 14px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: cfgTab === k ? T.surface : "transparent", boxShadow: cfgTab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: cfgTab === k ? T.accent : T.textMute, whiteSpace: "nowrap", transition: DS.trans("background,box-shadow,color") }
@@ -5016,7 +5016,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
       <SecHead T={T} title="Administración" sub="Equipo y permisos, registro de actividad, datos de la clínica y respaldo de información." />
       {/* pestañas */}
       <div className="jc-scroll" style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux())
-        ? { display: "inline-flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: window.JCDS.r.ctl + 2, padding: 3, marginBottom: 18 }
+        ? { display: "inline-flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: window.JCDS.r.seg, padding: 3, marginBottom: 18 }
         : { display: "flex", gap: 7, overflowX: "auto", marginBottom: 18, paddingBottom: 2 }}>
         {ADMIN_TABS.map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux())

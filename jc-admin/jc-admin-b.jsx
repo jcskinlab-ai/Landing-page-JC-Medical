@@ -147,7 +147,7 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
   const glassOn = T.dark ? "rgba(255,255,255,.075)" : "rgba(255,255,255,.55)";
   const glassOff = T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.34)";
   const glassBorder = T.dark ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.7)";
-  const glassBlur = { backdropFilter: "blur(18px) saturate(1.3)", WebkitBackdropFilter: "blur(18px) saturate(1.3)" };
+  const glassBlur = { backdropFilter: DS.glassBlur.small, WebkitBackdropFilter: DS.glassBlur.small };
   let bg, color, border, extra = {};
   if (primary && danger) { bg = DS.danger; color = "#fff"; border = "none"; }
   else if (primary) { bg = T.primaryBg || T.accent; color = T.primaryText || T.onAccent || "#fff"; border = "none"; }
@@ -804,7 +804,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
 
       {/* barra de pestañas horizontal */}
       <div className="jc-scroll" style={luxF
-        ? { display: "flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3, margin: "22px 0 18px" }
+        ? { display: "flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, margin: "22px 0 18px" }
         : { display: "flex", gap: 4, overflowX: "auto", borderBottom: "1px solid " + T.line, margin: "14px 0 18px" }}>
         {TABS.map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={luxF

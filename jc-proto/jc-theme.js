@@ -135,8 +135,11 @@
     },
     // ── Espaciado · escala 4px estricta. Uso: DS.sp[2]=8, DS.sp[4]=16, DS.sp[5]=24…
     sp: [0, 4, 8, 12, 16, 24, 32, 48],
-    // ── Radios · 4 valores
-    r: { ctl: 8, card: 12, panel: 16, pill: 999 },
+    // ── Radios · 5 valores. `seg` = contenedor de segmented-control (tabs); el botón interno
+    //    usa `ctl`. Antes los tabs usaban `pill` (999, muy redondeado): se pasó a rectangular
+    //    (más moderno, estilo Linear/iOS segmented) — pedido explícito del usuario. `pill` queda
+    //    SOLO para chips/badges/indicadores, nunca para navegación de tabs.
+    r: { ctl: 8, seg: 10, card: 12, panel: 16, pill: 999 },
     // ── Elevación · 3 niveles
     el: {
       flat: "none",
@@ -174,10 +177,15 @@
     // en Dashboard/Agenda, ahora disponible para CUALQUIER tarjeta que use DS.card/DS.panel — así el
     // resto de las pantallas hereda el look sin tener que reescribir cada una a mano.
     _lux: function () { try { return typeof isLosMedique === "function" && isLosMedique(); } catch (e) { return false; } },
+    // Sistema glass · EXACTAMENTE 2 niveles (regla del design audit, "dos niveles de glass como máximo"):
+    //   panel = superficies grandes (cards, paneles, sidebar, header) · small = elementos chicos
+    //   (botones ghost, toggles, citas de agenda). Todo componente glass referencia UNO de estos dos.
+    glassBlur: { panel: "blur(24px) saturate(1.4)", small: "blur(12px) saturate(1.25)" },
     _glass: function (T, radius) {
+      var b = this.glassBlur.panel;
       return T.dark
-        ? { background: "rgba(255,255,255,.045)", backdropFilter: "blur(30px) saturate(1.4)", WebkitBackdropFilter: "blur(30px) saturate(1.4)", border: "1px solid rgba(255,255,255,.09)", borderRadius: radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)" }
-        : { background: "rgba(255,255,255,.42)", backdropFilter: "blur(30px) saturate(1.4)", WebkitBackdropFilter: "blur(30px) saturate(1.4)", border: "1px solid rgba(255,255,255,.85)", borderRadius: radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 24px 56px -36px rgba(60,58,50,.16)" };
+        ? { background: "rgba(255,255,255,.045)", backdropFilter: b, WebkitBackdropFilter: b, border: "1px solid rgba(255,255,255,.09)", borderRadius: radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)" }
+        : { background: "rgba(255,255,255,.42)", backdropFilter: b, WebkitBackdropFilter: b, border: "1px solid rgba(255,255,255,.85)", borderRadius: radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 24px 56px -36px rgba(60,58,50,.16)" };
     },
     // Recuadro interno translúcido (glass sobre glass, sutil) para filas/chips dentro de una tarjeta glass.
     glassFill: function (T) { return T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.38)"; },

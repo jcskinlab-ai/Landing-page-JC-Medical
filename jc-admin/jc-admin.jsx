@@ -518,11 +518,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const green = "#1F8A5B";
   // ── Sistema "glass" (lux · ref. dashboard tipo Sophie): paneles flotantes translúcidos con blur.
   //    Oscuro = blanco translúcido sobre negro · Claro = off-white translúcido (blanco+gris, NO blanco crudo).
+  // El panel glass del dashboard ahora reutiliza EXACTAMENTE el mismo helper del design system
+  // (mismo blur Nivel 1 = 24px y mismo radio DS.r.panel = 16), en vez de duplicar los valores a mano
+  // con un radio 22 fuera de escala. Una sola fuente de verdad para el cristal grande.
   const glassPanel = !lux
     ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow }
-    : (T.dark
-      ? { background: "rgba(255,255,255,.045)", backdropFilter: "blur(30px) saturate(1.4)", WebkitBackdropFilter: "blur(30px) saturate(1.4)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 22, boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)" }
-      : { background: "rgba(255,255,255,.42)", backdropFilter: "blur(30px) saturate(1.4)", WebkitBackdropFilter: "blur(30px) saturate(1.4)", border: "1px solid rgba(255,255,255,.85)", borderRadius: 22, boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 24px 56px -36px rgba(60,58,50,.16)" });
+    : window.JCDS._glass(T, window.JCDS.r.panel);
   const glassFill = T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.38)";       // recuadro interno translúcido (glass sobre glass, sutil)
   const glassFillHover = T.dark ? "rgba(255,255,255,.075)" : "rgba(255,255,255,.6)";
   const nowClr = "#D8674A";  // marcador "ahora" — único acento cálido (como la línea coral de la referencia)
@@ -1060,9 +1061,13 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       )}
       {/* pestañas tipo Medique — en lux se alinean a la izquierda y bajan de volumen */}
       <div style={{ display: "flex", justifyContent: lux ? "flex-start" : "center", marginBottom: lux ? 18 : 22 }}>
-        <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: 3 }}>
+        {/* Segmented-control rectangular (mismo patrón que Ficha/Agenda): contenedor DS.r.seg + botón
+            activo como chip elevado DS.r.ctl. En lux se abandona la pastilla 999 por el look moderno. */}
+        <div style={{ display: "inline-flex", gap: lux ? 2 : 4, background: lux ? (T.surface2 || T.surface) : T.surface, border: "1px solid " + T.line, borderRadius: lux ? DS.r.seg : 999, padding: 3 }}>
           {TABS.map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: lux ? 11.5 : 12.5, fontWeight: tab === k ? 600 : 500, padding: lux ? "7px 15px" : "8px 18px", borderRadius: 999, cursor: "pointer", border: "none", background: tab === k ? navyAccent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute, transition: "all .18s " + T.ease }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} style={lux
+              ? { fontFamily: T.sans, fontSize: 11.5, fontWeight: tab === k ? 600 : 500, padding: "7px 15px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: tab === k ? T.surface : "transparent", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: tab === k ? T.text : T.textMute, transition: "all .18s " + T.ease }
+              : { fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "none", background: tab === k ? navyAccent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute, transition: "all .18s " + T.ease }}>{l}</button>
           ))}
         </div>
       </div>
@@ -1755,7 +1760,7 @@ function AdminApp() {
     SIDE_MUTE = T.dark ? "rgba(239,234,224,.55)" : "#5C5A50",
     SIDE_LINE = T.dark ? "rgba(239,234,224,.10)" : "rgba(20,20,15,.10)",
     SIDE_ACT = T.dark ? "rgba(239,234,224,.10)" : (T.accentSoft || "rgba(84,112,127,.12)");
-  const SIDE_GLASS = shellLux ? { backdropFilter: "blur(22px) saturate(1.3)", WebkitBackdropFilter: "blur(22px) saturate(1.3)" } : {};
+  const SIDE_GLASS = shellLux ? { backdropFilter: window.JCDS.glassBlur.panel, WebkitBackdropFilter: window.JCDS.glassBlur.panel } : {};
   const SIDE_LOGO = "/assets/medique-logo.png";
   return (
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
@@ -1904,7 +1909,7 @@ function AdminApp() {
               const content = pins.concat(divider).concat(grps);
               if (!seg) return content;
               // Contenedor segmented glass (estilo Ficha): una sola pastilla redondeada translúcida.
-              return <div style={{ display: "inline-flex", alignItems: "center", gap: 3, background: T.dark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.5)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.62)"), borderRadius: 16, padding: 4, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 8px 24px -14px rgba(0,0,0,.5)" }}>{content}</div>;
+              return <div style={{ display: "inline-flex", alignItems: "center", gap: 3, background: T.dark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.5)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.62)"), borderRadius: 16, padding: 4, backdropFilter: window.JCDS.glassBlur.panel, WebkitBackdropFilter: window.JCDS.glassBlur.panel, boxShadow: "0 8px 24px -14px rgba(0,0,0,.5)" }}>{content}</div>;
             })()}
           </div>
           {topGrp && (<>
@@ -2673,7 +2678,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const isBase = true;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const viewToggleNode = (
-    <div style={luxF ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3 } : { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
+    <div style={luxF ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3 } : { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
       <button onClick={() => setView("dia")} title="Vista lista / día" style={luxF
         ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "dia" ? T.surface : "transparent", boxShadow: view === "dia" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "dia" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
         : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? (T.onAccent || "#fff") : T.textMute }}>
@@ -3128,7 +3133,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               {ADMIN_HALF_HOURS.map((hhmm, i) => {
                 const half = hhmm.endsWith(":30"); // las medias horas, más pequeñas y tenues
                 return (
-                  <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 9 : (v2 ? 10.5 : 10), fontWeight: (v2 && !half) ? 600 : 400, color: v2 ? (half ? T.textFaint : T.textMute) : T.textFaint, opacity: half ? (v2 ? 0.8 : 0.5) : 1, pointerEvents: "none", userSelect: "none" }}>
+                  <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 9 : (v2 ? 10.5 : 10), fontWeight: (v2 && !half) ? 600 : 400, color: luxF ? (half ? T.textMute : T.text) : (v2 ? (half ? T.textFaint : T.textMute) : T.textFaint), opacity: half ? (v2 ? 0.8 : 0.5) : 1, pointerEvents: "none", userSelect: "none" }}>
                     {hhmm}
                   </div>
                 );
@@ -3162,18 +3167,34 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   {stackAppts(da).map(a => {
                     const isPendPago = a.status === "pendiente_pago";
                     const accentColor = jcmApptState(a, T).color;
+                    // Hora de término = inicio + duración; se muestra siempre (sin hover) junto al servicio.
+                    const _durMin = parseInt(a.dur) || 60;
+                    const _endMin = mins(a.time) + _durMin;
+                    const horaFin = String(Math.floor(_endMin / 60)).padStart(2, "0") + ":" + String(_endMin % 60).padStart(2, "0");
+                    const tall = a._h >= 38; // hay altura para la 2ª línea (servicio + hora fin)
                     return (
                       <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
                         onMouseEnter={e => { if (hideT.current) clearTimeout(hideT.current); const r = e.currentTarget.getBoundingClientRect(); if (v2) { let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288; setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) }); } else { setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); } }}
                         onMouseLeave={() => { if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
                         onClick={e => { e.stopPropagation(); setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
                         {v2 ? (
-                          /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve + solo el nombre (el detalle va en el hover).
-                             En Los Medique (luxF) el tinte se vuelve cristal esmerilado (backdrop-blur) para que la montaña
-                             del fondo se transparente a través de la cita y no quede como un bloque pastel opaco. */
-                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...(luxF ? { backdropFilter: "blur(12px) saturate(1.25)", WebkitBackdropFilter: "blur(12px) saturate(1.25)" } : {}), border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderLeft: "4px solid " + accentColor, borderRadius: luxF ? 8 : 6, padding: "0 6px 0 5px", overflow: "hidden", display: "flex", alignItems: "center", gap: 5 }}>
-                            <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
-                            {a.proc && <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
+                          /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve. La tarjeta
+                             muestra SIEMPRE (sin hover) nombre + hora de inicio y, si hay altura, servicio + hora
+                             de término — la info operativa que recepción necesita de un vistazo (ref. del usuario).
+                             En Los Medique (luxF) el tinte es cristal esmerilado (backdrop-blur Nivel 2) para que la
+                             montaña del fondo se transparente y la cita no sea un bloque pastel opaco. */
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...(luxF ? { backdropFilter: window.JCDS.glassBlur.small, WebkitBackdropFilter: window.JCDS.glassBlur.small } : {}), border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderLeft: "4px solid " + accentColor, borderRadius: luxF ? DS.r.ctl : 6, padding: tall ? "4px 6px 4px 8px" : "0 6px 0 8px", overflow: "hidden", display: "flex", alignItems: tall ? "stretch" : "center", gap: 6 }}>
+                            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 }}>
+                              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                                <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: T.text }}>{a.time}</span>
+                              </div>
+                              {tall && <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{isPendPago ? "⏳ Pago pendiente" : (a.proc || "Cita")}</span>
+                                <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textFaint }}>– {horaFin}</span>
+                              </div>}
+                            </div>
+                            {a.proc && <span style={{ flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
                           </div>
                         ) : (
                           <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
@@ -3196,7 +3217,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                 {ADMIN_HALF_HOURS.map((hhmm, i) => {
                   const half = hhmm.endsWith(":30");
                   return (
-                    <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, left: 6, fontFamily: T.sans, fontSize: half ? 9 : 10.5, fontWeight: half ? 400 : 600, color: half ? T.textFaint : T.textMute, opacity: half ? 0.8 : 1, pointerEvents: "none", userSelect: "none" }}>
+                    <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, left: 6, fontFamily: T.sans, fontSize: half ? 9 : 10.5, fontWeight: half ? 400 : 600, color: luxF ? (half ? T.textMute : T.text) : (half ? T.textFaint : T.textMute), opacity: half ? 0.8 : 1, pointerEvents: "none", userSelect: "none" }}>
                       {hhmm}
                     </div>
                   );
