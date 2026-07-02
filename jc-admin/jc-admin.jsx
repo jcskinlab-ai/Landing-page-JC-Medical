@@ -89,22 +89,24 @@ const ADMIN_NAV = [
   { k: "crm", l: "CRM · Embudo" }, { k: "difusiones", l: "Difusiones" }, { k: "agenteia", l: "Agente IA" }, { k: "copilot", l: "Asistente IA" }, { k: "automatizaciones", l: "Automatizaciones" },
   { k: "resumen", l: "Resumen" }, { k: "colaboracion", l: "Colaboraciones" }, { k: "fidelidad", l: "Fidelidad" },
   { k: "integraciones", l: "Integraciones" }, { k: "reportes", l: "Reportes" }, { k: "administracion", l: "Administración" }, { k: "consentimientos", l: "Consentimientos" }, { k: "fichaeditor", l: "Editor de Fichas" }, { k: "tutoriales", l: "Tutoriales" }, { k: "config", l: "Configuración" },
-  // ── Suite nueva (N1–N10), gateada a Los Medique hasta aprobación ──
-  { k: "notasia", l: "Notas Clínicas" }, { k: "resumenia", l: "Resumen Clínico" }, { k: "contactcenter", l: "Contact Center" }, { k: "reportesia", l: "Reportes IA" }, { k: "contraloria", l: "Contralor IA" },
+  // ── Suite nueva (N1–N10) ──
+  // Notas Clínicas y Resumen Clínico se quitaron del menú: el dictado por voz vive ahora en la
+  // ficha (Evaluación y plan) y el resumen IA vive en la pestaña "IA" de la ficha del paciente.
+  { k: "contactcenter", l: "Contact Center" }, { k: "reportesia", l: "Reportes IA" }, { k: "contraloria", l: "Contralor IA" },
   { k: "desempeno", l: "Panel de desempeño" }, { k: "encuestas", l: "Encuestas" }, { k: "chatinterno", l: "Chat interno" },
   { k: "pagosgastos", l: "Pagos y Gastos" }, { k: "remuneraciones", l: "Remuneraciones" }, { k: "laboratorios", l: "Laboratorios" }, { k: "convenios", l: "Convenios" }, { k: "flujocaja", l: "Flujo de caja" }, { k: "boletas", l: "Boletas" }, { k: "pagosonline", l: "Pagos online" }
 ];
 // Secciones NUEVAS (suite N1–N10): visibles SOLO para Los Medique (preview) hasta el push global.
-var NEW_SECT = { notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
+var NEW_SECT = { contactcenter: 1, reportesia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
 // Encabezado de grupo del sidebar: la clave donde COMIENZA un grupo → su etiqueta (Área 1).
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "Marketing & Ventas", resumen: "Análisis", administracion: "Sistema" };
 // Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
-  { l: "Clínica", keys: ["agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"] },
+  { l: "Clínica", keys: ["equipo", "sucursales", "inventario"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
-  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones", "notasia", "resumenia", "contactcenter", "reportesia", "contraloria"] },
+  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones", "contactcenter", "reportesia"] },
   // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes). Fidelidad, Colaboración
   // e Integraciones pasan a su propio menú "Herramientas". (P22)
   { l: "Análisis", keys: ["resumen", "reportes", "desempeno"] },
@@ -114,7 +116,7 @@ const NAV_TOP_GROUPS = [
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (siempre visibles, no dentro de un grupo).
 // Incluye todo el grupo Clínica (a pedido): el desplegable "Clínica" desaparece.
-const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja", "inventario", "servicios", "equipo", "sucursales"];
+const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja", "servicios", "contraloria"];
 
 // Al anular una cita: avisar al paciente por correo que quedó cancelada (si tiene email y la cita es
 // de hoy o futura). Así el recordatorio previo queda "anulado" para el paciente. Best-effort, no bloquea.
@@ -161,7 +163,9 @@ var PERM_NAV = {
   "Servicios": ["servicios", "equipo", "sucursales"],
   "Inventario": ["inventario"],
   "Reportes": ["reportes", "resumen", "caja"],
-  "Marketing": ["marketing", "crm", "difusiones", "agenteia", "copilot", "automatizaciones", "fidelidad", "colaboracion"],
+  // "copilot" (Asistente IA) NO se incluye aquí a propósito: solo lo configura el dueño/admin
+  // de la clínica, nunca un profesional aunque tenga el permiso "Marketing" activado.
+  "Marketing": ["marketing", "crm", "difusiones", "agenteia", "automatizaciones", "fidelidad", "colaboracion"],
   "Configuración": ["config", "administracion", "consentimientos", "fichaeditor", "tutoriales", "integraciones"]
 };
 function adminNavItems() {
@@ -1705,10 +1709,11 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   };
   const week = [0, 0, 0, 0, 0, 0, 0];
   let wkCitas = 0;
+  const wkAppts = [];
   (appts || []).forEach(a => {
     if (a.status === "anulada" || a.status === "cancelada") return;
     const di = _apptDayIdx(a);
-    if (di >= 0 && di < 7) { week[di]++; wkCitas++; }
+    if (di >= 0 && di < 7) { week[di]++; wkCitas++; wkAppts.push(a); }
   });
   // Dinero REALMENTE cobrado esta semana (Caja: ingresos del lun→dom actual). Cifra real, no estimada.
   let wkMonto = 0;
@@ -1743,7 +1748,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16, paddingTop: 16, borderTop: "1px solid " + T.lineSoft }}>
           <button onClick={() => setResModal("pacientes")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}><AdStat T={T} n={patients.length} l="Pacientes" /></button>
-          <button onClick={() => setResModal("citas")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}><AdStat T={T} n={appts.length} l="Citas semana" /></button>
+          <button onClick={() => setResModal("citas")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}><AdStat T={T} n={wkCitas} l="Citas semana" /></button>
           <button onClick={() => setResModal("consent")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}><AdStat T={T} n={sinCons.length} l="Consent. pend." accent={sinCons.length > 0} /></button>
         </div>
       </div>
@@ -1751,7 +1756,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
       {resModal && (() => {
         const cfg = {
           pacientes: { title: "Pacientes", rows: patients.map(p => ({ k: p.id, a: p.name, b: p.rut || p.phone || "" })) },
-          citas: { title: "Citas de la semana", rows: appts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || "")).map(a => ({ k: a.id, a: a.name, b: (apptDayOff(a) === 0 ? "Hoy " : "") + (a.time || "") + " · " + (a.proc || "") })) },
+          citas: { title: "Citas de la semana", rows: wkAppts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || "")).map(a => ({ k: a.id, a: a.name, b: (apptDayOff(a) === 0 ? "Hoy " : "") + (a.time || "") + " · " + (a.proc || "") })) },
           consent: { title: "Consentimientos pendientes", rows: sinCons.map(p => ({ k: p.id, a: p.name, b: (p.tags && p.tags[0]) || "Paciente" })) }
         }[resModal];
         return (

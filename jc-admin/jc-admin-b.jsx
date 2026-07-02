@@ -602,7 +602,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const points = patient.points || [];
   // Pestañas NUEVAS (presupuesto, esquema facial) solo para Los Medique hasta el push global.
   const _newFeat = !(window.jcmNewFeat) || window.jcmNewFeat();
-  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ["campana", "Campaña"], ["notas", "Notas"], ["resumen", "Resumen IA"], ["auditoria", "Auditoría IA"]];
+  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ["campana", "Campaña"], ["notas", "Notas"], ["ia", "IA"]];
   const estado = patient.estado || "Activo";
   const activo = estado === "Activo";
   const wa = "https://wa.me/" + (patient.phone || "").replace(/\D/g, "");
@@ -736,7 +736,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       <div className="jc-scroll" style={{ display: "flex", gap: 4, overflowX: "auto", borderBottom: "1px solid " + T.line, margin: "14px 0 18px" }}>
         {TABS.map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "11px 14px", background: "none", border: "none", borderBottom: "2px solid " + (tab === k ? T.accent : "transparent"), cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 400, color: tab === k ? T.text : T.textMute, whiteSpace: "nowrap" }}>
-            {(k === "resumen" || k === "auditoria") && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tab === k ? T.accent : T.textMute} strokeWidth="1.6"><rect x="4.5" y="8" width="15" height="10" rx="3" /><path d="M12 4.5V8" /><circle cx="12" cy="3.4" r="1.3" /></svg>}
+            {k === "ia" && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tab === k ? T.accent : T.textMute} strokeWidth="1.6"><rect x="4.5" y="8" width="15" height="10" rx="3" /><path d="M12 4.5V8" /><circle cx="12" cy="3.4" r="1.3" /></svg>}
             {l}
           </button>
         ))}
@@ -745,8 +745,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       {/* contenido */}
       <div style={{ minWidth: 0 }}>
 
-      {tab === "resumen" && <ResumenIA T={T} patient={patient} />}
-      {tab === "auditoria" && <AuditoriaIA T={T} patient={patient} go={setTab} />}
+      {tab === "ia" && <FichaIATab T={T} patient={patient} go={setTab} />}
       {tab === "mapa" && (
         <div>
           <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} readOnly={true} />
@@ -2028,6 +2027,21 @@ function CampanaTab({ T, patient, updatePatient }) {
   );
 }
 
+/* ─────────── IA (Resumen clínico + Auditoría, en un solo tab) ─────────── */
+function FichaIATab({ T, patient, go }) {
+  const [sub, setSub] = useState("resumen");
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {[["resumen", "Resumen clínico"], ["auditoria", "Auditoría"]].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setSub(k)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: sub === k ? 600 : 500, padding: "7px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (sub === k ? T.accent : T.line), background: sub === k ? T.accent : "transparent", color: sub === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
+        ))}
+      </div>
+      {sub === "resumen" ? <ResumenIA T={T} patient={patient} /> : <AuditoriaIA T={T} patient={patient} go={go} />}
+    </div>
+  );
+}
+
 /* ─────────── AUDITORÍA IA ─────────── */
 function AuditoriaIA({ T, patient, go }) {
   const issues = [];
@@ -2442,16 +2456,16 @@ function RecetaTab({ T, patient, updatePatient }) {
     const pro = (window.clinicPro && window.clinicPro()) || "";
     const isInd = r.tipo === "indicaciones";
     const L = ["*" + titleOf(r.tipo).toUpperCase() + "*", "_" + clin + "_", "",
-               "🗓️ " + r.fecha, "👤 " + (patient.name || "") + (patient.age ? " · " + patient.age + " años" : "")];
-    if (r.diag) L.push("🩺 " + (isInd ? "Procedimiento" : "Diagnóstico") + ": " + r.diag);
+               "Fecha: " + r.fecha, "Paciente: " + (patient.name || "") + (patient.age ? " · " + patient.age + " años" : "")];
+    if (r.diag) L.push((isInd ? "Procedimiento" : "Diagnóstico") + ": " + r.diag);
     L.push("", "*" + (isInd ? "Indicaciones y cuidados" : "Prescripción (Rp.)") + "*");
     const lines = r.rp.split("\n").map(l => l.replace(/^[•\-\*]\s*/, "").trim()).filter(Boolean);
     if (isInd) lines.forEach(l => L.push("• " + l)); else L.push(r.rp);
     if (r.ind) { L.push("", "*Notas adicionales*", r.ind); }
-    if (r.ctrl) { L.push("", "📅 Control de evaluación: " + fmtCtrl(r.ctrl)); }
+    if (r.ctrl) { L.push("", "Control de evaluación: " + fmtCtrl(r.ctrl)); }
     L.push("", "— " + [pro, clin].filter(Boolean).join(" · "));
     const reviewUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink) ? window.JCSAAS.reviewLink() : "";
-    if (reviewUrl) L.push("", "⭐ ¿Cómo fue tu experiencia? Déjanos tu reseña aquí: " + reviewUrl);
+    if (reviewUrl) L.push("", "¿Cómo fue tu experiencia? Responde nuestra encuesta: " + reviewUrl);
     window.open("https://wa.me/" + (patient.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener");
   }
 

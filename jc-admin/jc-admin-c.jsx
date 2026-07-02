@@ -2975,7 +2975,22 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
   const [showPiel, setShowPiel] = useState(false);
   const [showHabitos, setShowHabitos] = useState(false);
   const [showEval, setShowEval] = useState(false);
+  // Dictado por voz (Evaluación y plan): reemplaza la sección aparte de "Notas Clínicas".
+  const dictRef = useRef(null);
+  const [recField, setRecField] = useState(null);
   useEffect(() => { setF(patient.clinica || {}); setSaved(false); }, [patient.id]);
+  const SRDICT = (typeof window !== "undefined") && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  function dictar(k) {
+    if (!SRDICT) { window.jcmToast && window.jcmToast("Tu navegador no permite dictado por voz. Usa Chrome/Edge o escribe.", "info"); return; }
+    if (recField === k) { try { dictRef.current && dictRef.current.stop(); } catch (e) {} setRecField(null); return; }
+    try { dictRef.current && dictRef.current.stop(); } catch (e) {}
+    const r = new SRDICT(); r.lang = "es-CL"; r.continuous = true; r.interimResults = true;
+    const base = (f[k] || "") ? (f[k] + " ") : "";
+    r.onresult = e => { let s = ""; for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript; setVal(k, base + s); };
+    r.onend = () => setRecField(null);
+    r.onerror = ev => { setRecField(null); const c = ev && ev.error; const m = (c === "not-allowed" || c === "service-not-allowed") ? "Permite el micrófono para dictar (no funciona en modo incógnito)." : c === "no-speech" ? "No se detectó voz. Intenta de nuevo." : "No se pudo iniciar el dictado."; window.jcmToast && window.jcmToast(m, "info"); };
+    dictRef.current = r; try { r.start(); setRecField(k); } catch (e) { window.jcmToast && window.jcmToast("No se pudo iniciar el dictado.", "info"); }
+  }
   const setVal = (k, v) => { setF(prev => ({ ...prev, [k]: v })); setSaved(false); };
   // Al tocar un chip, su texto se escribe (o se quita) en la barra del propio parámetro.
   const tokenToggle = (k, tok) => { setF(prev => { const cur = (prev[k] || "").split(",").map(s => s.trim()).filter(Boolean); const i = cur.indexOf(tok); if (i >= 0) cur.splice(i, 1); else cur.push(tok); return { ...prev, [k]: cur.join(", ") }; }); setSaved(false); };
@@ -3151,12 +3166,19 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           const onCh = isPlan
             ? e => { let v = e.target.value; v = v.replace(/(total\s*u\s*:?[ \t]*)(\d*)([ \t]*)$/i, (_m, pre) => pre + sumUnits(v)); setVal(k, v); }
             : e => setVal(k, e.target.value);
+          const grabando = recField === k;
           return (
-            <label key={k} style={{ display: "block", marginBottom: 12 }}>
-              <span style={lbl}>{label}</span>
-              <textarea value={f[k] || ""} onChange={onCh} rows={3} placeholder={isPlan ? 'Ej: 20u frontal, 10u procerus… escribe "Total U:" y se suma solo' : "—"} style={inp({ resize: "vertical" })} />
+            <div key={k} style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                <span style={{ ...lbl, marginBottom: 0 }}>{label}</span>
+                <button type="button" onClick={() => dictar(k)} title={grabando ? "Detener dictado" : "Dictar por voz"} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, padding: "5px 11px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (grabando ? "#C0285A" : T.line), background: grabando ? "#C0285A" : "transparent", color: grabando ? "#fff" : T.textMute }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+                  {grabando ? "Detener" : "Dictar"}
+                </button>
+              </div>
+              <textarea value={f[k] || ""} onChange={onCh} rows={3} placeholder={isPlan ? 'Ej: 20u frontal, 10u procerus… escribe "Total U:" y se suma solo' : "Escribe o dicta la evaluación…"} style={inp({ resize: "vertical" })} />
               {isPlan && totalU > 0 && <span style={{ display: "inline-block", marginTop: 7, fontFamily: T.sans, fontSize: 11, fontWeight: 500, color: T.accent, background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + (T.accent + "44"), borderRadius: 999, padding: "4px 11px" }}>Σ Total detectado: {totalU} U</span>}
-            </label>
+            </div>
           );
         })}
       </>), showEval, setShowEval)}
@@ -3520,7 +3542,7 @@ const AUTO_SEED = [
   { id: "rind", t: "Indicaciones post tratamiento", d: "Al finalizar la atención, envía por WhatsApp las indicaciones y cuidados del procedimiento realizado.", on: true, ch: "WhatsApp", ic: "chat" },
   { id: "rpost", t: "Seguimiento de tratamiento (14 días)", d: "Mensaje automático a los 14 días para control de resultados.", on: false, ch: "WhatsApp", ic: "chat" },
   { id: "rbday", t: "Saludo de cumpleaños", d: "Envía un mensaje felicitando al paciente en su cumpleaños.", on: false, ch: "Email", ic: "gift" },
-  { id: "rreview", t: "Solicitud de reseña", d: "Se envía por WhatsApp junto con las indicaciones post tratamiento: al final del mensaje se incluye tu enlace de Google para dejar reseña.", on: false, ch: "WhatsApp", ic: "star", bundle: "indicaciones" },
+  { id: "rreview", t: "Solicitud de encuesta", d: "Se envía por WhatsApp junto con las indicaciones post tratamiento: al final del mensaje se incluye tu enlace para responder la encuesta de satisfacción.", on: false, ch: "WhatsApp", ic: "star", bundle: "indicaciones" },
   { id: "rreact", t: "Reactivación (90 días sin venir)", d: "Invitación a reagendar para pacientes inactivos.", on: false, ch: "WhatsApp", ic: "refresh" }
 ];
 const AUTO_IC = {
@@ -3532,47 +3554,6 @@ const AUTO_IC = {
   refresh: <><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></>
 };
 const AUTO_CH_COLOR = { WhatsApp: "#1F8A5B", Email: "#caa86a", SMS: "#9C8AB5" };
-// Popup de reseñas recibidas, separadas en "Potenciar" (4-5★) y "Mejorar" (≤3★).
-function ReviewsModal({ T, reviews, stars, onClose }) {
-  const top = reviews.filter(r => (r.stars || 0) >= 4);
-  const low = reviews.filter(r => (r.stars || 0) <= 3);
-  const fmtDate = ts => { try { return ts ? new Date(ts).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" }) : ""; } catch (e) { return ""; } };
-  const Card = ({ r, tone }) => (
-    <div style={{ background: T.surface2, border: "1px solid " + (tone === "low" ? "rgba(192,40,90,.28)" : "rgba(31,138,91,.25)"), borderRadius: 10, padding: "12px 14px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
-        <span style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{r.name || "Anónimo"}</span>
-        <span style={{ fontFamily: T.sans, fontSize: 13, color: T.gold, whiteSpace: "nowrap" }}>{stars(r.stars || 0)}</span>
-      </div>
-      {r.comment && <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 5, lineHeight: 1.55 }}>{r.comment}</div>}
-      {(r.ts || r.proc) && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>{[r.proc, fmtDate(r.ts)].filter(Boolean).join(" · ")}</div>}
-    </div>
-  );
-  const Col = ({ title, sub, color, list, tone }) => (
-    <div style={{ flex: 1, minWidth: 240 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
-        <span style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.text, fontWeight: 600 }}>{title}</span>
-        <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>({list.length})</span>
-      </div>
-      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 10 }}>{sub}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {list.length ? list.map(r => <Card key={r.id} r={r} tone={tone} />) : <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "10px 0" }}>Sin reseñas en este grupo.</div>}
-      </div>
-    </div>
-  );
-  return (
-    <AdModal T={T} wide title="Reseñas de pacientes" onClose={onClose}>
-      {reviews.length === 0 ? (
-        <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textFaint, padding: "16px 0" }}>Aún no has recibido reseñas. Comparte tu enlace para empezar a recibirlas.</div>
-      ) : (
-        <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-          <Col title="Potenciar" sub="4 y 5 estrellas — lo que más valoran tus pacientes." color="#1F8A5B" list={top} tone="top" />
-          <Col title="Mejorar" sub="3 estrellas o menos — oportunidades de mejora." color="#C0285A" list={low} tone="low" />
-        </div>
-      )}
-    </AdModal>
-  );
-}
 function AutomatizacionesView({ T }) {
   // Fusiona el estado guardado (solo on/off) con los metadatos del código, para que
   // textos/canales nuevos siempre se reflejen aunque haya reglas guardadas antes.
@@ -3590,17 +3571,6 @@ function AutomatizacionesView({ T }) {
   async function delAuto(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta automatización?", { danger: true }))) return; persistAutos(autos.filter(x => x.id !== id)); }
   function toggleAuto(id) { persistAutos(autos.map(x => x.id === id ? { ...x, on: !x.on } : x)); }
   const autoWhen = a => (a.dir === "after" ? (a.days + " día" + (a.days === 1 ? "" : "s") + " después") : (a.days === 0 ? "el día de la cita" : a.days + " día" + (a.days === 1 ? "" : "s") + " antes"));
-  // Enlace de reseña PROPIO de la clínica (formulario Medique): medique.cl/review?c=clinicId
-  const reviewUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink)
-    ? window.JCSAAS.reviewLink()
-    : ((typeof window !== "undefined" ? (window.jcmPubBase ? window.jcmPubBase() : window.location.origin) : "") + "/review.html");
-  const [copiedRev, setCopiedRev] = useState(false);
-  function copyReview() { try { navigator.clipboard.writeText(reviewUrl); setCopiedRev(true); setTimeout(() => setCopiedRev(false), 1800); } catch (e) {} }
-  // Reseñas recibidas (importadas al panel desde el formulario público).
-  const reviews = (() => { try { return (window.DB && DB.get("reviews")) || []; } catch (e) { return []; } })();
-  const avg = reviews.length ? (reviews.reduce((s, r) => s + (r.stars || 0), 0) / reviews.length) : 0;
-  const stars = n => "★★★★★☆☆☆☆☆".slice(5 - Math.round(n), 10 - Math.round(n));
-  const [showReviews, setShowReviews] = useState(false);
   return (
     <div>
       <SecHead T={T} title="Automatizaciones" sub="Configura recordatorios y mensajes automáticos para tus pacientes." />
@@ -3608,35 +3578,6 @@ function AutomatizacionesView({ T }) {
         El envío real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aquí configuras y visualizas las reglas.
       </div>
       <NotificacionesCard T={T} />
-      {/* Formulario de reseñas de la clínica — ARRIBA (P18). */}
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Formulario de reseñas de tu clínica</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            {reviews.length > 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(avg)} <span style={{ color: T.textMute }}>{avg.toFixed(1)} · {reviews.length} reseña{reviews.length === 1 ? "" : "s"}</span></div>}
-            <button onClick={() => setShowReviews(true)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, padding: "7px 13px", borderRadius: 8, cursor: "pointer", border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text }}>Ver reseñas{reviews.length ? " (" + reviews.length + ")" : ""}</button>
-          </div>
-        </div>
-        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Comparte este enlace con tus pacientes (se incluye al final del mensaje de indicaciones cuando "Solicitud de reseña" está activa). Las reseñas que dejen llegan a este panel.</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input readOnly value={reviewUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220, padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
-          <button onClick={copyReview} style={{ padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{copiedRev ? "✓" : "Copiar"}</button>
-          <a href={reviewUrl} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", padding: "0 14px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, textDecoration: "none", fontFamily: T.sans, fontSize: 11.5 }}>Abrir ↗</a>
-        </div>
-        {reviews.length > 0 && (
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            {reviews.slice(0, 5).map(r => (
-              <div key={r.id} style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{r.name || "Anónimo"}</span>
-                  <span style={{ fontFamily: T.sans, fontSize: 12, color: T.gold }}>{stars(r.stars || 0)}</span>
-                </div>
-                {r.comment && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 3, lineHeight: 1.5 }}>{r.comment}</div>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text, marginBottom: 10 }}>Recordatorios automáticos</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {rules.map(r => {
@@ -3689,7 +3630,6 @@ function AutomatizacionesView({ T }) {
             </div>}
       </div>
       {editAuto && <AutoBuilderModal T={T} auto={editAuto === "new" ? null : editAuto} onClose={() => setEditAuto(null)} onSave={saveAuto} />}
-      {showReviews && <ReviewsModal T={T} reviews={reviews} stars={stars} onClose={() => setShowReviews(false)} />}
     </div>
   );
 }
@@ -5804,7 +5744,7 @@ function FlujoCajaChart({ T, title }) {
       <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 16 }}>{title || "Flujo de caja · últimos 6 meses"}</div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 180 }}>
         {data.map(m => (
-          <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <div key={m.key} title={"Ganancia de " + m.lbl + ": " + D.fmt(m.neto)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "default" }}>
             <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 4 }}>
               <div title={"Ingresos " + D.fmt(m.ing)} style={{ width: "40%", height: Math.round(m.ing / maxV * 140) + "px", minHeight: 2, background: "#1F8A5B", borderRadius: "4px 4px 0 0" }} />
               <div title={"Egresos " + D.fmt(m.egr)} style={{ width: "40%", height: Math.round(m.egr / maxV * 140) + "px", minHeight: 2, background: "#C0285A", borderRadius: "4px 4px 0 0" }} />
@@ -5904,8 +5844,8 @@ function DesempenoView({ T, patients, appts }) {
   const mes = new Date().toISOString().slice(0, 7);
   const A = (appts || []).filter(a => a.status !== "anulada");
   const citasMes = A.filter(a => (a.fecha || "").slice(0, 7) === mes);
-  const noShow = A.filter(a => a.status === "no_asistio").length;
-  const atendidas = A.filter(a => a.status === "atendida" || a.attended).length;
+  const noShow = citasMes.filter(a => a.status === "no_asistio").length;
+  const atendidas = citasMes.filter(a => a.status === "atendida" || a.attended).length;
   const totalCerradas = noShow + atendidas;
   const noShowPct = totalCerradas ? Math.round(noShow / totalCerradas * 100) : 0;
   // Retención: pacientes con 2+ atenciones registradas.
@@ -5922,7 +5862,7 @@ function DesempenoView({ T, patients, appts }) {
       <SecHead T={T} title="Panel de desempeño" sub="El diagnóstico oportuno para tu centro de salud" />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginBottom: 14 }}>
         {card("Citas del mes", citasMes.length, T.accent, "agendadas")}
-        {card("Atendidas", atendidas, "#1F8A5B", "en total")}
+        {card("Atendidas", atendidas, "#1F8A5B", "este mes")}
         {card("Inasistencia", noShowPct + "%", noShowPct > 20 ? "#C0285A" : "#C9A227", noShow + " no asistió")}
         {card("Retención", retencion + "%", "#1F8A5B", recurrentes + " con 2+ atenciones")}
         {card("Ticket promedio", D.fmt(ticket), T.accent, "por atención")}
@@ -5936,13 +5876,22 @@ function DesempenoView({ T, patients, appts }) {
 }
 
 /* ── N10 · Encuestas de satisfacción ── */
+// Las respuestas SOLO las escriben los pacientes desde el link público (review.html, campo
+// "stars" reutilizado como nota 0-10) → Firestore tenants/{cid}/reviews. El panel es de solo
+// lectura: nunca se agregan respuestas manualmente aquí (evita ensuciar las estadísticas).
 function EncuestasView({ T, patients }) {
-  const [cfg, setCfg] = useState(() => { try { return (window.DB && window.DB.get("survey_cfg")) || { pregunta: "¿Qué tan satisfecho quedaste con tu atención?", activa: true }; } catch (e) { return { pregunta: "¿Qué tan satisfecho quedaste con tu atención?", activa: true }; } });
-  const [resp, setResp] = useState(() => { try { return (window.DB && window.DB.get("survey_responses")) || []; } catch (e) { return []; } });
+  const [cfg, setCfg] = useState(() => { try { return (window.DB && window.DB.get("survey_cfg")) || { pregunta: "¿Qué tan satisfecho quedaste con tu atención?" }; } catch (e) { return { pregunta: "¿Qué tan satisfecho quedaste con tu atención?" }; } });
+  const [resp, setResp] = useState(() => { try { return (window.DB && window.DB.get("reviews")) || []; } catch (e) { return []; } });
+  const [importing, setImporting] = useState(false);
   function saveCfg(n) { setCfg(n); try { window.DB && window.DB.set("survey_cfg", n); } catch (e) {} }
-  function addResp(nota) { const n = [{ id: "s" + Date.now(), nota, ts: Date.now() }, ...resp].slice(0, 500); setResp(n); try { window.DB && window.DB.set("survey_responses", n); } catch (e) {} }
-  const prom = resp.length ? (resp.reduce((s, r) => s + (r.nota || 0), 0) / resp.length) : 0;
-  const promotores = resp.filter(r => r.nota >= 9).length, detractores = resp.filter(r => r.nota <= 6).length;
+  async function traer() {
+    if (importing || !(window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.importWebReviews)) return;
+    setImporting(true);
+    try { await window.JCSAAS.importWebReviews(); setResp((window.DB && window.DB.get("reviews")) || []); } catch (e) {}
+    setImporting(false);
+  }
+  const prom = resp.length ? (resp.reduce((s, r) => s + (r.stars || 0), 0) / resp.length) : 0;
+  const promotores = resp.filter(r => (r.stars || 0) >= 9).length, detractores = resp.filter(r => (r.stars || 0) <= 6).length;
   const nps = resp.length ? Math.round((promotores - detractores) / resp.length * 100) : 0;
   const reviewUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.reviewLink) ? window.JCSAAS.reviewLink() : "";
   return (
@@ -5954,14 +5903,26 @@ function EncuestasView({ T, patients }) {
         <CajaCard T={T} l="NPS" v={nps} c={nps >= 50 ? "#1F8A5B" : nps >= 0 ? "#C9A227" : "#C0285A"} />
       </div>
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16, maxWidth: 760 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Pregunta de la encuesta</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent }}>Pregunta de la encuesta</div>
+          <AdBtn T={T} small onClick={traer}>{importing ? "Trayendo…" : "Traer respuestas"}</AdBtn>
+        </div>
         <input value={cfg.pregunta} onChange={e => saveCfg({ ...cfg, pregunta: e.target.value })} style={{ width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
-        {reviewUrl && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10, lineHeight: 1.5 }}>Compártela junto a tu enlace de reseñas: <a href={reviewUrl} target="_blank" rel="noopener" style={{ color: T.accent }}>{reviewUrl}</a></div>}
+        {reviewUrl && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10, lineHeight: 1.5 }}>Este es el link que reciben tus pacientes (se incluye solo al final de las Indicaciones enviadas por WhatsApp): <a href={reviewUrl} target="_blank" rel="noopener" style={{ color: T.accent }}>{reviewUrl}</a></div>}
       </div>
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 760 }}>
-        <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 10 }}>Registrar respuesta (0 = malo, 10 = excelente):</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <button key={n} onClick={() => addResp(n)} style={{ width: 40, height: 40, borderRadius: 9, cursor: "pointer", border: "1px solid " + (n <= 6 ? "#C0285A55" : n <= 8 ? "#C9A22755" : "#1F8A5B55"), background: "transparent", color: n <= 6 ? "#C0285A" : n <= 8 ? "#C9A227" : "#1F8A5B", fontFamily: T.sans, fontSize: 14, fontWeight: 600 }}>{n}</button>)}</div>
-        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 10 }}>Cuando conectemos WhatsApp/Meta, estas respuestas podrán llegar solas tras cada atención.</div>
+        <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 12 }}>Respuestas recientes</div>
+        {resp.length === 0
+          ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no hay respuestas. Se llenan solas cuando un paciente responde la encuesta desde su link.</div>
+          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{resp.slice(0, 20).map((r, i) => (
+              <div key={r.id || i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 0", borderBottom: i === resp.length - 1 ? "none" : "1px solid " + T.lineSoft }}>
+                <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12.5, fontWeight: 700, color: "#fff", background: (r.stars || 0) <= 6 ? "#C0285A" : (r.stars || 0) <= 8 ? "#C9A227" : "#1F8A5B" }}>{r.stars || 0}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>{r.name || "Anónimo"}</div>
+                  {r.comment && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 }}>{r.comment}</div>}
+                </div>
+              </div>
+            ))}</div>}
       </div>
     </div>
   );
