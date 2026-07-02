@@ -204,7 +204,14 @@ function EspecialidadesTab({ T }) {
   const [list, setList] = useState(clinicEspecialidades);
   const [nueva, setNueva] = useState("");
   const [showSug, setShowSug] = useState(false);
-  let team = []; try { team = (window.DB && window.DB.get("team")) || []; } catch (e) {}
+  // Equipo en estado para poder asignar/desasignar profesionales a cada especialidad desde aquí.
+  const [team, setTeam] = useState(() => { try { return (window.DB && window.DB.get("team")) || []; } catch (e) { return []; } });
+  const [assignTo, setAssignTo] = useState(null); // especialidad para la que se asignan profesionales
+  function saveTeam(n) { setTeam(n); try { window.DB && window.DB.set("team", n); if (window.CADMIN) window.CADMIN.team = n; } catch (e) {} }
+  function toggleMemberSpec(memberId, spec) {
+    const n = team.map(m => { if (m.id !== memberId && m.name !== memberId) return m; const cur = m.especialidades || []; const has = cur.indexOf(spec) >= 0; return { ...m, especialidades: has ? cur.filter(x => x !== spec) : [...cur, spec] }; });
+    saveTeam(n);
+  }
   function add() { const v = nueva.trim(); if (!v || list.indexOf(v) >= 0) { setNueva(""); return; } const n = [...list, v]; setList(n); saveEspecialidades(n); setNueva(""); try { window.jcmToast && window.jcmToast("Especialidad agregada.", "ok"); } catch (e) {} }
   async function del(e) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar la especialidad \"" + e + "\"?", { danger: true }))) return; const n = list.filter(x => x !== e); setList(n); saveEspecialidades(n); }
   const profCount = e => team.filter(m => (m.especialidades || []).indexOf(e) >= 0).length;
@@ -213,43 +220,47 @@ function EspecialidadesTab({ T }) {
   const sugRestantes = ESPECIALIDAD_CATS.reduce((acc, c) => acc + c[1].filter(s => list.indexOf(s) < 0).length, 0);
   return (
     <div>
-      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 6, lineHeight: 1.5 }}>Define las especialidades que ofrece tu clínica. Se asignan a cada profesional en su ficha (sección Especialidades).</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 6, lineHeight: 1.5 }}>Define las especialidades que ofrece tu clínica y asigna qué profesionales las realizan.</div>
       <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 18, lineHeight: 1.5, background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.lineSoft, borderRadius: 8, padding: "9px 12px" }}>💡 <b style={{ color: T.textMute }}>Toxina botulínica, Ácido hialurónico, Bioestimuladores…</b> son <b style={{ color: T.textMute }}>procedimientos</b>, no especialidades: se administran en la pestaña <b style={{ color: T.textMute }}>Tratamientos</b>.</div>
 
-      {/* PRIMARIO: las especialidades reales de la clínica, arriba (contenido principal). */}
+      {/* Agregar una propia — arriba, antes de las especialidades ya definidas. */}
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, margin: "0 0 8px" }}>Agregar especialidad</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <input value={nueva} onChange={e => setNueva(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Nueva especialidad…" style={{ flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        <AdBtn T={T} primary onClick={add}>+ Agregar</AdBtn>
+      </div>
+
+      {/* PRIMARIO: las especialidades de la clínica. Cada una es clicable para asignar profesionales. */}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
         <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>Especialidades de tu clínica</span>
         {list.length > 0 && <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{list.length}</span>}
       </div>
       {list.length === 0
         ? <div style={luxF ? { ...DS.card(T), padding: "22px 20px", textAlign: "center" } : { background: T.surface, border: "1px dashed " + T.line, borderRadius: 10, padding: "22px 20px", textAlign: "center" }}>
-            <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5 }}>Aún no hay especialidades. Agrégalas abajo desde las sugeridas o crea una propia.</div>
+            <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5 }}>Aún no hay especialidades. Agrega una arriba o elígelas desde las sugeridas por área.</div>
           </div>
         : (
           <div style={{ display: "flex", flexDirection: "column", gap: luxF ? 7 : 5 }}>
             {list.map((e, ei) => { const n = profCount(e); const ec = window.jcmAvatarColor ? window.jcmAvatarColor(e) : T.accent; return (
-              <div key={e} style={luxF ? { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", ...DS.card(T), ...DS.reveal(ei) } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
+              <div key={e} onClick={() => setAssignTo(e)} title={"Asignar profesionales a " + e}
+                style={luxF ? { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer", ...DS.card(T), ...DS.reveal(ei), transition: DS.trans("border-color,background") } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}
+                onMouseEnter={ev => { ev.currentTarget.style.borderColor = T.accent + (luxF ? "66" : "99"); }}
+                onMouseLeave={ev => { ev.currentTarget.style.borderColor = luxF ? "" : T.line; }}>
                 {luxF && <span style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 9, background: ec + "22", color: ec, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 14, fontWeight: 600 }}>{(e || "?").trim()[0].toUpperCase()}</span>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{e}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 11, color: n === 0 ? T.textFaint : T.textMute, marginTop: 2 }}>{n === 0 ? "Sin profesionales asignados" : n + " profesional" + (n === 1 ? "" : "es")}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: n === 0 ? T.textFaint : T.textMute, marginTop: 2 }}>{n === 0 ? "Sin profesionales · toca para asignar" : n + " profesional" + (n === 1 ? "" : "es")}</div>
                 </div>
-                <button onClick={() => del(e)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.accent, padding: "5px 9px", borderRadius: DS ? DS.r.pill : 999, background: T.accent + "12", border: "1px solid " + (T.chipBorder || T.line) }}>Asignar<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6" /></svg></span>
+                <button onClick={ev => { ev.stopPropagation(); del(e); }} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
               </div>
             ); })}
           </div>
         )}
 
-      {/* Agregar una propia. */}
-      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, margin: "18px 0 8px" }}>Agregar especialidad</div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        <input value={nueva} onChange={e => setNueva(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Nueva especialidad…" style={{ flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-        <AdBtn T={T} primary onClick={add}>+ Agregar</AdBtn>
-      </div>
-
       {/* SECUNDARIO: sugeridas por área, contenidas en un panel colapsable (no botones sueltos). */}
       {sugRestantes > 0 && (
-        <div style={luxF ? { ...DS.card(T), overflow: "hidden" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" }}>
+        <div style={luxF ? { ...DS.card(T), overflow: "hidden", marginTop: 18 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden", marginTop: 18 }}>
           <button onClick={() => setShowSug(v => !v)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="M12 5v14M5 12h14" /></svg>
             <span style={{ flex: 1, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>Agregar desde especialidades sugeridas</span>
@@ -280,6 +291,50 @@ function EspecialidadesTab({ T }) {
           )}
         </div>
       )}
+
+      {/* Modal: asignar profesionales a una especialidad. */}
+      {assignTo != null && (() => {
+        const ec = window.jcmAvatarColor ? window.jcmAvatarColor(assignTo) : T.accent;
+        const asignados = team.filter(m => (m.especialidades || []).indexOf(assignTo) >= 0).length;
+        return (
+          <div onClick={() => setAssignTo(null)} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(6,8,10,.58)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
+            <div onClick={ev => ev.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "82vh", display: "flex", flexDirection: "column", background: T.card || T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: "1px solid " + T.lineSoft }}>
+                <span style={{ flexShrink: 0, width: 34, height: 34, borderRadius: 9, background: ec + "22", color: ec, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 15, fontWeight: 600 }}>{(assignTo || "?").trim()[0].toUpperCase()}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, lineHeight: 1.2 }}>{assignTo}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 2 }}>{asignados === 0 ? "Sin profesionales asignados" : asignados + " asignado" + (asignados === 1 ? "" : "s") + " de " + team.length}</div>
+                </div>
+                <button onClick={() => setAssignTo(null)} title="Cerrar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "7px 9px", cursor: "pointer", color: T.textMute, display: "flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+              </div>
+              <div style={{ padding: "8px 12px", overflowY: "auto" }}>
+                {team.length === 0
+                  ? <div style={{ padding: "26px 18px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5 }}>Aún no tienes profesionales en tu equipo.<br />Agrégalos en <b style={{ color: T.text }}>Clínica › Equipo</b>.</div>
+                  : team.map(m => {
+                      const has = (m.especialidades || []).indexOf(assignTo) >= 0;
+                      const mc = window.jcmAvatarColor ? window.jcmAvatarColor(m.name || "") : T.accent;
+                      const ini = (m.name || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+                      return (
+                        <button key={m.id || m.name} onClick={() => toggleMemberSpec(m.id || m.name, assignTo)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "10px 10px", background: has ? T.accent + "0e" : "none", border: "1px solid " + (has ? T.accent + "3a" : "transparent"), borderRadius: 10, cursor: "pointer", textAlign: "left", marginBottom: 3, transition: DS ? DS.trans("background,border-color") : "all .15s" }}>
+                          <span style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 999, background: mc, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12, fontWeight: 600 }}>{ini}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name || "—"}</div>
+                            {(m.role || m.cargo) && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 1 }}>{m.role || m.cargo}</div>}
+                          </div>
+                          <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 999, border: "2px solid " + (has ? T.accent : T.line), background: has ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: DS ? DS.trans("background,border-color") : "all .15s" }}>
+                            {has && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M5 12l5 5L20 6" /></svg>}
+                          </span>
+                        </button>
+                      );
+                    })}
+              </div>
+              <div style={{ padding: "12px 18px", borderTop: "1px solid " + T.lineSoft, display: "flex", justifyContent: "flex-end" }}>
+                <AdBtn T={T} primary onClick={() => setAssignTo(null)}>Listo</AdBtn>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

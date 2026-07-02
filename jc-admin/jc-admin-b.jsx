@@ -565,7 +565,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
               </div>
               <div style={{ width: 158, flexShrink: 0, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {procChip}
-                {!p.consent && pill("Consent.", { fg: DS.warn, bg: DS.warnBg, bd: DS.warnLine, upper: true })}
+                {!p.consent && pill("Consent.", { fg: DS.warn, bg: DS.warn + "14", bd: DS.warn + "33", upper: true })}
               </div>
               <div style={{ width: 92, flexShrink: 0, textAlign: "right" }}>
                 {filt === "recientes"
