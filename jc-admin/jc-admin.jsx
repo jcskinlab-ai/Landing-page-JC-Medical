@@ -496,10 +496,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const glassPanel = !lux
     ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow }
     : (T.dark
-      ? { background: "rgba(255,255,255,.05)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,.10)", borderRadius: 22, boxShadow: "0 28px 66px -36px rgba(0,0,0,.75)" }
-      : { background: "rgba(252,251,249,.55)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,.72)", borderRadius: 22, boxShadow: "0 22px 54px -30px rgba(60,58,50,.22)" });
-  const glassFill = T.dark ? "rgba(255,255,255,.055)" : "rgba(20,20,15,.035)";       // relleno interno (filas)
-  const glassFillHover = T.dark ? "rgba(255,255,255,.09)" : "rgba(20,20,15,.06)";
+      ? { background: "rgba(255,255,255,.03)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 22, boxShadow: "0 32px 72px -40px rgba(0,0,0,.85)" }
+      : { background: "rgba(232,231,227,.40)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,.55)", borderRadius: 22, boxShadow: "0 24px 56px -34px rgba(60,58,50,.18)" });
+  const glassFill = T.dark ? "rgba(255,255,255,.035)" : "rgba(20,20,15,.028)";       // relleno interno (filas), casi imperceptible
+  const glassFillHover = T.dark ? "rgba(255,255,255,.07)" : "rgba(20,20,15,.05)";
   const nowClr = "#D8674A";  // marcador "ahora" — único acento cálido (como la línea coral de la referencia)
   // ESC cierra los popups del dashboard (KPI / movimientos de caja) para que nunca queden
   // "pegados" tapando la vista. Se apoya en la pila global de popups. (P19 · robustez)
