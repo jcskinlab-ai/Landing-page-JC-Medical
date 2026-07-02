@@ -464,6 +464,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
   const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
+  // "lux" = rediseño editorial del dashboard, gateado a Los Medique (preview antes del push global).
+  const lux = typeof isLosMedique === "function" && isLosMedique();
   const hoy = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada");
 // Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
@@ -583,9 +585,16 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     const top = stages[0].n || 1;
     const inp = { width: 120, fontFamily: T.sans, fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" };
     return (
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px 18px", marginBottom: 16, boxShadow: "0 14px 40px -30px rgba(0,0,0,.4)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-          <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>Embudo de marketing · este mes</div>
+      <div style={lux
+        ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "20px 22px 22px", marginBottom: 18, boxShadow: T.shadow }
+        : { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px 18px", marginBottom: 16, boxShadow: "0 14px 40px -30px rgba(0,0,0,.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: lux ? 18 : 14 }}>
+          <div style={lux
+            ? { display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent }
+            : { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>
+            {lux && <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />}
+            Embudo de marketing · este mes
+          </div>
           <span style={{ fontFamily: T.sans, fontSize: 10, color: funnel.live ? "#1F8A5B" : T.textFaint }}>{funnel.demo ? "Datos de ejemplo — carga tu gasto de Meta para verlo real" : (funnel.live ? "● Conectado a Meta · en vivo" : "Datos reales de tu mes")}</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18, alignItems: "start" }}>
@@ -862,7 +871,22 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   }
 
   /* ── fila de cita ── */
-  const citaRow = a => (
+  const citaRow = a => lux ? (
+    // Estilo editorial (Los Medique): hora en serif + separador fino, hover sutil.
+    <div key={a.id} onClick={() => go("agenda")} style={{ display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "13px 16px", cursor: "pointer", transition: "transform .2s " + T.ease + ", border-color .2s" }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = T.accent + "66"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; }}>
+      <div style={{ flexShrink: 0, textAlign: "center", minWidth: 54 }}>
+        <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1 }}>{a.time || "—"}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginTop: 4 }}>{apptDayOff(a) === 0 ? "Hoy" : (a.when || "Próx.")}</div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 14 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc || "—"} · {(a.dur || 60)} min</div>
+      </div>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
+    </div>
+  ) : (
     <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" }}>
       <Avatar T={T} name={a.name} size={38} />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -879,7 +903,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 
   /* ── acceso rápido ── */
   const acceso = (ic, title, sub, to) => (
-    <button onClick={() => go(to)} style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 15px", cursor: "pointer" }}>
+    <button onClick={() => go(to)}
+      onMouseEnter={e => { if (lux) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = T.accent + "66"; } }}
+      onMouseLeave={e => { if (lux) { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; } }}
+      style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", background: T.surface, border: "1px solid " + T.line, borderRadius: lux ? 14 : 12, padding: "14px 15px", cursor: "pointer", ...(lux ? { boxShadow: T.shadow, transition: "transform .2s " + T.ease + ", border-color .2s" } : {}) }}>
       <div style={{ width: 40, height: 40, borderRadius: 10, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><DashIcon name={ic} c={T.accent} /></div>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{title}</div>
@@ -902,9 +929,6 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 
   const _h = new Date().getHours();
   const _greet = _h < 13 ? "Buenos días" : _h < 20 ? "Buenas tardes" : "Buenas noches";
-  // Rediseño editorial (preview gateado a Los Medique antes del push global): hero con fecha
-  // grande en serif + eyebrow con regla de acento. El resto de clínicas ve el saludo actual.
-  const lux = typeof isLosMedique === "function" && isLosMedique();
   const _fechaLarga = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div style={lux ? { maxWidth: 1180, margin: "0 auto" } : undefined}>
@@ -938,8 +962,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           {/* Embudo de marketing con ROAS — vista principal */}
           <FunnelBlock />
           {/* Indicadores Principales */}
-          <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 9 }}>Indicadores Principales</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px,1fr))", gap: 11, marginBottom: 14 }}>
+          {(() => { const secHead = t => lux
+            ? <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}><span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />{t}</div>
+            : <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 9 }}>{t}</div>;
+          return (<>
+          {secHead("Indicadores Principales")}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(" + (lux ? 210 : 190) + "px,1fr))", gap: lux ? 14 : 11, marginBottom: lux ? 22 : 14 }}>
             <Kpi ic="pacientes" label="Pacientes totales" value={patients.length} sub="Pacientes activos" popup="pacientes" />
             <Kpi ic="citas" label="Citas hoy" value={hoy.length} sub="Agendadas para hoy" popup="citas" />
             <Kpi ic="nuevos" label="Nuevos pacientes" value={nuevosMes} sub="Añadidos este mes" popup="nuevos" />
@@ -947,14 +975,16 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           </div>
 
           {/* Evolución de ingresos (compacta) */}
-          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 16px", marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
+          <div style={lux
+            ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "20px 22px", marginBottom: 22, boxShadow: T.shadow }
+            : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: lux ? 12 : 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" /></svg></div>
-                <div><div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Evolución de ingresos</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Estimado de la semana</div></div>
+                {!lux && <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" /></svg></div>}
+                <div><div style={{ fontFamily: T.serif, fontSize: lux ? 19 : 16, color: T.text }}>Evolución de ingresos</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: lux ? 3 : 0 }}>Estimado de la semana</div></div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
+                <div style={{ fontFamily: T.serif, fontSize: lux ? 26 : 22, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 11, color: green, marginTop: 3 }}>↗ +{growth}% en la semana</div>
               </div>
             </div>
@@ -964,13 +994,13 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           {/* Próximas 5 citas + Accesos rápidos */}
           <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 18, alignItems: "start" }}>
             <div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Próximas 5 citas</div>
+              {secHead("Próximas 5 citas")}
               <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                 {prox5.length ? prox5.map(citaRow) : <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0" }}>No hay citas próximas.</div>}
               </div>
             </div>
             <div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Accesos rápidos</div>
+              {secHead("Accesos rápidos")}
               <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                 {acceso("crear", "Crear paciente", "Añadir nueva ficha médica", "pacientes")}
                 {acceso("cita", "Nueva cita", "Agendar una atención", "agenda")}
@@ -979,6 +1009,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
               </div>
             </div>
           </div>
+          </>); })()}
         </div>
       )}
 
