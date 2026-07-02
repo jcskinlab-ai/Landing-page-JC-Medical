@@ -174,6 +174,9 @@ function jcmCancelNotice(a) {
 // Robusto: reconoce por ownerEmail de la clínica O por el correo de la sesión activa.
 var LOS_MEDIQUE_EMAIL = "makikarenina06@gmail.com";
 function isLosMedique() {
+  // PUSH GLOBAL (2026-07-02): el rediseño premium está liberado para TODAS las clínicas.
+  // Para volver a gatear solo a Los Medique, eliminar la línea `return true;` de abajo.
+  return true;
   try {
     if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
     var owner = (((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}).ownerEmail || "").toString().trim().toLowerCase();

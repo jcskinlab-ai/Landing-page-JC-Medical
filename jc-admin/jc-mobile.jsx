@@ -5,6 +5,8 @@
 // se duplica aquí (mismo email) en vez de depender de un archivo que no está presente.
 var LOS_MEDIQUE_EMAIL = "makikarenina06@gmail.com";
 function isLosMedique() {
+  // PUSH GLOBAL (2026-07-02): rediseño liberado para todas las clínicas. Revertir = quitar `return true;`.
+  return true;
   try {
     if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
     var owner = (((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}).ownerEmail || "").toString().trim().toLowerCase();

@@ -213,6 +213,7 @@ function jcmCancelNotice(a) {
 }
 var LOS_MEDIQUE_EMAIL = "makikarenina06@gmail.com";
 function isLosMedique() {
+  return true;
   try {
     if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
     var owner = ((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).ownerEmail || "").toString().trim().toLowerCase();
