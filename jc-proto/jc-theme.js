@@ -176,7 +176,11 @@
     // Control (input/select/botón ghost): base con altura y radio estándar
     ctl: function (T) { return { height: this.h.ctl, padding: "0 " + this.sp[3] + "px", borderRadius: this.r.ctl, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: this.ft.body, outline: "none", boxSizing: "border-box", transition: this.trans("border-color, box-shadow") }; },
     // Skeleton de carga (usar con <div style={DS.skel(T,{width,height})}/> + keyframes jcSkel)
-    skel: function (T, extra) { return Object.assign({ background: T.chipBg || "rgba(127,127,127,.12)", borderRadius: this.r.ctl, animation: "jcSkel 1.2s ease-in-out infinite" }, extra || {}); }
+    skel: function (T, extra) { return Object.assign({ background: T.chipBg || "rgba(127,127,127,.12)", borderRadius: this.r.ctl, animation: "jcSkel 1.2s ease-in-out infinite" }, extra || {}); },
+    // ── Micro-interacciones (set curado premium) ──
+    // Entrada de sección/tarjeta con fade + subida, escalonada por índice (stagger).
+    // Uso: style={{ ...DS.reveal(i) }} en cada hijo de una grilla/lista. reduce-motion la anula.
+    reveal: function (i) { return { animation: "jcReveal .5s cubic-bezier(.22,1,.36,1) both", animationDelay: ((i || 0) * 55) + "ms" }; }
   };
   window.JCDS = DS;
   // Keyframes del skeleton + foco visible global por teclado (una sola vez).
@@ -184,7 +188,8 @@
     if (!document.getElementById("jcds-css")) {
       var st = document.createElement("style"); st.id = "jcds-css";
       st.textContent = "@keyframes jcSkel{0%,100%{opacity:.55}50%{opacity:1}}" +
-        "@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}";
+        "@keyframes jcReveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}" +
+        "@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;animation-delay:0ms !important;transition-duration:.01ms !important}}";
       document.head.appendChild(st);
     }
   } catch (e) {}

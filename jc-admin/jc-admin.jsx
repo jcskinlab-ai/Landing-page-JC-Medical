@@ -3,6 +3,26 @@
 function fmtTime(d) { return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0"); }
 function mins(t) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
 
+// Conteo animado de una cifra (0 → valor) para KPIs del rediseño lux. Acepta número o texto:
+// si no es número finito lo muestra tal cual. `format` da el string final (p. ej. moneda).
+// Respeta prefers-reduced-motion (salta directo al valor). ~700ms ease-out.
+function CountUp({ value, format }) {
+  var fmt = format || (n => Math.round(n).toLocaleString("es-CL"));
+  var target = (typeof value === "number" && isFinite(value)) ? value : null;
+  var [n, setN] = useState(target == null ? null : 0);
+  useEffect(() => {
+    if (target == null) return;
+    var reduce = false; try { reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+    if (reduce || target === 0) { setN(target); return; }
+    var t0 = 0, raf = 0, dur = 700;
+    var step = ts => { if (!t0) t0 = ts; var p = Math.min(1, (ts - t0) / dur); var e = 1 - Math.pow(1 - p, 3); setN(target * e); if (p < 1) raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  if (target == null) return value;               // texto no numérico → tal cual
+  return fmt(n == null ? target : n);
+}
+
 function nIcon(name, c) {
   const p = {
     resumen: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
@@ -815,21 +835,22 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   };
 
   /* ── KPI card (compacta, icono a la derecha, abre popup) ── */
-  const Kpi = ({ ic, label, value, sub, popup }) => (
+  const DS = window.JCDS;
+  const Kpi = ({ ic, label, value, sub, popup, idx, cfmt }) => (
     // "lux" = rediseño editorial gateado a Los Medique: tarjeta más aireada, numeral serif
-    // grande y hover-lift; el resto de clínicas conserva la tarjeta compacta actual.
+    // grande, hover-lift, entrada escalonada (reveal) y conteo animado de la cifra.
     <div onClick={() => popup && setKpiPopup(popup)} title={popup ? "Ver detalle" : undefined}
       onMouseEnter={e => { if (lux && popup) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = T.accent + "66"; } }}
       onMouseLeave={e => { if (lux) { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; } }}
       style={lux
-        ? { position: "relative", cursor: popup ? "pointer" : "default", background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "20px 22px", boxShadow: T.shadow, transition: "transform .2s " + T.ease + ", border-color .2s" }
+        ? { position: "relative", cursor: popup ? "pointer" : "default", background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "20px 22px", boxShadow: T.shadow, transition: "transform .2s " + T.ease + ", border-color .2s", ...(DS ? DS.reveal(idx || 0) : {}) }
         : { position: "relative", cursor: popup ? "pointer" : "default", background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 11 }}>
       {lux ? (<>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", color: T.textMute }}>{label}</div>
           <DashIcon name={ic} c={T.textFaint} size={16} />
         </div>
-        <div style={{ fontFamily: T.serif, fontSize: 38, fontWeight: 400, color: T.text, lineHeight: 1.05, marginTop: 12 }}>{value}</div>
+        <div style={{ fontFamily: T.serif, fontSize: 38, fontWeight: 400, color: T.text, lineHeight: 1.05, marginTop: 12 }}><CountUp value={value} format={cfmt} /></div>
         <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
       </>) : (<>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -980,20 +1001,20 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         );
         return (
         <div>
-          {/* KPIs primero */}
+          {/* KPIs primero (entrada escalonada + conteo animado) */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px,1fr))", gap: 14, marginBottom: 22 }}>
-            <Kpi ic="pacientes" label="Pacientes totales" value={patients.length} sub="Pacientes activos" popup="pacientes" />
-            <Kpi ic="citas" label="Citas hoy" value={hoy.length} sub="Agendadas para hoy" popup="citas" />
-            <Kpi ic="nuevos" label="Nuevos pacientes" value={nuevosMes} sub="Añadidos este mes" popup="nuevos" />
-            <Kpi ic="ingresos" label="Ingresos hoy" value={fmt(ingresosHoy)} sub="Generado hoy" popup="ingresos" />
+            <Kpi idx={0} ic="pacientes" label="Pacientes totales" value={patients.length} sub="Pacientes activos" popup="pacientes" />
+            <Kpi idx={1} ic="citas" label="Citas hoy" value={hoy.length} sub="Agendadas para hoy" popup="citas" />
+            <Kpi idx={2} ic="nuevos" label="Nuevos pacientes" value={nuevosMes} sub="Añadidos este mes" popup="nuevos" />
+            <Kpi idx={3} ic="ingresos" label="Ingresos hoy" value={ingresosHoy} cfmt={fmt} sub="Generado hoy" popup="ingresos" />
           </div>
           {/* Dos columnas de paneles: IZQ embudo · DER citas + evolución + accesos (simetría) */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 18, alignItems: "start" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18, ...(DS ? DS.reveal(4) : {}) }}>
               {/* Embudo de marketing (misma maquinaria, en columna) */}
               <FunnelBlock />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18, ...(DS ? DS.reveal(5) : {}) }}>
               {/* Agenda · próximas citas */}
               <div style={{ ...panel, padding: "20px 22px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -1864,10 +1885,10 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   if (typeof isLosMedique === "function" && isLosMedique()) {
     const fechaLarga = now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
     const kpis = [
-      { l: "Citas hoy", v: hoy.length, c: T.accent, onClick: () => go("agenda") },
-      { l: "Citas · semana", v: wkCitas, c: T.text, onClick: () => setResModal("citas") },
-      { l: "Cobrado · semana", v: D.fmt(wkMonto), c: "#1F8A5B", small: true },
-      { l: "Consent. pendientes", v: sinCons.length, c: sinCons.length ? "#C0285A" : T.textMute, onClick: () => setResModal("consent") }
+      { l: "Citas hoy", n: hoy.length, v: hoy.length, c: T.accent, onClick: () => go("agenda") },
+      { l: "Citas · semana", n: wkCitas, v: wkCitas, c: T.text, onClick: () => setResModal("citas") },
+      { l: "Cobrado · semana", n: wkMonto, fmt: D.fmt, v: D.fmt(wkMonto), c: "#1F8A5B", small: true },
+      { l: "Consent. pendientes", n: sinCons.length, v: sinCons.length, c: sinCons.length ? "#C0285A" : T.textMute, onClick: () => setResModal("consent") }
     ];
     const rule = <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent, verticalAlign: "middle" }} />;
     const eyebrow = { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent };
@@ -1898,11 +1919,11 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
         {/* KPIs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14, marginBottom: 26 }}>
           {kpis.map((k, i) => (
-            <div key={i} onClick={k.onClick} style={{ ...cardBase, padding: "20px 22px", cursor: k.onClick ? "pointer" : "default", transition: "transform .2s " + T.ease + ", border-color .2s" }}
+            <div key={i} onClick={k.onClick} style={{ ...cardBase, padding: "20px 22px", cursor: k.onClick ? "pointer" : "default", transition: "transform .2s " + T.ease + ", border-color .2s", ...(window.JCDS ? window.JCDS.reveal(i) : {}) }}
               onMouseEnter={e => { if (k.onClick) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = T.accent + "66"; } }}
               onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; }}>
               <div style={{ ...eyebrow, fontSize: 9, letterSpacing: ".16em", color: T.textMute }}>{k.l}</div>
-              <div style={{ fontFamily: T.serif, fontWeight: 400, fontSize: k.small ? 26 : 40, color: k.c, lineHeight: 1.05, marginTop: 10 }}>{k.v}</div>
+              <div style={{ fontFamily: T.serif, fontWeight: 400, fontSize: k.small ? 26 : 40, color: k.c, lineHeight: 1.05, marginTop: 10 }}>{typeof k.n === "number" ? <CountUp value={k.n} format={k.fmt} /> : k.v}</div>
             </div>
           ))}
         </div>
