@@ -199,7 +199,9 @@
         // para no depender de variables CSS que este stack no usa. Solo aplica en :focus-visible
         // (tab/teclado), no en click con mouse, así no altera el aspecto visual normal de nada.
         ":focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:4px}" +
-        "input:focus-visible,select:focus-visible,textarea:focus-visible{outline-offset:0}";
+        "input:focus-visible,select:focus-visible,textarea:focus-visible{outline-offset:0}" +
+        // Dashboard editorial: las columnas asimétricas (1.5fr/1fr) colapsan a 1 col en pantallas angostas.
+        "@media (max-width: 820px){.jc-dash-grid{grid-template-columns:1fr !important}}";
       document.head.appendChild(st);
     }
   } catch (e) {}

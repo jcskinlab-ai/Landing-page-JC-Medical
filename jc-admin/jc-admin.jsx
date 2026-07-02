@@ -674,17 +674,36 @@ function DashboardView({ T, D, A, appts, patients, go }) {
               <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1.1, marginTop: 4 }}>{fmt(funnel.ingresos)}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10, color: T.accent, marginTop: 3 }}>Ver movimientos del mes →</div>
             </div>
+            {lux ? (
+              /* Anillo radial de ROAS (referencia #5): la métrica estrella como gauge. */
+              <div title={"ROAS = ingresos ÷ inversión en publicidad.\n" + funnel.roas.toFixed(1) + "x = por cada $1 en Meta recuperaste $" + funnel.roas.toFixed(1) + ".\nSobre 3x es muy bueno; bajo 1x pierdes dinero."} style={{ display: "flex", alignItems: "center", gap: 16, background: green + "0e", border: "1px solid " + green + "33", borderRadius: 14, padding: "16px 18px", cursor: "help" }}>
+                {(() => { const r = 30, C = 2 * Math.PI * r, p = Math.max(0, Math.min(1, funnel.roas / 5)); return (
+                  <svg width="80" height="80" viewBox="0 0 80 80" style={{ flexShrink: 0 }}>
+                    <circle cx="40" cy="40" r={r} fill="none" stroke={T.lineSoft} strokeWidth="7" />
+                    <circle cx="40" cy="40" r={r} fill="none" stroke={green} strokeWidth="7" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - p)} transform="rotate(-90 40 40)" style={{ transition: "stroke-dashoffset .6s " + T.ease }} />
+                    <text x="40" y="38" textAnchor="middle" fontFamily={T.serif} fontSize="18" fill={green}>{funnel.roas.toFixed(1)}x</text>
+                    <text x="40" y="52" textAnchor="middle" fontFamily={T.sans} fontSize="7" fill={T.textMute} letterSpacing="1.5">ROAS</text>
+                  </svg>
+                ); })()}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: green }}>Retorno publicitario</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 12, color: T.text, marginTop: 5, lineHeight: 1.5 }}>Por cada $1 en Meta recuperas <b>${funnel.roas.toFixed(1)}</b>.</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 4, lineHeight: 1.5 }}>Invertiste {fmt(funnel.spend)} · facturaste {fmt(funnel.ingresos)}.</div>
+                </div>
+              </div>
+            ) : (
             <div title={"ROAS (Return On Ad Spend) = ingresos ÷ inversión en publicidad.\n" + funnel.roas.toFixed(1) + "x significa que por cada $1 invertido en Meta recuperaste $" + funnel.roas.toFixed(1) + " en facturación.\nSobre 3x se considera muy bueno; bajo 1x estás perdiendo dinero."} style={{ background: green + "12", border: "1px solid " + green + "44", borderRadius: 12, padding: "16px 16px", cursor: "help" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: green }}>ROAS real</span>
                 <span title="Retorno de la inversión publicitaria: ingresos ÷ gasto en Meta." style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: "1px solid " + green + "88", color: green, fontFamily: T.sans, fontSize: 9, fontWeight: 700, cursor: "help" }}>?</span>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                <span style={{ fontFamily: T.serif, fontSize: lux ? 30 : 40, color: green, lineHeight: 1.05 }}>{funnel.roas.toFixed(1)}x</span>
+                <span style={{ fontFamily: T.serif, fontSize: 40, color: green, lineHeight: 1.05 }}>{funnel.roas.toFixed(1)}x</span>
                 <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>por cada $1 en Meta</span>
               </div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6, lineHeight: 1.5 }}>Invertiste {fmt(funnel.spend)} y facturaste {fmt(funnel.ingresos)}.</div>
             </div>
+            )}
             {/* Campañas activas por nombre (cuando Meta está conectado). (P8) */}
             {funnel.campaigns.length > 0 && (
               <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 14px" }}>
@@ -960,7 +979,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
             <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
             {_greet}{clinicDisplayName() ? ", " + clinicDisplayName() : ""}
           </div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: 42, letterSpacing: "-.015em", color: T.text, marginTop: 12, lineHeight: 1.02, textTransform: "capitalize" }}>{_fechaLarga}</h1>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(38px, 5vw, 56px)", letterSpacing: "-.02em", color: T.text, marginTop: 12, lineHeight: 1.0, textTransform: "capitalize" }}>{_fechaLarga}</h1>
           <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
         </div>
       ) : (
@@ -979,70 +998,128 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       </div>
 
       {tab === "general" && lux && (() => {
-        /* ── Dashboard LUX: misma arquitectura que el Resumen (que sí gustó) ──
-           KPIs arriba → grid de 2 columnas de PANELES: izquierda Agenda + Evolución,
-           derecha Embudo compacto + Accesos. El embudo deja de dominar la página. */
-        const panel = { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow };
+        /* ── Dashboard editorial v3 (Los Medique) — referencias: "tu día" con timeline
+           (riel de horas + marcador ahora) a la izq + pendientes a la der; franja de
+           métricas con líneas finas (sin cajas parejas); rendimiento con anillo de ROAS. */
+        const panel = { background: T.surface, border: "1px solid " + T.line, borderRadius: 18, boxShadow: T.shadow };
         const eyebrow = { display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent };
         const rule = <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />;
-        const rowLux = a => (
-          <button key={a.id} onClick={() => go("agenda")} style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 4px", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer", textAlign: "left", width: "100%", transition: "background .18s " + T.ease }}
-            onMouseEnter={e => e.currentTarget.style.background = T.lineSoft} onMouseLeave={e => e.currentTarget.style.background = "none"}>
-            <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
-              <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>{a.time || "—"}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginTop: 4 }}>{apptDayOff(a) === 0 ? "Hoy" : (a.when || "Próx.")}</div>
+        const cols = "minmax(0, 1.5fr) minmax(0, 1fr)";
+        const nowM = new Date().getHours() * 60 + new Date().getMinutes();
+        const todayList = hoy.slice().sort((a, b) => mins(a.time || "0:00") - mins(b.time || "0:00"));
+        let nowIdx = todayList.findIndex(a => mins(a.time || "0:00") >= nowM);
+        if (nowIdx < 0) nowIdx = todayList.length;
+        const nowMarker = (
+          <div key="now" style={{ display: "flex", alignItems: "center", gap: 12, padding: "3px 4px" }}>
+            <div style={{ flexShrink: 0, width: 50, textAlign: "right", fontFamily: T.sans, fontSize: 10, fontWeight: 700, letterSpacing: ".04em", color: green }}>{String(Math.floor(nowM / 60)).padStart(2, "0")}:{String(nowM % 60).padStart(2, "0")}</div>
+            <div style={{ flex: 1, height: 0, borderTop: "1.5px solid " + green, position: "relative" }}>
+              <span style={{ position: "absolute", left: -2, top: -4, width: 8, height: 8, borderRadius: "50%", background: green }} />
             </div>
-            <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 14 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.proc || "—"} · {(parseInt(a.dur, 10) || 60)} min</div>
+          </div>
+        );
+        const dayRow = a => {
+          const est = (window.jcmApptState ? window.jcmApptState(a, T) : { color: T.accent, label: "" });
+          return (
+            <div key={a.id} onClick={() => go("agenda")} style={{ display: "flex", alignItems: "stretch", gap: 12, cursor: "pointer", borderRadius: 12, padding: 4, transition: "background .18s " + T.ease }}
+              onMouseEnter={e => e.currentTarget.style.background = T.lineSoft} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+              <div style={{ flexShrink: 0, width: 50, textAlign: "right", fontFamily: T.serif, fontSize: 15, color: T.text, paddingTop: 11 }}>{a.time || "—"}</div>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 11, alignItems: "flex-start", background: T.surface2 || T.bg, borderRadius: 12, padding: "11px 13px" }}>
+                <span style={{ flexShrink: 0, width: 4, alignSelf: "stretch", borderRadius: 999, background: est.color }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.proc || "Atención"} · {(parseInt(a.dur, 10) || 60)} min{est.label ? " · " + est.label : ""}</div>
+                </div>
+              </div>
             </div>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
+          );
+        };
+        // Pendientes de hoy (estilo tareas): re-citas por contactar + consentimientos por firmar.
+        const tareas = [];
+        (recitas || []).slice(0, 4).forEach(x => { const p = x.p || x; tareas.push({ c: green, t: "Contactar a " + ((p && p.name) || "paciente"), m: "Re-cita lista para agendar", to: "pendientes" }); });
+        (sinConsent || []).slice(0, 5 - tareas.length).forEach(p => tareas.push({ c: "#C9A227", t: (p.name || "Paciente"), m: "Consentimiento por firmar", to: "pendientes" }));
+        // Métrica en franja de líneas finas (sin caja): numeral serif + label + sub.
+        const stat = (label, value, sub, popup, cfmt, first) => (
+          <button onClick={() => popup && setKpiPopup(popup)} style={{ flex: "1 1 0", minWidth: 128, textAlign: "left", background: "none", border: "none", borderLeft: first ? "none" : "1px solid " + T.line, padding: first ? "2px 0" : "2px 0 2px 22px", cursor: popup ? "pointer" : "default" }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", color: T.textMute }}>{label}</div>
+            <div style={{ fontFamily: T.serif, fontSize: 34, fontWeight: 400, color: T.text, lineHeight: 1.05, margin: "9px 0 4px" }}><CountUp value={value} format={cfmt} /></div>
+            <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{sub}</div>
           </button>
         );
         return (
         <div>
-          {/* KPIs primero (entrada escalonada + conteo animado) */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px,1fr))", gap: 14, marginBottom: 22 }}>
-            <Kpi idx={0} ic="pacientes" label="Pacientes totales" value={patients.length} sub="Pacientes activos" popup="pacientes" />
-            <Kpi idx={1} ic="citas" label="Citas hoy" value={hoy.length} sub="Agendadas para hoy" popup="citas" />
-            <Kpi idx={2} ic="nuevos" label="Nuevos pacientes" value={nuevosMes} sub="Añadidos este mes" popup="nuevos" />
-            <Kpi idx={3} ic="ingresos" label="Ingresos hoy" value={ingresosHoy} cfmt={fmt} sub="Generado hoy" popup="ingresos" />
-          </div>
-          {/* Dos columnas de paneles: IZQ embudo · DER citas + evolución + accesos (simetría) */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 18, alignItems: "start" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 18, ...(DS ? DS.reveal(4) : {}) }}>
-              {/* Embudo de marketing (misma maquinaria, en columna) */}
-              <FunnelBlock />
+          {/* Tu día — timeline (izq) + pendientes (der) · elemento estrella */}
+          <div className="jc-dash-grid" style={{ display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start", marginBottom: 20, ...(DS ? DS.reveal(0) : {}) }}>
+            <div style={{ ...panel, padding: "22px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                <div style={eyebrow}>{rule} Tu día · agenda de hoy</div>
+                <button onClick={() => go("agenda")} style={{ ...linkBtn(T), fontSize: 10 }}>Ver agenda →</button>
+              </div>
+              {todayList.length === 0 ? (
+                <div style={{ padding: "30px 0 22px", textAlign: "center" }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>Sin citas para hoy</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>Disfruta la calma o agenda una nueva atención.</div>
+                  <div style={{ marginTop: 16 }}><AdBtn T={T} small primary onClick={() => go("agenda")}>+ Nueva cita</AdBtn></div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {todayList.map((a, i) => (
+                    <React.Fragment key={a.id}>
+                      {i === nowIdx && nowMarker}
+                      {dayRow(a)}
+                    </React.Fragment>
+                  ))}
+                  {nowIdx >= todayList.length && nowMarker}
+                </div>
+              )}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 18, ...(DS ? DS.reveal(5) : {}) }}>
-              {/* Agenda · próximas citas */}
-              <div style={{ ...panel, padding: "20px 22px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={eyebrow}>{rule} Próximas citas</div>
-                  <button onClick={() => go("agenda")} style={{ ...linkBtn(T), fontSize: 10 }}>Ver agenda →</button>
+            <div style={{ ...panel, padding: "22px 24px" }}>
+              <div style={{ ...eyebrow, marginBottom: 18 }}>{rule} Pendientes de hoy</div>
+              {tareas.length === 0 ? (
+                <div style={{ padding: "26px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Todo al día. 🌿</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {tareas.map((k, i) => (
+                    <button key={i} onClick={() => go(k.to)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "none", border: "none", borderRadius: 10, padding: "11px 10px", cursor: "pointer", transition: "background .18s " + T.ease }}
+                      onMouseEnter={e => e.currentTarget.style.background = T.lineSoft} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                      <span style={{ flexShrink: 0, width: 9, height: 9, borderRadius: "50%", border: "2px solid " + k.c }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.t}</span>
+                        <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{k.m}</span>
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
+                    </button>
+                  ))}
                 </div>
-                {prox5.length ? prox5.map(rowLux) : <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "14px 0" }}>No hay citas próximas. Agenda la primera desde el botón Nueva cita.</div>}
+              )}
+            </div>
+          </div>
+          {/* Franja de métricas — líneas finas, sin cajas (editorial) */}
+          <div style={{ ...panel, display: "flex", flexWrap: "wrap", gap: 4, padding: "20px 26px", marginBottom: 20, ...(DS ? DS.reveal(1) : {}) }}>
+            {stat("Pacientes totales", patients.length, "Pacientes activos", "pacientes", undefined, true)}
+            {stat("Citas hoy", hoy.length, "Agendadas para hoy", "citas")}
+            {stat("Nuevos pacientes", nuevosMes, "Añadidos este mes", "nuevos")}
+            {stat("Ingresos hoy", ingresosHoy, "Generado hoy", "ingresos", fmt)}
+          </div>
+          {/* Rendimiento del mes (embudo + anillo de ROAS dentro de FunnelBlock) */}
+          <div style={{ ...(DS ? DS.reveal(2) : {}) }}><FunnelBlock /></div>
+          {/* Evolución de ingresos + accesos rápidos */}
+          <div className="jc-dash-grid" style={{ display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start", marginTop: 20, ...(DS ? DS.reveal(3) : {}) }}>
+            <div style={{ ...panel, padding: "22px 24px" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+                <div style={eyebrow}>{rule} Evolución de ingresos</div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 24, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: green, marginTop: 3 }}>↗ +{growth}% en la semana</div>
+                </div>
               </div>
-              {/* Evolución de ingresos */}
-              <div style={{ ...panel, padding: "20px 22px" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
-                  <div style={eyebrow}>{rule} Evolución de ingresos</div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: T.serif, fontSize: 24, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
-                    <div style={{ fontFamily: T.sans, fontSize: 10.5, color: green, marginTop: 3 }}>↗ +{growth}% en la semana</div>
-                  </div>
-                </div>
-                <Chart />
-              </div>
-              {/* Accesos rápidos (rellenan el espacio bajo Evolución para mantener la simetría) */}
-              <div style={{ ...panel, padding: "20px 22px" }}>
-                <div style={{ ...eyebrow, marginBottom: 12 }}>{rule} Accesos rápidos</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 9 }}>
-                  {acceso("crear", "Crear paciente", "Añadir nueva ficha médica", "pacientes")}
-                  {acceso("cita", "Nueva cita", "Agendar una atención", "agenda")}
-                  {acceso("puntos", "Otorgar puntos", "Programa de fidelidad", "fidelidad")}
-                  {acceso("stock", "Inventario", "Stock e insumos", "inventario")}
-                </div>
+              <Chart />
+            </div>
+            <div style={{ ...panel, padding: "22px 24px" }}>
+              <div style={{ ...eyebrow, marginBottom: 14 }}>{rule} Accesos rápidos</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {acceso("crear", "Crear paciente", "Añadir nueva ficha", "pacientes")}
+                {acceso("cita", "Nueva cita", "Agendar atención", "agenda")}
+                {acceso("stock", "Inventario", "Stock e insumos", "inventario")}
               </div>
             </div>
           </div>
@@ -2474,6 +2551,17 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
 
   return (
     <div>
+      {/* Hero editorial (Los Medique): titular protagonista arriba de la agenda (ref. #3/#5). */}
+      {luxF && (
+        <div style={{ margin: "6px 0 22px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent }}>
+            <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
+            Agenda de la clínica
+          </div>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(32px, 4.5vw, 46px)", letterSpacing: "-.02em", color: T.text, margin: "12px 0 0", lineHeight: 1 }}>Reservas y Citas</h1>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{(() => { const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length; return n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."; })()} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
+        </div>
+      )}
       {/* Cabecera grande: solo en clínicas que NO son la base (v2 la colapsa a una línea en SemanaGrid). */}
       {!isBase && (
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
@@ -2492,7 +2580,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {/* En v2 (lista), una mini-barra superior con el toggle + Nueva cita (la semana ya los lleva inline). */}
       {isBase && view === "dia" && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text }}>Reservas y Citas</div>
+          <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text }}>{luxF ? "" : "Reservas y Citas"}</div>
           {viewToggleNode}
           {icsBtnNode}
           {nuevaBtnNode}
