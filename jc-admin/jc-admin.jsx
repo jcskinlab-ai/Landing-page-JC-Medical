@@ -973,7 +973,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
             </div>
             <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 14 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.proc || "—"} · {(a.dur || 60)} min</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.proc || "—"} · {(parseInt(a.dur, 10) || 60)} min</div>
             </div>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
           </button>
@@ -987,8 +987,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
             <Kpi ic="nuevos" label="Nuevos pacientes" value={nuevosMes} sub="Añadidos este mes" popup="nuevos" />
             <Kpi ic="ingresos" label="Ingresos hoy" value={fmt(ingresosHoy)} sub="Generado hoy" popup="ingresos" />
           </div>
-          {/* Dos columnas de paneles */}
+          {/* Dos columnas de paneles: IZQ embudo · DER citas + evolución + accesos (simetría) */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 18, alignItems: "start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {/* Embudo de marketing (misma maquinaria, en columna) */}
+              <FunnelBlock />
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               {/* Agenda · próximas citas */}
               <div style={{ ...panel, padding: "20px 22px" }}>
@@ -1009,14 +1013,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
                 </div>
                 <Chart />
               </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              {/* Embudo compacto (misma maquinaria, en columna) */}
-              <FunnelBlock />
-              {/* Accesos rápidos */}
+              {/* Accesos rápidos (rellenan el espacio bajo Evolución para mantener la simetría) */}
               <div style={{ ...panel, padding: "20px 22px" }}>
                 <div style={{ ...eyebrow, marginBottom: 12 }}>{rule} Accesos rápidos</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 9 }}>
                   {acceso("crear", "Crear paciente", "Añadir nueva ficha médica", "pacientes")}
                   {acceso("cita", "Nueva cita", "Agendar una atención", "agenda")}
                   {acceso("puntos", "Otorgar puntos", "Programa de fidelidad", "fidelidad")}
