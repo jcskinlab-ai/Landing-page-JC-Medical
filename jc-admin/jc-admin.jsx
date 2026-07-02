@@ -490,7 +490,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
   // "lux" = rediseño editorial del dashboard, gateado a Los Medique (preview antes del push global).
   const lux = typeof isLosMedique === "function" && isLosMedique();
-  // Acento neutro (pedido explícito): el celeste vivo del tema "azul" (T.accent) se sentía muy
+  // Acento neutro (pedido explícito): el celeste vivo del tema "azul" (navyAccent) se sentía muy
   // saturado en la pastilla activa y las barras del embudo. Un slate-azulado apagado (misma
   // familia que el panel navy "Facturaste este mes", no el texto celeste de esa tarjeta).
   const navyAccent = lux ? (T.dark ? "#7891A6" : "#5C7488") : T.accent;
@@ -646,8 +646,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: lux ? 18 : 14 }}>
           <div style={lux
             ? { fontFamily: T.sans, fontSize: 14, fontWeight: 500, letterSpacing: ".01em", color: T.textMute }
-            : { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>
-            {!lux && <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />}
+            : { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: navyAccent, fontWeight: 600 }}>
+            {!lux && <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || navyAccent }} />}
             Embudo de marketing · este mes
           </div>
           <span style={{ fontFamily: T.sans, fontSize: 10, color: funnel.live ? "#1F8A5B" : T.textFaint }}>{funnel.demo ? "Datos de ejemplo — carga tu gasto de Meta para verlo real" : (funnel.live ? "● Conectado a Meta · en vivo" : "Datos reales de tu mes")}</span>
@@ -668,7 +668,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
                     <input ref={soldRef} type="number" defaultValue={funnel.demo ? "" : funnel.compras} placeholder="0" style={{ ...inp, width: 90 }} /></label>
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <button onClick={saveMeta} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "9px 14px", cursor: "pointer" }}>Guardar</button>
+                  <button onClick={saveMeta} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", color: T.onAccent || "#fff", background: navyAccent, border: "none", borderRadius: 8, padding: "9px 14px", cursor: "pointer" }}>Guardar</button>
                   <button onClick={() => setMetaEdit(false)} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 8, padding: "9px 12px", cursor: "pointer" }}>Cancelar</button>
                 </div>
               </div>
@@ -707,7 +707,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
               </div>
               <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1.1, marginTop: 4 }}>{fmt(funnel.ingresos)}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 10, color: T.accent, marginTop: 3 }}>Ver movimientos del mes →</div>
+              <div style={{ fontFamily: T.sans, fontSize: 10, color: navyAccent, marginTop: 3 }}>Ver movimientos del mes →</div>
             </div>
             {lux ? (
               /* Anillo radial de ROAS (referencia #5): la métrica estrella como gauge. */
@@ -779,7 +779,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       if (!hoy.length) rows = [<div key="0" style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "16px 0" }}>No hay citas agendadas para hoy.</div>];
       else rows = hoy.map((a, i) => (
         <div key={i} style={rowStyle}>
-          <div style={{ width: 36, height: 36, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent }}>{a.time || "—"}</div>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: navyAccent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: navyAccent }}>{a.time || "—"}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
             <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc}</div>
@@ -835,7 +835,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       // Resumen ingresos / egresos / neto
       rows.push(
         <div key="resumen" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          {[["Ingresos", ingM, green], ["Egresos", egrM, "#C0285A"], ["Neto", ingM - egrM, T.accent]].map(([l, v, c]) => (
+          {[["Ingresos", ingM, green], ["Egresos", egrM, "#C0285A"], ["Neto", ingM - egrM, navyAccent]].map(([l, v, c]) => (
             <div key={l} style={{ flex: 1, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "9px 10px" }}>
               <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute }}>{l}</div>
               <div style={{ fontFamily: T.serif, fontSize: 16, color: c, marginTop: 2 }}>{fmt(v)}</div>
@@ -853,7 +853,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           const dayNet = dayMov.reduce((s, m) => s + (m.type === "egreso" ? -(m.amount || 0) : (m.amount || 0)), 0);
           rows.push(
             <div key={"h" + day} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "14px 0 4px", paddingBottom: 4, borderBottom: "1px solid " + T.line }}>
-              <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent }}>{diaTxt(day)}</span>
+              <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: navyAccent }}>{diaTxt(day)}</span>
               <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{fmt(dayNet)}</span>
             </div>
           );
@@ -894,7 +894,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     // "lux" = rediseño editorial gateado a Los Medique: tarjeta más aireada, numeral serif
     // grande, hover-lift, entrada escalonada (reveal) y conteo animado de la cifra.
     <div onClick={() => popup && setKpiPopup(popup)} title={popup ? "Ver detalle" : undefined}
-      onMouseEnter={e => { if (lux && popup) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = T.accent + "66"; } }}
+      onMouseEnter={e => { if (lux && popup) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = navyAccent + "66"; } }}
       onMouseLeave={e => { if (lux) { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; } }}
       style={lux
         ? { position: "relative", cursor: popup ? "pointer" : "default", background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "20px 22px", boxShadow: T.shadow, transition: "transform .2s " + T.ease + ", border-color .2s", ...(DS ? DS.reveal(idx || 0) : {}) }
@@ -912,7 +912,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <div style={{ fontFamily: T.serif, fontSize: 26, color: T.text, lineHeight: 1.05, marginTop: 2 }}>{value}</div>
         <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
       </div>
-      <div style={{ width: 38, height: 38, borderRadius: 10, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><DashIcon name={ic} c={T.accent} size={18} /></div>
+      <div style={{ width: 38, height: 38, borderRadius: 10, background: navyAccent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><DashIcon name={ic} c={navyAccent} size={18} /></div>
       </>)}
     </div>
   );
@@ -931,11 +931,11 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     const grid = [0, 1, 2, 3].map(g => padT + g * innerH / 3);
     return (
       <svg viewBox={"0 0 " + W + " " + H} style={{ width: "100%", height: "auto", display: "block" }} preserveAspectRatio="xMidYMid meet">
-        <defs><linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={T.accent} stopOpacity="0.22" /><stop offset="100%" stopColor={T.accent} stopOpacity="0" /></linearGradient></defs>
+        <defs><linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={navyAccent} stopOpacity="0.22" /><stop offset="100%" stopColor={navyAccent} stopOpacity="0" /></linearGradient></defs>
         {grid.map((y, i) => <line key={i} x1={padL} y1={y} x2={padL + innerW} y2={y} stroke={T.line} strokeWidth="1" />)}
         <path d={area} fill="url(#dashGrad)" />
-        <path d={line} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
-        {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.4" fill={T.surface} stroke={T.accent} strokeWidth="2" />)}
+        <path d={line} fill="none" stroke={navyAccent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+        {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.4" fill={T.surface} stroke={navyAccent} strokeWidth="2" />)}
         {dias.map((d, i) => {
           const anchor = i === 0 ? "start" : (i === n - 1 ? "end" : "middle");
           const tx = i === 0 ? padL : (i === n - 1 ? padL + innerW : X(i));
@@ -949,11 +949,11 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const citaRow = a => lux ? (
     // Estilo editorial (Los Medique): hora en serif + separador fino, hover sutil.
     <div key={a.id} onClick={() => go("agenda")} style={{ display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "13px 16px", cursor: "pointer", transition: "transform .2s " + T.ease + ", border-color .2s" }}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = T.accent + "66"; }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = navyAccent + "66"; }}
       onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; }}>
       <div style={{ flexShrink: 0, textAlign: "center", minWidth: 54 }}>
         <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1 }}>{a.time || "—"}</div>
-        <div style={{ fontFamily: T.sans, fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginTop: 4 }}>{apptDayOff(a) === 0 ? "Hoy" : (a.when || "Próx.")}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: navyAccent, marginTop: 4 }}>{apptDayOff(a) === 0 ? "Hoy" : (a.when || "Próx.")}</div>
       </div>
       <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 14 }}>
         <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
@@ -972,17 +972,17 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>{apptDayOff(a) === 0 ? "Hoy, " + (a.time || "—") : (a.when || a.time || "—")}</div>
         <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{(a.dur || 60) + " min"}</div>
       </div>
-      <button onClick={() => go("agenda")} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Ver</button>
+      <button onClick={() => go("agenda")} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: navyAccent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Ver</button>
     </div>
   );
 
   /* ── acceso rápido ── */
   const acceso = (ic, title, sub, to) => (
     <button onClick={() => go(to)}
-      onMouseEnter={e => { if (lux) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = T.accent + "66"; } }}
+      onMouseEnter={e => { if (lux) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = navyAccent + "66"; } }}
       onMouseLeave={e => { if (lux) { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; } }}
       style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", background: T.surface, border: "1px solid " + T.line, borderRadius: lux ? 14 : 12, padding: "14px 15px", cursor: "pointer", ...(lux ? { boxShadow: T.shadow, transition: "transform .2s " + T.ease + ", border-color .2s" } : {}) }}>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><DashIcon name={ic} c={T.accent} /></div>
+      <div style={{ width: 40, height: 40, borderRadius: 10, background: navyAccent + "14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><DashIcon name={ic} c={navyAccent} /></div>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{title}</div>
         <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1 }}>{sub}</div>
@@ -998,7 +998,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{title}</div>
         <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
       </div>
-      {action && <button onClick={fn} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 11px", cursor: "pointer" }}>{action}</button>}
+      {action && <button onClick={fn} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: navyAccent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 11px", cursor: "pointer" }}>{action}</button>}
     </div>
   );
 
@@ -1010,8 +1010,8 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       {/* Saludo personalizado */}
       {lux ? (
         <div style={{ margin: "6px 0 26px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent }}>
-            <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: navyAccent }}>
+            <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || navyAccent }} />
             {_greet}{clinicDisplayName() ? ", " + clinicDisplayName() : ""}
           </div>
           <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(26px, 3vw, 34px)", letterSpacing: "-.01em", color: T.text, marginTop: 10, lineHeight: 1.05, textTransform: "capitalize" }}>{_fechaLarga}</h1>
@@ -1054,7 +1054,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           </div>
         );
         const dayRow = a => {
-          const est = (window.jcmApptState ? window.jcmApptState(a, T) : { color: T.accent, label: "" });
+          const est = (window.jcmApptState ? window.jcmApptState(a, T) : { color: navyAccent, label: "" });
           return (
             <div key={a.id} onClick={() => go("agenda")} style={{ display: "flex", alignItems: "stretch", gap: 12, cursor: "pointer", borderRadius: 12, padding: 4, transition: "background .18s " + T.ease }}
               onMouseEnter={e => e.currentTarget.style.background = glassFillHover} onMouseLeave={e => e.currentTarget.style.background = "none"}>
@@ -1094,7 +1094,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         // Recuadro de tarea (ref. columna "Tasks"): tarjeta translúcida con círculo + título + estado.
         const tareaCard = (k, i) => (
           <button key={i} onClick={() => go(k.to)} style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", background: glassFill, border: "1px solid " + T.line, borderRadius: 13, padding: "13px 15px", cursor: "pointer", transition: "background .18s " + T.ease + ", border-color .18s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = glassFillHover; e.currentTarget.style.borderColor = T.accent + "44"; }}
+            onMouseEnter={e => { e.currentTarget.style.background = glassFillHover; e.currentTarget.style.borderColor = navyAccent + "44"; }}
             onMouseLeave={e => { e.currentTarget.style.background = glassFill; e.currentTarget.style.borderColor = T.line; }}>
             <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: "50%", border: "2px solid " + k.c, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: k.c }} />
@@ -1208,7 +1208,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 16px", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" /></svg></div>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: navyAccent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={navyAccent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" /></svg></div>
                 <div><div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Evolución de ingresos</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Estimado de la semana</div></div>
               </div>
               <div style={{ textAlign: "right" }}>
@@ -1255,7 +1255,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Notificaciones</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
             {wa.map(m => notif("whatsapp", green, m.name + " escribió por WhatsApp", "\u201c" + m.msg + "\u201d · " + m.ago, "Responder", () => go("pendientes")))}
-            {biz.map(b => notif("campana", T.accent, b.name + " comentó en " + b.net, "\u201c" + b.msg + "\u201d · " + b.ago, "Ver", () => go("marketing")))}
+            {biz.map(b => notif("campana", navyAccent, b.name + " comentó en " + b.net, "\u201c" + b.msg + "\u201d · " + b.ago, "Ver", () => go("marketing")))}
             {sinConsent.length > 0 && notif("alerta", "#C9A227", sinConsent.length + " consentimiento(s) por firmar", "Revisa las fichas pendientes", "Ver", () => go("pendientes"))}
             {recitas.length > 0 && notif("whatsapp", green, recitas.length + " paciente(s) para re-citar", "Cumplieron el plazo de su próxima aplicación", "Ver", () => go("pacientes"))}
             {(wa.length + biz.length + sinConsent.length + recitas.length) === 0 && <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0" }}>Todo al día. Sin notificaciones.</div>}
