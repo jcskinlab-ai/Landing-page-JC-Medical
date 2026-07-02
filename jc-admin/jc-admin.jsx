@@ -125,10 +125,11 @@ const ADMIN_NAV = [
 var NEW_SECT = { contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, boletas: 1, pagosonline: 1 };
 // Encabezado de grupo del sidebar: la clave donde COMIENZA un grupo → su etiqueta (Área 1).
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "Marketing & Ventas", resumen: "Análisis", administracion: "Sistema" };
-// El sidebar expandido arranca COMPACTO: solo se ven los encabezados de categoría (excepto Inicio,
-// que muestra Dashboard). Se abren al clickear el encabezado; al salir el cursor vuelven a colapsarse
-// para no tener una lista infinita. "Inicio" (Dashboard) siempre visible.
-const SIDE_DEFAULT_COLLAPSED = { "Clínica": true, "Marketing & Ventas": true, "Análisis": true, "Sistema": true };
+// Sidebar: Inicio y Clínica quedan SIEMPRE desplegados (no colapsables). El resto (Marketing,
+// Análisis, Sistema) arranca oculto y se despliega/oculta al clickear su encabezado; al salir el
+// cursor vuelven a colapsarse para no tener una lista infinita.
+const SIDE_LOCKED_OPEN = { "Inicio": true, "Clínica": true };
+const SIDE_DEFAULT_COLLAPSED = { "Marketing & Ventas": true, "Análisis": true, "Sistema": true };
 // Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
@@ -1792,15 +1793,18 @@ function AdminApp() {
               {(() => { let curGroup = null; return adminNavItems().map(n => {
                 if (SIDE_GROUP_HEAD[n.k]) curGroup = SIDE_GROUP_HEAD[n.k];
                 const grp = curGroup;
-                const collapsed = navOpen && !!collapsedGroups[grp];
+                const locked = !!SIDE_LOCKED_OPEN[grp]; // Inicio y Clínica: siempre desplegados
+                const collapsed = navOpen && !locked && !!collapsedGroups[grp];
                 const active = section === n.k;
                 const head = SIDE_GROUP_HEAD[n.k];
                 return (
                   <React.Fragment key={n.k}>
-                    {navOpen && head && <button onClick={() => toggleGroup(grp)} title={collapsedGroups[grp] ? "Mostrar" : "Ocultar"} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: .7, padding: "14px 19px 5px", textAlign: "left" }}>
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: collapsedGroups[grp] ? "rotate(-90deg)" : "none", transition: "transform .18s", flexShrink: 0 }}><path d="M6 9l6 6 6-6" /></svg>
-                      {head}
-                    </button>}
+                    {navOpen && head && (locked
+                      ? <div style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: .7, padding: "14px 19px 5px" }}>{head}</div>
+                      : <button onClick={() => toggleGroup(grp)} title={collapsedGroups[grp] ? "Mostrar" : "Ocultar"} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: .7, padding: "14px 19px 5px", textAlign: "left" }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: collapsedGroups[grp] ? "rotate(-90deg)" : "none", transition: "transform .18s", flexShrink: 0 }}><path d="M6 9l6 6 6-6" /></svg>
+                        {head}
+                      </button>)}
                     {!navOpen && head && n.k !== "dashboard" && <div style={{ height: 1, background: SIDE_LINE, margin: "7px 14px" }} />}
                     {!collapsed && <button onClick={() => nav(n.k)} title={n.l} style={{
                       display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 14, width: "100%", padding: navOpen ? "12px 19px" : "12px 0", background: active ? SIDE_ACT : "none",

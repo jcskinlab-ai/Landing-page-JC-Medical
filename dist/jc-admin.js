@@ -157,7 +157,8 @@ const ADMIN_NAV = [
 ];
 var NEW_SECT = { contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, boletas: 1, pagosonline: 1 };
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
-const SIDE_DEFAULT_COLLAPSED = { "Cl\xEDnica": true, "Marketing & Ventas": true, "An\xE1lisis": true, "Sistema": true };
+const SIDE_LOCKED_OPEN = { "Inicio": true, "Cl\xEDnica": true };
+const SIDE_DEFAULT_COLLAPSED = { "Marketing & Ventas": true, "An\xE1lisis": true, "Sistema": true };
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
@@ -1667,10 +1668,11 @@ function AdminApp() {
       return adminNavItems().map((n) => {
         if (SIDE_GROUP_HEAD[n.k]) curGroup = SIDE_GROUP_HEAD[n.k];
         const grp = curGroup;
-        const collapsed = navOpen && !!collapsedGroups[grp];
+        const locked = !!SIDE_LOCKED_OPEN[grp];
+        const collapsed = navOpen && !locked && !!collapsedGroups[grp];
         const active = section === n.k;
         const head = SIDE_GROUP_HEAD[n.k];
-        return /* @__PURE__ */ React.createElement(React.Fragment, { key: n.k }, navOpen && head && /* @__PURE__ */ React.createElement("button", { onClick: () => toggleGroup(grp), title: collapsedGroups[grp] ? "Mostrar" : "Ocultar", style: { display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", style: { transform: collapsedGroups[grp] ? "rotate(-90deg)" : "none", transition: "transform .18s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), head), !navOpen && head && n.k !== "dashboard" && /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: SIDE_LINE, margin: "7px 14px" } }), !collapsed && /* @__PURE__ */ React.createElement("button", { onClick: () => nav(n.k), title: n.l, style: {
+        return /* @__PURE__ */ React.createElement(React.Fragment, { key: n.k }, navOpen && head && (locked ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, width: "100%", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px" } }, head) : /* @__PURE__ */ React.createElement("button", { onClick: () => toggleGroup(grp), title: collapsedGroups[grp] ? "Mostrar" : "Ocultar", style: { display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", style: { transform: collapsedGroups[grp] ? "rotate(-90deg)" : "none", transition: "transform .18s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), head)), !navOpen && head && n.k !== "dashboard" && /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: SIDE_LINE, margin: "7px 14px" } }), !collapsed && /* @__PURE__ */ React.createElement("button", { onClick: () => nav(n.k), title: n.l, style: {
           display: "flex",
           alignItems: "center",
           justifyContent: navOpen ? "flex-start" : "center",
