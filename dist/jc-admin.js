@@ -66,8 +66,6 @@ function nIcon(name, c) {
     // ── Secciones nuevas (suite N1–N10) ──
     notasia: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" }), /* @__PURE__ */ React.createElement("path", { d: "M5 11a7 7 0 0 0 14 0M12 18v3" })),
     resumenia: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" }), /* @__PURE__ */ React.createElement("path", { d: "M14 2v6h6M8 13h8M8 17h5M9 3h4v3H9z" })),
-    contactcenter: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" }), /* @__PURE__ */ React.createElement("path", { d: "M8 12h.01M12 12h.01M16 12h.01" })),
-    reportesia: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 3a9 9 0 1 0 9 9h-9z" }), /* @__PURE__ */ React.createElement("path", { d: "M12 3v9l6.4-6.4" })),
     contraloria: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" }), /* @__PURE__ */ React.createElement("path", { d: "M9 12l2 2 4-4" })),
     desempeno: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4" })),
     encuestas: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 3l2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z" })),
@@ -76,7 +74,6 @@ function nIcon(name, c) {
     remuneraciones: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "4", y: "2", width: "16", height: "20", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M8 6h8M8 10h2M12 10h4M8 14h2M12 14h4M8 18h4" })),
     laboratorios: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M9 2v6l-5 9a2 2 0 0 0 1.8 3h12.4A2 2 0 0 0 20 17l-5-9V2M8 2h8M7 14h10" })),
     convenios: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M8 12l2 2 4-4" }), /* @__PURE__ */ React.createElement("path", { d: "M2 12l4-4 3 2 3-3 3 3 3-2 4 4-4 4-3-2-3 3-3-3-3 2z" })),
-    flujocaja: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M3 17l6-6 4 4 8-8M21 7h-4M21 7v4" })),
     boletas: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4" })),
     pagosonline: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "2.5", y: "5", width: "19", height: "14", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M2.5 9h19M6 15h4" }))
   }[name];
@@ -143,34 +140,35 @@ const ADMIN_NAV = [
   // ── Suite nueva (N1–N10) ──
   // Notas Clínicas y Resumen Clínico se quitaron del menú: el dictado por voz vive ahora en la
   // ficha (Evaluación y plan) y el resumen IA vive en la pestaña "IA" de la ficha del paciente.
-  { k: "contactcenter", l: "Contact Center" },
-  { k: "reportesia", l: "Reportes IA" },
+  // Contact Center se fusionó con Agente IA (mismo propósito, Agente IA era el completo) y
+  // Reportes IA se fusionó dentro de Análisis → Reportes: ya no son secciones de nav aparte.
   { k: "contraloria", l: "Contralor IA" },
   { k: "desempeno", l: "Panel de desempe\xF1o" },
   { k: "encuestas", l: "Encuestas" },
   { k: "chatinterno", l: "Chat interno" },
+  // Flujo de caja se eliminó: Registro de Ventas ya muestra ingresos/egresos/neto y el mismo gráfico.
   { k: "pagosgastos", l: "Pagos y Gastos" },
   { k: "remuneraciones", l: "Remuneraciones" },
   { k: "laboratorios", l: "Laboratorios" },
   { k: "convenios", l: "Convenios" },
-  { k: "flujocaja", l: "Flujo de caja" },
   { k: "boletas", l: "Boletas" },
   { k: "pagosonline", l: "Pagos online" }
 ];
-var NEW_SECT = { contactcenter: 1, reportesia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
+var NEW_SECT = { contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, boletas: 1, pagosonline: 1 };
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
-  { l: "Cl\xEDnica", keys: ["equipo", "sucursales", "inventario"] },
+  // Consentimientos y Editor de Fichas se movieron aquí (antes en "Sistema"), a pedido.
+  { l: "Cl\xEDnica", keys: ["equipo", "sucursales", "inventario", "consentimientos", "fichaeditor"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
-  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones", "contactcenter", "reportesia"] },
-  // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes). Fidelidad, Colaboración
-  // e Integraciones pasan a su propio menú "Herramientas". (P22)
+  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
+  // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes, que ya incluye Reportes IA
+  // fusionado). Fidelidad, Colaboración e Integraciones pasan a su propio menú "Herramientas". (P22)
   { l: "An\xE1lisis", keys: ["resumen", "reportes", "desempeno"] },
   { l: "Herramientas", keys: ["fidelidad", "colaboracion", "integraciones", "chatinterno"] },
-  { l: "Gesti\xF3n", keys: ["pagosgastos", "remuneraciones", "laboratorios", "convenios", "flujocaja", "boletas", "pagosonline"] },
-  { l: "Sistema", keys: ["administracion", "consentimientos", "fichaeditor", "tutoriales", "config"] }
+  { l: "Gesti\xF3n", keys: ["pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
+  { l: "Sistema", keys: ["administracion", "tutoriales", "config"] }
 ];
 const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja", "servicios", "contraloria"];
 function jcmCancelNotice(a) {
@@ -225,6 +223,16 @@ function jcmNewFeat() {
   return true;
 }
 if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
+var SUPER_ADMIN_EMAIL = "medique.cl@gmail.com";
+function jcmIsSuperAdmin() {
+  try {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return true;
+    return (window.JCSAAS.userEmail && window.JCSAAS.userEmail() || "") === SUPER_ADMIN_EMAIL;
+  } catch (e) {
+    return false;
+  }
+}
+if (typeof window !== "undefined") window.jcmIsSuperAdmin = jcmIsSuperAdmin;
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
 var PERM_NAV = {
   // "salaespera" (Sala de espera) queda fuera a propósito: es una vista operativa de recepción,
@@ -260,6 +268,7 @@ function adminNavItems() {
   var newBeta = true;
   return ADMIN_NAV.filter(function(n) {
     if (n.k === "appjcm" && !showJcApp) return false;
+    if (n.k === "copilot" && !jcmIsSuperAdmin()) return false;
     if (ADMIN_BETA_SECTIONS[n.k] && !beta) return false;
     if (NEW_SECT[n.k] && !newBeta) return false;
     if (allowed && !allowed[n.k]) return false;
@@ -445,7 +454,7 @@ function importAllWeb() {
   }
   return p;
 }
-const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, copilot: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1, config: 1, appjcm: 1, notasia: 1, resumenia: 1, contactcenter: 1, reportesia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, flujocaja: 1, boletas: 1, pagosonline: 1 };
+const PANEL_SECTIONS = { dashboard: 1, agenda: 1, pacientes: 1, salaespera: 1, pendientes: 1, caja: 1, inventario: 1, servicios: 1, equipo: 1, sucursales: 1, marketing: 1, crm: 1, difusiones: 1, agenteia: 1, copilot: 1, automatizaciones: 1, resumen: 1, colaboracion: 1, fidelidad: 1, integraciones: 1, reportes: 1, administracion: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1, config: 1, appjcm: 1, notasia: 1, resumenia: 1, contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, boletas: 1, pagosonline: 1 };
 function panelParseRoute() {
   try {
     var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1606,8 +1615,6 @@ function AdminApp() {
   else if (section === "config") body = /* @__PURE__ */ React.createElement(ConfigView, { T });
   else if (section === "notasia") body = /* @__PURE__ */ React.createElement(NotasClinicasView, { T, patients, updatePatient });
   else if (section === "resumenia") body = /* @__PURE__ */ React.createElement(ResumenClinicoView, { T, patients, appts });
-  else if (section === "contactcenter") body = /* @__PURE__ */ React.createElement(ContactCenterView, { T, patients });
-  else if (section === "reportesia") body = /* @__PURE__ */ React.createElement(ReportesIAView, { T, patients, appts });
   else if (section === "contraloria") body = /* @__PURE__ */ React.createElement(
     ContraloriaView,
     {
@@ -1633,7 +1640,6 @@ function AdminApp() {
   else if (section === "remuneraciones") body = /* @__PURE__ */ React.createElement(RemuneracionesView, { T });
   else if (section === "laboratorios") body = /* @__PURE__ */ React.createElement(LaboratoriosView, { T, patients });
   else if (section === "convenios") body = /* @__PURE__ */ React.createElement(ConveniosView, { T });
-  else if (section === "flujocaja") body = /* @__PURE__ */ React.createElement(FlujoCajaView, { T });
   else if (section === "boletas") body = /* @__PURE__ */ React.createElement(BoletasView, { T, patients });
   else if (section === "pagosonline") body = /* @__PURE__ */ React.createElement(PagosOnlineView, { T, patients });
   const RAIL = 60, EXP = 212;

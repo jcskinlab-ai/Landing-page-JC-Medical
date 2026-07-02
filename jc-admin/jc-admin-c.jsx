@@ -2049,7 +2049,11 @@ function ReportesView({ T, patients, appts }) {
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 14 }}><AdBtn T={T} full onClick={() => { const csv = "Mes,Ingresos(MM CLP)\n" + rev.map(r => r.m + "," + r.v).join("\n"); const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv); a.download = "reporte-ingresos.csv"; a.click(); }}>Exportar CSV</AdBtn></div>
+      <div style={{ marginTop: 14, marginBottom: 22 }}><AdBtn T={T} full onClick={() => { const csv = "Mes,Ingresos(MM CLP)\n" + rev.map(r => r.m + "," + r.v).join("\n"); const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv); a.download = "reporte-ingresos.csv"; a.click(); }}>Exportar CSV</AdBtn></div>
+      {/* Reportes IA fusionado aquí (antes era una sección de nav aparte). */}
+      <div style={repCard}>
+        <ReportesIAView T={T} patients={patients} appts={appts} embedded />
+      </div>
     </div>
   );
 }
@@ -3700,6 +3704,29 @@ function AutomatizacionesView({ T }) {
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
         El envío real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aquí configuras y visualizas las reglas.
       </div>
+      {/* Automatizaciones de correo propias (las ejecuta el cron diario) — arriba, con su botón "+ Nueva automatización" siempre a la vista, sin scrollear al final. */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Mis automatizaciones de correo</div>
+          <AdBtn T={T} primary onClick={() => setEditAuto("new")}>+ Nueva automatización</AdBtn>
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Crea recordatorios o seguimientos por correo a tu medida. El servidor los envía solo (1×/día) a los pacientes con cita en la fecha que definas. Las anuladas se saltan. (WhatsApp a medida requiere conectar Meta.)</div>
+        {autos.length === 0
+          ? <Empty2 T={T}>Aún no creaste automatizaciones propias. Usa "+ Nueva automatización".</Empty2>
+          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {autos.map(a => (
+                <div key={a.id} style={luxF ? { display: "flex", alignItems: "center", gap: 10, ...DS.card(T), padding: "12px 15px", borderColor: a.on !== false ? T.accent + "55" : T.line } : { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + (a.on !== false ? T.accent + "55" : T.line), borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{a.name || "Sin nombre"}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📧 {autoWhen(a)} · "{a.subject || "(sin asunto)"}"</div>
+                  </div>
+                  <AdSwitch T={T} on={a.on !== false} onClick={() => toggleAuto(a.id)} />
+                  <button onClick={() => setEditAuto(a)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Editar</button>
+                  <button onClick={() => delAuto(a.id)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+                </div>
+              ))}
+            </div>}
+      </div>
       <NotificacionesCard T={T} />
       <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text, marginBottom: 10 }}>Recordatorios automáticos</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
@@ -3730,29 +3757,6 @@ function AutomatizacionesView({ T }) {
             </div>
           );
         })}
-      </div>
-      {/* Automatizaciones de correo propias (las ejecuta el cron diario) */}
-      <div style={{ marginTop: 22 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Mis automatizaciones de correo</div>
-          <AdBtn T={T} primary onClick={() => setEditAuto("new")}>+ Nueva automatización</AdBtn>
-        </div>
-        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Crea recordatorios o seguimientos por correo a tu medida. El servidor los envía solo (1×/día) a los pacientes con cita en la fecha que definas. Las anuladas se saltan. (WhatsApp a medida requiere conectar Meta.)</div>
-        {autos.length === 0
-          ? <Empty2 T={T}>Aún no creaste automatizaciones propias. Usa "+ Nueva automatización".</Empty2>
-          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {autos.map(a => (
-                <div key={a.id} style={luxF ? { display: "flex", alignItems: "center", gap: 10, ...DS.card(T), padding: "12px 15px", borderColor: a.on !== false ? T.accent + "55" : T.line } : { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + (a.on !== false ? T.accent + "55" : T.line), borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{a.name || "Sin nombre"}</div>
-                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📧 {autoWhen(a)} · "{a.subject || "(sin asunto)"}"</div>
-                  </div>
-                  <AdSwitch T={T} on={a.on !== false} onClick={() => toggleAuto(a.id)} />
-                  <button onClick={() => setEditAuto(a)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Editar</button>
-                  <button onClick={() => delAuto(a.id)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
-                </div>
-              ))}
-            </div>}
       </div>
       {editAuto && <AutoBuilderModal T={T} auto={editAuto === "new" ? null : editAuto} onClose={() => setEditAuto(null)} onSave={saveAuto} />}
     </div>
@@ -3859,6 +3863,19 @@ function loadAgentCfg() {
   return { name: "Medi", tono: "Cercano", prompt: "Eres el asistente virtual de {clinica}. Atiendes con calidez y criterio clínico, resuelves dudas de tratamientos estéticos y ayudas a agendar. Nunca das diagnósticos médicos definitivos; ante dudas clínicas, derivas al profesional.", acciones: { agendar: true, buscar: true, venta: false, stats: true, dudas: true } };
 }
 function CopilotConfigView({ T }) {
+  // Configuración exclusiva de la cuenta super-admin de la plataforma (medique.cl@gmail.com), que
+  // lo configura para el resto de las clínicas. Doble resguardo: el nav ya lo oculta, esto cubre
+  // el acceso directo por URL/atrás del navegador.
+  if (!(window.jcmIsSuperAdmin ? window.jcmIsSuperAdmin() : true)) {
+    return (
+      <div>
+        <SecHead T={T} title="Asistente IA" sub="Personaliza tu copiloto: nombre, personalidad, tono y qué puede hacer" />
+        <div style={{ background: T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "32px 24px", textAlign: "center", maxWidth: 520 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, lineHeight: 1.6 }}>La configuración del Asistente IA la administra el equipo de Medique de forma centralizada para todas las clínicas. Si necesitas ajustar algo, escríbenos.</div>
+        </div>
+      </div>
+    );
+  }
   const [cfg, setCfg] = useState(loadAgentCfg);
   const [saved, setSaved] = useState(false);
   const [msgs, setMsgs] = useState([]);
@@ -5255,7 +5272,16 @@ function CajaView({ T }) {
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>{chip("hoy", "Hoy")}{chip("semana", "Esta semana")}{chip("mes", "Este mes")}</div>
-      {/* Arriba: ranking de tratamientos que más venden (reemplaza la antigua fila de KPIs de Ventas). */}
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Caja</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 4 : 3) + ",1fr)", gap: 10, marginBottom: 18 }}>
+        <CajaCard T={T} l="Ingresos (bruto)" v={D.fmt(ingresos)} c="#1F8A5B" />
+        {adCost > 0 && <CajaCard T={T} l="Publicidad" v={D.fmt(costoPub)} c="#B8860B" />}
+        <CajaCard T={T} l="Egresos" v={D.fmt(egresos)} c="#C0285A" />
+        <CajaCard T={T} l={adCost > 0 ? "Líquido (ganancia)" : "Neto (ganancia)"} v={D.fmt(neto)} c={T.accent} strong />
+      </div>
+      {/* Flujo de caja (6 meses) integrado en Registro de Ventas. */}
+      <FlujoCajaChart T={T} />
+      {/* Ranking de tratamientos que más venden: debajo del flujo/tráfico (a pedido). */}
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginBottom: 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Tratamientos que más venden · {tratScope === "mes" ? "este mes" : "histórico"}</div>
@@ -5281,15 +5307,6 @@ function CajaView({ T }) {
           );
         })}
       </div>
-      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Caja</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 4 : 3) + ",1fr)", gap: 10, marginBottom: 18 }}>
-        <CajaCard T={T} l="Ingresos (bruto)" v={D.fmt(ingresos)} c="#1F8A5B" />
-        {adCost > 0 && <CajaCard T={T} l="Publicidad" v={D.fmt(costoPub)} c="#B8860B" />}
-        <CajaCard T={T} l="Egresos" v={D.fmt(egresos)} c="#C0285A" />
-        <CajaCard T={T} l={adCost > 0 ? "Líquido (ganancia)" : "Neto (ganancia)"} v={D.fmt(neto)} c={T.accent} strong />
-      </div>
-      {/* Flujo de caja (6 meses) integrado en Registro de Ventas. */}
-      <FlujoCajaChart T={T} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
         <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
@@ -5599,38 +5616,10 @@ function ResumenClinicoView({ T, patients, appts }) {
   );
 }
 
-/* ── N2 · Contact Center (bandeja conversacional) ── */
-function ContactCenterView({ T, patients }) {
-  const waMsgs = (() => { try { return ((window.CADMIN || {}).waMessages) || []; } catch (e) { return []; } })();
-  const metaOn = (() => { try { return !!(window.DB && window.DB.get("wa_connected")); } catch (e) { return false; } })();
-  return (
-    <div>
-      <SecHead T={T} title="Contact Center" sub="Atención conversacional centralizada" />
-      <IAHero T={T} color="#3AAE8C" title="Todas tus conversaciones en un lugar" sub="WhatsApp, correo e Instagram en una sola bandeja, con respuestas sugeridas por IA." icon={<><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></>} />
-      {!metaOn && (
-        <div style={{ background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 11, background: "#25D36622", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="20" height="20" viewBox="0 0 24 24" fill="#25D366"><path d="M19 4.9A9.8 9.8 0 0 0 12 2C6.6 2 2.1 6.4 2.1 11.9c0 1.8.5 3.5 1.3 5L2 22l5.2-1.4a9.9 9.9 0 0 0 4.8 1.2c5.5 0 9.9-4.4 9.9-9.9 0-2.6-1-5.1-2.9-7z" /></svg></span>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Conecta WhatsApp para activar el Contact Center</div>
-            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 4, lineHeight: 1.5 }}>El bot de WhatsApp ya está programado (responde y agenda con IA). Falta conectar tu cuenta de Meta (WhatsApp Cloud API). Cuando esté, las conversaciones aparecen aquí y podrás responder con ayuda de la IA.</div>
-          </div>
-          <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#B8860B", border: "1px solid #B8860B55", borderRadius: 999, padding: "5px 11px", alignSelf: "center" }}>Pendiente Meta</span>
-        </div>
-      )}
-      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Conversaciones recientes</div>
-      {waMsgs.length === 0 ? <Empty2 T={T}>Aún no hay conversaciones. Aparecerán aquí al conectar WhatsApp.</Empty2>
-        : <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 760 }}>{waMsgs.map((m, i) => (
-            <div key={i} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", gap: 12, alignItems: "center", ...window.JCDS.card(T), padding: "12px 15px" } : { display: "flex", gap: 12, alignItems: "center", background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" }}>
-              <Avatar T={T} name={m.name} size={38} />
-              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{m.name}</div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.msg}</div></div>
-              <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, flexShrink: 0 }}>{m.ago}</span>
-            </div>))}</div>}
-    </div>
-  );
-}
-
-/* ── N2 · Reportes IA (pregunta en lenguaje natural sobre tu clínica) ── */
-function ReportesIAView({ T, patients, appts }) {
+/* ── N2 · Reportes IA (pregunta en lenguaje natural sobre tu clínica) ──
+   Fusionado dentro de Análisis → Reportes (ya no es una sección de nav aparte); `embedded` oculta
+   el título/hero propios cuando se renderiza incrustado en ReportesView. */
+function ReportesIAView({ T, patients, appts, embedded }) {
   const [q, setQ] = useState("");
   const [msgs, setMsgs] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -5660,8 +5649,17 @@ function ReportesIAView({ T, patients, appts }) {
   const inp = { flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
   return (
     <div>
-      <SecHead T={T} title="Reportes IA" sub="Los datos dejan de ser números: se convierten en decisiones" />
-      <IAHero T={T} color="#E8952A" title="Reportes conversacionales" sub="Pregunta en lenguaje natural · visualizaciones automáticas · insights accionables." icon={<><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M12 3v9l6.4-6.4" /></>} />
+      {embedded ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: "#E8952A14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#E8952A" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M12 3v9l6.4-6.4" /></svg></div>
+          <div><div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Pregúntale a la IA</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Lenguaje natural sobre el rendimiento de tu clínica</div></div>
+        </div>
+      ) : (
+        <>
+          <SecHead T={T} title="Reportes IA" sub="Los datos dejan de ser números: se convierten en decisiones" />
+          <IAHero T={T} color="#E8952A" title="Reportes conversacionales" sub="Pregunta en lenguaje natural · visualizaciones automáticas · insights accionables." icon={<><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M12 3v9l6.4-6.4" /></>} />
+        </>
+      )}
       <div style={{ maxWidth: 780 }}>
         <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: 18, minHeight: 220, marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 16, minHeight: 220, marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           {msgs.length === 0 && <div style={{ margin: "auto", textAlign: "center", maxWidth: 420 }}><div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 12 }}>Pregúntale a la IA sobre el rendimiento de tu clínica.</div><div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>{sug.map(s => <button key={s} onClick={() => pregunta(s)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "8px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent }}>{s}</button>)}</div></div>}
@@ -5969,26 +5967,6 @@ function FlujoCajaChart({ T, title }) {
     </div>
   );
 }
-function FlujoCajaView({ T }) {
-  const D = window.JCDATA;
-  let cash = []; try { cash = (window.cashMovimientos && window.cashMovimientos()) || (window.cashAll && window.cashAll()) || []; } catch (e) {}
-  const cm = new Date().toISOString().slice(0, 7);
-  const ms = cash.filter(x => ((x._day || x.ts || "")).slice(0, 7) === cm);
-  const ing = ms.filter(x => x.type !== "egreso").reduce((s, x) => s + (x.amount || 0), 0);
-  const egr = ms.filter(x => x.type === "egreso").reduce((s, x) => s + (x.amount || 0), 0);
-  return (
-    <div>
-      <SecHead T={T} title="Flujo de caja" sub="Visualiza tus movimientos de dinero" />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
-        <CajaCard T={T} l="Ingresos del mes" v={D.fmt(ing)} c="#1F8A5B" />
-        <CajaCard T={T} l="Egresos del mes" v={D.fmt(egr)} c="#C0285A" />
-        <CajaCard T={T} l="Neto del mes" v={D.fmt(ing - egr)} c={T.accent} strong />
-      </div>
-      <FlujoCajaChart T={T} />
-    </div>
-  );
-}
-
 /* ── N9 · Boletas (emisión / registro; scaffold SII) ── */
 const SII_FACTURADORES = [
   { k: "LibreDTE", link: "https://libredte.cl/", desc: "Gratuito/open source · boleta y factura electrónica" },
@@ -6216,4 +6194,4 @@ function PagosOnlineView({ T, patients }) {
   );
 }
 
-Object.assign(window, { AdminKeyModal, jcmVerifyAdminKey, CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, FichaEditorView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient, NotasClinicasView, ResumenClinicoView, ContactCenterView, ReportesIAView, ContraloriaView, PagosGastosView, RemuneracionesView, LaboratoriosView, ConveniosView, ChatInternoView, FlujoCajaView, BoletasView, DesempenoView, EncuestasView, PagosOnlineView });
+Object.assign(window, { AdminKeyModal, jcmVerifyAdminKey, CADMIN, clinVal, MiniCalendar, ServiciosView, EquipoView, ProfesionalForm, SucursalesView, CrmView, TutorialesView, ConsentimientosView, DifusionesView, CopilotConfigView, FichaEditorView, PERM_SECCIONES, FidelidadView, MarketingView, Mini, IntegracionesView, ReportesView, ConfigView, ClinCard, Row, ToggleRow, ColaboracionView, FichaClinicaForm, SecHead, AdSwitch, HorariosEditor, IndTemplatesEditor, getIndTemplates, PendientesView, Group, Empty2, PendRow, InventarioView, NewInvModal, NewProcModal, invAdj, AdministracionView, INV_SEED, PROC_SEED, CajaView, cashAdd, cashDelete, cashToday, cashMovimientos, _localDay, jcmInsumoCost, jcmAdCostPerPatient, NotasClinicasView, ResumenClinicoView, ReportesIAView, ContraloriaView, PagosGastosView, RemuneracionesView, LaboratoriosView, ConveniosView, ChatInternoView, BoletasView, DesempenoView, EncuestasView, PagosOnlineView });
