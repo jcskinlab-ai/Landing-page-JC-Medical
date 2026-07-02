@@ -1028,6 +1028,7 @@ function CrmView({ T }) {
   function moveLead(id, stage) { persist(leads.map(x => x.id === id ? { ...x, stage } : x)); }
   async function del(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar este lead?", { danger: true }))) return; persist(leads.filter(x => x.id !== id)); }
   const byStage = st => leads.filter(l => (l.stage || "nuevo") === st);
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -1035,8 +1036,8 @@ function CrmView({ T }) {
         <AdBtn T={T} primary onClick={() => setEditing("new")}>+ Nuevo lead</AdBtn>
       </div>
       <div className="jc-scroll" style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 4 }}>
-        {CRM_STAGES.map(([k, label, col]) => { const items = byStage(k); return (
-          <div key={k} style={{ flexShrink: 0, width: 230, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 11px" }}>
+        {CRM_STAGES.map(([k, label, col], ci) => { const items = byStage(k); return (
+          <div key={k} style={luxF ? { flexShrink: 0, width: 230, ...DS.card(T), padding: "12px 11px", ...DS.reveal(ci) } : { flexShrink: 0, width: 230, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 11px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: col, flexShrink: 0 }} />
               <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>{label}</span>
@@ -1045,7 +1046,7 @@ function CrmView({ T }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
               {items.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, padding: "10px 2px", textAlign: "center" }}>—</div>}
               {items.map(l => (
-                <div key={l.id} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 9, padding: "10px 11px" }}>
+                <div key={l.id} style={luxF ? { background: T.bg, border: "1px solid " + T.line, borderRadius: DS.r.ctl, padding: "10px 11px" } : { background: T.bg, border: "1px solid " + T.line, borderRadius: 9, padding: "10px 11px" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setEditing(l)}>
                       <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>{l.name}</div>
@@ -1104,11 +1105,12 @@ function FidelidadView({ T }) {
   const members = seeded ? CADMIN.fidelity : [];
   const oro = members.filter(m => m.tier === "Oro").length;
   const ptsActivos = members.reduce((s, m) => s + (m.pts || 0), 0);
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <SecHead T={T} title="Fidelidad" sub="Programa de puntos y retención" />
       {/* Interruptor del sistema */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: T.surface, border: "1px solid " + (on ? T.accent + "55" : T.line), borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+      <div style={luxF ? { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, ...DS.card(T), padding: "14px 16px", borderColor: on ? T.accent + "55" : T.line, marginBottom: 16 } : { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: T.surface, border: "1px solid " + (on ? T.accent + "55" : T.line), borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
         <div>
           <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Programa de fidelidad</div>
           <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>{on ? "Activo · los pacientes acumulan puntos por cada atención." : "Apagado · enciéndelo para empezar a acumular puntos."}</div>
@@ -1116,7 +1118,7 @@ function FidelidadView({ T }) {
         <AdSwitch T={T} on={on} onClick={() => setFid(!on)} />
       </div>
       {/* Config de puntos */}
-      {on && <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+      {on && <div style={luxF ? { ...DS.card(T), padding: "14px 16px", marginBottom: 16 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>Configuración de puntos</div>
           <button onClick={() => { setTmpCfg(cfg); setEditCfg(!editCfg); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 11, color: T.accent, padding: 0 }}>{editCfg ? "Cancelar" : "Editar"}</button>
@@ -1149,7 +1151,7 @@ function FidelidadView({ T }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {members.length === 0 && <Empty2 T={T}>Aún no hay pacientes con puntos. A medida que registres atenciones, aparecerán aquí.</Empty2>}
           {members.map(p => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
+            <div key={p.id} style={luxF ? { display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", ...DS.card(T) } : { display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
               <Avatar T={T} name={p.name} size={38} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{p.name}</div>
@@ -1229,7 +1231,10 @@ function DifusionesView({ T }) {
   const recipients = (aud === "leads" ? leads : pacientes).map(r => ({ name: r.name || "Paciente", phone: (r.phone || "").replace(/[^0-9]/g, ""), proc: r.proc || r.procInteres || "" })).filter(r => r.name);
   const conTel = recipients.filter(r => r.phone.length >= 8);
   const tplObj = tpls.find(t => t.id === selTpl) || null;
-  const tabBtn = (k, l) => <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const tabBtn = (k, l) => <button key={k} onClick={() => setTab(k)} style={luxF
+    ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: tab === k ? 600 : 500, padding: "8px 16px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: tab === k ? T.surface : "transparent", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: tab === k ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
+    : { fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>;
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -1250,11 +1255,13 @@ function DifusionesView({ T }) {
           <div style={{ textAlign: "center" }}><div style={{ fontFamily: T.serif, fontSize: 24, color: T.accent, lineHeight: 1 }}>{tpls.length}</div><div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginTop: 3 }}>Plantillas</div></div>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 6, margin: "0 0 18px" }}>{tabBtn("difusiones", "Difusiones")}{tabBtn("plantillas", "Plantillas")}</div>
+      <div style={luxF
+        ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3, margin: "0 0 18px" }
+        : { display: "flex", gap: 6, margin: "0 0 18px" }}>{tabBtn("difusiones", "Difusiones")}{tabBtn("plantillas", "Plantillas")}</div>
       {tab === "plantillas" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {tpls.map(t => (
-            <div key={t.id} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px" }}>
+            <div key={t.id} style={luxF ? { ...DS.card(T), padding: "13px 16px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: t.channel === "email" ? "#54707F" : "#1F8A5B", border: "1px solid " + T.line, borderRadius: 999, padding: "2px 8px" }}>{t.channel === "email" ? "Email" : "WhatsApp"}</span>
                 <span style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{t.name}</span>
@@ -1267,7 +1274,7 @@ function DifusionesView({ T }) {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px,1fr))", gap: 16, alignItems: "start" }}>
-          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+          <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 12 }}>1 · Arma tu difusión</div>
             <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Audiencia</span>
             <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
@@ -1280,7 +1287,7 @@ function DifusionesView({ T }) {
             </select>
             <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>Variables: {MSG_VARS.join("  ")}. Se reemplazan por cada destinatario. {conTel.length} de {recipients.length} tienen teléfono válido.</div>
           </div>
-          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+          <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
             <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 12 }}>2 · Envía uno por uno por WhatsApp</div>
             {!tplObj ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Elige una plantilla para previsualizar y enviar.</div>
               : conTel.length === 0 ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Esta audiencia no tiene teléfonos válidos.</div>
@@ -1358,6 +1365,7 @@ function MarketingView({ T, go }) {
   }, [connected]);
   const totLeads = tot.leads || camps.reduce((a, c) => a + c.leads, 0);
   const totSpend = tot.spend || camps.reduce((a, c) => a + c.spend, 0);
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <SecHead T={T} title="Marketing" sub="Campañas conectadas a Meta Ads e Instagram" />
@@ -1395,7 +1403,7 @@ function MarketingView({ T, go }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
         {camps.filter(c => c.active).map(c => (
-          <div key={c.id} style={{ padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid rgba(31,138,91,.3)" }}>
+          <div key={c.id} style={luxF ? { ...DS.card(T), padding: "14px 16px", borderColor: "rgba(31,138,91,.4)" } : { padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid rgba(31,138,91,.3)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{c.name}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1418,7 +1426,7 @@ function MarketingView({ T, go }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
         {camps.filter(c => !c.active).map(c => (
-          <div key={c.id} style={{ padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, opacity: .8 }}>
+          <div key={c.id} style={luxF ? { ...DS.card(T), padding: "14px 16px", opacity: .8 } : { padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, opacity: .8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{c.name}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1790,11 +1798,12 @@ function IntegracionesView({ T }) {
     if (!connected) { setPreviewInteg(it); return; } // mostrar popup antes de conectar
     toggle(it.id); // desconectar directo sin popup
   }
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <SecHead T={T} title="Integraciones" sub="Conecta tus herramientas a Medique" />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {list.map(it => {
+        {list.map((it, ii) => {
           const isMeta = it.id === "metaads";
           const connected = isMeta ? metaOn : it.connected;
           // Drive/Calendar son ACCIONES de descarga reales (no "conexión" OAuth).
@@ -1805,7 +1814,7 @@ function IntegracionesView({ T }) {
             : it.id === "wa" ? { label: "Ver pasos", desc: "Pendiente de activar. El asistente responde a tus pacientes por WhatsApp una vez que se enciende WhatsApp Cloud API en Meta. Mira los pasos:" }
             : it.id === "metabiz" ? { label: "Ver requisitos", desc: "Pendiente. Ver tus DMs y comentarios de IG/FB en el panel requiere conexión y revisión de Meta (proyecto grande). Mira qué hace falta:" } : null;
           return (
-          <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (connected ? T.line : T.lineSoft) }}>
+          <div key={it.id} style={luxF ? { display: "flex", alignItems: "center", gap: 13, padding: "14px 16px", ...DS.card(T), borderColor: connected ? T.line : T.lineSoft, ...DS.reveal(ii) } : { display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + (connected ? T.line : T.lineSoft) }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: it.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 500, flexShrink: 0 }}>{it.letter}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{it.name}</div>
@@ -3624,6 +3633,7 @@ function AutomatizacionesView({ T }) {
   async function delAuto(id) { if (!(await (window.jcmConfirm || window.confirm)("¿Eliminar esta automatización?", { danger: true }))) return; persistAutos(autos.filter(x => x.id !== id)); }
   function toggleAuto(id) { persistAutos(autos.map(x => x.id === id ? { ...x, on: !x.on } : x)); }
   const autoWhen = a => (a.dir === "after" ? (a.days + " día" + (a.days === 1 ? "" : "s") + " después") : (a.days === 0 ? "el día de la cita" : a.days + " día" + (a.days === 1 ? "" : "s") + " antes"));
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <SecHead T={T} title="Automatizaciones" sub="Configura recordatorios y mensajes automáticos para tus pacientes." />
@@ -3633,10 +3643,12 @@ function AutomatizacionesView({ T }) {
       <NotificacionesCard T={T} />
       <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text, marginBottom: 10 }}>Recordatorios automáticos</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
-        {rules.map(r => {
+        {rules.map((r, ri) => {
           const cc = AUTO_CH_COLOR[r.ch] || T.accent;
           return (
-            <div key={r.id} style={{ background: T.surface, border: "1px solid " + (r.on ? T.accent + "55" : T.line), borderRadius: 14, padding: "18px 18px 16px", position: "relative" }}>
+            <div key={r.id} style={luxF
+              ? { ...DS.card(T), padding: "18px 18px 16px", position: "relative", borderColor: r.on ? T.accent + "55" : T.line, ...DS.reveal(ri) }
+              : { background: T.surface, border: "1px solid " + (r.on ? T.accent + "55" : T.line), borderRadius: 14, padding: "18px 18px 16px", position: "relative" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                 <span style={{ flexShrink: 0, width: 42, height: 42, borderRadius: 11, background: cc + "1c", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={cc} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{AUTO_IC[r.ic]}</svg>
@@ -3670,7 +3682,7 @@ function AutomatizacionesView({ T }) {
           ? <Empty2 T={T}>Aún no creaste automatizaciones propias. Usa "+ Nueva automatización".</Empty2>
           : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {autos.map(a => (
-                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + (a.on !== false ? T.accent + "55" : T.line), borderRadius: 10, padding: "12px 14px" }}>
+                <div key={a.id} style={luxF ? { display: "flex", alignItems: "center", gap: 10, ...DS.card(T), padding: "12px 15px", borderColor: a.on !== false ? T.accent + "55" : T.line } : { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + (a.on !== false ? T.accent + "55" : T.line), borderRadius: 10, padding: "12px 14px" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{a.name || "Sin nombre"}</div>
                     <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📧 {autoWhen(a)} · "{a.subject || "(sin asunto)"}"</div>
