@@ -491,6 +491,16 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
+  // ── Sistema "glass" (lux · ref. dashboard tipo Sophie): paneles flotantes translúcidos con blur.
+  //    Oscuro = blanco translúcido sobre negro · Claro = off-white translúcido (blanco+gris, NO blanco crudo).
+  const glassPanel = !lux
+    ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow }
+    : (T.dark
+      ? { background: "rgba(255,255,255,.05)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,.10)", borderRadius: 22, boxShadow: "0 28px 66px -36px rgba(0,0,0,.75)" }
+      : { background: "rgba(252,251,249,.55)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,.72)", borderRadius: 22, boxShadow: "0 22px 54px -30px rgba(60,58,50,.22)" });
+  const glassFill = T.dark ? "rgba(255,255,255,.055)" : "rgba(20,20,15,.035)";       // relleno interno (filas)
+  const glassFillHover = T.dark ? "rgba(255,255,255,.09)" : "rgba(20,20,15,.06)";
+  const nowClr = "#D8674A";  // marcador "ahora" — único acento cálido (como la línea coral de la referencia)
   // ESC cierra los popups del dashboard (KPI / movimientos de caja) para que nunca queden
   // "pegados" tapando la vista. Se apoya en la pila global de popups. (P19 · robustez)
   useEffect(() => {
@@ -606,13 +616,13 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     const inp = { width: 120, fontFamily: T.sans, fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" };
     return (
       <div style={lux
-        ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "20px 22px 22px", marginBottom: 18, boxShadow: T.shadow }
+        ? { ...glassPanel, padding: "20px 22px 22px", marginBottom: 0 }
         : { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px 18px", marginBottom: 16, boxShadow: "0 14px 40px -30px rgba(0,0,0,.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: lux ? 18 : 14 }}>
           <div style={lux
-            ? { display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent }
+            ? { fontFamily: T.sans, fontSize: 14, fontWeight: 500, letterSpacing: ".01em", color: T.textMute }
             : { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>
-            {lux && <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />}
+            {!lux && <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />}
             Embudo de marketing · este mes
           </div>
           <span style={{ fontFamily: T.sans, fontSize: 10, color: funnel.live ? "#1F8A5B" : T.textFaint }}>{funnel.demo ? "Datos de ejemplo — carga tu gasto de Meta para verlo real" : (funnel.live ? "● Conectado a Meta · en vivo" : "Datos reales de tu mes")}</span>
@@ -1001,9 +1011,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         /* ── Dashboard editorial v3 (Los Medique) — referencias: "tu día" con timeline
            (riel de horas + marcador ahora) a la izq + pendientes a la der; franja de
            métricas con líneas finas (sin cajas parejas); rendimiento con anillo de ROAS. */
-        const panel = { background: T.surface, border: "1px solid " + T.line, borderRadius: 18, boxShadow: T.shadow };
-        const eyebrow = { display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent };
-        const rule = <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />;
+        const panel = glassPanel;
+        // Etiqueta de sección calmada (ref. #3: "Meetings"/"Tasks" en gris medio, sin eyebrow diminuto).
+        const eyebrow = { fontFamily: T.sans, fontSize: 14, fontWeight: 500, letterSpacing: ".01em", color: T.textMute };
+        const rule = null;
         const cols = "minmax(0, 1.5fr) minmax(0, 1fr)";
         const nowM = new Date().getHours() * 60 + new Date().getMinutes();
         const todayList = hoy.slice().sort((a, b) => mins(a.time || "0:00") - mins(b.time || "0:00"));
@@ -1011,9 +1022,9 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         if (nowIdx < 0) nowIdx = todayList.length;
         const nowMarker = (
           <div key="now" style={{ display: "flex", alignItems: "center", gap: 12, padding: "3px 4px" }}>
-            <div style={{ flexShrink: 0, width: 50, textAlign: "right", fontFamily: T.sans, fontSize: 10, fontWeight: 700, letterSpacing: ".04em", color: green }}>{String(Math.floor(nowM / 60)).padStart(2, "0")}:{String(nowM % 60).padStart(2, "0")}</div>
-            <div style={{ flex: 1, height: 0, borderTop: "1.5px solid " + green, position: "relative" }}>
-              <span style={{ position: "absolute", left: -2, top: -4, width: 8, height: 8, borderRadius: "50%", background: green }} />
+            <div style={{ flexShrink: 0, width: 50, textAlign: "right", fontFamily: T.sans, fontSize: 10, fontWeight: 700, letterSpacing: ".04em", color: nowClr }}>{String(Math.floor(nowM / 60)).padStart(2, "0")}:{String(nowM % 60).padStart(2, "0")}</div>
+            <div style={{ flex: 1, height: 0, borderTop: "1.5px solid " + nowClr, position: "relative" }}>
+              <span style={{ position: "absolute", left: -2, top: -4, width: 8, height: 8, borderRadius: "50%", background: nowClr }} />
             </div>
           </div>
         );
@@ -1021,9 +1032,9 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           const est = (window.jcmApptState ? window.jcmApptState(a, T) : { color: T.accent, label: "" });
           return (
             <div key={a.id} onClick={() => go("agenda")} style={{ display: "flex", alignItems: "stretch", gap: 12, cursor: "pointer", borderRadius: 12, padding: 4, transition: "background .18s " + T.ease }}
-              onMouseEnter={e => e.currentTarget.style.background = T.lineSoft} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+              onMouseEnter={e => e.currentTarget.style.background = glassFillHover} onMouseLeave={e => e.currentTarget.style.background = "none"}>
               <div style={{ flexShrink: 0, width: 50, textAlign: "right", fontFamily: T.serif, fontSize: 15, color: T.text, paddingTop: 11 }}>{a.time || "—"}</div>
-              <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 11, alignItems: "flex-start", background: T.surface2 || T.bg, borderRadius: 12, padding: "11px 13px" }}>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 11, alignItems: "flex-start", background: glassFill, borderRadius: 12, padding: "11px 13px" }}>
                 <span style={{ flexShrink: 0, width: 4, alignSelf: "stretch", borderRadius: 999, background: est.color }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
@@ -1080,7 +1091,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {tareas.map((k, i) => (
                     <button key={i} onClick={() => go(k.to)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "none", border: "none", borderRadius: 10, padding: "11px 10px", cursor: "pointer", transition: "background .18s " + T.ease }}
-                      onMouseEnter={e => e.currentTarget.style.background = T.lineSoft} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                      onMouseEnter={e => e.currentTarget.style.background = glassFillHover} onMouseLeave={e => e.currentTarget.style.background = "none"}>
                       <span style={{ flexShrink: 0, width: 9, height: 9, borderRadius: "50%", border: "2px solid " + k.c }} />
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: "block", fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.t}</span>
