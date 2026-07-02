@@ -2469,17 +2469,22 @@ function ClinCard({ T, title, children }) {
 // un botón desplegable. Las de WhatsApp quedan listas para activarse al conectar Meta.
 function NotificacionesCard({ T }) {
   const [open, setOpen] = useState(false);
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  // Barra delgada con más cristal (glass Nivel 1) cuando hay design system; fallback translúcido.
+  const shell = luxF
+    ? { ...DS._glass(T, DS.r.card), marginBottom: 16, overflow: "hidden" }
+    : { background: (T.dark ? "rgba(255,255,255,.045)" : "rgba(255,255,255,.5)"), backdropFilter: "blur(12px) saturate(1.25)", WebkitBackdropFilter: "blur(12px) saturate(1.25)", border: "1px solid " + T.line, borderRadius: 12, marginBottom: 16, overflow: "hidden" };
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, marginBottom: 16, overflow: "hidden" }}>
-      <button onClick={() => setOpen(o => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
-        <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 11, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+    <div style={shell}>
+      <button onClick={() => setOpen(o => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "10px 15px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+        <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Notificaciones automáticas</div>
-          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>Confirmación por correo 24 h antes · recordatorios por WhatsApp</div>
+          <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>Notificaciones automáticas</div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1 }}>Confirmación por correo 24 h antes · recordatorios por WhatsApp</div>
         </div>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}><path d="m6 9 6 6 6-6" /></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}><path d="m6 9 6 6 6-6" /></svg>
       </button>
       {open && <div style={{ padding: "0 18px 16px" }}>
         <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 8, lineHeight: 1.5, paddingTop: 4, borderTop: "1px solid " + T.lineSoft }}>La confirmación por correo se envía <b style={{ color: T.text }}>24 horas antes</b> de la cita. Los avisos por WhatsApp quedarán activos al conectar el permiso de Meta.</div>
@@ -3812,34 +3817,15 @@ function AutomatizacionesView({ T }) {
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
-      <SecHead T={T} title="Automatizaciones" sub="Configura recordatorios y mensajes automáticos para tus pacientes." />
+      {/* Botón "+ Nueva automatización" alineado con el título de la página. */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <SecHead T={T} title="Automatizaciones" sub="Configura recordatorios y mensajes automáticos para tus pacientes." />
+        <AdBtn T={T} primary onClick={() => setEditAuto("new")}>+ Nueva automatización</AdBtn>
+      </div>
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + T.line, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
         El envío real de WhatsApp/Email/SMS se ejecuta desde el servidor (Medique). Aquí configuras y visualizas las reglas.
       </div>
-      {/* Automatizaciones de correo propias (las ejecuta el cron diario) — arriba, con su botón "+ Nueva automatización" siempre a la vista, sin scrollear al final. */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Mis automatizaciones de correo</div>
-          <AdBtn T={T} primary onClick={() => setEditAuto("new")}>+ Nueva automatización</AdBtn>
-        </div>
-        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Crea recordatorios o seguimientos por correo a tu medida. El servidor los envía solo (1×/día) a los pacientes con cita en la fecha que definas. Las anuladas se saltan. (WhatsApp a medida requiere conectar Meta.)</div>
-        {autos.length === 0
-          ? <Empty2 T={T}>Aún no creaste automatizaciones propias. Usa "+ Nueva automatización".</Empty2>
-          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {autos.map(a => (
-                <div key={a.id} style={luxF ? { display: "flex", alignItems: "center", gap: 10, ...DS.card(T), padding: "12px 15px", borderColor: a.on !== false ? T.accent + "55" : T.line } : { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + (a.on !== false ? T.accent + "55" : T.line), borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{a.name || "Sin nombre"}</div>
-                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📧 {autoWhen(a)} · "{a.subject || "(sin asunto)"}"</div>
-                  </div>
-                  <AdSwitch T={T} on={a.on !== false} onClick={() => toggleAuto(a.id)} />
-                  <button onClick={() => setEditAuto(a)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Editar</button>
-                  <button onClick={() => delAuto(a.id)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
-                </div>
-              ))}
-            </div>}
-      </div>
-      <NotificacionesCard T={T} />
+      {/* Recordatorios automáticos — arriba (contenido principal). */}
       <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text, marginBottom: 10 }}>Recordatorios automáticos</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {rules.map((r, ri) => {
@@ -3870,6 +3856,26 @@ function AutomatizacionesView({ T }) {
           );
         })}
       </div>
+      {/* Notificaciones automáticas — barra delgada tipo glass. */}
+      <div style={{ marginTop: 22 }}><NotificacionesCard T={T} /></div>
+      {/* Mis automatizaciones de correo propias — abajo; el botón "+ Nueva" ya está en el header. */}
+      <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text, marginBottom: 10 }}>Mis automatizaciones de correo</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 12, lineHeight: 1.5 }}>Crea recordatorios o seguimientos por correo a tu medida. El servidor los envía solo (1×/día) a los pacientes con cita en la fecha que definas. Las anuladas se saltan. (WhatsApp a medida requiere conectar Meta.)</div>
+      {autos.length === 0
+        ? <Empty2 T={T}>Aún no creaste automatizaciones propias. Usa "+ Nueva automatización".</Empty2>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {autos.map(a => (
+              <div key={a.id} style={luxF ? { display: "flex", alignItems: "center", gap: 10, ...DS.card(T), padding: "12px 15px", borderColor: a.on !== false ? T.accent + "55" : T.line } : { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + (a.on !== false ? T.accent + "55" : T.line), borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{a.name || "Sin nombre"}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📧 {autoWhen(a)} · "{a.subject || "(sin asunto)"}"</div>
+                </div>
+                <AdSwitch T={T} on={a.on !== false} onClick={() => toggleAuto(a.id)} />
+                <button onClick={() => setEditAuto(a)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Editar</button>
+                <button onClick={() => delAuto(a.id)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 8px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+              </div>
+            ))}
+          </div>}
       {editAuto && <AutoBuilderModal T={T} auto={editAuto === "new" ? null : editAuto} onClose={() => setEditAuto(null)} onSave={saveAuto} />}
     </div>
   );
