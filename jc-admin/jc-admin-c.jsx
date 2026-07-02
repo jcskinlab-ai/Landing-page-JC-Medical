@@ -823,7 +823,8 @@ function ConsentimientosView({ T }) {
     try { window.jcmToast && window.jcmToast("Copia editable creada en tus plantillas propias.", "ok"); } catch (e) {}
   }
   const activasCount = base.filter(b => active[b.title] !== false).length + tpls.filter(t => t.active !== false).length;
-  const card = { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px", display: "flex", alignItems: "center", gap: 12 };
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const card = luxF ? { ...DS.card(T), padding: "13px 16px", display: "flex", alignItems: "center", gap: 12 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "13px 15px", display: "flex", alignItems: "center", gap: 12 };
   const row = (titulo, cat, on, onTog, onEdit, onDel) => (
     <div style={card}>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -2145,6 +2146,7 @@ function IndTemplatesEditor({ T }) {
 const CFG_TABS = [["datos", "Datos de la clínica"], ["reserva", "Reserva y enlaces"], ["horarios", "Horarios"], ["plantillas", "Plantillas y firmas"]];
 function ConfigView({ T }) {
   const D = window.JCDATA;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [cfgTab, setCfgTab] = useState(() => { try { var t = window.jcmConfigTab; if (t) { window.jcmConfigTab = null; return t; } } catch (e) {} return "datos"; });
   // Link de RESERVA DIRECTA, propio de cada clínica (no la app de pacientes).
   const bookUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.bookingLink)
@@ -2178,8 +2180,12 @@ function ConfigView({ T }) {
   return (
     <div>
       <SecHead T={T} title="Configuración de la clínica" sub="Administra la información pública y los detalles de tu clínica." />
-      <div className="jc-scroll" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
-        {CFG_TABS.map(([k, l]) => <button key={k} onClick={() => setCfgTab(k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: cfgTab === k ? 600 : 500, padding: "8px 15px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (cfgTab === k ? T.accent : T.line), background: cfgTab === k ? T.accent : "transparent", color: cfgTab === k ? (T.onAccent || "#fff") : T.textMute, whiteSpace: "nowrap" }}>{l}</button>)}
+      <div className="jc-scroll" style={luxF
+        ? { display: "inline-flex", gap: 2, flexWrap: "wrap", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3, marginBottom: 18 }
+        : { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
+        {CFG_TABS.map(([k, l]) => <button key={k} onClick={() => setCfgTab(k)} style={luxF
+          ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: cfgTab === k ? 600 : 500, padding: "8px 14px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: cfgTab === k ? T.surface : "transparent", boxShadow: cfgTab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: cfgTab === k ? T.accent : T.textMute, whiteSpace: "nowrap", transition: DS.trans("background,box-shadow,color") }
+          : { fontFamily: T.sans, fontSize: 12, fontWeight: cfgTab === k ? 600 : 500, padding: "8px 15px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (cfgTab === k ? T.accent : T.line), background: cfgTab === k ? T.accent : "transparent", color: cfgTab === k ? (T.onAccent || "#fff") : T.textMute, whiteSpace: "nowrap" }}>{l}</button>)}
       </div>
       {cfgTab === "reserva" && <>
       {/* Panel móvil del equipo — ARRIBA (P32): confirmar y crear citas desde el teléfono */}
@@ -5468,8 +5474,18 @@ function ResumenClinicoView({ T, patients, appts }) {
         <AdBtn T={T} primary onClick={generar}>{busy ? "Generando…" : "✦ Generar resumen"}</AdBtn>
       </div>
       {pat && alergias && <div style={{ background: "rgba(192,40,90,.08)", border: "1px solid #C0285A44", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>⚠ <b>Alergias / condiciones:</b> {alergias}</div>}
-      {out ? <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 20px", maxWidth: 760, fontFamily: T.sans, fontSize: 13.5, color: T.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{out}</div>
-        : pat ? <Empty2 T={T}>Toca "Generar resumen" para que la IA resuma la historia de {pat.name}.</Empty2> : <Empty2 T={T}>Elige un paciente para generar su resumen clínico.</Empty2>}
+      {(() => {
+        const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+        if (busy && luxF) return (
+          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 20px", maxWidth: 760, display: "flex", flexDirection: "column", gap: 9 }}>
+            <div style={DS.skel(T, { height: 12, width: "88%" })} />
+            <div style={DS.skel(T, { height: 12, width: "70%" })} />
+            <div style={DS.skel(T, { height: 12, width: "80%" })} />
+          </div>
+        );
+        return out ? <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 20px", maxWidth: 760, fontFamily: T.sans, fontSize: 13.5, color: T.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{out}</div>
+          : pat ? <Empty2 T={T}>Toca "Generar resumen" para que la IA resuma la historia de {pat.name}.</Empty2> : <Empty2 T={T}>Elige un paciente para generar su resumen clínico.</Empty2>;
+      })()}
     </div>
   );
 }

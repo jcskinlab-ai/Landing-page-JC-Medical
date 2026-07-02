@@ -2283,9 +2283,22 @@ function ResumenIA({ T, patient }) {
       <div style={{ background: "rgba(106,130,150,.10)", border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px", fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginBottom: 14 }}>
         El resumen se genera con IA a partir del historial del paciente y debe ser verificado por un profesional de la salud.
       </div>
-      <div style={{ minHeight: 80, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px", fontFamily: T.sans, fontSize: 13, color: summary ? T.text : T.textFaint, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-        {loading ? "Analizando historial del paciente…" : (summary || "Toca «Generar resumen» para que la IA redacte un resumen clínico de este paciente.")}
-      </div>
+      {(() => {
+        const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+        if (loading && luxF) return (
+          <div style={{ minHeight: 80, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px", display: "flex", flexDirection: "column", gap: 9 }}>
+            <div style={DS.skel(T, { height: 12, width: "92%" })} />
+            <div style={DS.skel(T, { height: 12, width: "78%" })} />
+            <div style={DS.skel(T, { height: 12, width: "85%" })} />
+            <div style={DS.skel(T, { height: 12, width: "60%" })} />
+          </div>
+        );
+        return (
+          <div style={{ minHeight: 80, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px", fontFamily: T.sans, fontSize: 13, color: summary ? T.text : T.textFaint, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+            {loading ? "Analizando historial del paciente…" : (summary || "Toca «Generar resumen» para que la IA redacte un resumen clínico de este paciente.")}
+          </div>
+        );
+      })()}
       {/* asistente inline */}
       <div style={{ marginTop: 16, background: "rgba(106,130,150,.08)", border: "1px solid " + T.line, borderRadius: 10, padding: "14px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
