@@ -2996,12 +2996,11 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nueva
             <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: T.surface, minHeight: 92, padding: "6px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
               <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? (T.accentSoft || "transparent") : "transparent" }}>{d.getDate()}</span>
               {ordered.slice(0, 3).map((a, idx) => { const c = window.jcmApptState ? window.jcmApptState(a, T).color : T.accent; return (
-                <span key={idx} style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: c, flexShrink: 0 }} />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{a.time ? a.time + " " : ""}{a.name || "Cita"}</span>
+                <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", background: c + (T.dark ? "2e" : "20"), borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {a.time ? a.time + " " : ""}{a.name || "Cita"}
                 </span>
               ); })}
-              {ordered.length > 3 && <span style={{ fontFamily: T.sans, fontSize: 9, color: T.accent, paddingLeft: 11 }}>+{ordered.length - 3} más</span>}
+              {ordered.length > 3 && <span style={{ fontFamily: T.sans, fontSize: 9, color: T.accent, paddingLeft: 3 }}>+{ordered.length - 3} más</span>}
             </button>
           );
         })}
