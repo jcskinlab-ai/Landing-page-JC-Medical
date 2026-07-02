@@ -3318,13 +3318,17 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
 /* helpers compartidos */
 function SecHead({ T, title, sub }) {
   const DS = window.JCDS, lux = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  // Scrim de legibilidad (design audit 7.4): todos los títulos de página flotan sobre la foto everest.
+  // Un halo suave (oscuro en dark / claro en light) garantiza contraste en cualquier zona de la montaña
+  // sin agregar una caja opaca. Al vivir en SecHead, cubre de una a las ~30 vistas del panel.
+  const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)";
   if (lux) return <div style={{ marginBottom: DS.sp[6] }}>
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
       <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
-      <span style={{ fontFamily: T.sans, fontSize: DS.ft.eyebrow, fontWeight: 500, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent }}>Medique</span>
+      <span style={{ fontFamily: T.sans, fontSize: DS.ft.eyebrow, fontWeight: 500, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>Medique</span>
     </div>
-    <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: DS.ft.display, letterSpacing: "-.01em", color: T.text, lineHeight: 1.05 }}>{title}</h1>
-    {sub && <div style={{ ...DS.text(T, "sub"), marginTop: 8 }}>{sub}</div>}
+    <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: DS.ft.display, letterSpacing: "-.01em", color: T.text, lineHeight: 1.05, textShadow: heroShadow }}>{title}</h1>
+    {sub && <div style={{ ...DS.text(T, "sub"), marginTop: 8, textShadow: heroShadow }}>{sub}</div>}
   </div>;
   return <div style={{ marginBottom: 18 }}>
     <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, lineHeight: 1 }}>{title}</h1>
@@ -3610,6 +3614,9 @@ function SalaEsperaView({ T, appts, patients, updatePatient }) {
   const lbl = { porllegar: "Marcar llegada", espera: "Pasar a atención", atencion: "Finalizar" };
   const today = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  // Color por estado del flujo (mismo criterio que la agenda): por llegar = ámbar (esperando), en
+  // espera = navy, en atención = verde, finalizado = apagado. Hace el kanban escaneable de un vistazo.
+  const colOf = k => ({ porllegar: "#C9A227", espera: T.accent, atencion: "#1F8A5B", fin: T.textFaint })[k] || T.accent;
   function eliminarDeSala(a) {
     const st = stOf(a);
     const n = { ...status, [a.id]: "eliminado" };
@@ -3629,29 +3636,32 @@ function SalaEsperaView({ T, appts, patients, updatePatient }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
         {WAIT_COLS.map(([k, l]) => {
           const items = hoy.filter(a => stOf(a) === k && status[a.id] !== "eliminado");
+          const cc = colOf(k);
           return (
             <div key={k} style={luxF ? { ...DS.card(T), padding: 12, minHeight: 200 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: 12, minHeight: 200 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent }}>{l}</span>
-                <span style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>{items.length}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: cc }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: cc, flexShrink: 0 }} />{l}
+                </span>
+                <span style={{ fontFamily: T.serif, fontSize: 16, color: items.length ? cc : T.textFaint }}>{items.length}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {items.map(a => (
-                  <div key={a.id} style={luxF ? { background: T.bg, border: "1px solid " + T.line, borderRadius: DS.r.ctl, padding: "10px 12px" } : { background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <div key={a.id} style={luxF ? { background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + cc, borderRadius: DS.r.ctl, padding: "10px 12px" } : { background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + cc, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+                      <Avatar T={T} name={a.name} size={30} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{a.name}</div>
-                        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.time}</div>
+                        <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.time}{a.proc ? " · " + a.proc : ""}</div>
                       </div>
                       <button onClick={() => eliminarDeSala(a)} title="Quitar de sala de espera" style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: "2px 3px", display: "flex", borderRadius: 4, marginTop: -1 }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
                       </button>
                     </div>
-                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 4 }}>{a.proc}</div>
-                    {next(k) && <button onClick={() => setS(a.id, next(k))} style={{ marginTop: 8, width: "100%", fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, background: T.accentSoft || "rgba(84,112,127,.12)", border: "none", borderRadius: 6, padding: "7px", cursor: "pointer" }}>{lbl[k]} →</button>}
+                    {next(k) && <button onClick={() => setS(a.id, next(k))} style={{ marginTop: 8, width: "100%", fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: cc, background: cc + "1c", border: "none", borderRadius: 6, padding: "7px", cursor: "pointer" }}>{lbl[k]} →</button>}
                   </div>
                 ))}
-                {!items.length && <Empty2 T={T}>—</Empty2>}
+                {!items.length && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, fontStyle: "italic", padding: "6px 2px" }}>Sin pacientes</div>}
               </div>
             </div>
           );
