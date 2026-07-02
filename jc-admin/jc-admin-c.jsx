@@ -3641,20 +3641,23 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient, goApt })
       {/* Contralor IA (fusionado): verificación automática de registros como pendientes inteligentes. */}
       <ContraloriaView T={T} patients={patients} appts={appts} openP={openP} goApt={goApt} go={go} embed />
       {/* "Consentimientos por firmar" se quitó: ya aparece como alerta "Consentimientos pendientes"
-          en el Contralor IA de arriba (evita duplicar la misma lista). */}
-      <Group T={T} title={"Consentimientos por renovar · +1 año (" + porRenovar.length + ")"}>
-        {porRenovar.map(p => { const meses = Math.floor((Date.now() - p.consentTs) / (30 * 24 * 3600 * 1000)); return <PendRow key={p.id} T={T} name={p.name} desc={"Firmado hace " + meses + " meses · " + (p.consentInfo || "Consentimiento")} action="Renovar" onClick={() => openP(p.id, "consent")} />; })}
-        {!porRenovar.length && <Empty2 T={T}>Todos los consentimientos están vigentes.</Empty2>}
-      </Group>
-      <Group T={T} title={"Re-citar · esquema en curso (" + recitas.length + ")"}>
-        {/* Colapsada: se muestra solo el primer paciente; el resto se despliega para no ocupar tanto espacio. */}
-        {(showAllReci ? recitas : recitas.slice(0, 1)).map(({ p, r }) => <PendRow key={p.id} T={T} name={p.name} desc={r.motivo + " · " + r.precioFmt + " → " + r.descFmt} action="WhatsApp" href={window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""))} />)}
-        {!recitas.length && <Empty2 T={T}>Sin re-citas por contactar hoy.</Empty2>}
-        {recitas.length > 1 && <button onClick={() => setShowAllReci(v => !v)} style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, background: "none", border: "1px dashed " + T.line, borderRadius: 8, padding: "8px 13px", cursor: "pointer", marginTop: 2 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: showAllReci ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
-          {showAllReci ? "Ver menos" : "Ver " + (recitas.length - 1) + " re-cita" + (recitas.length - 1 === 1 ? "" : "s") + " más"}
-        </button>}
-      </Group>
+          en el Contralor IA de arriba (evita duplicar la misma lista). Espaciado para despegar del Contralor. */}
+      <div style={{ marginTop: 26 }}>
+        {/* Campañas de re-cita ANTES que los consentimientos por renovar (a pedido del usuario). */}
+        <Group T={T} title={"Re-citar · esquema en curso (" + recitas.length + ")"}>
+          {/* Colapsada: muestra 2 pacientes; el resto se despliega para no ocupar tanto espacio. */}
+          {(showAllReci ? recitas : recitas.slice(0, 2)).map(({ p, r }) => <PendRow key={p.id} T={T} name={p.name} desc={r.motivo + " · " + r.precioFmt + " → " + r.descFmt} action="WhatsApp" href={window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""))} />)}
+          {!recitas.length && <Empty2 T={T}>Sin re-citas por contactar hoy.</Empty2>}
+          {recitas.length > 2 && <button onClick={() => setShowAllReci(v => !v)} style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, background: "none", border: "1px dashed " + T.line, borderRadius: 8, padding: "8px 13px", cursor: "pointer", marginTop: 2 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: showAllReci ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
+            {showAllReci ? "Ver menos" : "Ver " + (recitas.length - 2) + " re-cita" + (recitas.length - 2 === 1 ? "" : "s") + " más"}
+          </button>}
+        </Group>
+        <Group T={T} title={"Consentimientos por renovar · +1 año (" + porRenovar.length + ")"}>
+          {porRenovar.map(p => { const meses = Math.floor((Date.now() - p.consentTs) / (30 * 24 * 3600 * 1000)); return <PendRow key={p.id} T={T} name={p.name} desc={"Firmado hace " + meses + " meses · " + (p.consentInfo || "Consentimiento")} action="Renovar" onClick={() => openP(p.id, "consent")} />; })}
+          {!porRenovar.length && <Empty2 T={T}>Todos los consentimientos están vigentes.</Empty2>}
+        </Group>
+      </div>
       {/* Se quitaron las secciones "Mensajes de WhatsApp por responder", "Comentarios en Business
           Manager" y "Seguimientos": eran listas SIEMPRE vacías (hardcodeadas a []), nunca se
           poblaban, y solo agregaban ruido de secciones permanentemente vacías. Prefiere eliminar
