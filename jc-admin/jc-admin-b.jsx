@@ -722,18 +722,19 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     jcmPrintDoc("Procedimiento · " + e(patient.name), b, inner);
   }
 
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
-    <div style={{ padding: "4px 0 24px" }}>
+    <div style={{ padding: "4px 0 24px", ...(luxF ? { maxWidth: 1180, margin: "0 auto" } : {}) }}>
       <button onClick={onBack} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", color: T.textMute, fontFamily: T.sans, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 14, padding: 0 }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M15 18l-6-6 6-6" /></svg>Pacientes
       </button>
 
       {/* header paciente */}
       <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-        <Avatar T={T} name={patient.name} size={52} />
+        <Avatar T={T} name={patient.name} size={luxF ? 56 : 52} />
         <div style={{ flex: 1, minWidth: 160 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: T.serif, fontSize: 26, fontWeight: 300, color: T.text, lineHeight: 1 }}>{patient.name}</span>
+            <span style={{ fontFamily: T.serif, fontSize: luxF ? 30 : 26, fontWeight: luxF ? 400 : 300, letterSpacing: luxF ? "-.01em" : undefined, color: T.text, lineHeight: 1 }}>{patient.name}</span>
             <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: patient.age ? T.accent : T.textFaint, background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + (T.accent + "44"), borderRadius: 999, padding: "3px 11px", whiteSpace: "nowrap" }}>{patient.age ? patient.age + " años" : "Edad —"}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
@@ -769,17 +770,19 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       </div>
 
       {/* tarjetas de datos — Teléfono y Email son clickeables para editar */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, margin: "16px 0 4px" }}>
-        {[["Edad", (patient.age ? patient.age + " años" : "—"), true], ["Teléfono", patient.phone || "—", true], ["Email", patient.email || "—", true], ["Estado", estado, false]].map(([l, v, editable]) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: luxF ? 14 : 10, margin: luxF ? "22px 0 4px" : "16px 0 4px" }}>
+        {[["Edad", (patient.age ? patient.age + " años" : "—"), true], ["Teléfono", patient.phone || "—", true], ["Email", patient.email || "—", true], ["Estado", estado, false]].map(([l, v, editable], i) => (
           <div key={l} onClick={editable ? () => setEditD(true) : undefined} title={editable ? "Haz clic para editar" : undefined}
-            style={{ background: T.surface, border: "1px solid " + (editable ? T.line : T.line), borderRadius: 10, padding: "12px 14px", minWidth: 0, cursor: editable ? "pointer" : "default", transition: "border-color .15s" }}
-            onMouseEnter={editable ? e => e.currentTarget.style.borderColor = T.accent : undefined}
-            onMouseLeave={editable ? e => e.currentTarget.style.borderColor = T.line : undefined}>
-            <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 5, display: "flex", alignItems: "center", gap: 4 }}>
+            style={luxF
+              ? { ...DS.card(T), padding: "16px 18px", minWidth: 0, cursor: editable ? "pointer" : "default", transition: DS.trans("border-color, transform"), ...DS.reveal(i) }
+              : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", minWidth: 0, cursor: editable ? "pointer" : "default", transition: "border-color .15s" }}
+            onMouseEnter={editable ? e => { e.currentTarget.style.borderColor = T.accent + (luxF ? "66" : ""); } : undefined}
+            onMouseLeave={editable ? e => { e.currentTarget.style.borderColor = T.line; } : undefined}>
+            <div style={{ fontFamily: T.sans, fontSize: luxF ? DS.ft.eyebrow : 9, letterSpacing: luxF ? ".14em" : ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: luxF ? 8 : 5, display: "flex", alignItems: "center", gap: 4 }}>
               {l}
               {editable && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>}
             </div>
-            <div style={{ fontFamily: T.sans, fontSize: 13, color: editable ? T.accent : T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v}</div>
+            <div style={{ fontFamily: T.sans, fontSize: luxF ? 14 : 13, fontWeight: luxF ? 500 : 400, color: editable ? T.accent : T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v}</div>
           </div>
         ))}
       </div>
