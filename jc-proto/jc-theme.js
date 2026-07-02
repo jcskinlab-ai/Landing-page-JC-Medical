@@ -114,4 +114,78 @@
     lavanda:  mk({ key: "lavanda",  name: "Lavanda nocturna",  dark: true, bg: "#15131F", bg2: "#100E19", surface: "#1F1C2C", surface2: "#282438", line: "rgba(232,228,248,.12)", text: "#ECE8F7", textMute: "rgba(236,232,247,.55)", textFaint: "rgba(236,232,247,.32)", accent: "#9B83E0", accentDeep: "#7C63C9", navBg: "rgba(21,19,31,.92)" })
   };
   Object.assign(window.JCTHEME, extra);
+
+  /* ═══════════════ MEDIQUE · DESIGN SYSTEM (JCDS) ═══════════════
+     Escalas puras e independientes del tema: los COLORES siguen saliendo de T (JCTHEME),
+     así los 15 temas (claro/oscuro) funcionan sin tocarse. JCDS aporta la disciplina:
+     tipografía con roles, espaciado 4px, radios, elevación, semánticos y estados.
+     Principios (DESIGN_SYSTEM_F0.md): datos primero · denso pero respirado · una sola
+     voz de acento · todo estado existe · movimiento discreto. */
+  var DS = {
+    // ── Tipografía · 8 roles (px). El serif (T.serif) SOLO en display/stat; el resto Jost.
+    ft: {
+      display: 30,   // título de página (Marcellus 400, letterSpacing -.01em)
+      stat:    28,   // cifra protagonista de KPI (Marcellus 400)
+      title:   16,   // título de tarjeta/sección (Jost 600)
+      body:    13,   // texto por defecto: filas, formularios (Jost 400/500)
+      sub:     12,   // secundario / metadata (Jost 400)
+      label:   10.5, // labels de campo, th de tabla (Jost 500, tracking .06em)
+      eyebrow: 10,   // kicker de sección (Jost 500, uppercase, tracking .14em)
+      micro:   9.5   // timestamps, footnotes
+    },
+    // ── Espaciado · escala 4px estricta. Uso: DS.sp[2]=8, DS.sp[4]=16, DS.sp[5]=24…
+    sp: [0, 4, 8, 12, 16, 24, 32, 48],
+    // ── Radios · 4 valores
+    r: { ctl: 8, card: 12, panel: 16, pill: 999 },
+    // ── Elevación · 3 niveles
+    el: {
+      flat: "none",
+      raised: "0 1px 3px rgba(0,0,0,.10)",
+      overlay: "0 16px 48px -16px rgba(0,0,0,.35)"
+    },
+    // ── Colores semánticos (únicos; reemplazan los hex repetidos a mano)
+    ok: "#1F8A5B",     okBg: "rgba(31,138,91,.10)",     okLine: "rgba(31,138,91,.35)",
+    danger: "#C0285A", dangerBg: "rgba(192,40,90,.10)", dangerLine: "rgba(192,40,90,.35)",
+    warn: "#C9A227",   warnBg: "rgba(201,162,39,.12)",  warnLine: "rgba(201,162,39,.38)",
+    info: "#2E7FB0",   infoBg: "rgba(46,127,176,.10)",  infoLine: "rgba(46,127,176,.35)",
+    // ── Movimiento · discreto (150–200ms, ease-out expo; lift máx 1px)
+    dur: ".18s",
+    ease: "cubic-bezier(.22,1,.36,1)",
+    trans: function (props) { return (props || "all") + " .18s cubic-bezier(.22,1,.36,1)"; },
+    // ── Foco accesible (AA): anillo 2px con offset del color del tema. Igual en claro/oscuro.
+    focus: function (T) { return "0 0 0 2px " + (T.bg || "#fff") + ", 0 0 0 4px " + (T.accent || "#54707F"); },
+    // ── Alturas estándar (denso pero respirado)
+    h: { ctl: 36, ctlSm: 30, row: 42, rowSm: 36 },
+
+    /* ── Recetas: estilos base listos para untar (spread) en style={{…}} ── */
+    // Texto por rol: DS.text(T,'body') · DS.text(T,'label') · etc.
+    text: function (T, role) {
+      var s = { fontFamily: T.sans, color: T.text };
+      var f = this.ft[role] || this.ft.body; s.fontSize = f;
+      if (role === "display" || role === "stat") { s.fontFamily = T.serif; s.fontWeight = 400; s.letterSpacing = "-.01em"; s.lineHeight = 1.08; }
+      else if (role === "title") { s.fontWeight = 600; s.lineHeight = 1.25; }
+      else if (role === "label") { s.fontWeight = 500; s.letterSpacing = ".06em", s.color = T.textMute; }
+      else if (role === "eyebrow") { s.fontWeight = 500, s.letterSpacing = ".14em"; s.textTransform = "uppercase"; s.color = T.accent; }
+      else if (role === "sub" || role === "micro") { s.color = T.textMute; s.lineHeight = 1.5; }
+      else { s.lineHeight = 1.5; }
+      return s;
+    },
+    // Tarjeta / panel
+    card: function (T) { return { background: T.surface, border: "1px solid " + T.line, borderRadius: this.r.card, boxShadow: this.el.raised }; },
+    panel: function (T) { return { background: T.surface, border: "1px solid " + T.line, borderRadius: this.r.panel, boxShadow: this.el.raised }; },
+    // Control (input/select/botón ghost): base con altura y radio estándar
+    ctl: function (T) { return { height: this.h.ctl, padding: "0 " + this.sp[3] + "px", borderRadius: this.r.ctl, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: this.ft.body, outline: "none", boxSizing: "border-box", transition: this.trans("border-color, box-shadow") }; },
+    // Skeleton de carga (usar con <div style={DS.skel(T,{width,height})}/> + keyframes jcSkel)
+    skel: function (T, extra) { return Object.assign({ background: T.chipBg || "rgba(127,127,127,.12)", borderRadius: this.r.ctl, animation: "jcSkel 1.2s ease-in-out infinite" }, extra || {}); }
+  };
+  window.JCDS = DS;
+  // Keyframes del skeleton + foco visible global por teclado (una sola vez).
+  try {
+    if (!document.getElementById("jcds-css")) {
+      var st = document.createElement("style"); st.id = "jcds-css";
+      st.textContent = "@keyframes jcSkel{0%,100%{opacity:.55}50%{opacity:1}}" +
+        "@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}";
+      document.head.appendChild(st);
+    }
+  } catch (e) {}
 })();
