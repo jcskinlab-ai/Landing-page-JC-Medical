@@ -4933,7 +4933,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
     rd.readAsText(f, "utf-8");
   }
   const expCard = (title, sub, fn) => (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px" }}>
+    <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px" }}>
       <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>{title}</div>
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px" }}>{sub}</div>
       <AdBtn T={T} primary onClick={fn}>↓ Descargar CSV</AdBtn>
@@ -4943,15 +4943,19 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
     <div>
       <SecHead T={T} title="Administración" sub="Equipo y permisos, registro de actividad, datos de la clínica y respaldo de información." />
       {/* pestañas */}
-      <div className="jc-scroll" style={{ display: "flex", gap: 7, overflowX: "auto", marginBottom: 18, paddingBottom: 2 }}>
+      <div className="jc-scroll" style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux())
+        ? { display: "inline-flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: window.JCDS.r.ctl + 2, padding: 3, marginBottom: 18 }
+        : { display: "flex", gap: 7, overflowX: "auto", marginBottom: 18, paddingBottom: 2 }}>
         {ADMIN_TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 12, fontWeight: 500, padding: "9px 15px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (tab === k ? T.accent : T.chipBorder), background: tab === k ? T.accent : T.chipBg, color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
+          <button key={k} onClick={() => setTab(k)} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux())
+            ? { flexShrink: 0, fontFamily: T.sans, fontSize: window.JCDS.ft.sub, fontWeight: tab === k ? 600 : 500, padding: "8px 14px", borderRadius: window.JCDS.r.ctl, cursor: "pointer", whiteSpace: "nowrap", border: "none", background: tab === k ? T.surface : "transparent", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: tab === k ? T.accent : T.textMute, transition: window.JCDS.trans("background,box-shadow,color") }
+            : { flexShrink: 0, fontFamily: T.sans, fontSize: 12, fontWeight: 500, padding: "9px 15px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (tab === k ? T.accent : T.chipBorder), background: tab === k ? T.accent : T.chipBg, color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
         ))}
       </div>
       {msg && <div style={{ background: "rgba(31,138,91,.10)", border: "1px solid rgba(31,138,91,.4)", borderRadius: 8, padding: "10px 13px", marginBottom: 14, fontFamily: T.sans, fontSize: 12, color: "#1F8A5B" }}>✓ {msg}</div>}
 
       {tab === "datos" && (
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, maxWidth: 560 }}>
+        <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px", maxWidth: 560 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, maxWidth: 560 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 13 }}>
             <AdField T={T} label="Razón social" value={biz.razon} onChange={v => setBiz({ ...biz, razon: v })} placeholder="Ej: Nombre SpA" />
             <AdField T={T} label="RUT empresa" value={biz.rut} onChange={v => setBiz({ ...biz, rut: (window.jcmFmtRut ? window.jcmFmtRut(v) : v) })} placeholder="xx.xxx.xxx-x" />
@@ -4977,7 +4981,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
             {expCard("Caja", "Movimientos de ingreso y egreso.", expCaja)}
           </div>
           {/* Respaldo completo de toda la clínica en un solo archivo */}
-          <div style={{ marginTop: 14, background: T.surface, border: "1px solid " + T.accent + "55", borderRadius: 12, padding: "18px 18px" }}>
+          <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), marginTop: 14, borderColor: T.accent + "55", padding: "18px 20px" } : { marginTop: 14, background: T.surface, border: "1px solid " + T.accent + "55", borderRadius: 12, padding: "18px 18px" }}>
             <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Respaldo completo</div>
             <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 14px", lineHeight: 1.5 }}>Descarga <b>todos los datos de tu clínica</b> (pacientes, agenda, caja, inventario, servicios, configuración…) en un solo archivo JSON. Guárdalo en un lugar seguro como respaldo periódico.</div>
             <AdBtn T={T} primary onClick={expFull}>↓ Descargar respaldo completo (JSON)</AdBtn>
@@ -5821,7 +5825,7 @@ function ChatInternoView({ T }) {
   return (
     <div>
       <SecHead T={T} title="Chat interno" sub="Conversa con tu equipo dentro del panel" />
-      <div style={{ maxWidth: 760, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column", height: "62vh" }}>
+      <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { maxWidth: 760, ...window.JCDS.card(T), overflow: "hidden", display: "flex", flexDirection: "column", height: "62vh" } : { maxWidth: 760, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column", height: "62vh" }}>
         <div ref={endRef} className="jc-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {msgs.length === 0 && <div style={{ margin: "auto", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Sin mensajes aún. Escribe el primero 👇</div>}
           {msgs.map(m => { const mine = m.author === yo; return (
@@ -5851,7 +5855,7 @@ function FlujoCajaChart({ T, title }) {
   const data = meses.map(m => { const ms = cash.filter(x => ((x._day || x.ts || "")).slice(0, 7) === m.key); const ing = ms.filter(x => x.type !== "egreso").reduce((s, x) => s + (x.amount || 0), 0); const egr = ms.filter(x => x.type === "egreso").reduce((s, x) => s + (x.amount || 0), 0); return { ...m, ing, egr, neto: ing - egr }; });
   const maxV = Math.max(1, ...data.map(d => Math.max(d.ing, d.egr)));
   return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
+    <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px", marginBottom: 16 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
       <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 16 }}>{title || "Flujo de caja · últimos 6 meses"}</div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 180 }}>
         {data.map(m => (
@@ -5927,7 +5931,7 @@ function BoletasView({ T, patients }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10, marginBottom: 22 }}>
         {SII_FACTURADORES.map(fz => { const sel = sii.facturador === fz.k; return (
-          <div key={fz.k} style={{ background: T.surface, border: "1px solid " + (sel ? T.accent : T.line), borderRadius: 12, padding: "14px 16px" }}>
+          <div key={fz.k} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "14px 16px", borderColor: sel ? T.accent + "88" : T.line } : { background: T.surface, border: "1px solid " + (sel ? T.accent : T.line), borderRadius: 12, padding: "14px 16px" }}>
             <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>{fz.k}</div>
             <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 }}>{fz.desc}</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -5939,7 +5943,7 @@ function BoletasView({ T, patients }) {
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Atenciones cobradas este mes</div>
       {atenc.length === 0 ? <Empty2 T={T}>Sin atenciones cobradas este mes.</Empty2>
         : <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{atenc.map(m => (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px", flexWrap: "wrap" }}>
+            <div key={m.id} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 12, ...window.JCDS.card(T), padding: "11px 15px", flexWrap: "wrap" } : { display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{(m.ts || "").slice(0, 10)} · {m.method}</div></div>
               <span style={{ fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" }}>{D.fmt(m.amount || 0)}</span>
               {emitidas[m.id] ? <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Boleta {emitidas[m.id]}</span> : null}
@@ -5967,7 +5971,8 @@ function DesempenoView({ T, patients, appts }) {
   const ingMes = atMes.reduce((s, m) => s + (m.amount || 0), 0);
   const ticket = atMes.length ? Math.round(ingMes / atMes.length) : 0;
   const nuevosMes = patients.filter(p => { const t = p.fechaTs || 0; if (!t) return false; return new Date(t).toISOString().slice(0, 7) === mes; }).length;
-  const card = (l, v, c, sub) => <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}><div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</div><div style={{ fontFamily: T.serif, fontSize: 30, color: c || T.text, lineHeight: 1.1, marginTop: 4 }}>{v}</div>{sub && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 3 }}>{sub}</div>}</div>;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const card = (l, v, c, sub) => <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}><div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</div><div style={{ fontFamily: T.serif, fontSize: 30, color: c || T.text, lineHeight: 1.1, marginTop: 4 }}>{v}</div>{sub && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 3 }}>{sub}</div>}</div>;
   return (
     <div>
       <SecHead T={T} title="Panel de desempeño" sub="El diagnóstico oportuno para tu centro de salud" />
@@ -6013,7 +6018,7 @@ function EncuestasView({ T, patients }) {
         <CajaCard T={T} l="Promedio (0–10)" v={prom.toFixed(1)} c="#1F8A5B" />
         <CajaCard T={T} l="NPS" v={nps} c={nps >= 50 ? "#1F8A5B" : nps >= 0 ? "#C9A227" : "#C0285A"} />
       </div>
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16, maxWidth: 760 }}>
+      <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px", marginBottom: 16, maxWidth: 760 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16, maxWidth: 760 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
           <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent }}>Pregunta de la encuesta</div>
           <AdBtn T={T} small onClick={traer}>{importing ? "Trayendo…" : "Traer respuestas"}</AdBtn>
@@ -6021,7 +6026,7 @@ function EncuestasView({ T, patients }) {
         <input value={cfg.pregunta} onChange={e => saveCfg({ ...cfg, pregunta: e.target.value })} style={{ width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
         {reviewUrl && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10, lineHeight: 1.5 }}>Este es el link que reciben tus pacientes (se incluye solo al final de las Indicaciones enviadas por WhatsApp): <a href={reviewUrl} target="_blank" rel="noopener" style={{ color: T.accent }}>{reviewUrl}</a></div>}
       </div>
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 760 }}>
+      <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px", maxWidth: 760 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 760 }}>
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 12 }}>Respuestas recientes</div>
         {resp.length === 0
           ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no hay respuestas. Se llenan solas cuando un paciente responde la encuesta desde su link.</div>
@@ -6076,7 +6081,7 @@ function PagosOnlineView({ T, patients }) {
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>1 · Conecta tu cuenta</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 12, marginBottom: 22 }}>
         {PAY_PROVIDERS.map(p => { const sel = cfg.provider === p.k; return (
-          <div key={p.k} style={{ background: T.surface, border: "1px solid " + (sel ? T.accent : T.line), borderRadius: 12, padding: "16px 18px" }}>
+          <div key={p.k} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "16px 18px", borderColor: sel ? T.accent + "88" : T.line } : { background: T.surface, border: "1px solid " + (sel ? T.accent : T.line), borderRadius: 12, padding: "16px 18px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>{p.k}</div>
               {p.ready ? <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", border: "1px solid #1F8A5B55", borderRadius: 999, padding: "3px 9px" }}>Listo para conectar</span>
@@ -6094,7 +6099,7 @@ function PagosOnlineView({ T, patients }) {
       </div>
       {/* 2 · Generar link de pago */}
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>2 · Genera un link de pago</div>
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 720 }}>
+      <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px", maxWidth: 720 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 720 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 8, marginBottom: 8 }}>
           <select value={pid} onChange={e => setPid(e.target.value)} style={inp}><option value="">Paciente (opcional)…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
           <input value={monto} onChange={e => setMonto(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Monto $" style={inp} />
