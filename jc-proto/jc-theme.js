@@ -180,7 +180,10 @@
     // ── Micro-interacciones (set curado premium) ──
     // Entrada de sección/tarjeta con fade + subida, escalonada por índice (stagger).
     // Uso: style={{ ...DS.reveal(i) }} en cada hijo de una grilla/lista. reduce-motion la anula.
-    reveal: function (i) { return { animation: "jcReveal .5s cubic-bezier(.22,1,.36,1) both", animationDelay: ((i || 0) * 55) + "ms" }; }
+    // fill-mode "backwards": oculta durante el delay del stagger, pero al terminar SUELTA el
+    // control del transform → el hover-lift (transform inline) vuelve a funcionar. (con "both"
+    // la animación retenía transform:none y pisaba el hover de las tarjetas KPI).
+    reveal: function (i) { return { animation: "jcReveal .5s cubic-bezier(.22,1,.36,1) backwards", animationDelay: ((i || 0) * 55) + "ms" }; }
   };
   window.JCDS = DS;
   // Keyframes del skeleton + foco visible global por teclado (una sola vez).
