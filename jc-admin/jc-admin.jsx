@@ -807,13 +807,29 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 
   /* ── KPI card (compacta, icono a la derecha, abre popup) ── */
   const Kpi = ({ ic, label, value, sub, popup }) => (
-    <div onClick={() => popup && setKpiPopup(popup)} title={popup ? "Ver detalle" : undefined} style={{ position: "relative", cursor: popup ? "pointer" : "default", background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 11 }}>
+    // "lux" = rediseño editorial gateado a Los Medique: tarjeta más aireada, numeral serif
+    // grande y hover-lift; el resto de clínicas conserva la tarjeta compacta actual.
+    <div onClick={() => popup && setKpiPopup(popup)} title={popup ? "Ver detalle" : undefined}
+      onMouseEnter={e => { if (lux && popup) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = T.accent + "66"; } }}
+      onMouseLeave={e => { if (lux) { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; } }}
+      style={lux
+        ? { position: "relative", cursor: popup ? "pointer" : "default", background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "20px 22px", boxShadow: T.shadow, transition: "transform .2s " + T.ease + ", border-color .2s" }
+        : { position: "relative", cursor: popup ? "pointer" : "default", background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 11 }}>
+      {lux ? (<>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", color: T.textMute }}>{label}</div>
+          <DashIcon name={ic} c={T.textFaint} size={16} />
+        </div>
+        <div style={{ fontFamily: T.serif, fontSize: 38, fontWeight: 400, color: T.text, lineHeight: 1.05, marginTop: 12 }}>{value}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
+      </>) : (<>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute }}>{label}</div>
         <div style={{ fontFamily: T.serif, fontSize: 26, color: T.text, lineHeight: 1.05, marginTop: 2 }}>{value}</div>
         <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
       </div>
       <div style={{ width: 38, height: 38, borderRadius: 10, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><DashIcon name={ic} c={T.accent} size={18} /></div>
+      </>)}
     </div>
   );
 
@@ -886,13 +902,28 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 
   const _h = new Date().getHours();
   const _greet = _h < 13 ? "Buenos días" : _h < 20 ? "Buenas tardes" : "Buenas noches";
+  // Rediseño editorial (preview gateado a Los Medique antes del push global): hero con fecha
+  // grande en serif + eyebrow con regla de acento. El resto de clínicas ve el saludo actual.
+  const lux = typeof isLosMedique === "function" && isLosMedique();
+  const _fechaLarga = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   return (
-    <div>
+    <div style={lux ? { maxWidth: 1180, margin: "0 auto" } : undefined}>
       {/* Saludo personalizado */}
+      {lux ? (
+        <div style={{ margin: "6px 0 26px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent }}>
+            <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
+            {_greet}{clinicDisplayName() ? ", " + clinicDisplayName() : ""}
+          </div>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: 42, letterSpacing: "-.015em", color: T.text, marginTop: 12, lineHeight: 1.02, textTransform: "capitalize" }}>{_fechaLarga}</h1>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
+        </div>
+      ) : (
       <div style={{ marginBottom: 18 }}>
         <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, lineHeight: 1.1 }}>{_greet}{clinicDisplayName() ? ", " + clinicDisplayName().split(" ")[0] : ""}.</h1>
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 5 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
       </div>
+      )}
       {/* pestañas tipo Medique */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 22 }}>
         <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: 4 }}>
