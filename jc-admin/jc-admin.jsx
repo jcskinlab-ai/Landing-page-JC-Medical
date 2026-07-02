@@ -3021,6 +3021,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   // se muestran bajo el primero (así no desaparece ninguna cita antigua o de reserva web).
   const profMatch = a => !multiProf || ((a.prof || "").trim() ? (a.prof || "").trim() === selProf : selProf === firstProf);
   const selProfColor = (() => { const m = team.find(x => x.name === selProf); return (m && m.color) || T.accent; })();
+  const profIni = nm => (nm || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase();
   const DOWS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
   const DOWS_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -3057,23 +3058,20 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
 
   return (
     <div>
-      {/* navegación de semana (v2: una sola línea con icono + semana + toggle + Nueva cita + profesional + Hoy/nav) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        {v2 && (
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
-          </div>
-        )}
-        <div style={{ flex: 1, minWidth: 160, fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text }}>
-          {days[0].dd} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[start.getMonth()])}</span> – {last.getDate()} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[last.getMonth()])}</span>
-        </div>
-        {v2 && viewToggle}
-        {v2 && icsBtn}
-        {v2 && nuevaBtn}
-        {v2 && team.length > 0 && (
+      {/* Barra de navegación de la semana. En luxF (Los Medique) se agrupa en 2 clústeres (design audit):
+          IZQUIERDA = contexto + navegación temporal (título, Hoy, ‹ ›, vista) · DERECHA = filtro + acciones
+          (profesional como chip con avatar, Importar, + Nueva Cita). En el resto de clínicas queda la fila
+          plana de siempre. */}
+      {(() => {
+        const hoyBtn = <button onClick={() => setWkOff(0)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: luxF ? DS.r.ctl : 9, padding: "8px 16px", cursor: "pointer" }}>Hoy</button>;
+        const prevBtn = <button onClick={() => setWkOff(wkOff - 1)} title="Semana anterior" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>;
+        const nextBtn = <button onClick={() => setWkOff(wkOff + 1)} title="Semana siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>;
+        const profNode = (v2 && team.length > 0) ? (
           <div style={{ position: "relative" }}>
-            <button onClick={() => setProfOpen(o => !o)} title="Ver agenda de un profesional" style={{ display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 }}>
-              <span style={{ width: 9, height: 9, borderRadius: "50%", background: selProfColor, flexShrink: 0 }} />
+            <button onClick={() => setProfOpen(o => !o)} title="Ver agenda de un profesional" style={{ display: "flex", alignItems: "center", gap: 8, height: 34, padding: luxF ? "0 12px 0 5px" : "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: luxF ? DS.r.pill : 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 }}>
+              {luxF
+                ? <span style={{ width: 24, height: 24, borderRadius: "50%", background: selProfColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 9.5, fontWeight: 700, flexShrink: 0 }}>{profIni(selProf)}</span>
+                : <span style={{ width: 9, height: 9, borderRadius: "50%", background: selProfColor, flexShrink: 0 }} />}
               <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selProf || "Profesional"}</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" style={{ flexShrink: 0 }}><path d="M6 9l6 6 6-6" /></svg>
             </button>
@@ -3083,13 +3081,13 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                 <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 224, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, overflow: "hidden", zIndex: 61 }}>
                   <div style={{ padding: "9px 14px 6px", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Agenda por profesional</div>
                   {team.map(m => {
-                    // Si el profesional trabaja en más de una sucursal, se muestra debajo del
-                    // nombre para distinguir su agenda (P5).
                     const sucs = Array.isArray(m.sucursales) ? m.sucursales.filter(Boolean) : [];
                     const showSuc = sucs.length > 1;
                     return (
                     <button key={m.id || m.name} onClick={() => { setSelProf(m.name); setProfOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 14px", background: m.name === selProf ? T.accent + "14" : "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: m.name === selProf ? T.accent : T.textMute }}>
-                      <span style={{ width: 9, height: 9, borderRadius: "50%", background: m.color || T.accent, flexShrink: 0 }} />
+                      {luxF
+                        ? <span style={{ width: 24, height: 24, borderRadius: "50%", background: m.color || T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 9.5, fontWeight: 700, flexShrink: 0 }}>{profIni(m.name)}</span>
+                        : <span style={{ width: 9, height: 9, borderRadius: "50%", background: m.color || T.accent, flexShrink: 0 }} />}
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
                         {showSuc && <span style={{ display: "block", fontSize: 10, color: T.textFaint, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 }}>{sucs.join(" · ")}</span>}
@@ -3102,11 +3100,44 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               </>
             )}
           </div>
-        )}
-        <button onClick={() => setWkOff(0)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: "8px 16px", cursor: "pointer" }}>Hoy</button>
-        <button onClick={() => setWkOff(wkOff - 1)} title="Semana anterior" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
-        <button onClick={() => setWkOff(wkOff + 1)} title="Semana siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
-      </div>
+        ) : null;
+        const iconNode = v2 ? (
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+          </div>
+        ) : null;
+        const titleNode = (
+          <div style={{ ...(luxF ? { minWidth: 150 } : { flex: 1, minWidth: 160 }), fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text }}>
+            {days[0].dd} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[start.getMonth()])}</span> – {last.getDate()} de <span style={{ fontStyle: "italic", color: T.accent }}>{cap(MES[last.getMonth()])}</span>
+          </div>
+        );
+        if (luxF) return (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+            {/* Cluster izquierdo: contexto + navegación temporal */}
+            {iconNode}
+            {titleNode}
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{hoyBtn}{prevBtn}{nextBtn}</div>
+            {v2 && viewToggle}
+            {/* Empuja las acciones al extremo derecho */}
+            <div style={{ flex: 1, minWidth: 8 }} />
+            {/* Cluster derecho: filtro + acciones */}
+            {profNode}
+            {v2 && icsBtn}
+            {v2 && nuevaBtn}
+          </div>
+        );
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+            {iconNode}
+            {titleNode}
+            {v2 && viewToggle}
+            {v2 && icsBtn}
+            {v2 && nuevaBtn}
+            {profNode}
+            {hoyBtn}{prevBtn}{nextBtn}
+          </div>
+        );
+      })()}
 
       <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
         <div style={{ minWidth: 900 }}>
