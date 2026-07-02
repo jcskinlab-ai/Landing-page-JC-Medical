@@ -952,13 +952,14 @@ function TutorialesView({ T, go }) {
   }
   const completados = TUTO_PASOS.filter(([k]) => done[k]).length;
   const pct = Math.round(completados / TUTO_PASOS.length * 100);
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <SecHead T={T} title="Centro de Tutoriales" sub="Pon en marcha tu clínica paso a paso y descubre lo nuevo de Medique" />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
         {/* Wizard de puesta en marcha */}
         <div>
-          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+          <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>Puesta en marcha</span>
               <span style={{ fontFamily: T.serif, fontSize: 18, color: T.accent }}>{completados}/{TUTO_PASOS.length}</span>
@@ -970,7 +971,7 @@ function TutorialesView({ T, go }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {TUTO_PASOS.map(([k, title, desc, sec], i) => { const ok = !!done[k]; return (
-              <div key={k} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 14px", borderRadius: 10, background: T.surface, border: "1px solid " + (ok ? T.accent + "55" : T.line) }}>
+              <div key={k} style={luxF ? { display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 15px", ...DS.card(T), borderColor: ok ? T.accent + "55" : T.line } : { display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 14px", borderRadius: 10, background: T.surface, border: "1px solid " + (ok ? T.accent + "55" : T.line) }}>
                 <button onClick={() => toggle(k)} title={ok ? "Marcar como pendiente" : "Marcar como completado"} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: "1.5px solid " + (ok ? T.accent : T.line), background: ok ? T.accent : "transparent", color: ok ? (T.onAccent || "#fff") : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
                 </button>
@@ -989,7 +990,7 @@ function TutorialesView({ T, go }) {
           </div>
         </div>
         {/* Novedades / changelog */}
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+        <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1F8A5B" }} />
             <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text }}>Novedades de Medique</span>
@@ -1933,16 +1934,18 @@ function ReportesView({ T, patients, appts }) {
       </svg>
     );
   }
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const repCard = luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" };
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <SecHead T={T} title="Reportes y estadísticas" sub="Análisis detallado del rendimiento de tu clínica." />
-        <select value={period} onChange={e => setPeriod(e.target.value)} style={{ fontFamily: T.sans, fontSize: 12, padding: "8px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" }}>
+        <select value={period} onChange={e => setPeriod(e.target.value)} style={luxF ? { ...DS.ctl(T) } : { fontFamily: T.sans, fontSize: 12, padding: "8px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" }}>
           <option value="anio">Este año</option><option value="mes">Este mes</option><option value="sem">Esta semana</option>
         </select>
       </div>
       {/* Evolución de ingresos — tarjeta moderna con curva de área */}
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", marginBottom: 14, boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
+      <div style={{ ...repCard, marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" /></svg></div>
@@ -1957,14 +1960,14 @@ function ReportesView({ T, patients, appts }) {
       </div>
       {/* Ingresos en tiempo real con la caja: HOY y MES en curso */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
+        <div style={repCard}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute }}>Ingresos hoy</span>
             <span style={{ fontFamily: T.sans, fontSize: 9.5, color: green, display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: green }} />en vivo</span>
           </div>
           <div style={{ fontFamily: T.serif, fontSize: 26, color: T.text, marginTop: 6 }}>{D.fmt(cashToday2)}</div>
         </div>
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
+        <div style={repCard}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute }}>Ingresos del mes</span>
             <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textMute, textTransform: "capitalize" }}>{MES_NOMBRE}</span>
@@ -1978,7 +1981,7 @@ function ReportesView({ T, patients, appts }) {
         <AdStat T={T} n={noShow + "%"} l="No-show rate" />
         <AdStat T={T} n={D.fmt(cashToday2)} l="Ingresos hoy" />
       </div>
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" }}>
+      <div style={repCard}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
           <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg></div>
           <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Servicios más populares</div>
@@ -2671,8 +2674,9 @@ function ColaboracionView({ T }) {
   const pend = reqs.filter(r => (r.status || "nueva") === "nueva");
   const rech = reqs.filter(r => r.status === "rechazada");        // registro histórico
   const activas = reqs.filter(r => r.status !== "rechazada");      // nuevas + aprobadas
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const reqRow = r => (
-    <div key={r.id} style={{ background: T.surface, border: "1px solid " + ((r.status || "nueva") === "nueva" ? T.accent : T.line), borderRadius: 10, padding: "13px 15px", opacity: r.status === "rechazada" ? 0.78 : 1 }}>
+    <div key={r.id} style={luxF ? { ...DS.card(T), padding: "13px 16px", borderColor: (r.status || "nueva") === "nueva" ? T.accent + "88" : T.line, opacity: r.status === "rechazada" ? 0.78 : 1 } : { background: T.surface, border: "1px solid " + ((r.status || "nueva") === "nueva" ? T.accent : T.line), borderRadius: 10, padding: "13px 15px", opacity: r.status === "rechazada" ? 0.78 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2889,7 +2893,7 @@ function FichaEditorView({ T }) {
           {sel && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px,1fr))", gap: 16, alignItems: "start" }}>
               {/* Constructor */}
-              <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "15px 16px" }}>
+              <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "15px 16px" }}>
                 <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, fontWeight: 600, marginBottom: 10 }}>✏️ Editas aquí</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                   <input value={sel.name} onChange={e => updSel({ name: e.target.value })} placeholder="Nombre de la plantilla" style={{ ...inp, fontWeight: 600 }} />
@@ -3546,6 +3550,7 @@ function SalaEsperaView({ T, appts, patients, updatePatient }) {
   const next = st => ({ porllegar: "espera", espera: "atencion", atencion: "fin" })[st];
   const lbl = { porllegar: "Marcar llegada", espera: "Pasar a atención", atencion: "Finalizar" };
   const today = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   function eliminarDeSala(a) {
     const st = stOf(a);
     const n = { ...status, [a.id]: "eliminado" };
@@ -3566,14 +3571,14 @@ function SalaEsperaView({ T, appts, patients, updatePatient }) {
         {WAIT_COLS.map(([k, l]) => {
           const items = hoy.filter(a => stOf(a) === k && status[a.id] !== "eliminado");
           return (
-            <div key={k} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: 12, minHeight: 200 }}>
+            <div key={k} style={luxF ? { ...DS.card(T), padding: 12, minHeight: 200 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: 12, minHeight: 200 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <span style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent }}>{l}</span>
                 <span style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>{items.length}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {items.map(a => (
-                  <div key={a.id} style={{ background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
+                  <div key={a.id} style={luxF ? { background: T.bg, border: "1px solid " + T.line, borderRadius: DS.r.ctl, padding: "10px 12px" } : { background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{a.name}</div>
