@@ -773,7 +773,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       {tab === "receta" && <RecetaTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "presupuesto" && <PresupuestoTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "examenes" && <ExamenesTab T={T} patient={patient} />}
-      {tab === "facturacion" && <FacturacionTab T={T} patient={patient} updatePatient={updatePatient} />}
+      {tab === "facturacion" && <FacturacionTab T={T} patient={patient} updatePatient={updatePatient} onOpenSession={(hi) => { setEditIdx(hi); setViewMode(true); setNewEntry(true); setTab("procedimientos"); }} />}
       {tab === "campana" && <CampanaTab T={T} patient={patient} updatePatient={updatePatient} />}
 
       {tab === "procedimientos" && (
@@ -1854,7 +1854,7 @@ function ImagenesTab({ T, patient, updatePatient }) {
 }
 
 /* ─────────── FACTURACIÓN ─────────── */
-function FacturacionTab({ T, patient, updatePatient }) {
+function FacturacionTab({ T, patient, updatePatient, onOpenSession }) {
   const D = window.JCDATA;
   const [editAt, setEditAt] = useState(null); // { idx: -1 (nuevo) | n, item: {...} }
   const [delAt, setDelAt] = useState(null); // atención a eliminar (pide clave de admin)
@@ -1898,7 +1898,7 @@ function FacturacionTab({ T, patient, updatePatient }) {
         {items.length > 0 && <div style={{ fontFamily: T.serif, fontSize: 17, color: T.text }}>Total {D.fmt(total)}</div>}
       </div>
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>
-        Los pagos se registran en cada <b style={{ color: T.text }}>sesión</b> (pestaña Procedimientos). Aquí ves solo el procedimiento, el método de pago y el monto.
+        Historial de atenciones cobradas. <b style={{ color: T.text }}>Toca una atención</b> para abrir la sesión con su detalle de pago.
       </div>
       {items.length === 0 && (
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, textAlign: "center", padding: "24px 0" }}>
@@ -1908,11 +1908,17 @@ function FacturacionTab({ T, patient, updatePatient }) {
       <div style={{ display: "flex", flexDirection: "column" }}>
         {items.map((b, idx) => (
           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.metodo}</div>
+            <div onClick={() => onOpenSession && onOpenSession(b.hi)} title="Abrir la sesión y su detalle de pago"
+              style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, cursor: onOpenSession ? "pointer" : "default", borderRadius: 8, padding: "2px 4px", margin: "-2px -4px" }}
+              onMouseEnter={e => { if (onOpenSession) e.currentTarget.style.background = T.lineSoft; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 13.5, color: T.text }}>{b.concept}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{b.metodo}{b.date ? " · " + b.date : ""}</div>
+              </div>
+              <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 }}>{D.fmt(b.amount || 0)}</div>
+              {onOpenSession && <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>}
             </div>
-            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, flexShrink: 0 }}>{D.fmt(b.amount || 0)}</div>
             <button type="button" title="Eliminar atención (requiere clave de admin)" onClick={() => setDelAt(b)}
               style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer" }}
               onMouseEnter={e => { e.currentTarget.style.color = "#C0285A"; e.currentTarget.style.borderColor = "#C0285A"; }}
