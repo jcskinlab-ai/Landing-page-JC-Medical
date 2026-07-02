@@ -596,9 +596,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     var el = document.getElementById("jcm-main-scroll") || typeof document !== "undefined" && document.querySelector(".jc-scroll");
     if (!el) return;
     var prev = el.style.background;
-    var base = T.bg || (T.dark ? "#0D0D0D" : "#F5F2EC");
-    var glow = T.accent || "#54707F";
-    el.style.background = "radial-gradient(1200px 620px at 84% -100px, " + glow + (T.dark ? "16" : "12") + ", " + glow + "00 58%), " + base;
+    el.style.background = "transparent";
     return () => {
       el.style.background = prev;
     };
@@ -1580,16 +1578,19 @@ function AdminApp() {
   else if (section === "boletas") body = /* @__PURE__ */ React.createElement(BoletasView, { T, patients });
   else if (section === "pagosonline") body = /* @__PURE__ */ React.createElement(PagosOnlineView, { T, patients });
   const RAIL = 60, EXP = 212;
-  const SIDE_BG = T.dark ? "#0E131B" : "#FFFFFF", SIDE_TX = T.dark ? "#EFEAE0" : "#1A1A14", SIDE_MUTE = T.dark ? "rgba(239,234,224,.55)" : "#5C5A50", SIDE_LINE = T.dark ? "rgba(239,234,224,.10)" : "rgba(20,20,15,.10)", SIDE_ACT = T.dark ? "rgba(239,234,224,.10)" : T.accentSoft || "rgba(84,112,127,.12)";
+  const shellLux = typeof isLosMedique === "function" && isLosMedique();
+  const everestBg = shellLux ? T.dark ? "linear-gradient(rgba(9,11,15,.80), rgba(9,11,15,.90)), url('/assets/everest.jpg')" : "linear-gradient(rgba(238,238,240,.84), rgba(238,238,240,.91)), url('/assets/everest.jpg')" : null;
+  const SIDE_BG = shellLux ? T.dark ? "rgba(13,16,22,.52)" : "rgba(255,255,255,.55)" : T.dark ? "#0E131B" : "#FFFFFF", SIDE_TX = T.dark ? "#EFEAE0" : "#1A1A14", SIDE_MUTE = T.dark ? "rgba(239,234,224,.55)" : "#5C5A50", SIDE_LINE = T.dark ? "rgba(239,234,224,.10)" : "rgba(20,20,15,.10)", SIDE_ACT = T.dark ? "rgba(239,234,224,.10)" : T.accentSoft || "rgba(84,112,127,.12)";
+  const SIDE_GLASS = shellLux ? { backdropFilter: "blur(22px) saturate(1.3)", WebkitBackdropFilter: "blur(22px) saturate(1.3)" } : {};
   const SIDE_LOGO = "/assets/medique-logo.png";
-  return /* @__PURE__ */ React.createElement("div", { className: "jc-stage", style: { background: T.dark ? "#070707" : "#DCD7CC" } }, /* @__PURE__ */ React.createElement("div", { className: "jc-admin-frame", style: { background: T.bg, boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" } }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "jc-stage", style: { background: T.dark ? "#070707" : "#DCD7CC" } }, /* @__PURE__ */ React.createElement("div", { className: "jc-admin-frame", style: { ...everestBg ? { backgroundImage: everestBg, backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" } : { background: T.bg }, boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" } }, /* @__PURE__ */ React.createElement(
     "div",
     {
       onMouseEnter: () => setNavOpen(true),
       onMouseLeave: () => setNavOpen(false),
-      style: { width: RAIL, flexShrink: 0, background: SIDE_BG, position: "relative", zIndex: 20 }
+      style: { width: RAIL, flexShrink: 0, background: shellLux ? "transparent" : SIDE_BG, position: "relative", zIndex: 20 }
     },
-    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => nav("dashboard"), title: "Ir al Dashboard", style: { display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } })), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" } }, "medique")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" } }, (() => {
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, ...SIDE_GLASS, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => nav("dashboard"), title: "Ir al Dashboard", style: { display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } })), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" } }, "medique")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" } }, (() => {
       let curGroup = null;
       return adminNavItems().map((n) => {
         if (SIDE_GROUP_HEAD[n.k]) curGroup = SIDE_GROUP_HEAD[n.k];
@@ -1613,7 +1614,7 @@ function AdminApp() {
         } }, nIcon(n.k, active ? SIDE_TX : SIDE_MUTE), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE } }, n.l), n.k === "pendientes" && pendCount > 0 && (navOpen ? /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" } }, pendCount) : /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" } }))));
       });
     })()))
-  ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "13px 18px 10px", borderBottom: "1px solid " + T.line, background: T.navBg, backdropFilter: "blur(14px)", position: "relative", zIndex: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(PatientSearch, { T, patients, onOpen: (id) => {
+  ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "13px 18px 10px", borderBottom: "1px solid " + (shellLux ? "transparent" : T.line), background: shellLux ? T.dark ? "rgba(10,12,16,.28)" : "rgba(255,255,255,.30)" : T.navBg, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(PatientSearch, { T, patients, onOpen: (id) => {
     setOpenPatient(id);
     setSection("pacientes");
   } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement("div", { ref: profileRef, style: { position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setProfileOpen((o) => !o), style: { display: "flex", alignItems: "center", gap: 9, background: profileOpen ? T.chipBg || "rgba(0,0,0,.06)" : "none", border: "1px solid " + (profileOpen ? T.chipBorder : "transparent"), cursor: "pointer", padding: "5px 10px 5px 6px", borderRadius: 10, transition: "all .15s" } }, /* @__PURE__ */ React.createElement(Avatar, { T, name: clinicDisplayName(), src: clinicAvatarSrc(profilePic), size: 32 }), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0, textAlign: "left" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, lineHeight: 1.1, whiteSpace: "nowrap" } }, clinicDisplayName()), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, lineHeight: 1.1 } }, "Mi perfil")), /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "2.2", style: { flexShrink: 0, transform: profileOpen ? "rotate(180deg)" : "none", transition: "transform .2s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), profileOpen && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 230, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 12px 40px -10px rgba(0,0,0,.4)", zIndex: 200, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "16px 18px 14px", borderBottom: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement(Avatar, { T, name: clinicDisplayName(), src: clinicAvatarSrc(profilePic), size: 42 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text, lineHeight: 1.2 } }, clinicDisplayName()), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, "Administrador"))), [
@@ -1657,20 +1658,27 @@ function AdminApp() {
       localStorage.setItem("jcm_theme_pref", JSON.stringify({ key: nk, period: autoPeriod() }));
     } catch (e) {
     }
-  }, title: T.dark ? "Modo d\xEDa" : "Modo noche", style: { width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, T.dark ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "4.5" }), /* @__PURE__ */ React.createElement("path", { d: "M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" })) : /* @__PURE__ */ React.createElement("path", { d: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" })))), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { display: "flex", gap: 6, overflowX: "auto", padding: "7px 16px", borderBottom: "1px solid " + T.line, background: T.navBg, position: "relative", zIndex: 5, flexShrink: 0 } }, (() => {
+  }, title: T.dark ? "Modo d\xEDa" : "Modo noche", style: { width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }, T.dark ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "4.5" }), /* @__PURE__ */ React.createElement("path", { d: "M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" })) : /* @__PURE__ */ React.createElement("path", { d: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" })))), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { display: "flex", gap: 6, overflowX: "auto", padding: shellLux ? "12px 16px" : "7px 16px", borderBottom: shellLux ? "none" : "1px solid " + T.line, background: shellLux ? "transparent" : T.navBg, position: "relative", zIndex: 5, flexShrink: 0 } }, (() => {
     const items = adminNavItems();
     const byKey = {};
     items.forEach((n) => {
       byKey[n.k] = n.l;
     });
+    const seg = shellLux;
+    const segActive = seg ? T.dark ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.92)" : null;
+    const segTx = seg ? T.dark ? "#F2EDE6" : T.accent : null;
+    const segMute = seg ? T.dark ? "rgba(239,234,224,.60)" : T.textMute : null;
+    const btnStyle = (active) => seg ? { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 15px", borderRadius: 11, cursor: "pointer", border: "none", background: active ? segActive : "none", boxShadow: active ? "0 1px 3px rgba(0,0,0,.18)" : "none", color: active ? segTx : segMute, fontFamily: T.sans, fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .18s " + T.ease } : { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? T.onAccent || "#fff" : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease };
     const pins = NAV_PINNED.filter((k) => byKey[k]).map((k) => {
       const active = section === k;
-      return /* @__PURE__ */ React.createElement("button", { key: "pin-" + k, onClick: () => nav(k), style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? T.onAccent || "#fff" : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease } }, k === "pendientes" && pendCount > 0 && /* @__PURE__ */ React.createElement("span", { style: { width: 5, height: 5, borderRadius: "50%", background: active ? T.onAccent || "#fff" : "#C0285A" } }), byKey[k]);
+      return /* @__PURE__ */ React.createElement("button", { key: "pin-" + k, onClick: () => nav(k), style: btnStyle(active) }, k === "pendientes" && pendCount > 0 && /* @__PURE__ */ React.createElement("span", { style: { width: 5, height: 5, borderRadius: "50%", background: active ? seg ? "#C0285A" : T.onAccent || "#fff" : "#C0285A" } }), byKey[k]);
     });
     const grps = NAV_TOP_GROUPS.map((g) => {
       const keys = g.keys.filter((k) => byKey[k] && NAV_PINNED.indexOf(k) < 0);
       if (!keys.length) return null;
       const activeInGroup = keys.indexOf(section) >= 0;
+      const st = btnStyle(activeInGroup);
+      st.gap = 7;
       return /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -1681,13 +1689,16 @@ function AdminApp() {
             const rightAlign = r.left + MENU_W > window.innerWidth - 8;
             setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, right: rightAlign ? Math.max(8, window.innerWidth - r.right) : null, y: r.bottom + 5, keys, byKey });
           },
-          style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (activeInGroup ? T.accent : T.line), background: activeInGroup ? T.accent : T.chipBg, color: activeInGroup ? T.onAccent || "#fff" : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: activeInGroup ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease }
+          style: st
         },
         activeInGroup ? g.l + " \xB7 " + byKey[section] : g.l,
         /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))
       );
     });
-    return pins.concat(/* @__PURE__ */ React.createElement("span", { key: "nav-div", style: { flexShrink: 0, width: 1, alignSelf: "stretch", background: T.line, margin: "2px 4px" } })).concat(grps);
+    const divider = /* @__PURE__ */ React.createElement("span", { key: "nav-div", style: { flexShrink: 0, width: 1, alignSelf: "stretch", background: seg ? T.dark ? "rgba(255,255,255,.12)" : "rgba(20,20,15,.12)" : T.line, margin: "3px 5px" } });
+    const content = pins.concat(divider).concat(grps);
+    if (!seg) return content;
+    return /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: T.dark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.5)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.62)"), borderRadius: 16, padding: 4, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 8px 24px -14px rgba(0,0,0,.5)" } }, content);
   })()), topGrp && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setTopGrp(null), style: { position: "fixed", inset: 0, zIndex: 50 } }), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { position: "fixed", top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto", ...topGrp.right != null ? { right: topGrp.right } : { left: topGrp.x } } }, topGrp.keys.map((k) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => {
     nav(k);
     setTopGrp(null);

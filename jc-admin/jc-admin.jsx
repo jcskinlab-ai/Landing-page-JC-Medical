@@ -513,11 +513,9 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     var el = document.getElementById("jcm-main-scroll") || (typeof document !== "undefined" && document.querySelector(".jc-scroll"));
     if (!el) return;
     var prev = el.style.background;
-    // Base = el propio bg del tema (misma temperatura que barra superior y sidebar → sin costura),
-    // + un brillo tenue del acento del tema arriba a la derecha. Nada de colores nuevos que choquen.
-    var base = T.bg || (T.dark ? "#0D0D0D" : "#F5F2EC");
-    var glow = (T.accent || "#54707F");
-    el.style.background = "radial-gradient(1200px 620px at 84% -100px, " + glow + (T.dark ? "16" : "12") + ", " + glow + "00 58%), " + base;
+    // La atmósfera ahora es la foto everest en el frame; el contenedor de scroll queda transparente
+    // para que la montaña se vea detrás del dashboard glass.
+    el.style.background = "transparent";
     return () => { el.style.background = prev; };
   }, [lux, T.dark]);
   // ESC cierra los popups del dashboard (KPI / movimientos de caja) para que nunca queden
@@ -1677,21 +1675,29 @@ function AdminApp() {
   else if (section === "pagosonline") body = <PagosOnlineView T={T} patients={patients} />;
 
   const RAIL = 60, EXP = 212;
+  // "shellLux" = look premium con foto de fondo (everest) + glass, gateado a Los Medique.
+  const shellLux = typeof isLosMedique === "function" && isLosMedique();
+  const everestBg = shellLux
+    ? (T.dark
+        ? "linear-gradient(rgba(9,11,15,.80), rgba(9,11,15,.90)), url('/assets/everest.jpg')"
+        : "linear-gradient(rgba(238,238,240,.84), rgba(238,238,240,.91)), url('/assets/everest.jpg')")
+    : null;
   // Barra izquierda oscura (color de la pestaña seleccionada): única navegación del panel.
-  // Sidebar: claro en día (estilo Medique), oscuro en noche.
-  const SIDE_BG = T.dark ? "#0E131B" : "#FFFFFF",
+  // Sidebar: claro en día (estilo Medique), oscuro en noche. En lux: translúcido (glass sobre la montaña).
+  const SIDE_BG = shellLux ? (T.dark ? "rgba(13,16,22,.52)" : "rgba(255,255,255,.55)") : (T.dark ? "#0E131B" : "#FFFFFF"),
     SIDE_TX = T.dark ? "#EFEAE0" : "#1A1A14",
     SIDE_MUTE = T.dark ? "rgba(239,234,224,.55)" : "#5C5A50",
     SIDE_LINE = T.dark ? "rgba(239,234,224,.10)" : "rgba(20,20,15,.10)",
     SIDE_ACT = T.dark ? "rgba(239,234,224,.10)" : (T.accentSoft || "rgba(84,112,127,.12)");
+  const SIDE_GLASS = shellLux ? { backdropFilter: "blur(22px) saturate(1.3)", WebkitBackdropFilter: "blur(22px) saturate(1.3)" } : {};
   const SIDE_LOGO = "/assets/medique-logo.png";
   return (
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
-      <div className="jc-admin-frame" style={{ background: T.bg, boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" }}>
+      <div className="jc-admin-frame" style={{ ...(everestBg ? { backgroundImage: everestBg, backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" } : { background: T.bg }), boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" }}>
         {/* SIDEBAR — única navegación */}
         <div onMouseEnter={() => setNavOpen(true)} onMouseLeave={() => setNavOpen(false)}
-          style={{ width: RAIL, flexShrink: 0, background: SIDE_BG, position: "relative", zIndex: 20 }}>
-          <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" }}>
+          style={{ width: RAIL, flexShrink: 0, background: shellLux ? "transparent" : SIDE_BG, position: "relative", zIndex: 20 }}>
+          <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, ...SIDE_GLASS, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" }}>
             <button onClick={() => nav("dashboard")} title="Ir al Dashboard" style={{ display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}>
               <span style={{ width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" }}>
                 <img src={SIDE_LOGO} alt="Medique" style={{ width: 30, height: 30, objectFit: "contain" }} />
@@ -1731,7 +1737,7 @@ function AdminApp() {
 
         {/* MAIN */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 18px 10px", borderBottom: "1px solid " + T.line, background: T.navBg, backdropFilter: "blur(14px)", position: "relative", zIndex: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 18px 10px", borderBottom: "1px solid " + (shellLux ? "transparent" : T.line), background: shellLux ? (T.dark ? "rgba(10,12,16,.28)" : "rgba(255,255,255,.30)") : T.navBg, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" }}>
             {/* Izquierda: solo el buscador de pacientes (nombre, RUT, teléfono o correo) */}
             <PatientSearch T={T} patients={patients} onOpen={(id) => { setOpenPatient(id); setSection("pacientes"); }} />
             <div style={{ flex: 1 }} />
@@ -1794,16 +1800,23 @@ function AdminApp() {
             </button>
           </div>
 
-          {/* barra dashboard horizontal · grupos desplegables (F8) */}
-          <div className="jc-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "7px 16px", borderBottom: "1px solid " + T.line, background: T.navBg, position: "relative", zIndex: 5, flexShrink: 0 }}>
+          {/* barra dashboard horizontal · grupos desplegables (F8) · en lux: segmented glass (estilo Ficha) */}
+          <div className="jc-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", padding: shellLux ? "12px 16px" : "7px 16px", borderBottom: shellLux ? "none" : "1px solid " + T.line, background: shellLux ? "transparent" : T.navBg, position: "relative", zIndex: 5, flexShrink: 0 }}>
             {(() => {
               const items = adminNavItems(); const byKey = {}; items.forEach(n => { byKey[n.k] = n.l; });
+              const seg = shellLux;
+              const segActive = seg ? (T.dark ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.92)") : null;
+              const segTx = seg ? (T.dark ? "#F2EDE6" : T.accent) : null;
+              const segMute = seg ? (T.dark ? "rgba(239,234,224,.60)" : T.textMute) : null;
+              const btnStyle = active => seg
+                ? { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 15px", borderRadius: 11, cursor: "pointer", border: "none", background: active ? segActive : "none", boxShadow: active ? "0 1px 3px rgba(0,0,0,.18)" : "none", color: active ? segTx : segMute, fontFamily: T.sans, fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .18s " + T.ease }
+                : { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease };
               // Pestañas fijas (acceso rápido) primero.
               const pins = NAV_PINNED.filter(k => byKey[k]).map(k => {
                 const active = section === k;
                 return (
-                  <button key={"pin-" + k} onClick={() => nav(k)} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease }}>
-                    {k === "pendientes" && pendCount > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? (T.onAccent || "#fff") : "#C0285A" }} />}
+                  <button key={"pin-" + k} onClick={() => nav(k)} style={btnStyle(active)}>
+                    {k === "pendientes" && pendCount > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? (seg ? "#C0285A" : (T.onAccent || "#fff")) : "#C0285A" }} />}
                     {byKey[k]}
                   </button>
                 );
@@ -1812,15 +1825,20 @@ function AdminApp() {
               const grps = NAV_TOP_GROUPS.map(g => {
                 const keys = g.keys.filter(k => byKey[k] && NAV_PINNED.indexOf(k) < 0); if (!keys.length) return null;
                 const activeInGroup = keys.indexOf(section) >= 0;
+                const st = btnStyle(activeInGroup); st.gap = 7;
                 return (
                   <button key={g.l} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const MENU_W = 210; const rightAlign = r.left + MENU_W > window.innerWidth - 8; setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, right: rightAlign ? Math.max(8, window.innerWidth - r.right) : null, y: r.bottom + 5, keys: keys, byKey: byKey }); }}
-                    style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (activeInGroup ? T.accent : T.line), background: activeInGroup ? T.accent : T.chipBg, color: activeInGroup ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: activeInGroup ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease }}>
+                    style={st}>
                     {activeInGroup ? g.l + " · " + byKey[section] : g.l}
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>
                   </button>
                 );
               });
-              return pins.concat(<span key="nav-div" style={{ flexShrink: 0, width: 1, alignSelf: "stretch", background: T.line, margin: "2px 4px" }} />).concat(grps);
+              const divider = <span key="nav-div" style={{ flexShrink: 0, width: 1, alignSelf: "stretch", background: seg ? (T.dark ? "rgba(255,255,255,.12)" : "rgba(20,20,15,.12)") : T.line, margin: "3px 5px" }} />;
+              const content = pins.concat(divider).concat(grps);
+              if (!seg) return content;
+              // Contenedor segmented glass (estilo Ficha): una sola pastilla redondeada translúcida.
+              return <div style={{ display: "inline-flex", alignItems: "center", gap: 3, background: T.dark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.5)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.62)"), borderRadius: 16, padding: 4, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 8px 24px -14px rgba(0,0,0,.5)" }}>{content}</div>;
             })()}
           </div>
           {topGrp && (<>
