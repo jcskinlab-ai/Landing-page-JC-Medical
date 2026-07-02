@@ -476,9 +476,10 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const waLink = (p, r) => recitaWa(p, r);
   const fmtD = d => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  // Filtros como control segmentado rectangular (mismo estilo que Dashboard/Tratamientos), no píldoras sueltas.
   const chip = (k, l, set, cur) => <button key={k} onClick={() => set(k)} style={luxF
-    ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: cur === k ? 600 : 500, padding: "7px 13px", borderRadius: DS.r.pill, cursor: "pointer", border: "1px solid " + (cur === k ? T.accent : T.line), background: cur === k ? T.accent + "14" : "transparent", color: cur === k ? T.accent : T.textMute, transition: DS.trans("background,border-color,color") }
-    : { fontFamily: T.sans, fontSize: 11, padding: "7px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (cur === k ? T.accent : T.line), background: cur === k ? T.surface2 : T.surface, color: cur === k ? T.text : T.textMute }}>{l}</button>;
+    ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: cur === k ? 600 : 500, padding: "8px 14px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: cur === k ? T.surface : "transparent", boxShadow: cur === k ? "0 1px 2px rgba(0,0,0,.08)" : "none", color: cur === k ? T.accent : T.textMute, whiteSpace: "nowrap", transition: DS.trans("background,color,box-shadow") }
+    : { fontFamily: T.sans, fontSize: 11, padding: "7px 12px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (cur === k ? T.accent : T.line), background: cur === k ? T.surface2 : T.surface, color: cur === k ? T.text : T.textMute }}>{l}</button>;
   return (
     <div style={{ padding: "4px 0 20px" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
@@ -490,8 +491,10 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
         </div>
         <AdBtn T={T} primary onClick={() => setNuevo(true)}>+ Paciente</AdBtn>
       </div>
-      {/* filtros */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+      {/* filtros — control segmentado */}
+      <div style={luxF
+        ? { display: "inline-flex", gap: 2, marginBottom: 10, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, maxWidth: "100%", flexWrap: "wrap" }
+        : { display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
         {chip("calendario", "Calendario", setFilt, filt)}{chip("recientes", "Recientes", setFilt, filt)}{chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
       </div>
       {/* campañas de re-cita */}
@@ -1447,7 +1450,7 @@ function SignConsentModal({ T, data, onClose, onSign }) {
     <AdModal T={T} title="Consentimiento informado" onClose={onClose} wide
       footer={<AdBtn T={T} primary full onClick={() => ready && onSign({ tpl, sigPac, sigPro, fields: { nombre, ci, edad, prof, fecha } })}>{ready ? "Confirmar y guardar consentimiento firmado" : "Acepta y firma (paciente y enfermero) para continuar"}</AdBtn>}>
       <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap" }}>
-        {allTpls.map(c => <button key={c.id} onClick={() => setTpl(c)} style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".06em", padding: "8px 12px", borderRadius: 999, cursor: "pointer", background: tpl.id === c.id ? T.surface2 : T.surface, color: tpl.id === c.id ? T.text : T.textMute, border: "1px solid " + (tpl.id === c.id ? T.accent : T.line) }}>{c.title}</button>)}
+        {allTpls.map(c => <button key={c.id} onClick={() => setTpl(c)} style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".06em", padding: "8px 12px", borderRadius: 8, cursor: "pointer", background: tpl.id === c.id ? T.surface2 : T.surface, color: tpl.id === c.id ? T.text : T.textMute, border: "1px solid " + (tpl.id === c.id ? T.accent : T.line) }}>{c.title}</button>)}
       </div>
       <div style={{ background: "#fff", border: "1px solid " + T.line, borderRadius: 8, padding: "22px 24px", maxHeight: 360, overflowY: "auto", marginBottom: 16 }}>
         <div style={{ textAlign: "right", fontFamily: T.sans, fontSize: 12, color: "#111", marginBottom: 6 }}>Fecha: <input value={fecha} onChange={e => setFecha(e.target.value)} style={{ ...uline, color: "#111", borderColor: "#999", width: 100 }} /></div>
@@ -2178,7 +2181,7 @@ function FichaIATab({ T, patient, go }) {
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
         {[["resumen", "Resumen clínico"], ["auditoria", "Auditoría"]].map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setSub(k)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: sub === k ? 600 : 500, padding: "7px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (sub === k ? T.accent : T.line), background: sub === k ? T.accent : "transparent", color: sub === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
+          <button key={k} type="button" onClick={() => setSub(k)} style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: sub === k ? 600 : 500, padding: "7px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (sub === k ? T.accent : T.line), background: sub === k ? T.accent : "transparent", color: sub === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
         ))}
       </div>
       {sub === "resumen" ? <ResumenIA T={T} patient={patient} /> : <AuditoriaIA T={T} patient={patient} go={go} />}

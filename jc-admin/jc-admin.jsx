@@ -2018,7 +2018,7 @@ function NotifPopup({ T, patients, appts, onClose, go, openP, onChanged }) {
   const tabBtn = (t) => {
     const active = t.id === activeTab;
     return (
-      <button key={t.id} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, border: active ? "1px solid " + T.accent : "1px solid " + T.lineSoft, background: active ? T.accent + "18" : "transparent", fontFamily: T.sans, fontSize: 11, fontWeight: active ? 600 : 400, color: active ? T.accent : T.textMute, cursor: "pointer", whiteSpace: "nowrap", transition: "all .15s" }}>
+      <button key={t.id} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 8, border: active ? "1px solid " + T.accent : "1px solid " + T.lineSoft, background: active ? T.accent + "18" : "transparent", fontFamily: T.sans, fontSize: 11, fontWeight: active ? 600 : 400, color: active ? T.accent : T.textMute, cursor: "pointer", whiteSpace: "nowrap", transition: "all .15s" }}>
         {t.label}
         {t.n > 0 && <span style={{ fontFamily: T.sans, fontSize: 9.5, fontWeight: 700, background: active ? T.accent : T.lineSoft, color: active ? "#fff" : T.textMute, borderRadius: 999, padding: "1px 6px", lineHeight: 1.6 }}>{t.n}</span>}
       </button>

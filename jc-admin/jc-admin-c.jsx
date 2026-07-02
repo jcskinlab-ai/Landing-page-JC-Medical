@@ -3264,7 +3264,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       </div>
       {/* Selector de tipo de ficha */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-        {FICHA_TIPOS.map(([k, l]) => <button key={k} type="button" onClick={() => setVal("tipo", k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: tipo === k ? 600 : 500, padding: "8px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tipo === k ? T.accent : T.line), background: tipo === k ? T.accent : "transparent", color: tipo === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>)}
+        {FICHA_TIPOS.map(([k, l]) => <button key={k} type="button" onClick={() => setVal("tipo", k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: tipo === k ? 600 : 500, padding: "8px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (tipo === k ? T.accent : T.line), background: tipo === k ? T.accent : "transparent", color: tipo === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>)}
       </div>
       {/* Antropometría (Corporal) — compacta y colapsable: peso/talla/IMC en una fila. */}
       {tipo === "corporal" && (
@@ -4453,10 +4453,14 @@ function InventarioView({ T }) {
         <AdBtn T={T} onClick={() => setScan(true)}>Escanear factura/boleta</AdBtn>
         <AdBtn T={T} primary onClick={() => setNuevo(true)}>+ Producto</AdBtn>
       </div>
-      {/* Chips de categoría */}
-      <div className="jc-scroll" style={{ display: "flex", gap: 7, overflowX: "auto", marginBottom: 14, paddingBottom: 2 }}>
+      {/* Filtro de categoría — control segmentado rectangular */}
+      <div className="jc-scroll" style={luxF
+        ? { display: "inline-flex", gap: 2, maxWidth: "100%", overflowX: "auto", marginBottom: 14, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3 }
+        : { display: "flex", gap: 7, overflowX: "auto", marginBottom: 14, paddingBottom: 2 }}>
         {["Todas", ...cats].map(c => (
-          <button key={c} onClick={() => setCatFilter(c)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, padding: "6px 13px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (catFilter === c ? T.accent : T.chipBorder), background: catFilter === c ? T.accent : T.chipBg, color: catFilter === c ? (T.onAccent || "#fff") : T.textMute }}>{c}</button>
+          <button key={c} onClick={() => setCatFilter(c)} style={luxF
+            ? { flexShrink: 0, fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: catFilter === c ? 600 : 500, padding: "8px 14px", borderRadius: DS.r.ctl, cursor: "pointer", whiteSpace: "nowrap", border: "none", background: catFilter === c ? T.surface : "transparent", boxShadow: catFilter === c ? "0 1px 2px rgba(0,0,0,.08)" : "none", color: catFilter === c ? T.accent : T.textMute, transition: DS.trans("background,color,box-shadow") }
+            : { flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, padding: "6px 13px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (catFilter === c ? T.accent : T.chipBorder), background: catFilter === c ? T.accent : T.chipBg, color: catFilter === c ? (T.onAccent || "#fff") : T.textMute }}>{c}</button>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -5370,7 +5374,7 @@ function CajaView({ T }) {
   const subLbl = periodo === "hoy" ? "hoy" : periodo === "semana" ? "esta semana" : "este mes";
   // En semana/mes, antepone la fecha (día/mes) a la hora para distinguir entre días.
   const cuando = m => (periodo !== "hoy" && m._day ? m._day.slice(8) + "/" + m._day.slice(5, 7) + " · " : "") + hora(m.ts);
-  const chip = (k, l) => <button key={k} onClick={() => setPeriodo(k)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "7px 14px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (periodo === k ? T.accent : T.line), background: periodo === k ? T.surface2 : T.surface, color: periodo === k ? T.text : T.textMute }}>{l}</button>;
+  const chip = (k, l) => <button key={k} onClick={() => setPeriodo(k)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "7px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (periodo === k ? T.accent : T.line), background: periodo === k ? T.surface2 : T.surface, color: periodo === k ? T.text : T.textMute }}>{l}</button>;
 
   return (
     <div>
@@ -5397,7 +5401,7 @@ function CajaView({ T }) {
           <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Tratamientos que más venden · {tratScope === "mes" ? "este mes" : "histórico"}</div>
           <div style={{ display: "flex", gap: 6 }}>
             {[["mes", "Este mes"], ["hist", "Histórico"]].map(([k, l]) => (
-              <button key={k} onClick={() => setTratScope(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "6px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tratScope === k ? T.accent : T.line), background: tratScope === k ? T.surface2 : T.surface, color: tratScope === k ? T.text : T.textMute }}>{l}</button>
+              <button key={k} onClick={() => setTratScope(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "6px 12px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (tratScope === k ? T.accent : T.line), background: tratScope === k ? T.surface2 : T.surface, color: tratScope === k ? T.text : T.textMute }}>{l}</button>
             ))}
           </div>
         </div>
