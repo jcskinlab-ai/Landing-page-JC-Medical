@@ -729,7 +729,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
                     <span style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{st.n}{conv != null && <span style={{ fontSize: 10.5, fontWeight: 400, color: T.textMute, marginLeft: 7 }}>{conv}%</span>}</span>
                   </div>
                   <div style={{ height: lux ? 6 : 8, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: pct + "%", background: st.c, borderRadius: 999, transition: "width .6s " + T.ease }} />
+                    <div style={{ height: "100%", width: pct + "%", background: st.c, borderRadius: 999, transition: "width .6s " + T.ease, ...(lux ? DS.barGrow(i, "x") : {}) }} />
                   </div>
                 </div>
               );
@@ -969,9 +969,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       <svg viewBox={"0 0 " + W + " " + H} style={{ width: "100%", height: "auto", display: "block" }} preserveAspectRatio="xMidYMid meet">
         <defs><linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={navyAccent} stopOpacity="0.22" /><stop offset="100%" stopColor={navyAccent} stopOpacity="0" /></linearGradient></defs>
         {grid.map((y, i) => <line key={i} x1={padL} y1={y} x2={padL + innerW} y2={y} stroke={T.line} strokeWidth="1" />)}
-        <path d={area} fill="url(#dashGrad)" />
-        <path d={line} fill="none" stroke={navyAccent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
-        {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.4" fill={T.surface} stroke={navyAccent} strokeWidth="2" />)}
+        {/* El área + línea + puntos se "dibujan" de izquierda a derecha al montar (lux). */}
+        <g style={lux ? DS.drawIn(1100) : undefined}>
+          <path d={area} fill="url(#dashGrad)" />
+          <path d={line} fill="none" stroke={navyAccent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+          {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.4" fill={T.surface} stroke={navyAccent} strokeWidth="2" />)}
+        </g>
         {dias.map((d, i) => {
           const anchor = i === 0 ? "start" : (i === n - 1 ? "end" : "middle");
           const tx = i === 0 ? padL : (i === n - 1 ? padL + innerW : X(i));

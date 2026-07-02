@@ -1982,9 +1982,11 @@ function ReportesView({ T, patients, appts }) {
       <svg viewBox={"0 0 " + W + " " + H} style={{ width: "100%", height: "auto", display: "block" }} preserveAspectRatio="xMidYMid meet">
         <defs><linearGradient id="repGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={T.accent} stopOpacity="0.22" /><stop offset="100%" stopColor={T.accent} stopOpacity="0" /></linearGradient></defs>
         {grid.map((y, i) => <line key={i} x1={padL} y1={y} x2={padL + innerW} y2={y} stroke={T.line} strokeWidth="1" />)}
-        <path d={area} fill="url(#repGrad)" />
-        <path d={line} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
-        {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.6" fill={T.surface} stroke={T.accent} strokeWidth="2" />)}
+        <g style={(window.JCDS && (typeof jcdsLux === "function" && jcdsLux())) ? window.JCDS.drawIn(1100) : undefined}>
+          <path d={area} fill="url(#repGrad)" />
+          <path d={line} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+          {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.6" fill={T.surface} stroke={T.accent} strokeWidth="2" />)}
+        </g>
         {rev.map((r, i) => <text key={r.m} x={X(i)} y={H - 7} textAnchor="middle" fontSize="11" fontFamily={T.sans} fill={T.textMute}>{r.m}</text>)}
       </svg>
     );
@@ -2042,10 +2044,10 @@ function ReportesView({ T, patients, appts }) {
           <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Servicios más populares</div>
         </div>
         {pop.length === 0 && <Empty2 T={T}>Aún sin citas registradas. El ranking aparecerá cuando agendes procedimientos.</Empty2>}
-        {pop.map(([n, p]) => (
+        {pop.map(([n, p], pi) => (
           <div key={n} style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 5 }}><span>{n}</span><span style={{ color: T.accent, fontWeight: 600 }}>{Math.round(p * 100)}%</span></div>
-            <div style={{ height: 7, background: T.surface2, borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: (p * 100) + "%", background: "linear-gradient(90deg," + T.accent + "," + T.accentDeep + ")", borderRadius: 999 }} /></div>
+            <div style={{ height: 7, background: T.surface2, borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: (p * 100) + "%", background: "linear-gradient(90deg," + T.accent + "," + T.accentDeep + ")", borderRadius: 999, ...(luxF ? DS.barGrow(pi, "x") : {}) }} /></div>
           </div>
         ))}
       </div>
@@ -5311,7 +5313,7 @@ function CajaView({ T }) {
                 <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{t.n} venta{t.n === 1 ? "" : "s"} · <b style={{ color: "#1F8A5B" }}>{D.fmt(t.total)}</b></span>
               </div>
               <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: Math.max(6, Math.round(t.total / max * 100)) + "%", background: T.accent, borderRadius: 999 }} />
+                <div style={{ height: "100%", width: Math.max(6, Math.round(t.total / max * 100)) + "%", background: T.accent, borderRadius: 999, ...(luxF ? DS.barGrow(i, "x") : {}) }} />
               </div>
             </div>
           );
@@ -5395,7 +5397,7 @@ function CajaView({ T }) {
                   <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{p.n} atención{p.n === 1 ? "" : "es"} · <b style={{ color: "#1F8A5B" }}>{D.fmt(p.total)}</b></span>
                 </div>
                 <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: Math.max(6, Math.round(p.total / max * 100)) + "%", background: T.accent, borderRadius: 999 }} />
+                  <div style={{ height: "100%", width: Math.max(6, Math.round(p.total / max * 100)) + "%", background: T.accent, borderRadius: 999, ...(luxF ? DS.barGrow(i, "x") : {}) }} />
                 </div>
               </div>
             );
@@ -5952,6 +5954,7 @@ function ChatInternoView({ T }) {
 // Gráfico de flujo de caja (6 meses) reutilizable — se usa en Flujo de caja y en Registro de Ventas.
 function FlujoCajaChart({ T, title }) {
   const D = window.JCDATA;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" && jcdsLux());
   let cash = []; try { cash = (window.cashMovimientos && window.cashMovimientos()) || (window.cashAll && window.cashAll()) || []; } catch (e) {}
   const now = new Date();
   const meses = []; for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); meses.push({ key: d.toISOString().slice(0, 7), lbl: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][d.getMonth()] }); }
@@ -5961,11 +5964,11 @@ function FlujoCajaChart({ T, title }) {
     <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px", marginBottom: 16 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
       <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 16 }}>{title || "Flujo de caja · últimos 6 meses"}</div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 180 }}>
-        {data.map(m => (
+        {data.map((m, mi) => (
           <div key={m.key} title={"Ganancia de " + m.lbl + ": " + D.fmt(m.neto)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "default" }}>
             <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 4 }}>
-              <div title={"Ingresos " + D.fmt(m.ing)} style={{ width: "40%", height: Math.round(m.ing / maxV * 140) + "px", minHeight: 2, background: "#1F8A5B", borderRadius: "4px 4px 0 0" }} />
-              <div title={"Egresos " + D.fmt(m.egr)} style={{ width: "40%", height: Math.round(m.egr / maxV * 140) + "px", minHeight: 2, background: "#C0285A", borderRadius: "4px 4px 0 0" }} />
+              <div title={"Ingresos " + D.fmt(m.ing)} style={{ width: "40%", height: Math.round(m.ing / maxV * 140) + "px", minHeight: 2, background: "#1F8A5B", borderRadius: "4px 4px 0 0", ...(luxF ? DS.barGrow(mi) : {}) }} />
+              <div title={"Egresos " + D.fmt(m.egr)} style={{ width: "40%", height: Math.round(m.egr / maxV * 140) + "px", minHeight: 2, background: "#C0285A", borderRadius: "4px 4px 0 0", ...(luxF ? DS.barGrow(mi) : {}) }} />
             </div>
             <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>{m.lbl}</span>
           </div>))}

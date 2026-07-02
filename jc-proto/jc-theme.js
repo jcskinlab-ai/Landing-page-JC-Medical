@@ -205,7 +205,18 @@
     // la animación retenía transform:none y pisaba el hover de las tarjetas KPI).
     // Duración/stagger recortados (180ms, 20ms, tope 8 items): en software de gestión el usuario
     // entra a trabajar, no a mirar una intro — que se sienta instantáneo, no coreografiado.
-    reveal: function (i) { return { animation: "jcReveal .18s cubic-bezier(.22,1,.36,1) backwards", animationDelay: (Math.min(i || 0, 8) * 20) + "ms" }; }
+    reveal: function (i) { return { animation: "jcReveal .18s cubic-bezier(.22,1,.36,1) backwards", animationDelay: (Math.min(i || 0, 8) * 20) + "ms" }; },
+    // ── Animación de entrada de GRÁFICOS (pedido del usuario: que crezcan, no estáticos) ──
+    // barGrow(i)      → barra vertical que sube desde el eje (scaleY 0→1), escalonada por índice.
+    // barGrow(i,'x')  → barra horizontal que crece desde la izquierda (scaleX 0→1) para rankings.
+    // drawIn(ms)      → línea/área SVG que se "dibuja" de izquierda a derecha (clip-path).
+    // Un poco más lentas que reveal (los gráficos SÍ merecen su momento) pero sin exagerar; respetan
+    // prefers-reduced-motion vía la regla global. Se aplican SOLO en lux (gated en el call site).
+    // fill-mode "backwards" (NO "both"): si la animación no corre (clip-path no soportado, render
+    // headless, pestaña oculta), el elemento queda en su estado natural VISIBLE, nunca oculto — la
+    // animación realza un default ya visible, no lo esconde. (principio del audit)
+    barGrow: function (i, axis) { return { animation: "jc" + (axis === "x" ? "BarGrowX" : "BarGrow") + " .6s cubic-bezier(.22,1,.36,1) backwards", animationDelay: (Math.min(i || 0, 12) * 55) + "ms", transformOrigin: axis === "x" ? "left center" : "bottom center" }; },
+    drawIn: function (ms) { return { animation: "jcDrawIn " + ((ms || 900) / 1000) + "s cubic-bezier(.33,1,.68,1) backwards" }; }
   };
   window.JCDS = DS;
   // Keyframes del skeleton + foco visible global por teclado (una sola vez).
@@ -214,6 +225,10 @@
       var st = document.createElement("style"); st.id = "jcds-css";
       st.textContent = "@keyframes jcSkel{0%,100%{opacity:.55}50%{opacity:1}}" +
         "@keyframes jcReveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}" +
+        // Gráficos: barras que crecen desde el eje y líneas/áreas que se dibujan al montar.
+        "@keyframes jcBarGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}" +
+        "@keyframes jcBarGrowX{from{transform:scaleX(0)}to{transform:scaleX(1)}}" +
+        "@keyframes jcDrawIn{from{clip-path:inset(0 100% 0 0);-webkit-clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0);-webkit-clip-path:inset(0 0 0 0)}}" +
         "@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;animation-delay:0ms !important;transition-duration:.01ms !important}}" +
         // Foco visible por teclado: usa currentColor (ya es el color del propio control en cada tema)
         // para no depender de variables CSS que este stack no usa. Solo aplica en :focus-visible
