@@ -134,17 +134,16 @@ const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
   // Consentimientos y Editor de Fichas se movieron aquí (antes en "Sistema"), a pedido.
-  // Tratamientos (servicios) entra a Clínica: es configuración clínica, no una vista diaria (a pedido del usuario).
-  { l: "Clínica", keys: ["servicios", "equipo", "sucursales", "inventario", "consentimientos", "fichaeditor"] },
+  // Tratamientos (servicios) entra a Clínica. Se le suman Fidelidad, Colaboraciones y Chat interno
+  // (antes en "Herramientas", que se eliminó) a pedido del usuario.
+  { l: "Clínica", keys: ["servicios", "equipo", "sucursales", "inventario", "consentimientos", "fichaeditor", "fidelidad", "colaboracion", "chatinterno"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
-  { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
-  // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes, que ya incluye Reportes IA
-  // fusionado). Fidelidad, Colaboración e Integraciones pasan a su propio menú "Herramientas". (P22)
-  { l: "Análisis", keys: ["resumen", "reportes", "desempeno"] },
-  { l: "Herramientas", keys: ["fidelidad", "colaboracion", "integraciones", "chatinterno"] },
+  // "Análisis" e "IA" se fusionan en un solo menú (a pedido del usuario).
+  { l: "Análisis · IA", keys: ["resumen", "reportes", "desempeno", "agenteia", "copilot", "automatizaciones"] },
   // Registro de Ventas (caja) entra a Gestión: es el módulo financiero junto a Pagos, Remuneraciones y Boletas.
   { l: "Gestión", keys: ["caja", "pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
-  { l: "Sistema", keys: ["administracion", "tutoriales", "config"] }
+  // Integraciones baja a Sistema (antes en "Herramientas", eliminado).
+  { l: "Sistema", keys: ["administracion", "tutoriales", "config", "integraciones"] }
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (las de uso diario: agenda del día, pacientes,
 // recepción, pendientes urgentes y el vigilante IA). El resto vive agrupado en los desplegables.

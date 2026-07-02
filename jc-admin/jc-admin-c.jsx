@@ -1100,6 +1100,22 @@ const TUTO_NOVEDADES = [
 function TutorialesView({ T, go }) {
   const [done, setDone] = useState(() => { try { return (window.DB && window.DB.get("tutorial_done")) || {}; } catch (e) { return {}; } });
   function toggle(k) { const n = { ...done, [k]: !done[k] }; setDone(n); try { window.DB && window.DB.set("tutorial_done", n); } catch (e) {} }
+  // Auto-completado: un paso se marca solo cuando su dato ya existe en la clínica (p.ej. si hay
+  // sucursales cargadas, "Define tus sucursales" queda cumplido). Se relee en cada render.
+  function autoDone(k) {
+    try {
+      const DB = window.DB; if (!DB) return false;
+      if (k === "config") return !!((DB.cfg().clinic_name || "").trim());
+      if (k === "servicios") return ((DB.get("services_custom") || []).length > 0);
+      if (k === "equipo") return ((DB.get("team") || []).length > 0);
+      if (k === "sucursales") return ((DB.get("sucursales") || []).length > 0);
+      if (k === "agenda") return ((DB.get("appointments") || []).length > 0);
+      if (k === "crm") return ((DB.get("crm_leads") || []).length > 0);
+      if (k === "integraciones") { const c = DB.get("meta_creds") || {}; return !!(c.token && c.account); }
+    } catch (e) {}
+    return false;
+  }
+  const isDone = k => autoDone(k) || !!done[k];
   // Videos propios por paso (los pega la clínica). Persisten en DB.tutorial_videos.
   const [videos, setVideos] = useState(() => { try { return (window.DB && window.DB.get("tutorial_videos")) || {}; } catch (e) { return {}; } });
   async function setVid(k) {
@@ -1109,7 +1125,7 @@ function TutorialesView({ T, go }) {
     const n = { ...videos, [k]: ("" + url).trim() }; if (!n[k]) delete n[k];
     setVideos(n); try { window.DB && window.DB.set("tutorial_videos", n); } catch (e) {}
   }
-  const completados = TUTO_PASOS.filter(([k]) => done[k]).length;
+  const completados = TUTO_PASOS.filter(([k]) => isDone(k)).length;
   const pct = Math.round(completados / TUTO_PASOS.length * 100);
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
@@ -1129,9 +1145,9 @@ function TutorialesView({ T, go }) {
             <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 8 }}>{pct === 100 ? "🎉 ¡Tu clínica está lista!" : "Completa los pasos para sacarle todo el provecho a Medique."}</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {TUTO_PASOS.map(([k, title, desc, sec], i) => { const ok = !!done[k]; return (
+            {TUTO_PASOS.map(([k, title, desc, sec], i) => { const auto = autoDone(k); const ok = auto || !!done[k]; return (
               <div key={k} style={luxF ? { display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 15px", ...DS.card(T), borderColor: ok ? T.accent + "55" : T.line } : { display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 14px", borderRadius: 10, background: T.surface, border: "1px solid " + (ok ? T.accent + "55" : T.line) }}>
-                <button onClick={() => toggle(k)} title={ok ? "Marcar como pendiente" : "Marcar como completado"} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: "1.5px solid " + (ok ? T.accent : T.line), background: ok ? T.accent : "transparent", color: ok ? (T.onAccent || "#fff") : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
+                <button onClick={() => { if (!auto) toggle(k); }} title={auto ? "Completado automáticamente (ya tienes este dato en tu clínica)" : (ok ? "Marcar como pendiente" : "Marcar como completado")} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: auto ? "default" : "pointer", border: "1.5px solid " + (ok ? T.accent : T.line), background: ok ? T.accent : "transparent", color: ok ? (T.onAccent || "#fff") : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
