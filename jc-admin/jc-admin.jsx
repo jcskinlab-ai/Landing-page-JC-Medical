@@ -2715,13 +2715,13 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           suave (oscuro en dark / claro en light) garantiza contraste aunque detrás caiga una zona
           clara u oscura de la montaña, sin agregar una caja opaca que rompa el look editorial. */}
       {luxF && (() => { const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)"; return (
-        <div style={{ margin: "6px 0 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>
-            <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
+        <div style={{ margin: "0 0 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: T.sans, fontSize: 9, letterSpacing: ".26em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>
+            <span style={{ display: "inline-block", width: 22, height: 1, background: T.gold || T.accent }} />
             Agenda de la clínica
           </div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(24px, 2.6vw, 30px)", letterSpacing: "-.01em", color: T.text, margin: "10px 0 0", lineHeight: 1.05, textShadow: heroShadow }}>Reservas y Citas</h1>
-          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8, textShadow: heroShadow }}>{(() => { const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length; return n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."; })()} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(19px, 2vw, 23px)", letterSpacing: "-.01em", color: T.text, margin: "5px 0 0", lineHeight: 1.05, textShadow: heroShadow }}>Reservas y Citas</h1>
+          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 4, textShadow: heroShadow }}>{(() => { const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length; return n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."; })()} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
         </div>
       ); })()}
       {/* Cabecera grande: solo en clínicas que NO son la base (v2 la colapsa a una línea en SemanaGrid). */}
