@@ -570,9 +570,9 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const ingresosHoy = typeof window.cashToday === "function" ? (window.cashToday() || []).filter((m) => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
   const nuevosMes = patients.length;
   const green = "#1F8A5B";
-  const glassPanel = !lux ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow } : T.dark ? { background: "rgba(255,255,255,.03)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 22, boxShadow: "0 32px 72px -40px rgba(0,0,0,.85)" } : { background: "rgba(232,231,227,.40)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,.55)", borderRadius: 22, boxShadow: "0 24px 56px -34px rgba(60,58,50,.18)" };
-  const glassFill = T.dark ? "rgba(255,255,255,.035)" : "rgba(20,20,15,.028)";
-  const glassFillHover = T.dark ? "rgba(255,255,255,.07)" : "rgba(20,20,15,.05)";
+  const glassPanel = !lux ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow } : T.dark ? { background: "rgba(255,255,255,.045)", backdropFilter: "blur(30px) saturate(1.4)", WebkitBackdropFilter: "blur(30px) saturate(1.4)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 22, boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)" } : { background: "rgba(255,255,255,.42)", backdropFilter: "blur(30px) saturate(1.4)", WebkitBackdropFilter: "blur(30px) saturate(1.4)", border: "1px solid rgba(255,255,255,.85)", borderRadius: 22, boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 24px 56px -36px rgba(60,58,50,.16)" };
+  const glassFill = T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.38)";
+  const glassFillHover = T.dark ? "rgba(255,255,255,.075)" : "rgba(255,255,255,.6)";
   const nowClr = "#D8674A";
   const DASH_BLOCKS = ["dia", "metrics", "funnel", "evo"];
   const [dashOrder, setDashOrder] = useState(() => {
@@ -596,7 +596,9 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     var el = document.getElementById("jcm-main-scroll") || typeof document !== "undefined" && document.querySelector(".jc-scroll");
     if (!el) return;
     var prev = el.style.background;
-    el.style.background = T.dark ? "radial-gradient(1100px 560px at 82% -80px, rgba(158,128,100,.11), rgba(158,128,100,0) 60%), #0B0A09" : "radial-gradient(1100px 560px at 82% -80px, rgba(150,138,120,.13), rgba(150,138,120,0) 60%), #E8E6E1";
+    var base = T.bg || (T.dark ? "#0D0D0D" : "#F5F2EC");
+    var glow = T.accent || "#54707F";
+    el.style.background = "radial-gradient(1200px 620px at 84% -100px, " + glow + (T.dark ? "16" : "12") + ", " + glow + "00 58%), " + base;
     return () => {
       el.style.background = prev;
     };
