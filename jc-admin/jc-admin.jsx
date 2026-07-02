@@ -2739,11 +2739,13 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           {nuevaBtnNode}
         </div>
       )}
-      {/* En v2 (lista), una mini-barra superior con el toggle + Nueva cita (la semana ya los lleva inline). */}
+      {/* En v2 (lista), una mini-barra superior con el toggle + Nueva cita (la semana ya los lleva inline).
+          Mismo orden que semana/mes: selector de vista a la IZQUIERDA, acciones a la derecha (armonía). */}
       {isBase && view === "dia" && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text }}>{luxF ? "" : "Reservas y Citas"}</div>
-          {viewToggleNode}
+          {luxF ? viewToggleNode : <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text }}>Reservas y Citas</div>}
+          {luxF && <div style={{ flex: 1, minWidth: 8 }} />}
+          {!luxF && viewToggleNode}
           {icsBtnNode}
           {nuevaBtnNode}
         </div>
@@ -2969,11 +2971,14 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nueva
   const navBtn = { width: 30, height: 30, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
   return (
     <div>
+      {/* Mismo orden que semana/día: navegación + selector de vista a la IZQUIERDA, acciones a la
+          derecha (armonía del sistema — el toggle no se desplaza al cambiar de vista). */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <button onClick={() => setMonthDate(new Date(y, m - 1, 1))} style={navBtn} title="Mes anterior">‹</button>
-        <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text, textTransform: "capitalize" }}>{monthLbl}</div>
+        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, textTransform: "capitalize", minWidth: 140 }}>{monthLbl}</div>
         <button onClick={() => setMonthDate(new Date(y, m + 1, 1))} style={navBtn} title="Mes siguiente">›</button>
         {viewToggle}
+        <div style={{ flex: 1, minWidth: 8 }} />
         {nuevaBtn}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, background: T.line, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" }}>
