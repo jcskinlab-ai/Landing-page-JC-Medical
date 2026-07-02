@@ -5998,7 +5998,7 @@ function ConveniosView({ T }) {
   const inp = { padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
   return (
     <div>
-      <SecHead T={T} title="Convenios" sub="Gestiona los convenios con empresas y otras entidades" />
+      <SecHead T={T} title="Convenios" sub={(items.length ? items.length + " convenio" + (items.length === 1 ? "" : "s") + " · " : "") + "empresas y otras entidades con descuento"} />
       <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 120px auto", gap: 8, alignItems: "center" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 120px auto", gap: 8, alignItems: "center" }}>
         <input value={f.empresa} onChange={e => setF({ ...f, empresa: e.target.value })} placeholder="Empresa / entidad" style={inp} />
         <input value={f.contacto} onChange={e => setF({ ...f, contacto: e.target.value })} placeholder="Contacto (teléfono/correo)" style={inp} />
@@ -6032,11 +6032,14 @@ function ChatInternoView({ T }) {
       <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { maxWidth: 760, ...window.JCDS.card(T), overflow: "hidden", display: "flex", flexDirection: "column", height: "62vh" } : { maxWidth: 760, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column", height: "62vh" }}>
         <div ref={endRef} className="jc-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {msgs.length === 0 && <div style={{ margin: "auto", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Sin mensajes aún. Escribe el primero 👇</div>}
-          {msgs.map(m => { const mine = m.author === yo; return (
-            <div key={m.id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "80%" }}>
-              {!mine && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, margin: "0 4px 3px" }}>{m.author}</div>}
-              <div style={{ background: mine ? T.accent : T.surface2, color: mine ? (T.onAccent || "#fff") : T.text, border: mine ? "none" : "1px solid " + T.line, borderRadius: 12, padding: "9px 13px", fontFamily: T.sans, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, margin: "3px 4px 0", textAlign: mine ? "right" : "left" }}>{hora(m.ts)}</div>
+          {msgs.map(m => { const mine = m.author === yo; const ac = !mine && window.jcmAvatarColor ? window.jcmAvatarColor(m.author || "") : T.accent; const ini = (m.author || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); return (
+            <div key={m.id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%", display: "flex", alignItems: "flex-end", gap: 8, flexDirection: mine ? "row-reverse" : "row" }}>
+              {!mine && <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 999, background: ac, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 10, fontWeight: 600 }}>{ini}</span>}
+              <div style={{ minWidth: 0 }}>
+                {!mine && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, margin: "0 4px 3px" }}>{m.author}</div>}
+                <div style={{ background: mine ? T.accent : T.surface2, color: mine ? (T.onAccent || "#fff") : T.text, border: mine ? "none" : "1px solid " + T.line, borderRadius: 12, padding: "9px 13px", fontFamily: T.sans, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, margin: "3px 4px 0", textAlign: mine ? "right" : "left" }}>{hora(m.ts)}</div>
+              </div>
             </div>); })}
         </div>
         <div style={{ display: "flex", gap: 8, padding: "12px 14px", borderTop: "1px solid " + T.line }}>

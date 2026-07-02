@@ -160,17 +160,19 @@ const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
   // Consentimientos y Editor de Fichas se movieron aquí (antes en "Sistema"), a pedido.
-  { l: "Cl\xEDnica", keys: ["equipo", "sucursales", "inventario", "consentimientos", "fichaeditor"] },
+  // Tratamientos (servicios) entra a Clínica: es configuración clínica, no una vista diaria (a pedido del usuario).
+  { l: "Cl\xEDnica", keys: ["servicios", "equipo", "sucursales", "inventario", "consentimientos", "fichaeditor"] },
   { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
   { l: "IA", keys: ["agenteia", "copilot", "automatizaciones"] },
   // "Análisis" ahora solo agrupa lo analítico (Resumen IA + Reportes, que ya incluye Reportes IA
   // fusionado). Fidelidad, Colaboración e Integraciones pasan a su propio menú "Herramientas". (P22)
   { l: "An\xE1lisis", keys: ["resumen", "reportes", "desempeno"] },
   { l: "Herramientas", keys: ["fidelidad", "colaboracion", "integraciones", "chatinterno"] },
-  { l: "Gesti\xF3n", keys: ["pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
+  // Registro de Ventas (caja) entra a Gestión: es el módulo financiero junto a Pagos, Remuneraciones y Boletas.
+  { l: "Gesti\xF3n", keys: ["caja", "pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
   { l: "Sistema", keys: ["administracion", "tutoriales", "config"] }
 ];
-const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja", "servicios", "contraloria"];
+const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "contraloria"];
 function jcmCancelNotice(a) {
   try {
     if (!a || !window.mediqueEmail) return;
