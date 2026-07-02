@@ -3628,27 +3628,11 @@ function HorariosEditor({ T }) {
 /* ─────────── PENDIENTES ─────────── */
 function PendientesView({ T, patients, appts, go, openP, updatePatient, goApt }) {
   const D = window.JCDATA;
-  const [tasks, setTasks] = useState(() => { try { return DB.get("admin_tasks") || []; } catch (e) { return []; } });
-  const [draft, setDraft] = useState("");
-  function saveTasks(n) { setTasks(n); try { DB.set("admin_tasks", n); } catch (e) {} }
-  function addTask() { if (!draft.trim()) return; saveTasks([{ id: "t" + Date.now(), text: draft.trim(), done: false }, ...tasks]); setDraft(""); }
-  function toggleTask(id) { saveTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t)); }
-  async function delTask(id) { if (await (window.jcmConfirm || window.confirm)("¿Eliminar esta tarea?", {danger: true})) saveTasks(tasks.filter(t => t.id !== id)); }
-  const tPend = tasks.filter(t => !t.done), tDone = tasks.filter(t => t.done);
-  const taskCard = t => (
-    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
-      <button onClick={() => toggleTask(t.id)} title={t.done ? "Reabrir" : "Completar"} style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + (t.done ? "#4E8A72" : T.chipBorder), background: t.done ? "#4E8A72" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{t.done && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>}</button>
-      <span style={{ flex: 1, fontFamily: T.sans, fontSize: 13, color: t.done ? T.textFaint : T.text, textDecoration: t.done ? "line-through" : "none" }}>{t.text}</span>
-      <button onClick={() => delTask(t.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
-    </div>
-  );
-  const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
+  const [showAllReci, setShowAllReci] = useState(false); // re-cita: colapsada (solo el primero) por defecto
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
   // Consentimientos firmados hace más de 1 año → sugerir renovación
   const oneYear = Date.now() - 365 * 24 * 3600 * 1000;
   const porRenovar = patients.filter(p => p.consent && p.consentTs && p.consentTs < oneYear);
-  const otrosPend = sinConsent.length + recitas.length + porRenovar.length;
-  const totalPend = tPend.length + otrosPend;
   return (
     <div>
       <SecHead T={T} title="Pendientes" sub="Seguimientos clínicos y control de calidad." />
@@ -3656,17 +3640,20 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient, goApt })
           a pedido del usuario: Pendientes queda enfocado en el Contralor IA y los seguimientos clínicos. */}
       {/* Contralor IA (fusionado): verificación automática de registros como pendientes inteligentes. */}
       <ContraloriaView T={T} patients={patients} appts={appts} openP={openP} goApt={goApt} go={go} embed />
-      <Group T={T} title={"Consentimientos por firmar (" + sinConsent.length + ")"}>
-        {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Ir a consentimientos" onClick={() => openP(p.id, "consent")} onDelete={() => updatePatient(p.id, { consent: true, consentInfo: "Marcado como firmado", consentTs: Date.now() })} />)}
-        {!sinConsent.length && <Empty2 T={T}>Todo firmado.</Empty2>}
-      </Group>
+      {/* "Consentimientos por firmar" se quitó: ya aparece como alerta "Consentimientos pendientes"
+          en el Contralor IA de arriba (evita duplicar la misma lista). */}
       <Group T={T} title={"Consentimientos por renovar · +1 año (" + porRenovar.length + ")"}>
         {porRenovar.map(p => { const meses = Math.floor((Date.now() - p.consentTs) / (30 * 24 * 3600 * 1000)); return <PendRow key={p.id} T={T} name={p.name} desc={"Firmado hace " + meses + " meses · " + (p.consentInfo || "Consentimiento")} action="Renovar" onClick={() => openP(p.id, "consent")} />; })}
         {!porRenovar.length && <Empty2 T={T}>Todos los consentimientos están vigentes.</Empty2>}
       </Group>
       <Group T={T} title={"Re-citar · esquema en curso (" + recitas.length + ")"}>
-        {recitas.map(({ p, r }) => <PendRow key={p.id} T={T} name={p.name} desc={r.motivo + " · " + r.precioFmt + " → " + r.descFmt} action="WhatsApp" href={window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""))} />)}
+        {/* Colapsada: se muestra solo el primer paciente; el resto se despliega para no ocupar tanto espacio. */}
+        {(showAllReci ? recitas : recitas.slice(0, 1)).map(({ p, r }) => <PendRow key={p.id} T={T} name={p.name} desc={r.motivo + " · " + r.precioFmt + " → " + r.descFmt} action="WhatsApp" href={window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""))} />)}
         {!recitas.length && <Empty2 T={T}>Sin re-citas por contactar hoy.</Empty2>}
+        {recitas.length > 1 && <button onClick={() => setShowAllReci(v => !v)} style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, background: "none", border: "1px dashed " + T.line, borderRadius: 8, padding: "8px 13px", cursor: "pointer", marginTop: 2 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: showAllReci ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
+          {showAllReci ? "Ver menos" : "Ver " + (recitas.length - 1) + " re-cita" + (recitas.length - 1 === 1 ? "" : "s") + " más"}
+        </button>}
       </Group>
       {/* Se quitaron las secciones "Mensajes de WhatsApp por responder", "Comentarios en Business
           Manager" y "Seguimientos": eran listas SIEMPRE vacías (hardcodeadas a []), nunca se

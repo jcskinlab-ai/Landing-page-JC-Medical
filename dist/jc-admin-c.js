@@ -2974,44 +2974,14 @@ function HorariosEditor({ T }) {
 }
 function PendientesView({ T, patients, appts, go, openP, updatePatient, goApt }) {
   const D = window.JCDATA;
-  const [tasks, setTasks] = useState(() => {
-    try {
-      return DB.get("admin_tasks") || [];
-    } catch (e) {
-      return [];
-    }
-  });
-  const [draft, setDraft] = useState("");
-  function saveTasks(n) {
-    setTasks(n);
-    try {
-      DB.set("admin_tasks", n);
-    } catch (e) {
-    }
-  }
-  function addTask() {
-    if (!draft.trim()) return;
-    saveTasks([{ id: "t" + Date.now(), text: draft.trim(), done: false }, ...tasks]);
-    setDraft("");
-  }
-  function toggleTask(id) {
-    saveTasks(tasks.map((t) => t.id === id ? { ...t, done: !t.done } : t));
-  }
-  async function delTask(id) {
-    if (await (window.jcmConfirm || window.confirm)("\xBFEliminar esta tarea?", { danger: true })) saveTasks(tasks.filter((t) => t.id !== id));
-  }
-  const tPend = tasks.filter((t) => !t.done), tDone = tasks.filter((t) => t.done);
-  const taskCard = (t) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => toggleTask(t.id), title: t.done ? "Reabrir" : "Completar", style: { flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + (t.done ? "#4E8A72" : T.chipBorder), background: t.done ? "#4E8A72" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 } }, t.done && /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: "3" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6 9 17l-5-5" }))), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 13, color: t.done ? T.textFaint : T.text, textDecoration: t.done ? "line-through" : "none" } }, t.text), /* @__PURE__ */ React.createElement("button", { onClick: () => delTask(t.id), title: "Eliminar", style: { background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", padding: 2 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }))));
-  const sinConsent = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
+  const [showAllReci, setShowAllReci] = useState(false);
   const recitas = window.recitaDue ? window.recitaDue(patients) : [];
   const oneYear = Date.now() - 365 * 24 * 3600 * 1e3;
   const porRenovar = patients.filter((p) => p.consent && p.consentTs && p.consentTs < oneYear);
-  const otrosPend = sinConsent.length + recitas.length + porRenovar.length;
-  const totalPend = tPend.length + otrosPend;
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Pendientes", sub: "Seguimientos cl\xEDnicos y control de calidad." }), /* @__PURE__ */ React.createElement(ContraloriaView, { T, patients, appts, openP, goApt, go, embed: true }), /* @__PURE__ */ React.createElement(Group, { T, title: "Consentimientos por firmar (" + sinConsent.length + ")" }, sinConsent.map((p) => /* @__PURE__ */ React.createElement(PendRow, { key: p.id, T, name: p.name, desc: p.tags && p.tags[0] || "Paciente", action: "Ir a consentimientos", onClick: () => openP(p.id, "consent"), onDelete: () => updatePatient(p.id, { consent: true, consentInfo: "Marcado como firmado", consentTs: Date.now() }) })), !sinConsent.length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Todo firmado.")), /* @__PURE__ */ React.createElement(Group, { T, title: "Consentimientos por renovar \xB7 +1 a\xF1o (" + porRenovar.length + ")" }, porRenovar.map((p) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Pendientes", sub: "Seguimientos cl\xEDnicos y control de calidad." }), /* @__PURE__ */ React.createElement(ContraloriaView, { T, patients, appts, openP, goApt, go, embed: true }), /* @__PURE__ */ React.createElement(Group, { T, title: "Consentimientos por renovar \xB7 +1 a\xF1o (" + porRenovar.length + ")" }, porRenovar.map((p) => {
     const meses = Math.floor((Date.now() - p.consentTs) / (30 * 24 * 3600 * 1e3));
     return /* @__PURE__ */ React.createElement(PendRow, { key: p.id, T, name: p.name, desc: "Firmado hace " + meses + " meses \xB7 " + (p.consentInfo || "Consentimiento"), action: "Renovar", onClick: () => openP(p.id, "consent") });
-  }), !porRenovar.length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Todos los consentimientos est\xE1n vigentes.")), /* @__PURE__ */ React.createElement(Group, { T, title: "Re-citar \xB7 esquema en curso (" + recitas.length + ")" }, recitas.map(({ p, r }) => /* @__PURE__ */ React.createElement(PendRow, { key: p.id, T, name: p.name, desc: r.motivo + " \xB7 " + r.precioFmt + " \u2192 " + r.descFmt, action: "WhatsApp", href: window.recitaWa ? window.recitaWa(p, r) : "https://wa.me/" + (p.phone || "").replace(/\D/g, "") })), !recitas.length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin re-citas por contactar hoy.")));
+  }), !porRenovar.length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Todos los consentimientos est\xE1n vigentes.")), /* @__PURE__ */ React.createElement(Group, { T, title: "Re-citar \xB7 esquema en curso (" + recitas.length + ")" }, (showAllReci ? recitas : recitas.slice(0, 1)).map(({ p, r }) => /* @__PURE__ */ React.createElement(PendRow, { key: p.id, T, name: p.name, desc: r.motivo + " \xB7 " + r.precioFmt + " \u2192 " + r.descFmt, action: "WhatsApp", href: window.recitaWa ? window.recitaWa(p, r) : "https://wa.me/" + (p.phone || "").replace(/\D/g, "") })), !recitas.length && /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin re-citas por contactar hoy."), recitas.length > 1 && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowAllReci((v) => !v), style: { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, background: "none", border: "1px dashed " + T.line, borderRadius: 8, padding: "8px 13px", cursor: "pointer", marginTop: 2 } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2", style: { transform: showAllReci ? "rotate(180deg)" : "none", transition: "transform .2s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), showAllReci ? "Ver menos" : "Ver " + (recitas.length - 1) + " re-cita" + (recitas.length - 1 === 1 ? "" : "s") + " m\xE1s")));
 }
 function Group({ T, title, children }) {
   return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 20 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 } }, title), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, children));
