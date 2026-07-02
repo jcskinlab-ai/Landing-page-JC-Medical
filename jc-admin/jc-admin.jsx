@@ -989,7 +989,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
             <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
             {_greet}{clinicDisplayName() ? ", " + clinicDisplayName() : ""}
           </div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(38px, 5vw, 56px)", letterSpacing: "-.02em", color: T.text, marginTop: 12, lineHeight: 1.0, textTransform: "capitalize" }}>{_fechaLarga}</h1>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(26px, 3vw, 34px)", letterSpacing: "-.01em", color: T.text, marginTop: 10, lineHeight: 1.05, textTransform: "capitalize" }}>{_fechaLarga}</h1>
           <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
         </div>
       ) : (
@@ -2569,7 +2569,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
             Agenda de la clínica
           </div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(32px, 4.5vw, 46px)", letterSpacing: "-.02em", color: T.text, margin: "12px 0 0", lineHeight: 1 }}>Reservas y Citas</h1>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(24px, 2.6vw, 30px)", letterSpacing: "-.01em", color: T.text, margin: "10px 0 0", lineHeight: 1.05 }}>Reservas y Citas</h1>
           <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{(() => { const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length; return n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."; })()} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
         </div>
       )}
