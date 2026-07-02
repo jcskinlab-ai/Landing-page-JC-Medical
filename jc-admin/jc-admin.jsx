@@ -501,6 +501,23 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const glassFill = T.dark ? "rgba(255,255,255,.035)" : "rgba(20,20,15,.028)";       // relleno interno (filas), casi imperceptible
   const glassFillHover = T.dark ? "rgba(255,255,255,.07)" : "rgba(20,20,15,.05)";
   const nowClr = "#D8674A";  // marcador "ahora" — único acento cálido (como la línea coral de la referencia)
+  // Orden arrastrable de los bloques del dashboard (lux), persistido por clínica.
+  const DASH_BLOCKS = ["dia", "metrics", "funnel", "evo"];
+  const [dashOrder, setDashOrder] = useState(() => { try { var s = window.DB && window.DB.get("dash_order"); if (Array.isArray(s) && s.length) return s; } catch (e) {} return DASH_BLOCKS.slice(); });
+  const [dragKey, setDragKey] = useState(null);
+  function saveDashOrder(n) { setDashOrder(n); try { window.DB && window.DB.set("dash_order", n); } catch (e) {} }
+  // Atmósfera de fondo (lux): glow cálido muy sutil en el contenedor de scroll — da profundidad y hace
+  // que el blur del glass "se luzca". Se restaura al salir del dashboard.
+  useEffect(() => {
+    if (!lux) return;
+    var el = document.getElementById("jcm-main-scroll") || (typeof document !== "undefined" && document.querySelector(".jc-scroll"));
+    if (!el) return;
+    var prev = el.style.background;
+    el.style.background = T.dark
+      ? "radial-gradient(1100px 560px at 82% -80px, rgba(158,128,100,.11), rgba(158,128,100,0) 60%), #0B0A09"
+      : "radial-gradient(1100px 560px at 82% -80px, rgba(150,138,120,.13), rgba(150,138,120,0) 60%), #E8E6E1";
+    return () => { el.style.background = prev; };
+  }, [lux, T.dark]);
   // ESC cierra los popups del dashboard (KPI / movimientos de caja) para que nunca queden
   // "pegados" tapando la vista. Se apoya en la pila global de popups. (P19 · robustez)
   useEffect(() => {
@@ -1056,86 +1073,111 @@ function DashboardView({ T, D, A, appts, patients, go }) {
             <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{sub}</div>
           </button>
         );
-        return (
-        <div>
-          {/* Tu día — timeline (izq) + pendientes (der) · elemento estrella */}
-          <div className="jc-dash-grid" style={{ display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start", marginBottom: 20, ...(DS ? DS.reveal(0) : {}) }}>
-            <div style={{ ...panel, padding: "22px 24px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-                <div style={eyebrow}>{rule} Tu día · agenda de hoy</div>
-                <button onClick={() => go("agenda")} style={{ ...linkBtn(T), fontSize: 10 }}>Ver agenda →</button>
-              </div>
-              {todayList.length === 0 ? (
-                <div style={{ padding: "30px 0 22px", textAlign: "center" }}>
-                  <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>Sin citas para hoy</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>Disfruta la calma o agenda una nueva atención.</div>
-                  <div style={{ marginTop: 16 }}><AdBtn T={T} small primary onClick={() => go("agenda")}>+ Nueva cita</AdBtn></div>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  {todayList.map((a, i) => (
-                    <React.Fragment key={a.id}>
-                      {i === nowIdx && nowMarker}
-                      {dayRow(a)}
-                    </React.Fragment>
-                  ))}
-                  {nowIdx >= todayList.length && nowMarker}
-                </div>
-              )}
-            </div>
-            <div style={{ ...panel, padding: "22px 24px" }}>
-              <div style={{ ...eyebrow, marginBottom: 18 }}>{rule} Pendientes de hoy</div>
-              {tareas.length === 0 ? (
-                <div style={{ padding: "26px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Todo al día. 🌿</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {tareas.map((k, i) => (
-                    <button key={i} onClick={() => go(k.to)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "none", border: "none", borderRadius: 10, padding: "11px 10px", cursor: "pointer", transition: "background .18s " + T.ease }}
-                      onMouseEnter={e => e.currentTarget.style.background = glassFillHover} onMouseLeave={e => e.currentTarget.style.background = "none"}>
-                      <span style={{ flexShrink: 0, width: 9, height: 9, borderRadius: "50%", border: "2px solid " + k.c }} />
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: "block", fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.t}</span>
-                        <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{k.m}</span>
-                      </span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Franja de métricas — líneas finas, sin cajas (editorial) */}
-          <div style={{ ...panel, display: "flex", flexWrap: "wrap", gap: 4, padding: "20px 26px", marginBottom: 20, ...(DS ? DS.reveal(1) : {}) }}>
-            {stat("Pacientes totales", patients.length, "Pacientes activos", "pacientes", undefined, true)}
-            {stat("Citas hoy", hoy.length, "Agendadas para hoy", "citas")}
-            {stat("Nuevos pacientes", nuevosMes, "Añadidos este mes", "nuevos")}
-            {stat("Ingresos hoy", ingresosHoy, "Generado hoy", "ingresos", fmt)}
-          </div>
-          {/* Rendimiento del mes (embudo + anillo de ROAS dentro de FunnelBlock) */}
-          <div style={{ ...(DS ? DS.reveal(2) : {}) }}><FunnelBlock /></div>
-          {/* Evolución de ingresos + accesos rápidos */}
-          <div className="jc-dash-grid" style={{ display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start", marginTop: 20, ...(DS ? DS.reveal(3) : {}) }}>
-            <div style={{ ...panel, padding: "22px 24px" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-                <div style={eyebrow}>{rule} Evolución de ingresos</div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: T.serif, fontSize: 24, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
-                  <div style={{ fontFamily: T.sans, fontSize: 10.5, color: green, marginTop: 3 }}>↗ +{growth}% en la semana</div>
-                </div>
-              </div>
-              <Chart />
-            </div>
-            <div style={{ ...panel, padding: "22px 24px" }}>
-              <div style={{ ...eyebrow, marginBottom: 14 }}>{rule} Accesos rápidos</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {acceso("crear", "Crear paciente", "Añadir nueva ficha", "pacientes")}
-                {acceso("cita", "Nueva cita", "Agendar atención", "agenda")}
-                {acceso("stock", "Inventario", "Stock e insumos", "inventario")}
-              </div>
-            </div>
-          </div>
-        </div>
+        // Orden persistido de los bloques (arrastrables). Sanea claves faltantes/obsoletas.
+        const orderKeys = dashOrder.filter(k => DASH_BLOCKS.indexOf(k) >= 0);
+        DASH_BLOCKS.forEach(k => { if (orderKeys.indexOf(k) < 0) orderKeys.push(k); });
+        const onDropKey = target => {
+          if (!dragKey || dragKey === target) { setDragKey(null); return; }
+          const arr = orderKeys.slice();
+          arr.splice(arr.indexOf(dragKey), 1);
+          arr.splice(arr.indexOf(target), 0, dragKey);
+          saveDashOrder(arr); setDragKey(null);
+        };
+        // Recuadro de tarea (ref. columna "Tasks"): tarjeta translúcida con círculo + título + estado.
+        const tareaCard = (k, i) => (
+          <button key={i} onClick={() => go(k.to)} style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", background: glassFill, border: "1px solid " + T.line, borderRadius: 13, padding: "13px 15px", cursor: "pointer", transition: "background .18s " + T.ease + ", border-color .18s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = glassFillHover; e.currentTarget.style.borderColor = T.accent + "44"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = glassFill; e.currentTarget.style.borderColor = T.line; }}>
+            <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: "50%", border: "2px solid " + k.c, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: k.c }} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.t}</span>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>Hoy · {k.m}</span>
+            </span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
+          </button>
         );
+        const blocks = {
+          dia: (
+            <div className="jc-dash-grid" style={{ display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start" }}>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                  <div style={eyebrow}>{rule} Tu día · agenda de hoy</div>
+                  <button onClick={() => go("agenda")} style={{ ...linkBtn(T), fontSize: 10 }}>Ver agenda →</button>
+                </div>
+                {todayList.length === 0 ? (
+                  <div style={{ padding: "30px 0 22px", textAlign: "center" }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>Sin citas para hoy</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>Disfruta la calma o agenda una nueva atención.</div>
+                    <div style={{ marginTop: 16 }}><AdBtn T={T} small primary onClick={() => go("agenda")}>+ Nueva cita</AdBtn></div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {todayList.map((a, i) => (
+                      <React.Fragment key={a.id}>
+                        {i === nowIdx && nowMarker}
+                        {dayRow(a)}
+                      </React.Fragment>
+                    ))}
+                    {nowIdx >= todayList.length && nowMarker}
+                  </div>
+                )}
+              </div>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ ...eyebrow, marginBottom: 18 }}>{rule} Pendientes de hoy</div>
+                {tareas.length === 0 ? (
+                  <div style={{ padding: "26px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Todo al día. 🌿</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                    {tareas.map((k, i) => tareaCard(k, i))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ),
+          metrics: (
+            <div style={{ ...panel, display: "flex", flexWrap: "wrap", gap: 4, padding: "20px 26px" }}>
+              {stat("Pacientes totales", patients.length, "Pacientes activos", "pacientes", undefined, true)}
+              {stat("Citas hoy", hoy.length, "Agendadas para hoy", "citas")}
+              {stat("Nuevos pacientes", nuevosMes, "Añadidos este mes", "nuevos")}
+              {stat("Ingresos hoy", ingresosHoy, "Generado hoy", "ingresos", fmt)}
+            </div>
+          ),
+          funnel: <FunnelBlock />,
+          evo: (
+            <div className="jc-dash-grid" style={{ display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start" }}>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+                  <div style={eyebrow}>{rule} Evolución de ingresos</div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 24, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 10.5, color: green, marginTop: 3 }}>↗ +{growth}% en la semana</div>
+                  </div>
+                </div>
+                <Chart />
+              </div>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ ...eyebrow, marginBottom: 14 }}>{rule} Accesos rápidos</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {acceso("crear", "Crear paciente", "Añadir nueva ficha", "pacientes")}
+                  {acceso("cita", "Nueva cita", "Agendar atención", "agenda")}
+                  {acceso("stock", "Inventario", "Stock e insumos", "inventario")}
+                </div>
+              </div>
+            </div>
+          )
+        };
+        // Cada bloque es arrastrable (grip superior que aparece al pasar el cursor) para reordenar.
+        const wrap = (key, i) => (
+          <div key={key} className="jc-dash-block" onDragOver={e => e.preventDefault()} onDrop={() => onDropKey(key)}
+            style={{ position: "relative", marginBottom: 20, opacity: dragKey === key ? .4 : 1, transition: "opacity .18s " + T.ease, ...(DS ? DS.reveal(i) : {}) }}>
+            <span className="jc-drag-grip" draggable onDragStart={() => setDragKey(key)} onDragEnd={() => setDragKey(null)} title="Arrastrar para reordenar"
+              style={{ position: "absolute", top: -7, left: "50%", transform: "translateX(-50%)", zIndex: 6, cursor: "grab", width: 40, height: 6, borderRadius: 999, background: T.textFaint }} />
+            {blocks[key]}
+          </div>
+        );
+        return <div>{orderKeys.map((k, i) => wrap(k, i))}</div>;
       })()}
 
       {tab === "general" && !lux && (

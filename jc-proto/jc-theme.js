@@ -201,7 +201,9 @@
         ":focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:4px}" +
         "input:focus-visible,select:focus-visible,textarea:focus-visible{outline-offset:0}" +
         // Dashboard editorial: las columnas asimétricas (1.5fr/1fr) colapsan a 1 col en pantallas angostas.
-        "@media (max-width: 820px){.jc-dash-grid{grid-template-columns:1fr !important}}";
+        "@media (max-width: 820px){.jc-dash-grid{grid-template-columns:1fr !important}}" +
+        // Grip de arrastre de bloques del dashboard: oculto, aparece al pasar el cursor por el bloque.
+        ".jc-drag-grip{opacity:0;transition:opacity .18s}.jc-dash-block:hover .jc-drag-grip{opacity:.55}";
       document.head.appendChild(st);
     }
   } catch (e) {}

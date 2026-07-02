@@ -574,6 +574,33 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const glassFill = T.dark ? "rgba(255,255,255,.035)" : "rgba(20,20,15,.028)";
   const glassFillHover = T.dark ? "rgba(255,255,255,.07)" : "rgba(20,20,15,.05)";
   const nowClr = "#D8674A";
+  const DASH_BLOCKS = ["dia", "metrics", "funnel", "evo"];
+  const [dashOrder, setDashOrder] = useState(() => {
+    try {
+      var s = window.DB && window.DB.get("dash_order");
+      if (Array.isArray(s) && s.length) return s;
+    } catch (e) {
+    }
+    return DASH_BLOCKS.slice();
+  });
+  const [dragKey, setDragKey] = useState(null);
+  function saveDashOrder(n) {
+    setDashOrder(n);
+    try {
+      window.DB && window.DB.set("dash_order", n);
+    } catch (e) {
+    }
+  }
+  useEffect(() => {
+    if (!lux) return;
+    var el = document.getElementById("jcm-main-scroll") || typeof document !== "undefined" && document.querySelector(".jc-scroll");
+    if (!el) return;
+    var prev = el.style.background;
+    el.style.background = T.dark ? "radial-gradient(1100px 560px at 82% -80px, rgba(158,128,100,.11), rgba(158,128,100,0) 60%), #0B0A09" : "radial-gradient(1100px 560px at 82% -80px, rgba(150,138,120,.13), rgba(150,138,120,0) 60%), #E8E6E1";
+    return () => {
+      el.style.background = prev;
+    };
+  }, [lux, T.dark]);
   useEffect(() => {
     if (!kpiPopup && !movCaja) return;
     const close = () => {
@@ -926,19 +953,69 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     });
     (sinConsent || []).slice(0, 5 - tareas.length).forEach((p) => tareas.push({ c: "#C9A227", t: p.name || "Paciente", m: "Consentimiento por firmar", to: "pendientes" }));
     const stat = (label, value, sub, popup, cfmt, first) => /* @__PURE__ */ React.createElement("button", { onClick: () => popup && setKpiPopup(popup), style: { flex: "1 1 0", minWidth: 128, textAlign: "left", background: "none", border: "none", borderLeft: first ? "none" : "1px solid " + T.line, padding: first ? "2px 0" : "2px 0 2px 22px", cursor: popup ? "pointer" : "default" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", color: T.textMute } }, label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 34, fontWeight: 400, color: T.text, lineHeight: 1.05, margin: "9px 0 4px" } }, /* @__PURE__ */ React.createElement(CountUp, { value, format: cfmt })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint } }, sub));
-    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "jc-dash-grid", style: { display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start", marginBottom: 20, ...DS ? DS.reveal(0) : {} } }, /* @__PURE__ */ React.createElement("div", { style: { ...panel, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, rule, " Tu d\xEDa \xB7 agenda de hoy"), /* @__PURE__ */ React.createElement("button", { onClick: () => go("agenda"), style: { ...linkBtn(T), fontSize: 10 } }, "Ver agenda \u2192")), todayList.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { padding: "30px 0 22px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.text } }, "Sin citas para hoy"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 } }, "Disfruta la calma o agenda una nueva atenci\xF3n."), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, primary: true, onClick: () => go("agenda") }, "+ Nueva cita"))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, todayList.map((a, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: a.id }, i === nowIdx && nowMarker, dayRow(a))), nowIdx >= todayList.length && nowMarker)), /* @__PURE__ */ React.createElement("div", { style: { ...panel, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { ...eyebrow, marginBottom: 18 } }, rule, " Pendientes de hoy"), tareas.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { padding: "26px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Todo al d\xEDa. \u{1F33F}") : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } }, tareas.map((k, i) => /* @__PURE__ */ React.createElement(
+    const orderKeys = dashOrder.filter((k) => DASH_BLOCKS.indexOf(k) >= 0);
+    DASH_BLOCKS.forEach((k) => {
+      if (orderKeys.indexOf(k) < 0) orderKeys.push(k);
+    });
+    const onDropKey = (target) => {
+      if (!dragKey || dragKey === target) {
+        setDragKey(null);
+        return;
+      }
+      const arr = orderKeys.slice();
+      arr.splice(arr.indexOf(dragKey), 1);
+      arr.splice(arr.indexOf(target), 0, dragKey);
+      saveDashOrder(arr);
+      setDragKey(null);
+    };
+    const tareaCard = (k, i) => /* @__PURE__ */ React.createElement(
       "button",
       {
         key: i,
         onClick: () => go(k.to),
-        style: { display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "none", border: "none", borderRadius: 10, padding: "11px 10px", cursor: "pointer", transition: "background .18s " + T.ease },
-        onMouseEnter: (e) => e.currentTarget.style.background = glassFillHover,
-        onMouseLeave: (e) => e.currentTarget.style.background = "none"
+        style: { display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", background: glassFill, border: "1px solid " + T.line, borderRadius: 13, padding: "13px 15px", cursor: "pointer", transition: "background .18s " + T.ease + ", border-color .18s" },
+        onMouseEnter: (e) => {
+          e.currentTarget.style.background = glassFillHover;
+          e.currentTarget.style.borderColor = T.accent + "44";
+        },
+        onMouseLeave: (e) => {
+          e.currentTarget.style.background = glassFill;
+          e.currentTarget.style.borderColor = T.line;
+        }
       },
-      /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, width: 9, height: 9, borderRadius: "50%", border: "2px solid " + k.c } }),
-      /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, k.t), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, k.m)),
-      /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "1.7", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "m9 18 6-6-6-6" }))
-    ))))), /* @__PURE__ */ React.createElement("div", { style: { ...panel, display: "flex", flexWrap: "wrap", gap: 4, padding: "20px 26px", marginBottom: 20, ...DS ? DS.reveal(1) : {} } }, stat("Pacientes totales", patients.length, "Pacientes activos", "pacientes", void 0, true), stat("Citas hoy", hoy.length, "Agendadas para hoy", "citas"), stat("Nuevos pacientes", nuevosMes, "A\xF1adidos este mes", "nuevos"), stat("Ingresos hoy", ingresosHoy, "Generado hoy", "ingresos", fmt)), /* @__PURE__ */ React.createElement("div", { style: { ...DS ? DS.reveal(2) : {} } }, /* @__PURE__ */ React.createElement(FunnelBlock, null)), /* @__PURE__ */ React.createElement("div", { className: "jc-dash-grid", style: { display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start", marginTop: 20, ...DS ? DS.reveal(3) : {} } }, /* @__PURE__ */ React.createElement("div", { style: { ...panel, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, rule, " Evoluci\xF3n de ingresos"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 24, color: T.text, lineHeight: 1 } }, fmt(totalSemana)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: green, marginTop: 3 } }, "\u2197 +", growth, "% en la semana"))), /* @__PURE__ */ React.createElement(Chart, null)), /* @__PURE__ */ React.createElement("div", { style: { ...panel, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { ...eyebrow, marginBottom: 14 } }, rule, " Accesos r\xE1pidos"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, acceso("crear", "Crear paciente", "A\xF1adir nueva ficha", "pacientes"), acceso("cita", "Nueva cita", "Agendar atenci\xF3n", "agenda"), acceso("stock", "Inventario", "Stock e insumos", "inventario")))));
+      /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, width: 18, height: 18, borderRadius: "50%", border: "2px solid " + k.c, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: k.c } })),
+      /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, k.t), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 } }, "Hoy \xB7 ", k.m)),
+      /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "1.7", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "m9 18 6-6-6-6" }))
+    );
+    const blocks = {
+      dia: /* @__PURE__ */ React.createElement("div", { className: "jc-dash-grid", style: { display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { ...panel, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, rule, " Tu d\xEDa \xB7 agenda de hoy"), /* @__PURE__ */ React.createElement("button", { onClick: () => go("agenda"), style: { ...linkBtn(T), fontSize: 10 } }, "Ver agenda \u2192")), todayList.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { padding: "30px 0 22px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: T.text } }, "Sin citas para hoy"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 } }, "Disfruta la calma o agenda una nueva atenci\xF3n."), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, primary: true, onClick: () => go("agenda") }, "+ Nueva cita"))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, todayList.map((a, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: a.id }, i === nowIdx && nowMarker, dayRow(a))), nowIdx >= todayList.length && nowMarker)), /* @__PURE__ */ React.createElement("div", { style: { ...panel, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { ...eyebrow, marginBottom: 18 } }, rule, " Pendientes de hoy"), tareas.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { padding: "26px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Todo al d\xEDa. \u{1F33F}") : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, tareas.map((k, i) => tareaCard(k, i))))),
+      metrics: /* @__PURE__ */ React.createElement("div", { style: { ...panel, display: "flex", flexWrap: "wrap", gap: 4, padding: "20px 26px" } }, stat("Pacientes totales", patients.length, "Pacientes activos", "pacientes", void 0, true), stat("Citas hoy", hoy.length, "Agendadas para hoy", "citas"), stat("Nuevos pacientes", nuevosMes, "A\xF1adidos este mes", "nuevos"), stat("Ingresos hoy", ingresosHoy, "Generado hoy", "ingresos", fmt)),
+      funnel: /* @__PURE__ */ React.createElement(FunnelBlock, null),
+      evo: /* @__PURE__ */ React.createElement("div", { className: "jc-dash-grid", style: { display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { ...panel, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, rule, " Evoluci\xF3n de ingresos"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 24, color: T.text, lineHeight: 1 } }, fmt(totalSemana)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: green, marginTop: 3 } }, "\u2197 +", growth, "% en la semana"))), /* @__PURE__ */ React.createElement(Chart, null)), /* @__PURE__ */ React.createElement("div", { style: { ...panel, padding: "22px 24px" } }, /* @__PURE__ */ React.createElement("div", { style: { ...eyebrow, marginBottom: 14 } }, rule, " Accesos r\xE1pidos"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, acceso("crear", "Crear paciente", "A\xF1adir nueva ficha", "pacientes"), acceso("cita", "Nueva cita", "Agendar atenci\xF3n", "agenda"), acceso("stock", "Inventario", "Stock e insumos", "inventario"))))
+    };
+    const wrap = (key, i) => /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        key,
+        className: "jc-dash-block",
+        onDragOver: (e) => e.preventDefault(),
+        onDrop: () => onDropKey(key),
+        style: { position: "relative", marginBottom: 20, opacity: dragKey === key ? 0.4 : 1, transition: "opacity .18s " + T.ease, ...DS ? DS.reveal(i) : {} }
+      },
+      /* @__PURE__ */ React.createElement(
+        "span",
+        {
+          className: "jc-drag-grip",
+          draggable: true,
+          onDragStart: () => setDragKey(key),
+          onDragEnd: () => setDragKey(null),
+          title: "Arrastrar para reordenar",
+          style: { position: "absolute", top: -7, left: "50%", transform: "translateX(-50%)", zIndex: 6, cursor: "grab", width: 40, height: 6, borderRadius: 999, background: T.textFaint }
+        }
+      ),
+      blocks[key]
+    );
+    return /* @__PURE__ */ React.createElement("div", null, orderKeys.map((k, i) => wrap(k, i)));
   })(), tab === "general" && !lux && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(FunnelBlock, null), (() => {
     const secHead = (t) => /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 9 } }, t);
     return /* @__PURE__ */ React.createElement(React.Fragment, null, secHead("Indicadores Principales"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px,1fr))", gap: 11, marginBottom: 14 } }, /* @__PURE__ */ React.createElement(Kpi, { ic: "pacientes", label: "Pacientes totales", value: patients.length, sub: "Pacientes activos", popup: "pacientes" }), /* @__PURE__ */ React.createElement(Kpi, { ic: "citas", label: "Citas hoy", value: hoy.length, sub: "Agendadas para hoy", popup: "citas" }), /* @__PURE__ */ React.createElement(Kpi, { ic: "nuevos", label: "Nuevos pacientes", value: nuevosMes, sub: "A\xF1adidos este mes", popup: "nuevos" }), /* @__PURE__ */ React.createElement(Kpi, { ic: "ingresos", label: "Ingresos hoy", value: fmt(ingresosHoy), sub: "Generado hoy", popup: "ingresos" })), /* @__PURE__ */ React.createElement("div", { style: { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 16px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text } }, "Evoluci\xF3n de ingresos"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, "Estimado de la semana"))), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 22, color: T.text, lineHeight: 1 } }, fmt(totalSemana)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: green, marginTop: 3 } }, "\u2197 +", growth, "% en la semana"))), /* @__PURE__ */ React.createElement(Chart, null)), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 18, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 } }, "Pr\xF3ximas 5 citas"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, prox5.length ? prox5.map(citaRow) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0" } }, "No hay citas pr\xF3ximas."))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 } }, "Accesos r\xE1pidos"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, acceso("crear", "Crear paciente", "A\xF1adir nueva ficha m\xE9dica", "pacientes"), acceso("cita", "Nueva cita", "Agendar una atenci\xF3n", "agenda"), acceso("puntos", "Otorgar puntos", "Programa de fidelidad", "fidelidad"), acceso("stock", "Inventario", "Stock e insumos", "inventario")))));
