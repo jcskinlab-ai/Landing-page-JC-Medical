@@ -2323,7 +2323,25 @@ function patExamKey(id) { return "pexam_" + id; }
 function ExamenesTab({ T, patient }) {
   const [files, setFiles] = useState(() => { try { const v = window.DB && window.DB.get(patExamKey(patient.id)); return Array.isArray(v) ? v : []; } catch (e) { return []; } });
   const fileRef = useRef(null);
-  let ordenes = []; try { ordenes = ((window.DB && window.DB.get("lab_orders")) || []).filter(o => o.patId === patient.id); } catch (e) {}
+  const [ordenes, setOrdenes] = useState(() => { try { return ((window.DB && window.DB.get("lab_orders")) || []).filter(o => o.patId === patient.id); } catch (e) { return []; } });
+  // Crear orden de examen: solo Médico/Dentista (el dueño/staff siempre puede). Enfermería puede
+  // ver y cargar exámenes existentes, pero no solicitar órdenes nuevas.
+  const canOrderExams = window.jcmCanPrescribeNow ? window.jcmCanPrescribeNow() : true;
+  const [selExams, setSelExams] = useState([]);
+  const [extraExam, setExtraExam] = useState("");
+  const [tipoOrden, setTipoOrden] = useState("Interno");
+  function toggleExam(ex) { setSelExams(s => s.indexOf(ex) >= 0 ? s.filter(x => x !== ex) : [...s, ex]); }
+  function crearOrden() {
+    const lista = [...selExams, ...(extraExam.trim() ? [extraExam.trim()] : [])];
+    if (!lista.length) { window.jcmToast && window.jcmToast("Elige al menos un examen.", "info"); return; }
+    const o = { id: "lo" + Date.now(), patId: patient.id, patName: patient.name, examenes: lista.join(", "), tipo: tipoOrden, estado: "Solicitado", fecha: new Date().toISOString().slice(0, 10) };
+    let all = []; try { all = (window.DB && window.DB.get("lab_orders")) || []; } catch (e) {}
+    const next = [o, ...all];
+    try { window.DB && window.DB.set("lab_orders", next); } catch (e) {}
+    setOrdenes(next.filter(x => x.patId === patient.id));
+    setSelExams([]); setExtraExam("");
+    window.jcmToast && window.jcmToast("Orden de examen creada.", "ok");
+  }
   function persist(n) { setFiles(n); try { window.DB && window.DB.set(patExamKey(patient.id), n); } catch (e) {} }
   function onPick(e) {
     const fs = Array.from(e.target.files || []); e.target.value = "";
@@ -2337,11 +2355,30 @@ function ExamenesTab({ T, patient }) {
   function ver(f) { try { const parts = ("" + f.data).split(","); const bin = atob(parts[1] || ""); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const mime = (parts[0].match(/:(.*?);/) || [, f.type === "pdf" ? "application/pdf" : "image/jpeg"])[1]; const url = URL.createObjectURL(new Blob([arr], { type: mime })); window.open(url, "_blank"); setTimeout(() => URL.revokeObjectURL(url), 20000); } catch (e) { window.open(f.data, "_blank"); } }
   async function del(id) { if (await (window.jcmConfirm || window.confirm)("¿Eliminar este examen?", { danger: true })) persist(files.filter(x => x.id !== id)); }
   const hora = ts => { try { return new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch (e) { return ""; } };
+  const inp = { padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
+  const EXAMS = window.EXAM_COMUNES || [];
   return (
     <div>
       <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Carga los <b style={{ color: T.text }}>exámenes ya existentes</b> del paciente (PDF o foto) para tenerlos siempre a mano en su ficha.</div>
       <AdBtn T={T} primary onClick={() => fileRef.current && fileRef.current.click()}>+ Subir examen (PDF o foto)</AdBtn>
       <input ref={fileRef} type="file" accept=".pdf,application/pdf,image/*" multiple onChange={onPick} style={{ display: "none" }} />
+      {canOrderExams ? (
+        <div style={{ marginTop: 18, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "14px 16px" }}>
+          <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Crear orden de examen</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
+            {EXAMS.map(ex => { const on = selExams.indexOf(ex) >= 0; return (
+              <button key={ex} type="button" onClick={() => toggleExam(ex)} style={{ fontFamily: T.sans, fontSize: 11, padding: "7px 11px", borderRadius: 999, cursor: "pointer", background: on ? T.accent : "transparent", color: on ? (T.onAccent || "#fff") : T.textMute, border: "1px solid " + (on ? T.accent : T.line) }}>{on ? "✓ " : ""}{ex}</button>
+            ); })}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input value={extraExam} onChange={e => setExtraExam(e.target.value)} placeholder="Otro examen (opcional)…" style={{ ...inp, flex: 1, minWidth: 180 }} />
+            <select value={tipoOrden} onChange={e => setTipoOrden(e.target.value)} style={inp}><option>Interno</option><option>Externo</option></select>
+            <AdBtn T={T} primary onClick={crearOrden}>+ Crear orden</AdBtn>
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop: 18, fontFamily: T.sans, fontSize: 11.5, color: T.textFaint }}>Solo Médico o Dentista pueden crear órdenes de examen. Tú puedes ver y cargar los exámenes de este paciente.</div>
+      )}
       {ordenes.length > 0 && <div style={{ marginTop: 18 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Órdenes solicitadas</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{ordenes.map(o => (
@@ -2374,6 +2411,7 @@ function PresupuestoTab({ T, patient, updatePatient }) {
   const [items, setItems] = useState([]);
   const [pick, setPick] = useState("");
   const [descuento, setDescuento] = useState("");
+  const [descModo, setDescModo] = useState("monto"); // "monto" ($ directo) | "pct" (% sobre el procedimiento de menor valor)
   const [validez, setValidez] = useState("15");
   const [nota, setNota] = useState("");
   const presupuestos = patient.presupuestos || [];
@@ -2382,54 +2420,35 @@ function PresupuestoTab({ T, patient, updatePatient }) {
   function upd(i, patch) { setItems(items.map((it, j) => j === i ? { ...it, ...patch } : it)); }
   function del(i) { setItems(items.filter((_, j) => j !== i)); }
   const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0);
-  const desc = Math.min(subtotal, parseInt(descuento, 10) || 0);
+  // Descuento: monto directo, o % aplicado al procedimiento de MENOR valor (no al subtotal completo).
+  const minItem = items.length ? items.reduce((min, it) => (it.price || 0) < (min.price || 0) ? it : min, items[0]) : null;
+  const desc = descModo === "pct"
+    ? Math.round((minItem ? (minItem.price || 0) * (minItem.qty || 1) : 0) * (Math.min(100, parseInt(descuento, 10) || 0) / 100))
+    : Math.min(subtotal, parseInt(descuento, 10) || 0);
   const total = subtotal - desc;
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", boxSizing: "border-box" };
-  function docInner() {
+  // docInner/waLink/enviarCorreo aceptan un presupuesto GUARDADO opcional (para los botones de la
+  // lista "Presupuestos guardados"); si no se pasa, usan el borrador actual en pantalla.
+  function docInner(saved) {
+    const src = saved || { items, subtotal, desc, total, validez, nota };
     const e = jcmDocEsc; const b = jcmDocBrand(); const now = new Date();
     const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const dot = String(now.getDate()).padStart(2, "0") + " · " + String(now.getMonth() + 1).padStart(2, "0") + " · " + now.getFullYear();
-    const rows = items.filter(i => (i.name || "").trim()).map(i => "<tr><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e(i.name) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:center'>" + (i.qty || 1) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:right'>" + fmt(i.price) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:right'>" + fmt((i.price || 0) * (i.qty || 1)) + "</td></tr>").join("");
+    const rows = (src.items || []).filter(i => (i.name || "").trim()).map(i => "<tr><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e(i.name) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:center'>" + (i.qty || 1) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:right'>" + fmt(i.price) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee;text-align:right'>" + fmt((i.price || 0) * (i.qty || 1)) + "</td></tr>").join("");
     const inner = jcmMasthead(b)
       + "<div class='titleblock'><div><div class='eyebrow'>Cotización</div><h1 class='doc-title'>Presupuesto <span class='it'>de tratamiento</span></h1></div><div class='folio'><span class='k'>Fecha</span><span class='v vbig'>" + e(dot) + "</span></div></div>"
-      + jcmPband(patient, [["RUT", patient.rut], ["Vigencia", (parseInt(validez, 10) || 15) + " días"]])
+      + jcmPband(patient, [["RUT", patient.rut], ["Vigencia", (parseInt(src.validez, 10) || 15) + " días"]])
       + "<div class='body'><div class='section' style='margin-top:20px'><div class='section-head'><span class='sh-label'>Detalle</span><span class='sh-rule'></span></div>"
       + "<table style=\"width:100%;border-collapse:collapse;font-family:'Jost',sans-serif;font-size:13px;color:#121A26\"><thead><tr><th style='text-align:left;padding:6px 4px;border-bottom:2px solid #121A26'>Tratamiento</th><th style='text-align:center;padding:6px 4px;border-bottom:2px solid #121A26'>Cant.</th><th style='text-align:right;padding:6px 4px;border-bottom:2px solid #121A26'>Valor</th><th style='text-align:right;padding:6px 4px;border-bottom:2px solid #121A26'>Total</th></tr></thead><tbody>" + rows + "</tbody></table>"
-      + "<div style=\"margin-top:14px;text-align:right;font-family:'Jost',sans-serif;font-size:13px;color:#121A26\">Subtotal: " + fmt(subtotal) + (desc ? "<br>Descuento: − " + fmt(desc) : "") + "<br><span style='font-size:20px;font-weight:600'>Total: " + fmt(total) + "</span></div></div>"
-      + (nota.trim() ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas</span><span class='sh-rule'></span></div><div class='textbox'>" + e(nota).replace(/\n/g, "<br>") + "</div></div>" : "")
+      + "<div style=\"margin-top:14px;text-align:right;font-family:'Jost',sans-serif;font-size:13px;color:#121A26\">Subtotal: " + fmt(src.subtotal) + (src.desc ? "<br>Descuento: − " + fmt(src.desc) : "") + "<br><span style='font-size:20px;font-weight:600'>Total: " + fmt(src.total) + "</span></div></div>"
+      + ((src.nota || "").trim() ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas</span><span class='sh-rule'></span></div><div class='textbox'>" + e(src.nota).replace(/\n/g, "<br>") + "</div></div>" : "")
       + "</div>" + jcmSignFoot(b, b.proName, "Presupuesto", patient.name || "", hoy, null);
     return { title: "Presupuesto · " + e(patient.name || ""), inner: inner, b: b };
   }
-  function imprimir(save) { if (!items.length) { window.jcmToast && window.jcmToast("Agrega al menos un tratamiento.", "info"); return; } const d = docInner(); if (save) { window.jcmSaveDocToFolder && window.jcmSaveDocToFolder("Presupuesto - " + (patient.name || "Paciente") + " - " + new Date().toISOString().slice(0, 10), window.jcmDocHTML(d.title, d.b, d.inner)); } else { jcmPrintDoc(d.title, d.b, d.inner); } }
+  function imprimir(save, saved) { const list = saved ? (saved.items || []) : items; if (!list.length) { window.jcmToast && window.jcmToast("Agrega al menos un tratamiento.", "info"); return; } const d = docInner(saved); if (save) { window.jcmSaveDocToFolder && window.jcmSaveDocToFolder("Presupuesto - " + (patient.name || "Paciente") + " - " + new Date().toISOString().slice(0, 10), window.jcmDocHTML(d.title, d.b, d.inner)); } else { jcmPrintDoc(d.title, d.b, d.inner); } }
   function guardar() { if (!items.length) { window.jcmToast && window.jcmToast("Agrega al menos un tratamiento.", "info"); return; } const p = { id: "pp" + Date.now(), fecha: new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" }), items: items.filter(i => (i.name || "").trim()), subtotal, desc, total, validez: parseInt(validez, 10) || 15, nota: nota.trim() }; updatePatient(patient.id, { presupuestos: [p, ...presupuestos] }); setItems([]); setDescuento(""); setNota(""); window.jcmToast && window.jcmToast("Presupuesto guardado.", "ok"); try { window.jcmAudit && window.jcmAudit("Presupuesto creado · " + patient.name + " · " + fmt(total)); } catch (e) {} }
-  function waLink() { const ph = (patient.phone || "").replace(/\D/g, ""); if (ph.length < 8) { window.jcmToast && window.jcmToast("El paciente no tiene teléfono.", "info"); return; } const clin = (window.clinicName && window.clinicName()) || "Medique"; const L = ["*Presupuesto · " + clin + "*", "Hola " + (patient.name || "") + " 👋 Te compartimos tu presupuesto:", ""]; items.filter(i => (i.name || "").trim()).forEach(i => L.push("• " + i.name + (i.qty > 1 ? " x" + i.qty : "") + " — " + fmt((i.price || 0) * (i.qty || 1)))); if (desc) L.push("Descuento: − " + fmt(desc)); L.push("*Total: " + fmt(total) + "*", "Válido por " + (parseInt(validez, 10) || 15) + " días."); window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener"); }
-  async function enviarCorreo() { const to = (patient.email || "").trim(); if (!to) { window.jcmToast && window.jcmToast("El paciente no tiene correo.", "info"); return; } if (!window.mediqueEmail) { window.jcmToast && window.jcmToast("El correo no está disponible.", "info"); return; } const clin = (window.clinicName && window.clinicName()) || "Medique"; const L = ["Hola " + (patient.name || "") + ",", "", "Te compartimos tu presupuesto en " + clin + ":", ""]; items.filter(i => (i.name || "").trim()).forEach(i => L.push("- " + i.name + (i.qty > 1 ? " x" + i.qty : "") + ": " + fmt((i.price || 0) * (i.qty || 1)))); if (desc) L.push("Descuento: -" + fmt(desc)); L.push("Total: " + fmt(total), "Válido por " + (parseInt(validez, 10) || 15) + " días."); try { const r = await window.mediqueEmail({ to: to, subject: "Presupuesto · " + clin, text: L.join("\n"), replyTo: window.clinicReplyTo && window.clinicReplyTo() }); window.jcmToast && window.jcmToast(r && r.ok ? "Presupuesto enviado a " + to : "No se pudo enviar el correo.", r && r.ok ? "ok" : "error"); } catch (e) { window.jcmToast && window.jcmToast("No se pudo enviar el correo.", "error"); } }
-  // N8.1 · Esquema Facial: documento con esquema del rostro + zonas marcadas + tabla de prestaciones.
-  const FACE_POS = { "frente": [100, 46], "frontal": [100, 46], "entrecejo": [100, 74], "glabela": [100, 74], "patas de gallo": [150, 88], "ojeras": [124, 100], "nariz": [100, 108], "dorso nasal": [100, 108], "pómulos": [140, 120], "pomulos": [140, 120], "surcos nasogenianos": [122, 138], "código de barras": [100, 150], "labios": [100, 168], "mentón": [100, 192], "menton": [100, 192], "línea mandibular": [58, 172], "mandíbula": [58, 172], "cuello": [100, 224] };
-  function zonaDe(nombre) { const n = (nombre || "").toLowerCase(); for (const k in FACE_POS) if (n.indexOf(k) >= 0) return { k: k, p: FACE_POS[k] }; return null; }
-  function esquemaFacial() {
-    const e = jcmDocEsc; const b = jcmDocBrand(); const now = new Date();
-    const hoy = now.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
-    const withZone = items.filter(i => (i.name || "").trim());
-    const marks = withZone.map(i => zonaDe(i.name)).filter(Boolean);
-    const dots = marks.map(m => "<circle cx='" + m.p[0] + "' cy='" + m.p[1] + "' r='9' fill='none' stroke='#C0285A' stroke-width='1.5' stroke-dasharray='3 2'/><circle cx='" + m.p[0] + "' cy='" + m.p[1] + "' r='2' fill='#C0285A'/>").join("");
-    const face = "<svg viewBox='0 0 200 250' width='230' height='288' xmlns='http://www.w3.org/2000/svg'>"
-      + "<ellipse cx='100' cy='120' rx='62' ry='84' fill='#F7EFE9' stroke='#D8C7BB' stroke-width='1.5'/>"
-      + "<path d='M66 96q30 -18 68 0' fill='none' stroke='#C9B4A6' stroke-width='1.5'/>"
-      + "<path d='M92 100 L92 128 Q100 134 108 128' fill='none' stroke='#C9B4A6' stroke-width='1.5'/>"
-      + "<path d='M86 154 q14 10 28 0' fill='none' stroke='#C9B4A6' stroke-width='1.5'/>"
-      + "<circle cx='80' cy='108' r='3' fill='#7C6A5E'/><circle cx='120' cy='108' r='3' fill='#7C6A5E'/>"
-      + dots + "</svg>";
-    const rows = withZone.map(i => "<tr><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e(hoy) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e((zonaDe(i.name) ? zonaDe(i.name).k : "—")) + "</td><td style='padding:8px 4px;border-bottom:1px solid #eee'>" + e(i.name) + (i.qty > 1 ? " x" + i.qty : "") + "</td></tr>").join("");
-    const inner = "<h1 class='doc-title' style='text-align:center;margin:0 0 10px'>Esquema <span class='it'>Facial</span></h1>"
-      + jcmPband(patient, [["RUT", patient.rut], ["Fecha", hoy]])
-      + "<div style='text-align:center;margin:18px 0'>" + face + "</div>"
-      + "<div class='section'><div class='section-head'><span class='sh-label'>Prestaciones por zona</span><span class='sh-rule'></span></div>"
-      + "<table style=\"width:100%;border-collapse:collapse;font-family:'Jost',sans-serif;font-size:13px;color:#121A26\"><thead><tr><th style='text-align:left;padding:6px 4px;border-bottom:2px solid #121A26'>Fecha</th><th style='text-align:left;padding:6px 4px;border-bottom:2px solid #121A26'>Zona</th><th style='text-align:left;padding:6px 4px;border-bottom:2px solid #121A26'>Prestación</th></tr></thead><tbody>" + rows + "</tbody></table></div>"
-      + jcmSignFoot(b, b.proName, "Esquema Facial", patient.name || "", hoy, null);
-    if (!withZone.length) { window.jcmToast && window.jcmToast("Agrega tratamientos para armar el esquema.", "info"); return; }
-    jcmPrintDoc("Esquema Facial · " + e(patient.name || ""), b, inner);
-  }
+  function waLink(saved) { const src = saved || { items, desc, total, validez }; const ph = (patient.phone || "").replace(/\D/g, ""); if (ph.length < 8) { window.jcmToast && window.jcmToast("El paciente no tiene teléfono.", "info"); return; } const clin = (window.clinicName && window.clinicName()) || "Medique"; const L = ["*Presupuesto · " + clin + "*", "Hola " + (patient.name || "") + " 👋 Te compartimos tu presupuesto:", ""]; (src.items || []).filter(i => (i.name || "").trim()).forEach(i => L.push("• " + i.name + (i.qty > 1 ? " x" + i.qty : "") + " — " + fmt((i.price || 0) * (i.qty || 1)))); if (src.desc) L.push("Descuento: − " + fmt(src.desc)); L.push("*Total: " + fmt(src.total) + "*", "Válido por " + (parseInt(src.validez, 10) || 15) + " días."); window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener"); }
+  async function enviarCorreo(saved) { const src = saved || { items, desc, total, validez }; const to = (patient.email || "").trim(); if (!to) { window.jcmToast && window.jcmToast("El paciente no tiene correo.", "info"); return; } if (!window.mediqueEmail) { window.jcmToast && window.jcmToast("El correo no está disponible.", "info"); return; } const clin = (window.clinicName && window.clinicName()) || "Medique"; const L = ["Hola " + (patient.name || "") + ",", "", "Te compartimos tu presupuesto en " + clin + ":", ""]; (src.items || []).filter(i => (i.name || "").trim()).forEach(i => L.push("- " + i.name + (i.qty > 1 ? " x" + i.qty : "") + ": " + fmt((i.price || 0) * (i.qty || 1)))); if (src.desc) L.push("Descuento: -" + fmt(src.desc)); L.push("Total: " + fmt(src.total), "Válido por " + (parseInt(src.validez, 10) || 15) + " días."); try { const r = await window.mediqueEmail({ to: to, subject: "Presupuesto · " + clin, text: L.join("\n"), replyTo: window.clinicReplyTo && window.clinicReplyTo() }); window.jcmToast && window.jcmToast(r && r.ok ? "Presupuesto enviado a " + to : "No se pudo enviar el correo.", r && r.ok ? "ok" : "error"); } catch (e) { window.jcmToast && window.jcmToast("No se pudo enviar el correo.", "error"); } }
   return (
     <div>
       <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Arma un presupuesto para el paciente y compártelo. Sale con el <b style={{ color: T.text }}>mismo diseño</b> que tus indicaciones.</div>
@@ -2447,7 +2466,17 @@ function PresupuestoTab({ T, patient, updatePatient }) {
               <button onClick={() => del(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, display: "flex", justifyContent: "center" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
             </div>))}</div>}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 }}>
-        <label style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Descuento $<br /><input value={descuento} onChange={e => setDescuento(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={{ ...inp, width: 120, marginTop: 3 }} /></label>
+        <label style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>
+          Descuento {descModo === "pct" ? "%" : "$"}
+          {items.length >= 2 && (
+            <span style={{ display: "inline-flex", marginLeft: 8, borderRadius: 6, overflow: "hidden", border: "1px solid " + T.line, verticalAlign: "middle" }}>
+              <button type="button" onClick={() => setDescModo("monto")} style={{ fontFamily: T.sans, fontSize: 9.5, padding: "3px 7px", border: "none", cursor: "pointer", background: descModo === "monto" ? T.accent : "transparent", color: descModo === "monto" ? (T.onAccent || "#fff") : T.textMute }}>$</button>
+              <button type="button" onClick={() => setDescModo("pct")} style={{ fontFamily: T.sans, fontSize: 9.5, padding: "3px 7px", border: "none", cursor: "pointer", background: descModo === "pct" ? T.accent : "transparent", color: descModo === "pct" ? (T.onAccent || "#fff") : T.textMute }}>%</button>
+            </span>
+          )}
+          <br /><input value={descuento} onChange={e => setDescuento(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={{ ...inp, width: 120, marginTop: 3 }} />
+          {descModo === "pct" && items.length >= 2 && <span style={{ display: "block", fontSize: 9.5, color: T.textFaint, marginTop: 3, maxWidth: 160 }}>Se aplica al procedimiento de menor valor ({minItem ? minItem.name || "sin nombre" : "—"}).</span>}
+        </label>
         <label style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Vigencia (días)<br /><input value={validez} onChange={e => setValidez(e.target.value.replace(/\D/g, ""))} inputMode="numeric" style={{ ...inp, width: 100, marginTop: 3 }} /></label>
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
           <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>Subtotal {fmt(subtotal)}{desc ? " · Dcto − " + fmt(desc) : ""}</div>
@@ -2458,17 +2487,19 @@ function PresupuestoTab({ T, patient, updatePatient }) {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <AdBtn T={T} primary onClick={guardar}>Guardar presupuesto</AdBtn>
         <AdBtn T={T} onClick={() => imprimir(false)}>Imprimir</AdBtn>
-        <AdBtn T={T} onClick={esquemaFacial}>Esquema facial</AdBtn>
         <AdBtn T={T} onClick={() => imprimir(true)}>Guardar en carpeta</AdBtn>
-        <button onClick={waLink} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", background: "none", border: "1px solid #1F8A5B", borderRadius: 4, padding: "12px 16px", cursor: "pointer" }}>WhatsApp</button>
-        <button onClick={enviarCorreo} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, background: "none", border: "1px solid " + T.accent, borderRadius: 4, padding: "12px 16px", cursor: "pointer" }}>Correo</button>
+        <button onClick={() => waLink()} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", background: "none", border: "1px solid #1F8A5B", borderRadius: 4, padding: "12px 16px", cursor: "pointer" }}>WhatsApp</button>
+        <button onClick={() => enviarCorreo()} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: T.accent, background: "none", border: "1px solid " + T.accent, borderRadius: 4, padding: "12px 16px", cursor: "pointer" }}>Correo</button>
       </div>
       {presupuestos.length > 0 && <div style={{ marginTop: 22 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Presupuestos guardados ({presupuestos.length})</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{presupuestos.map(p => (
-          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px" }}>
-            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{(p.items || []).length} tratamiento(s) · {fmt(p.total)}</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{p.fecha} · vigencia {p.validez} días</div></div>
-            <button onClick={() => { setItems(p.items || []); setDescuento(String(p.desc || "")); setValidez(String(p.validez || 15)); setNota(p.nota || ""); }} style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Reabrir</button>
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px" }}>
+            <div style={{ flex: 1, minWidth: 160 }}><div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{(p.items || []).length} tratamiento(s) · {fmt(p.total)}</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{p.fecha} · vigencia {p.validez} días</div></div>
+            <button onClick={() => imprimir(false, p)} title="Imprimir" style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Imprimir</button>
+            <button onClick={() => waLink(p)} title="Enviar por WhatsApp" style={{ fontFamily: T.sans, fontSize: 11, color: "#1F8A5B", background: "none", border: "1px solid #1F8A5B55", borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>WhatsApp</button>
+            <button onClick={() => enviarCorreo(p)} title="Enviar por correo" style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.accent + "55", borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Correo</button>
+            <button onClick={() => { setItems(p.items || []); setDescuento(String(p.desc || "")); setDescModo("monto"); setValidez(String(p.validez || 15)); setNota(p.nota || ""); }} title="Reabrir para editar" style={{ fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>Reabrir</button>
             <button onClick={() => updatePatient(patient.id, { presupuestos: presupuestos.filter(x => x.id !== p.id) })} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
           </div>))}</div>
       </div>}
@@ -2479,8 +2510,10 @@ function PresupuestoTab({ T, patient, updatePatient }) {
 function RecetaTab({ T, patient, updatePatient }) {
   const D = window.JCDATA;
   const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
-  // tipo: "receta" (médico / dentista) | "indicaciones" (enfermería)
-  const [tipo, setTipo] = useState("receta");
+  // tipo: "receta" (médico / dentista) | "indicaciones" (enfermería). Un profesional Enfermero
+  // no puede crear recetas: parte directo en "indicaciones", que es lo único que le corresponde.
+  const canPrescribe = window.jcmCanPrescribeNow ? window.jcmCanPrescribeNow() : true;
+  const [tipo, setTipo] = useState(canPrescribe ? "receta" : "indicaciones");
   const [diag, setDiag] = useState("");
   const [rp, setRp] = useState("");
   const [ind, setInd] = useState("");
@@ -2574,8 +2607,9 @@ function RecetaTab({ T, patient, updatePatient }) {
         Elige el tipo de documento según tu rol. Al imprimir (tamaño carta) incluye el espacio para la <b style={{ color: T.text }}>firma del profesional</b>.
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <button onClick={() => setTipo("receta")} style={seg(tipo === "receta")}>Receta médica<div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, opacity: .85 }}>Médico / dentista</div></button>
+        {canPrescribe && <button onClick={() => setTipo("receta")} style={seg(tipo === "receta")}>Receta médica<div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, opacity: .85 }}>Médico / dentista</div></button>}
         <button onClick={() => setTipo("indicaciones")} style={seg(tipo === "indicaciones")}>Indicaciones post tratamiento<div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, opacity: .85 }}>Enfermería</div></button>
+        {!canPrescribe && <div style={{ flexBasis: "100%", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: -4 }}>Solo Médico o Dentista pueden crear recetas médicas.</div>}
       </div>
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, marginBottom: 18 }}>
         <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Diagnóstico (opcional)</span>

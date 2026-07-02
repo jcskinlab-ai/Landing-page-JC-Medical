@@ -528,6 +528,24 @@ function EquipoView({ T }) {
 
 // Códigos de país para el teléfono del profesional (Chile primero).
 const PROF_PAISES = [["+56", "🇨🇱 Chile"], ["+54", "🇦🇷 Argentina"], ["+51", "🇵🇪 Perú"], ["+57", "🇨🇴 Colombia"], ["+58", "🇻🇪 Venezuela"], ["+593", "🇪🇨 Ecuador"], ["+591", "🇧🇴 Bolivia"], ["+598", "🇺🇾 Uruguay"], ["+595", "🇵🇾 Paraguay"], ["+52", "🇲🇽 México"], ["+34", "🇪🇸 España"], ["+1", "🇺🇸 EE.UU."]];
+// Tipo de profesional: define qué puede crear (recetas y órdenes de examen = solo Médico/Dentista;
+// Enfermero solo indicaciones post-tratamiento, puede ver/cargar exámenes pero no ordenarlos).
+const TIPO_PROF_OPTS = ["Médico", "Dentista", "Enfermero", "Otro"];
+function jcmCanPrescribe(tipoProf) { return tipoProf === "Médico" || tipoProf === "Dentista"; }
+// Tipo de profesional de la sesión activa (null si es el dueño/staff, que no tiene restricción).
+function jcmCurrentProType() {
+  try {
+    if (!(window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole && window.JCSAAS.currentRole() === "professional")) return null;
+    var name = ((window.JCSAAS.currentUserName && window.JCSAAS.currentUserName()) || "").trim().toLowerCase();
+    var team = (window.DB && window.DB.get("team")) || [];
+    var m = team.find(function (t) { return (t.name || "").trim().toLowerCase() === name; });
+    return (m && m.tipoProf) || "Enfermero"; // sin tipo definido → el más restrictivo, no asumir permiso clínico
+  } catch (e) { return null; }
+}
+// true si la sesión activa puede crear recetas/órdenes de examen: el dueño/staff (sin restricción
+// de tipo) siempre puede; un profesional logueado solo si es Médico o Dentista.
+function jcmCanPrescribeNow() { var t = jcmCurrentProType(); return t == null || jcmCanPrescribe(t); }
+if (typeof window !== "undefined") { window.jcmCanPrescribe = jcmCanPrescribe; window.jcmCurrentProType = jcmCurrentProType; window.jcmCanPrescribeNow = jcmCanPrescribeNow; }
 // Especialidades sugeridas en medicina estética (toggle + se pueden agregar propias).
 // Especialidades por ÁREA (P14). Son especialidades reales del profesional, NO procedimientos:
 // Toxina botulínica, Ácido hialurónico, etc. son categorías de PROCEDIMIENTOS y viven en Tratamientos.
@@ -569,6 +587,7 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
   const [nuevaEsp, setNuevaEsp] = useState("");
   const [showAllEsp, setShowAllEsp] = useState(false);
   const [showAllTrat, setShowAllTrat] = useState(false);
+  const [tipoOtro, setTipoOtro] = useState(() => !!(member && member.tipoProf && TIPO_PROF_OPTS.indexOf(member.tipoProf) < 0));
   // Acceso de login del profesional (multiusuario por clínica).
   const [accPass, setAccPass] = useState("");
   const [accBusy, setAccBusy] = useState(false);
@@ -630,6 +649,17 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
             <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Dra. María Pérez" />
             <AdField T={T} label="Título / cargo" value={f.role} onChange={v => setF({ ...f, role: v })} placeholder="Ej: Médico estético" />
+            <div>
+              <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Tipo de profesional</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select value={tipoOtro ? "Otro" : (f.tipoProf || "")} onChange={e => { const v = e.target.value; if (v === "Otro") { setTipoOtro(true); } else { setTipoOtro(false); setF({ ...f, tipoProf: v }); } }} style={{ flex: 1, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", cursor: "pointer" }}>
+                  <option value="">Elegir…</option>
+                  {TIPO_PROF_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                {tipoOtro && <input value={f.tipoProf || ""} onChange={e => setF({ ...f, tipoProf: e.target.value })} placeholder="Especifica el tipo" style={{ flex: 1, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />}
+              </div>
+              <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 7, lineHeight: 1.5 }}>Médico y Dentista pueden crear recetas y órdenes de examen. Enfermero solo indicaciones post-tratamiento (puede ver y cargar exámenes, no crear órdenes).</p>
+            </div>
             <AdField T={T} label="Email" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" placeholder="correo@ejemplo.com" />
             <div>
               <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Teléfono</span>
@@ -5800,6 +5830,7 @@ function RemuneracionesView({ T }) {
 /* ── N7 · Laboratorios y exámenes ── */
 // Exámenes más solicitados en Chile (para elegir con un clic).
 const EXAM_COMUNES = ["Hemograma completo", "Perfil bioquímico", "Perfil lipídico", "Perfil hepático", "Glicemia en ayunas", "Hemoglobina glicosilada (HbA1c)", "Creatinina", "Nitrógeno ureico (BUN)", "Ácido úrico", "Electrolitos plasmáticos (ELP)", "TSH", "T4 libre", "Perfil tiroideo", "Orina completa", "Urocultivo", "VHS", "Proteína C reactiva (PCR)", "VDRL / RPR", "VIH (Elisa)", "Ferritina", "Perfil de fierro", "Vitamina D", "Vitamina B12", "Ácido fólico", "Grupo y Rh", "Sub-unidad β-HCG (embarazo)", "Pruebas de coagulación (TP/TTPA/INR)", "Calcio / Fósforo / Magnesio", "Bilirrubina total y directa", "Transaminasas (GOT/GPT)"];
+if (typeof window !== "undefined") window.EXAM_COMUNES = EXAM_COMUNES;
 function LaboratoriosView({ T, patients }) {
   const [orders, setOrders] = useState(() => { try { return (window.DB && window.DB.get("lab_orders")) || []; } catch (e) { return []; } });
   const [f, setF] = useState({ patId: "", sel: [], extra: "", tipo: "Interno" });
