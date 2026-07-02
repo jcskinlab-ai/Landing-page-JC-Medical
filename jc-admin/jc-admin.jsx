@@ -502,7 +502,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const glassFillHover = T.dark ? "rgba(255,255,255,.075)" : "rgba(255,255,255,.6)";
   const nowClr = "#D8674A";  // marcador "ahora" — único acento cálido (como la línea coral de la referencia)
   // Orden arrastrable de los bloques del dashboard (lux), persistido por clínica.
-  const DASH_BLOCKS = ["funnel", "indicadores"];
+  const DASH_BLOCKS = ["dia", "metrics", "funnel", "evo"];
   const [dashOrder, setDashOrder] = useState(() => { try { var s = window.DB && window.DB.get("dash_order"); if (Array.isArray(s) && s.length) return s; } catch (e) {} return DASH_BLOCKS.slice(); });
   const [dragKey, setDragKey] = useState(null);
   function saveDashOrder(n) { setDashOrder(n); try { window.DB && window.DB.set("dash_order", n); } catch (e) {} }
@@ -1001,7 +1001,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     <div style={lux ? { maxWidth: 1180, margin: "0 auto" } : undefined}>
       {/* Saludo personalizado */}
       {lux ? (
-        <div style={{ margin: "2px 0 16px" }}>
+        <div style={{ margin: "6px 0 26px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent }}>
             <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
             {_greet}{clinicDisplayName() ? ", " + clinicDisplayName() : ""}
@@ -1098,30 +1098,72 @@ function DashboardView({ T, D, A, appts, patients, go }) {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
           </button>
         );
-        const eyebrowLbl = { fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".18em", textTransform: "uppercase", color: T.textMute };
-        // Tarjeta de indicador (foto 1): glass + label + numeral serif + sub + caja de ícono.
-        const kpiCard = (label, value, sub, ic, popup, cfmt, idx) => (
-          <button key={label} onClick={() => popup && setKpiPopup(popup)} title={popup ? "Ver detalle" : undefined}
-            style={{ ...panel, textAlign: "left", cursor: popup ? "pointer" : "default", padding: "18px 20px", ...(DS ? DS.reveal(idx) : {}) }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-              <div style={eyebrowLbl}>{label}</div>
-              <span style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 11, background: glassFill, border: "1px solid " + T.line, display: "flex", alignItems: "center", justifyContent: "center" }}><DashIcon name={ic} c={T.accent} size={18} /></span>
-            </div>
-            <div style={{ fontFamily: T.serif, fontSize: 34, fontWeight: 400, color: T.text, lineHeight: 1.05, marginTop: 12 }}><CountUp value={value} format={cfmt} /></div>
-            <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 5 }}>{sub}</div>
-          </button>
-        );
-        // Layout foto 1: Embudo de marketing (con ROAS) + Indicadores principales. Arrastrables.
         const blocks = {
+          dia: (
+            <div className="jc-dash-grid" style={{ display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start" }}>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                  <div style={eyebrow}>{rule} Tu día · agenda de hoy</div>
+                  <button onClick={() => go("agenda")} style={{ ...linkBtn(T), fontSize: 10 }}>Ver agenda →</button>
+                </div>
+                {todayList.length === 0 ? (
+                  <div style={{ padding: "30px 0 22px", textAlign: "center" }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>Sin citas para hoy</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 6 }}>Disfruta la calma o agenda una nueva atención.</div>
+                    <div style={{ marginTop: 16 }}><AdBtn T={T} small primary onClick={() => go("agenda")}>+ Nueva cita</AdBtn></div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {todayList.map((a, i) => (
+                      <React.Fragment key={a.id}>
+                        {i === nowIdx && nowMarker}
+                        {dayRow(a)}
+                      </React.Fragment>
+                    ))}
+                    {nowIdx >= todayList.length && nowMarker}
+                  </div>
+                )}
+              </div>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ ...eyebrow, marginBottom: 18 }}>{rule} Pendientes de hoy</div>
+                {tareas.length === 0 ? (
+                  <div style={{ padding: "26px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint }}>Todo al día. 🌿</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                    {tareas.map((k, i) => tareaCard(k, i))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ),
+          metrics: (
+            <div style={{ ...panel, display: "flex", flexWrap: "wrap", gap: 4, padding: "20px 26px" }}>
+              {stat("Pacientes totales", patients.length, "Pacientes activos", "pacientes", undefined, true)}
+              {stat("Citas hoy", hoy.length, "Agendadas para hoy", "citas")}
+              {stat("Nuevos pacientes", nuevosMes, "Añadidos este mes", "nuevos")}
+              {stat("Ingresos hoy", ingresosHoy, "Generado hoy", "ingresos", fmt)}
+            </div>
+          ),
           funnel: <FunnelBlock />,
-          indicadores: (
-            <div>
-              <div style={{ ...eyebrowLbl, marginBottom: 12 }}>Indicadores principales</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
-                {kpiCard("Pacientes totales", patients.length, "Pacientes activos", "pacientes", "pacientes", undefined, 0)}
-                {kpiCard("Citas hoy", hoy.length, "Agendadas para hoy", "citas", "citas", undefined, 1)}
-                {kpiCard("Nuevos pacientes", nuevosMes, "Añadidos este mes", "nuevos", "nuevos", undefined, 2)}
-                {kpiCard("Ingresos hoy", ingresosHoy, "Generado hoy", "ingresos", "ingresos", fmt, 3)}
+          evo: (
+            <div className="jc-dash-grid" style={{ display: "grid", gridTemplateColumns: cols, gap: 18, alignItems: "start" }}>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+                  <div style={eyebrow}>{rule} Evolución de ingresos</div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 24, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 10.5, color: green, marginTop: 3 }}>↗ +{growth}% en la semana</div>
+                  </div>
+                </div>
+                <Chart />
+              </div>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ ...eyebrow, marginBottom: 14 }}>{rule} Accesos rápidos</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {acceso("crear", "Crear paciente", "Añadir nueva ficha", "pacientes")}
+                  {acceso("cita", "Nueva cita", "Agendar atención", "agenda")}
+                  {acceso("stock", "Inventario", "Stock e insumos", "inventario")}
+                </div>
               </div>
             </div>
           )
