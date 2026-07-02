@@ -73,7 +73,7 @@ function nIcon(name, c) {
 }
 
 /* Buscador directo de pacientes (barra superior, estilo Medique) */
-function PatientSearch({ T, patients, onOpen }) {
+function PatientSearch({ T, patients, onOpen, compact }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const res = q.trim() ? (patients || []).filter(p =>
@@ -81,12 +81,16 @@ function PatientSearch({ T, patients, onOpen }) {
     (p.rut || "").toLowerCase().includes(q.toLowerCase()) ||
     (p.email || "").toLowerCase().includes(q.toLowerCase()) ||
     (p.phone || "").includes(q)).slice(0, 7) : [];
+  // compact (lux): más chico + translúcido para integrarse a la página (sin barra oscura).
+  const inpStyle = compact
+    ? { width: "100%", fontFamily: T.sans, fontSize: 12, padding: "7px 12px 7px 30px", borderRadius: 999, border: "1px solid " + (T.dark ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.6)"), background: T.dark ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.5)", color: T.text, outline: "none", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }
+    : { width: "100%", fontFamily: T.sans, fontSize: 12.5, padding: "8px 12px 8px 32px", borderRadius: 999, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, outline: "none" };
   return (
-    <div style={{ position: "relative", flex: 1, maxWidth: 320, minWidth: 140 }}>
+    <div style={{ position: "relative", flex: compact ? "0 1 240px" : 1, maxWidth: compact ? 240 : 320, minWidth: 140 }}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.7" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
       <input value={q} onChange={e => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         type="search" name="jcm-buscar-paciente" autoComplete="off" data-nocap="" data-1p-ignore="true" data-lpignore="true"
-        placeholder="Buscar pacientes…" style={{ width: "100%", fontFamily: T.sans, fontSize: 12.5, padding: "8px 12px 8px 32px", borderRadius: 999, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, outline: "none" }} />
+        placeholder="Buscar pacientes…" style={inpStyle} />
       {open && res.length > 0 && (
         <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, zIndex: 40, overflow: "hidden" }}>
           {res.map(p => (
@@ -1737,9 +1741,9 @@ function AdminApp() {
 
         {/* MAIN */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 18px 10px", borderBottom: "1px solid " + (shellLux ? "transparent" : T.line), background: shellLux ? (T.dark ? "rgba(10,12,16,.28)" : "rgba(255,255,255,.30)") : T.navBg, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: shellLux ? "12px 18px 6px" : "13px 18px 10px", borderBottom: "1px solid " + (shellLux ? "transparent" : T.line), background: shellLux ? "transparent" : T.navBg, backdropFilter: shellLux ? "none" : "blur(16px)", WebkitBackdropFilter: shellLux ? "none" : "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" }}>
             {/* Izquierda: solo el buscador de pacientes (nombre, RUT, teléfono o correo) */}
-            <PatientSearch T={T} patients={patients} onOpen={(id) => { setOpenPatient(id); setSection("pacientes"); }} />
+            <PatientSearch T={T} patients={patients} compact={shellLux} onOpen={(id) => { setOpenPatient(id); setSection("pacientes"); }} />
             <div style={{ flex: 1 }} />
             {/* Derecha: dropdown de perfil */}
             <div ref={profileRef} style={{ position: "relative" }}>
@@ -1783,14 +1787,14 @@ function AdminApp() {
                 r.readAsDataURL(f);
               }} />
             </div>
-            <button onClick={() => window.jcmHardRefresh && window.jcmHardRefresh()} title="Actualizar panel" style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
+            {!shellLux && <button onClick={() => window.jcmHardRefresh && window.jcmHardRefresh()} title="Actualizar panel" style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
                 <path d="M21 3v5h-5"/>
                 <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
                 <path d="M8 16H3v5"/>
               </svg>
-            </button>
+            </button>}
             <button onClick={() => setNotifOpen(true)} title="Notificaciones" style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: "1px solid " + T.chipBorder, background: T.chipBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMute }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
               {notifCount > 0 && <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: "#C0285A", color: "#fff", fontFamily: T.sans, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>{notifCount}</span>}
