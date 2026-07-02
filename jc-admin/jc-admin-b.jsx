@@ -2485,6 +2485,7 @@ function RecetaTab({ T, patient, updatePatient }) {
   const [rp, setRp] = useState("");
   const [ind, setInd] = useState("");
   const [ctrl, setCtrl] = useState(""); // fecha de control (solo indicaciones)
+  const [ctrlTime, setCtrlTime] = useState(""); // hora de control (opcional)
   const [preview, setPreview] = useState(null); // documento abierto en popup
   const [sigMedId, setSigMedId] = useState("auto");
   // N5 · Vademécum: constructor de medicamento con posología estructurada.
@@ -2496,17 +2497,18 @@ function RecetaTab({ T, patient, updatePatient }) {
     setRp(rp ? rp + "\n" + linea : linea);
     setMed({ nombre: "", dosis: "1", forma: "comprimido", cada: "8", unidad: "horas", via: "Oral", indic: "" });
   }
-  // Formatea "YYYY-MM-DD" a fecha larga en español para el documento.
-  const fmtCtrl = s => { if (!s) return ""; const m = ("" + s).match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return s; const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d) ? s : d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); };
+  // Formatea "YYYY-MM-DD" (u opcionalmente "YYYY-MM-DDTHH:MM") a fecha larga en español para el documento.
+  const fmtCtrl = s => { if (!s) return ""; const m = ("" + s).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if (!m) return s; const d = new Date(+m[1], +m[2] - 1, +m[3]); if (isNaN(d)) return s; const base = d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); return m[4] ? base + " a las " + m[4] + ":" + m[5] + " hrs" : base; };
   const recetas = patient.recetas || [];
   const titleOf = t => t === "indicaciones" ? "Indicaciones post tratamiento" : "Receta médica";
   const rpLabelOf = t => t === "indicaciones" ? "Indicaciones / cuidados" : "Rp. (medicamentos)";
 
   function guardar() {
     if (!rp.trim()) return;
-    const r = { id: "rx" + Date.now(), tipo, fecha: hoy, diag: diag.trim(), rp: rp.trim(), ind: ind.trim(), ctrl: tipo === "indicaciones" ? ctrl : "" };
+    const ctrlVal = tipo === "indicaciones" && ctrl ? (ctrl + (ctrlTime ? "T" + ctrlTime : "")) : "";
+    const r = { id: "rx" + Date.now(), tipo, fecha: hoy, diag: diag.trim(), rp: rp.trim(), ind: ind.trim(), ctrl: ctrlVal };
     updatePatient(patient.id, { recetas: [r, ...recetas] });
-    setDiag(""); setRp(""); setInd(""); setCtrl("");
+    setDiag(""); setRp(""); setInd(""); setCtrl(""); setCtrlTime("");
   }
   function imprimir(r, save) {
     const e = jcmDocEsc;
@@ -2631,7 +2633,10 @@ function RecetaTab({ T, patient, updatePatient }) {
           <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={ind} onChange={e => setInd(e.target.value)} placeholder="Reposo relativo, control en 7 días…" /></label>
         {tipo === "indicaciones" && (
           <label style={{ display: "block", marginTop: 13 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Fecha de control (opcional)</span>
-            <input type="date" style={{ ...inp, maxWidth: 260 }} value={ctrl} onChange={e => setCtrl(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input type="date" style={{ ...inp, maxWidth: 200 }} value={ctrl} onChange={e => setCtrl(e.target.value)} />
+              <input type="time" style={{ ...inp, maxWidth: 130 }} value={ctrlTime} onChange={e => setCtrlTime(e.target.value)} disabled={!ctrl} title={ctrl ? "Hora del control (opcional)" : "Elige primero la fecha"} />
+            </div>
             <span style={{ display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 5 }}>Si la indicas, aparece en la sección "Control de evaluación" del documento.</span>
           </label>
         )}

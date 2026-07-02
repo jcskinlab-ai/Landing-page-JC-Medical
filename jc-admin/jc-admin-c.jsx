@@ -493,7 +493,11 @@ function EquipoView({ T }) {
     <div>
       <SecHead T={T} title="Equipo" sub="Profesionales y permisos" />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {team.map((t, i) => (
+        {team.map((t, i) => {
+          // "Admin" = sin cuenta de login propia (lo gestiona el dueño directamente) o con TODOS los
+          // permisos de sección activados; el resto (login propio + permisos acotados) es "Usuario".
+          const isAdminMember = !t.access || PERM_SECCIONES.every(p => t.perms && t.perms[p]);
+          return (
           <button key={t.id} onClick={() => setEditing(t)} style={luxF
             ? { display: "flex", alignItems: "center", gap: 13, padding: "14px 16px", ...DS.card(T), width: "100%", textAlign: "left", cursor: "pointer", transition: DS.trans("border-color,transform"), ...DS.reveal(i) }
             : { display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, width: "100%", textAlign: "left", cursor: "pointer" }}
@@ -506,11 +510,15 @@ function EquipoView({ T }) {
               <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[t.phone, t.email].filter(Boolean).join("  ·  ")}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 7, flexShrink: 0 }}>
-              <AdTag T={T} tone={t.active ? "ok" : "muted"}>{t.active ? "Activo" : "Inactivo"}</AdTag>
+              <div style={{ display: "flex", gap: 6 }}>
+                <AdTag T={T} tone={isAdminMember ? "accent" : "muted"}>{isAdminMember ? "Admin" : "Usuario"}</AdTag>
+                <AdTag T={T} tone={t.active ? "ok" : "muted"}>{t.active ? "Activo" : "Inactivo"}</AdTag>
+              </div>
               <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent }}>Editar →</span>
             </div>
           </button>
-        ))}
+          );
+        })}
       </div>
       <div style={{ marginTop: 14 }}><AdBtn T={T} primary onClick={() => setEditing("new")}>+ Añadir miembro</AdBtn></div>
       {editing && <ProfesionalForm T={T} member={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSave={save} onDelete={editing !== "new" && editing.id ? () => remove(editing.id) : null} />}
@@ -559,6 +567,8 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
     ? { ...member, perms: member.perms || {}, especialidades: member.especialidades || (member.role ? [member.role] : []), tratamientos: member.tratamientos || [], sucursales: member.sucursales || [], horario: member.horario || sucHorarioDefault() }
     : { name: "", role: "", email: "", phone: "+56 9 ", active: true, access: false, perms: {}, especialidades: [], tratamientos: [], sucursales: [], horario: sucHorarioDefault() });
   const [nuevaEsp, setNuevaEsp] = useState("");
+  const [showAllEsp, setShowAllEsp] = useState(false);
+  const [showAllTrat, setShowAllTrat] = useState(false);
   // Acceso de login del profesional (multiusuario por clínica).
   const [accPass, setAccPass] = useState("");
   const [accBusy, setAccBusy] = useState(false);
@@ -603,8 +613,17 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
       <AdSwitch T={T} on={on} onClick={onClick} />
     </div>
   );
+  // Colapsa una lista larga de chips a solo 3 (priorizando los ya seleccionados, para no
+  // "esconder" una selección existente) + botón "ver más" para desplegar el resto.
+  function collapse3(options, selected, expanded) {
+    if (expanded || options.length <= 3) return options;
+    const shown = new Set(), out = [];
+    options.forEach(o => { if (selected.indexOf(o) >= 0 && out.length < 3) { out.push(o); shown.add(o); } });
+    for (const o of options) { if (out.length >= 3) break; if (!shown.has(o)) { out.push(o); shown.add(o); } }
+    return out;
+  }
   return (
-    <AdModal T={T} title={member ? "Editar profesional" : "Nuevo profesional"} onClose={onClose} footer={<div style={{ display: "flex", gap: 10, alignItems: "center" }}>{onDelete && <button onClick={onDelete} title="Eliminar profesional" style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 44, borderRadius: 8, border: "1px solid #C0285A55", background: "transparent", color: "#C0285A", fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>Eliminar</button>}<AdBtn T={T} primary full onClick={() => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" })}>Guardar profesional</AdBtn></div>}>
+    <AdModal T={T} wide title={member ? "Editar profesional" : "Nuevo profesional"} onClose={onClose} footer={<div style={{ display: "flex", gap: 10, alignItems: "center" }}>{onDelete && <button onClick={onDelete} title="Eliminar profesional" style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 44, borderRadius: 8, border: "1px solid #C0285A55", background: "transparent", color: "#C0285A", fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>Eliminar</button>}<AdBtn T={T} primary full onClick={() => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" })}>Guardar profesional</AdBtn></div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {/* 1 · Información básica */}
         <ProfSec T={T} n="1" title="Información básica">
@@ -653,7 +672,12 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
         </ProfSec>
         {/* 2 · Especialidades */}
         <ProfSec T={T} n="2" title="Especialidades" sub="Marca las que ejerce este profesional. Puedes agregar las tuyas.">
-          <ProfChips T={T} options={Array.from(new Set([...PROF_ESPECIALIDADES, ...(f.especialidades || [])]))} selected={f.especialidades || []} onToggle={v => toggleArr("especialidades", v)} empty="" />
+          {(() => { const all = Array.from(new Set([...PROF_ESPECIALIDADES, ...(f.especialidades || [])])); const sel = f.especialidades || []; return (
+            <>
+              <ProfChips T={T} options={collapse3(all, sel, showAllEsp)} selected={sel} onToggle={v => toggleArr("especialidades", v)} empty="" />
+              {all.length > 3 && <button type="button" onClick={() => setShowAllEsp(v => !v)} style={{ marginTop: 8, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: T.sans, fontSize: 11, color: T.accent }}>{showAllEsp ? "Ver menos" : "Ver más (+" + (all.length - collapse3(all, sel, false).length) + ")"}</button>}
+            </>
+          ); })()}
           <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
             <input value={nuevaEsp} onChange={e => setNuevaEsp(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addEsp(); } }} placeholder="Agregar especialidad…" style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none" }} />
             <AdBtn T={T} onClick={addEsp}>Agregar</AdBtn>
@@ -661,7 +685,8 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
         </ProfSec>
         {/* 3 · Tratamientos asignados */}
         <ProfSec T={T} n="3" title="Tratamientos asignados" sub="Procedimientos que este profesional puede realizar (del catálogo de la clínica).">
-          <ProfChips T={T} options={svcList} selected={f.tratamientos || []} onToggle={v => toggleArr("tratamientos", v)} empty="Aún no hay servicios en el catálogo. Créalos en Tratamientos y vuelve a asignarlos aquí." />
+          <ProfChips T={T} options={collapse3(svcList, f.tratamientos || [], showAllTrat)} selected={f.tratamientos || []} onToggle={v => toggleArr("tratamientos", v)} empty="Aún no hay servicios en el catálogo. Créalos en Tratamientos y vuelve a asignarlos aquí." />
+          {svcList.length > 3 && <button type="button" onClick={() => setShowAllTrat(v => !v)} style={{ marginTop: 8, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: T.sans, fontSize: 11, color: T.accent }}>{showAllTrat ? "Ver menos" : "Ver más (+" + (svcList.length - collapse3(svcList, f.tratamientos || [], false).length) + ")"}</button>}
         </ProfSec>
         {/* 4 · Sucursales */}
         <ProfSec T={T} n="4" title="Sucursales" sub="¿En qué sucursales atiende este profesional?">
@@ -5623,23 +5648,38 @@ function ReportesIAView({ T, patients, appts }) {
 }
 
 /* ── N2 · Contralor IA (verificación automática de registros) ── */
-function ContraloriaView({ T, patients, appts }) {
+function ContraloriaView({ T, patients, appts, openP, goApt, go }) {
+  const hoyISO = new Date().toISOString().slice(0, 10);
+  const citasSinProfList = (appts || []).filter(a => a.status !== "anulada" && !(a.prof || "").trim() && (a.fecha || "") >= hoyISO);
+  const sinRutList = patients.filter(p => !(p.rut || "").trim());
+  const sinTelList = patients.filter(p => !(p.phone || "").replace(/\D/g, ""));
+  const sinConsentList = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : []);
+  const cobrosPendList = (() => {
+    const L = [];
+    try { patients.forEach(p => (p.billing || []).forEach(b => { if (!b.paid && b.amount > 0) L.push({ p, b }); })); } catch (e) {}
+    return L;
+  })();
   const alertas = (() => {
     const A = [];
-    const sinConsent = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : []).length;
-    if (sinConsent) A.push({ t: "Consentimientos pendientes", n: sinConsent, d: sinConsent + " paciente(s) con cita de procedimiento sin consentimiento firmado.", to: "pendientes", c: "#C9A227" });
-    const sinRut = patients.filter(p => !(p.rut || "").trim()).length;
-    if (sinRut) A.push({ t: "Fichas sin RUT", n: sinRut, d: sinRut + " paciente(s) sin RUT registrado (dificulta boletas y trazabilidad).", to: "pacientes", c: "#C0285A" });
-    const sinTel = patients.filter(p => !(p.phone || "").replace(/\D/g, "")).length;
-    if (sinTel) A.push({ t: "Fichas sin teléfono", n: sinTel, d: sinTel + " paciente(s) sin teléfono (no reciben recordatorios).", to: "pacientes", c: "#C9A227" });
-    const citasSinProf = (appts || []).filter(a => a.status !== "anulada" && !(a.prof || "").trim() && (a.fecha || "") >= new Date().toISOString().slice(0, 10)).length;
-    if (citasSinProf) A.push({ t: "Citas sin profesional", n: citasSinProf, d: citasSinProf + " cita(s) futura(s) sin profesional asignado.", to: "agenda", c: "#C0285A" });
-    let cash = []; try { cash = (window.cashAll && window.cashAll()) || []; } catch (e) {}
-    let pend = 0; try { patients.forEach(p => (p.billing || []).forEach(b => { if (!b.paid && b.amount > 0) pend++; })); } catch (e) {}
-    if (pend) A.push({ t: "Cobros pendientes", n: pend, d: pend + " atención(es) registrada(s) sin pago.", to: "caja", c: "#C9A227" });
+    if (sinConsentList.length) A.push({ t: "Consentimientos pendientes", n: sinConsentList.length, d: sinConsentList.length + " paciente(s) con cita de procedimiento sin consentimiento firmado.", to: "pendientes", c: "#C9A227", kind: "patients", list: sinConsentList, tab: "consent" });
+    if (sinRutList.length) A.push({ t: "Fichas sin RUT", n: sinRutList.length, d: sinRutList.length + " paciente(s) sin RUT registrado (dificulta boletas y trazabilidad).", to: "pacientes", c: "#C0285A", kind: "patients", list: sinRutList, tab: "fichaclinica" });
+    if (sinTelList.length) A.push({ t: "Fichas sin teléfono", n: sinTelList.length, d: sinTelList.length + " paciente(s) sin teléfono (no reciben recordatorios).", to: "pacientes", c: "#C9A227", kind: "patients", list: sinTelList, tab: "fichaclinica" });
+    if (citasSinProfList.length) A.push({ t: "Citas sin profesional", n: citasSinProfList.length, d: citasSinProfList.length + " cita(s) futura(s) sin profesional asignado.", to: "agenda", c: "#C0285A", kind: "appts", list: citasSinProfList });
+    if (cobrosPendList.length) A.push({ t: "Cobros pendientes", n: cobrosPendList.length, d: cobrosPendList.length + " atención(es) registrada(s) sin pago.", to: "caja", c: "#C9A227", kind: "cobros", list: cobrosPendList, tab: "facturacion" });
     return A;
   })();
+  const [openAlert, setOpenAlert] = useState(null); // alerta con popup abierto
   const ok = alertas.length === 0;
+  function revisar(a) {
+    // Un solo elemento accionable: ir directo, sin popup intermedio.
+    if (a.list.length === 1) {
+      if (a.kind === "appts") { if (goApt) { goApt(a.list[0].id); return; } }
+      else if (a.kind === "cobros") { if (openP) { openP(a.list[0].p.id, a.tab); return; } }
+      else if (openP) { openP(a.list[0].id, a.tab); return; }
+    }
+    setOpenAlert(a);
+  }
+  const rowStyle = { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: T.text };
   return (
     <div>
       <SecHead T={T} title="Contralor IA" sub="Gestionar deja de ser reaccionar: la inteligencia anticipa y alerta" />
@@ -5649,8 +5689,32 @@ function ContraloriaView({ T, patients, appts }) {
             <div key={i} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 14, ...window.JCDS.card(T), borderLeft: "4px solid " + a.c, padding: "14px 16px" } : { display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderLeft: "4px solid " + a.c, borderRadius: 10, padding: "14px 16px" }}>
               <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: a.c + "1c", color: a.c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 600 }}>{a.n}</span>
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{a.t}</div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 }}>{a.d}</div></div>
-              <button onClick={() => { try { window.jcmNav ? window.jcmNav(a.to) : (location.href = "/" + a.to); } catch (e) {} }} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}>Revisar →</button>
+              <button onClick={() => revisar(a)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}>Revisar →</button>
             </div>))}</div>}
+      {openAlert && (
+        <AdModal T={T} title={openAlert.t + " (" + openAlert.n + ")"} onClose={() => setOpenAlert(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {openAlert.kind === "appts" && openAlert.list.map(a => (
+              <button key={a.id} style={rowStyle} onClick={() => { setOpenAlert(null); if (goApt) goApt(a.id); }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{a.name || "Paciente"} <span style={{ color: T.textMute }}>· {a.fecha}{a.time ? " " + a.time : ""}{a.proc ? " · " + a.proc : ""}</span></span>
+                <span style={{ color: T.accent, fontSize: 11, flexShrink: 0 }}>Ir a la cita →</span>
+              </button>
+            ))}
+            {openAlert.kind === "cobros" && openAlert.list.map(({ p, b }, idx) => (
+              <button key={p.id + "_" + idx} style={rowStyle} onClick={() => { setOpenAlert(null); if (openP) openP(p.id, openAlert.tab); }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{p.name} <span style={{ color: T.textMute }}>· {b.proc || "Atención"}{b.amount ? " · " + (window.JCDATA ? window.JCDATA.fmt(b.amount) : b.amount) : ""}</span></span>
+                <span style={{ color: T.accent, fontSize: 11, flexShrink: 0 }}>Ir a la ficha →</span>
+              </button>
+            ))}
+            {openAlert.kind === "patients" && openAlert.list.map(p => (
+              <button key={p.id} style={rowStyle} onClick={() => { setOpenAlert(null); if (openP) openP(p.id, openAlert.tab); }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{p.name}{p.rut ? <span style={{ color: T.textMute }}> · {p.rut}</span> : null}</span>
+                <span style={{ color: T.accent, fontSize: 11, flexShrink: 0 }}>Ir a la ficha →</span>
+              </button>
+            ))}
+          </div>
+        </AdModal>
+      )}
     </div>
   );
 }

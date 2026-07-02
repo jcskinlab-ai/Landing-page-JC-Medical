@@ -182,7 +182,9 @@ if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
 // Permiso (PERM_SECCIONES de la ficha del profesional) → claves de sección que desbloquea.
 var PERM_NAV = {
-  "Agenda": ["agenda", "salaespera", "pendientes"],
+  // "salaespera" (Sala de espera) queda fuera a propósito: es una vista operativa de recepción,
+  // no algo que un profesional individual deba ver — solo el dueño/staff la usa.
+  "Agenda": ["agenda", "pendientes"],
   "Pacientes": ["pacientes"],
   "Servicios": ["servicios", "equipo", "sucursales"],
   "Inventario": ["inventario"],
@@ -205,7 +207,9 @@ function adminNavItems() {
     var role = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole) ? window.JCSAAS.currentRole() : 'owner';
     if (role === 'professional') {
       var perms = (window.JCSAAS.currentPerms && window.JCSAAS.currentPerms()) || {};
-      allowed = { dashboard: 1, appjcm: 1 };
+      // Un profesional NO ve Dashboard ni App JC Medical por defecto: son vistas de dueño
+      // (cifras del negocio completo). Solo ve lo que sus permisos desbloquean vía PERM_NAV.
+      allowed = {};
       Object.keys(PERM_NAV).forEach(function (p) { if (perms[p]) PERM_NAV[p].forEach(function (k) { allowed[k] = 1; }); });
     }
   } catch (e) { allowed = null; }
@@ -537,9 +541,27 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [kpiPopup, movCaja]);
 
-  // Evolución de ingresos — en SaaS parte en 0 (cada clínica acumula lo suyo); demo solo en modo local.
+  // Evolución de ingresos: ingresos REALES de caja de esta semana (Lun→Dom), no demo. Antes quedaba
+  // hardcodeado en ceros para toda clínica en SaaS aunque hubiera ventas del día — bug reportado.
   const dias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-  const serie = (window.JCSAAS && window.JCSAAS.enabled) ? [0, 0, 0, 0, 0, 0, 0] : [380000, 420000, 510000, 470000, 540000, 610000, 740000];
+  const serie = (() => {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return [380000, 420000, 510000, 470000, 540000, 610000, 740000]; // demo, modo local
+    let cash = []; try { cash = (typeof window.cashAll === "function") ? (window.cashAll() || []) : []; } catch (e) {}
+    const now = new Date();
+    const dow = (now.getDay() + 6) % 7; // lunes = 0
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
+    const out = [0, 0, 0, 0, 0, 0, 0];
+    cash.forEach(m => {
+      if (m.type !== "ingreso" || !m.ts) return;
+      const day = window._localDay ? window._localDay(m.ts) : (m.ts || "").slice(0, 10);
+      for (let i = 0; i < 7; i++) {
+        const dt = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+        const iso = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+        if (iso === day) { out[i] += (m.amount || 0); break; }
+      }
+    });
+    return out;
+  })();
   const totalSemana = serie.reduce((a, b) => a + b, 0);
   const growth = serie[0] ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
 
@@ -1324,6 +1346,7 @@ function AdminApp() {
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
   const [openPatientTab, setOpenPatientTab] = useState(null);
+  const [openApptId, setOpenApptId] = useState(null); // deep-link desde Contralor IA a una cita puntual
   const [appts, setAppts] = useState(() => {
     // Citas por clínica desde la BD (Firebase). Las reservas web ya entran aquí vía importWebBookings.
     var saved = (window.DB && window.DB.get("appointments"));
@@ -1533,9 +1556,10 @@ function AdminApp() {
     try {
       var role = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole) ? window.JCSAAS.currentRole() : 'owner';
       if (role !== 'professional') return;
-      if (section === 'dashboard' || openPatient) return;
-      var ok = adminNavItems().some(function (n) { return n.k === section; }) || section === 'pacientes';
-      if (!ok) setSection('dashboard');
+      if (openPatient) return;
+      var items = adminNavItems();
+      var ok = items.some(function (n) { return n.k === section; }) || section === 'pacientes';
+      if (!ok) setSection((items[0] && items[0].k) || 'pacientes');
     } catch (e) {}
   }, [section, openPatient]);
 
@@ -1635,18 +1659,27 @@ function AdminApp() {
   // La campana cuenta solo lo NO leído (se actualiza al pulsar "Leer todas"); notifVer fuerza el recálculo.
   const notifCount = (notifVer, unreadNotifCount(patients, appts));
 
+  // Multiusuario: un profesional (role 'professional', no dueño) solo debe ver SU PROPIA agenda y
+  // los pendientes de SUS propios pacientes — nunca los de otros profesionales del equipo. El dueño
+  // (owner/staff) sigue viendo todo, sin cambios.
+  const jcRole = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole) ? window.JCSAAS.currentRole() : 'owner';
+  const isProfessionalSession = jcRole === 'professional';
+  const myProName = isProfessionalSession ? (((window.JCSAAS.currentUserName && window.JCSAAS.currentUserName()) || '').trim().toLowerCase()) : '';
+  const myAppts = (isProfessionalSession && myProName) ? appts.filter(a => ((a.prof || '').trim().toLowerCase()) === myProName) : appts;
+  const myPatients = (isProfessionalSession && myProName) ? (() => { var ids = new Set(myAppts.map(function (a) { return a.patId; }).filter(Boolean)); return patients.filter(function (p) { return ids.has(p.id); }); })() : patients;
+
   let body;
   if (section === "dashboard") body = <DashboardView T={T} D={D} A={A} appts={appts} patients={patients} go={nav} />;
   else if (section === "appjcm") body = <AppJCMView T={T} />;
   else if (section === "resumen") body = <Resumen T={T} D={D} A={A} appts={appts} patients={patients} go={nav} updateAppt={updateAppt} removeAppt={removeAppt} themeKey={themeKey} setThemeKey={setThemeKey} />;
-  else if (section === "agenda") body = <Agenda T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} />;
+  else if (section === "agenda") body = <Agenda T={T} appts={isProfessionalSession ? myAppts : appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} initialApptId={openApptId} onConsumeApptId={() => setOpenApptId(null)} />;
   else if (section === "pacientes") body = current
-    ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} />
+    ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={isProfessionalSession ? null : removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} />
     : <PacientesView T={T} patients={patients} appts={appts} onOpen={setOpenPatient} updatePatient={updatePatient} addPatient={addPatient} />;
   else if (section === "salaespera") body = <SalaEsperaView T={T} appts={appts} patients={patients} updatePatient={updatePatient} />;
   else if (section === "automatizaciones") body = <AutomatizacionesView T={T} />;
   else if (section === "agenteia") body = <AgenteIAView T={T} patients={patients} addAppt={addAppt} />;
-  else if (section === "pendientes") body = <PendientesView T={T} patients={patients} appts={appts} go={nav} openP={(id, tab) => { setOpenPatient(id); setOpenPatientTab(tab || null); setSection("pacientes"); }} updatePatient={updatePatient} />;
+  else if (section === "pendientes") body = <PendientesView T={T} patients={isProfessionalSession ? myPatients : patients} appts={isProfessionalSession ? myAppts : appts} go={nav} openP={(id, tab) => { setOpenPatient(id); setOpenPatientTab(tab || null); setSection("pacientes"); }} updatePatient={updatePatient} />;
   else if (section === "servicios") body = <ServiciosView T={T} />;
   else if (section === "equipo") body = <EquipoView T={T} />;
   else if (section === "sucursales") body = <SucursalesView T={T} />;
@@ -1670,7 +1703,9 @@ function AdminApp() {
   else if (section === "resumenia") body = <ResumenClinicoView T={T} patients={patients} appts={appts} />;
   else if (section === "contactcenter") body = <ContactCenterView T={T} patients={patients} />;
   else if (section === "reportesia") body = <ReportesIAView T={T} patients={patients} appts={appts} />;
-  else if (section === "contraloria") body = <ContraloriaView T={T} patients={patients} appts={appts} />;
+  else if (section === "contraloria") body = <ContraloriaView T={T} patients={patients} appts={appts} go={nav}
+    openP={(id, tab) => { setOpenPatient(id); setOpenPatientTab(tab || null); setSection("pacientes"); }}
+    goApt={(apptId) => { setOpenApptId(apptId); setSection("agenda"); }} />;
   else if (section === "desempeno") body = <DesempenoView T={T} patients={patients} appts={appts} />;
   else if (section === "encuestas") body = <EncuestasView T={T} patients={patients} />;
   else if (section === "chatinterno") body = <ChatInternoView T={T} />;
@@ -2526,7 +2561,7 @@ function ICSImportModal({ T, onClose, onImport }) {
   );
 }
 
-function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
+function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb, initialApptId, onConsumeApptId }) {
   const [webBusy, setWebBusy] = useState(false);
   function traerWeb() {
     if (webBusy || !onSyncWeb) return;
@@ -2541,6 +2576,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   }
   const [view, setView] = useState("semana");
   const [day, setDay] = useState(0);
+  const [monthDate, setMonthDate] = useState(() => new Date());
+  // Deep-link desde Contralor IA: "Citas sin profesional" con un solo resultado abre la cita directo.
+  useEffect(() => {
+    if (!initialApptId) return;
+    const a = (appts || []).find(x => x.id === initialApptId);
+    if (a) { setDay(apptDayOff(a)); setView("dia"); setEdit(a); setEditOnly(null); }
+    if (onConsumeApptId) onConsumeApptId();
+  }, [initialApptId]);
   const [nueva, setNueva] = useState(null);
   const [edit, setEdit] = useState(null);
   const [editOnly, setEditOnly] = useState(null); // null = edición completa · "fecha" | "duracion" = solo ese campo
@@ -2618,6 +2661,11 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? (T.onAccent || "#fff") : T.textMute }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
       </button>
+      <button onClick={() => setView("mes")} title="Vista mensual" style={luxF
+        ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "mes" ? T.surface : "transparent", boxShadow: view === "mes" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "mes" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
+        : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "mes" ? T.accent : "transparent", color: view === "mes" ? (T.onAccent || "#fff") : T.textMute }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 10h18M8 2v4M16 2v4" /><circle cx="8" cy="14.5" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="14.5" r="1" fill="currentColor" stroke="none" /><circle cx="16" cy="14.5" r="1" fill="currentColor" stroke="none" /></svg>
+      </button>
     </div>
   );
   const [icsMod, setIcsMod] = useState(false);
@@ -2677,6 +2725,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           if (!found) { const an = (appt.name || "").toLowerCase().trim(); found = (patients || []).find(x => { const xn = (x.name || "").toLowerCase(); return xn === an || (an.length >= 4 && (xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]))); }); }
           setFichaConfirm({ appt, patient: found || null });
         }} />
+      ) : view === "mes" ? (
+        <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
       ) : (
         <div>
           <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
@@ -2864,6 +2914,52 @@ function ComentarioPopup({ T, appt, updateAppt, onClose }) {
         </div>
       </div>
     </>
+  );
+}
+// Vista mensual de la agenda (día / semana / mes). Cada celda muestra el número de citas del día
+// y hasta 3 nombres; clic en un día abre la vista "día" para esa fecha.
+function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nuevaBtn }) {
+  const y = monthDate.getFullYear(), m = monthDate.getMonth();
+  const first = new Date(y, m, 1);
+  const startOff = (first.getDay() + 6) % 7; // lunes = 0
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  function toISO(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+  function offOf(d) { return Math.round((d.getTime() - today.getTime()) / 86400000); }
+  const apptsByDay = {};
+  (appts || []).forEach(a => { if (a.status === "anulada") return; const k = a.fecha; if (!k) return; (apptsByDay[k] = apptsByDay[k] || []).push(a); });
+  const cells = [];
+  for (let i = 0; i < startOff; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
+  const monthLbl = monthDate.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  const navBtn = { width: 30, height: 30, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <button onClick={() => setMonthDate(new Date(y, m - 1, 1))} style={navBtn} title="Mes anterior">‹</button>
+        <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text, textTransform: "capitalize" }}>{monthLbl}</div>
+        <button onClick={() => setMonthDate(new Date(y, m + 1, 1))} style={navBtn} title="Mes siguiente">›</button>
+        {viewToggle}
+        {nuevaBtn}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, background: T.line, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" }}>
+        {diasSemana.map(d => <div key={d} style={{ background: T.surface2 || T.surface, padding: "8px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute }}>{d}</div>)}
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} style={{ background: T.bg, minHeight: 92 }} />;
+          const iso = toISO(d);
+          const list = apptsByDay[iso] || [];
+          const isToday = iso === toISO(today);
+          return (
+            <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: T.surface, minHeight: 92, padding: "6px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
+              <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? (T.accentSoft || "transparent") : "transparent" }}>{d.getDate()}</span>
+              {list.slice(0, 3).map((a, idx) => <span key={idx} style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time ? a.time + " " : ""}{a.name || "Cita"}</span>)}
+              {list.length > 3 && <span style={{ fontFamily: T.sans, fontSize: 9, color: T.accent }}>+{list.length - 3} más</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn }) {

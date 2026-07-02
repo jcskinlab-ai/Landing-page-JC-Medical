@@ -227,7 +227,9 @@ function jcmNewFeat() {
 if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
 var PERM_NAV = {
-  "Agenda": ["agenda", "salaespera", "pendientes"],
+  // "salaespera" (Sala de espera) queda fuera a propósito: es una vista operativa de recepción,
+  // no algo que un profesional individual deba ver — solo el dueño/staff la usa.
+  "Agenda": ["agenda", "pendientes"],
   "Pacientes": ["pacientes"],
   "Servicios": ["servicios", "equipo", "sucursales"],
   "Inventario": ["inventario"],
@@ -245,7 +247,7 @@ function adminNavItems() {
     var role = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole ? window.JCSAAS.currentRole() : "owner";
     if (role === "professional") {
       var perms = window.JCSAAS.currentPerms && window.JCSAAS.currentPerms() || {};
-      allowed = { dashboard: 1, appjcm: 1 };
+      allowed = {};
       Object.keys(PERM_NAV).forEach(function(p) {
         if (perms[p]) PERM_NAV[p].forEach(function(k) {
           allowed[k] = 1;
@@ -623,7 +625,31 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [kpiPopup, movCaja]);
   const dias = ["Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b", "Dom"];
-  const serie = window.JCSAAS && window.JCSAAS.enabled ? [0, 0, 0, 0, 0, 0, 0] : [38e4, 42e4, 51e4, 47e4, 54e4, 61e4, 74e4];
+  const serie = (() => {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return [38e4, 42e4, 51e4, 47e4, 54e4, 61e4, 74e4];
+    let cash = [];
+    try {
+      cash = typeof window.cashAll === "function" ? window.cashAll() || [] : [];
+    } catch (e) {
+    }
+    const now = /* @__PURE__ */ new Date();
+    const dow = (now.getDay() + 6) % 7;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
+    const out = [0, 0, 0, 0, 0, 0, 0];
+    cash.forEach((m) => {
+      if (m.type !== "ingreso" || !m.ts) return;
+      const day = window._localDay ? window._localDay(m.ts) : (m.ts || "").slice(0, 10);
+      for (let i = 0; i < 7; i++) {
+        const dt = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+        const iso = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+        if (iso === day) {
+          out[i] += m.amount || 0;
+          break;
+        }
+      }
+    });
+    return out;
+  })();
   const totalSemana = serie.reduce((a, b) => a + b, 0);
   const growth = serie[0] ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
   const ord = appts.filter((a) => a.status !== "anulada").sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || ""));
@@ -1095,6 +1121,7 @@ function AdminApp() {
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
   const [openPatientTab, setOpenPatientTab] = useState(null);
+  const [openApptId, setOpenApptId] = useState(null);
   const [appts, setAppts] = useState(() => {
     var saved = window.DB && window.DB.get("appointments");
     if (Array.isArray(saved)) return saved.map((a) => ({ ...a }));
@@ -1353,11 +1380,12 @@ function AdminApp() {
     try {
       var role = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole ? window.JCSAAS.currentRole() : "owner";
       if (role !== "professional") return;
-      if (section === "dashboard" || openPatient) return;
-      var ok = adminNavItems().some(function(n) {
+      if (openPatient) return;
+      var items = adminNavItems();
+      var ok = items.some(function(n) {
         return n.k === section;
       }) || section === "pacientes";
-      if (!ok) setSection("dashboard");
+      if (!ok) setSection(items[0] && items[0].k || "pacientes");
     } catch (e) {
     }
   }, [section, openPatient]);
@@ -1526,22 +1554,34 @@ function AdminApp() {
   const _sinCons = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
   const pendCount = _sinCons.length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
   const notifCount = (notifVer, unreadNotifCount(patients, appts));
+  const jcRole = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole ? window.JCSAAS.currentRole() : "owner";
+  const isProfessionalSession = jcRole === "professional";
+  const myProName = isProfessionalSession ? (window.JCSAAS.currentUserName && window.JCSAAS.currentUserName() || "").trim().toLowerCase() : "";
+  const myAppts = isProfessionalSession && myProName ? appts.filter((a) => (a.prof || "").trim().toLowerCase() === myProName) : appts;
+  const myPatients = isProfessionalSession && myProName ? (() => {
+    var ids = new Set(myAppts.map(function(a) {
+      return a.patId;
+    }).filter(Boolean));
+    return patients.filter(function(p) {
+      return ids.has(p.id);
+    });
+  })() : patients;
   let body;
   if (section === "dashboard") body = /* @__PURE__ */ React.createElement(DashboardView, { T, D, A, appts, patients, go: nav });
   else if (section === "appjcm") body = /* @__PURE__ */ React.createElement(AppJCMView, { T });
   else if (section === "resumen") body = /* @__PURE__ */ React.createElement(Resumen, { T, D, A, appts, patients, go: nav, updateAppt, removeAppt, themeKey, setThemeKey });
-  else if (section === "agenda") body = /* @__PURE__ */ React.createElement(Agenda, { T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onSyncWeb: syncWebBookings, onOpenPatient: (id) => {
+  else if (section === "agenda") body = /* @__PURE__ */ React.createElement(Agenda, { T, appts: isProfessionalSession ? myAppts : appts, patients, addAppt, addPatient, updateAppt, removeAppt, onSyncWeb: syncWebBookings, onOpenPatient: (id) => {
     setOpenPatient(id);
     setSection("pacientes");
-  } });
-  else if (section === "pacientes") body = current ? /* @__PURE__ */ React.createElement(FichaMedica, { T, patient: current, updatePatient, removePatient, onBack: () => {
+  }, initialApptId: openApptId, onConsumeApptId: () => setOpenApptId(null) });
+  else if (section === "pacientes") body = current ? /* @__PURE__ */ React.createElement(FichaMedica, { T, patient: current, updatePatient, removePatient: isProfessionalSession ? null : removePatient, onBack: () => {
     setOpenPatient(null);
     setOpenPatientTab(null);
   }, onAgendar: () => nav("agenda"), initialTab: openPatientTab }) : /* @__PURE__ */ React.createElement(PacientesView, { T, patients, appts, onOpen: setOpenPatient, updatePatient, addPatient });
   else if (section === "salaespera") body = /* @__PURE__ */ React.createElement(SalaEsperaView, { T, appts, patients, updatePatient });
   else if (section === "automatizaciones") body = /* @__PURE__ */ React.createElement(AutomatizacionesView, { T });
   else if (section === "agenteia") body = /* @__PURE__ */ React.createElement(AgenteIAView, { T, patients, addAppt });
-  else if (section === "pendientes") body = /* @__PURE__ */ React.createElement(PendientesView, { T, patients, appts, go: nav, openP: (id, tab) => {
+  else if (section === "pendientes") body = /* @__PURE__ */ React.createElement(PendientesView, { T, patients: isProfessionalSession ? myPatients : patients, appts: isProfessionalSession ? myAppts : appts, go: nav, openP: (id, tab) => {
     setOpenPatient(id);
     setOpenPatientTab(tab || null);
     setSection("pacientes");
@@ -1568,7 +1608,24 @@ function AdminApp() {
   else if (section === "resumenia") body = /* @__PURE__ */ React.createElement(ResumenClinicoView, { T, patients, appts });
   else if (section === "contactcenter") body = /* @__PURE__ */ React.createElement(ContactCenterView, { T, patients });
   else if (section === "reportesia") body = /* @__PURE__ */ React.createElement(ReportesIAView, { T, patients, appts });
-  else if (section === "contraloria") body = /* @__PURE__ */ React.createElement(ContraloriaView, { T, patients, appts });
+  else if (section === "contraloria") body = /* @__PURE__ */ React.createElement(
+    ContraloriaView,
+    {
+      T,
+      patients,
+      appts,
+      go: nav,
+      openP: (id, tab) => {
+        setOpenPatient(id);
+        setOpenPatientTab(tab || null);
+        setSection("pacientes");
+      },
+      goApt: (apptId) => {
+        setOpenApptId(apptId);
+        setSection("agenda");
+      }
+    }
+  );
   else if (section === "desempeno") body = /* @__PURE__ */ React.createElement(DesempenoView, { T, patients, appts });
   else if (section === "encuestas") body = /* @__PURE__ */ React.createElement(EncuestasView, { T, patients });
   else if (section === "chatinterno") body = /* @__PURE__ */ React.createElement(ChatInternoView, { T });
@@ -2163,7 +2220,7 @@ function ICSImportModal({ T, onClose, onImport }) {
     setStep(1);
   } }, "Otro archivo"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: doImport }, "Importar ", selCount, " cita(s)")))));
 }
-function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb }) {
+function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeAppt, onOpenPatient, onSyncWeb, initialApptId, onConsumeApptId }) {
   const [webBusy, setWebBusy] = useState(false);
   function traerWeb() {
     if (webBusy || !onSyncWeb) return;
@@ -2182,6 +2239,18 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   }
   const [view, setView] = useState("semana");
   const [day, setDay] = useState(0);
+  const [monthDate, setMonthDate] = useState(() => /* @__PURE__ */ new Date());
+  useEffect(() => {
+    if (!initialApptId) return;
+    const a = (appts || []).find((x) => x.id === initialApptId);
+    if (a) {
+      setDay(apptDayOff(a));
+      setView("dia");
+      setEdit(a);
+      setEditOnly(null);
+    }
+    if (onConsumeApptId) onConsumeApptId();
+  }, [initialApptId]);
   const [nueva, setNueva] = useState(null);
   const [edit, setEdit] = useState(null);
   const [editOnly, setEditOnly] = useState(null);
@@ -2267,7 +2336,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const tabBtn = (k, l) => /* @__PURE__ */ React.createElement("button", { onClick: () => setView(k), style: { flex: 1, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 7, cursor: "pointer", background: view === k ? T.text : "transparent", color: view === k ? T.bg : T.textMute, border: "none" } }, l);
   const isBase = true;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-  const viewToggleNode = /* @__PURE__ */ React.createElement("div", { style: luxF ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3 } : { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setView("dia"), title: "Vista lista / d\xEDa", style: luxF ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "dia" ? T.surface : "transparent", boxShadow: view === "dia" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "dia" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") } : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setView("semana"), title: "Vista calendario / semana", style: luxF ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "semana" ? T.surface : "transparent", boxShadow: view === "semana" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "semana" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") } : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))));
+  const viewToggleNode = /* @__PURE__ */ React.createElement("div", { style: luxF ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3 } : { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setView("dia"), title: "Vista lista / d\xEDa", style: luxF ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "dia" ? T.surface : "transparent", boxShadow: view === "dia" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "dia" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") } : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setView("semana"), title: "Vista calendario / semana", style: luxF ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "semana" ? T.surface : "transparent", boxShadow: view === "semana" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "semana" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") } : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setView("mes"), title: "Vista mensual", style: luxF ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "mes" ? T.surface : "transparent", boxShadow: view === "mes" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "mes" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") } : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "mes" ? T.accent : "transparent", color: view === "mes" ? T.onAccent || "#fff" : T.textMute } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 10h18M8 2v4M16 2v4" }), /* @__PURE__ */ React.createElement("circle", { cx: "8", cy: "14.5", r: "1", fill: "currentColor", stroke: "none" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "14.5", r: "1", fill: "currentColor", stroke: "none" }), /* @__PURE__ */ React.createElement("circle", { cx: "16", cy: "14.5", r: "1", fill: "currentColor", stroke: "none" }))));
   const [icsMod, setIcsMod] = useState(false);
   const nuevaBtnNode = /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNueva({ time: "10:00", day: view === "dia" ? day : 0 }) }, "+ Nueva Cita");
   const icsBtnNode = /* @__PURE__ */ React.createElement(
@@ -2305,6 +2374,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       });
     }
     setFichaConfirm({ appt, patient: found || null });
+  } }) : view === "mes" ? /* @__PURE__ */ React.createElement(MonthGrid, { T, appts, monthDate, setMonthDate, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, onDay: (off) => {
+    setDay(off);
+    setView("dia");
   } }) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 4 } }, week.map((d) => /* @__PURE__ */ React.createElement("button", { key: d.off, onClick: () => setDay(d.off), style: { flexShrink: 0, minWidth: 62, padding: "10px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center", background: day === d.off ? T.accent : T.surface, border: "1px solid " + (day === d.off ? T.accent : T.line) } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: day === d.off ? T.onAccent : T.textMute } }, d.lbl), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: day === d.off ? T.onAccent : T.text, marginTop: 2 } }, d.dd), /* @__PURE__ */ React.createElement("div", { style: { height: 5, marginTop: 5, display: "flex", justifyContent: "center", gap: 2 } }, d.count > 0 && Array.from({ length: Math.min(d.count, 3) }).map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { width: 4, height: 4, borderRadius: "50%", background: day === d.off ? T.onAccent : T.accent } })))))), /* @__PURE__ */ React.createElement("div", { onClick: clickTimeline, style: { position: "relative", height: hours.length * HPX, borderTop: "1px solid " + T.line, cursor: "copy" } }, hours.map((h, i) => /* @__PURE__ */ React.createElement("div", { key: h, style: { position: "absolute", top: i * HPX, left: 0, right: 0, height: HPX, borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: -8, fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42 } }, h, ":00"))), listStacked.map((a) => /* @__PURE__ */ React.createElement(
     "div",
     {
@@ -2420,6 +2492,40 @@ function ComentarioPopup({ T, appt, updateAppt, onClose }) {
     onClose();
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 94, background: "rgba(0,0,0,.38)" } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 95, width: 340, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 24px 60px -16px rgba(0,0,0,.6)", padding: "22px 20px 18px", animation: "jcFade .16s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text, marginBottom: 4 } }, appt.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 } }, appt.time, " \xB7 ", appt.proc || "Procedimiento"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Comentario"), /* @__PURE__ */ React.createElement("textarea", { value: txt, onChange: (e) => setTxt(e.target.value), placeholder: "Ej. Abona el d\xEDa de la atenci\xF3n", rows: 3, style: { width: "100%", boxSizing: "border-box", background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 11px", fontFamily: T.sans, fontSize: 13, color: T.text, resize: "vertical", outline: "none" }, autoFocus: true }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 12 } }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { flex: 1, height: 36, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: save, style: { flex: 2, height: 36, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, cursor: "pointer" } }, "Guardar comentario"))));
+}
+function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nuevaBtn }) {
+  const y = monthDate.getFullYear(), m = monthDate.getMonth();
+  const first = new Date(y, m, 1);
+  const startOff = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const today = /* @__PURE__ */ new Date();
+  today.setHours(0, 0, 0, 0);
+  function toISO(d) {
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  }
+  function offOf(d) {
+    return Math.round((d.getTime() - today.getTime()) / 864e5);
+  }
+  const apptsByDay = {};
+  (appts || []).forEach((a) => {
+    if (a.status === "anulada") return;
+    const k = a.fecha;
+    if (!k) return;
+    (apptsByDay[k] = apptsByDay[k] || []).push(a);
+  });
+  const cells = [];
+  for (let i = 0; i < startOff; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
+  const monthLbl = monthDate.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  const diasSemana = ["Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b", "Dom"];
+  const navBtn = { width: 30, height: 30, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(new Date(y, m - 1, 1)), style: navBtn, title: "Mes anterior" }, "\u2039"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text, textTransform: "capitalize" } }, monthLbl), /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(new Date(y, m + 1, 1)), style: navBtn, title: "Mes siguiente" }, "\u203A"), viewToggle, nuevaBtn), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, background: T.line, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" } }, diasSemana.map((d) => /* @__PURE__ */ React.createElement("div", { key: d, style: { background: T.surface2 || T.surface, padding: "8px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute } }, d)), cells.map((d, i) => {
+    if (!d) return /* @__PURE__ */ React.createElement("div", { key: i, style: { background: T.bg, minHeight: 92 } });
+    const iso = toISO(d);
+    const list = apptsByDay[iso] || [];
+    const isToday = iso === toISO(today);
+    return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => onDay(offOf(d)), style: { textAlign: "left", background: T.surface, minHeight: 92, padding: "6px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accentSoft || "transparent" : "transparent" } }, d.getDate()), list.slice(0, 3).map((a, idx) => /* @__PURE__ */ React.createElement("span", { key: idx, style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time ? a.time + " " : "", a.name || "Cita")), list.length > 3 && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, color: T.accent } }, "+", list.length - 3, " m\xE1s"));
+  })));
 }
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn }) {
   const D = window.JCDATA;
