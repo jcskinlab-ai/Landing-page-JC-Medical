@@ -115,7 +115,8 @@ const ADMIN_NAV = [
   // ficha (Evaluación y plan) y el resumen IA vive en la pestaña "IA" de la ficha del paciente.
   // Contact Center se fusionó con Agente IA (mismo propósito, Agente IA era el completo) y
   // Reportes IA se fusionó dentro de Análisis → Reportes: ya no son secciones de nav aparte.
-  { k: "contraloria", l: "Contralor IA" },
+  // Contralor IA se fusionó DENTRO de Pendientes: sus alertas de calidad viven como pendientes
+  // inteligentes en esa misma sección (PendientesView embebe ContraloriaView). Ya no es nav aparte.
   { k: "desempeno", l: "Panel de desempeño" }, { k: "encuestas", l: "Encuestas" }, { k: "chatinterno", l: "Chat interno" },
   // Flujo de caja se eliminó: Registro de Ventas ya muestra ingresos/egresos/neto y el mismo gráfico.
   { k: "pagosgastos", l: "Pagos y Gastos" }, { k: "remuneraciones", l: "Remuneraciones" }, { k: "laboratorios", l: "Laboratorios" }, { k: "convenios", l: "Convenios" }, { k: "boletas", l: "Boletas" }, { k: "pagosonline", l: "Pagos online" }
@@ -143,7 +144,7 @@ const NAV_TOP_GROUPS = [
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (las de uso diario: agenda del día, pacientes,
 // recepción, pendientes urgentes y el vigilante IA). El resto vive agrupado en los desplegables.
-const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "contraloria"];
+const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes"];
 
 // Al anular una cita: avisar al paciente por correo que quedó cancelada (si tiene email y la cita es
 // de hoy o futura). Así el recordatorio previo queda "anulado" para el paciente. Best-effort, no bloquea.
@@ -1717,7 +1718,7 @@ function AdminApp() {
   else if (section === "salaespera") body = <SalaEsperaView T={T} appts={appts} patients={patients} updatePatient={updatePatient} />;
   else if (section === "automatizaciones") body = <AutomatizacionesView T={T} />;
   else if (section === "agenteia") body = <AgenteIAView T={T} patients={patients} addAppt={addAppt} />;
-  else if (section === "pendientes") body = <PendientesView T={T} patients={isProfessionalSession ? myPatients : patients} appts={isProfessionalSession ? myAppts : appts} go={nav} openP={(id, tab) => { setOpenPatient(id); setOpenPatientTab(tab || null); setSection("pacientes"); }} updatePatient={updatePatient} />;
+  else if (section === "pendientes" || section === "contraloria") body = <PendientesView T={T} patients={isProfessionalSession ? myPatients : patients} appts={isProfessionalSession ? myAppts : appts} go={nav} openP={(id, tab) => { setOpenPatient(id); setOpenPatientTab(tab || null); setSection("pacientes"); }} updatePatient={updatePatient} goApt={(apptId) => { setOpenApptId(apptId); setSection("agenda"); }} />;
   else if (section === "servicios") body = <ServiciosView T={T} />;
   else if (section === "equipo") body = <EquipoView T={T} />;
   else if (section === "sucursales") body = <SucursalesView T={T} />;
@@ -1739,9 +1740,6 @@ function AdminApp() {
   // ── Suite nueva (N1–N10) ──
   else if (section === "notasia") body = <NotasClinicasView T={T} patients={patients} updatePatient={updatePatient} />;
   else if (section === "resumenia") body = <ResumenClinicoView T={T} patients={patients} appts={appts} />;
-  else if (section === "contraloria") body = <ContraloriaView T={T} patients={patients} appts={appts} go={nav}
-    openP={(id, tab) => { setOpenPatient(id); setOpenPatientTab(tab || null); setSection("pacientes"); }}
-    goApt={(apptId) => { setOpenApptId(apptId); setSection("agenda"); }} />;
   else if (section === "desempeno") body = <DesempenoView T={T} patients={patients} appts={appts} />;
   else if (section === "encuestas") body = <EncuestasView T={T} patients={patients} />;
   else if (section === "chatinterno") body = <ChatInternoView T={T} />;

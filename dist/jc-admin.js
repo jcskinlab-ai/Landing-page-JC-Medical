@@ -142,7 +142,8 @@ const ADMIN_NAV = [
   // ficha (Evaluación y plan) y el resumen IA vive en la pestaña "IA" de la ficha del paciente.
   // Contact Center se fusionó con Agente IA (mismo propósito, Agente IA era el completo) y
   // Reportes IA se fusionó dentro de Análisis → Reportes: ya no son secciones de nav aparte.
-  { k: "contraloria", l: "Contralor IA" },
+  // Contralor IA se fusionó DENTRO de Pendientes: sus alertas de calidad viven como pendientes
+  // inteligentes en esa misma sección (PendientesView embebe ContraloriaView). Ya no es nav aparte.
   { k: "desempeno", l: "Panel de desempe\xF1o" },
   { k: "encuestas", l: "Encuestas" },
   { k: "chatinterno", l: "Chat interno" },
@@ -172,7 +173,7 @@ const NAV_TOP_GROUPS = [
   { l: "Gesti\xF3n", keys: ["caja", "pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
   { l: "Sistema", keys: ["administracion", "tutoriales", "config"] }
 ];
-const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "contraloria"];
+const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes"];
 function jcmCancelNotice(a) {
   try {
     if (!a || !window.mediqueEmail) return;
@@ -1596,11 +1597,14 @@ function AdminApp() {
   else if (section === "salaespera") body = /* @__PURE__ */ React.createElement(SalaEsperaView, { T, appts, patients, updatePatient });
   else if (section === "automatizaciones") body = /* @__PURE__ */ React.createElement(AutomatizacionesView, { T });
   else if (section === "agenteia") body = /* @__PURE__ */ React.createElement(AgenteIAView, { T, patients, addAppt });
-  else if (section === "pendientes") body = /* @__PURE__ */ React.createElement(PendientesView, { T, patients: isProfessionalSession ? myPatients : patients, appts: isProfessionalSession ? myAppts : appts, go: nav, openP: (id, tab) => {
+  else if (section === "pendientes" || section === "contraloria") body = /* @__PURE__ */ React.createElement(PendientesView, { T, patients: isProfessionalSession ? myPatients : patients, appts: isProfessionalSession ? myAppts : appts, go: nav, openP: (id, tab) => {
     setOpenPatient(id);
     setOpenPatientTab(tab || null);
     setSection("pacientes");
-  }, updatePatient });
+  }, updatePatient, goApt: (apptId) => {
+    setOpenApptId(apptId);
+    setSection("agenda");
+  } });
   else if (section === "servicios") body = /* @__PURE__ */ React.createElement(ServiciosView, { T });
   else if (section === "equipo") body = /* @__PURE__ */ React.createElement(EquipoView, { T });
   else if (section === "sucursales") body = /* @__PURE__ */ React.createElement(SucursalesView, { T });
@@ -1621,24 +1625,6 @@ function AdminApp() {
   else if (section === "config") body = /* @__PURE__ */ React.createElement(ConfigView, { T });
   else if (section === "notasia") body = /* @__PURE__ */ React.createElement(NotasClinicasView, { T, patients, updatePatient });
   else if (section === "resumenia") body = /* @__PURE__ */ React.createElement(ResumenClinicoView, { T, patients, appts });
-  else if (section === "contraloria") body = /* @__PURE__ */ React.createElement(
-    ContraloriaView,
-    {
-      T,
-      patients,
-      appts,
-      go: nav,
-      openP: (id, tab) => {
-        setOpenPatient(id);
-        setOpenPatientTab(tab || null);
-        setSection("pacientes");
-      },
-      goApt: (apptId) => {
-        setOpenApptId(apptId);
-        setSection("agenda");
-      }
-    }
-  );
   else if (section === "desempeno") body = /* @__PURE__ */ React.createElement(DesempenoView, { T, patients, appts });
   else if (section === "encuestas") body = /* @__PURE__ */ React.createElement(EncuestasView, { T, patients });
   else if (section === "chatinterno") body = /* @__PURE__ */ React.createElement(ChatInternoView, { T });

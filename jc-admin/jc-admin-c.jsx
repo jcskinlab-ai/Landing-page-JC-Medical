@@ -3600,7 +3600,7 @@ function HorariosEditor({ T }) {
 }
 
 /* ─────────── PENDIENTES ─────────── */
-function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
+function PendientesView({ T, patients, appts, go, openP, updatePatient, goApt }) {
   const D = window.JCDATA;
   const [tasks, setTasks] = useState(() => { try { return DB.get("admin_tasks") || []; } catch (e) { return []; } });
   const [draft, setDraft] = useState("");
@@ -3648,6 +3648,8 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
           </div>
         );
       })()}
+      {/* Contralor IA (fusionado): verificación automática de registros como pendientes inteligentes. */}
+      <ContraloriaView T={T} patients={patients} appts={appts} openP={openP} goApt={goApt} go={go} embed />
       <Group T={T} title={"Consentimientos por firmar (" + sinConsent.length + ")"}>
         {sinConsent.map(p => <PendRow key={p.id} T={T} name={p.name} desc={(p.tags && p.tags[0]) || "Paciente"} action="Ir a consentimientos" onClick={() => openP(p.id, "consent")} onDelete={() => updatePatient(p.id, { consent: true, consentInfo: "Marcado como firmado", consentTs: Date.now() })} />)}
         {!sinConsent.length && <Empty2 T={T}>Todo firmado.</Empty2>}
@@ -5790,7 +5792,7 @@ function ReportesIAView({ T, patients, appts, embedded }) {
 }
 
 /* ── N2 · Contralor IA (verificación automática de registros) ── */
-function ContraloriaView({ T, patients, appts, openP, goApt, go }) {
+function ContraloriaView({ T, patients, appts, openP, goApt, go, embed }) {
   const hoyISO = new Date().toISOString().slice(0, 10);
   const citasSinProfList = (appts || []).filter(a => a.status !== "anulada" && !(a.prof || "").trim() && (a.fecha || "") >= hoyISO);
   const sinRutList = patients.filter(p => !(p.rut || "").trim());
@@ -5824,7 +5826,7 @@ function ContraloriaView({ T, patients, appts, openP, goApt, go }) {
   const rowStyle = { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: T.text };
   return (
     <div>
-      <SecHead T={T} title="Contralor IA" sub="Gestionar deja de ser reaccionar: la inteligencia anticipa y alerta" />
+      {!embed && <SecHead T={T} title="Contralor IA" sub="Gestionar deja de ser reaccionar: la inteligencia anticipa y alerta" />}
       <IAHero T={T} color="#8B5CF6" title="Control de calidad continuo" sub="Verificación automática de registros · alertas de inconsistencias · control de calidad continuo." icon={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>} />
       {ok ? <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid #1F8A5B44", borderRadius: 12, padding: "24px", textAlign: "center", maxWidth: 760 }}><div style={{ fontFamily: T.serif, fontSize: 19, color: "#1F8A5B" }}>✓ Todo en orden</div><div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, marginTop: 6 }}>No se detectaron inconsistencias en los registros.</div></div>
         : <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 780 }}>{alertas.map((a, i) => (
