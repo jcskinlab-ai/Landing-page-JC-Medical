@@ -192,7 +192,12 @@
       var st = document.createElement("style"); st.id = "jcds-css";
       st.textContent = "@keyframes jcSkel{0%,100%{opacity:.55}50%{opacity:1}}" +
         "@keyframes jcReveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}" +
-        "@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;animation-delay:0ms !important;transition-duration:.01ms !important}}";
+        "@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;animation-delay:0ms !important;transition-duration:.01ms !important}}" +
+        // Foco visible por teclado: usa currentColor (ya es el color del propio control en cada tema)
+        // para no depender de variables CSS que este stack no usa. Solo aplica en :focus-visible
+        // (tab/teclado), no en click con mouse, así no altera el aspecto visual normal de nada.
+        ":focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:4px}" +
+        "input:focus-visible,select:focus-visible,textarea:focus-visible{outline-offset:0}";
       document.head.appendChild(st);
     }
   } catch (e) {}
