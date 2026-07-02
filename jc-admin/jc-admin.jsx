@@ -125,6 +125,10 @@ const ADMIN_NAV = [
 var NEW_SECT = { contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, boletas: 1, pagosonline: 1 };
 // Encabezado de grupo del sidebar: la clave donde COMIENZA un grupo → su etiqueta (Área 1).
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Clínica", marketing: "Marketing & Ventas", resumen: "Análisis", administracion: "Sistema" };
+// El sidebar expandido arranca COMPACTO: solo se ven los encabezados de categoría (excepto Inicio,
+// que muestra Dashboard). Se abren al clickear el encabezado; al salir el cursor vuelven a colapsarse
+// para no tener una lista infinita. "Inicio" (Dashboard) siempre visible.
+const SIDE_DEFAULT_COLLAPSED = { "Clínica": true, "Marketing & Ventas": true, "Análisis": true, "Sistema": true };
 // Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
@@ -1446,8 +1450,10 @@ function AdminApp() {
   }, []);
 
   const [navOpen, setNavOpen] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [collapsedGroups, setCollapsedGroups] = useState(() => ({ ...SIDE_DEFAULT_COLLAPSED }));
   function toggleGroup(g) { setCollapsedGroups(s => ({ ...s, [g]: !s[g] })); }
+  // Al cerrar el sidebar (cursor fuera o al navegar) las categorías vuelven a su estado compacto.
+  function resetNavGroups() { setCollapsedGroups({ ...SIDE_DEFAULT_COLLAPSED }); }
   const [topGrp, setTopGrp] = useState(null); // menú de grupo abierto en la barra superior
   const [stripOpen, setStripOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -1587,7 +1593,7 @@ function AdminApp() {
       });
     }).catch(function (err) { return { ok: false, reason: (err && (err.code || err.message)) || "error" }; });
   }
-  function nav(k) { setSection(k); setOpenPatient(null); setNavOpen(false); }
+  function nav(k) { setSection(k); setOpenPatient(null); setNavOpen(false); resetNavGroups(); }
 
   // Multiusuario: si un PROFESIONAL llega (por URL/atrás) a una sección que sus permisos no incluyen,
   // se le redirige al Dashboard. Solo aplica a role 'professional'; al dueño no lo afecta.
@@ -1740,7 +1746,7 @@ function AdminApp() {
   // ── Suite nueva (N1–N10) ──
   else if (section === "notasia") body = <NotasClinicasView T={T} patients={patients} updatePatient={updatePatient} />;
   else if (section === "resumenia") body = <ResumenClinicoView T={T} patients={patients} appts={appts} />;
-  else if (section === "desempeno") body = <DesempenoView T={T} patients={patients} appts={appts} />;
+  else if (section === "desempeno") body = <DesempenoView T={T} patients={patients} appts={appts} openP={(id, tab) => { setOpenPatient(id); setOpenPatientTab(tab || null); setSection("pacientes"); }} goApt={(apptId) => { setOpenApptId(apptId); setSection("agenda"); }} />;
   else if (section === "encuestas") body = <EncuestasView T={T} patients={patients} />;
   else if (section === "chatinterno") body = <ChatInternoView T={T} />;
   else if (section === "pagosgastos") body = <PagosGastosView T={T} />;
@@ -1771,7 +1777,7 @@ function AdminApp() {
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
       <div className="jc-admin-frame" style={{ ...(everestBg ? { backgroundImage: everestBg, backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" } : { background: T.bg }), boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" }}>
         {/* SIDEBAR — única navegación */}
-        <div onMouseEnter={() => setNavOpen(true)} onMouseLeave={() => setNavOpen(false)}
+        <div onMouseEnter={() => setNavOpen(true)} onMouseLeave={() => { setNavOpen(false); resetNavGroups(); }}
           style={{ width: RAIL, flexShrink: 0, background: shellLux ? "transparent" : SIDE_BG, position: "relative", zIndex: 20 }}>
           <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, ...SIDE_GLASS, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" }}>
             <button onClick={() => nav("dashboard")} title="Ir al Dashboard" style={{ display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}>

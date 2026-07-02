@@ -2020,6 +2020,11 @@ function IntegracionesView({ T }) {
 function ReportesView({ T, patients, appts }) {
   const D = window.JCDATA;
   const [period, setPeriod] = useState("anio");
+  // La curva se "dibuja" SOLO la primera vez que se entra a la página. Como la vista se re-renderiza
+  // en vivo (refresco de caja cada pocos segundos), sin este flag la animación se repetiría en cada
+  // re-render. Tras la duración de la animación se apaga; al volver a montar (reingresar) vuelve a correr.
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setDrawn(true), 1300); return () => clearTimeout(t); }, []);
   // Refresco en TIEMPO REAL: se vuelve a leer la caja al volver a la pestaña, al cambiar
   // el almacenamiento y cada vez que se registra un movimiento (evento "jcm:cash").
   const [, force] = useState(0);
@@ -2086,7 +2091,7 @@ function ReportesView({ T, patients, appts }) {
       <svg viewBox={"0 0 " + W + " " + H} style={{ width: "100%", height: "auto", display: "block" }} preserveAspectRatio="xMidYMid meet">
         <defs><linearGradient id="repGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={T.accent} stopOpacity="0.22" /><stop offset="100%" stopColor={T.accent} stopOpacity="0" /></linearGradient></defs>
         {grid.map((y, i) => <line key={i} x1={padL} y1={y} x2={padL + innerW} y2={y} stroke={T.line} strokeWidth="1" />)}
-        <g style={(window.JCDS && (typeof jcdsLux === "function" && jcdsLux())) ? window.JCDS.drawIn(1100) : undefined}>
+        <g style={(!drawn && window.JCDS && (typeof jcdsLux === "function" && jcdsLux())) ? window.JCDS.drawIn(1100) : undefined}>
           <path d={area} fill="url(#repGrad)" />
           <path d={line} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
           {serie.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.6" fill={T.surface} stroke={T.accent} strokeWidth="2" />)}
@@ -6154,39 +6159,83 @@ function BoletasView({ T, patients }) {
 }
 
 /* ── N10 · Panel de desempeño ── */
-function DesempenoView({ T, patients, appts }) {
+function DesempenoView({ T, patients, appts, openP, goApt }) {
   const D = window.JCDATA;
   const mes = new Date().toISOString().slice(0, 7);
   const A = (appts || []).filter(a => a.status !== "anulada");
   const citasMes = A.filter(a => (a.fecha || "").slice(0, 7) === mes);
-  const noShow = citasMes.filter(a => a.status === "no_asistio").length;
-  const atendidas = citasMes.filter(a => a.status === "atendida" || a.attended).length;
+  const noShowList = citasMes.filter(a => a.status === "no_asistio");
+  const atendidasList = citasMes.filter(a => a.status === "atendida" || a.attended);
+  const noShow = noShowList.length, atendidas = atendidasList.length;
   const totalCerradas = noShow + atendidas;
   const noShowPct = totalCerradas ? Math.round(noShow / totalCerradas * 100) : 0;
   // Retención: pacientes con 2+ atenciones registradas.
-  const recurrentes = patients.filter(p => (p.recetas || []).length + (p.history || []).length >= 2).length;
+  const recurrentesList = patients.filter(p => (p.recetas || []).length + (p.history || []).length >= 2);
+  const recurrentes = recurrentesList.length;
   const retencion = patients.length ? Math.round(recurrentes / patients.length * 100) : 0;
   let cash = []; try { cash = (window.cashAll && window.cashAll()) || []; } catch (e) {}
   const atMes = cash.filter(m => m.kind === "atencion" && (m.ts || "").slice(0, 7) === mes);
   const ingMes = atMes.reduce((s, m) => s + (m.amount || 0), 0);
   const ticket = atMes.length ? Math.round(ingMes / atMes.length) : 0;
-  const nuevosMes = patients.filter(p => { const t = p.fechaTs || 0; if (!t) return false; return new Date(t).toISOString().slice(0, 7) === mes; }).length;
+  const nuevosList = patients.filter(p => { const t = p.fechaTs || 0; if (!t) return false; return new Date(t).toISOString().slice(0, 7) === mes; });
+  const nuevosMes = nuevosList.length;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-  const card = (l, v, c, sub) => <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}><div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</div><div style={{ fontFamily: T.serif, fontSize: 30, color: c || T.text, lineHeight: 1.1, marginTop: 4 }}>{v}</div>{sub && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 3 }}>{sub}</div>}</div>;
+  const [detalle, setDetalle] = useState(null); // { title, kind, items }
+  const estadoLbl = { atendida: "Atendida", no_asistio: "No asistió", confirmada: "Confirmada", pendiente: "Pendiente" };
+  // Tarjeta clicable: al tocarla abre el detalle correspondiente (qué pacientes/citas la componen).
+  const card = (l, v, c, sub, detail) => {
+    const clickable = detail && detail.items && detail.items.length;
+    return <div onClick={clickable ? () => setDetalle(detail) : undefined}
+      style={luxF ? { ...DS.card(T), padding: "18px 20px", cursor: clickable ? "pointer" : "default", transition: DS.trans("border-color") } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", cursor: clickable ? "pointer" : "default" }}
+      onMouseEnter={clickable ? e => { e.currentTarget.style.borderColor = (c || T.accent) + "88"; } : undefined}
+      onMouseLeave={clickable ? e => { e.currentTarget.style.borderColor = luxF ? "" : T.line; } : undefined}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</div>
+        {clickable && <span style={{ fontFamily: T.sans, fontSize: 9.5, fontWeight: 600, color: c || T.accent, display: "inline-flex", alignItems: "center", gap: 3 }}>Ver<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 6l6 6-6 6" /></svg></span>}
+      </div>
+      <div style={{ fontFamily: T.serif, fontSize: 30, color: c || T.text, lineHeight: 1.1, marginTop: 4 }}>{v}</div>
+      {sub && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 3 }}>{sub}</div>}
+    </div>;
+  };
+  const rowStyle = { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: T.text };
   return (
     <div>
       <SecHead T={T} title="Panel de desempeño" sub="El diagnóstico oportuno para tu centro de salud" />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginBottom: 14 }}>
-        {card("Citas del mes", citasMes.length, T.accent, "agendadas")}
-        {card("Atendidas", atendidas, "#1F8A5B", "este mes")}
-        {card("Inasistencia", noShowPct + "%", noShowPct > 20 ? "#C0285A" : "#C9A227", noShow + " no asistió")}
-        {card("Retención", retencion + "%", "#1F8A5B", recurrentes + " con 2+ atenciones")}
-        {card("Ticket promedio", D.fmt(ticket), T.accent, "por atención")}
-        {card("Pacientes nuevos", nuevosMes, "#2AA5C9", "este mes")}
+        {card("Citas del mes", citasMes.length, T.accent, "agendadas", { title: "Citas del mes", kind: "appts", items: citasMes })}
+        {card("Atendidas", atendidas, "#1F8A5B", "este mes", { title: "Pacientes atendidos", kind: "appts", items: atendidasList })}
+        {card("Inasistencia", noShowPct + "%", noShowPct > 20 ? "#C0285A" : "#C9A227", noShow + " no asistió", { title: "No asistieron", kind: "appts", items: noShowList })}
+        {card("Retención", retencion + "%", "#1F8A5B", recurrentes + " con 2+ atenciones", { title: "Pacientes recurrentes (2+ atenciones)", kind: "patients", items: recurrentesList })}
+        {card("Ticket promedio", D.fmt(ticket), T.accent, "por atención", { title: "Atenciones cobradas del mes", kind: "cash", items: atMes })}
+        {card("Pacientes nuevos", nuevosMes, "#2AA5C9", "este mes", { title: "Pacientes nuevos del mes", kind: "patients", items: nuevosList })}
       </div>
       <div style={{ background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", maxWidth: 760, fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.6 }}>
         {noShowPct > 20 ? "⚠ Tu inasistencia está alta (" + noShowPct + "%). Activa recordatorios y confirmación de citas para bajarla." : "✓ Tu inasistencia está controlada."} {retencion < 30 ? " La retención es baja: considera campañas de re-cita y fidelidad." : " Buena retención de pacientes."}
       </div>
+      {detalle && (
+        <AdModal T={T} title={detalle.title + " (" + detalle.items.length + ")"} onClose={() => setDetalle(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "60vh", overflowY: "auto" }}>
+            {detalle.kind === "appts" && detalle.items.map((a, i) => (
+              <button key={a.id || i} style={rowStyle} onClick={() => { setDetalle(null); if (a.patId && openP) openP(a.patId); else if (goApt && a.id) goApt(a.id); }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{a.name || "Paciente"} <span style={{ color: T.textMute }}>· {a.fecha}{a.time ? " " + a.time : ""}{a.proc ? " · " + a.proc : ""}{a.status ? " · " + (estadoLbl[a.status] || a.status) : ""}</span></span>
+                <span style={{ color: T.accent, fontSize: 11, flexShrink: 0 }}>{a.patId ? "Ficha →" : "Cita →"}</span>
+              </button>
+            ))}
+            {detalle.kind === "patients" && detalle.items.map(p => (
+              <button key={p.id} style={rowStyle} onClick={() => { setDetalle(null); if (openP) openP(p.id); }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{p.name}{p.rut ? <span style={{ color: T.textMute }}> · {p.rut}</span> : null}</span>
+                <span style={{ color: T.accent, fontSize: 11, flexShrink: 0 }}>Ficha →</span>
+              </button>
+            ))}
+            {detalle.kind === "cash" && detalle.items.map((m, i) => (
+              <div key={i} style={{ ...rowStyle, cursor: "default" }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{m.patient || "Atención"} <span style={{ color: T.textMute }}>· {m.concept || m.kind}</span></span>
+                <span style={{ color: "#1F8A5B", fontSize: 12, flexShrink: 0 }}>{D.fmt(m.amount || 0)}</span>
+              </div>
+            ))}
+          </div>
+        </AdModal>
+      )}
     </div>
   );
 }

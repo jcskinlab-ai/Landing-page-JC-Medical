@@ -157,6 +157,7 @@ const ADMIN_NAV = [
 ];
 var NEW_SECT = { contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, boletas: 1, pagosonline: 1 };
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
+const SIDE_DEFAULT_COLLAPSED = { "Cl\xEDnica": true, "Marketing & Ventas": true, "An\xE1lisis": true, "Sistema": true };
 const NAV_TOP_GROUPS = [
   // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
   // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
@@ -1205,9 +1206,12 @@ function AdminApp() {
     return () => window.removeEventListener("jcsaas:data", onData);
   }, []);
   const [navOpen, setNavOpen] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [collapsedGroups, setCollapsedGroups] = useState(() => ({ ...SIDE_DEFAULT_COLLAPSED }));
   function toggleGroup(g) {
     setCollapsedGroups((s) => ({ ...s, [g]: !s[g] }));
+  }
+  function resetNavGroups() {
+    setCollapsedGroups({ ...SIDE_DEFAULT_COLLAPSED });
   }
   const [topGrp, setTopGrp] = useState(null);
   const [stripOpen, setStripOpen] = useState(false);
@@ -1391,6 +1395,7 @@ function AdminApp() {
     setSection(k);
     setOpenPatient(null);
     setNavOpen(false);
+    resetNavGroups();
   }
   useEffect(() => {
     try {
@@ -1625,7 +1630,14 @@ function AdminApp() {
   else if (section === "config") body = /* @__PURE__ */ React.createElement(ConfigView, { T });
   else if (section === "notasia") body = /* @__PURE__ */ React.createElement(NotasClinicasView, { T, patients, updatePatient });
   else if (section === "resumenia") body = /* @__PURE__ */ React.createElement(ResumenClinicoView, { T, patients, appts });
-  else if (section === "desempeno") body = /* @__PURE__ */ React.createElement(DesempenoView, { T, patients, appts });
+  else if (section === "desempeno") body = /* @__PURE__ */ React.createElement(DesempenoView, { T, patients, appts, openP: (id, tab) => {
+    setOpenPatient(id);
+    setOpenPatientTab(tab || null);
+    setSection("pacientes");
+  }, goApt: (apptId) => {
+    setOpenApptId(apptId);
+    setSection("agenda");
+  } });
   else if (section === "encuestas") body = /* @__PURE__ */ React.createElement(EncuestasView, { T, patients });
   else if (section === "chatinterno") body = /* @__PURE__ */ React.createElement(ChatInternoView, { T });
   else if (section === "pagosgastos") body = /* @__PURE__ */ React.createElement(PagosGastosView, { T });
@@ -1644,7 +1656,10 @@ function AdminApp() {
     "div",
     {
       onMouseEnter: () => setNavOpen(true),
-      onMouseLeave: () => setNavOpen(false),
+      onMouseLeave: () => {
+        setNavOpen(false);
+        resetNavGroups();
+      },
       style: { width: RAIL, flexShrink: 0, background: shellLux ? "transparent" : SIDE_BG, position: "relative", zIndex: 20 }
     },
     /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, ...SIDE_GLASS, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => nav("dashboard"), title: "Ir al Dashboard", style: { display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } })), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" } }, "medique")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" } }, (() => {

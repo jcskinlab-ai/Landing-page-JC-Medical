@@ -1824,6 +1824,11 @@ function IntegracionesView({ T }) {
 function ReportesView({ T, patients, appts }) {
   const D = window.JCDATA;
   const [period, setPeriod] = useState("anio");
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setDrawn(true), 1300);
+    return () => clearTimeout(t);
+  }, []);
   const [, force] = useState(0);
   useEffect(() => {
     const tick = () => force((x) => x + 1);
@@ -1894,7 +1899,7 @@ function ReportesView({ T, patients, appts }) {
     const line = "M " + serie.map((v, i) => X(i).toFixed(1) + " " + Y(v).toFixed(1)).join(" L ");
     const area = line + " L " + X(n - 1).toFixed(1) + " " + (padT + innerH) + " L " + padL + " " + (padT + innerH) + " Z";
     const grid = [0, 1, 2, 3].map((g) => padT + g * innerH / 3);
-    return /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", height: "auto", display: "block" }, preserveAspectRatio: "xMidYMid meet" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "repGrad", x1: "0", y1: "0", x2: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: T.accent, stopOpacity: "0.22" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: T.accent, stopOpacity: "0" }))), grid.map((y, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: padL, y1: y, x2: padL + innerW, y2: y, stroke: T.line, strokeWidth: "1" })), /* @__PURE__ */ React.createElement("g", { style: window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? window.JCDS.drawIn(1100) : void 0 }, /* @__PURE__ */ React.createElement("path", { d: area, fill: "url(#repGrad)" }), /* @__PURE__ */ React.createElement("path", { d: line, fill: "none", stroke: T.accent, strokeWidth: "2.4", strokeLinejoin: "round", strokeLinecap: "round" }), serie.map((v, i) => /* @__PURE__ */ React.createElement("circle", { key: i, cx: X(i), cy: Y(v), r: "3.6", fill: T.surface, stroke: T.accent, strokeWidth: "2" }))), rev.map((r, i) => /* @__PURE__ */ React.createElement("text", { key: r.m, x: X(i), y: H - 7, textAnchor: "middle", fontSize: "11", fontFamily: T.sans, fill: T.textMute }, r.m)));
+    return /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", height: "auto", display: "block" }, preserveAspectRatio: "xMidYMid meet" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "repGrad", x1: "0", y1: "0", x2: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: T.accent, stopOpacity: "0.22" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: T.accent, stopOpacity: "0" }))), grid.map((y, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: padL, y1: y, x2: padL + innerW, y2: y, stroke: T.line, strokeWidth: "1" })), /* @__PURE__ */ React.createElement("g", { style: !drawn && window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? window.JCDS.drawIn(1100) : void 0 }, /* @__PURE__ */ React.createElement("path", { d: area, fill: "url(#repGrad)" }), /* @__PURE__ */ React.createElement("path", { d: line, fill: "none", stroke: T.accent, strokeWidth: "2.4", strokeLinejoin: "round", strokeLinecap: "round" }), serie.map((v, i) => /* @__PURE__ */ React.createElement("circle", { key: i, cx: X(i), cy: Y(v), r: "3.6", fill: T.surface, stroke: T.accent, strokeWidth: "2" }))), rev.map((r, i) => /* @__PURE__ */ React.createElement("text", { key: r.m, x: X(i), y: H - 7, textAnchor: "middle", fontSize: "11", fontFamily: T.sans, fill: T.textMute }, r.m)));
   }
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const repCard = luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "16px 18px", boxShadow: T.shadow ? "0 10px 30px -18px rgba(0,0,0,.25)" : "none" };
@@ -5173,16 +5178,18 @@ function BoletasView({ T, patients }) {
     return /* @__PURE__ */ React.createElement("div", { key: fz.k, style: window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "14px 16px", borderColor: sel ? T.accent + "88" : T.line } : { background: T.surface, border: "1px solid " + (sel ? T.accent : T.line), borderRadius: 12, padding: "14px 16px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text } }, fz.k), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "4px 0 12px", lineHeight: 1.5 } }, fz.desc), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("a", { href: fz.link, target: "_blank", rel: "noopener", style: { display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: "#fff", background: T.accent, borderRadius: 8, padding: "8px 13px", textDecoration: "none" } }, "Conectar \u2197"), /* @__PURE__ */ React.createElement("button", { onClick: () => saveSii({ ...sii, facturador: sel ? "" : fz.k }), style: { fontFamily: T.sans, fontSize: 11.5, color: sel ? T.accent : T.textMute, background: "none", border: "1px solid " + (sel ? T.accent : T.line), borderRadius: 8, padding: "8px 13px", cursor: "pointer" } }, sel ? "\u2713 En uso" : "Usar este")));
   })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 } }, "Atenciones cobradas este mes"), atenc.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "Sin atenciones cobradas este mes.") : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7 } }, atenc.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, style: window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 12, ...window.JCDS.card(T), padding: "11px 15px", flexWrap: "wrap" } : { display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 180 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, m.concept), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint } }, (m.ts || "").slice(0, 10), " \xB7 ", m.method)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 16, color: "#1F8A5B" } }, D.fmt(m.amount || 0)), emitidas[m.id] ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "Boleta ", emitidas[m.id]) : null, /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, onClick: () => emitir(m) }, emitidas[m.id] ? "Reimprimir" : "Emitir boleta")))));
 }
-function DesempenoView({ T, patients, appts }) {
+function DesempenoView({ T, patients, appts, openP, goApt }) {
   const D = window.JCDATA;
   const mes = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
   const A = (appts || []).filter((a) => a.status !== "anulada");
   const citasMes = A.filter((a) => (a.fecha || "").slice(0, 7) === mes);
-  const noShow = citasMes.filter((a) => a.status === "no_asistio").length;
-  const atendidas = citasMes.filter((a) => a.status === "atendida" || a.attended).length;
+  const noShowList = citasMes.filter((a) => a.status === "no_asistio");
+  const atendidasList = citasMes.filter((a) => a.status === "atendida" || a.attended);
+  const noShow = noShowList.length, atendidas = atendidasList.length;
   const totalCerradas = noShow + atendidas;
   const noShowPct = totalCerradas ? Math.round(noShow / totalCerradas * 100) : 0;
-  const recurrentes = patients.filter((p) => (p.recetas || []).length + (p.history || []).length >= 2).length;
+  const recurrentesList = patients.filter((p) => (p.recetas || []).length + (p.history || []).length >= 2);
+  const recurrentes = recurrentesList.length;
   const retencion = patients.length ? Math.round(recurrentes / patients.length * 100) : 0;
   let cash = [];
   try {
@@ -5192,14 +5199,43 @@ function DesempenoView({ T, patients, appts }) {
   const atMes = cash.filter((m) => m.kind === "atencion" && (m.ts || "").slice(0, 7) === mes);
   const ingMes = atMes.reduce((s, m) => s + (m.amount || 0), 0);
   const ticket = atMes.length ? Math.round(ingMes / atMes.length) : 0;
-  const nuevosMes = patients.filter((p) => {
+  const nuevosList = patients.filter((p) => {
     const t = p.fechaTs || 0;
     if (!t) return false;
     return new Date(t).toISOString().slice(0, 7) === mes;
-  }).length;
+  });
+  const nuevosMes = nuevosList.length;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-  const card = (l, v, c, sub) => /* @__PURE__ */ React.createElement("div", { style: luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute } }, l), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 30, color: c || T.text, lineHeight: 1.1, marginTop: 4 } }, v), sub && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 3 } }, sub));
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Panel de desempe\xF1o", sub: "El diagn\xF3stico oportuno para tu centro de salud" }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginBottom: 14 } }, card("Citas del mes", citasMes.length, T.accent, "agendadas"), card("Atendidas", atendidas, "#1F8A5B", "este mes"), card("Inasistencia", noShowPct + "%", noShowPct > 20 ? "#C0285A" : "#C9A227", noShow + " no asisti\xF3"), card("Retenci\xF3n", retencion + "%", "#1F8A5B", recurrentes + " con 2+ atenciones"), card("Ticket promedio", D.fmt(ticket), T.accent, "por atenci\xF3n"), card("Pacientes nuevos", nuevosMes, "#2AA5C9", "este mes")), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", maxWidth: 760, fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.6 } }, noShowPct > 20 ? "\u26A0 Tu inasistencia est\xE1 alta (" + noShowPct + "%). Activa recordatorios y confirmaci\xF3n de citas para bajarla." : "\u2713 Tu inasistencia est\xE1 controlada.", " ", retencion < 30 ? " La retenci\xF3n es baja: considera campa\xF1as de re-cita y fidelidad." : " Buena retenci\xF3n de pacientes."));
+  const [detalle, setDetalle] = useState(null);
+  const estadoLbl = { atendida: "Atendida", no_asistio: "No asisti\xF3", confirmada: "Confirmada", pendiente: "Pendiente" };
+  const card = (l, v, c, sub, detail) => {
+    const clickable = detail && detail.items && detail.items.length;
+    return /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        onClick: clickable ? () => setDetalle(detail) : void 0,
+        style: luxF ? { ...DS.card(T), padding: "18px 20px", cursor: clickable ? "pointer" : "default", transition: DS.trans("border-color") } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", cursor: clickable ? "pointer" : "default" },
+        onMouseEnter: clickable ? (e) => {
+          e.currentTarget.style.borderColor = (c || T.accent) + "88";
+        } : void 0,
+        onMouseLeave: clickable ? (e) => {
+          e.currentTarget.style.borderColor = luxF ? "" : T.line;
+        } : void 0
+      },
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute } }, l), clickable && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, fontWeight: 600, color: c || T.accent, display: "inline-flex", alignItems: "center", gap: 3 } }, "Ver", /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2" }, /* @__PURE__ */ React.createElement("path", { d: "M9 6l6 6-6 6" })))),
+      /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 30, color: c || T.text, lineHeight: 1.1, marginTop: 4 } }, v),
+      sub && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 3 } }, sub)
+    );
+  };
+  const rowStyle = { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: T.text };
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SecHead, { T, title: "Panel de desempe\xF1o", sub: "El diagn\xF3stico oportuno para tu centro de salud" }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginBottom: 14 } }, card("Citas del mes", citasMes.length, T.accent, "agendadas", { title: "Citas del mes", kind: "appts", items: citasMes }), card("Atendidas", atendidas, "#1F8A5B", "este mes", { title: "Pacientes atendidos", kind: "appts", items: atendidasList }), card("Inasistencia", noShowPct + "%", noShowPct > 20 ? "#C0285A" : "#C9A227", noShow + " no asisti\xF3", { title: "No asistieron", kind: "appts", items: noShowList }), card("Retenci\xF3n", retencion + "%", "#1F8A5B", recurrentes + " con 2+ atenciones", { title: "Pacientes recurrentes (2+ atenciones)", kind: "patients", items: recurrentesList }), card("Ticket promedio", D.fmt(ticket), T.accent, "por atenci\xF3n", { title: "Atenciones cobradas del mes", kind: "cash", items: atMes }), card("Pacientes nuevos", nuevosMes, "#2AA5C9", "este mes", { title: "Pacientes nuevos del mes", kind: "patients", items: nuevosList })), /* @__PURE__ */ React.createElement("div", { style: { background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", maxWidth: 760, fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.6 } }, noShowPct > 20 ? "\u26A0 Tu inasistencia est\xE1 alta (" + noShowPct + "%). Activa recordatorios y confirmaci\xF3n de citas para bajarla." : "\u2713 Tu inasistencia est\xE1 controlada.", " ", retencion < 30 ? " La retenci\xF3n es baja: considera campa\xF1as de re-cita y fidelidad." : " Buena retenci\xF3n de pacientes."), detalle && /* @__PURE__ */ React.createElement(AdModal, { T, title: detalle.title + " (" + detalle.items.length + ")", onClose: () => setDetalle(null) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxHeight: "60vh", overflowY: "auto" } }, detalle.kind === "appts" && detalle.items.map((a, i) => /* @__PURE__ */ React.createElement("button", { key: a.id || i, style: rowStyle, onClick: () => {
+    setDetalle(null);
+    if (a.patId && openP) openP(a.patId);
+    else if (goApt && a.id) goApt(a.id);
+  } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, a.name || "Paciente", " ", /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, "\xB7 ", a.fecha, a.time ? " " + a.time : "", a.proc ? " \xB7 " + a.proc : "", a.status ? " \xB7 " + (estadoLbl[a.status] || a.status) : "")), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent, fontSize: 11, flexShrink: 0 } }, a.patId ? "Ficha \u2192" : "Cita \u2192"))), detalle.kind === "patients" && detalle.items.map((p) => /* @__PURE__ */ React.createElement("button", { key: p.id, style: rowStyle, onClick: () => {
+    setDetalle(null);
+    if (openP) openP(p.id);
+  } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, p.name, p.rut ? /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, " \xB7 ", p.rut) : null), /* @__PURE__ */ React.createElement("span", { style: { color: T.accent, fontSize: 11, flexShrink: 0 } }, "Ficha \u2192"))), detalle.kind === "cash" && detalle.items.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { ...rowStyle, cursor: "default" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, m.patient || "Atenci\xF3n", " ", /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, "\xB7 ", m.concept || m.kind)), /* @__PURE__ */ React.createElement("span", { style: { color: "#1F8A5B", fontSize: 12, flexShrink: 0 } }, D.fmt(m.amount || 0)))))));
 }
 function EncuestasView({ T, patients }) {
   const [cfg, setCfg] = useState(() => {
