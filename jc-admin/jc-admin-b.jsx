@@ -120,9 +120,17 @@ async function jcmSaveDocToFolder(filename, html) {
 }
 if (typeof window !== "undefined") { window.jcmDocHTML = jcmDocHTML; window.jcmSaveDocToFolder = jcmSaveDocToFolder; }
 
+// Paleta de avatares · tonos apagados y profesionales (misma familia sobria del sistema navy/glass,
+// nada de neón). Color determinista por nombre → cada paciente/persona tiene su monograma con color,
+// lo que da vida y ayuda a escanear listas (patrón Attio/Linear/Notion). Solo en Los Medique.
+var JCM_AVATAR_COLORS = ["#5C7488", "#6B8E7A", "#8A7CA8", "#B07C6E", "#7E8CA0", "#9A8458", "#6E93A6", "#A07189", "#5F8A7B", "#8C6E8F"];
+function jcmAvatarColor(name) { var s = "" + (name || "?"), h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return JCM_AVATAR_COLORS[h % JCM_AVATAR_COLORS.length]; }
+if (typeof window !== "undefined") { window.jcmAvatarColor = jcmAvatarColor; }
 function Avatar({ T, name, src, size }) {
   const s = size || 40;
   if (src) return <img src={src} alt={name} style={{ width: s, height: s, borderRadius: "50%", objectFit: "cover", objectPosition: "center 20%", flexShrink: 0 }} />;
+  const lux = typeof jcdsLux === "function" && jcdsLux();
+  if (lux) { const c = jcmAvatarColor(name); return <div style={{ width: s, height: s, borderRadius: "50%", background: c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: s * 0.4, color: "#fff", flexShrink: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.18)" }}>{initials(name)}</div>; }
   return <div style={{ width: s, height: s, borderRadius: "50%", background: T.surface2, border: "1px solid " + T.line, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: s * 0.4, color: T.accent, flexShrink: 0 }}>{initials(name)}</div>;
 }
 
@@ -514,41 +522,81 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
           ))}
         </div>
       )}
+      {/* Encabezado de columnas (luxF): las etiquetas aparecen UNA vez arriba, no repetidas en cada
+          fila — patrón de tabla enterprise (Attio/HubSpot). Incluye el conteo de pacientes. */}
+      {luxF && list.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 10px 9px", borderBottom: "1px solid " + T.line, marginBottom: 2 }}>
+          <div style={{ width: 44, flexShrink: 0 }} />
+          <div style={{ width: 210, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Paciente · {list.length}</div>
+          <div style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Contacto</div>
+          <div style={{ width: 108, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Estado</div>
+          <div style={{ width: 92, flexShrink: 0, textAlign: "right", fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>{filt === "recientes" ? "Visto" : "Última cita"}</div>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column" }}>
-        {list.map(p => (
-          <button key={p.id} onClick={() => openPatient(p.id)} style={luxF
-            ? { display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "13px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background") }
-            : { display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}
-            onMouseEnter={luxF ? e => { e.currentTarget.style.background = T.surface2 || T.surface; } : undefined}
-            onMouseLeave={luxF ? e => { e.currentTarget.style.background = "none"; } : undefined}>
-            <Avatar T={T} name={p.name} size={44} />
-            {/* Nombre y RUT, uno arriba del otro */}
-            <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 14.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>{p.rut}{p.age ? " · " + p.age + " años" : ""}</div>
-            </div>
-            {/* Teléfono y correo, horizontales, ocupando el espacio central */}
-            <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 24, alignItems: "center" }}>
-              {p.phone && <div style={{ width: 150, flexShrink: 0 }}>
-                <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 2 }}>Teléfono</div>
-                <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap" }}>{p.phone}</div>
-              </div>}
-              {p.email && <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 2 }}>Correo</div>
-                <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.email}</div>
-              </div>}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-              {filt === "recientes"
-                ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
-                : (calTs(p)
-                  ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span>
-                  : (filt === "calendario" ? <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" }}>Sin fecha</span> : null))}
-              {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
-              {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
-            </div>
-          </button>
-        ))}
+        {list.map((p, pi) => {
+          const m = meta(p);
+          // Estado del paciente como chip con color → cada fila deja de verse idéntica.
+          const estadoChip = m.comp ? <AdTag T={T} tone="ok">Cliente</AdTag> : m.ag ? <AdTag T={T}>Agendado</AdTag> : <AdTag T={T} tone="muted">Interesado</AdTag>;
+          const icoPhone = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" /></svg>;
+          const icoMail = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>;
+          if (luxF) return (
+            <button key={p.id} onClick={() => openPatient(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "12px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background"), ...DS.reveal(pi) }}
+              onMouseEnter={e => { e.currentTarget.style.background = T.surface2 || T.surface; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
+              <Avatar T={T} name={p.name} size={44} />
+              <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 14.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>{p.rut || "Sin RUT"}{p.age ? " · " + p.age + " años" : ""}</div>
+              </div>
+              {/* Contacto con ícono en vez de la etiqueta "TELÉFONO/CORREO" repetida en cada fila. */}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                {p.phone && <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap" }}>{icoPhone}{p.phone}</span>}
+                {p.email && <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, color: T.textMute, minWidth: 0 }}>{icoMail}<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span></span>}
+                {!p.phone && !p.email && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, fontStyle: "italic" }}>Sin contacto</span>}
+              </div>
+              <div style={{ width: 108, flexShrink: 0, display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {estadoChip}
+                {!p.consent && <AdTag T={T} tone="warn">Consent.</AdTag>}
+              </div>
+              <div style={{ width: 92, flexShrink: 0, textAlign: "right" }}>
+                {filt === "recientes"
+                  ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
+                  : (calTs(p)
+                    ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span>
+                    : <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" }}>—</span>)}
+              </div>
+            </button>
+          );
+          return (
+            <button key={p.id} onClick={() => openPatient(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}>
+              <Avatar T={T} name={p.name} size={44} />
+              <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 14.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>{p.rut}{p.age ? " · " + p.age + " años" : ""}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 24, alignItems: "center" }}>
+                {p.phone && <div style={{ width: 150, flexShrink: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 2 }}>Teléfono</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap" }}>{p.phone}</div>
+                </div>}
+                {p.email && <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 2 }}>Correo</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.email}</div>
+                </div>}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+                {filt === "recientes"
+                  ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
+                  : (calTs(p)
+                    ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span>
+                    : (filt === "calendario" ? <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" }}>Sin fecha</span> : null))}
+                {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
+                {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
+              </div>
+            </button>
+          );
+        })}
         {list.length === 0 && <div style={{ padding: "30px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin resultados.</div>}
       </div>
       {nuevo && <NewPatientModal T={T} onClose={() => setNuevo(false)} onSave={p => { addPatient(p); setNuevo(false); }} />}
