@@ -2971,6 +2971,10 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
   const [saved, setSaved] = useState(false);
   const [showAnt, setShowAnt] = useState(false); // antecedentes: colapsados en facial/corporal
   const [showVit, setShowVit] = useState(false); // signos vitales: colapsados (corporal)
+  // Piel / Hábitos / Evaluación: en facial se colapsan (mismos datos que la general). Colapsados por defecto.
+  const [showPiel, setShowPiel] = useState(false);
+  const [showHabitos, setShowHabitos] = useState(false);
+  const [showEval, setShowEval] = useState(false);
   useEffect(() => { setF(patient.clinica || {}); setSaved(false); }, [patient.id]);
   const setVal = (k, v) => { setF(prev => ({ ...prev, [k]: v })); setSaved(false); };
   // Al tocar un chip, su texto se escribe (o se quita) en la barra del propio parámetro.
@@ -3011,6 +3015,21 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
   // Secciones estéticas (piel/hábitos/evaluación facial) solo aplican a ficha General y Facial.
   // Los antecedentes médicos son compartidos y se muestran siempre (misma data clinica.*).
   const showEstetica = tipo === "general" || tipo === "facial";
+  // En facial estas secciones se muestran como encabezado desplegable (mismos datos que la general);
+  // en general se muestran normales. Evita repetir data ya vista y deja el foco en las zonas.
+  const collapsibleCard = (open, setOpen, title, inner) => (
+    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, marginBottom: 14, overflow: "hidden" }}>
+      <button type="button" onClick={() => setOpen(v => !v)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+        <span style={{ fontFamily: T.serif, fontSize: 16, color: T.text, flex: 1 }}>{title}</span>
+        <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}>{open ? "Ocultar" : "Ver / editar"}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" style={{ transform: open ? "rotate(180deg)" : "none", transition: ".2s" }}><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {open && <div style={{ padding: "0 16px 16px" }}>{inner}</div>}
+    </div>
+  );
+  const sect = (title, inner, open, setOpen) => tipo === "facial"
+    ? collapsibleCard(open, setOpen, title, inner)
+    : <div style={card}><div style={head}>{title}</div>{inner}</div>;
 
   return (
     <div>
@@ -3084,9 +3103,8 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       })()}
 
       {showEstetica && <>
-      {/* Piel y factores de riesgo */}
-      <div style={card}>
-        <div style={head}>Piel y factores de riesgo</div>
+      {/* Piel y factores de riesgo — desplegable en facial (mismos datos que la general) */}
+      {sect("Piel y factores de riesgo", (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
           {nrField("Cicatriz hipertrófica / queloides", "cicatriz", "—")}
           {chipField("Patología dérmica", "dermica", ["Dermatitis atópica", "Rosácea", "Sensibilidad indeterminada"], "Otra patología…")}
@@ -3096,11 +3114,10 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           {field("Exposición solar", sel("expsolar", ["Alta", "Media", "Baja", "No refiere"]))}
           {field("Uso de bloqueador", sel("bloqueador", ["Diario", "2 veces al día", "Cada 4 horas", "No uso", "No refiere"]))}
         </div>
-      </div>
+      ), showPiel, setShowPiel)}
 
-      {/* Hábitos */}
-      <div style={card}>
-        <div style={head}>Hábitos</div>
+      {/* Hábitos — desplegable en facial (mismos datos que la general) */}
+      {sect("Hábitos", (<>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
           {field("Tabaco", <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input value={f.tabaco || ""} onChange={e => setVal("tabaco", e.target.value.replace(/\D/g, "").slice(0, 3))} data-only="num" inputMode="numeric" placeholder="0" style={inp({ width: 70, textAlign: "center" })} />
@@ -3122,11 +3139,10 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           {chips("skincare", ["Bloqueador", "Sérum", "Crema", "Contorno de ojos", "Vitamina C"])}
           <div style={{ marginTop: 10 }}>{text("skincare", "Otros productos…")}</div>
         </div>
-      </div>
+      </>), showHabitos, setShowHabitos)}
 
-      {/* Evaluación y plan */}
-      <div style={card}>
-        <div style={head}>Evaluación y plan</div>
+      {/* Evaluación y plan — desplegable en facial (es lo que sí cambia por tipo de ficha) */}
+      {sect("Evaluación y plan", (<>
         {[["evaluacion", "Evaluación facial"], ["plan", "Tratamientos recomendados"]].map(([k, label]) => {
           const isPlan = k === "plan";
           const totalU = isPlan ? sumUnits(f.plan) : 0;
@@ -3143,7 +3159,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
             </label>
           );
         })}
-      </div>
+      </>), showEval, setShowEval)}
       </>}
       {/* Historial · timeline con versionado (Área 5) */}
       {(patient.history && patient.history.length > 0) && (
