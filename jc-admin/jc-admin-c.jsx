@@ -3457,7 +3457,10 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
   );
 }
 function Group({ T, title, children }) { return <div style={{ marginBottom: 20 }}><div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{title}</div><div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{children}</div></div>; }
-function Empty2({ T, children }) { return <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "4px 0" }}>{children}</div>; }
+function Empty2({ T, children }) {
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  return <div style={luxF ? { ...DS.text(T, "sub"), color: T.textFaint, padding: "4px 0", lineHeight: 1.5 } : { fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "4px 0" }}>{children}</div>;
+}
 function PendRow({ T, name, desc, action, onClick, href, onDelete }) {
   const xBtn = onDelete ? React.createElement("button", {
     key: "x", onClick: e => { e.stopPropagation(); e.preventDefault(); onDelete(); },
