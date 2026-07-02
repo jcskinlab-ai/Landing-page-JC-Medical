@@ -2709,7 +2709,10 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   );
 
   return (
-    <div>
+    // Aire a los costados alineando TODA la agenda (hero, barra, grilla) a un mismo borde y a un tope
+    // ancho centrado. No se usa el 1180 del Dashboard a propósito: un calendario necesita ancho (Cron/
+    // Google Calendar no encierran la grilla), pero 1560 le da respiro sin apretar las 7 columnas.
+    <div style={luxF ? { maxWidth: 1560, margin: "0 auto" } : undefined}>
       {/* Hero editorial (Los Medique): titular protagonista arriba de la agenda (ref. #3/#5).
           Scrim de legibilidad (design audit 7.4): el texto flota sobre la foto everest; un halo
           suave (oscuro en dark / claro en light) garantiza contraste aunque detrás caiga una zona
@@ -2988,11 +2991,17 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nueva
           const iso = toISO(d);
           const list = apptsByDay[iso] || [];
           const isToday = iso === toISO(today);
+          const ordered = list.slice().sort((x, y) => (x.time || "").localeCompare(y.time || ""));
           return (
             <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: T.surface, minHeight: 92, padding: "6px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
               <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? (T.accentSoft || "transparent") : "transparent" }}>{d.getDate()}</span>
-              {list.slice(0, 3).map((a, idx) => <span key={idx} style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time ? a.time + " " : ""}{a.name || "Cita"}</span>)}
-              {list.length > 3 && <span style={{ fontFamily: T.sans, fontSize: 9, color: T.accent }}>+{list.length - 3} más</span>}
+              {ordered.slice(0, 3).map((a, idx) => { const c = window.jcmApptState ? window.jcmApptState(a, T).color : T.accent; return (
+                <span key={idx} style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{a.time ? a.time + " " : ""}{a.name || "Cita"}</span>
+                </span>
+              ); })}
+              {ordered.length > 3 && <span style={{ fontFamily: T.sans, fontSize: 9, color: T.accent, paddingLeft: 11 }}>+{ordered.length - 3} más</span>}
             </button>
           );
         })}
@@ -3144,7 +3153,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         );
       })()}
 
-      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
+      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: (v2 && !luxF) ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
         <div style={{ minWidth: 900 }}>
           {/* Encabezado días (en v2: hora a ambos lados) */}
           <div style={{ display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
