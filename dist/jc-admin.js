@@ -1870,6 +1870,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [day, setDay] = useState(0);
   const [nueva, setNueva] = useState(null);
   const [edit, setEdit] = useState(null);
+  const [editOnly, setEditOnly] = useState(null);
   const [toast, setToast] = useState(null);
   const [hoverA, setHoverA] = useState(null);
   const [fichaConfirm, setFichaConfirm] = useState(null);
@@ -1964,7 +1965,10 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4M12 14l-2 2 2 2M12 14h4" })),
     "Importar .ics"
   );
-  return /* @__PURE__ */ React.createElement("div", null, !isBase && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), viewToggleNode, onSyncWeb && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: traerWeb }, webBusy ? "Trayendo\u2026" : "\u21BB Traer reservas web"), nuevaBtnNode), isBase && view === "dia" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text } }, "Reservas y Citas"), viewToggleNode, icsBtnNode, nuevaBtnNode), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, icsBtn: icsBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: setEdit, updateAppt, removeAppt, onDay: (off) => {
+  return /* @__PURE__ */ React.createElement("div", null, !isBase && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), viewToggleNode, onSyncWeb && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: traerWeb }, webBusy ? "Trayendo\u2026" : "\u21BB Traer reservas web"), nuevaBtnNode), isBase && view === "dia" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text } }, "Reservas y Citas"), viewToggleNode, icsBtnNode, nuevaBtnNode), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, icsBtn: icsBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: (appt, only) => {
+    setEdit(appt);
+    setEditOnly(only || null);
+  }, updateAppt, removeAppt, onDay: (off) => {
     setDay(off);
     setView("dia");
   }, onVerFicha: (appt) => {
@@ -1997,17 +2001,23 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     /* @__PURE__ */ React.createElement(ApptBlock, { T, a, onClick: (x) => {
       setHoverA(null);
       setEdit(x);
+      setEditOnly(null);
     } })
   )), showNow && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 42, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 2, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" } }, "Ahora ", fmtTime(now)))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Toca un espacio libre para crear una cita \xB7 toca una cita para editarla.")), anuladas.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 22, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "14px 18px 10px" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: "#9AA0A6", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.textMute } }, "Citas anuladas (", anuladas.length, ")"), /* @__PURE__ */ React.createElement("div", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 11, color: T.textFaint } }, "Restaura si fue un error")), anuladaDayKeys.map((k, ki) => {
     const group = anuladasByDay[k];
     const isOpen = openADays.has(k);
     return /* @__PURE__ */ React.createElement("div", { key: k, style: { borderTop: ki === 0 ? "1px solid " + T.lineSoft : "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("button", { onClick: () => toggleADay(k), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "#9AA0A6", strokeWidth: "2", strokeLinecap: "round", style: { flexShrink: 0, transition: "transform .2s", transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.textMute, flex: 1 } }, fmtADay(k)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, background: T.lineSoft, borderRadius: 999, padding: "2px 8px" } }, group.length, " cita", group.length !== 1 ? "s" : "")), isOpen && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid " + T.lineSoft } }, group.map((a, ai) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderBottom: ai < group.length - 1 ? "1px solid " + T.lineSoft : "none", background: T.bg } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.textMute, textDecoration: "line-through", textDecorationColor: "#9AA0A6" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, [a.proc, a.time && a.time + " h"].filter(Boolean).join("  \xB7  "), a.phone ? "  \xB7  " + a.phone : ""), a.anuladaAt && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 } }, "Anulada el ", new Date(a.anuladaAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" }), " \xB7 ", new Date(a.anuladaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => updateAppt(a.id, { status: "pendiente", anuladaAt: null }), style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer" } }, "Restaurar")))));
-  })), icsMod && /* @__PURE__ */ React.createElement(ICSImportModal, { T, onClose: () => setIcsMod(false), onImport: addAppt }), nueva && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: nueva.time, day: nueva.day, prefill: nueva.fromSlot ? { time: nueva.time, day: nueva.day } : void 0, onClose: () => setNueva(null), onSave: onCreate, onOpenPatient, addAppt }), edit && /* @__PURE__ */ React.createElement(CitaEditModal, { T, appt: edit, patients, onClose: () => setEdit(null), onSave: (patch) => {
+  })), icsMod && /* @__PURE__ */ React.createElement(ICSImportModal, { T, onClose: () => setIcsMod(false), onImport: addAppt }), nueva && /* @__PURE__ */ React.createElement(NewCitaModal, { T, patients, addPatient, appts, time: nueva.time, day: nueva.day, prefill: nueva.fromSlot ? { time: nueva.time, day: nueva.day } : void 0, onClose: () => setNueva(null), onSave: onCreate, onOpenPatient, addAppt }), edit && /* @__PURE__ */ React.createElement(CitaEditModal, { T, appt: edit, only: editOnly, patients, onClose: () => {
+    setEdit(null);
+    setEditOnly(null);
+  }, onSave: (patch) => {
     updateAppt(edit.id, patch);
     setEdit(null);
+    setEditOnly(null);
   }, onCancel: () => {
     removeAppt(edit.id);
     setEdit(null);
+    setEditOnly(null);
   } }), toast && /* @__PURE__ */ React.createElement(Toast, { T, data: toast, onClose: () => setToast(null) }), fichaConfirm && /* @__PURE__ */ React.createElement("div", { onMouseDown: (e) => {
     if (e.target === e.currentTarget) setFichaConfirm(null);
   }, style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.48)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { background: T.bg, borderRadius: 16, padding: 24, maxWidth: 390, width: "100%", boxShadow: "0 24px 60px -18px rgba(0,0,0,.5)", border: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginBottom: 12 } }, "Ir a ficha del paciente"), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "12px 14px", background: T.surface, borderRadius: 10, border: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginBottom: 3 } }, "Cita agendada"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 17, color: T.text } }, fichaConfirm.appt.name), fichaConfirm.appt.phone && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, fichaConfirm.appt.phone), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, fichaConfirm.appt.proc)), fichaConfirm.patient ? /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 18, padding: "12px 14px", background: "rgba(31,138,91,.08)", borderRadius: 10, border: "1px solid rgba(31,138,91,.28)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: "#1F8A5B", marginBottom: 4 } }, "\u2713 Paciente encontrado"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text } }, fichaConfirm.patient.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, [fichaConfirm.patient.phone, fichaConfirm.patient.rut].filter(Boolean).join(" \xB7 "))) : /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 18, padding: "12px 14px", background: "rgba(192,40,90,.07)", borderRadius: 10, border: "1px solid rgba(192,40,90,.22)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: "#C0285A", marginBottom: 3 } }, "Sin ficha registrada"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 0 } }, "No existe una ficha para este paciente. Puedes crearla ahora con los datos de la cita.")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setFichaConfirm(null), style: { flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.surface, color: T.textMute, border: "1px solid " + T.line } }, "Cancelar"), fichaConfirm.patient ? /* @__PURE__ */ React.createElement("button", { onClick: () => {
@@ -2302,14 +2312,19 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 } }, a.name), [["Hora", a.time], ["Duraci\xF3n", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "\u2014"], ["Estado", estado]].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, k), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 500, textAlign: "right" } }, v))), a.comentario && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 3 } }, "Comentario"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, a.comentario)))
     );
   })(), menu && activeAppt && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setMenu(null), style: { position: "fixed", inset: 0, zIndex: 79 } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: menuPos.x, top: menuPos.y, zIndex: 80, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 8, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", overflow: "hidden", padding: "4px 0", animation: "jcSlideUp .2s ease" } }, [
-    ["\u270E Editar cita (fecha, hora, duraci\xF3n, procedimiento)", () => {
-      onEdit(activeAppt);
-      setMenu(null);
-    }, T.accent],
     ["Ver ficha del paciente", () => {
       if (onVerFicha) onVerFicha(activeAppt);
       setMenu(null);
     }],
+    ["\u270E Editar duraci\xF3n", () => {
+      onEdit(activeAppt, "duracion");
+      setMenu(null);
+    }, T.accent],
+    ["\u{1F4C5} Cambiar fecha", () => {
+      onEdit(activeAppt, "fecha");
+      setMenu(null);
+    }, T.accent],
+    ["__sep", null],
     ["Agregar comentario", () => {
       setEditCom(activeAppt);
       setMenu(null);
@@ -2323,6 +2338,12 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       updateAppt(activeAppt.id, { status: "confirmada", attended: false });
       setMenu(null);
     }, "#16A34A"],
+    ["Confirmar asistencia (WhatsApp)", () => {
+      const ph = (activeAppt.phone || "").replace(/\D/g, "");
+      if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmConfirmAsistMsg(activeAppt)), "_blank", "noopener");
+      else window.jcmToast && window.jcmToast("Este paciente no tiene tel\xE9fono registrado.", "info");
+      setMenu(null);
+    }, "#1F8A5B"],
     ["Marcar como atendido", () => {
       updateAppt(activeAppt.id, { status: "atendida", attended: true });
       setMenu(null);
@@ -2604,7 +2625,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
     })))))))
   );
 }
-function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
+function CitaEditModal({ T, appt, patients, only, onClose, onSave, onCancel }) {
   const D = window.JCDATA;
   const procs = window.clinicServiceList ? Array.from(new Set(window.clinicServiceList().map((s) => s.name))) : PROC_LIST();
   const [proc, setProc] = useState(appt.proc);
@@ -2624,6 +2645,29 @@ function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
     today.setHours(0, 0, 0, 0);
     const day = Math.round((/* @__PURE__ */ new Date(fecha + "T00:00:00") - today) / 864e5);
     return Object.assign({ proc, fecha, time: t, status, comentario, origen, dur, day }, extra || {});
+  }
+  if (only === "fecha" || only === "duracion") {
+    return /* @__PURE__ */ React.createElement(
+      AdModal,
+      {
+        T,
+        title: only === "fecha" ? "Cambiar fecha" : "Editar duraci\xF3n",
+        onClose,
+        footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cancelar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => onSave(buildPatch()) }, "Guardar cambios"))
+      },
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 16 } }, /* @__PURE__ */ React.createElement(Avatar, { T, name: appt.name, size: 40 }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14, fontWeight: 500, color: T.text } }, appt.name)),
+      only === "fecha" ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lblS(T) }, "Fecha"), /* @__PURE__ */ React.createElement(MiniCalendar, { T, selected: fecha, onSelect: setFecha })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lblS(T) }, "Hora"), /* @__PURE__ */ React.createElement(
+        "input",
+        {
+          type: "time",
+          value: t,
+          onChange: (e) => setT(e.target.value),
+          step: adminSlotMins() * 60,
+          list: "jcm-edit-hour-list-only",
+          style: { ...selS(T), cursor: "pointer" }
+        }
+      ), /* @__PURE__ */ React.createElement("datalist", { id: "jcm-edit-hour-list-only" }, adminSlots().map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }))))) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lblS(T) }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: selS(T) }, /* @__PURE__ */ React.createElement("option", null, "15 minutos"), /* @__PURE__ */ React.createElement("option", null, "30 minutos"), /* @__PURE__ */ React.createElement("option", null, "45 minutos"), /* @__PURE__ */ React.createElement("option", null, "60 minutos"), /* @__PURE__ */ React.createElement("option", null, "90 minutos")))
+    );
   }
   return /* @__PURE__ */ React.createElement(
     AdModal,

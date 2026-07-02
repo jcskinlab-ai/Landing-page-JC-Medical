@@ -2092,6 +2092,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [day, setDay] = useState(0);
   const [nueva, setNueva] = useState(null);
   const [edit, setEdit] = useState(null);
+  const [editOnly, setEditOnly] = useState(null); // null = edición completa · "fecha" | "duracion" = solo ese campo
   const [toast, setToast] = useState(null);
   const [hoverA, setHoverA] = useState(null); // { a, x, y } · vista previa al pasar el cursor (vista día/lista)
   const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
@@ -2201,7 +2202,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       )}
 
       {view === "semana" ? (
-        <SemanaGrid T={T} week={week} appts={appts} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} icsBtn={icsBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={setEdit} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
+        <SemanaGrid T={T} week={week} appts={appts} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} icsBtn={icsBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={(appt, only) => { setEdit(appt); setEditOnly(only || null); }} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
           const clean = s => (s || "").replace(/\D/g, "");
           const ap = clean(appt.phone || "");
           let found = null;
@@ -2232,7 +2233,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
               <div key={a.id} style={{ position: "absolute", left: 48, right: 4, top: a._top, height: a._h }}
                 onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHoverA({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
                 onMouseLeave={() => setHoverA(null)}>
-                <ApptBlock T={T} a={a} onClick={(x) => { setHoverA(null); setEdit(x); }} />
+                <ApptBlock T={T} a={a} onClick={(x) => { setHoverA(null); setEdit(x); setEditOnly(null); }} />
               </div>
             ))}
             {showNow && (
@@ -2288,7 +2289,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
 
       {icsMod && <ICSImportModal T={T} onClose={() => setIcsMod(false)} onImport={addAppt} />}
       {nueva && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={nueva.time} day={nueva.day} prefill={nueva.fromSlot ? { time: nueva.time, day: nueva.day } : undefined} onClose={() => setNueva(null)} onSave={onCreate} onOpenPatient={onOpenPatient} addAppt={addAppt} />}
-      {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
+      {edit && <CitaEditModal T={T} appt={edit} only={editOnly} patients={patients} onClose={() => { setEdit(null); setEditOnly(null); }} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); setEditOnly(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); setEditOnly(null); }} />}
       {toast && <Toast T={T} data={toast} onClose={() => setToast(null)} />}
       {fichaConfirm && (
         <div onMouseDown={e => { if (e.target === e.currentTarget) setFichaConfirm(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.48)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -2694,12 +2695,20 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           <div onClick={() => setMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 79 }} />
           <div onClick={e => e.stopPropagation()} style={{ position: "fixed", left: menuPos.x, top: menuPos.y, zIndex: 80, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 8, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", overflow: "hidden", padding: "4px 0", animation: "jcSlideUp .2s ease" }}>
             {[
-              ["✎ Editar cita (fecha, hora, duración, procedimiento)", () => { onEdit(activeAppt); setMenu(null); }, T.accent],
               ["Ver ficha del paciente", () => { if (onVerFicha) onVerFicha(activeAppt); setMenu(null); }],
+              ["✎ Editar duración", () => { onEdit(activeAppt, "duracion"); setMenu(null); }, T.accent],
+              ["📅 Cambiar fecha", () => { onEdit(activeAppt, "fecha"); setMenu(null); }, T.accent],
+              ["__sep", null],
               ["Agregar comentario", () => { setEditCom(activeAppt); setMenu(null); }],
               ["__sep", null],
               ...(activeAppt.status === "pendiente_pago" ? [["✓ Confirmar transferencia", () => { updateAppt(activeAppt.id, { status: "confirmada" }); setMenu(null); }, "#1F8A5B"]] : []),
               ["Confirmar cita", () => { updateAppt(activeAppt.id, { status: "confirmada", attended: false }); setMenu(null); }, "#16A34A"],
+              ["Confirmar asistencia (WhatsApp)", () => {
+                const ph = (activeAppt.phone || "").replace(/\D/g, "");
+                if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmConfirmAsistMsg(activeAppt)), "_blank", "noopener");
+                else window.jcmToast && window.jcmToast("Este paciente no tiene teléfono registrado.", "info");
+                setMenu(null);
+              }, "#1F8A5B"],
               ["Marcar como atendido", () => { updateAppt(activeAppt.id, { status: "atendida", attended: true }); setMenu(null); }],
               ["No asistió", () => { updateAppt(activeAppt.id, { status: "no_asistio", attended: false }); setMenu(null); }, "#C0285A"],
               ["__sep", null],
@@ -3099,7 +3108,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   );
 }
 
-function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
+function CitaEditModal({ T, appt, patients, only, onClose, onSave, onCancel }) {
   const D = window.JCDATA;
   const procs = (window.clinicServiceList ? Array.from(new Set(window.clinicServiceList().map(s => s.name))) : PROC_LIST());
   const [proc, setProc] = useState(appt.proc);
@@ -3120,6 +3129,41 @@ function CitaEditModal({ T, appt, patients, onClose, onSave, onCancel }) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const day = Math.round((new Date(fecha + "T00:00:00") - today) / 86400000);
     return Object.assign({ proc, fecha, time: t, status, comentario, origen, dur, day }, extra || {});
+  }
+  // Edición acotada desde el menú rápido de la Agenda: solo "Cambiar fecha" (fecha + hora, para
+  // reagendar) o "Editar duración" — sin el resto de campos (procedimiento, estado, comentario…).
+  if (only === "fecha" || only === "duracion") {
+    return (
+      <AdModal T={T} title={only === "fecha" ? "Cambiar fecha" : "Editar duración"} onClose={onClose}
+        footer={<div style={{ display: "flex", gap: 10 }}><AdBtn T={T} onClick={onClose}>Cancelar</AdBtn><AdBtn T={T} primary onClick={() => onSave(buildPatch())}>Guardar cambios</AdBtn></div>}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <Avatar T={T} name={appt.name} size={40} />
+          <div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 500, color: T.text }}>{appt.name}</div>
+        </div>
+        {only === "fecha" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div><span style={lblS(T)}>Fecha</span><MiniCalendar T={T} selected={fecha} onSelect={setFecha} /></div>
+            <div><span style={lblS(T)}>Hora</span>
+              <input type="time" value={t} onChange={e => setT(e.target.value)} step={adminSlotMins() * 60}
+                list="jcm-edit-hour-list-only" style={{ ...selS(T), cursor: "pointer" }} />
+              <datalist id="jcm-edit-hour-list-only">
+                {adminSlots().map(h => <option key={h} value={h} />)}
+              </datalist>
+            </div>
+          </div>
+        ) : (
+          <div><span style={lblS(T)}>Duración</span>
+            <select value={dur} onChange={e => setDur(e.target.value)} style={selS(T)}>
+              <option>15 minutos</option>
+              <option>30 minutos</option>
+              <option>45 minutos</option>
+              <option>60 minutos</option>
+              <option>90 minutos</option>
+            </select>
+          </div>
+        )}
+      </AdModal>
+    );
   }
   return (
     <AdModal T={T} title="Editar cita" onClose={onClose}
