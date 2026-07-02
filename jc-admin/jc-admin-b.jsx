@@ -732,9 +732,6 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
         ))}
       </div>
 
-      {/* N3 · Vista Medilink (resumen de atenciones + signos vitales), solo Los Medique (preview) */}
-      {(!window.jcmNewFeat || window.jcmNewFeat()) && <FichaMedilinkPanel T={T} patient={patient} onAgendar={onAgendar} />}
-
       {/* barra de pestañas horizontal */}
       <div className="jc-scroll" style={{ display: "flex", gap: 4, overflowX: "auto", borderBottom: "1px solid " + T.line, margin: "14px 0 18px" }}>
         {TABS.map(([k, l]) => (
@@ -2212,51 +2209,6 @@ function ResumenIA({ T, patient }) {
 
 /* ─────────── RECETA MÉDICA / INDICACIONES POST TRATAMIENTO ─────────── */
 /* ── N3 · Panel resumen estilo Medilink (signos vitales + preexistencias + atenciones) ── */
-function FichaMedilinkPanel({ T, patient, onAgendar }) {
-  const [open, setOpen] = useState(true);
-  const today = new Date().toISOString().slice(0, 10);
-  let appts = []; try { appts = (window.DB && window.DB.get("appointments")) || []; } catch (e) {}
-  const rutN = r => ("" + (r || "")).replace(/[^0-9kK]/g, "").toLowerCase();
-  const mine = appts.filter(a => a.status !== "anulada" && (a.patId === patient.id || (a.name || "").toLowerCase().trim() === (patient.name || "").toLowerCase().trim() || (rutN(a.rut) && rutN(a.rut) === rutN(patient.rut))));
-  const proximas = mine.filter(a => (a.fecha || "") > today).sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
-  const hoy = mine.filter(a => (a.fecha || "") === today);
-  const pasadas = mine.filter(a => (a.fecha || "") < today).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
-  const estadoCol = a => (window.jcmApptState ? window.jcmApptState(a, T).color : T.accent);
-  const wd = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-  const mm = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-  const fechaTxt = f => { try { const d = new Date(f + "T00:00:00"); return wd[d.getDay()] + " " + d.getDate() + " " + mm[d.getMonth()] + " " + d.getFullYear(); } catch (e) { return f; } };
-  const atCard = a => (
-    <div key={a.id} style={{ display: "flex", gap: 12, alignItems: "center", background: T.bg, border: "1px solid " + T.line, borderLeft: "4px solid " + estadoCol(a), borderRadius: 8, padding: "10px 12px" }}>
-      <div style={{ flexShrink: 0, textAlign: "center", minWidth: 54 }}><div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>{(a.fecha || "").slice(8) || "—"}</div><div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute }}>{a.time || ""}</div></div>
-      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc || "Atención"}</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>{[a.prof && ("Prof.: " + a.prof), a.sucursal].filter(Boolean).join(" · ") || "Sin profesional"}</div></div>
-      <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".06em", textTransform: "uppercase", color: estadoCol(a), border: "1px solid " + estadoCol(a) + "55", borderRadius: 999, padding: "3px 8px", flexShrink: 0 }}>{a.status || "pendiente"}</span>
-    </div>
-  );
-  const grupo = (titulo, arr, color) => (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: color, marginBottom: 8 }}>{arr.length} {titulo}</div>
-      {arr.length ? <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{arr.slice(0, 6).map(atCard)}</div> : <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint }}>—</div>}
-    </div>
-  );
-  return (
-    <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "14px 16px", margin: "16px 0 4px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: open ? 14 : 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9 }}><span style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600 }}>Atenciones del paciente</span></div>
-        <button onClick={() => setOpen(o => !o)} style={{ background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: T.textMute, fontFamily: T.sans, fontSize: 11 }}>{open ? "Ocultar" : "Mostrar"}</button>
-      </div>
-      {open && (
-        <div>
-          {/* Solo estética: resumen de atenciones (sin signos vitales ni preexistencias). */}
-          {grupo("próximas atenciones", proximas, T.accent)}
-          {grupo("atención hoy", hoy, "#1F8A5B")}
-          {grupo("atenciones pasadas", pasadas, T.textMute)}
-          {mine.length === 0 && <div style={{ textAlign: "center", padding: "10px 0" }}><AdBtn T={T} small primary onClick={() => onAgendar && onAgendar()}>Agendar primera cita</AdBtn></div>}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ── N7/ficha · Exámenes: subir PDF/foto de exámenes ya existentes (clave aparte) ── */
 function patExamKey(id) { return "pexam_" + id; }
 function ExamenesTab({ T, patient }) {

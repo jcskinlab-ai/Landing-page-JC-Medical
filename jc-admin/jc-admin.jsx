@@ -262,20 +262,20 @@ function clinicMapsLink() {
 // el link inteligente de mapa. Devuelve el texto SIN codificar (el llamador hace encodeURIComponent).
 function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
   var addr = clinicAddr(), maps = clinicMapsLink();
-  var L = ["Hola " + name + " 👋", "", "Tu cita en " + clinicDisplayName() + " quedó confirmada:", "",
-           "📅 " + wk.wd + " " + wk.dd + " " + wk.mm, "🕐 " + time + " hrs", "💉 " + proc, "👨‍⚕️ " + prof];
-  if (addr) L.push("📍 " + addr);
-  if (maps) L.push("🗺️ Cómo llegar: " + maps);
-  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.", "", "¡Nos vemos pronto! 🌿");
+  var L = ["Hola " + name + ",", "", "Tu cita en " + clinicDisplayName() + " quedó confirmada:", "",
+           "Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm, "Hora: " + time + " hrs", "Tratamiento: " + proc, "Profesional: " + prof];
+  if (addr) L.push("Dirección: " + addr);
+  if (maps) L.push("Cómo llegar: " + maps);
+  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.", "", "¡Nos vemos pronto!");
   return L.join("\n");
 }
 // Recordatorio manual para pedir al paciente que confirme su asistencia (P4). Texto sin codificar.
 function jcmRecordatorioMsg(a) {
   var addr = clinicAddr(), maps = clinicMapsLink();
   var when = (a.fecha ? "" : "") + (a.time ? ("a las " + a.time + " hrs") : "");
-  var L = ["Hola " + (a.name || "") + " 👋", "", "Te recordamos tu cita en " + clinicDisplayName() + (when ? " " + when : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "", "¿Nos confirmas tu asistencia? Responde *SÍ* para confirmar 🙌"];
-  if (maps) L.push("", "🗺️ Cómo llegar: " + maps);
-  L.push("", "¡Te esperamos! 🌿");
+  var L = ["Hola " + (a.name || "") + ",", "", "Te recordamos tu cita en " + clinicDisplayName() + (when ? " " + when : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "", "¿Nos confirmas tu asistencia? Responde *SÍ* para confirmar"];
+  if (maps) L.push("", "Cómo llegar: " + maps);
+  L.push("", "¡Te esperamos!");
   return L.join("\n");
 }
 // Botón manual "Confirmar asistencia" (P4): se envía por WhatsApp ~1 día antes a quien NO tiene
@@ -285,11 +285,11 @@ function jcmConfirmAsistMsg(a) {
   var fecha = "";
   try { if (a.fecha) fecha = new Date(a.fecha + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }); } catch (e) {}
   var cuando = (fecha ? "el " + fecha : "") + (a.time ? ((fecha ? " a las " : "a las ") + a.time + " hrs") : "");
-  var L = ["Hola " + (a.name || "") + " 👋", "",
+  var L = ["Hola " + (a.name || "") + ",", "",
     "Te escribimos de " + clinicDisplayName() + " para confirmar tu asistencia a tu cita" + (cuando ? " " + cuando : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "",
-    "¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar 🙌"];
-  if (maps) L.push("", "🗺️ Cómo llegar: " + maps);
-  L.push("", "¡Te esperamos! 🌿");
+    "¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar"];
+  if (maps) L.push("", "Cómo llegar: " + maps);
+  L.push("", "¡Te esperamos!");
   return L.join("\n");
 }
 window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro; window.clinicMapsLink = clinicMapsLink; window.jcmCitaConfirmMsg = jcmCitaConfirmMsg; window.jcmRecordatorioMsg = jcmRecordatorioMsg; window.jcmConfirmAsistMsg = jcmConfirmAsistMsg;

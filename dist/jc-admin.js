@@ -311,26 +311,26 @@ function clinicMapsLink() {
 function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
   var addr = clinicAddr(), maps = clinicMapsLink();
   var L = [
-    "Hola " + name + " \u{1F44B}",
+    "Hola " + name + ",",
     "",
     "Tu cita en " + clinicDisplayName() + " qued\xF3 confirmada:",
     "",
-    "\u{1F4C5} " + wk.wd + " " + wk.dd + " " + wk.mm,
-    "\u{1F550} " + time + " hrs",
-    "\u{1F489} " + proc,
-    "\u{1F468}\u200D\u2695\uFE0F " + prof
+    "Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm,
+    "Hora: " + time + " hrs",
+    "Tratamiento: " + proc,
+    "Profesional: " + prof
   ];
-  if (addr) L.push("\u{1F4CD} " + addr);
-  if (maps) L.push("\u{1F5FA}\uFE0F C\xF3mo llegar: " + maps);
-  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.", "", "\xA1Nos vemos pronto! \u{1F33F}");
+  if (addr) L.push("Direcci\xF3n: " + addr);
+  if (maps) L.push("C\xF3mo llegar: " + maps);
+  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.", "", "\xA1Nos vemos pronto!");
   return L.join("\n");
 }
 function jcmRecordatorioMsg(a) {
   var addr = clinicAddr(), maps = clinicMapsLink();
   var when = (a.fecha ? "" : "") + (a.time ? "a las " + a.time + " hrs" : "");
-  var L = ["Hola " + (a.name || "") + " \u{1F44B}", "", "Te recordamos tu cita en " + clinicDisplayName() + (when ? " " + when : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "", "\xBFNos confirmas tu asistencia? Responde *S\xCD* para confirmar \u{1F64C}"];
-  if (maps) L.push("", "\u{1F5FA}\uFE0F C\xF3mo llegar: " + maps);
-  L.push("", "\xA1Te esperamos! \u{1F33F}");
+  var L = ["Hola " + (a.name || "") + ",", "", "Te recordamos tu cita en " + clinicDisplayName() + (when ? " " + when : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "", "\xBFNos confirmas tu asistencia? Responde *S\xCD* para confirmar"];
+  if (maps) L.push("", "C\xF3mo llegar: " + maps);
+  L.push("", "\xA1Te esperamos!");
   return L.join("\n");
 }
 function jcmConfirmAsistMsg(a) {
@@ -342,14 +342,14 @@ function jcmConfirmAsistMsg(a) {
   }
   var cuando = (fecha ? "el " + fecha : "") + (a.time ? (fecha ? " a las " : "a las ") + a.time + " hrs" : "");
   var L = [
-    "Hola " + (a.name || "") + " \u{1F44B}",
+    "Hola " + (a.name || "") + ",",
     "",
     "Te escribimos de " + clinicDisplayName() + " para confirmar tu asistencia a tu cita" + (cuando ? " " + cuando : "") + (a.proc ? " (" + a.proc + ")" : "") + ".",
     "",
-    "\xBFNos confirmas? Responde *S\xCD* para confirmar o *NO* si necesitas reagendar \u{1F64C}"
+    "\xBFNos confirmas? Responde *S\xCD* para confirmar o *NO* si necesitas reagendar"
   ];
-  if (maps) L.push("", "\u{1F5FA}\uFE0F C\xF3mo llegar: " + maps);
-  L.push("", "\xA1Te esperamos! \u{1F33F}");
+  if (maps) L.push("", "C\xF3mo llegar: " + maps);
+  L.push("", "\xA1Te esperamos!");
   return L.join("\n");
 }
 window.clinicName = clinicName;
