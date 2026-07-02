@@ -1043,17 +1043,19 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const _fechaLarga = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div style={lux ? { maxWidth: 1180, margin: "0 auto" } : undefined}>
-      {/* Saludo personalizado */}
-      {lux ? (
+      {/* Saludo personalizado. Scrim de legibilidad (design audit 7.4): halo suave para que el texto
+          sobre la foto everest mantenga contraste en cualquier zona (clara/oscura) de la montaña. */}
+      {lux ? (() => { const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)"; return (
         <div style={{ margin: "6px 0 26px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: navyAccent }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: navyAccent, textShadow: heroShadow }}>
             <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || navyAccent }} />
             {_greet}{clinicDisplayName() ? ", " + clinicDisplayName() : ""}
           </div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(26px, 3vw, 34px)", letterSpacing: "-.01em", color: T.text, marginTop: 10, lineHeight: 1.05, textTransform: "capitalize" }}>{_fechaLarga}</h1>
-          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(26px, 3vw, 34px)", letterSpacing: "-.01em", color: T.text, marginTop: 10, lineHeight: 1.05, textTransform: "capitalize", textShadow: heroShadow }}>{_fechaLarga}</h1>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8, textShadow: heroShadow }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
         </div>
-      ) : (
+      ); })()
+      : (
       <div style={{ marginBottom: 18 }}>
         <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, lineHeight: 1.1 }}>{_greet}{clinicDisplayName() ? ", " + clinicDisplayName().split(" ")[0] : ""}.</h1>
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 5 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
@@ -2708,17 +2710,20 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
 
   return (
     <div>
-      {/* Hero editorial (Los Medique): titular protagonista arriba de la agenda (ref. #3/#5). */}
-      {luxF && (
+      {/* Hero editorial (Los Medique): titular protagonista arriba de la agenda (ref. #3/#5).
+          Scrim de legibilidad (design audit 7.4): el texto flota sobre la foto everest; un halo
+          suave (oscuro en dark / claro en light) garantiza contraste aunque detrás caiga una zona
+          clara u oscura de la montaña, sin agregar una caja opaca que rompa el look editorial. */}
+      {luxF && (() => { const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)"; return (
         <div style={{ margin: "6px 0 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>
             <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
             Agenda de la clínica
           </div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(24px, 2.6vw, 30px)", letterSpacing: "-.01em", color: T.text, margin: "10px 0 0", lineHeight: 1.05 }}>Reservas y Citas</h1>
-          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{(() => { const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length; return n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."; })()} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(24px, 2.6vw, 30px)", letterSpacing: "-.01em", color: T.text, margin: "10px 0 0", lineHeight: 1.05, textShadow: heroShadow }}>Reservas y Citas</h1>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8, textShadow: heroShadow }}>{(() => { const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length; return n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."; })()} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
         </div>
-      )}
+      ); })()}
       {/* Cabecera grande: solo en clínicas que NO son la base (v2 la colapsa a una línea en SemanaGrid). */}
       {!isBase && (
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
