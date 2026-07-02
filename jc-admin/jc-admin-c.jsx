@@ -3834,6 +3834,8 @@ function CopilotConfigView({ T }) {
   }
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
   const inp = { width: "100%", padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const copCard = luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" };
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -3842,7 +3844,7 @@ function CopilotConfigView({ T }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px,1fr))", gap: 16, alignItems: "start" }}>
         {/* Configuración */}
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px" }}>
+        <div style={copCard}>
           <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 }}>Personalidad</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -3864,7 +3866,7 @@ function CopilotConfigView({ T }) {
           </div>
         </div>
         {/* Playground */}
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", display: "flex", flexDirection: "column", minHeight: 420 }}>
+        <div style={{ ...copCard, display: "flex", flexDirection: "column", minHeight: 420 }}>
           <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, fontWeight: 600, marginBottom: 14 }}>Playground · prueba a {cfg.name || "tu asistente"}</div>
           <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
             {msgs.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, lineHeight: 1.5, margin: "auto 0", textAlign: "center", padding: "0 16px" }}>Escríbele como si fueras un paciente y prueba cómo responde con la personalidad y tono que configuraste.</div>}
@@ -5471,11 +5473,12 @@ function NotasClinicasView({ T, patients, updatePatient }) {
     try { window.jcmAudit && window.jcmAudit("Nota clínica guardada · " + pat.name); } catch (e) {}
   }
   const inp = { width: "100%", padding: "11px 13px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" };
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <SecHead T={T} title="Notas Clínicas" sub="Dicta por voz y la IA arma la nota en formato clínico" />
       <IAHero T={T} color="#8B5CF6" title="Registrar deja de ser una carga" sub="Transcripción de voz en tiempo real · formato clínico automático · notas completas y precisas." icon={<><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></>} />
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 760 }}>
+      <div style={luxF ? { ...DS.card(T), padding: "18px 20px", maxWidth: 760 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", maxWidth: 760 }}>
         <label style={{ display: "block", marginBottom: 12 }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Paciente</span>
           <select value={pid} onChange={e => setPid(e.target.value)} style={inp}><option value="">Elegir paciente…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
@@ -5558,7 +5561,7 @@ function ContactCenterView({ T, patients }) {
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Conversaciones recientes</div>
       {waMsgs.length === 0 ? <Empty2 T={T}>Aún no hay conversaciones. Aparecerán aquí al conectar WhatsApp.</Empty2>
         : <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 760 }}>{waMsgs.map((m, i) => (
-            <div key={i} style={{ display: "flex", gap: 12, alignItems: "center", background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" }}>
+            <div key={i} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", gap: 12, alignItems: "center", ...window.JCDS.card(T), padding: "12px 15px" } : { display: "flex", gap: 12, alignItems: "center", background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" }}>
               <Avatar T={T} name={m.name} size={38} />
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{m.name}</div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.msg}</div></div>
               <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, flexShrink: 0 }}>{m.ago}</span>
@@ -5601,7 +5604,7 @@ function ReportesIAView({ T, patients, appts }) {
       <SecHead T={T} title="Reportes IA" sub="Los datos dejan de ser números: se convierten en decisiones" />
       <IAHero T={T} color="#E8952A" title="Reportes conversacionales" sub="Pregunta en lenguaje natural · visualizaciones automáticas · insights accionables." icon={<><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M12 3v9l6.4-6.4" /></>} />
       <div style={{ maxWidth: 780 }}>
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 16, minHeight: 220, marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: 18, minHeight: 220, marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 16, minHeight: 220, marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           {msgs.length === 0 && <div style={{ margin: "auto", textAlign: "center", maxWidth: 420 }}><div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginBottom: 12 }}>Pregúntale a la IA sobre el rendimiento de tu clínica.</div><div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>{sug.map(s => <button key={s} onClick={() => pregunta(s)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "8px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + T.line, background: "transparent", color: T.accent }}>{s}</button>)}</div></div>}
           {msgs.map((m, i) => <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%", background: m.role === "user" ? T.accent : T.surface2, color: m.role === "user" ? (T.onAccent || "#fff") : T.text, border: m.role === "user" ? "none" : "1px solid " + T.line, borderRadius: 12, padding: "11px 14px", fontFamily: T.sans, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{m.content}</div>)}
           {busy && <div style={{ alignSelf: "flex-start", fontFamily: T.sans, fontSize: 12, color: T.textMute }}>Analizando…</div>}
@@ -5639,7 +5642,7 @@ function ContraloriaView({ T, patients, appts }) {
       <IAHero T={T} color="#8B5CF6" title="Control de calidad continuo" sub="Verificación automática de registros · alertas de inconsistencias · control de calidad continuo." icon={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>} />
       {ok ? <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid #1F8A5B44", borderRadius: 12, padding: "24px", textAlign: "center", maxWidth: 760 }}><div style={{ fontFamily: T.serif, fontSize: 19, color: "#1F8A5B" }}>✓ Todo en orden</div><div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, marginTop: 6 }}>No se detectaron inconsistencias en los registros.</div></div>
         : <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 780 }}>{alertas.map((a, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderLeft: "4px solid " + a.c, borderRadius: 10, padding: "14px 16px" }}>
+            <div key={i} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 14, ...window.JCDS.card(T), borderLeft: "4px solid " + a.c, padding: "14px 16px" } : { display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderLeft: "4px solid " + a.c, borderRadius: 10, padding: "14px 16px" }}>
               <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: a.c + "1c", color: a.c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 600 }}>{a.n}</span>
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{a.t}</div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 }}>{a.d}</div></div>
               <button onClick={() => { try { window.jcmNav ? window.jcmNav(a.to) : (location.href = "/" + a.to); } catch (e) {} }} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}>Revisar →</button>
@@ -5672,7 +5675,7 @@ function PagosGastosView({ T }) {
         <CajaCard T={T} l="N° de gastos" v={mesItems.length} c={T.accent} />
         <CajaCard T={T} l="Recurrentes" v={items.filter(g => g.recurrente).length} c="#C9A227" />
       </div>
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "160px 1fr 130px auto", gap: 8, alignItems: "center" }}>
+      <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "160px 1fr 130px auto", gap: 8, alignItems: "center" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "160px 1fr 130px auto", gap: 8, alignItems: "center" }}>
         <select value={f.categoria} onChange={e => setF({ ...f, categoria: e.target.value })} style={inp}>{GASTO_CATS.map(c => <option key={c}>{c}</option>)}</select>
         <input value={f.concepto} onChange={e => setF({ ...f, concepto: e.target.value })} placeholder="Concepto del gasto" style={inp} />
         <input value={f.monto} onChange={e => setF({ ...f, monto: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="Monto $" style={inp} />
@@ -5681,7 +5684,7 @@ function PagosGastosView({ T }) {
       {cats.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{cats.map(c => <span key={c} style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: "6px 12px" }}>{c}: <b style={{ color: T.text }}>{D.fmt(porCat[c])}</b></span>)}</div>}
       {mesItems.length === 0 ? <Empty2 T={T}>Aún no registras gastos este mes.</Empty2>
         : <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{mesItems.map(g => (
-            <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px" }}>
+            <div key={g.id} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 12, ...window.JCDS.card(T), padding: "11px 15px" } : { display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px" }}>
               <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".06em", textTransform: "uppercase", color: T.accent, background: T.accent + "12", borderRadius: 6, padding: "3px 8px", flexShrink: 0 }}>{g.categoria}</span>
               <div style={{ flex: 1, minWidth: 0 }}><span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{g.concepto}</span>{g.recurrente && <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint }}> · recurrente</span>}<div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{g.fecha}</div></div>
               <span style={{ fontFamily: T.serif, fontSize: 16, color: "#C0285A" }}>− {D.fmt(g.monto)}</span>
@@ -5711,7 +5714,7 @@ function RemuneracionesView({ T }) {
             const comMonto = Math.round(ventas * (parseFloat(c.comision) || 0) / 100);
             const total = (parseInt(c.base, 10) || 0) + comMonto;
             return (
-              <div key={m.id} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px" }}>
+              <div key={m.id} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "14px 16px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ width: 40, height: 40, borderRadius: "50%", background: m.color || T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 16, flexShrink: 0 }}>{(m.name || "?").split(" ").map(w => w[0]).slice(0, 2).join("")}</div>
                   <div style={{ flex: 1, minWidth: 140 }}><div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{m.name}</div><div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>Ventas del mes: {D.fmt(ventas)}</div></div>
@@ -5749,7 +5752,7 @@ function LaboratoriosView({ T, patients }) {
   return (
     <div>
       <SecHead T={T} title="Laboratorios y exámenes" sub="Gestiona solicitudes de exámenes internas y externas" />
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
+      <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "18px 20px", marginBottom: 16 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <select value={f.patId} onChange={e => setF({ ...f, patId: e.target.value })} style={{ ...inp, flex: 1, minWidth: 180 }}><option value="">Paciente…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
           <select value={f.tipo} onChange={e => setF({ ...f, tipo: e.target.value })} style={{ ...inp, flex: "0 0 140px" }}><option>Interno</option><option>Externo</option></select>
@@ -5768,7 +5771,7 @@ function LaboratoriosView({ T, patients }) {
       </div>
       {orders.length === 0 ? <Empty2 T={T}>Aún no hay órdenes de laboratorio.</Empty2>
         : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{orders.map(o => (
-            <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", flexWrap: "wrap" }}>
+            <div key={o.id} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 12, ...window.JCDS.card(T), padding: "12px 15px", flexWrap: "wrap" } : { display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 200 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{o.patName} <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, fontWeight: 400 }}>· {o.tipo} · {o.fecha}</span></div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 }}>{o.examenes}</div></div>
               <button onClick={() => nextEst(o)} title="Cambiar estado" style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: estColor(o.estado), background: estColor(o.estado) + "18", border: "1px solid " + estColor(o.estado) + "55", borderRadius: 999, padding: "6px 12px", cursor: "pointer" }}>{o.estado} ↻</button>
               <button onClick={() => del(o.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
@@ -5788,7 +5791,7 @@ function ConveniosView({ T }) {
   return (
     <div>
       <SecHead T={T} title="Convenios" sub="Gestiona los convenios con empresas y otras entidades" />
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 120px auto", gap: 8, alignItems: "center" }}>
+      <div style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { ...window.JCDS.card(T), padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 120px auto", gap: 8, alignItems: "center" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "14px 16px", marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 120px auto", gap: 8, alignItems: "center" }}>
         <input value={f.empresa} onChange={e => setF({ ...f, empresa: e.target.value })} placeholder="Empresa / entidad" style={inp} />
         <input value={f.contacto} onChange={e => setF({ ...f, contacto: e.target.value })} placeholder="Contacto (teléfono/correo)" style={inp} />
         <input value={f.descuento} onChange={e => setF({ ...f, descuento: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="Dcto %" style={inp} />
@@ -5796,7 +5799,7 @@ function ConveniosView({ T }) {
       </div>
       {items.length === 0 ? <Empty2 T={T}>Aún no tienes convenios registrados.</Empty2>
         : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{items.map(c => (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", flexWrap: "wrap" }}>
+            <div key={c.id} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 12, ...window.JCDS.card(T), padding: "12px 15px", flexWrap: "wrap" } : { display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{c.empresa}</div><div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 }}>{[c.contacto, c.notas].filter(Boolean).join(" · ")}</div></div>
               {c.descuento > 0 && <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, background: T.accent + "14", borderRadius: 999, padding: "5px 12px" }}>{c.descuento}% dcto</span>}
               <button onClick={() => del(c.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 4, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
