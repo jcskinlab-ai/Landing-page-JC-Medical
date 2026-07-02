@@ -176,6 +176,7 @@ function saveEspecialidades(v) {
 function EspecialidadesTab({ T }) {
   const [list, setList] = useState(clinicEspecialidades);
   const [nueva, setNueva] = useState("");
+  const [showSug, setShowSug] = useState(false);
   let team = [];
   try {
     team = window.DB && window.DB.get("team") || [];
@@ -203,27 +204,43 @@ function EspecialidadesTab({ T }) {
     saveEspecialidades(n);
   }
   const profCount = (e) => team.filter((m) => (m.especialidades || []).indexOf(e) >= 0).length;
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 6, lineHeight: 1.5 } }, "Define las especialidades que ofrece tu cl\xEDnica. Se asignan a cada profesional en su ficha (secci\xF3n Especialidades)."), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 14, lineHeight: 1.5, background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.lineSoft, borderRadius: 8, padding: "9px 12px" } }, "\u{1F4A1} ", /* @__PURE__ */ React.createElement("b", { style: { color: T.textMute } }, "Toxina botul\xEDnica, \xC1cido hialur\xF3nico, Bioestimuladores\u2026"), " son ", /* @__PURE__ */ React.createElement("b", { style: { color: T.textMute } }, "procedimientos"), ", no especialidades: se administran en la pesta\xF1a ", /* @__PURE__ */ React.createElement("b", { style: { color: T.textMute } }, "Tratamientos"), "."), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, ESPECIALIDAD_CATS.map(([cat, sugs]) => /* @__PURE__ */ React.createElement("div", { key: cat, style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginBottom: 6 } }, cat), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, sugs.map((s) => {
-    const yes = list.indexOf(s) >= 0;
-    return /* @__PURE__ */ React.createElement("button", { key: s, onClick: () => {
-      if (yes) return;
-      const n = [...list, s];
-      setList(n);
-      saveEspecialidades(n);
-    }, disabled: yes, style: { fontFamily: T.sans, fontSize: 11.5, padding: "6px 12px", borderRadius: 999, cursor: yes ? "default" : "pointer", border: "1px solid " + (yes ? T.accent : T.line), background: yes ? T.accent + "16" : "transparent", color: yes ? T.accent : T.textMute } }, yes ? "\u2713 " : "+ ", s);
-  }))))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "O agrega una propia"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 18 } }, /* @__PURE__ */ React.createElement("input", { value: nueva, onChange: (e) => setNueva(e.target.value), onKeyDown: (e) => {
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" && jcdsLux());
+  const sugRestantes = ESPECIALIDAD_CATS.reduce((acc, c) => acc + c[1].filter((s) => list.indexOf(s) < 0).length, 0);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 6, lineHeight: 1.5 } }, "Define las especialidades que ofrece tu cl\xEDnica. Se asignan a cada profesional en su ficha (secci\xF3n Especialidades)."), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginBottom: 18, lineHeight: 1.5, background: T.accentSoft || "rgba(84,112,127,.08)", border: "1px solid " + T.lineSoft, borderRadius: 8, padding: "9px 12px" } }, "\u{1F4A1} ", /* @__PURE__ */ React.createElement("b", { style: { color: T.textMute } }, "Toxina botul\xEDnica, \xC1cido hialur\xF3nico, Bioestimuladores\u2026"), " son ", /* @__PURE__ */ React.createElement("b", { style: { color: T.textMute } }, "procedimientos"), ", no especialidades: se administran en la pesta\xF1a ", /* @__PURE__ */ React.createElement("b", { style: { color: T.textMute } }, "Tratamientos"), "."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute } }, "Especialidades de tu cl\xEDnica"), list.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint } }, list.length)), list.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: luxF ? { ...DS.card(T), padding: "22px 20px", textAlign: "center" } : { background: T.surface, border: "1px dashed " + T.line, borderRadius: 10, padding: "22px 20px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5 } }, "A\xFAn no hay especialidades. Agr\xE9galas abajo desde las sugeridas o crea una propia.")) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: luxF ? 7 : 5 } }, list.map((e, ei) => {
+    const n = profCount(e);
+    const ec = window.jcmAvatarColor ? window.jcmAvatarColor(e) : T.accent;
+    return /* @__PURE__ */ React.createElement("div", { key: e, style: luxF ? { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", ...DS.card(T), ...DS.reveal(ei) } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line } }, luxF && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, width: 32, height: 32, borderRadius: 9, background: ec + "22", color: ec, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 14, fontWeight: 600 } }, (e || "?").trim()[0].toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, e), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: n === 0 ? T.textFaint : T.textMute, marginTop: 2 } }, n === 0 ? "Sin profesionales asignados" : n + " profesional" + (n === 1 ? "" : "es"))), /* @__PURE__ */ React.createElement("button", { onClick: () => del(e), title: "Eliminar", style: { flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }))));
+  })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, margin: "18px 0 8px" } }, "Agregar especialidad"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("input", { value: nueva, onChange: (e) => setNueva(e.target.value), onKeyDown: (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       add();
     }
-  }, placeholder: "Nueva especialidad\u2026", style: { flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" } }), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: add }, "+ Agregar")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Especialidades de tu cl\xEDnica"), list.length === 0 ? /* @__PURE__ */ React.createElement(Empty2, { T }, "A\xFAn no hay especialidades. Agrega la primera arriba.") : (() => {
-    const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" && jcdsLux());
-    return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: luxF ? 7 : 5 } }, list.map((e, ei) => {
-      const n = profCount(e);
-      const ec = window.jcmAvatarColor ? window.jcmAvatarColor(e) : T.accent;
-      return /* @__PURE__ */ React.createElement("div", { key: e, style: luxF ? { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", ...DS.card(T), ...DS.reveal(ei) } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line } }, luxF && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, width: 32, height: 32, borderRadius: 9, background: ec + "22", color: ec, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 14, fontWeight: 600 } }, (e || "?").trim()[0].toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text } }, e), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: n === 0 ? T.textFaint : T.textMute, marginTop: 2 } }, n === 0 ? "Sin profesionales asignados" : n + " profesional" + (n === 1 ? "" : "es"))), /* @__PURE__ */ React.createElement("button", { onClick: () => del(e), title: "Eliminar", style: { flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }))));
-    }));
-  })());
+  }, placeholder: "Nueva especialidad\u2026", style: { flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" } }), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: add }, "+ Agregar")), sugRestantes > 0 && /* @__PURE__ */ React.createElement("div", { style: luxF ? { ...DS.card(T), overflow: "hidden" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowSug((v) => !v), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text } }, "Agregar desde especialidades sugeridas"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint } }, sugRestantes, " disponibles"), /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "1.8", style: { flexShrink: 0, transform: showSug ? "rotate(180deg)" : "none", transition: "transform .2s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), showSug && /* @__PURE__ */ React.createElement("div", { style: { padding: "4px 16px 16px", borderTop: "1px solid " + T.lineSoft } }, ESPECIALIDAD_CATS.map(([cat, sugs]) => {
+    const pend = sugs.filter((s) => list.indexOf(s) < 0);
+    if (!pend.length) return null;
+    return /* @__PURE__ */ React.createElement("div", { key: cat, style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 7 } }, cat), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, pend.map((s) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: s,
+        onClick: () => {
+          const n = [...list, s];
+          setList(n);
+          saveEspecialidades(n);
+        },
+        style: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 11.5, padding: "7px 12px", borderRadius: DS.r.pill, cursor: "pointer", border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, transition: DS.trans("background,border-color") },
+        onMouseEnter: (e) => {
+          e.currentTarget.style.borderColor = T.accent + "88";
+          e.currentTarget.style.background = T.accent + "12";
+        },
+        onMouseLeave: (e) => {
+          e.currentTarget.style.borderColor = T.chipBorder;
+          e.currentTarget.style.background = T.chipBg;
+        }
+      },
+      /* @__PURE__ */ React.createElement("span", { style: { color: T.accent, fontWeight: 700, fontSize: 13, lineHeight: 1 } }, "+"),
+      s
+    ))));
+  }))));
 }
 function ServiciosView({ T }) {
   const D = window.JCDATA;
