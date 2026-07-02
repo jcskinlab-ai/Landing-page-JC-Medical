@@ -1104,7 +1104,8 @@ function AdminApp() {
     return () => clearInterval(id);
   }, []);
   const _T0 = JCTHEME[themeKey];
-  const T = Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" });
+  const _navyOverride = typeof isLosMedique === "function" && isLosMedique() ? _T0.dark ? { accent: "#7891A6", accentDeep: "#61798E", accentSoft: "rgba(120,145,166,.14)", gold: "#9AA6B2" } : { accent: "#5C7488", accentDeep: "#495F6D", accentSoft: "rgba(92,116,136,.12)", gold: "#8A929B" } : {};
+  const T = Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" }, _navyOverride);
   const D = window.JCDATA, A = window.JCADMIN;
   const _initRoute = panelParseRoute();
   const [section, setSection] = useState(_initRoute.section);

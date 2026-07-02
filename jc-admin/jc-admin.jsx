@@ -1340,7 +1340,20 @@ function AdminApp() {
   }, []);
   // Tipografía unificada para TODAS las clínicas: Fraunces como serif/itálica (cuerpo en Jost).
   const _T0 = JCTHEME[themeKey];
-  const T = Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" });
+  // Acento neutro global para Los Medique: el celeste vivo de los temas "azul"/"cielo" (T.accent
+  // #4FB0C6 / #2E7FB0, alcanzables con el toggle día/noche) se sentía saturado. Lo reemplazamos por
+  // un slate-azulado apagado — el MISMO que ya usaba el dashboard (navyAccent) — pero ahora a nivel
+  // de T, así se propaga a TODO el panel (eyebrows, iconos, pestañas, fechas, avatares, chips…) sin
+  // tocar pantalla por pantalla. Solo Los Medique; las demás clínicas conservan su acento del tema.
+  // Nota: en el tema claro "cielo" el token `gold` (usado en las reglas/eyebrows) también es celeste
+  // (mk() lo iguala al accent), así que lo neutralizamos a un plateado — si no, la línea del eyebrow
+  // "AGENDA DE LA CLÍNICA" seguiría saliendo celeste.
+  const _navyOverride = (typeof isLosMedique === "function" && isLosMedique())
+    ? (_T0.dark
+      ? { accent: "#7891A6", accentDeep: "#61798E", accentSoft: "rgba(120,145,166,.14)", gold: "#9AA6B2" }
+      : { accent: "#5C7488", accentDeep: "#495F6D", accentSoft: "rgba(92,116,136,.12)", gold: "#8A929B" })
+    : {};
+  const T = Object.assign({}, _T0, { serif: "'Fraunces', Georgia, serif", ital: "'Fraunces', Georgia, serif" }, _navyOverride);
   const D = window.JCDATA, A = window.JCADMIN;
 
   const _initRoute = panelParseRoute(); // sección/paciente inicial según la URL (/panel/<seccion>[/<id>])
