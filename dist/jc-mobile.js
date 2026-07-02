@@ -1,3 +1,19 @@
+var LOS_MEDIQUE_EMAIL = "makikarenina06@gmail.com";
+function isLosMedique() {
+  try {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
+    var owner = ((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).ownerEmail || "").toString().trim().toLowerCase();
+    var sess = window.JCSAAS.userEmail && window.JCSAAS.userEmail() || "";
+    return owner === LOS_MEDIQUE_EMAIL || sess === LOS_MEDIQUE_EMAIL;
+  } catch (e) {
+    return false;
+  }
+}
+function jcmMobileTheme(base) {
+  if (!isLosMedique()) return base;
+  var nav = base.dark ? { accent: "#7891A6", accentDeep: "#61798E", accentSoft: "rgba(120,145,166,.14)", gold: "#9AA6B2" } : { accent: "#5C7488", accentDeep: "#495F6D", accentSoft: "rgba(92,116,136,.12)", gold: "#8A929B" };
+  return Object.assign({}, base, nav);
+}
 const HALF_HOURS = (() => {
   const s = [];
   for (let h = 8; h < 20; h++) {
@@ -679,7 +695,7 @@ function NuevaTab({ T, D, appts, addAppt }) {
 }
 function MobileAdmin() {
   const TK = window.JCTHEME;
-  const T = TK && (TK.marfil || TK.cielo || TK.editorial) || {
+  const T = jcmMobileTheme(TK && (TK.marfil || TK.cielo || TK.editorial) || {
     bg: "#F5F2EC",
     surface: "#fff",
     text: "#1A1A14",
@@ -692,7 +708,7 @@ function MobileAdmin() {
     sans: "'Jost',sans-serif",
     serif: "'Marcellus',serif",
     navBg: "rgba(245,242,236,.96)"
-  };
+  });
   const D = window.JCDATA;
   const authed0 = !!(window.jcmAdminHasPass && window.jcmAdminHasPass() && window.jcmAdminHasSession && window.jcmAdminHasSession());
   const [authed, setAuthed] = useState(authed0);
@@ -707,7 +723,7 @@ function MobileAdmin() {
 }
 function MobileSaasGate() {
   const TK = window.JCTHEME;
-  const T = TK && (TK.marfil || TK.cielo || TK.editorial) || {
+  const T = jcmMobileTheme(TK && (TK.marfil || TK.cielo || TK.editorial) || {
     bg: "#F5F2EC",
     surface: "#fff",
     text: "#1A1A14",
@@ -720,7 +736,7 @@ function MobileSaasGate() {
     sans: "'Jost',sans-serif",
     serif: "'Marcellus',serif",
     navBg: "rgba(245,242,236,.96)"
-  };
+  });
   const D = window.JCDATA;
   const hasCachedSession = !!(window.JCSAAS && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId() && window.DB && (window.DB.get("appointments") || window.DB.get("patients")));
   const [phase, setPhase] = useState(hasCachedSession ? "app" : "loading");
