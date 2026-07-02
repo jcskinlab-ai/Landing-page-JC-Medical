@@ -141,14 +141,14 @@ const NAV_TOP_GROUPS = [
   { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
   // "Análisis" e "IA" se fusionan en un solo menú (a pedido del usuario).
   { l: "Análisis · IA", keys: ["resumen", "reportes", "desempeno", "agenteia", "copilot", "automatizaciones"] },
-  // Registro de Ventas (caja) entra a Gestión: es el módulo financiero junto a Pagos, Remuneraciones y Boletas.
-  { l: "Gestión", keys: ["caja", "pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
+  // Registro de Ventas (caja) vuelve a ser acceso directo (pinned), no dentro de Gestión (a pedido del usuario).
+  { l: "Gestión", keys: ["pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
   // Integraciones baja a Sistema (antes en "Herramientas", eliminado).
   { l: "Sistema", keys: ["administracion", "tutoriales", "config", "integraciones"] }
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (las de uso diario: agenda del día, pacientes,
 // recepción, pendientes urgentes y el vigilante IA). El resto vive agrupado en los desplegables.
-const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes"];
+const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja"];
 
 // Al anular una cita: avisar al paciente por correo que quedó cancelada (si tiene email y la cita es
 // de hoy o futura). Así el recordatorio previo queda "anulado" para el paciente. Best-effort, no bloquea.

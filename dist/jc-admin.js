@@ -169,12 +169,12 @@ const NAV_TOP_GROUPS = [
   { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
   // "Análisis" e "IA" se fusionan en un solo menú (a pedido del usuario).
   { l: "An\xE1lisis \xB7 IA", keys: ["resumen", "reportes", "desempeno", "agenteia", "copilot", "automatizaciones"] },
-  // Registro de Ventas (caja) entra a Gestión: es el módulo financiero junto a Pagos, Remuneraciones y Boletas.
-  { l: "Gesti\xF3n", keys: ["caja", "pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
+  // Registro de Ventas (caja) vuelve a ser acceso directo (pinned), no dentro de Gestión (a pedido del usuario).
+  { l: "Gesti\xF3n", keys: ["pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
   // Integraciones baja a Sistema (antes en "Herramientas", eliminado).
   { l: "Sistema", keys: ["administracion", "tutoriales", "config", "integraciones"] }
 ];
-const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes"];
+const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja"];
 function jcmCancelNotice(a) {
   try {
     if (!a || !window.mediqueEmail) return;
