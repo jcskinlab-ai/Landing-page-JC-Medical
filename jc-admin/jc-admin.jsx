@@ -490,6 +490,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
   // "lux" = rediseño editorial del dashboard, gateado a Los Medique (preview antes del push global).
   const lux = typeof isLosMedique === "function" && isLosMedique();
+  // Acento neutro (pedido explícito): el celeste vivo del tema "azul" (T.accent) se sentía muy
+  // saturado en la pastilla activa y las barras del embudo. Un slate-azulado apagado (misma
+  // familia que el panel navy "Facturaste este mes", no el texto celeste de esa tarjeta).
+  const navyAccent = lux ? (T.dark ? "#7891A6" : "#5C7488") : T.accent;
   const hoy = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada");
 // Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
@@ -627,10 +631,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
 
   function FunnelBlock() {
     const stages = [
-      { k: "Leads", n: funnel.leads, c: T.accent },
-      { k: "Mensajes recibidos", n: funnel.mensajes, c: T.accent },
-      { k: "Reservaron", n: funnel.reservas, c: T.accent },
-      { k: "Asistieron", n: funnel.asistieron, c: T.accent },
+      { k: "Leads", n: funnel.leads, c: navyAccent },
+      { k: "Mensajes recibidos", n: funnel.mensajes, c: navyAccent },
+      { k: "Reservaron", n: funnel.reservas, c: navyAccent },
+      { k: "Asistieron", n: funnel.asistieron, c: navyAccent },
       { k: "Vendidos", n: funnel.compras, c: green }
     ];
     const top = stages[0].n || 1;
@@ -1023,7 +1027,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       <div style={{ display: "flex", justifyContent: lux ? "flex-start" : "center", marginBottom: lux ? 18 : 22 }}>
         <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: 3 }}>
           {TABS.map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: lux ? 11.5 : 12.5, fontWeight: tab === k ? 600 : 500, padding: lux ? "7px 15px" : "8px 18px", borderRadius: 999, cursor: "pointer", border: "none", background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute, transition: "all .18s " + T.ease }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: lux ? 11.5 : 12.5, fontWeight: tab === k ? 600 : 500, padding: lux ? "7px 15px" : "8px 18px", borderRadius: 999, cursor: "pointer", border: "none", background: tab === k ? navyAccent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute, transition: "all .18s " + T.ease }}>{l}</button>
           ))}
         </div>
       </div>
