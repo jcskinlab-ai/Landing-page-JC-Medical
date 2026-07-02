@@ -1,6 +1,46 @@
 /* jcm_shared.js — JC Medical v2 · Módulo compartido (datos, auth, noticias, YouTube) */
 'use strict';
 
+// ── WhatsApp: en COMPUTADOR forzar WhatsApp WEB (web.whatsapp.com) en vez de abrir la app de
+// escritorio. Se reescriben al vuelo tanto los window.open(...) como los <a href> hacia wa.me /
+// api.whatsapp.com, sin tocar los ~15 sitios que generan links. En el TELÉFONO se deja wa.me
+// (abre la app nativa), detectado por el user-agent. ──
+(function () {
+  try {
+    var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+    // Helper público para construir el link directo a WhatsApp Web (computador) o app (móvil).
+    window.jcmWaUrl = function (phone, text) {
+      var num = ('' + (phone == null ? '' : phone)).replace(/\D/g, '');
+      var u = isMobile ? ('https://wa.me/' + num) : ('https://web.whatsapp.com/send?phone=' + num);
+      if (text) u += (isMobile ? '?text=' : '&text=') + encodeURIComponent(text);
+      return u;
+    };
+    if (isMobile) return; // en móvil no se reescribe nada (se abre la app)
+    function toWeb(url) {
+      if (!url || typeof url !== 'string') return url;
+      var m = url.match(/wa\.me\/(\d+)(?:\?text=([^&#]*))?/i);
+      if (m) { var u = 'https://web.whatsapp.com/send?phone=' + m[1]; if (m[2]) u += '&text=' + m[2]; return u; }
+      if (/api\.whatsapp\.com\/send/i.test(url)) return url.replace(/https?:\/\/api\.whatsapp\.com\/send/i, 'https://web.whatsapp.com/send');
+      return url;
+    }
+    var _open = window.open;
+    window.open = function (u, name, feat) { return _open.call(window, toWeb(u), name, feat); };
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('click', function (e) {
+        var t = e.target;
+        var a = (t && t.closest) ? t.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '';
+        if (/wa\.me\/|api\.whatsapp\.com\/send/i.test(href)) {
+          var web = toWeb(href);
+          if (web && web !== href) a.setAttribute('href', web);
+        }
+      }, true);
+    }
+  } catch (e) {}
+})();
+
 // ── CAPA DE DATOS (localStorage compartida entre app y admin) ──────────────
 const DB = {
   _k: k => 'jcm_' + k,
