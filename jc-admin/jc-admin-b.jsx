@@ -788,9 +788,13 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       </div>
 
       {/* barra de pestañas horizontal */}
-      <div className="jc-scroll" style={{ display: "flex", gap: 4, overflowX: "auto", borderBottom: "1px solid " + T.line, margin: "14px 0 18px" }}>
+      <div className="jc-scroll" style={luxF
+        ? { display: "flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3, margin: "22px 0 18px" }
+        : { display: "flex", gap: 4, overflowX: "auto", borderBottom: "1px solid " + T.line, margin: "14px 0 18px" }}>
         {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "11px 14px", background: "none", border: "none", borderBottom: "2px solid " + (tab === k ? T.accent : "transparent"), cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 400, color: tab === k ? T.text : T.textMute, whiteSpace: "nowrap" }}>
+          <button key={k} onClick={() => setTab(k)} style={luxF
+            ? { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", background: tab === k ? T.surface : "none", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", border: "none", borderRadius: DS.r.ctl, cursor: "pointer", fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: tab === k ? 600 : 500, color: tab === k ? T.text : T.textMute, whiteSpace: "nowrap", transition: DS.trans("background,box-shadow,color") }
+            : { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "11px 14px", background: "none", border: "none", borderBottom: "2px solid " + (tab === k ? T.accent : "transparent"), cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 400, color: tab === k ? T.text : T.textMute, whiteSpace: "nowrap" }}>
             {k === "ia" && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tab === k ? T.accent : T.textMute} strokeWidth="1.6"><rect x="4.5" y="8" width="15" height="10" rx="3" /><path d="M12 4.5V8" /><circle cx="12" cy="3.4" r="1.3" /></svg>}
             {l}
           </button>
@@ -808,12 +812,22 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       )}
       {tab === "fichaclinica" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
-            {[["Notas internas", patient.notes, "#C9A227"], ["Alergias", (window.clinVal ? window.clinVal(patient.clinica || {}, "alergias") : (patient.clinica || {}).alergias), "#1F8A5B"], ["Antecedentes", (window.clinVal ? window.clinVal(patient.clinica || {}, "morbidos") : (patient.clinica || {}).morbidos), T.accent]].map(([l, v, c]) => (
-              <div key={l} style={{ background: T.surface, border: "1px solid " + T.line, borderLeft: "3px solid " + c, borderRadius: 8, padding: "12px 14px" }}>
-                <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>{l}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 12, color: v ? T.text : T.textFaint, lineHeight: 1.5 }}>{v || "Sin registros."}</div>
-              </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: luxF ? 12 : 10, marginBottom: luxF ? 20 : 16 }}>
+            {[["Notas internas", patient.notes, "#C9A227"], ["Alergias", (window.clinVal ? window.clinVal(patient.clinica || {}, "alergias") : (patient.clinica || {}).alergias), "#1F8A5B"], ["Antecedentes", (window.clinVal ? window.clinVal(patient.clinica || {}, "morbidos") : (patient.clinica || {}).morbidos), T.accent]].map(([l, v, c], i) => (
+              luxF ? (
+                <div key={l} style={{ ...DS.card(T), padding: "14px 16px", ...DS.reveal(i) }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: 999, background: c, flexShrink: 0 }} />
+                    <span style={{ fontFamily: T.sans, fontSize: DS.ft.eyebrow, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</span>
+                  </div>
+                  <div style={{ fontFamily: T.sans, fontSize: DS.ft.sub, color: v ? T.text : T.textFaint, lineHeight: 1.5 }}>{v || "Sin registros."}</div>
+                </div>
+              ) : (
+                <div key={l} style={{ background: T.surface, border: "1px solid " + T.line, borderLeft: "3px solid " + c, borderRadius: 8, padding: "12px 14px" }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>{l}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 12, color: v ? T.text : T.textFaint, lineHeight: 1.5 }}>{v || "Sin registros."}</div>
+                </div>
+              )
             ))}
           </div>
           <FichaClinicaForm T={T} patient={patient} updatePatient={updatePatient} />
@@ -829,16 +843,20 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
 
       {tab === "procedimientos" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Historial clínico</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: luxF ? 16 : 12 }}>
+            <div style={luxF ? DS.text(T, "eyebrow") : { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Historial clínico</div>
             <AdBtn T={T} small primary onClick={() => { setEditIdx(null); setViewMode(false); setNewEntry(true); }}>+ Sesión</AdBtn>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {(patient.history || []).map((h, i) => {
               const meta = [h.lote && ("Lote " + h.lote), h.venc && ("Vence " + h.venc), h.temp && ("Temp. " + h.temp), h.dilucion && ("Dilución " + h.dilucion)].filter(Boolean);
               return (
-              <div key={i} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid " + T.lineSoft }}>
-                <div style={{ flexShrink: 0, width: 66, fontFamily: T.sans, fontSize: 11, color: T.accent }}>{h.date}</div>
+              <div key={i} style={luxF
+                ? { display: "flex", gap: 14, padding: "14px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background") }
+                : { display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid " + T.lineSoft }}
+                onMouseEnter={luxF ? e => { e.currentTarget.style.background = T.surface2 || T.surface; } : undefined}
+                onMouseLeave={luxF ? e => { e.currentTarget.style.background = "none"; } : undefined}>
+                <div style={{ flexShrink: 0, width: 66, fontFamily: luxF ? T.serif : T.sans, fontSize: luxF ? 13 : 11, color: T.accent }}>{h.date}</div>
                 <div onClick={() => { setEditIdx(i); setViewMode(true); setNewEntry(true); }} style={{ flex: 1, borderLeft: "1px solid " + T.line, paddingLeft: 14, cursor: "pointer" }} title="Ver detalle de la sesión">
                   <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{h.proc} {h.units && <span style={{ color: T.accent, fontWeight: 400 }}>· {h.units}</span>}</div>
                   {meta.length > 0 && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 3 }}>{meta.join("  ·  ")}</div>}
