@@ -1727,6 +1727,135 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   const maxw = Math.max(1, week[0], week[1], week[2], week[3], week[4], week[5], week[6]);
   const sinCons = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
   const greet = now.getHours() < 13 ? "Buenos días" : now.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
+
+  // ─────────── Dashboard REDISEÑADO (gateado a Los Medique · preview antes del push global) ───────────
+  // Reutiliza exactamente los mismos datos/handlers ya calculados arriba; solo cambia el layout.
+  if (typeof isLosMedique === "function" && isLosMedique()) {
+    const fechaLarga = now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+    const kpis = [
+      { l: "Citas hoy", v: hoy.length, c: T.accent, onClick: () => go("agenda") },
+      { l: "Citas · semana", v: wkCitas, c: T.text, onClick: () => setResModal("citas") },
+      { l: "Cobrado · semana", v: D.fmt(wkMonto), c: "#1F8A5B", small: true },
+      { l: "Consent. pendientes", v: sinCons.length, c: sinCons.length ? "#C0285A" : T.textMute, onClick: () => setResModal("consent") }
+    ];
+    const rule = <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent, verticalAlign: "middle" }} />;
+    const eyebrow = { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent };
+    const cardBase = { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow };
+    const listRow = (a, showDay) => (
+      <button key={a.id} onClick={() => setEdit(a)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 4px", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer", textAlign: "left", width: "100%", transition: "background .18s " + T.ease }}
+        onMouseEnter={e => e.currentTarget.style.background = T.lineSoft} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+        <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
+          <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>{a.time}</div>
+          {showDay && <div style={{ fontFamily: T.sans, fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginTop: 4 }}>{apptDayOff(a) === 0 ? "Hoy" : "Mañana"}</div>}
+        </div>
+        <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 14 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.proc || "—"}</div>
+        </div>
+        <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 999, color: a.status === "confirmada" ? "#1F8A5B" : T.textMute, border: "1px solid " + (a.status === "confirmada" ? "#1F8A5B55" : T.line) }}>{a.status === "confirmada" ? "Confirmada" : "Pendiente"}</span>
+      </button>
+    );
+    return (
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+        {/* Hero editorial */}
+        <div style={{ marginBottom: 26 }}>
+          <div style={eyebrow}>{rule} &nbsp; {greet}, {clinicDisplayName()}</div>
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: 40, letterSpacing: "-.015em", color: T.text, marginTop: 12, lineHeight: 1.02, textTransform: "capitalize" }}>{fechaLarga}</h1>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{wkCitas} {wkCitas === 1 ? "cita" : "citas"} esta semana{wkMonto > 0 ? " · " + D.fmt(wkMonto) + " cobrado" : ""}</div>
+        </div>
+
+        {/* KPIs */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14, marginBottom: 26 }}>
+          {kpis.map((k, i) => (
+            <div key={i} onClick={k.onClick} style={{ ...cardBase, padding: "20px 22px", cursor: k.onClick ? "pointer" : "default", transition: "transform .2s " + T.ease + ", border-color .2s" }}
+              onMouseEnter={e => { if (k.onClick) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = T.accent + "66"; } }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; }}>
+              <div style={{ ...eyebrow, fontSize: 9, letterSpacing: ".16em", color: T.textMute }}>{k.l}</div>
+              <div style={{ fontFamily: T.serif, fontWeight: 400, fontSize: k.small ? 26 : 40, color: k.c, lineHeight: 1.05, marginTop: 10 }}>{k.v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Dos columnas: Hoy + Próximas / Meta */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 18, alignItems: "start" }}>
+          <div style={{ ...cardBase, padding: "20px 22px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={eyebrow}>Agenda de hoy</div>
+              <button onClick={() => go("agenda")} style={{ ...linkBtn(T), fontSize: 10 }}>Ver agenda →</button>
+            </div>
+            {hoy.length ? hoy.map(a => listRow(a, false)) : <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "14px 0" }}>Sin citas hoy. Disfruta la calma o agenda una nueva.</div>}
+            {next3.length > 0 && <>
+              <div style={{ ...eyebrow, marginTop: 20, marginBottom: 10 }}>Próximas citas</div>
+              {next3.map(a => listRow(a, true))}
+            </>}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {/* Ritmo semanal */}
+            <div style={{ ...cardBase, padding: "20px 22px" }}>
+              <div style={{ ...eyebrow, marginBottom: 16 }}>Ritmo de la semana</div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 9, height: 92 }}>
+                {week.map((v, i) => (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: "100%", maxWidth: 30, height: (v / maxw * 66 + 4) + "px", background: i === _todayIdx ? T.accent : (T.dark ? "rgba(242,237,230,.16)" : "rgba(20,20,15,.12)"), borderRadius: 6, transition: "height .3s " + T.ease }} title={v + " cita" + (v === 1 ? "" : "s")} />
+                    <span style={{ fontFamily: T.sans, fontSize: 9.5, color: i === _todayIdx ? T.accent : T.textMute, fontWeight: i === _todayIdx ? 600 : 400 }}>{wd[i]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Meta Ads compacto */}
+            <div style={{ ...cardBase, padding: "20px 22px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={eyebrow}>Meta · Anuncios</div>
+                <button onClick={() => go("marketing")} style={{ ...linkBtn(T), fontSize: 10 }}>Marketing →</button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <span style={{ width: 30, height: 30, borderRadius: 8, background: "#1877F2", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 17 }}>f</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>{camps.filter(c => c.active).length} campañas activas</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 10, color: metaConn ? "#1F8A5B" : T.textMute, marginTop: 2 }}>{metaConn ? "● Conectado" : "Sin conectar"}</div>
+                </div>
+                <button onClick={() => go("integraciones")} style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", padding: "7px 12px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", background: metaConn ? "transparent" : "#1877F2", color: metaConn ? "#1F8A5B" : "#fff", border: metaConn ? "1px solid #1F8A5B" : "none" }}>{metaConn ? "Administrar" : "Conectar"}</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                {[[( reach / 1000).toFixed(1) + "k", "Alcance"], [leads, "Leads"], [D.fmt(spend), "Inversión"]].map(([n, l], i) => (
+                  <div key={i} style={{ textAlign: "center", padding: "12px 6px", borderRadius: 10, background: T.dark ? "rgba(242,237,230,.03)" : "rgba(20,20,15,.02)", border: "1px solid " + T.lineSoft }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 20, color: T.text }}>{n}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginTop: 3 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Modales reutilizados (detalle de citas/consent, edición) */}
+        {resModal && (() => {
+          const cfg = {
+            pacientes: { title: "Pacientes", rows: patients.map(p => ({ k: p.id, a: p.name, b: p.rut || p.phone || "" })) },
+            citas: { title: "Citas de la semana", rows: wkAppts.slice().sort((a, b) => apptDayOff(a) - apptDayOff(b) || (a.time || "").localeCompare(b.time || "")).map(a => ({ k: a.id, a: a.name, b: (apptDayOff(a) === 0 ? "Hoy " : "") + (a.time || "") + " · " + (a.proc || "") })) },
+            consent: { title: "Consentimientos pendientes", rows: sinCons.map(p => ({ k: p.id, a: p.name, b: (p.tags && p.tags[0]) || "Paciente" })) }
+          }[resModal];
+          return (
+            <AdModal T={T} title={cfg.title + " (" + cfg.rows.length + ")"} onClose={() => setResModal(null)} footer={<AdBtn T={T} primary full onClick={() => { setResModal(null); go(resModal === "citas" ? "agenda" : resModal === "consent" ? "pendientes" : "pacientes"); }}>Ir a la sección</AdBtn>}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {cfg.rows.length ? cfg.rows.map(r => (
+                  <div key={r.k} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 2px", borderBottom: "1px solid " + T.lineSoft }}>
+                    <Avatar T={T} name={r.a} size={36} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{r.a}</div>
+                      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{r.b}</div>
+                    </div>
+                  </div>
+                )) : <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "16px 0" }}>Sin registros.</div>}
+              </div>
+            </AdModal>
+          );
+        })()}
+        {edit && <CitaEditModal T={T} appt={edit} patients={patients} onClose={() => setEdit(null)} onSave={(patch) => { updateAppt(edit.id, patch); setEdit(null); }} onCancel={() => { removeAppt(edit.id); setEdit(null); }} />}
+      </div>
+    );
+  }
   return (
     <div>
       <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent }}>{greet}, {clinicDisplayName()}</div>
