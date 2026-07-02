@@ -183,7 +183,9 @@
     // fill-mode "backwards": oculta durante el delay del stagger, pero al terminar SUELTA el
     // control del transform → el hover-lift (transform inline) vuelve a funcionar. (con "both"
     // la animación retenía transform:none y pisaba el hover de las tarjetas KPI).
-    reveal: function (i) { return { animation: "jcReveal .5s cubic-bezier(.22,1,.36,1) backwards", animationDelay: ((i || 0) * 55) + "ms" }; }
+    // Duración/stagger recortados (180ms, 20ms, tope 8 items): en software de gestión el usuario
+    // entra a trabajar, no a mirar una intro — que se sienta instantáneo, no coreografiado.
+    reveal: function (i) { return { animation: "jcReveal .18s cubic-bezier(.22,1,.36,1) backwards", animationDelay: (Math.min(i || 0, 8) * 20) + "ms" }; }
   };
   window.JCDS = DS;
   // Keyframes del skeleton + foco visible global por teclado (una sola vez).
