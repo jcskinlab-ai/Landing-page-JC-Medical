@@ -148,9 +148,9 @@ function isLosMedique() {
     return owner === LOS_MEDIQUE_EMAIL || sess === LOS_MEDIQUE_EMAIL;
   } catch (e) { return false; }
 }
-// Gate de la SUITE NUEVA (N1–N10): solo Los Medique (o modo local) hasta el push global.
-// Se expone para gatear también features dentro de la ficha (presupuesto, esquema facial, vademécum).
-function jcmNewFeat() { return !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique(); }
+// Suite N1–N10 (presupuesto, esquema facial, vademécum, panel Atenciones, etc.): YA liberada para
+// TODAS las clínicas (antes era beta solo para Los Medique). Push global.
+function jcmNewFeat() { return true; }
 if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
 // Secciones NUEVAS del backlog: en SaaS solo visibles para Los Medique; en modo local, siempre (para probar).
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
@@ -181,8 +181,10 @@ function adminNavItems() {
       Object.keys(PERM_NAV).forEach(function (p) { if (perms[p]) PERM_NAV[p].forEach(function (k) { allowed[k] = 1; }); });
     }
   } catch (e) { allowed = null; }
-  // Suite nueva: solo Los Medique (o modo local) hasta el push global.
-  var newBeta = !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
+  // Suite nueva (Notas IA, Reportes IA, Contraloría, Desempeño, Encuestas, Chat interno, Pagos y
+  // Gastos, Remuneraciones, Laboratorios, Convenios, Flujo de caja, Boletas, Pagos online): YA
+  // liberada para TODAS las clínicas (antes era beta solo para Los Medique). Push global.
+  var newBeta = true;
   return ADMIN_NAV.filter(function (n) {
     if (n.k === "appjcm" && !showJcApp) return false;
     if (ADMIN_BETA_SECTIONS[n.k] && !beta) return false;

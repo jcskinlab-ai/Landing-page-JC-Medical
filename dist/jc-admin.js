@@ -192,7 +192,7 @@ function isLosMedique() {
   }
 }
 function jcmNewFeat() {
-  return !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
+  return true;
 }
 if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
 var ADMIN_BETA_SECTIONS = { sucursales: 1, crm: 1, difusiones: 1, copilot: 1, consentimientos: 1, fichaeditor: 1, tutoriales: 1 };
@@ -223,7 +223,7 @@ function adminNavItems() {
   } catch (e) {
     allowed = null;
   }
-  var newBeta = !(window.JCSAAS && window.JCSAAS.enabled) || isLosMedique();
+  var newBeta = true;
   return ADMIN_NAV.filter(function(n) {
     if (n.k === "appjcm" && !showJcApp) return false;
     if (ADMIN_BETA_SECTIONS[n.k] && !beta) return false;
