@@ -230,19 +230,24 @@ function EspecialidadesTab({ T }) {
         <AdBtn T={T} primary onClick={add}>+ Agregar</AdBtn>
       </div>
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Especialidades de tu clínica</div>
-      {list.length === 0 ? <Empty2 T={T}>Aún no hay especialidades. Agrega la primera arriba.</Empty2> : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          {list.map(e => { const n = profCount(e); return (
-            <div key={e} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
+      {list.length === 0 ? <Empty2 T={T}>Aún no hay especialidades. Agrega la primera arriba.</Empty2> : (() => {
+        const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" && jcdsLux());
+        return (
+        <div style={{ display: "flex", flexDirection: "column", gap: luxF ? 7 : 5 }}>
+          {list.map((e, ei) => { const n = profCount(e); const ec = window.jcmAvatarColor ? window.jcmAvatarColor(e) : T.accent; return (
+            <div key={e} style={luxF ? { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", ...DS.card(T), ...DS.reveal(ei) } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
+              {/* Ícono/monograma con color por especialidad → deja de ser una lista de texto plano. */}
+              {luxF && <span style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 9, background: ec + "22", color: ec, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 14, fontWeight: 600 }}>{(e || "?").trim()[0].toUpperCase()}</span>}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{e}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{n === 0 ? "Sin profesionales asignados" : n + " profesional" + (n === 1 ? "" : "es")}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: n === 0 ? T.textFaint : T.textMute, marginTop: 2 }}>{n === 0 ? "Sin profesionales asignados" : n + " profesional" + (n === 1 ? "" : "es")}</div>
               </div>
               <button onClick={() => del(e)} title="Eliminar" style={{ flexShrink: 0, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: T.textFaint, display: "flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
             </div>
           ); })}
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -3517,10 +3522,7 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
   // Consentimientos firmados hace más de 1 año → sugerir renovación
   const oneYear = Date.now() - 365 * 24 * 3600 * 1000;
   const porRenovar = patients.filter(p => p.consent && p.consentTs && p.consentTs < oneYear);
-  const waMsgs = [];
-  const bizC = [];
-  const segs = [];
-  const otrosPend = sinConsent.length + recitas.length + porRenovar.length + waMsgs.length + bizC.length + segs.length;
+  const otrosPend = sinConsent.length + recitas.length + porRenovar.length;
   const totalPend = tPend.length + otrosPend;
   return (
     <div>
@@ -3559,18 +3561,10 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient }) {
         {recitas.map(({ p, r }) => <PendRow key={p.id} T={T} name={p.name} desc={r.motivo + " · " + r.precioFmt + " → " + r.descFmt} action="WhatsApp" href={window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""))} />)}
         {!recitas.length && <Empty2 T={T}>Sin re-citas por contactar hoy.</Empty2>}
       </Group>
-      <Group T={T} title={"Mensajes de WhatsApp por responder (" + waMsgs.length + ")"}>
-        {waMsgs.map(m => <PendRow key={m.id} T={T} name={m.name} desc={'"' + m.msg + '" · ' + m.ago} action="Responder" href={"https://wa.me/" + D.wa} />)}
-        {!waMsgs.length && <Empty2 T={T}>Bandeja al día.</Empty2>}
-      </Group>
-      <Group T={T} title={"Comentarios en Business Manager (" + bizC.length + ")"}>
-        {bizC.map(c => <PendRow key={c.id} T={T} name={c.name + " · " + c.net} desc={'"' + c.msg + '" · ' + c.ago} action="Responder" href="https://business.facebook.com/latest/inbox" />)}
-        {!bizC.length && <Empty2 T={T}>Sin comentarios pendientes.</Empty2>}
-      </Group>
-      <Group T={T} title={"Seguimientos (" + segs.length + ")"}>
-        {segs.map(r => <PendRow key={r.id} T={T} name={r.name} desc={r.type + " · " + r.due} action="WhatsApp" href={"https://wa.me/" + D.wa} />)}
-        {!segs.length && <Empty2 T={T}>Sin seguimientos pendientes.</Empty2>}
-      </Group>
+      {/* Se quitaron las secciones "Mensajes de WhatsApp por responder", "Comentarios en Business
+          Manager" y "Seguimientos": eran listas SIEMPRE vacías (hardcodeadas a []), nunca se
+          poblaban, y solo agregaban ruido de secciones permanentemente vacías. Prefiere eliminar
+          antes que mostrar bandejas muertas. */}
     </div>
   );
 }
@@ -5726,10 +5720,11 @@ function ContraloriaView({ T, patients, appts, openP, goApt, go }) {
       <IAHero T={T} color="#8B5CF6" title="Control de calidad continuo" sub="Verificación automática de registros · alertas de inconsistencias · control de calidad continuo." icon={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>} />
       {ok ? <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid #1F8A5B44", borderRadius: 12, padding: "24px", textAlign: "center", maxWidth: 760 }}><div style={{ fontFamily: T.serif, fontSize: 19, color: "#1F8A5B" }}>✓ Todo en orden</div><div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, marginTop: 6 }}>No se detectaron inconsistencias en los registros.</div></div>
         : <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 780 }}>{alertas.map((a, i) => (
-            <div key={i} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 14, ...window.JCDS.card(T), borderLeft: "4px solid " + a.c, padding: "14px 16px" } : { display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderLeft: "4px solid " + a.c, borderRadius: 10, padding: "14px 16px" }}>
+            <div key={i} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 14, ...window.JCDS.card(T), borderLeft: "4px solid " + a.c, padding: "14px 16px", ...window.JCDS.reveal(i) } : { display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderLeft: "4px solid " + a.c, borderRadius: 10, padding: "14px 16px" }}>
               <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: a.c + "1c", color: a.c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 600 }}>{a.n}</span>
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{a.t}</div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 }}>{a.d}</div></div>
-              <button onClick={() => revisar(a)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}>Revisar →</button>
+              {/* Botón "Revisar" tintado con el color de la alerta → refuerza la severidad de un vistazo. */}
+              <button onClick={() => revisar(a)} style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: a.c, background: a.c + "16", border: "1px solid " + a.c + "44", borderRadius: 8, padding: "8px 13px", cursor: "pointer" }}>Revisar →</button>
             </div>))}</div>}
       {openAlert && (
         <AdModal T={T} title={openAlert.t + " (" + openAlert.n + ")"} onClose={() => setOpenAlert(null)}>

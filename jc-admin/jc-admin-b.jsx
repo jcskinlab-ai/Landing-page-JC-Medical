@@ -529,15 +529,20 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
           <div style={{ width: 44, flexShrink: 0 }} />
           <div style={{ width: 210, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Paciente · {list.length}</div>
           <div style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Contacto</div>
-          <div style={{ width: 108, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Estado</div>
+          <div style={{ width: 158, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Procedimiento</div>
           <div style={{ width: 92, flexShrink: 0, textAlign: "right", fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>{filt === "recientes" ? "Visto" : "Última cita"}</div>
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {list.map((p, pi) => {
           const m = meta(p);
-          // Estado del paciente como chip con color → cada fila deja de verse idéntica.
-          const estadoChip = m.comp ? <AdTag T={T} tone="ok">Cliente</AdTag> : m.ag ? <AdTag T={T}>Agendado</AdTag> : <AdTag T={T} tone="muted">Interesado</AdTag>;
+          // Último procedimiento realizado (el más reciente del historial). Si aún no tiene ninguno,
+          // se cae al estado del embudo (Agendado / Interesado) para no dejar la celda vacía.
+          const _hist = p.history || [];
+          const lastProc = _hist.length ? ((_hist.slice().sort((a, b) => ("" + (b.date || "")).localeCompare("" + (a.date || "")))[0] || {}).proc || "") : "";
+          const procChip = lastProc
+            ? <span title={lastProc} style={{ display: "inline-flex", alignItems: "center", maxWidth: "100%", fontFamily: T.sans, fontSize: 10.5, fontWeight: 500, color: T.accent, background: T.chipBg, border: "1px solid " + T.chipBorder, borderRadius: DS.r.pill, padding: "3px 9px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{lastProc}</span>
+            : (m.ag ? <AdTag T={T}>Agendado</AdTag> : <AdTag T={T} tone="muted">Interesado</AdTag>);
           const icoPhone = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" /></svg>;
           const icoMail = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>;
           if (luxF) return (
@@ -555,8 +560,8 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
                 {p.email && <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, color: T.textMute, minWidth: 0 }}>{icoMail}<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span></span>}
                 {!p.phone && !p.email && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, fontStyle: "italic" }}>Sin contacto</span>}
               </div>
-              <div style={{ width: 108, flexShrink: 0, display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {estadoChip}
+              <div style={{ width: 158, flexShrink: 0, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {procChip}
                 {!p.consent && <AdTag T={T} tone="warn">Consent.</AdTag>}
               </div>
               <div style={{ width: 92, flexShrink: 0, textAlign: "right" }}>
