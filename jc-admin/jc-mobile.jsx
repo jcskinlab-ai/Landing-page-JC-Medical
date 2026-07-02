@@ -831,8 +831,21 @@ function MobileSaasGate() {
     window.DB && (window.DB.get("appointments") || window.DB.get("patients"))
   );
   const [phase, setPhase] = useState(hasCachedSession ? "app" : "loading");
+  const [view, setView] = useState("login"); // login | recover
   const [email, setEmail] = useState(""); const [pass, setPass] = useState("");
-  const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(""); const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  // Mismo mapeo de errores de Firebase que el panel (jc-admin.jsx authMsg), en vez del genérico
+  // "Correo o contraseña incorrectos" para TODO error — así se distingue una clave mala de un
+  // problema real (sin conexión, demasiados intentos, etc.).
+  function authMsgM(e) {
+    const c = (e && e.code) || "";
+    if (c.indexOf("invalid-credential") >= 0 || c.indexOf("wrong-password") >= 0 || c.indexOf("user-not-found") >= 0) return "Correo o contraseña incorrectos.";
+    if (c.indexOf("invalid-email") >= 0) return "El correo no es válido.";
+    if (c.indexOf("too-many-requests") >= 0) return "Demasiados intentos. Espera unos minutos.";
+    if (c.indexOf("network") >= 0) return "Sin conexión. Revisa tu internet.";
+    if (c.indexOf("configuration-not-found") >= 0) return "Falta habilitar Correo/contraseña en Firebase.";
+    return "No se pudo entrar. Intenta nuevamente.";
+  }
 
   useEffect(() => {
     window.JCSAAS.onAuth(p => {
@@ -855,7 +868,14 @@ function MobileSaasGate() {
     if (!email.trim() || !pass) return;
     setErr(""); setBusy(true);
     try { await window.JCSAAS.login(email, pass); setBusy(false); }
-    catch (e) { setErr("Correo o contraseña incorrectos."); setBusy(false); }
+    catch (e) { console.error("[Medique] Error de login (móvil):", e); setErr(authMsgM(e)); setBusy(false); }
+  }
+  async function doRecover() {
+    if (!email.trim()) return;
+    setErr(""); setMsg(""); setBusy(true);
+    try { await window.JCSAAS.resetPassword(email); setMsg("Te enviamos un correo para restablecer tu contraseña."); }
+    catch (e) { console.error("[Medique] Error al recuperar contraseña (móvil):", e); setErr(authMsgM(e)); }
+    setBusy(false);
   }
 
   if (phase === "app") return <MobileShell T={T} D={D} onLogout={() => window.JCSAAS.logout()} />;
@@ -877,6 +897,18 @@ function MobileSaasGate() {
     <button onClick={()=>window.JCSAAS.logout()} style={{ background:"none", border:"1px solid "+T.line, color:T.text, fontFamily:T.sans, fontSize:12, borderRadius:6, padding:"12px 18px", cursor:"pointer" }}>Cerrar sesión</button>
   </>);
 
+  if (view === "recover") return center(<>
+    <div style={{ fontFamily:T.serif, fontSize:32, fontWeight:300, color:T.text, marginBottom:6 }}>Recuperar contraseña</div>
+    <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, textAlign:"center", maxWidth:300, marginBottom:32, lineHeight:1.5 }}>Te enviaremos un enlace a tu correo para restablecerla.</div>
+    <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
+      <input placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRecover()} style={inp} />
+      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#C0285A", textAlign:"center" }}>{err}</div>}
+      {msg && <div style={{ fontFamily:T.sans, fontSize:12, color:"#1F8A5B", textAlign:"center" }}>{msg}</div>}
+      <button onClick={doRecover} disabled={busy||!email.trim()} style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"16px", cursor:"pointer", opacity:(busy||!email.trim())?.6:1, marginTop:4 }}>{busy?"Enviando…":"Enviar enlace"}</button>
+      <button onClick={()=>{ setView("login"); setErr(""); setMsg(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:T.accent, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 }}>← Volver</button>
+    </div>
+  </>);
+
   return center(<>
     <div style={{ fontFamily:T.serif, fontSize:32, fontWeight:300, color:T.text, marginBottom:6 }}>Confirmar citas</div>
     <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:T.textMute, marginBottom:44 }}>Panel móvil · Acceso de tu clínica</div>
@@ -885,6 +917,7 @@ function MobileSaasGate() {
       <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={inp} />
       {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#C0285A", textAlign:"center" }}>{err}</div>}
       <button onClick={doLogin} disabled={busy} style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"16px", cursor:"pointer", opacity:busy?.6:1, marginTop:4 }}>{busy?"…":"Entrar"}</button>
+      <button onClick={()=>{ setView("recover"); setErr(""); setMsg(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:T.accent, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 }}>¿Olvidaste tu contraseña?</button>
     </div>
   </>);
 }
