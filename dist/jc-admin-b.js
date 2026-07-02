@@ -745,7 +745,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   function savePoints(pts) {
     updatePatient(patient.id, { points: pts });
   }
-  function imprimirFicha() {
+  async function imprimirFicha() {
     const c = patient.clinica || {};
     const cv = (k) => window.clinVal ? window.clinVal(c, k) : c[k] || "";
     const hist = patient.history || [];
@@ -753,8 +753,35 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     const b = jcmDocBrand((hist.find((h) => h.proName) || {}).proName);
     const hoy = (/* @__PURE__ */ new Date()).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const drow = (k, v, tag) => "<div class='drow'><span class='dk'>" + k + "</span><span class='dv" + (tag ? " tag" : "") + "'>" + (v ? e(v) : "\u2014") + "</span></div>";
+    const textBlock = (label, v) => "<div class='dfull' style='flex-direction:column;align-items:stretch;gap:5px'><span class='dk'>" + label + "</span><div class='textbox' style='min-height:0;margin-top:0'>" + (v ? e(v) : "\u2014") + "</div></div>";
     const sesion = (h) => "<div class='dfull' style='flex-direction:column;align-items:stretch;gap:5px'><div style='display:flex;justify-content:space-between;gap:14px;align-items:baseline'><span class='dk'>" + e(h.date || "") + "</span><span class='dv' style='font-weight:400'>" + e(h.proc || "") + (h.units ? " \xB7 " + e(h.units) : "") + "</span></div>" + (h.resumen ? "<div class='textbox' style='min-height:0;margin-top:0'>" + e(h.resumen) + "</div>" : "") + (h.proName ? `<div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:#8B9197">Realizado por ` + e(h.proName) + "</div>" : "") + "</div>";
-    const inner = jcmMasthead(b) + "<div class='titleblock'><div><div class='eyebrow'>Documento cl\xEDnico</div><h1 class='doc-title'>Ficha <span class='it'>cl\xEDnica</span></h1></div><div class='folio'><span class='k'>Expediente</span><span class='v'>" + (e((patient.id || "").replace(/[^a-z0-9]/gi, "").slice(-8).toUpperCase()) || "\u2014") + "</span></div></div>" + jcmPband(patient, [["RUT", patient.rut], ["Edad", patient.age ? patient.age + " a\xF1os" : ""], ["Tel\xE9fono", patient.phone]], patient.estado || "Activo") + "<div class='body'><div class='section'><div class='section-head'><span class='sh-num'>i</span><span class='sh-label'>Antecedentes</span><span class='sh-rule'></span></div><div class='dgrid'>" + drow("Alergias", cv("alergias")) + drow("Antecedentes m\xF3rbidos", cv("morbidos")) + drow("Proc. est\xE9ticos previos", cv("esteticos"), true) + drow("Antecedentes quir\xFArgicos", cv("quirurgicos") || c.cirugias) + drow("Medicamentos", cv("medicamentos")) + drow("Correo", patient.email) + "</div></div><div class='section'><div class='section-head'><span class='sh-num'>ii</span><span class='sh-label'>H\xE1bitos y piel</span><span class='sh-rule'></span></div><div class='dgrid cols3'>" + drow("Tabaco", c.tabaco ? c.tabaco + " cig/d\xEDa" : "") + drow("Alcohol", c.alcohol) + drow("Actividad f\xEDsica", c.actividad) + drow("Consumo de agua", c.agua) + drow("Exposici\xF3n solar", c.expsolar) + drow("Bloqueador", c.bloqueador) + drow("Embarazo / lactancia", c.embarazo) + "</div><div class='dfull'><span class='dk'>Cuidados de la piel</span><span class='dv'>" + (cv("skincare") ? e(cv("skincare")) : "\u2014") + "</span></div></div>" + (patient.notes ? "<div class='section'><div class='section-head'><span class='sh-label'>Notas internas</span><span class='sh-rule'></span></div><div class='textbox'>" + e(patient.notes) + "</div></div>" : "") + "<div class='section'><div class='section-head'><span class='sh-num'>iii</span><span class='sh-label'>Historial de sesiones</span><span class='sh-rule'></span></div>" + (hist.length ? hist.map(sesion).join("") : "<div class='empty-note'>Sin sesiones registradas a la fecha.</div>") + "</div></div>" + jcmSignFoot(b, b.proName, "Ficha cl\xEDnica", patient.name, hoy);
+    const _pk = parseFloat(c.peso), _tm = parseFloat(c.talla) / 100;
+    const imcTxt = _pk && _tm ? (_pk / (_tm * _tm)).toFixed(1) : "";
+    let _n = 0;
+    const _R = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"];
+    const N = () => _R[_n++] || String(_n);
+    const secHead = (label) => "<div class='section-head'><span class='sh-num'>" + N() + "</span><span class='sh-label'>" + label + "</span><span class='sh-rule'></span></div>";
+    const consList = (typeof patConsents === "function" ? patConsents(patient) : patient.consents || []) || [];
+    let incluirConsent = false;
+    if (consList.length || patient.consent) {
+      const ask = window.jcmConfirm || window.confirm;
+      incluirConsent = await ask("\xBFIncluir tambi\xE9n el detalle de los consentimientos firmados en la impresi\xF3n de la ficha?");
+    }
+    let body = "";
+    body += "<div class='section'>" + secHead("Antecedentes") + "<div class='dgrid'>" + drow("Alergias", cv("alergias")) + drow("Antecedentes m\xF3rbidos", cv("morbidos")) + drow("Proc. est\xE9ticos previos", cv("esteticos"), true) + drow("Antecedentes quir\xFArgicos", cv("quirurgicos") || c.cirugias) + drow("Medicamentos", cv("medicamentos")) + drow("Correo", patient.email) + "</div></div>";
+    if (c.peso || c.talla || imcTxt) body += "<div class='section'>" + secHead("Signos vitales") + "<div class='dgrid cols3'>" + drow("Peso", c.peso ? c.peso + " kg" : "") + drow("Talla", c.talla ? c.talla + " cm" : "") + drow("IMC", imcTxt) + "</div></div>";
+    body += "<div class='section'>" + secHead("H\xE1bitos y piel") + "<div class='dgrid cols3'>" + drow("Tabaco", c.tabaco ? c.tabaco + " cig/d\xEDa" : "") + drow("Alcohol", c.alcohol) + drow("Actividad f\xEDsica", c.actividad) + drow("Consumo de agua", c.agua) + drow("Exposici\xF3n solar", c.expsolar) + drow("Bloqueador", c.bloqueador) + drow("Embarazo / lactancia", c.embarazo) + "</div><div class='dfull'><span class='dk'>Cuidados de la piel</span><span class='dv'>" + (cv("skincare") ? e(cv("skincare")) : "\u2014") + "</span></div></div>";
+    if ((c.evaluacion || "").trim() || (c.plan || "").trim()) body += "<div class='section'>" + secHead("Evaluaci\xF3n y plan") + textBlock("Evaluaci\xF3n", c.evaluacion) + textBlock("Plan \xB7 tratamientos recomendados", c.plan) + "</div>";
+    if (patient.notes) body += "<div class='section'><div class='section-head'><span class='sh-label'>Notas internas</span><span class='sh-rule'></span></div><div class='textbox'>" + e(patient.notes) + "</div></div>";
+    body += "<div class='section'>" + secHead("Procedimientos realizados") + (hist.length ? hist.map(sesion).join("") : "<div class='empty-note'>Sin procedimientos registrados a la fecha.</div>") + "</div>";
+    if (incluirConsent) {
+      const crow = (h) => {
+        const fc = h.fecha || (h.ts ? new Date(h.ts).toLocaleDateString("es-CL") : "");
+        return drow(h.title || h.proc || "Consentimiento", fc || "Firmado", true);
+      };
+      body += "<div class='section'>" + secHead("Consentimientos firmados") + "<div class='dgrid'>" + (consList.length ? consList.map(crow).join("") : drow("Consentimiento", patient.consentInfo || "Firmado", true)) + "</div></div>";
+    }
+    const inner = jcmMasthead(b) + "<div class='titleblock'><div><div class='eyebrow'>Documento cl\xEDnico</div><h1 class='doc-title'>Ficha <span class='it'>cl\xEDnica</span></h1></div><div class='folio'><span class='k'>Expediente</span><span class='v'>" + (e((patient.id || "").replace(/[^a-z0-9]/gi, "").slice(-8).toUpperCase()) || "\u2014") + "</span></div></div>" + jcmPband(patient, [["RUT", patient.rut], ["Edad", patient.age ? patient.age + " a\xF1os" : ""], ["Tel\xE9fono", patient.phone]], patient.estado || "Activo") + "<div class='body'>" + body + "</div>" + jcmSignFoot(b, b.proName, "Ficha cl\xEDnica", patient.name, hoy);
     jcmPrintDoc("Ficha cl\xEDnica \xB7 " + e(patient.name), b, inner);
   }
   function imprimirProc(h) {
