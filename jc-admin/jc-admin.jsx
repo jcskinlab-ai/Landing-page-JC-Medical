@@ -2900,7 +2900,7 @@ function jcmApptState(a, T) {
   if (a.status === "anulada" || a.status === "cancelada") return { key: "anulada", label: "Anulada", color: "#9AA0A6" };
   if (a.status === "no_asistio") return { key: "no_asistio", label: "No asistió", color: "#C0285A" };
   if (a.status === "atendiendose") return { key: "atendiendose", label: "Atendiéndose", color: "#1F8A5B" };
-  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#1A50A3" };
+  if (a.attended || a.status === "atendida") return { key: "atendida", label: "Atendida", color: "#C29A3B" };
   if (a.status === "en_sala") return { key: "en_sala", label: "En sala de espera", color: "#0E7490" };
   if (a.status === "pendiente_pago") return { key: "pendiente_pago", label: "⏳ Pago pendiente", color: "#B8860B" };
   if (a.status === "confirmada") return { key: "confirmada", label: "Confirmada", color: "#16A34A" };
@@ -3155,8 +3155,10 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                         onMouseLeave={() => { if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
                         onClick={e => { e.stopPropagation(); setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
                         {v2 ? (
-                          /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve + solo el nombre (el detalle va en el hover) */
-                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? "26" : "1c"), border: "1px solid " + accentColor + "33", borderLeft: "4px solid " + accentColor, borderRadius: 6, padding: "0 6px 0 5px", overflow: "hidden", display: "flex", alignItems: "center", gap: 5 }}>
+                          /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve + solo el nombre (el detalle va en el hover).
+                             En Los Medique (luxF) el tinte se vuelve cristal esmerilado (backdrop-blur) para que la montaña
+                             del fondo se transparente a través de la cita y no quede como un bloque pastel opaco. */
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...(luxF ? { backdropFilter: "blur(12px) saturate(1.25)", WebkitBackdropFilter: "blur(12px) saturate(1.25)" } : {}), border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderLeft: "4px solid " + accentColor, borderRadius: luxF ? 8 : 6, padding: "0 6px 0 5px", overflow: "hidden", display: "flex", alignItems: "center", gap: 5 }}>
                             <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                             {a.proc && <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
                           </div>
