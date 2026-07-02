@@ -637,7 +637,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
                     <span style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{st.k}</span>
                     <span style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{st.n}{conv != null && <span style={{ fontSize: 10.5, fontWeight: 400, color: T.textMute, marginLeft: 7 }}>{conv}%</span>}</span>
                   </div>
-                  <div style={{ height: 8, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
+                  <div style={{ height: lux ? 6 : 8, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: pct + "%", background: st.c, borderRadius: 999, transition: "width .6s " + T.ease }} />
                   </div>
                 </div>
@@ -660,7 +660,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
                 <span title="Retorno de la inversión publicitaria: ingresos ÷ gasto en Meta." style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: "1px solid " + green + "88", color: green, fontFamily: T.sans, fontSize: 9, fontWeight: 700, cursor: "help" }}>?</span>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                <span style={{ fontFamily: T.serif, fontSize: 40, color: green, lineHeight: 1.05 }}>{funnel.roas.toFixed(1)}x</span>
+                <span style={{ fontFamily: T.serif, fontSize: lux ? 30 : 40, color: green, lineHeight: 1.05 }}>{funnel.roas.toFixed(1)}x</span>
                 <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>por cada $1 en Meta</span>
               </div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6, lineHeight: 1.5 }}>Invertiste {fmt(funnel.spend)} y facturaste {fmt(funnel.ingresos)}.</div>
@@ -948,26 +948,97 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 5 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
       </div>
       )}
-      {/* pestañas tipo Medique */}
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 22 }}>
-        <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: 4 }}>
+      {/* pestañas tipo Medique — en lux se alinean a la izquierda y bajan de volumen */}
+      <div style={{ display: "flex", justifyContent: lux ? "flex-start" : "center", marginBottom: lux ? 18 : 22 }}>
+        <div style={{ display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 999, padding: 3 }}>
           {TABS.map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "none", background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: lux ? 11.5 : 12.5, fontWeight: tab === k ? 600 : 500, padding: lux ? "7px 15px" : "8px 18px", borderRadius: 999, cursor: "pointer", border: "none", background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute, transition: "all .18s " + T.ease }}>{l}</button>
           ))}
         </div>
       </div>
 
-      {tab === "general" && (
+      {tab === "general" && lux && (() => {
+        /* ── Dashboard LUX: misma arquitectura que el Resumen (que sí gustó) ──
+           KPIs arriba → grid de 2 columnas de PANELES: izquierda Agenda + Evolución,
+           derecha Embudo compacto + Accesos. El embudo deja de dominar la página. */
+        const panel = { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow };
+        const eyebrow = { display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent };
+        const rule = <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />;
+        const rowLux = a => (
+          <button key={a.id} onClick={() => go("agenda")} style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 4px", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer", textAlign: "left", width: "100%", transition: "background .18s " + T.ease }}
+            onMouseEnter={e => e.currentTarget.style.background = T.lineSoft} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+            <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
+              <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>{a.time || "—"}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: T.accent, marginTop: 4 }}>{apptDayOff(a) === 0 ? "Hoy" : (a.when || "Próx.")}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 14 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.proc || "—"} · {(a.dur || 60)} min</div>
+            </div>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
+          </button>
+        );
+        return (
+        <div>
+          {/* KPIs primero */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px,1fr))", gap: 14, marginBottom: 22 }}>
+            <Kpi ic="pacientes" label="Pacientes totales" value={patients.length} sub="Pacientes activos" popup="pacientes" />
+            <Kpi ic="citas" label="Citas hoy" value={hoy.length} sub="Agendadas para hoy" popup="citas" />
+            <Kpi ic="nuevos" label="Nuevos pacientes" value={nuevosMes} sub="Añadidos este mes" popup="nuevos" />
+            <Kpi ic="ingresos" label="Ingresos hoy" value={fmt(ingresosHoy)} sub="Generado hoy" popup="ingresos" />
+          </div>
+          {/* Dos columnas de paneles */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 18, alignItems: "start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {/* Agenda · próximas citas */}
+              <div style={{ ...panel, padding: "20px 22px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={eyebrow}>{rule} Próximas citas</div>
+                  <button onClick={() => go("agenda")} style={{ ...linkBtn(T), fontSize: 10 }}>Ver agenda →</button>
+                </div>
+                {prox5.length ? prox5.map(rowLux) : <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "14px 0" }}>No hay citas próximas. Agenda la primera desde el botón Nueva cita.</div>}
+              </div>
+              {/* Evolución de ingresos */}
+              <div style={{ ...panel, padding: "20px 22px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+                  <div style={eyebrow}>{rule} Evolución de ingresos</div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 24, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 10.5, color: green, marginTop: 3 }}>↗ +{growth}% en la semana</div>
+                  </div>
+                </div>
+                <Chart />
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {/* Embudo compacto (misma maquinaria, en columna) */}
+              <FunnelBlock />
+              {/* Accesos rápidos */}
+              <div style={{ ...panel, padding: "20px 22px" }}>
+                <div style={{ ...eyebrow, marginBottom: 12 }}>{rule} Accesos rápidos</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  {acceso("crear", "Crear paciente", "Añadir nueva ficha médica", "pacientes")}
+                  {acceso("cita", "Nueva cita", "Agendar una atención", "agenda")}
+                  {acceso("puntos", "Otorgar puntos", "Programa de fidelidad", "fidelidad")}
+                  {acceso("stock", "Inventario", "Stock e insumos", "inventario")}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {tab === "general" && !lux && (
         <div>
           {/* Embudo de marketing con ROAS — vista principal */}
           <FunnelBlock />
           {/* Indicadores Principales */}
-          {(() => { const secHead = t => lux
-            ? <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}><span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />{t}</div>
-            : <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 9 }}>{t}</div>;
+          {(() => { const secHead = t => (
+            <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 9 }}>{t}</div>);
           return (<>
           {secHead("Indicadores Principales")}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(" + (lux ? 210 : 190) + "px,1fr))", gap: lux ? 14 : 11, marginBottom: lux ? 22 : 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px,1fr))", gap: 11, marginBottom: 14 }}>
             <Kpi ic="pacientes" label="Pacientes totales" value={patients.length} sub="Pacientes activos" popup="pacientes" />
             <Kpi ic="citas" label="Citas hoy" value={hoy.length} sub="Agendadas para hoy" popup="citas" />
             <Kpi ic="nuevos" label="Nuevos pacientes" value={nuevosMes} sub="Añadidos este mes" popup="nuevos" />
@@ -975,16 +1046,14 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           </div>
 
           {/* Evolución de ingresos (compacta) */}
-          <div style={lux
-            ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, padding: "20px 22px", marginBottom: 22, boxShadow: T.shadow }
-            : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 16px", marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: lux ? 12 : 8 }}>
+          <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {!lux && <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" /></svg></div>}
-                <div><div style={{ fontFamily: T.serif, fontSize: lux ? 19 : 16, color: T.text }}>Evolución de ingresos</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: lux ? 3 : 0 }}>Estimado de la semana</div></div>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: T.accent + "14", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-5 4 4 8-8M21 8h-4M21 8v4" /></svg></div>
+                <div><div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>Evolución de ingresos</div><div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>Estimado de la semana</div></div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: T.serif, fontSize: lux ? 26 : 22, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
+                <div style={{ fontFamily: T.serif, fontSize: 22, color: T.text, lineHeight: 1 }}>{fmt(totalSemana)}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 11, color: green, marginTop: 3 }}>↗ +{growth}% en la semana</div>
               </div>
             </div>
@@ -994,13 +1063,13 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           {/* Próximas 5 citas + Accesos rápidos */}
           <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 18, alignItems: "start" }}>
             <div>
-              {secHead("Próximas 5 citas")}
+              <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Próximas 5 citas</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                 {prox5.length ? prox5.map(citaRow) : <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0" }}>No hay citas próximas.</div>}
               </div>
             </div>
             <div>
-              {secHead("Accesos rápidos")}
+              <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Accesos rápidos</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                 {acceso("crear", "Crear paciente", "Añadir nueva ficha médica", "pacientes")}
                 {acceso("cita", "Nueva cita", "Agendar una atención", "agenda")}
