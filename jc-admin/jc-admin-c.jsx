@@ -479,15 +479,20 @@ function EquipoView({ T }) {
     setTeam(CADMIN.team); setEditing(null);
     window.jcmToast && window.jcmToast("Profesional eliminado.", "ok");
   }
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <SecHead T={T} title="Equipo" sub="Profesionales y permisos" />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {team.map(t => (
-          <button key={t.id} onClick={() => setEditing(t)} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, width: "100%", textAlign: "left", cursor: "pointer" }}>
+        {team.map((t, i) => (
+          <button key={t.id} onClick={() => setEditing(t)} style={luxF
+            ? { display: "flex", alignItems: "center", gap: 13, padding: "14px 16px", ...DS.card(T), width: "100%", textAlign: "left", cursor: "pointer", transition: DS.trans("border-color,transform"), ...DS.reveal(i) }
+            : { display: "flex", alignItems: "center", gap: 13, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, width: "100%", textAlign: "left", cursor: "pointer" }}
+            onMouseEnter={luxF ? e => { e.currentTarget.style.borderColor = T.accent + "66"; } : undefined}
+            onMouseLeave={luxF ? e => { e.currentTarget.style.borderColor = T.line; } : undefined}>
             <div style={{ width: 44, height: 44, borderRadius: "50%", background: t.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, flexShrink: 0 }}>{t.name.split(" ").map(w => w[0]).slice(0, 2).join("")}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 500, color: T.text }}>{t.name}</div>
+              <div style={luxF ? { ...DS.text(T, "body"), fontWeight: 500, color: T.text } : { fontFamily: T.sans, fontSize: 14, fontWeight: 500, color: T.text }}>{t.name}</div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{t.role}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[t.phone, t.email].filter(Boolean).join("  ·  ")}</div>
             </div>
@@ -4126,6 +4131,7 @@ function InvKpiModal({ T, title, items, onClose, onAdjust }) {
 }
 function InventarioView({ T }) {
   const D = window.JCDATA;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [items, setItemsR] = useState(invLoad());
   const [procs, setProcsR] = useState(procLoad());
   const [q, setQ] = useState("");
@@ -4204,7 +4210,9 @@ function InventarioView({ T }) {
         </div>
       )}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar insumo…" style={{ flex: 1, padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }} />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar insumo…" style={luxF
+          ? { ...DS.ctl(T), flex: 1, height: DS.h.ctl + 4 }
+          : { flex: 1, padding: "11px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }} />
         <AdBtn T={T} onClick={() => setScan(true)}>Escanear factura/boleta</AdBtn>
         <AdBtn T={T} primary onClick={() => setNuevo(true)}>+ Producto</AdBtn>
       </div>
@@ -4218,7 +4226,11 @@ function InventarioView({ T }) {
         {list.map(i => {
           const lo = i.stock <= i.min;
           return (
-            <div key={i.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}>
+            <div key={i.id} style={luxF
+              ? { display: "flex", alignItems: "center", gap: 12, padding: "13px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background") }
+              : { display: "flex", alignItems: "center", gap: 12, padding: "13px 4px", borderBottom: "1px solid " + T.lineSoft }}
+              onMouseEnter={luxF ? e => { e.currentTarget.style.background = T.surface2 || T.surface; } : undefined}
+              onMouseLeave={luxF ? e => { e.currentTarget.style.background = "none"; } : undefined}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{i.name}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{i.cat} · mín {i.min} {i.unit} · costo {D.fmt(i.price)}</div>
@@ -5043,6 +5055,7 @@ function AdminKeyModal({ T, title, message, confirmLabel, onClose, onOk }) {
 }
 function CajaView({ T }) {
   const D = window.JCDATA;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [tick, setTick] = useState(0);
   const [delMov, setDelMov] = useState(null); // movimiento a eliminar (pide clave admin)
   const [mov, setMov] = useState(false);
@@ -5164,18 +5177,24 @@ function CajaView({ T }) {
       {/* Flujo de caja (6 meses) integrado en Registro de Ventas. */}
       <FlujoCajaChart T={T} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
+        <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Atenciones cobradas {subLbl}</div>
+            <div style={luxF ? DS.text(T, "title") : { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Atenciones cobradas {subLbl}</div>
           </div>
           {/* Buscador de pagos (P12): filtra atenciones y movimientos por concepto, método, paciente o profesional. */}
           <div style={{ position: "relative", marginBottom: 12 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.7" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-            <input value={payQ} onChange={e => setPayQ(e.target.value)} placeholder="Buscar pago (concepto, método, paciente…)" style={{ width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" }} />
+            <input value={payQ} onChange={e => setPayQ(e.target.value)} placeholder="Buscar pago (concepto, método, paciente…)" style={luxF
+              ? { ...DS.ctl(T), width: "100%", padding: "0 12px 0 32px" }
+              : { width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" }} />
           </div>
           {atencionesF.length === 0 ? <Empty2 T={T}>{payQ.trim() ? "Sin pagos que coincidan con la búsqueda." : "Sin atenciones cobradas " + subLbl + "."}</Empty2>
             : atencionesF.map(m => (
-              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}>
+              <div key={m.id} style={luxF
+                ? { display: "flex", alignItems: "center", gap: 10, padding: "10px 8px", margin: "0 -8px", borderRadius: DS.r.ctl, borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background") }
+                : { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft }}
+                onMouseEnter={luxF ? e => { e.currentTarget.style.background = T.surface2 || T.surface; } : undefined}
+                onMouseLeave={luxF ? e => { e.currentTarget.style.background = "none"; } : undefined}>
                 <div onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept}</div>
                   <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method}{adCost > 0 ? " · publicidad " + D.fmt(adCost) : ""}</div>
@@ -5189,10 +5208,14 @@ function CajaView({ T }) {
                 </button>
               </div>
             ))}
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" }}>Movimientos manuales</div>
+          <div style={luxF ? { ...DS.text(T, "title"), margin: "20px 0 12px" } : { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, margin: "20px 0 12px" }}>Movimientos manuales</div>
           {manualesF.length === 0 ? <Empty2 T={T}>{payQ.trim() ? "Sin movimientos que coincidan." : "Sin movimientos manuales " + subLbl + "."}</Empty2>
             : manualesF.map(m => (
-              <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}>
+              <div key={m.id} onClick={() => setEditMov(m)} title="Cambiar método de pago" style={luxF
+                ? { display: "flex", alignItems: "center", gap: 10, padding: "10px 8px", margin: "0 -8px", borderRadius: DS.r.ctl, borderBottom: "1px solid " + T.lineSoft, cursor: "pointer", transition: DS.trans("background") }
+                : { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" }}
+                onMouseEnter={luxF ? e => { e.currentTarget.style.background = T.surface2 || T.surface; } : undefined}
+                onMouseLeave={luxF ? e => { e.currentTarget.style.background = "none"; } : undefined}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{m.concept || (m.type === "ingreso" ? "Ingreso" : "Egreso")}</div>
                   <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{cuando(m)} · {m.method}</div>
@@ -5204,8 +5227,8 @@ function CajaView({ T }) {
               </div>
             ))}
         </div>
-        <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Ingresos por método</div>
+        <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
+          <div style={luxF ? DS.text(T, "title") : { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>Ingresos por método</div>
           {Object.keys(porMetodo).length === 0 ? <Empty2 T={T}>Sin ingresos aún.</Empty2>
             : Object.keys(porMetodo).map(k => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontFamily: T.sans, fontSize: 12.5 }}>

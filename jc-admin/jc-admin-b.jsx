@@ -461,13 +461,18 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const recitasDue = recitas.filter(x => x.r.vence);
   const waLink = (p, r) => recitaWa(p, r);
   const fmtD = d => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
-  const chip = (k, l, set, cur) => <button onClick={() => set(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "7px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (cur === k ? T.accent : T.line), background: cur === k ? T.surface2 : T.surface, color: cur === k ? T.text : T.textMute }}>{l}</button>;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const chip = (k, l, set, cur) => <button key={k} onClick={() => set(k)} style={luxF
+    ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: cur === k ? 600 : 500, padding: "7px 13px", borderRadius: DS.r.pill, cursor: "pointer", border: "1px solid " + (cur === k ? T.accent : T.line), background: cur === k ? T.accent + "14" : "transparent", color: cur === k ? T.accent : T.textMute, transition: DS.trans("background,border-color,color") }
+    : { fontFamily: T.sans, fontSize: 11, padding: "7px 12px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (cur === k ? T.accent : T.line), background: cur === k ? T.surface2 : T.surface, color: cur === k ? T.text : T.textMute }}>{l}</button>;
   return (
     <div style={{ padding: "4px 0 20px" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por nombre o RUT…" style={{ width: "100%", padding: "12px 14px 12px 38px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }} />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por nombre o RUT…" style={luxF
+            ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4, padding: "0 14px 0 38px" }
+            : { width: "100%", padding: "12px 14px 12px 38px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }} />
         </div>
         <AdBtn T={T} primary onClick={() => setNuevo(true)}>+ Paciente</AdBtn>
       </div>
@@ -505,7 +510,11 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       )}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {list.map(p => (
-          <button key={p.id} onClick={() => openPatient(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}>
+          <button key={p.id} onClick={() => openPatient(p.id)} style={luxF
+            ? { display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "13px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background") }
+            : { display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}
+            onMouseEnter={luxF ? e => { e.currentTarget.style.background = T.surface2 || T.surface; } : undefined}
+            onMouseLeave={luxF ? e => { e.currentTarget.style.background = "none"; } : undefined}>
             <Avatar T={T} name={p.name} size={44} />
             {/* Nombre y RUT, uno arriba del otro */}
             <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>

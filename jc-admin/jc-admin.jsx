@@ -2132,6 +2132,13 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
 function linkBtn(T) { return { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }; }
 
 function AdStat({ T, n, l, accent }) {
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  if (luxF) return (
+    <div style={{ ...DS.card(T), padding: "14px 12px", textAlign: "center", borderColor: accent ? "#C0285A55" : T.line }}>
+      <div style={{ ...DS.text(T, "stat"), fontSize: 24, color: accent ? "#C0285A" : T.text }}>{n}</div>
+      <div style={{ fontFamily: T.sans, fontSize: DS.ft.eyebrow, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginTop: 6 }}>{l}</div>
+    </div>
+  );
   return <div style={{ background: accent ? "rgba(192,40,90,.08)" : (T.dark ? "rgba(242,237,230,.03)" : "rgba(20,20,15,.02)"), border: "1px solid " + (accent ? "rgba(192,40,90,.4)" : T.line), borderRadius: 8, padding: "14px 8px", textAlign: "center" }}>
     <div style={{ fontFamily: T.serif, fontSize: 26, color: accent ? "#C0285A" : T.text, lineHeight: 1 }}>{n}</div>
     <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, marginTop: 7 }}>{l}</div>
