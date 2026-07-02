@@ -3651,29 +3651,9 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient, goApt })
   const totalPend = tPend.length + otrosPend;
   return (
     <div>
-      <SecHead T={T} title="Pendientes" sub="Tareas generales del equipo y seguimientos clínicos." />
-      {/* Tareas del equipo: agregar + dos columnas (Pendientes / Completadas) */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} placeholder="Nuevo pendiente…" style={{ flex: 1, fontFamily: T.sans, fontSize: 13, padding: "11px 14px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none" }} />
-        <button onClick={addTask} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.onAccent || "#fff", background: T.accent, border: "none", borderRadius: 8, padding: "0 18px", cursor: "pointer", whiteSpace: "nowrap" }}>+ Agregar</button>
-      </div>
-      {(() => {
-        const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-        const panel = luxF ? { ...DS.card(T), padding: "16px 18px" } : { background: T.surface2, border: "1px solid " + T.line, borderRadius: 10, padding: 14 };
-        const heading = luxF ? DS.text(T, "title") : { fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 10 };
-        return (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
-            <div style={panel}>
-              <div style={{ ...heading, marginBottom: 10 }}>Pendientes ({totalPend})</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tPend.length ? tPend.map(taskCard) : (otrosPend > 0 ? <Empty2 T={T}>Sin tareas manuales. Abajo tienes {sinConsent.length} consentimiento(s) y {recitas.length} re-cita(s) por gestionar.</Empty2> : <Empty2 T={T}>Nada pendiente. 🎉</Empty2>)}</div>
-            </div>
-            <div style={panel}>
-              <div style={{ ...heading, marginBottom: 10 }}>Completadas ({tDone.length})</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{tDone.length ? tDone.map(taskCard) : <Empty2 T={T}>Aún nada completado.</Empty2>}</div>
-            </div>
-          </div>
-        );
-      })()}
+      <SecHead T={T} title="Pendientes" sub="Seguimientos clínicos y control de calidad." />
+      {/* Se quitó el bloque de tareas manuales (input "Nuevo pendiente" + columnas Pendientes/Completadas)
+          a pedido del usuario: Pendientes queda enfocado en el Contralor IA y los seguimientos clínicos. */}
       {/* Contralor IA (fusionado): verificación automática de registros como pendientes inteligentes. */}
       <ContraloriaView T={T} patients={patients} appts={appts} openP={openP} goApt={goApt} go={go} embed />
       <Group T={T} title={"Consentimientos por firmar (" + sinConsent.length + ")"}>
