@@ -141,15 +141,21 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
     padding: small ? "9px 14px" : "13px 20px", borderRadius: 4, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1,
     background: primary ? T.primaryBg : "transparent", color: primary ? T.primaryText : T.text, border: primary ? "none" : "1px solid " + T.chipBorder
   }}>{children}</button>;
-  // 4 variantes (primary / ghost / danger / subtle) × 5 estados (hover, focus, active, disabled, normal)
-  let bg, color, border;
+  // 4 variantes (primary / ghost / danger / subtle) × 5 estados (hover, focus, active, disabled, normal).
+  // Ghost/subtle usan el mismo cristal translúcido+blur que las tarjetas del dashboard (ref. Sophie);
+  // primary se mantiene sólido a propósito — es la acción principal, necesita contraste contra el glass.
+  const glassOn = T.dark ? "rgba(255,255,255,.075)" : "rgba(255,255,255,.55)";
+  const glassOff = T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.34)";
+  const glassBorder = T.dark ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.7)";
+  const glassBlur = { backdropFilter: "blur(18px) saturate(1.3)", WebkitBackdropFilter: "blur(18px) saturate(1.3)" };
+  let bg, color, border, extra = {};
   if (primary && danger) { bg = DS.danger; color = "#fff"; border = "none"; }
   else if (primary) { bg = T.primaryBg || T.accent; color = T.primaryText || T.onAccent || "#fff"; border = "none"; }
   else if (danger) { bg = "transparent"; color = DS.danger; border = "1px solid " + DS.dangerLine; }
-  else if (subtle) { bg = T.chipBg; color = T.text; border = "1px solid transparent"; }
-  else { bg = "transparent"; color = T.text; border = "1px solid " + T.line; }
+  else if (subtle) { bg = glassOff; color = T.text; border = "1px solid " + glassBorder; extra = glassBlur; }
+  else { bg = glassOff; color = T.text; border = "1px solid " + glassBorder; extra = glassBlur; }
   return <button onClick={disabled ? undefined : onClick} disabled={disabled}
-    onMouseEnter={e => { if (disabled) return; const s = e.currentTarget.style; if (primary) s.filter = "brightness(1.07)"; else if (danger) s.background = DS.dangerBg; else { s.background = T.chipBg; s.borderColor = T.accent + "66"; } }}
+    onMouseEnter={e => { if (disabled) return; const s = e.currentTarget.style; if (primary) s.filter = "brightness(1.07)"; else if (danger) s.background = DS.dangerBg; else { s.background = glassOn; s.borderColor = T.accent + "66"; } }}
     onMouseLeave={e => { const s = e.currentTarget.style; s.filter = ""; s.background = bg; if (border !== "none") s.border = border; s.transform = ""; }}
     onMouseDown={e => { if (!disabled) e.currentTarget.style.transform = "scale(.985)"; }}
     onMouseUp={e => { e.currentTarget.style.transform = ""; }}
@@ -160,7 +166,7 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
       height: small ? DS.h.ctlSm : DS.h.ctl, padding: small ? "0 12px" : "0 16px", boxSizing: "border-box",
       fontFamily: T.sans, fontSize: small ? 12 : DS.ft.body, fontWeight: 600, letterSpacing: ".01em", whiteSpace: "nowrap",
       borderRadius: DS.r.ctl, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, outline: "none",
-      background: bg, color: color, border: border,
+      background: bg, color: color, border: border, ...extra,
       transition: DS.trans("background, border-color, box-shadow, transform, opacity, filter")
     }}>{children}</button>;
 }

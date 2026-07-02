@@ -170,9 +170,21 @@
       else { s.lineHeight = 1.5; }
       return s;
     },
+    // ── Glass (rediseño Los Medique, ref. dashboard): mismo tratamiento translúcido+blur que se usó
+    // en Dashboard/Agenda, ahora disponible para CUALQUIER tarjeta que use DS.card/DS.panel — así el
+    // resto de las pantallas hereda el look sin tener que reescribir cada una a mano.
+    _lux: function () { try { return typeof isLosMedique === "function" && isLosMedique(); } catch (e) { return false; } },
+    _glass: function (T, radius) {
+      return T.dark
+        ? { background: "rgba(255,255,255,.045)", backdropFilter: "blur(30px) saturate(1.4)", WebkitBackdropFilter: "blur(30px) saturate(1.4)", border: "1px solid rgba(255,255,255,.09)", borderRadius: radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)" }
+        : { background: "rgba(255,255,255,.42)", backdropFilter: "blur(30px) saturate(1.4)", WebkitBackdropFilter: "blur(30px) saturate(1.4)", border: "1px solid rgba(255,255,255,.85)", borderRadius: radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 24px 56px -36px rgba(60,58,50,.16)" };
+    },
+    // Recuadro interno translúcido (glass sobre glass, sutil) para filas/chips dentro de una tarjeta glass.
+    glassFill: function (T) { return T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.38)"; },
+    glassFillHover: function (T) { return T.dark ? "rgba(255,255,255,.075)" : "rgba(255,255,255,.6)"; },
     // Tarjeta / panel
-    card: function (T) { return { background: T.surface, border: "1px solid " + T.line, borderRadius: this.r.card, boxShadow: this.el.raised }; },
-    panel: function (T) { return { background: T.surface, border: "1px solid " + T.line, borderRadius: this.r.panel, boxShadow: this.el.raised }; },
+    card: function (T) { if (this._lux()) return this._glass(T, this.r.card); return { background: T.surface, border: "1px solid " + T.line, borderRadius: this.r.card, boxShadow: this.el.raised }; },
+    panel: function (T) { if (this._lux()) return this._glass(T, this.r.panel); return { background: T.surface, border: "1px solid " + T.line, borderRadius: this.r.panel, boxShadow: this.el.raised }; },
     // Control (input/select/botón ghost): base con altura y radio estándar
     ctl: function (T) { return { height: this.h.ctl, padding: "0 " + this.sp[3] + "px", borderRadius: this.r.ctl, border: "1px solid " + T.line, background: T.bg, color: T.text, fontFamily: T.sans, fontSize: this.ft.body, outline: "none", boxSizing: "border-box", transition: this.trans("border-color, box-shadow") }; },
     // Skeleton de carga (usar con <div style={DS.skel(T,{width,height})}/> + keyframes jcSkel)

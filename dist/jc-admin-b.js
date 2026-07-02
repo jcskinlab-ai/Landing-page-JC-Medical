@@ -134,7 +134,11 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
     color: primary ? T.primaryText : T.text,
     border: primary ? "none" : "1px solid " + T.chipBorder
   } }, children);
-  let bg, color, border;
+  const glassOn = T.dark ? "rgba(255,255,255,.075)" : "rgba(255,255,255,.55)";
+  const glassOff = T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.34)";
+  const glassBorder = T.dark ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.7)";
+  const glassBlur = { backdropFilter: "blur(18px) saturate(1.3)", WebkitBackdropFilter: "blur(18px) saturate(1.3)" };
+  let bg, color, border, extra = {};
   if (primary && danger) {
     bg = DS.danger;
     color = "#fff";
@@ -148,13 +152,15 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
     color = DS.danger;
     border = "1px solid " + DS.dangerLine;
   } else if (subtle) {
-    bg = T.chipBg;
+    bg = glassOff;
     color = T.text;
-    border = "1px solid transparent";
+    border = "1px solid " + glassBorder;
+    extra = glassBlur;
   } else {
-    bg = "transparent";
+    bg = glassOff;
     color = T.text;
-    border = "1px solid " + T.line;
+    border = "1px solid " + glassBorder;
+    extra = glassBlur;
   }
   return /* @__PURE__ */ React.createElement(
     "button",
@@ -167,7 +173,7 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
         if (primary) s.filter = "brightness(1.07)";
         else if (danger) s.background = DS.dangerBg;
         else {
-          s.background = T.chipBg;
+          s.background = glassOn;
           s.borderColor = T.accent + "66";
         }
       },
@@ -211,6 +217,7 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
         background: bg,
         color,
         border,
+        ...extra,
         transition: DS.trans("background, border-color, box-shadow, transform, opacity, filter")
       }
     },
