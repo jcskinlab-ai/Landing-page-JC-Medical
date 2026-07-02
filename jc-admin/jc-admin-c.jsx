@@ -308,6 +308,7 @@ function ServiciosView({ T }) {
   const matchItem = it => { if (!ql) return true; const v = val(it); return v.name.toLowerCase().includes(ql) || (v.desc || "").toLowerCase().includes(ql); };
   const hits = ql ? sections.reduce((s, sec) => s + sec.groups.reduce((s2, g) => s2 + g.items.filter(matchItem).length, 0), 0) : totalItems;
   const totalAll = totalItems + custom.length;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -318,15 +319,21 @@ function ServiciosView({ T }) {
           <AdBtn T={T} primary onClick={() => setNewSvc("new")}>+ Nuevo servicio</AdBtn>
         </div>}
       </div>
-      <div style={{ display: "flex", gap: 6, margin: "4px 0 18px" }}>
+      <div style={luxF
+        ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.ctl + 2, padding: 3, margin: "4px 0 18px" }
+        : { display: "flex", gap: 6, margin: "4px 0 18px" }}>
         {[["tratamientos", "Tratamientos"], ["especialidades", "Especialidades"]].map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
+          <button key={k} onClick={() => setTab(k)} style={luxF
+            ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: tab === k ? 600 : 500, padding: "8px 16px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: tab === k ? T.surface : "transparent", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: tab === k ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
+            : { fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
         ))}
       </div>
       {tab === "especialidades" ? <EspecialidadesTab T={T} /> : <>
       <div style={{ position: "relative", marginBottom: 22 }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar procedimiento por nombre…" style={{ width: "100%", padding: "12px 14px 12px 38px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar procedimiento por nombre…" style={luxF
+          ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4, padding: "0 14px 0 38px" }
+          : { width: "100%", padding: "12px 14px 12px 38px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         {ql && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 6 }}>{hits + custom.filter(s => s.name.toLowerCase().includes(ql)).length} resultado{(hits + custom.filter(s => s.name.toLowerCase().includes(ql)).length) === 1 ? "" : "s"}</div>}
       </div>
       {/* Servicios propios de la clínica (creados aquí). */}
@@ -346,7 +353,7 @@ function ServiciosView({ T }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               {cv.map(s => (
-                <div key={s.id} onClick={() => setNewSvc(s)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
+                <div key={s.id} onClick={() => setNewSvc(s)} style={luxF ? { ...DS.card(T), display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", cursor: "pointer" } : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{s.name}</div>
                     <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{s.cat}{s.desc ? " · " + s.desc : ""}</div>
@@ -383,7 +390,9 @@ function ServiciosView({ T }) {
                   return (
                     <div key={i} onClick={() => setEditing({ key: it.n, name: v.name, desc: v.desc, price: String(v.price), dur: String(v.dur), pts: String(v.pts) })}
                       onMouseEnter={() => setHover(hk)} onMouseLeave={() => setHover(null)}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + (hover === hk ? T.accent : T.line), cursor: "pointer", transition: "border-color .15s" }}>
+                      style={luxF
+                        ? { ...DS.card(T), display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", cursor: "pointer", borderColor: hover === hk ? T.accent + "88" : T.line, transition: DS.trans("border-color") }
+                        : { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + (hover === hk ? T.accent : T.line), cursor: "pointer", transition: "border-color .15s" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{v.name}</div>
                         {v.desc && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.desc}</div>}
@@ -705,6 +714,7 @@ function SucursalesView({ T }) {
     const n = list.filter(x => x.id !== id); setList(n); saveSucursalesDB(n);
   }
   const diasTxt = h => SUC_DIAS.filter(([k]) => h && h[k] && h[k].on).map(([k, l]) => l.slice(0, 3)).join(", ") || "Sin horario";
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -718,8 +728,10 @@ function SucursalesView({ T }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-          {list.map(s => { const np = profsForSuc(s.name); return (
-            <div key={s.id} onClick={() => setEditing(s)} title="Editar sucursal" style={{ display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
+          {list.map((s, i) => { const np = profsForSuc(s.name); return (
+            <div key={s.id} onClick={() => setEditing(s)} title="Editar sucursal" style={luxF
+              ? { display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", ...DS.card(T), cursor: "pointer", ...DS.reveal(i) }
+              : { display: "flex", alignItems: "flex-start", gap: 13, padding: "15px 16px", borderRadius: 10, background: T.surface, border: "1px solid " + T.line, cursor: "pointer" }}>
               <div style={{ width: 42, height: 42, borderRadius: 10, background: T.accentSoft || T.surface2, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 11h.01M15 11h.01" /></svg>
               </div>
