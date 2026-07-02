@@ -623,22 +623,33 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   // Gasto/leads REALES de Meta (Opción B): cada clínica usa SU propio token (guardado en
   // 'meta_creds', aislado). La clínica base usa las variables de entorno del servidor.
   // Una clínica nueva sin Meta propio NO consulta /api/meta (evita ver el gasto de JC).
-  const [liveMeta, setLiveMeta] = useState(null);
+  // Meta en vivo con CACHÉ per-clínica del mes en curso: al re-entrar al dashboard se muestran de
+  // inmediato las cifras del mes ACTUAL (no el gasto manual del mes anterior) y el fetch refresca en
+  // silencio, sin salto ni re-animación. Solo consulta /api/meta la clínica con Meta propio o la base (JC).
+  const _curMonth = new Date().toISOString().slice(0, 7);
+  const _metaFetch = (() => {
+    try {
+      if (!(window.JCSAAS && window.JCSAAS.enabled)) return { will: false, creds: null, hasOwn: false };
+      const creds = (window.DB && DB.get("meta_creds")) || null;
+      const hasOwn = !!(creds && creds.token && creds.account);
+      return { will: hasOwn || window.JCM_BASE === true, creds: creds, hasOwn: hasOwn };
+    } catch (e) { return { will: false, creds: null, hasOwn: false }; }
+  })();
+  const [liveMeta, setLiveMeta] = useState(() => {
+    try { const c = window.DB && DB.get("meta_live_cache"); if (c && c.month === _curMonth && c.data) return c.data; } catch (e) {}
+    return null;
+  });
   useEffect(() => {
-    if (!(window.JCSAAS && window.JCSAAS.enabled)) return; // modo local: sin fetch
-    let creds = null; try { creds = (window.DB && DB.get("meta_creds")) || null; } catch (e) {}
-    const hasOwn = !!(creds && creds.token && creds.account);
-    const isBase = window.JCM_BASE === true;
-    if (!hasOwn && !isBase) return; // clínica nueva sin Meta propio → solo carga manual
+    if (!_metaFetch.will) return; // modo local o clínica sin Meta propio → sin fetch
     // Pedimos también el desglose por campaña (con nombre) para mostrarlas en el embudo. (P8)
-    const bodyObj = hasOwn ? { token: creds.token, account: creds.account, campaigns: true } : { campaigns: true };
+    const bodyObj = _metaFetch.hasOwn ? { token: _metaFetch.creds.token, account: _metaFetch.creds.account, campaigns: true } : { campaigns: true };
     // /api/meta exige el ID token de Firebase del usuario logueado (verificación RS256 en el server).
     const tokP = (window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
     tokP.then(tok => {
       const headers = { "Content-Type": "application/json" };
       if (tok) headers["Authorization"] = "Bearer " + tok;
       return fetch("/api/meta", { method: "POST", headers: headers, body: JSON.stringify(bodyObj) });
-    }).then(r => r.json()).then(d => { if (d && d.ok) setLiveMeta(d); }).catch(() => {});
+    }).then(r => r.json()).then(d => { if (d && d.ok) { setLiveMeta(d); try { window.DB && DB.set("meta_live_cache", { month: _curMonth, data: d }); } catch (e) {} } }).catch(() => {});
   }, []);
   const funnel = (function () {
     const mes = new Date().toISOString().slice(0, 7);
@@ -658,7 +669,9 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     let spend = 0, leads = 0, mensajes = 0, soldManual = null;
     try {
       const cfg = (window.DB && DB.get("config")) || {};
-      spend = +cfg.meta_spend_mes || 0; leads = +cfg.meta_leads_mes || 0;
+      // Clínica con Meta en vivo: el gasto/leads salen SOLO de liveMeta (el manual suele ser del mes
+      // anterior y provocaría el salto). Sin Meta en vivo, se usa la carga manual como antes.
+      if (!_metaFetch.will) { spend = +cfg.meta_spend_mes || 0; leads = +cfg.meta_leads_mes || 0; }
       mensajes = +cfg.meta_msgs_mes || 0; // mensajes recibidos (manual)
       if (cfg.meta_sold_mes != null && cfg.meta_sold_mes !== "") soldManual = +cfg.meta_sold_mes || 0; // vendidos (manual)
     } catch (e) {}

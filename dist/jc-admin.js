@@ -692,25 +692,41 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     setMetaEdit(false);
     bumpRev((r) => r + 1);
   }
-  const [liveMeta, setLiveMeta] = useState(null);
-  useEffect(() => {
-    if (!(window.JCSAAS && window.JCSAAS.enabled)) return;
-    let creds = null;
+  const _curMonth = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+  const _metaFetch = (() => {
     try {
-      creds = window.DB && DB.get("meta_creds") || null;
+      if (!(window.JCSAAS && window.JCSAAS.enabled)) return { will: false, creds: null, hasOwn: false };
+      const creds = window.DB && DB.get("meta_creds") || null;
+      const hasOwn = !!(creds && creds.token && creds.account);
+      return { will: hasOwn || window.JCM_BASE === true, creds, hasOwn };
+    } catch (e) {
+      return { will: false, creds: null, hasOwn: false };
+    }
+  })();
+  const [liveMeta, setLiveMeta] = useState(() => {
+    try {
+      const c = window.DB && DB.get("meta_live_cache");
+      if (c && c.month === _curMonth && c.data) return c.data;
     } catch (e) {
     }
-    const hasOwn = !!(creds && creds.token && creds.account);
-    const isBase = window.JCM_BASE === true;
-    if (!hasOwn && !isBase) return;
-    const bodyObj = hasOwn ? { token: creds.token, account: creds.account, campaigns: true } : { campaigns: true };
+    return null;
+  });
+  useEffect(() => {
+    if (!_metaFetch.will) return;
+    const bodyObj = _metaFetch.hasOwn ? { token: _metaFetch.creds.token, account: _metaFetch.creds.account, campaigns: true } : { campaigns: true };
     const tokP = window.JCSAAS && window.JCSAAS.idToken ? window.JCSAAS.idToken() : Promise.resolve(null);
     tokP.then((tok) => {
       const headers = { "Content-Type": "application/json" };
       if (tok) headers["Authorization"] = "Bearer " + tok;
       return fetch("/api/meta", { method: "POST", headers, body: JSON.stringify(bodyObj) });
     }).then((r) => r.json()).then((d) => {
-      if (d && d.ok) setLiveMeta(d);
+      if (d && d.ok) {
+        setLiveMeta(d);
+        try {
+          window.DB && DB.set("meta_live_cache", { month: _curMonth, data: d });
+        } catch (e) {
+        }
+      }
     }).catch(() => {
     });
   }, []);
@@ -737,8 +753,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     let spend = 0, leads = 0, mensajes = 0, soldManual = null;
     try {
       const cfg = window.DB && DB.get("config") || {};
-      spend = +cfg.meta_spend_mes || 0;
-      leads = +cfg.meta_leads_mes || 0;
+      if (!_metaFetch.will) {
+        spend = +cfg.meta_spend_mes || 0;
+        leads = +cfg.meta_leads_mes || 0;
+      }
       mensajes = +cfg.meta_msgs_mes || 0;
       if (cfg.meta_sold_mes != null && cfg.meta_sold_mes !== "") soldManual = +cfg.meta_sold_mes || 0;
     } catch (e) {
