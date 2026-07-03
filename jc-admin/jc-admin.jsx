@@ -3115,6 +3115,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [editCom, setEditCom] = useState(null); // appt para popup de comentario rápido
   const [cancelArm, setCancelArm] = useState(null); // id de cita "armada": pide segundo click para cancelar
   const hideT = useRef(null); // retardo para poder mover el cursor de la cita al tooltip (acciones)
+  const showT = useRef(null); // retardo de 1s antes de mostrar el popover: al recorrer la agenda con
+  // el cursor (sin intención de detenerse), antes se abría al instante en cada cita y molestaba.
   // ── Nueva agenda (estilo Medilink barra) — ACTIVA PARA TODAS LAS CLÍNICAS ──
   // Semana lun→dom, profesional desplegable, hora a ambos lados, cabecera en una línea,
   // tarjeta hover con acciones. La única diferencia por clínica es la granularidad de la
@@ -3320,9 +3322,18 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                     const tall = a._h >= 38; // hay altura para la 2ª línea (servicio + hora fin)
                     return (
                       <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
-                        onMouseEnter={e => { if (hideT.current) clearTimeout(hideT.current); const r = e.currentTarget.getBoundingClientRect(); if (v2) { let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288; setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) }); } else { setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); } }}
-                        onMouseLeave={() => { if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
-                        onClick={e => { e.stopPropagation(); setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
+                        onMouseEnter={e => {
+                          if (hideT.current) clearTimeout(hideT.current);
+                          if (showT.current) clearTimeout(showT.current);
+                          const el = e.currentTarget;
+                          showT.current = setTimeout(() => {
+                            const r = el.getBoundingClientRect();
+                            if (v2) { let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288; setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) }); }
+                            else { setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }
+                          }, 1000);
+                        }}
+                        onMouseLeave={() => { if (showT.current) { clearTimeout(showT.current); showT.current = null; } if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
+                        onClick={e => { e.stopPropagation(); if (showT.current) { clearTimeout(showT.current); showT.current = null; } setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
                         {v2 ? (
                           /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve. La tarjeta
                              muestra SIEMPRE (sin hover) nombre + hora de inicio y, si hay altura, servicio + hora

@@ -2652,6 +2652,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [editCom, setEditCom] = useState(null);
   const [cancelArm, setCancelArm] = useState(null);
   const hideT = useRef(null);
+  const showT = useRef(null);
   const v2 = true;
   const activeAppt = menu ? appts.find((a) => a.id === menu) : null;
   const team = (() => {
@@ -2775,16 +2776,24 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           style: { position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 },
           onMouseEnter: (e) => {
             if (hideT.current) clearTimeout(hideT.current);
-            const r = e.currentTarget.getBoundingClientRect();
-            if (v2) {
-              let x = r.right + 8;
-              if (x + 280 > window.innerWidth) x = r.left - 288;
-              setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) });
-            } else {
-              setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) });
-            }
+            if (showT.current) clearTimeout(showT.current);
+            const el = e.currentTarget;
+            showT.current = setTimeout(() => {
+              const r = el.getBoundingClientRect();
+              if (v2) {
+                let x = r.right + 8;
+                if (x + 280 > window.innerWidth) x = r.left - 288;
+                setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) });
+              } else {
+                setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) });
+              }
+            }, 1e3);
           },
           onMouseLeave: () => {
+            if (showT.current) {
+              clearTimeout(showT.current);
+              showT.current = null;
+            }
             if (v2) {
               if (hideT.current) clearTimeout(hideT.current);
               hideT.current = setTimeout(() => setHover(null), 160);
@@ -2792,6 +2801,10 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           },
           onClick: (e) => {
             e.stopPropagation();
+            if (showT.current) {
+              clearTimeout(showT.current);
+              showT.current = null;
+            }
             setHover(null);
             const r = e.currentTarget.getBoundingClientRect();
             setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) });
