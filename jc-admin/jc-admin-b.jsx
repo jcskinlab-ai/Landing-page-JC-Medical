@@ -734,7 +734,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const points = patient.points || [];
   // Pestañas NUEVAS (presupuesto, esquema facial) solo para Los Medique hasta el push global.
   const _newFeat = !(window.jcmNewFeat) || window.jcmNewFeat();
-  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ["campana", "Campaña"], ["notas", "Notas"], ["ia", "IA"]];
+  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["campana", "Campaña"], ["notas", "Notas"], ["ia", "IA"]];
   const estado = patient.estado || "Activo";
   const activo = estado === "Activo";
   const wa = "https://wa.me/" + (patient.phone || "").replace(/\D/g, "");

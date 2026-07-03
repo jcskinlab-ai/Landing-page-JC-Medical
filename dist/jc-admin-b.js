@@ -754,7 +754,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const [delInput, setDelInput] = useState("");
   const points = patient.points || [];
   const _newFeat = !window.jcmNewFeat || window.jcmNewFeat();
-  const TABS = [["fichaclinica", "Ficha Cl\xEDnica"], ["mapa", "Mapa facial y antropometr\xEDa"], ["procedimientos", "Procedimientos"], ["imagenes", "Im\xE1genes"], ..._newFeat ? [["examenes", "Ex\xE1menes"]] : [], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ..._newFeat ? [["presupuesto", "Presupuesto"]] : [], ["facturacion", "Atenciones"], ["campana", "Campa\xF1a"], ["notas", "Notas"], ["ia", "IA"]];
+  const TABS = [["fichaclinica", "Ficha Cl\xEDnica"], ["mapa", "Mapa facial y antropometr\xEDa"], ["procedimientos", "Procedimientos"], ["imagenes", "Im\xE1genes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ..._newFeat ? [["presupuesto", "Presupuesto"]] : [], ["facturacion", "Atenciones"], ..._newFeat ? [["examenes", "Ex\xE1menes"]] : [], ["campana", "Campa\xF1a"], ["notas", "Notas"], ["ia", "IA"]];
   const estado = patient.estado || "Activo";
   const activo = estado === "Activo";
   const wa = "https://wa.me/" + (patient.phone || "").replace(/\D/g, "");
