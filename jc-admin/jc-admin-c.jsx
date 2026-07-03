@@ -2569,6 +2569,9 @@ function RecitaDescCard({ T }) {
 function ClinicDataCard({ T }) {
   const cfg0 = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
   const clinicName = (() => { try { return (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && (window.JCSAAS.currentClinic() || {}).name); } catch (e) { return ""; } })();
+  // Solo el administrador/dueño puede cambiar el nombre de la clínica (aunque un profesional tenga
+  // el permiso "Configuración" activado para otros campos, ej. horarios o plantillas).
+  const _SA = window.JCSAAS; const isAdmin = !(_SA && _SA.currentRole && _SA.currentRole() === "professional");
   const [f, setF] = useState({
     clinic_name: cfg0.clinic_name || clinicName || "",
     clinic_addr: cfg0.clinic_addr || "",
@@ -2590,7 +2593,13 @@ function ClinicDataCard({ T }) {
   const waDisplay = "+569 " + ((f.wa_number || "").replace(/^569/, ""));
   function save() {
     if (!emailReplyOk) { window.jcmToast && window.jcmToast("El correo para respuestas no es válido.", "error"); return; }
-    try { DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") })); setSaved(true); setTimeout(() => setSaved(false), 1800); } catch (e) {}
+    try {
+      const patch = { clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") };
+      if (isAdmin) patch.clinic_name = f.clinic_name.trim(); // el nombre solo lo guarda el admin
+      DB.set("config", Object.assign({}, DB.cfg(), patch));
+      try { window.dispatchEvent(new Event("jcm:config")); } catch (e2) {} // refresca el nombre/avatar del header
+      setSaved(true); setTimeout(() => setSaved(false), 1800);
+    } catch (e) {}
   }
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   return (
@@ -2600,7 +2609,16 @@ function ClinicDataCard({ T }) {
         <AdBtn T={T} small primary onClick={save}>{saved ? "✓ Guardado" : "Guardar"}</AdBtn>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <AdField T={T} label="Nombre de la clínica" value={f.clinic_name} onChange={v => { setF({ ...f, clinic_name: v }); setSaved(false); }} placeholder="Ej: Clínica Karenina" />
+        {isAdmin
+          ? <AdField T={T} label="Nombre de la clínica" value={f.clinic_name} onChange={v => { setF({ ...f, clinic_name: v }); setSaved(false); }} placeholder="Ej: Clínica Karenina" />
+          : <label style={{ display: "block" }}>
+              <span style={luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Nombre de la clínica</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 13px", borderRadius: luxF ? DS.r.ctl : 4, border: "1px solid " + T.line, background: T.surface2 || T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 13.5, boxSizing: "border-box" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.clinic_name || "—"}</span>
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 4 }}>Solo el administrador de la clínica puede cambiar el nombre.</div>
+            </label>}
         <AdField T={T} label="Dirección" value={f.clinic_addr} onChange={v => { setF({ ...f, clinic_addr: v }); setSaved(false); }} placeholder="Ej: 1 Norte 123, oficina 4, Talca" />
         <div>
           <AdField T={T} label="Link de Google Maps (opcional)" value={f.clinic_maps} onChange={v => { setF({ ...f, clinic_maps: v }); setSaved(false); }} placeholder="Pega el enlace de tu ficha en Google Maps" />

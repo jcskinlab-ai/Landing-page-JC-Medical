@@ -2234,6 +2234,8 @@ function ClinicDataCard({ T }) {
       return "";
     }
   })();
+  const _SA = window.JCSAAS;
+  const isAdmin = !(_SA && _SA.currentRole && _SA.currentRole() === "professional");
   const [f, setF] = useState({
     clinic_name: cfg0.clinic_name || clinicName || "",
     clinic_addr: cfg0.clinic_addr || "",
@@ -2259,17 +2261,23 @@ function ClinicDataCard({ T }) {
       return;
     }
     try {
-      DB.set("config", Object.assign({}, DB.cfg(), { clinic_name: f.clinic_name.trim(), clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") }));
+      const patch = { clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") };
+      if (isAdmin) patch.clinic_name = f.clinic_name.trim();
+      DB.set("config", Object.assign({}, DB.cfg(), patch));
+      try {
+        window.dispatchEvent(new Event("jcm:config"));
+      } catch (e2) {
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 1800);
     } catch (e) {
     }
   }
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-  return /* @__PURE__ */ React.createElement("div", { style: luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: luxF ? DS.text(T, "eyebrow") : { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Datos de la cl\xEDnica"), /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, primary: true, onClick: save }, saved ? "\u2713 Guardado" : "Guardar")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre de la cl\xEDnica", value: f.clinic_name, onChange: (v) => {
+  return /* @__PURE__ */ React.createElement("div", { style: luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px 16px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: luxF ? DS.text(T, "eyebrow") : { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent } }, "Datos de la cl\xEDnica"), /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, primary: true, onClick: save }, saved ? "\u2713 Guardado" : "Guardar")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, isAdmin ? /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre de la cl\xEDnica", value: f.clinic_name, onChange: (v) => {
     setF({ ...f, clinic_name: v });
     setSaved(false);
-  }, placeholder: "Ej: Cl\xEDnica Karenina" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "Direcci\xF3n", value: f.clinic_addr, onChange: (v) => {
+  }, placeholder: "Ej: Cl\xEDnica Karenina" }) : /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Nombre de la cl\xEDnica"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 13px", borderRadius: luxF ? DS.r.ctl : 4, border: "1px solid " + T.line, background: T.surface2 || T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 13.5, boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("rect", { x: "5", y: "11", width: "14", height: "9", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M8 11V8a4 4 0 0 1 8 0v3" })), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.clinic_name || "\u2014")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 4 } }, "Solo el administrador de la cl\xEDnica puede cambiar el nombre.")), /* @__PURE__ */ React.createElement(AdField, { T, label: "Direcci\xF3n", value: f.clinic_addr, onChange: (v) => {
     setF({ ...f, clinic_addr: v });
     setSaved(false);
   }, placeholder: "Ej: 1 Norte 123, oficina 4, Talca" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "Link de Google Maps (opcional)", value: f.clinic_maps, onChange: (v) => {

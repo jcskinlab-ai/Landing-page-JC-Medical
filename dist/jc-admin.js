@@ -313,6 +313,11 @@ function scopeClinicData() {
   if (!isBase && D.catalog) D.catalog = [];
 }
 function clinicDisplayName() {
+  try {
+    var n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name;
+    if (n && ("" + n).trim()) return ("" + n).trim();
+  } catch (e) {
+  }
   var c = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || null;
   return c && c.name || "Juan Claudio Parra";
 }
@@ -1261,6 +1266,14 @@ function AdminApp() {
       }, 1500);
     } catch (e) {
     }
+  }, []);
+  const [, forceHeaderRefresh] = useState(0);
+  useEffect(() => {
+    function onCfg() {
+      forceHeaderRefresh((x) => x + 1);
+    }
+    window.addEventListener("jcm:config", onCfg);
+    return () => window.removeEventListener("jcm:config", onCfg);
   }, []);
   useEffect(() => {
     function onData() {

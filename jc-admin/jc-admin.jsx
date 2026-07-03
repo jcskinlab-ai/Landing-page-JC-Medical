@@ -285,6 +285,11 @@ function scopeClinicData() {
 }
 // Nombre que se muestra en el perfil/saludo: el de la clínica activa (no "Juan Claudio" para otras).
 function clinicDisplayName() {
+  // Prioridad: el nombre que la clínica edita en Configuración › Datos de la clínica (clinic_name).
+  // Antes se leía SOLO el nombre del tenant en Firestore (currentClinic().name), que es fijo desde
+  // el alta de la cuenta y no se actualiza al editar Configuración — por eso el header quedaba
+  // desincronizado del nombre real de la clínica.
+  try { var n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; if (n && ("" + n).trim()) return ("" + n).trim(); } catch (e) {}
   var c = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || null;
   return (c && c.name) || "Juan Claudio Parra";
 }
@@ -1491,6 +1496,17 @@ function AdminApp() {
       if (window.JCSAAS && window.JCSAAS.retrySync) setTimeout(() => { try { window.JCSAAS.retrySync(); } catch (e) {} }, 1500);
     } catch (e) {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Guardar el nombre de la clínica (ClinicDataCard) emite 'jcm:config': el header (nombre/avatar
+  // arriba a la derecha) lee clinicDisplayName() en cada render de AdminApp, pero un cambio en un
+  // componente hijo (ConfigView) no re-renderiza al padre por sí solo — este contador fuerza ese
+  // refresco para que el nombre se actualice arriba SIN tener que navegar de sección.
+  const [, forceHeaderRefresh] = useState(0);
+  useEffect(() => {
+    function onCfg() { forceHeaderRefresh(x => x + 1); }
+    window.addEventListener("jcm:config", onCfg);
+    return () => window.removeEventListener("jcm:config", onCfg);
   }, []);
 
   // (B) Refresco en vivo: cuando otro dispositivo de la clínica sube un cambio, la nube
