@@ -106,8 +106,8 @@ const ADMIN_NAV = [
   { k: "dashboard", l: "Dashboard" },
   { k: "agenda", l: "Agenda" }, { k: "pacientes", l: "Pacientes" }, { k: "salaespera", l: "Sala de espera" }, { k: "pendientes", l: "Pendientes" }, { k: "caja", l: "Registro de Ventas" },
   { k: "inventario", l: "Inventario" }, { k: "servicios", l: "Tratamientos" }, { k: "equipo", l: "Equipo" }, { k: "sucursales", l: "Sucursales" }, { k: "marketing", l: "Marketing" },
-  { k: "crm", l: "CRM · Embudo" }, { k: "difusiones", l: "Difusiones" }, { k: "agenteia", l: "Agente IA" }, { k: "copilot", l: "Asistente IA" }, { k: "automatizaciones", l: "Automatizaciones" },
-  { k: "resumen", l: "Resumen" }, { k: "colaboracion", l: "Colaboraciones" }, { k: "fidelidad", l: "Fidelidad" },
+  { k: "crm", l: "CRM · Embudo" }, { k: "difusiones", l: "Difusiones" }, { k: "fidelidad", l: "Fidelidad" }, { k: "colaboracion", l: "Colaboraciones" }, { k: "agenteia", l: "Agente IA" }, { k: "copilot", l: "Asistente IA" }, { k: "automatizaciones", l: "Automatizaciones" },
+  { k: "resumen", l: "Resumen" },
   { k: "integraciones", l: "Integraciones" }, { k: "reportes", l: "Reportes" }, { k: "administracion", l: "Administración" }, { k: "consentimientos", l: "Consentimientos" }, { k: "fichaeditor", l: "Editor de Fichas" }, { k: "tutoriales", l: "Tutoriales" }, { k: "config", l: "Configuración" },
   // ── Suite nueva (N1–N10) ──
   // Notas Clínicas y Resumen Clínico se quitaron del menú: el dictado por voz vive ahora en la
@@ -135,10 +135,10 @@ const SIDE_DEFAULT_COLLAPSED = { "Marketing & Ventas": true, "Análisis": true, 
 // Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
 const NAV_TOP_GROUPS = [
   // Consentimientos y Editor de Fichas se movieron aquí (antes en "Sistema"), a pedido.
-  // Tratamientos (servicios) entra a Clínica. Se le suman Fidelidad, Colaboraciones y Chat interno
-  // (antes en "Herramientas", que se eliminó) a pedido del usuario.
-  { l: "Clínica", keys: ["servicios", "equipo", "sucursales", "inventario", "consentimientos", "fichaeditor", "fidelidad", "colaboracion", "chatinterno"] },
-  { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
+  // Tratamientos (servicios) entra a Clínica. Chat interno también.
+  // Fidelidad y Colaboraciones pasaron a Marketing (son captación/retención), a pedido del usuario.
+  { l: "Clínica", keys: ["servicios", "equipo", "sucursales", "inventario", "consentimientos", "fichaeditor", "chatinterno"] },
+  { l: "Marketing", keys: ["marketing", "crm", "difusiones", "fidelidad", "colaboracion", "encuestas"] },
   // "Análisis" e "IA" se fusionan en un solo menú (a pedido del usuario).
   { l: "Análisis · IA", keys: ["resumen", "reportes", "desempeno", "agenteia", "copilot", "automatizaciones"] },
   // Registro de Ventas (caja) vuelve a ser acceso directo (pinned), no dentro de Gestión (a pedido del usuario).

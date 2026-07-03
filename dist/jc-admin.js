@@ -123,12 +123,12 @@ const ADMIN_NAV = [
   { k: "marketing", l: "Marketing" },
   { k: "crm", l: "CRM \xB7 Embudo" },
   { k: "difusiones", l: "Difusiones" },
+  { k: "fidelidad", l: "Fidelidad" },
+  { k: "colaboracion", l: "Colaboraciones" },
   { k: "agenteia", l: "Agente IA" },
   { k: "copilot", l: "Asistente IA" },
   { k: "automatizaciones", l: "Automatizaciones" },
   { k: "resumen", l: "Resumen" },
-  { k: "colaboracion", l: "Colaboraciones" },
-  { k: "fidelidad", l: "Fidelidad" },
   { k: "integraciones", l: "Integraciones" },
   { k: "reportes", l: "Reportes" },
   { k: "administracion", l: "Administraci\xF3n" },
@@ -163,10 +163,10 @@ const SIDE_LOCKED_OPEN = { "Inicio": true, "Cl\xEDnica": true };
 const SIDE_DEFAULT_COLLAPSED = { "Marketing & Ventas": true, "An\xE1lisis": true, "Sistema": true };
 const NAV_TOP_GROUPS = [
   // Consentimientos y Editor de Fichas se movieron aquí (antes en "Sistema"), a pedido.
-  // Tratamientos (servicios) entra a Clínica. Se le suman Fidelidad, Colaboraciones y Chat interno
-  // (antes en "Herramientas", que se eliminó) a pedido del usuario.
-  { l: "Cl\xEDnica", keys: ["servicios", "equipo", "sucursales", "inventario", "consentimientos", "fichaeditor", "fidelidad", "colaboracion", "chatinterno"] },
-  { l: "Marketing", keys: ["marketing", "crm", "difusiones", "encuestas"] },
+  // Tratamientos (servicios) entra a Clínica. Chat interno también.
+  // Fidelidad y Colaboraciones pasaron a Marketing (son captación/retención), a pedido del usuario.
+  { l: "Cl\xEDnica", keys: ["servicios", "equipo", "sucursales", "inventario", "consentimientos", "fichaeditor", "chatinterno"] },
+  { l: "Marketing", keys: ["marketing", "crm", "difusiones", "fidelidad", "colaboracion", "encuestas"] },
   // "Análisis" e "IA" se fusionan en un solo menú (a pedido del usuario).
   { l: "An\xE1lisis \xB7 IA", keys: ["resumen", "reportes", "desempeno", "agenteia", "copilot", "automatizaciones"] },
   // Registro de Ventas (caja) vuelve a ser acceso directo (pinned), no dentro de Gestión (a pedido del usuario).
