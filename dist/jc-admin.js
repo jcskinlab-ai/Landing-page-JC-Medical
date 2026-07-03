@@ -1659,6 +1659,15 @@ function AdminApp() {
     }
   }, []);
   const current = patients.find((p) => p.id === openPatient);
+  useEffect(() => {
+    if (!openPatient) return;
+    try {
+      var m = window.DB && DB.get("pat_opened") || {};
+      m[openPatient] = Date.now();
+      window.DB && DB.set("pat_opened", m);
+    } catch (e) {
+    }
+  }, [openPatient]);
   const _sinCons = window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter((p) => !p.consent);
   const pendCount = _sinCons.length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
   const notifCount = (notifVer, unreadNotifCount(patients, appts));

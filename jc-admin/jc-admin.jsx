@@ -1778,6 +1778,15 @@ function AdminApp() {
   }, []);
 
   const current = patients.find(p => p.id === openPatient);
+  // Marca de "última ficha abierta" (para el orden de Pacientes › Recientes), CENTRALIZADA aquí:
+  // antes solo se registraba al abrir un paciente desde la lista de Pacientes, así que abrirlo
+  // desde Agenda, Pendientes, Contralor IA, Desempeño, el buscador o una notificación no contaba,
+  // y el orden de "Recientes" no reflejaba la actividad real. Este efecto corre para CUALQUIER
+  // entrada a la ficha, sin importar desde dónde se llegó.
+  useEffect(() => {
+    if (!openPatient) return;
+    try { var m = (window.DB && DB.get("pat_opened")) || {}; m[openPatient] = Date.now(); window.DB && DB.set("pat_opened", m); } catch (e) {}
+  }, [openPatient]);
   const _sinCons = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
   const pendCount = _sinCons.length + ((window.CADMIN || {}).waMessages || []).length + ((window.CADMIN || {}).bizComments || []).length;
   // La campana cuenta solo lo NO leído (se actualiza al pulsar "Leer todas"); notifVer fuerza el recálculo.
