@@ -2587,6 +2587,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null);
   const [editCom, setEditCom] = useState(null);
+  const [cancelArm, setCancelArm] = useState(null);
   const hideT = useRef(null);
   const v2 = true;
   const activeAppt = menu ? appts.find((a) => a.id === menu) : null;
@@ -2791,14 +2792,23 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             setEditCom(a);
           }, T.textMute, ""]
         ].map(([lbl, fn, col, st]) => {
-          const filledRed = st === "red", filledGreen = st === "green";
+          const isCancel = lbl === "Cancelar";
+          const armed = isCancel && cancelArm === a.id;
+          const filledRed = st === "red" || armed, filledGreen = st === "green";
           const bg = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.surface;
           const brd = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.line;
           const fg = filledRed || filledGreen ? "#fff" : col;
-          return /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: () => {
+          const onClk = () => {
+            if (isCancel && !armed) {
+              setCancelArm(a.id);
+              setTimeout(() => setCancelArm((c) => c === a.id ? null : c), 3500);
+              return;
+            }
+            if (isCancel) setCancelArm(null);
             fn();
             if (lbl !== "Confirmar asist.") setHover(null);
-          }, style: { height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: filledRed || filledGreen ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" } }, lbl);
+          };
+          return /* @__PURE__ */ React.createElement("button", { key: lbl, onClick: onClk, title: armed ? "Toca de nuevo para cancelar la cita" : "", style: { height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: filledRed || filledGreen ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" } }, armed ? "\xBFSeguro? S\xED" : lbl);
         });
       })())
     ) : (

@@ -3055,6 +3055,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [menuDayOff, setMenuDayOff] = useState(null);
   const [hover, setHover] = useState(null); // { a, x, y } · vista previa momentánea al pasar el cursor
   const [editCom, setEditCom] = useState(null); // appt para popup de comentario rápido
+  const [cancelArm, setCancelArm] = useState(null); // id de cita "armada": pide segundo click para cancelar
   const hideT = useRef(null); // retardo para poder mover el cursor de la cita al tooltip (acciones)
   // ── Nueva agenda (estilo Medilink barra) — ACTIVA PARA TODAS LAS CLÍNICAS ──
   // Semana lun→dom, profesional desplegable, hora a ambos lados, cabecera en una línea,
@@ -3359,11 +3360,19 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   ["Cancelar",   () => { updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(a); }, "#C0285A",  "red"],
                   ["Comentario", () => { setEditCom(a); },                                                                T.textMute, ""]
                 ].map(([lbl, fn, col, st]) => {
-                  const filledRed = st === "red", filledGreen = st === "green";
+                  // Cancelar pide confirmación con un segundo click (evita anular una cita por error).
+                  const isCancel = lbl === "Cancelar";
+                  const armed = isCancel && cancelArm === a.id;
+                  const filledRed = st === "red" || armed, filledGreen = st === "green";
                   const bg = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.surface;
                   const brd = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.line;
                   const fg = (filledRed || filledGreen) ? "#fff" : col;
-                  return <button key={lbl} onClick={() => { fn(); if (lbl !== "Confirmar asist.") setHover(null); }} style={{ height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: (filledRed || filledGreen) ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{lbl}</button>;
+                  const onClk = () => {
+                    if (isCancel && !armed) { setCancelArm(a.id); setTimeout(() => setCancelArm(c => c === a.id ? null : c), 3500); return; } // 1º click: armar
+                    if (isCancel) setCancelArm(null);
+                    fn(); if (lbl !== "Confirmar asist.") setHover(null);
+                  };
+                  return <button key={lbl} onClick={onClk} title={armed ? "Toca de nuevo para cancelar la cita" : ""} style={{ height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: (filledRed || filledGreen) ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{armed ? "¿Seguro? Sí" : lbl}</button>;
                 });
               })()}
             </div>
