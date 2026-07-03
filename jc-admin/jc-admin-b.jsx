@@ -432,7 +432,7 @@ function recitaWa(p, r) { return "https://wa.me/" + (p.phone || "").replace(/\D/
 function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }) {
   const [q, setQ] = useState("");
   const [nuevo, setNuevo] = useState(false);
-  const [filt, setFilt] = useState("calendario");
+  const [filt, setFilt] = useState("recientes"); // Recientes es el filtro por defecto al entrar (a pedido del usuario)
   const [openCamp, setOpenCamp] = useState(false);
   // Mapa id→timestamp de la última vez que se abrió la ficha (para el filtro "Recientes").
   const opened = (() => { try { return (window.DB && DB.get("pat_opened")) || {}; } catch (e) { return {}; } })();
