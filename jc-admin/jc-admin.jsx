@@ -1939,7 +1939,9 @@ function AdminApp() {
               const content = pins.concat(divider).concat(grps);
               if (!seg) return content;
               // Contenedor segmented glass (estilo Ficha): una sola pastilla redondeada translúcida.
-              return <div style={{ display: "inline-flex", alignItems: "center", gap: 3, background: T.dark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.5)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.62)"), borderRadius: 16, padding: 4, backdropFilter: window.JCDS.glassBlur.panel, WebkitBackdropFilter: window.JCDS.glassBlur.panel, boxShadow: "0 8px 24px -14px rgba(0,0,0,.5)" }}>{content}</div>;
+              // `margin:0 auto` la centra en la página cuando hay espacio y la deja scrolleable desde el
+              // inicio si llegara a desbordar (evita el bug de justify-content:center + overflow).
+              return <div style={{ display: "inline-flex", alignItems: "center", gap: 3, margin: "0 auto", background: T.dark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.5)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.62)"), borderRadius: 16, padding: 4, backdropFilter: window.JCDS.glassBlur.panel, WebkitBackdropFilter: window.JCDS.glassBlur.panel, boxShadow: "0 8px 24px -14px rgba(0,0,0,.5)" }}>{content}</div>;
             })()}
           </div>
           {topGrp && (<>
