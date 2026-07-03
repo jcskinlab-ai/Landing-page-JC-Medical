@@ -317,10 +317,10 @@ function clinicMapsLink() {
 // el link inteligente de mapa. Devuelve el texto SIN codificar (el llamador hace encodeURIComponent).
 function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
   var addr = clinicAddr(), maps = clinicMapsLink();
-  var L = ["Hola " + name + ",", "", "Tu cita en " + clinicDisplayName() + " quedó confirmada:", "",
-           "Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm, "Hora: " + time + " hrs", "Tratamiento: " + proc, "Profesional: " + prof];
-  if (addr) L.push("Dirección: " + addr);
-  if (maps) L.push("Cómo llegar: " + maps);
+  var L = ["Hola " + name + " 👋", "", "Tu cita en " + clinicDisplayName() + " quedó confirmada:", "",
+           "🗓️ Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm, "⏰ Hora: " + time + " hrs", "💉 Tratamiento: " + proc, "👨‍⚕️ Profesional: " + prof];
+  if (addr) L.push("📍 Dirección: " + addr);
+  if (maps) L.push("", "🏥 Cómo llegar: " + maps);
   L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.", "", "¡Nos vemos pronto!");
   return L.join("\n");
 }

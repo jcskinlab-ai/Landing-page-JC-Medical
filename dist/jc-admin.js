@@ -359,17 +359,17 @@ function clinicMapsLink() {
 function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
   var addr = clinicAddr(), maps = clinicMapsLink();
   var L = [
-    "Hola " + name + ",",
+    "Hola " + name + " \u{1F44B}",
     "",
     "Tu cita en " + clinicDisplayName() + " qued\xF3 confirmada:",
     "",
-    "Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm,
-    "Hora: " + time + " hrs",
-    "Tratamiento: " + proc,
-    "Profesional: " + prof
+    "\u{1F5D3}\uFE0F Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm,
+    "\u23F0 Hora: " + time + " hrs",
+    "\u{1F489} Tratamiento: " + proc,
+    "\u{1F468}\u200D\u2695\uFE0F Profesional: " + prof
   ];
-  if (addr) L.push("Direcci\xF3n: " + addr);
-  if (maps) L.push("C\xF3mo llegar: " + maps);
+  if (addr) L.push("\u{1F4CD} Direcci\xF3n: " + addr);
+  if (maps) L.push("", "\u{1F3E5} C\xF3mo llegar: " + maps);
   L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.", "", "\xA1Nos vemos pronto!");
   return L.join("\n");
 }
