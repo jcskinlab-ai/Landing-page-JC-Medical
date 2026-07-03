@@ -2796,7 +2796,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
               } else {
                 setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) });
               }
-            }, 1e3);
+            }, 200);
           },
           onMouseLeave: () => {
             if (showT.current) {
