@@ -1759,7 +1759,15 @@ function ImagenesTab({ T, patient, updatePatient }) {
   const [src, setSrc] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [viewer, setViewer] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
+  function onDropImg(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file && file.type && file.type.indexOf("image/") === 0) readImageResized(file, setSrc);
+  }
   useEffect(() => {
     setImgsState(patImages(patient));
     try {
@@ -1844,7 +1852,25 @@ function ImagenesTab({ T, patient, updatePatient }) {
   }, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: save, disabled: uploading }, uploading ? "Subiendo\u2026" : "Guardar imagen") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: (e) => {
     const f = e.target.files && e.target.files[0];
     if (f) readImageResized(f, setSrc);
-  }, style: { display: "none" } }), /* @__PURE__ */ React.createElement("button", { onClick: () => fileRef.current && fileRef.current.click(), style: { aspectRatio: src ? "auto" : "16/9", border: "1px dashed " + T.chipBorder, borderRadius: 10, background: T.surface, cursor: "pointer", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 14, overflow: "hidden" } }, src ? /* @__PURE__ */ React.createElement("img", { src, alt: "preview", style: { maxWidth: "100%", maxHeight: 240, borderRadius: 6 } }) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { width: "30", height: "30", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }, /* @__PURE__ */ React.createElement("path", { d: "M12 16V4M7 9l5-5 5 5M5 20h14" })), "Toca para seleccionar una foto")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: { width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" } }, getImgProcs().map((p) => /* @__PURE__ */ React.createElement("option", { key: p }, p)))), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Fecha"), /* @__PURE__ */ React.createElement("input", { type: "date", value: fecha, onChange: (e) => setFecha(e.target.value), style: { width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" } }))))), viewer && /* @__PURE__ */ React.createElement("div", { onMouseDown: (e) => {
+  }, style: { display: "none" } }), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => fileRef.current && fileRef.current.click(),
+      onDragOver: (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOver(true);
+      },
+      onDragLeave: (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOver(false);
+      },
+      onDrop: onDropImg,
+      style: { aspectRatio: src ? "auto" : "16/9", border: "1px dashed " + (dragOver ? T.accent : T.chipBorder), borderRadius: 10, background: dragOver ? T.accentSoft || "rgba(84,112,127,.1)" : T.surface, cursor: "pointer", color: dragOver ? T.accent : T.textMute, fontFamily: T.sans, fontSize: 12.5, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 14, overflow: "hidden", transition: "background .15s, border-color .15s, color .15s" }
+    },
+    src ? /* @__PURE__ */ React.createElement("img", { src, alt: "preview", style: { maxWidth: "100%", maxHeight: 240, borderRadius: 6 } }) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { width: "30", height: "30", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }, /* @__PURE__ */ React.createElement("path", { d: "M12 16V4M7 9l5-5 5 5M5 20h14" })), dragOver ? "Suelta la foto aqu\xED" : "Toca o arrastra una foto aqu\xED")
+  ), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: { width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" } }, getImgProcs().map((p) => /* @__PURE__ */ React.createElement("option", { key: p }, p)))), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Fecha"), /* @__PURE__ */ React.createElement("input", { type: "date", value: fecha, onChange: (e) => setFecha(e.target.value), style: { width: "100%", padding: "11px 12px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" } }))))), viewer && /* @__PURE__ */ React.createElement("div", { onMouseDown: (e) => {
     if (e.target === e.currentTarget) setViewer(null);
   }, style: { position: "fixed", inset: 0, zIndex: 9999, background: "rgba(8,8,6,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "calc(14px + env(safe-area-inset-top,0px))", left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: "#fff" } }, viewer.proc || viewer.label || "Imagen", viewer.date ? " \xB7 " + fmtDate(viewer.date) : ""), /* @__PURE__ */ React.createElement("button", { onClick: () => setViewer(null), style: { background: "rgba(255,255,255,.14)", border: "none", borderRadius: 999, width: 40, height: 40, cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6 6 18M6 6l12 12" })))), /* @__PURE__ */ React.createElement("img", { src: viewer.src, alt: viewer.label || "Imagen", onClick: (e) => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 } }), /* @__PURE__ */ React.createElement("a", { href: viewer.src, download: "imagen-" + (viewer.proc || "clinica") + "-" + (viewer.date || "") + ".jpg", onClick: (e) => e.stopPropagation(), style: { position: "absolute", bottom: "calc(18px + env(safe-area-inset-bottom,0px))", fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: "#fff", background: "rgba(255,255,255,.16)", borderRadius: 10, padding: "11px 20px", textDecoration: "none" } }, "\u2193 Descargar")));
 }
