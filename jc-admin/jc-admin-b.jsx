@@ -1122,8 +1122,13 @@ function procMapType(proc) {
 
 /* Plantillas reutilizables para el "Resumen de la aplicación" (dosis que se repiten entre pacientes). */
 const SESION_TPL_SEED = [
-  { id: "stpl_tox3", name: "Toxina botulínica · 3 zonas", body: "Zonas tratadas: frente, entrecejo y patas de gallo.\n16u frontal\n10u procerus\n10u corrugadores\n10u orbiculares\n\nSin incidentes, no se evidencian hematomas ni reacciones alérgicas inmediatas." }
+  { id: "stpl_tox3", name: "Toxina botulínica · 3 zonas", body: "Zonas tratadas: frente, entrecejo y patas de gallo.\n16u frontal\n10u procerus\n10u corrugadores\n10u orbiculares\n\nSin incidentes, no se evidencian hematomas ni reacciones alérgicas inmediatas." },
+  { id: "stpl_eval", name: "Evaluación de control", body: "Se evalúan los procedimientos realizados previamente.\nZona revisada: \nHallazgos: evolución adecuada, sin complicaciones.\nRecomendación: continuar esquema actual / reforzar en la próxima sesión.\n\nSe conversan expectativas y se resuelven dudas del paciente." }
 ];
+// Una sesión es de EVALUACIÓN (control, sin producto aplicado) cuando el procedimiento empieza
+// con "Evaluación" — cubre tanto la opción fija de abajo como servicios que la clínica cree
+// bajo la categoría "Evaluación" (ej. "Evaluación facial", "Evaluación de control").
+function isEvalSession(proc) { return /^evaluaci[oó]n/i.test((proc || "").trim()); }
 function sesionTplLoad() {
   try { const v = window.DB && DB.get("sesion_resumen_tpls"); if (Array.isArray(v)) return v; } catch (e) {}
   return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? SESION_TPL_SEED : [];
@@ -1205,33 +1210,29 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
                 placeholder="24U / 1 ml" style={sel} />
             </label>
           </div>
-          {/* Procedimiento: desplegable con los servicios de la clínica (agrupados por categoría) + opción "Otro". */}
+          {/* Procedimiento: desplegable con los servicios de la clínica (agrupados por categoría) + opción
+              fija "Evaluación / control" (siempre disponible, sin depender de que la clínica la haya
+              creado como servicio) + "Otro". */}
           {(() => {
+            const EVAL_PROC = "Evaluación";
             const svcs = (window.clinicServiceList ? window.clinicServiceList() : []);
             const byCat = {}; svcs.forEach(s => { (byCat[s.cat] = byCat[s.cat] || []).push(s); });
             const cats = Object.keys(byCat);
-            const known = svcs.some(s => s.name === f.proc);
+            const known = f.proc === EVAL_PROC || svcs.some(s => s.name === f.proc);
             const isOther = f.proc && !known;
-            if (!svcs.length) {
-              return (
-                <label style={{ display: "block" }}>
-                  <span style={lblS}>Procedimiento</span>
-                  <AdField T={T} value={f.proc} onChange={v => setF({ ...f, proc: v })} placeholder="Escríbelo o créalo en Servicios" />
-                  <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>Crea tus servicios en la sección <b>Servicios</b> para elegirlos aquí.</p>
-                </label>
-              );
-            }
             return (
               <div>
                 <label style={{ display: "block" }}>
                   <span style={lblS}>Procedimiento</span>
                   <select value={isOther ? "__other__" : f.proc} onChange={e => { const v = e.target.value; const np = v === "__other__" ? " " : v; const pr = svcPrice(np); setF(prev => ({ ...prev, proc: np, cobro: (!prev.cobro && pr) ? "" + pr : prev.cobro })); }} style={sel}>
                     <option value="">Selecciona un servicio…</option>
+                    <option value={EVAL_PROC}>Evaluación / control (sin producto)</option>
                     {cats.map(c => <optgroup key={c} label={c}>{byCat[c].map((s, i) => <option key={c + i} value={s.name}>{s.name}</option>)}</optgroup>)}
                     <option value="__other__">Otro (especificar)…</option>
                   </select>
                 </label>
                 {isOther && <div style={{ marginTop: 8 }}><AdField T={T} value={f.proc.trim()} onChange={v => setF({ ...f, proc: v })} placeholder="Nombre del procedimiento" /></div>}
+                {!svcs.length && <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>Crea tus tratamientos en la sección <b>Servicios</b> para elegirlos aquí, o usa "Evaluación / control" para sesiones sin producto.</p>}
               </div>
             );
           })()}
@@ -1283,26 +1284,29 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             </label>
           </div>
 
-          {/* Datos del producto */}
-          <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "13px 14px" }}>
-            <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 11 }}>Producto aplicado</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: v })} placeholder="Ej. AB1234" />
-              <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => { let d = v.replace(/\D/g, "").slice(0, 8); let fmt = d.length > 6 ? d.slice(0,4)+"-"+d.slice(4,6)+"-"+d.slice(6) : d.length > 4 ? d.slice(0,4)+"-"+d.slice(4) : d; setF({ ...f, venc: fmt }); }} inputMode="numeric" placeholder="2027-03-15 (AAAA-MM-DD)" />
-              <label style={{ display: "block" }}>
-                <span style={lblS}>Temperatura conserv.</span>
-                <div style={{ display: "flex", alignItems: "center", border: "1px solid " + T.line, borderRadius: 4, overflow: "hidden" }}>
-                  <input value={f.temp} onChange={e => setF({ ...f, temp: e.target.value.replace(/[^0-9.,–\-]/g, "") })} inputMode="decimal" placeholder="2–8" style={{ flex: 1, padding: "12px 13px", border: "none", background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
-                  <span style={{ paddingRight: 13, fontFamily: T.sans, fontSize: 13.5, color: T.textMute, userSelect: "none", background: T.surface }}>°C</span>
-                </div>
-              </label>
-              <AdField T={T} label="Dilución / reconstitución" value={f.dilucion} onChange={v => setF({ ...f, dilucion: v })} placeholder="100U en 2,5 ml SF" />
+          {/* Datos del producto — se OCULTA en sesiones de Evaluación/control: no se aplica ningún
+              producto, solo se revisan procedimientos ya realizados (a pedido del usuario). */}
+          {!isEvalSession(f.proc) && (
+            <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "13px 14px" }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 11 }}>Producto aplicado</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: v })} placeholder="Ej. AB1234" />
+                <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => { let d = v.replace(/\D/g, "").slice(0, 8); let fmt = d.length > 6 ? d.slice(0,4)+"-"+d.slice(4,6)+"-"+d.slice(6) : d.length > 4 ? d.slice(0,4)+"-"+d.slice(4) : d; setF({ ...f, venc: fmt }); }} inputMode="numeric" placeholder="2027-03-15 (AAAA-MM-DD)" />
+                <label style={{ display: "block" }}>
+                  <span style={lblS}>Temperatura conserv.</span>
+                  <div style={{ display: "flex", alignItems: "center", border: "1px solid " + T.line, borderRadius: 4, overflow: "hidden" }}>
+                    <input value={f.temp} onChange={e => setF({ ...f, temp: e.target.value.replace(/[^0-9.,–\-]/g, "") })} inputMode="decimal" placeholder="2–8" style={{ flex: 1, padding: "12px 13px", border: "none", background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
+                    <span style={{ paddingRight: 13, fontFamily: T.sans, fontSize: 13.5, color: T.textMute, userSelect: "none", background: T.surface }}>°C</span>
+                  </div>
+                </label>
+                <AdField T={T} label="Dilución / reconstitución" value={f.dilucion} onChange={v => setF({ ...f, dilucion: v })} placeholder="100U en 2,5 ml SF" />
+              </div>
             </div>
-          </div>
+          )}
 
           <label style={{ display: "block" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-              <span style={{ ...lblS, marginBottom: 0 }}>Resumen de la aplicación</span>
+              <span style={{ ...lblS, marginBottom: 0 }}>{isEvalSession(f.proc) ? "Resumen de la evaluación" : "Resumen de la aplicación"}</span>
               {!ro && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <select value="" onChange={e => { const t = resTpls.find(x => x.id === e.target.value); if (t) aplicarTpl(t.body); e.target.value = ""; }}
@@ -1314,7 +1318,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
                 </div>
               )}
             </div>
-            {taField({ val: f.resumen, rows: 5, onChange: e => setF({ ...f, resumen: e.target.value }), ph: "Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" })}
+            {taField({ val: f.resumen, rows: 5, onChange: e => setF({ ...f, resumen: e.target.value }), ph: isEvalSession(f.proc) ? "Procedimientos revisados, evolución, hallazgos y recomendación…" : "Zonas tratadas, técnica, unidades por punto, tolerancia del paciente…" })}
           </label>
           <label style={{ display: "block" }}>
             <span style={lblS}>Nota / observaciones</span>
