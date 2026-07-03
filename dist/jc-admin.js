@@ -111,7 +111,6 @@ function PatientSearch({ T, patients, onOpen, compact }) {
 }
 const ADMIN_NAV = [
   { k: "dashboard", l: "Dashboard" },
-  { k: "appjcm", l: "App JC Medical" },
   { k: "agenda", l: "Agenda" },
   { k: "pacientes", l: "Pacientes" },
   { k: "salaespera", l: "Sala de espera" },
@@ -153,15 +152,16 @@ const ADMIN_NAV = [
   { k: "laboratorios", l: "Laboratorios" },
   { k: "convenios", l: "Convenios" },
   { k: "boletas", l: "Boletas" },
-  { k: "pagosonline", l: "Pagos online" }
+  { k: "pagosonline", l: "Pagos online" },
+  // "App JC Medical" al FINAL (dentro de Sistema en el sidebar), a pedido del usuario: ya no es
+  // acceso directo. Solo aparece en la clínica JC Medical (gateado por showJcApp).
+  { k: "appjcm", l: "App JC Medical" }
 ];
 var NEW_SECT = { contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, boletas: 1, pagosonline: 1 };
 const SIDE_GROUP_HEAD = { dashboard: "Inicio", agenda: "Cl\xEDnica", marketing: "Marketing & Ventas", resumen: "An\xE1lisis", administracion: "Sistema" };
 const SIDE_LOCKED_OPEN = { "Inicio": true, "Cl\xEDnica": true };
 const SIDE_DEFAULT_COLLAPSED = { "Marketing & Ventas": true, "An\xE1lisis": true, "Sistema": true };
 const NAV_TOP_GROUPS = [
-  // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
-  // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
   // Consentimientos y Editor de Fichas se movieron aquí (antes en "Sistema"), a pedido.
   // Tratamientos (servicios) entra a Clínica. Se le suman Fidelidad, Colaboraciones y Chat interno
   // (antes en "Herramientas", que se eliminó) a pedido del usuario.
@@ -171,10 +171,12 @@ const NAV_TOP_GROUPS = [
   { l: "An\xE1lisis \xB7 IA", keys: ["resumen", "reportes", "desempeno", "agenteia", "copilot", "automatizaciones"] },
   // Registro de Ventas (caja) vuelve a ser acceso directo (pinned), no dentro de Gestión (a pedido del usuario).
   { l: "Gesti\xF3n", keys: ["pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
-  // Integraciones baja a Sistema (antes en "Herramientas", eliminado).
-  { l: "Sistema", keys: ["administracion", "tutoriales", "config", "integraciones"] }
+  // Integraciones baja a Sistema (antes en "Herramientas", eliminado). "App JC Medical" se movió aquí
+  // (al final), fuera de los accesos directos, a pedido del usuario — solo aparece en la clínica
+  // JC Medical (gateado por showJcApp en adminNavItems).
+  { l: "Sistema", keys: ["administracion", "tutoriales", "config", "integraciones", "appjcm"] }
 ];
-const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja"];
+const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "pendientes", "caja"];
 function jcmCancelNotice(a) {
   try {
     if (!a || !window.mediqueEmail) return;

@@ -104,7 +104,6 @@ function PatientSearch({ T, patients, onOpen, compact }) {
 
 const ADMIN_NAV = [
   { k: "dashboard", l: "Dashboard" },
-  { k: "appjcm", l: "App JC Medical" },
   { k: "agenda", l: "Agenda" }, { k: "pacientes", l: "Pacientes" }, { k: "salaespera", l: "Sala de espera" }, { k: "pendientes", l: "Pendientes" }, { k: "caja", l: "Registro de Ventas" },
   { k: "inventario", l: "Inventario" }, { k: "servicios", l: "Tratamientos" }, { k: "equipo", l: "Equipo" }, { k: "sucursales", l: "Sucursales" }, { k: "marketing", l: "Marketing" },
   { k: "crm", l: "CRM · Embudo" }, { k: "difusiones", l: "Difusiones" }, { k: "agenteia", l: "Agente IA" }, { k: "copilot", l: "Asistente IA" }, { k: "automatizaciones", l: "Automatizaciones" },
@@ -119,7 +118,10 @@ const ADMIN_NAV = [
   // inteligentes en esa misma sección (PendientesView embebe ContraloriaView). Ya no es nav aparte.
   { k: "desempeno", l: "Panel de desempeño" }, { k: "encuestas", l: "Encuestas" }, { k: "chatinterno", l: "Chat interno" },
   // Flujo de caja se eliminó: Registro de Ventas ya muestra ingresos/egresos/neto y el mismo gráfico.
-  { k: "pagosgastos", l: "Pagos y Gastos" }, { k: "remuneraciones", l: "Remuneraciones" }, { k: "laboratorios", l: "Laboratorios" }, { k: "convenios", l: "Convenios" }, { k: "boletas", l: "Boletas" }, { k: "pagosonline", l: "Pagos online" }
+  { k: "pagosgastos", l: "Pagos y Gastos" }, { k: "remuneraciones", l: "Remuneraciones" }, { k: "laboratorios", l: "Laboratorios" }, { k: "convenios", l: "Convenios" }, { k: "boletas", l: "Boletas" }, { k: "pagosonline", l: "Pagos online" },
+  // "App JC Medical" al FINAL (dentro de Sistema en el sidebar), a pedido del usuario: ya no es
+  // acceso directo. Solo aparece en la clínica JC Medical (gateado por showJcApp).
+  { k: "appjcm", l: "App JC Medical" }
 ];
 // Secciones NUEVAS (suite N1–N10): visibles SOLO para Los Medique (preview) hasta el push global.
 var NEW_SECT = { contraloria: 1, desempeno: 1, encuestas: 1, chatinterno: 1, pagosgastos: 1, remuneraciones: 1, laboratorios: 1, convenios: 1, boletas: 1, pagosonline: 1 };
@@ -132,8 +134,6 @@ const SIDE_LOCKED_OPEN = { "Inicio": true, "Clínica": true };
 const SIDE_DEFAULT_COLLAPSED = { "Marketing & Ventas": true, "Análisis": true, "Sistema": true };
 // Grupos de la barra superior (F8): juntar apartados similares en menús desplegables. IA en su propio grupo.
 const NAV_TOP_GROUPS = [
-  // "App JC Medical" ya no va en desplegable: es botón directo (2º) y solo aparece en la
-  // clínica de JC Medical (gateado por showJcApp en adminNavItems). El grupo "Inicio" se quita.
   // Consentimientos y Editor de Fichas se movieron aquí (antes en "Sistema"), a pedido.
   // Tratamientos (servicios) entra a Clínica. Se le suman Fidelidad, Colaboraciones y Chat interno
   // (antes en "Herramientas", que se eliminó) a pedido del usuario.
@@ -143,12 +143,14 @@ const NAV_TOP_GROUPS = [
   { l: "Análisis · IA", keys: ["resumen", "reportes", "desempeno", "agenteia", "copilot", "automatizaciones"] },
   // Registro de Ventas (caja) vuelve a ser acceso directo (pinned), no dentro de Gestión (a pedido del usuario).
   { l: "Gestión", keys: ["pagosgastos", "remuneraciones", "laboratorios", "convenios", "boletas", "pagosonline"] },
-  // Integraciones baja a Sistema (antes en "Herramientas", eliminado).
-  { l: "Sistema", keys: ["administracion", "tutoriales", "config", "integraciones"] }
+  // Integraciones baja a Sistema (antes en "Herramientas", eliminado). "App JC Medical" se movió aquí
+  // (al final), fuera de los accesos directos, a pedido del usuario — solo aparece en la clínica
+  // JC Medical (gateado por showJcApp en adminNavItems).
+  { l: "Sistema", keys: ["administracion", "tutoriales", "config", "integraciones", "appjcm"] }
 ];
 // Pestañas FIJAS de acceso rápido en la barra superior (las de uso diario: agenda del día, pacientes,
 // recepción, pendientes urgentes y el vigilante IA). El resto vive agrupado en los desplegables.
-const NAV_PINNED = ["dashboard", "appjcm", "agenda", "pacientes", "salaespera", "pendientes", "caja"];
+const NAV_PINNED = ["dashboard", "agenda", "pacientes", "salaespera", "pendientes", "caja"];
 
 // Al anular una cita: avisar al paciente por correo que quedó cancelada (si tiene email y la cita es
 // de hoy o futura). Así el recordatorio previo queda "anulado" para el paciente. Best-effort, no bloquea.
