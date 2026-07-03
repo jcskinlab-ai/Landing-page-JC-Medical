@@ -651,6 +651,11 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       return fetch("/api/meta", { method: "POST", headers: headers, body: JSON.stringify(bodyObj) });
     }).then(r => r.json()).then(d => { if (d && d.ok) { setLiveMeta(d); try { window.DB && DB.set("meta_live_cache", { month: _curMonth, data: d }); } catch (e) {} } }).catch(() => {});
   }, []);
+  // El embudo se anima UNA sola vez al entrar. Sin este flag, al llegar liveMeta (async) las barras
+  // re-animaban: barGrow en el montaje + la transición de width al actualizar los valores = "2 veces".
+  // Tras la animación inicial se apaga barGrow y la transición, así el refresco actualiza sin re-animar.
+  const [funnelAnim, setFunnelAnim] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setFunnelAnim(true), 750); return () => clearTimeout(t); }, []);
   const funnel = (function () {
     const mes = new Date().toISOString().slice(0, 7);
     const inMonth = ts => (ts || "").slice(0, 7) === mes;
@@ -752,7 +757,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
                     <span style={{ fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text }}>{st.n}{conv != null && <span style={{ fontSize: 10.5, fontWeight: 400, color: T.textMute, marginLeft: 7 }}>{conv}%</span>}</span>
                   </div>
                   <div style={{ height: lux ? 6 : 8, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: pct + "%", background: st.c, borderRadius: 999, transition: "width .6s " + T.ease, ...(lux ? DS.barGrow(i, "x") : {}) }} />
+                    <div style={{ height: "100%", width: pct + "%", background: st.c, borderRadius: 999, transition: funnelAnim ? "none" : ("width .6s " + T.ease), ...((lux && !funnelAnim) ? DS.barGrow(i, "x") : {}) }} />
                   </div>
                 </div>
               );
