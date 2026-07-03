@@ -1806,7 +1806,13 @@ function SaasGate() {
   useEffect(() => {
     window.JCSAAS.onAuth(payload => {
       setInfo(payload);
-      if (!payload || payload.incomplete) { setPhase("auth"); return; }
+      setBusy(false); // cualquier resultado de auth debe liberar el botón "Entrando…"
+      if (!payload) { setPhase("auth"); return; }
+      if (payload.incomplete) {
+        setPhase("auth");
+        setErr("Tu cuenta no tiene una clínica asociada todavía. Escríbenos por WhatsApp para activarla.");
+        return;
+      }
       const a = window.JCSAAS.access();
       setPhase(a.ok ? "app" : "blocked");
     });
@@ -1817,7 +1823,11 @@ function SaasGate() {
 
   async function doLogin() {
     setErr(""); setBusy(true);
-    try { await window.JCSAAS.login(email, pass); }
+    try {
+      await window.JCSAAS.login(email, pass);
+      // Respaldo: si onAuth no resuelve en 8 s (red/Firestore lento), no dejar el botón pegado.
+      setTimeout(() => setBusy(b => { if (b) setErr("Está tardando más de lo normal. Intenta de nuevo."); return false; }), 8000);
+    }
     catch (e) { setErr(authMsg(e)); setBusy(false); }
   }
   async function doRegister() {

@@ -3749,8 +3749,14 @@ function SaasGate() {
   }
   useEffect(() => {
     window.JCSAAS.onAuth((payload) => {
-      if (!payload || payload.incomplete) {
+      setBusy(false);
+      if (!payload) {
         setPhase("auth");
+        return;
+      }
+      if (payload.incomplete) {
+        setPhase("auth");
+        setErr("Tu cuenta no tiene una cl\xEDnica asociada todav\xEDa. Escr\xEDbenos por WhatsApp para activarla.");
         return;
       }
       const a = window.JCSAAS.access();
@@ -3788,6 +3794,10 @@ function SaasGate() {
     setBusy(true);
     try {
       await window.JCSAAS.login(email, pass);
+      setTimeout(() => setBusy((b) => {
+        if (b) setErr("Est\xE1 tardando m\xE1s de lo normal. Intenta de nuevo.");
+        return false;
+      }), 8e3);
     } catch (e) {
       setErr(authMsg(e));
       setBusy(false);

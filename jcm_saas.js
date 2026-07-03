@@ -362,7 +362,11 @@
         setTimeout(publishProfile, 1500); // publica/actualiza el perfil público de la clínica
         fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role });
       });
-    }).catch(function (e) { noop(e); });
+    }).catch(function (e) {
+      noop(e);
+      // No dejar la pantalla de login colgada para siempre si algo falló (red, permisos, etc.).
+      fire({ user: user, clinic: null, incomplete: true, error: true });
+    });
   }
 
   function teardown() {
