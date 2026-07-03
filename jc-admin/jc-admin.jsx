@@ -393,15 +393,54 @@ function panelParseRoute() {
     var sec = parts[0] || "dashboard";
     if (!PANEL_SECTIONS[sec]) sec = "dashboard";
     var pid = (sec === "pacientes" && parts[1]) ? decodeURIComponent(parts[1]) : null;
-    return { section: sec, pid: pid };
-  } catch (e) { return { section: "dashboard", pid: null }; }
+    // Sub-pestaña: 2º segmento (o 3º en pacientes, tras el id). Ej: /config/horarios, /pacientes/<id>/consent.
+    var sub = (sec === "pacientes") ? (parts[2] ? decodeURIComponent(parts[2]) : null) : (parts[1] ? decodeURIComponent(parts[1]) : null);
+    return { section: sec, pid: pid, sub: sub };
+  } catch (e) { return { section: "dashboard", pid: null, sub: null }; }
 }
-// URLs limpias en portal.medique.cl: /inventario, /pacientes/<id> (sin el prefijo /panel).
+// Segmentos actuales de la URL (sin el prefijo /panel), para preservar la sub-ruta.
+function _panelParts() {
+  var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+  if (parts[0] === "panel") parts.shift();
+  return parts;
+}
+// URLs limpias en portal.medique.cl: /inventario, /pacientes/<id>, /config/horarios (sin /panel).
+// Preserva la sub-pestaña (2º segmento) cuando seguimos en la MISMA sección → así al recargar
+// /config/horarios la URL no se reescribe a /config y se mantiene la pestaña.
 function panelRoutePath(sec, pid) {
+  try {
+    var cur = _panelParts();
+    if (sec === "pacientes" && pid) {
+      if (cur[0] === "pacientes" && cur[1] === encodeURIComponent(pid) && cur[2]) return "/pacientes/" + encodeURIComponent(pid) + "/" + cur[2];
+      return "/pacientes/" + encodeURIComponent(pid);
+    }
+    if (cur[0] === sec && cur[1]) return "/" + sec + "/" + cur[1];
+  } catch (e) {}
   if (sec === "pacientes" && pid) return "/pacientes/" + encodeURIComponent(pid);
   if (!sec || sec === "dashboard") return "/";
   return "/" + sec;
 }
+// Lee/escribe la sub-pestaña de la sección ACTUAL (no aplica a pacientes, que usa el id + su propia
+// pestaña). Las vistas con pestañas leen jcmGetSub() al montar y llaman jcmSetSub(slug) al cambiar.
+function jcmGetSub() { try { var p = panelParseRoute(); return p.section === "pacientes" ? null : p.sub; } catch (e) { return null; } }
+function jcmSetSub(sub) {
+  try {
+    var parts = _panelParts(); var sec = parts[0] || "dashboard";
+    if (sec === "pacientes") return; // las rutas de paciente las maneja la ficha aparte
+    var target = (sec === "dashboard" && !parts[0]) ? (sub ? "/dashboard/" + encodeURIComponent(sub) : "/") : ("/" + sec + (sub ? "/" + encodeURIComponent(sub) : ""));
+    if (location.pathname !== target) window.history.replaceState({ s: sec, sub: sub || null }, "", target);
+  } catch (e) {}
+}
+// La ficha del paciente usa /pacientes/<id>/<tab> (3er segmento). Helper propio porque jcmSetSub
+// no toca las rutas de pacientes (el 2º segmento ahí es el id, no una pestaña).
+function jcmSetPatientTab(pid, tab) {
+  try {
+    if (!pid) return;
+    var target = "/pacientes/" + encodeURIComponent(pid) + (tab ? "/" + encodeURIComponent(tab) : "");
+    if (location.pathname !== target) window.history.replaceState({ s: "pacientes", p: pid, sub: tab || null }, "", target);
+  } catch (e) {}
+}
+try { window.jcmGetSub = jcmGetSub; window.jcmSetSub = jcmSetSub; window.jcmSetPatientTab = jcmSetPatientTab; } catch (e) {}
 
 /* ─────────── DASHBOARD (estilo Medique: indicadores + evolución + accesos) ─────────── */
 const DASH_IC = {
@@ -1409,7 +1448,8 @@ function AdminApp() {
     return arr.map(p => ({ ...p, points: p.points || [], history: Array.isArray(p.history) ? p.history : [] }));
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
-  const [openPatientTab, setOpenPatientTab] = useState(null);
+  // Deep-link a una pestaña de la ficha: /pacientes/<id>/<tab> → abre esa pestaña al recargar.
+  const [openPatientTab, setOpenPatientTab] = useState(_initRoute.pid ? _initRoute.sub : null);
   const [openApptId, setOpenApptId] = useState(null); // deep-link desde Contralor IA a una cita puntual
   const [appts, setAppts] = useState(() => {
     // Citas por clínica desde la BD (Firebase). Las reservas web ya entran aquí vía importWebBookings.
@@ -1635,7 +1675,7 @@ function AdminApp() {
   }, [section, openPatient]);
   // Botón atrás/adelante del navegador → vuelve a la sección/paciente correspondiente.
   useEffect(() => {
-    function onPop() { var r = panelParseRoute(); setSection(r.section); setOpenPatient(r.pid); setNavOpen(false); }
+    function onPop() { var r = panelParseRoute(); setSection(r.section); setOpenPatient(r.pid); setOpenPatientTab(r.pid ? r.sub : null); setNavOpen(false); }
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);

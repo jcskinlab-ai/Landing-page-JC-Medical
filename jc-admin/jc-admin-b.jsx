@@ -705,6 +705,11 @@ function jcmConsentPending(patients, appts) {
 if (typeof window !== "undefined") window.jcmConsentPending = jcmConsentPending;
 function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab }) {
   const [tab, setTab] = useState(initialTab || "fichaclinica");
+  // Deep-link de la pestaña de ficha en la URL: /pacientes/<id>/<tab> (se conserva al recargar).
+  const goTab = k => { setTab(k); try { window.jcmSetPatientTab && window.jcmSetPatientTab(patient.id, k); } catch (e) {} };
+  // Al montar la ficha con una pestaña que no es la de por defecto (ej. deep-link desde Pendientes a
+  // "consent"), sincroniza la URL para que la pestaña se conserve al recargar.
+  useEffect(() => { if (tab && tab !== "fichaclinica") { try { window.jcmSetPatientTab && window.jcmSetPatientTab(patient.id, tab); } catch (e) {} } }, []);
   // Al abrir la ficha: si el paciente tiene imágenes guardadas DENTRO de su registro (modelo
   // antiguo, pesado), muévelas a su propia clave (pimg_<id>) y vacía patient.images. Así el
   // documento del paciente se mantiene liviano y las sesiones/consentimientos se guardan siempre.
@@ -894,7 +899,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
         ? { display: "flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, margin: "22px 0 18px" }
         : { display: "flex", gap: 4, overflowX: "auto", borderBottom: "1px solid " + T.line, margin: "14px 0 18px" }}>
         {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={luxF
+          <button key={k} onClick={() => goTab(k)} style={luxF
             ? { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", background: tab === k ? T.surface : "none", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", border: "none", borderRadius: DS.r.ctl, cursor: "pointer", fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: tab === k ? 600 : 500, color: tab === k ? T.text : T.textMute, whiteSpace: "nowrap", transition: DS.trans("background,box-shadow,color") }
             : { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "11px 14px", background: "none", border: "none", borderBottom: "2px solid " + (tab === k ? T.accent : "transparent"), cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 400, color: tab === k ? T.text : T.textMute, whiteSpace: "nowrap" }}>
             {k === "ia" && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tab === k ? T.accent : T.textMute} strokeWidth="1.6"><rect x="4.5" y="8" width="15" height="10" rx="3" /><path d="M12 4.5V8" /><circle cx="12" cy="3.4" r="1.3" /></svg>}

@@ -347,7 +347,8 @@ function EspecialidadesTab({ T }) {
 
 function ServiciosView({ T }) {
   const D = window.JCDATA;
-  const [tab, setTab] = useState("tratamientos");
+  const [tab, setTab] = useState(() => { try { var s = window.jcmGetSub && window.jcmGetSub(); if (s === "tratamientos" || s === "especialidades") return s; } catch (e) {} return "tratamientos"; });
+  const goTab = k => { setTab(k); try { window.jcmSetSub && window.jcmSetSub(k); } catch (e) {} };
   const [custom, setCustom] = useState(customServices);
   const [newSvc, setNewSvc] = useState(null); // objeto en edición o "new"
   function saveSvc(s) {
@@ -423,7 +424,7 @@ function ServiciosView({ T }) {
         ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, margin: "4px 0 18px" }
         : { display: "flex", gap: 6, margin: "4px 0 18px" }}>
         {[["tratamientos", "Tratamientos"], ["especialidades", "Especialidades"]].map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={luxF
+          <button key={k} onClick={() => goTab(k)} style={luxF
             ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: tab === k ? 600 : 500, padding: "8px 16px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: tab === k ? T.surface : "transparent", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: tab === k ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
             : { fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
         ))}
@@ -1391,7 +1392,8 @@ function loadMsgTpls() {
 function saveMsgTplsDB(v) { try { if (window.DB) window.DB.set("msg_templates", v); } catch (e) {} }
 function applyVars(body, vars) { return (body || "").replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null && vars[k] !== "") ? vars[k] : m); }
 function DifusionesView({ T }) {
-  const [tab, setTab] = useState("difusiones");
+  const [tab, setTab] = useState(() => { try { var s = window.jcmGetSub && window.jcmGetSub(); if (s === "difusiones" || s === "plantillas") return s; } catch (e) {} return "difusiones"; });
+  const goTab = k => { setTab(k); try { window.jcmSetSub && window.jcmSetSub(k); } catch (e) {} };
   const [tpls, setTpls] = useState(loadMsgTpls);
   const [editing, setEditing] = useState(null);
   const [selTpl, setSelTpl] = useState(null);
@@ -1408,7 +1410,7 @@ function DifusionesView({ T }) {
   const conTel = recipients.filter(r => r.phone.length >= 8);
   const tplObj = tpls.find(t => t.id === selTpl) || null;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-  const tabBtn = (k, l) => <button key={k} onClick={() => setTab(k)} style={luxF
+  const tabBtn = (k, l) => <button key={k} onClick={() => goTab(k)} style={luxF
     ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: tab === k ? 600 : 500, padding: "8px 16px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: tab === k ? T.surface : "transparent", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: tab === k ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
     : { fontFamily: T.sans, fontSize: 12.5, fontWeight: tab === k ? 600 : 500, padding: "8px 18px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (tab === k ? T.accent : T.line), background: tab === k ? T.accent : "transparent", color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>;
   return (
@@ -2359,7 +2361,8 @@ const CFG_TABS = [["datos", "Datos de la clínica"], ["reserva", "Reserva y enla
 function ConfigView({ T }) {
   const D = window.JCDATA;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-  const [cfgTab, setCfgTab] = useState(() => { try { var t = window.jcmConfigTab; if (t) { window.jcmConfigTab = null; return t; } } catch (e) {} return "datos"; });
+  const [cfgTab, setCfgTab] = useState(() => { try { var sub = window.jcmGetSub && window.jcmGetSub(); if (sub && CFG_TABS.some(t => t[0] === sub)) return sub; var t = window.jcmConfigTab; if (t) { window.jcmConfigTab = null; return t; } } catch (e) {} return "datos"; });
+  const goCfgTab = k => { setCfgTab(k); try { window.jcmSetSub && window.jcmSetSub(k); } catch (e) {} };
   // Link de RESERVA DIRECTA, propio de cada clínica (no la app de pacientes).
   const bookUrl = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.bookingLink)
     ? window.JCSAAS.bookingLink()
@@ -2395,7 +2398,7 @@ function ConfigView({ T }) {
       <div className="jc-scroll" style={luxF
         ? { display: "inline-flex", gap: 2, flexWrap: "wrap", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, marginBottom: 18 }
         : { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
-        {CFG_TABS.map(([k, l]) => <button key={k} onClick={() => setCfgTab(k)} style={luxF
+        {CFG_TABS.map(([k, l]) => <button key={k} onClick={() => goCfgTab(k)} style={luxF
           ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: cfgTab === k ? 600 : 500, padding: "8px 14px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: cfgTab === k ? T.surface : "transparent", boxShadow: cfgTab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: cfgTab === k ? T.accent : T.textMute, whiteSpace: "nowrap", transition: DS.trans("background,box-shadow,color") }
           : { fontFamily: T.sans, fontSize: 12, fontWeight: cfgTab === k ? 600 : 500, padding: "8px 15px", borderRadius: 999, cursor: "pointer", border: "1px solid " + (cfgTab === k ? T.accent : T.line), background: cfgTab === k ? T.accent : "transparent", color: cfgTab === k ? (T.onAccent || "#fff") : T.textMute, whiteSpace: "nowrap" }}>{l}</button>)}
       </div>
@@ -4949,7 +4952,8 @@ function SyncStatusCard({ T, compact }) {
 }
 function AdministracionView({ T, go, patients, appts, addPatient, updatePatient, markAllPaperConsent }) {
   const D = window.JCDATA;
-  const [tab, setTab] = useState("datos");
+  const [tab, setTab] = useState(() => { try { var s = window.jcmGetSub && window.jcmGetSub(); if (s && ADMIN_TABS.some(t => t[0] === s)) return s; } catch (e) {} return "datos"; });
+  const goTab = k => { setTab(k); try { window.jcmSetSub && window.jcmSetSub(k); } catch (e) {} };
   // Plan/suscripción se autocompleta desde la clínica del SaaS (trial → "Demo").
   const autoPlan = (() => {
     try {
@@ -5132,7 +5136,7 @@ function AdministracionView({ T, go, patients, appts, addPatient, updatePatient,
         ? { display: "inline-flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: window.JCDS.r.seg, padding: 3, marginBottom: 18 }
         : { display: "flex", gap: 7, overflowX: "auto", marginBottom: 18, paddingBottom: 2 }}>
         {ADMIN_TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux())
+          <button key={k} onClick={() => goTab(k)} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux())
             ? { flexShrink: 0, fontFamily: T.sans, fontSize: window.JCDS.ft.sub, fontWeight: tab === k ? 600 : 500, padding: "8px 14px", borderRadius: window.JCDS.r.ctl, cursor: "pointer", whiteSpace: "nowrap", border: "none", background: tab === k ? T.surface : "transparent", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: tab === k ? T.accent : T.textMute, transition: window.JCDS.trans("background,box-shadow,color") }
             : { flexShrink: 0, fontFamily: T.sans, fontSize: 12, fontWeight: 500, padding: "9px 15px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (tab === k ? T.accent : T.chipBorder), background: tab === k ? T.accent : T.chipBg, color: tab === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>
         ))}

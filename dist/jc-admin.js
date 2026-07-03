@@ -467,15 +467,62 @@ function panelParseRoute() {
     var sec = parts[0] || "dashboard";
     if (!PANEL_SECTIONS[sec]) sec = "dashboard";
     var pid = sec === "pacientes" && parts[1] ? decodeURIComponent(parts[1]) : null;
-    return { section: sec, pid };
+    var sub = sec === "pacientes" ? parts[2] ? decodeURIComponent(parts[2]) : null : parts[1] ? decodeURIComponent(parts[1]) : null;
+    return { section: sec, pid, sub };
   } catch (e) {
-    return { section: "dashboard", pid: null };
+    return { section: "dashboard", pid: null, sub: null };
   }
 }
+function _panelParts() {
+  var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+  if (parts[0] === "panel") parts.shift();
+  return parts;
+}
 function panelRoutePath(sec, pid) {
+  try {
+    var cur = _panelParts();
+    if (sec === "pacientes" && pid) {
+      if (cur[0] === "pacientes" && cur[1] === encodeURIComponent(pid) && cur[2]) return "/pacientes/" + encodeURIComponent(pid) + "/" + cur[2];
+      return "/pacientes/" + encodeURIComponent(pid);
+    }
+    if (cur[0] === sec && cur[1]) return "/" + sec + "/" + cur[1];
+  } catch (e) {
+  }
   if (sec === "pacientes" && pid) return "/pacientes/" + encodeURIComponent(pid);
   if (!sec || sec === "dashboard") return "/";
   return "/" + sec;
+}
+function jcmGetSub() {
+  try {
+    var p = panelParseRoute();
+    return p.section === "pacientes" ? null : p.sub;
+  } catch (e) {
+    return null;
+  }
+}
+function jcmSetSub(sub) {
+  try {
+    var parts = _panelParts();
+    var sec = parts[0] || "dashboard";
+    if (sec === "pacientes") return;
+    var target = sec === "dashboard" && !parts[0] ? sub ? "/dashboard/" + encodeURIComponent(sub) : "/" : "/" + sec + (sub ? "/" + encodeURIComponent(sub) : "");
+    if (location.pathname !== target) window.history.replaceState({ s: sec, sub: sub || null }, "", target);
+  } catch (e) {
+  }
+}
+function jcmSetPatientTab(pid, tab) {
+  try {
+    if (!pid) return;
+    var target = "/pacientes/" + encodeURIComponent(pid) + (tab ? "/" + encodeURIComponent(tab) : "");
+    if (location.pathname !== target) window.history.replaceState({ s: "pacientes", p: pid, sub: tab || null }, "", target);
+  } catch (e) {
+  }
+}
+try {
+  window.jcmGetSub = jcmGetSub;
+  window.jcmSetSub = jcmSetSub;
+  window.jcmSetPatientTab = jcmSetPatientTab;
+} catch (e) {
 }
 const DASH_IC = {
   pacientes: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "8", r: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M3 20a6 6 0 0 1 12 0" }), /* @__PURE__ */ React.createElement("path", { d: "M16 8a3 3 0 0 1 0 6" }), /* @__PURE__ */ React.createElement("path", { d: "M21 20a6 6 0 0 0-4-5.5" })),
@@ -1161,7 +1208,7 @@ function AdminApp() {
     return arr.map((p) => ({ ...p, points: p.points || [], history: Array.isArray(p.history) ? p.history : [] }));
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
-  const [openPatientTab, setOpenPatientTab] = useState(null);
+  const [openPatientTab, setOpenPatientTab] = useState(_initRoute.pid ? _initRoute.sub : null);
   const [openApptId, setOpenApptId] = useState(null);
   const [appts, setAppts] = useState(() => {
     var saved = window.DB && window.DB.get("appointments");
@@ -1446,6 +1493,7 @@ function AdminApp() {
       var r = panelParseRoute();
       setSection(r.section);
       setOpenPatient(r.pid);
+      setOpenPatientTab(r.pid ? r.sub : null);
       setNavOpen(false);
     }
     window.addEventListener("popstate", onPop);
