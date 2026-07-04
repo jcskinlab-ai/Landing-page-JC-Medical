@@ -101,8 +101,8 @@ function photoTheme(T) {
 function mobileBg(T) {
   // Velo AZUL (no gris/negro): unifica todo en el azul cerúleo de la referencia y mantiene el texto
   // blanco legible sobre la foto brillante, sin apagar la montaña.
-  const overlay = "linear-gradient(180deg, rgba(20,46,88,.44), rgba(16,38,74,.5) 52%, rgba(12,28,60,.64))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=4')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+  const overlay = "linear-gradient(180deg, rgba(18,42,84,.26), rgba(15,34,70,.32) 52%, rgba(12,28,60,.46))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=5')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
@@ -119,7 +119,7 @@ function LoginVideoBg({ children }) {
   const overlay = "linear-gradient(180deg, rgba(18,44,84,.4), rgba(16,38,74,.5) 50%, rgba(12,30,62,.7))";
   return (
     <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#12294F" }}>
-      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=4"
+      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=5"
         style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
         <source src="/assets/everest-login.mp4" type="video/mp4" />
       </video>
