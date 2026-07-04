@@ -67,7 +67,7 @@ function todayISO() { return localISO(new Date()); }
 function offToISO(off) { const d = new Date(); d.setDate(d.getDate()+off); return localISO(d); }
 function isoToDayOff(iso) { const d = new Date(iso+"T00:00:00"), t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
 function procList() { try { return window.JCDATA.catalog.reduce((a,s) => { s.groups.forEach(g => g.items.forEach(it => a.push(it.n))); return a; }, []); } catch(e) { return []; } }
-function durOf(a) { return a.dur || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc)+" min" : "30 min"); }
+function durOf(a) { const d = a.dur || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc)+" min" : "30 min"); return (""+d).replace(/\s*minutos?\b/i, " min").trim(); }
 
 /* ─── 7 días fijos desde hoy ─── */
 function weekDays() {
@@ -99,8 +99,10 @@ function photoTheme(T) {
 // Va en el contenedor raíz del panel (no "fixed", que se ancla al viewport ancho del escritorio y
 // recortaba la montaña). Velo de legibilidad muy leve: la montaña se ve, el texto claro contrasta.
 function mobileBg(T) {
-  const overlay = "linear-gradient(180deg, rgba(14,20,30,.26), rgba(12,16,26,.42) 50%, rgba(9,12,20,.62))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=3')", backgroundColor: "#0B1018", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+  // Velo AZUL (no gris/negro): unifica todo en el azul cerúleo de la referencia y mantiene el texto
+  // blanco legible sobre la foto brillante, sin apagar la montaña.
+  const overlay = "linear-gradient(180deg, rgba(20,46,88,.44), rgba(16,38,74,.5) 52%, rgba(12,28,60,.64))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=4')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
@@ -114,10 +116,10 @@ function glassChip(T) {
 // movimiento en vez de la foto fija. autoPlay+muted+playsInline es obligatorio para que iOS/Android
 // lo reproduzcan solos sin gesto del usuario; poster = la foto fija mientras carga el video.
 function LoginVideoBg({ children }) {
-  const overlay = "linear-gradient(180deg, rgba(14,20,30,.3), rgba(12,16,26,.46) 50%, rgba(9,12,20,.68))";
+  const overlay = "linear-gradient(180deg, rgba(18,44,84,.4), rgba(16,38,74,.5) 50%, rgba(12,30,62,.7))";
   return (
-    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#0B1018" }}>
-      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=3"
+    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#12294F" }}>
+      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=4"
         style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
         <source src="/assets/everest-login.mp4" type="video/mp4" />
       </video>
@@ -404,7 +406,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
       <div style={{ color:T.accent, opacity:.92, height:16, display:"flex", alignItems:"center" }}>{icon}</div>
       <div style={{ fontFamily:T.sans, fontSize:8.5, letterSpacing:".02em", textTransform:"uppercase", color:T.textMute, lineHeight:1.15, marginTop:5, minHeight:21, display:"flex", alignItems:"center" }}>{label}</div>
       <div style={{ fontFamily:T.serif, fontSize:23, color:T.text, marginTop:1, lineHeight:1 }}>{val}</div>
-      {sub && <div style={{ fontFamily:T.sans, fontSize:8.5, color:subColor||T.textFaint, marginTop:4, lineHeight:1.1 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily:T.sans, fontSize:8.5, color:subColor||"rgba(230,240,255,.74)", marginTop:4, lineHeight:1.1 }}>{sub}</div>}
     </div>
   );
   const IC = {
@@ -443,10 +445,10 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
       </div>
 
       <div style={{ display:"flex", gap:7 }}>
-        {kpi(IC.cal, "Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer", delta>=0?"#4FC585":"#F17A96")}
+        {kpi(IC.cal, "Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer")}
         {kpi(IC.check, "Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
         {kpi(IC.clock, "Pendientes", pendientes, pct(pendientes)+"% del total")}
-        {kpi(IC.bars, "Tasa de ocupación", ocup+"%", (ocupDelta>=0?"↑":"↓")+Math.abs(ocupDelta)+"% vs ayer", ocupDelta>=0?"#4FC585":"#F17A96")}
+        {kpi(IC.bars, "Tasa de ocupación", ocup+"%", (ocupDelta>=0?"↑":"↓")+Math.abs(ocupDelta)+"% vs ayer")}
       </div>
 
       {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
@@ -1290,12 +1292,13 @@ function MobileShell({ T, D, onLogout }) {
   </button>;
   const bell = <button onClick={()=>setTab("citas")} aria-label="Alertas" style={{ position:"relative", width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginRight:-4 }}>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-    {bellCount>0 && <span style={{ position:"absolute", top:4, right:6, minWidth:16, height:16, padding:"0 4px", borderRadius:999, background:"#F1657F", color:"#fff", fontFamily:T.sans, fontSize:9, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>{bellCount}</span>}
+    {bellCount>0 && <span style={{ position:"absolute", top:4, right:6, minWidth:16, height:16, padding:"0 4px", borderRadius:999, background:T.accent, color:"#fff", fontFamily:T.sans, fontSize:9, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", border:"1.5px solid rgba(255,255,255,.35)" }}>{bellCount}</span>}
   </button>;
   const headerTitle = (txt) => <span style={{ fontFamily:T.serif, fontSize:18, color:T.text }}>{txt}</span>;
   const renderHeader = () => {
     if (tab==="citas") return <><div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
         {hamburger}
+        <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg, #4C8DF5, #2A5FD0)", boxShadow:"0 4px 12px -4px rgba(42,95,208,.7)", fontFamily:T.serif, fontSize:18, color:"#fff", lineHeight:1 }}>M</div>
         <div style={{ minWidth:0 }}>
           <div style={{ display:"flex", alignItems:"baseline", gap:5, lineHeight:1 }}>
             <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:400, color:T.text }}>Medique</span>
