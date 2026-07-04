@@ -3355,10 +3355,13 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
               <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>{fichaConfirm.appt.proc}</div>
             </div>
             {fichaConfirm.patient ? (
-              <div style={{ marginBottom: 18, padding: "12px 14px", background: "rgba(31,138,91,.08)", borderRadius: 10, border: "1px solid rgba(31,138,91,.28)" }}>
+              <div style={{ marginBottom: 14, padding: "12px 14px", background: "rgba(31,138,91,.08)", borderRadius: 10, border: "1px solid rgba(31,138,91,.28)" }}>
                 <div style={{ fontFamily: T.sans, fontSize: 10, color: "#1F8A5B", marginBottom: 4 }}>✓ Paciente encontrado</div>
                 <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text }}>{fichaConfirm.patient.name}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>{[fichaConfirm.patient.phone, fichaConfirm.patient.rut].filter(Boolean).join(" · ")}</div>
+                {/* La búsqueda cae por teléfono: si dos personas comparten número (familia), puede traer
+                    a la persona equivocada. Se avisa y se ofrece crear una ficha nueva para la cita. */}
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(31,138,91,.2)", lineHeight: 1.5 }}>¿No es esta persona? Puede que compartan teléfono. Crea una ficha nueva para <b style={{ color: T.text }}>{fichaConfirm.appt.name}</b>.</div>
               </div>
             ) : (
               <div style={{ marginBottom: 18, padding: "12px 14px", background: "rgba(192,40,90,.07)", borderRadius: 10, border: "1px solid rgba(192,40,90,.22)" }}>
@@ -3366,18 +3369,30 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                 <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, marginBottom: 0 }}>No existe una ficha para este paciente. Puedes crearla ahora con los datos de la cita.</div>
               </div>
             )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setFichaConfirm(null)} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.surface, color: T.textMute, border: "1px solid " + T.line }}>Cancelar</button>
-              {fichaConfirm.patient
-                ? <button onClick={() => { if (onOpenPatient) onOpenPatient(fichaConfirm.patient.id); setFichaConfirm(null); }} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" }}>Ir a ficha</button>
-                : <button onClick={() => {
-                    const a = fichaConfirm.appt;
-                    const np = addPatient({ name: (a.name || "").trim(), phone: (a.phone || "").trim(), rut: (a.rut || "").trim(), email: (a.email || "").trim(), age: 0 });
-                    if (np && np.id && onOpenPatient) onOpenPatient(np.id);
-                    setFichaConfirm(null);
-                  }} style={{ flex: 2, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" }}>Crear ficha ahora</button>
-              }
-            </div>
+            {(() => {
+              // Crea la ficha con los datos de la CITA (no del paciente encontrado) y la abre.
+              const crearFichaNueva = () => {
+                const a = fichaConfirm.appt;
+                const np = addPatient({ name: (a.name || "").trim(), phone: (a.phone || "").trim(), rut: (a.rut || "").trim(), email: (a.email || "").trim(), age: 0 });
+                if (np && np.id && onOpenPatient) onOpenPatient(np.id);
+                setFichaConfirm(null);
+              };
+              if (fichaConfirm.patient) return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <button onClick={crearFichaNueva} style={{ width: "100%", fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: "transparent", color: T.accent, border: "1px solid " + T.accent }}>+ Crear ficha nueva para {fichaConfirm.appt.name}</button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setFichaConfirm(null)} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.surface, color: T.textMute, border: "1px solid " + T.line }}>Cancelar</button>
+                    <button onClick={() => { if (onOpenPatient) onOpenPatient(fichaConfirm.patient.id); setFichaConfirm(null); }} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" }}>Ir a esta ficha</button>
+                  </div>
+                </div>
+              );
+              return (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setFichaConfirm(null)} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 500, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.surface, color: T.textMute, border: "1px solid " + T.line }}>Cancelar</button>
+                  <button onClick={crearFichaNueva} style={{ flex: 2, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" }}>Crear ficha ahora</button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
