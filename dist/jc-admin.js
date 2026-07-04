@@ -648,7 +648,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null);
   const [movCaja, setMovCaja] = useState(false);
   const fmt = D && D.fmt ? D.fmt : (n) => "$" + (n || 0).toLocaleString("es-CL");
-  const lux = false;
+  const lux = typeof isLosMedique === "function" && isLosMedique();
   const navyAccent = lux ? T.dark ? "#7891A6" : "#5C7488" : T.accent;
   const hoy = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada");
   const ingresosHoy = typeof window.cashToday === "function" ? (window.cashToday() || []).filter((m) => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
@@ -2202,10 +2202,6 @@ function procInitial(proc) {
   if (/control/.test(n)) return "C";
   return proc.trim().charAt(0).toUpperCase();
 }
-const DAY_PALETTE = ["#3B5169", "#1F8A5B", "#A6821E", "#7C5CBF", "#2E6F9E", "#B0562B"];
-function dayApptColor(i) {
-  return DAY_PALETTE[i % DAY_PALETTE.length];
-}
 function ApptBlock({ T, a, onClick, compact }) {
   const st = jcmApptState(a, T);
   const ini = procInitial(a.proc);
@@ -2715,8 +2711,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         style: { position: "absolute", left: 60, right: 8, top: s.top, height: s.h, background: "transparent", border: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }
       },
       /* @__PURE__ */ React.createElement("span", { className: "jc-cell-add", style: { width: 16, height: 16, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.6", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })))
-    )), listStacked.map((a, ai) => {
-      const col = dayApptColor(ai);
+    )), listStacked.map((a) => {
+      const col = jcmApptState(a, T).color;
       const ini = procInitial(a.proc);
       return /* @__PURE__ */ React.createElement(
         "div",
@@ -3026,7 +3022,7 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn
       const isToday = iso === toISO(today);
       const ordered = list.slice().sort((x, y2) => (x.time || "").localeCompare(y2.time || ""));
       return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => onDay(offOf(d)), style: { textAlign: "left", background: isToday ? T.accent + "1e" : veil, minHeight: 100, padding: "7px 7px", border: "none", ...cellBorders, cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "33" : "transparent" } }, d.getDate()), ordered.slice(0, 3).map((a, idx) => {
-        const c = dayApptColor(idx);
+        const c = jcmApptState(a, T).color;
         return /* @__PURE__ */ React.createElement("span", { key: idx, title: (a.time ? a.time + " \xB7 " : "") + (a.name || "Cita") + (a.proc ? " \xB7 " + a.proc : ""), style: { display: "flex", alignItems: "center", background: chipBg, ...cellBlur, borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time ? a.time + " " : "", a.name || "Cita");
       }), ordered.length > 3 && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, color: T.accent, paddingLeft: 3 } }, "+", ordered.length - 3, " m\xE1s"));
     }));

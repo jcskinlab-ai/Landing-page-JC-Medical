@@ -576,10 +576,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
   const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
-  // Dashboard vuelve al diseño ORIGINAL de forma definitiva (confirmado 4-jul-2026, para TODAS
-  // las clínicas): aunque isLosMedique()/jcdsLux() siga en push global para el resto del panel
-  // (Agenda, Ficha, etc.), el Dashboard usa su propio flag fijo en false.
-  const lux = false;
+  // Dashboard = diseño editorial "lux" (foto 4 del usuario: embudo + anillo de ROAS + tarjetas glass).
+  // DEFINITIVO — NO CAMBIAR sin indicación DIRECTA del usuario (pedido explícito 4-jul-2026, tras
+  // varios idas y vueltas). Sigue el mismo gate global que el resto del panel (isLosMedique()).
+  const lux = typeof isLosMedique === "function" && isLosMedique();
   // Acento neutro (pedido explícito): el celeste vivo del tema "azul" (navyAccent) se sentía muy
   // saturado en la pastilla activa y las barras del embudo. Un slate-azulado apagado (misma
   // familia que el panel navy "Facturaste este mes", no el texto celeste de esa tarjeta).
@@ -2557,15 +2557,6 @@ function procInitial(proc) {
   return proc.trim().charAt(0).toUpperCase();
 }
 
-// Paleta de colores de las citas (vista día y mes): cada cita toma un color según su orden
-// cronológico DENTRO DE SU DÍA (no según su estado) — así el mismo color de una cita se mantiene
-// entre la vista día y la vista mes (misma fecha → mismo índice → mismo color), como en la
-// referencia del usuario, en vez de que casi todas queden con el mismo tono por compartir estado
-// "pendiente".
-const DAY_PALETTE = ["#3B5169", "#1F8A5B", "#A6821E", "#7C5CBF", "#2E6F9E", "#B0562B"];
-function dayApptColor(i) { return DAY_PALETTE[i % DAY_PALETTE.length];
-}
-
 function ApptBlock({ T, a, onClick, compact }) {
   const st = jcmApptState(a, T);
   const ini = procInitial(a.proc);
@@ -3113,7 +3104,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                   </button>
                 ))}
                 {/* Bloques de cita — una línea: nombre · servicio [inicial] … rango + duración */}
-                {listStacked.map((a, ai) => { const col = dayApptColor(ai); const ini = procInitial(a.proc); return (
+                {listStacked.map(a => { const col = jcmApptState(a, T).color; const ini = procInitial(a.proc); return (
                   <div key={a.id} data-appt onClick={e => { e.stopPropagation(); setEdit(a); setEditOnly(null); }}
                     onMouseEnter={e => {
                       if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
@@ -3560,7 +3551,7 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn
               return (
                 <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: isToday ? T.accent + "1e" : veil, minHeight: 100, padding: "7px 7px", border: "none", ...cellBorders, cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
                   <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "33" : "transparent" }}>{d.getDate()}</span>
-                  {ordered.slice(0, 3).map((a, idx) => { const c = dayApptColor(idx); return (
+                  {ordered.slice(0, 3).map((a, idx) => { const c = jcmApptState(a, T).color; return (
                     <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", background: chipBg, ...cellBlur, borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {a.time ? a.time + " " : ""}{a.name || "Cita"}
                     </span>
