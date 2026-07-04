@@ -102,15 +102,18 @@ function mobileBg(T) {
   // Velo AZUL (no gris/negro): unifica todo en el azul cerúleo de la referencia y mantiene el texto
   // blanco legible sobre la foto brillante, sin apagar la montaña.
   const overlay = "linear-gradient(180deg, rgba(18,42,84,.26), rgba(15,34,70,.32) 52%, rgba(12,28,60,.46))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=5')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=6')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
 function glassPanel(T, radius) {
-  return { background: "rgba(255,255,255,.09)", backdropFilter: "blur(26px) saturate(1.7)", WebkitBackdropFilter: "blur(26px) saturate(1.7)", border: "1px solid rgba(255,255,255,.16)", borderRadius: radius==null?16:radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" };
+  // Frosted glass estilo Apple (referencia): tinte NEUTRO (blanco, sin cargar a azul), muy translúcido
+  // para que la foto se vea nítida por detrás, borde fino brillante + brillo interior arriba y una
+  // sombra suave que despega la tarjeta del fondo. Nunca opaco.
+  return { background: "rgba(255,255,255,.1)", backdropFilter: "blur(30px) saturate(1.35)", WebkitBackdropFilter: "blur(30px) saturate(1.35)", border: "1px solid rgba(255,255,255,.28)", borderRadius: radius==null?18:radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 26px -14px rgba(8,22,48,.55)" };
 }
 function glassChip(T) {
-  return { background: "rgba(255,255,255,.11)", backdropFilter: "blur(20px) saturate(1.6)", WebkitBackdropFilter: "blur(20px) saturate(1.6)", border: "1px solid rgba(255,255,255,.15)" };
+  return { background: "rgba(255,255,255,.12)", backdropFilter: "blur(26px) saturate(1.35)", WebkitBackdropFilter: "blur(26px) saturate(1.35)", border: "1px solid rgba(255,255,255,.24)" };
 }
 // Fondo de la pantalla de LOGIN (única pantalla con video, a pedido del usuario): nube/montaña en
 // movimiento en vez de la foto fija. autoPlay+muted+playsInline es obligatorio para que iOS/Android
@@ -119,7 +122,7 @@ function LoginVideoBg({ children }) {
   const overlay = "linear-gradient(180deg, rgba(18,44,84,.4), rgba(16,38,74,.5) 50%, rgba(12,30,62,.7))";
   return (
     <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#12294F" }}>
-      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=5"
+      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=6"
         style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
         <source src="/assets/everest-login.mp4" type="video/mp4" />
       </video>
@@ -424,10 +427,11 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // Accesos rápidos (referencia): 4 tiles glass con ícono centrado arriba y etiqueta debajo.
   // "Nueva cita" destaca con su círculo de acento relleno; los demás lo llevan tenue.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8, minHeight:84, minWidth:0, cursor:"pointer", ...glassPanel(T,15), padding:"13px 5px" }}>
-      <div style={{ width:40, height:40, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-        background: primary ? T.accent : T.accent+"26", color: primary ? "#fff" : T.accent, boxShadow: primary ? "0 6px 16px -6px "+T.accent : "none" }}>{icon}</div>
-      <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, lineHeight:1.15, textAlign:"center", color:T.text }}>{label}</span>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:9, minHeight:90, minWidth:0, cursor:"pointer", ...glassPanel(T,16), padding:"15px 5px" }}>
+      {primary
+        ? <div style={{ width:44, height:44, borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 8px 18px -6px "+T.accent }}>{icon}</div>
+        : <div style={{ height:44, display:"flex", alignItems:"center", justifyContent:"center", color:"#DCE9FF" }}>{icon}</div>}
+      <span style={{ fontFamily:T.sans, fontSize:11.5, fontWeight:500, lineHeight:1.15, textAlign:"center", color:T.text }}>{label}</span>
     </button>
   );
 
@@ -454,10 +458,10 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
       {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
 
       <div style={{ display:"flex", gap:9 }}>
-        {action(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
-        {action(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
-        {action(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
-        {action(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+        {action(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
+        {action(<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
+        {action(<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
+        {action(<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
       </div>
 
       <div>
