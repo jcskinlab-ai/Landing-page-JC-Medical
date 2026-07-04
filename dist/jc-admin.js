@@ -2832,6 +2832,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const D = window.JCDATA;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [wkOff, setWkOff] = useState(0);
+  const [wkMiniMonth, setWkMiniMonth] = useState(() => /* @__PURE__ */ new Date());
   const [menu, setMenu] = useState(null);
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
@@ -2841,6 +2842,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const hideT = useRef(null);
   const showT = useRef(null);
   const v2 = true;
+  const wkSidebar = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
   const activeAppt = menu ? appts.find((a) => a.id === menu) : null;
   const team = (() => {
     try {
@@ -2903,6 +2905,52 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       return { ...a, _top: top, _h: h };
     });
   };
+  const weekSidebarBlock = !wkSidebar ? null : (() => {
+    const card = { ...luxF && DS && DS._glass ? DS._glass(T, 16) : { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow || "none" }, padding: 15 };
+    const secT = { fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 11 };
+    const navMini = { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, cursor: "pointer" };
+    const infoRow = (l, v) => /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 600 } }, v));
+    const fmtDur = (m) => {
+      const h = Math.floor(m / 60), mm = m % 60;
+      return (h ? h + "h" : "") + (h && mm ? " " : "") + (mm ? mm + "m" : h ? "" : "0m");
+    };
+    const y = wkMiniMonth.getFullYear(), mo = wkMiniMonth.getMonth();
+    const firstDow = (new Date(y, mo, 1).getDay() + 6) % 7;
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const cd = new Date(y, mo, 1 - firstDow + i);
+      cells.push({ date: cd, inMonth: cd.getMonth() === mo });
+    }
+    const keyOf = (d) => d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
+    const todayD = /* @__PURE__ */ new Date();
+    todayD.setHours(0, 0, 0, 0);
+    const todayKey = keyOf(todayD);
+    const offsetOfDate = (d) => {
+      const t = /* @__PURE__ */ new Date();
+      t.setHours(0, 0, 0, 0);
+      const dd = new Date(d);
+      dd.setHours(0, 0, 0, 0);
+      return Math.round((dd - t) / 864e5);
+    };
+    const todayList = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada" && (!v2 || profMatch(a)));
+    const todayTotalMin = todayList.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
+    const todayWindowMin = (() => {
+      try {
+        const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(todayD);
+        if (av && av.open && av.slots && av.slots.length) {
+          const sm = av.slots.map(mins);
+          return Math.max.apply(null, sm) + 30 - Math.min.apply(null, sm);
+        }
+      } catch (e) {
+      }
+      return (WK_CLOSE - WK_OPEN) * 60;
+    })();
+    const todayFreeMin = Math.max(0, todayWindowMin - todayTotalMin);
+    return /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 320px", maxWidth: "100%", display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: card }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setWkMiniMonth(new Date(y, mo - 1, 1)), style: navMini }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M15 18l-6-6 6-6" }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 14.5, color: T.text } }, MES[mo].charAt(0).toUpperCase() + MES[mo].slice(1), " ", y), /* @__PURE__ */ React.createElement("button", { onClick: () => setWkMiniMonth(new Date(y, mo + 1, 1)), style: navMini }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 } }, ["Lu", "Ma", "Mi", "Ju", "Vi", "S\xE1", "Do"].map((w) => /* @__PURE__ */ React.createElement("div", { key: w, style: { textAlign: "center", fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, padding: "2px 0" } }, w))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 } }, cells.map((c, i) => {
+      const isTd = keyOf(c.date) === todayKey;
+      return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => onDay(offsetOfDate(c.date)), style: { height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "none", cursor: "pointer", background: isTd ? T.accent : "transparent", color: isTd ? T.onAccent || "#fff" : c.inMonth ? T.text : T.textFaint, fontFamily: T.sans, fontSize: 12, fontWeight: isTd ? 600 : 400 } }, c.date.getDate());
+    })), /* @__PURE__ */ React.createElement("button", { onClick: () => onDay(0), style: { width: "100%", marginTop: 12, padding: "9px", borderRadius: 9, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" } }, "Ir a hoy")), /* @__PURE__ */ React.createElement("div", { style: card }, /* @__PURE__ */ React.createElement("div", { style: secT }, "Resumen del d\xEDa"), infoRow("Citas", todayList.length), infoRow("Duraci\xF3n total", fmtDur(todayTotalMin)), infoRow("Tiempo libre", fmtDur(todayFreeMin))));
+  })();
   return /* @__PURE__ */ React.createElement("div", null, (() => {
     const hoyBtn = /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(0), style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: luxF ? DS.r.ctl : 9, padding: "8px 16px", cursor: "pointer" } }, "Hoy");
     const prevBtn = /* @__PURE__ */ React.createElement("button", { onClick: () => setWkOff(wkOff - 1), title: "Semana anterior", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M15 18l-6-6 6-6" })));
@@ -2919,7 +2967,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     const titleNode = /* @__PURE__ */ React.createElement("div", { style: { ...luxF ? { minWidth: 150 } : { flex: 1, minWidth: 160 }, fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text } }, days[0].dd, " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[start.getMonth()])), " \u2013 ", last.getDate(), " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[last.getMonth()])));
     if (luxF) return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, iconNode, titleNode, /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6 } }, hoyBtn, prevBtn, nextBtn), v2 && viewToggle, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 8 } }), profNode, v2 && icsBtn, v2 && nuevaBtn);
     return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, iconNode, titleNode, v2 && viewToggle, v2 && icsBtn, v2 && nuevaBtn, profNode, hoyBtn, prevBtn, nextBtn);
-  })(), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 && !luxF ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 900 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" } }, /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line } }), days.map((d, i) => v2 ? (
+  })(), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 0", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 && !luxF ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 900 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" } }, /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line } }), days.map((d, i) => v2 ? (
     /* Encabezado horizontal en una línea (ahorra espacio): "Lunes 22 jun" */
     /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: "11px 6px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "12" : "transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 15.5, color: d.isToday ? T.accent : T.text } }, DOWS_FULL[d.date.getDay()], " ", d.dd), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: d.isToday ? T.accent : T.textMute, marginLeft: 5 } }, MES[d.date.getMonth()].slice(0, 3)))
   ) : /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: "12px 4px 10px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", color: d.isToday ? T.accent : T.textMute } }, d.dow), d.isToday ? /* @__PURE__ */ React.createElement("div", { style: { margin: "3px auto 0", width: 30, height: 30, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", fontFamily: T.serif, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" } }, d.dd) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text, marginTop: 2 } }, d.dd))), v2 && /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" } }, ADMIN_HALF_HOURS.map((hhmm, i) => {
@@ -3012,7 +3060,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   }), v2 && /* @__PURE__ */ React.createElement("div", { style: { width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, overflow: "hidden" } }, ADMIN_HALF_HOURS.map((hhmm, i) => {
     const half = hhmm.endsWith(":30");
     return /* @__PURE__ */ React.createElement("div", { key: hhmm, style: { position: "absolute", top: i * (WPX / 2) + 2, left: 6, fontFamily: T.sans, fontSize: half ? 9 : 10.5, fontWeight: half ? 400 : 600, color: luxF ? half ? T.textMute : T.text : half ? T.textFaint : T.textMute, opacity: half ? 0.8 : 1, pointerEvents: "none", userSelect: "none" } }, hhmm);
-  }))))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Pasa el mouse por un horario libre y toca el ", /* @__PURE__ */ React.createElement("b", { style: { color: T.accent } }, "+"), " para agendar \xB7 pasa el cursor por una cita para ver el detalle y acciones."), hover && hover.a && !menu && (() => {
+  }))))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Pasa el mouse por un horario libre y toca el ", /* @__PURE__ */ React.createElement("b", { style: { color: T.accent } }, "+"), " para agendar \xB7 pasa el cursor por una cita para ver el detalle y acciones.")), weekSidebarBlock), hover && hover.a && !menu && (() => {
     const a = hover.a, isPP = a.status === "pendiente_pago";
     const _hs = jcmApptState(a, T);
     const ac = _hs.color, estado = _hs.label;

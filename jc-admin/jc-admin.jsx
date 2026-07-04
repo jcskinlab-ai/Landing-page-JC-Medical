@@ -3301,6 +3301,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const D = window.JCDATA;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [wkOff, setWkOff] = useState(0);
+  const [wkMiniMonth, setWkMiniMonth] = useState(() => new Date()); // mes visible del mini-calendario (sidebar)
   const [menu, setMenu] = useState(null); // appt id abierto
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
@@ -3315,6 +3316,10 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   // tarjeta hover con acciones. La única diferencia por clínica es la granularidad de la
   // agenda (15 min en JC Medical / 30 min en clínicas cliente), que la maneja adminSlotMins().
   const v2 = true;
+  // Sidebar de la semana (mini-calendario + Resumen del día), estilo de la referencia del usuario.
+  // Las TARJETAS de cita NO cambian: se mantiene el estilo "barra Medilink" actual (pedido explícito).
+  // En preview de "medique admin" (incluye JC Medical con pacientes reales) antes del global.
+  const wkSidebar = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
   const activeAppt = menu ? appts.find(a => a.id === menu) : null;
   // Equipo de la clínica → desplegable de profesional (ver una agenda a la vez, sin "Todos").
   const team = (() => { try { var t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {} try { if (window.CADMIN && Array.isArray(CADMIN.team) && CADMIN.team.length) return CADMIN.team; } catch (e) {} return []; })();
@@ -3360,6 +3365,57 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       return { ...a, _top: top, _h: h };
     });
   };
+
+  // Sidebar de la vista SEMANAL (mini-calendario + Resumen de HOY). Solo si wkSidebar; si no, null y
+  // la grilla ocupa el 100% (idéntico a antes). Mismo criterio y estilo que el sidebar de la vista Día.
+  const weekSidebarBlock = !wkSidebar ? null : (() => {
+    const card = { ...((luxF && DS && DS._glass) ? DS._glass(T, 16) : { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow || "none" }), padding: 15 };
+    const secT = { fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 11 };
+    const navMini = { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, cursor: "pointer" };
+    const infoRow = (l, v) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{l}</span><span style={{ color: T.text, fontWeight: 600 }}>{v}</span></div>;
+    const fmtDur = m => { const h = Math.floor(m / 60), mm = m % 60; return (h ? h + "h" : "") + (h && mm ? " " : "") + (mm ? mm + "m" : (h ? "" : "0m")); };
+    const y = wkMiniMonth.getFullYear(), mo = wkMiniMonth.getMonth();
+    const firstDow = (new Date(y, mo, 1).getDay() + 6) % 7;
+    const cells = []; for (let i = 0; i < 42; i++) { const cd = new Date(y, mo, 1 - firstDow + i); cells.push({ date: cd, inMonth: cd.getMonth() === mo }); }
+    const keyOf = d => d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
+    const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
+    const todayKey = keyOf(todayD);
+    const offsetOfDate = d => { const t = new Date(); t.setHours(0, 0, 0, 0); const dd = new Date(d); dd.setHours(0, 0, 0, 0); return Math.round((dd - t) / 86400000); };
+    // Resumen de HOY (no de la semana en pantalla): mismo criterio que la vista Día.
+    const todayList = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada" && (!v2 || profMatch(a)));
+    const todayTotalMin = todayList.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
+    const todayWindowMin = (() => {
+      try { const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(todayD); if (av && av.open && av.slots && av.slots.length) { const sm = av.slots.map(mins); return (Math.max.apply(null, sm) + 30) - Math.min.apply(null, sm); } } catch (e) {}
+      return (WK_CLOSE - WK_OPEN) * 60;
+    })();
+    const todayFreeMin = Math.max(0, todayWindowMin - todayTotalMin);
+    return (
+      <div style={{ flex: "0 0 320px", maxWidth: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <button onClick={() => setWkMiniMonth(new Date(y, mo - 1, 1))} style={navMini}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
+            <span style={{ fontFamily: T.serif, fontSize: 14.5, color: T.text }}>{MES[mo].charAt(0).toUpperCase() + MES[mo].slice(1)} {y}</span>
+            <button onClick={() => setWkMiniMonth(new Date(y, mo + 1, 1))} style={navMini}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 }}>
+            {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map(w => <div key={w} style={{ textAlign: "center", fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, padding: "2px 0" }}>{w}</div>)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
+            {cells.map((c, i) => { const isTd = keyOf(c.date) === todayKey; return (
+              <button key={i} onClick={() => onDay(offsetOfDate(c.date))} style={{ height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "none", cursor: "pointer", background: isTd ? T.accent : "transparent", color: isTd ? (T.onAccent || "#fff") : (c.inMonth ? T.text : T.textFaint), fontFamily: T.sans, fontSize: 12, fontWeight: isTd ? 600 : 400 }}>{c.date.getDate()}</button>
+            ); })}
+          </div>
+          <button onClick={() => onDay(0)} style={{ width: "100%", marginTop: 12, padding: "9px", borderRadius: 9, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" }}>Ir a hoy</button>
+        </div>
+        <div style={card}>
+          <div style={secT}>Resumen del día</div>
+          {infoRow("Citas", todayList.length)}
+          {infoRow("Duración total", fmtDur(todayTotalMin))}
+          {infoRow("Tiempo libre", fmtDur(todayFreeMin))}
+        </div>
+      </div>
+    );
+  })();
 
   return (
     <div>
@@ -3444,6 +3500,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         );
       })()}
 
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+       <div style={{ flex: "1 1 0", minWidth: 0 }}>
       <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: (v2 && !luxF) ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
         <div style={{ minWidth: 900 }}>
           {/* Encabezado días (en v2: hora a ambos lados) */}
@@ -3578,6 +3636,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         </div>
       </div>
       <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 }}>Pasa el mouse por un horario libre y toca el <b style={{ color: T.accent }}>+</b> para agendar · pasa el cursor por una cita para ver el detalle y acciones.</p>
+       </div>
+       {weekSidebarBlock}
+      </div>
       {/* Tarjeta al pasar el cursor: avatar + estado + tabla (Hora/Duración/Procedimiento/Estado/Profesional) + acciones rápidas.
           Interactiva: el retardo de cierre permite mover el cursor de la cita a la tarjeta para tocar un botón. */}
       {hover && hover.a && !menu && (() => {
