@@ -3010,17 +3010,27 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn
       setSelProf(t2.name);
       setProfOpen(false);
     }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "9px 12px", background: on ? T.accent + "14" : "transparent", border: "none", borderRadius: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: on ? T.accent : T.text } }, /* @__PURE__ */ React.createElement("span", { style: { width: 22, height: 22, borderRadius: "50%", background: c + "22", color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, flexShrink: 0 } }, profIni(t2.name)), t2.name);
-  })))), nuevaBtn), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, background: T.lineSoft, border: "1px solid " + T.line, borderRadius: 12, overflow: "hidden" } }, diasSemana.map((d, i) => /* @__PURE__ */ React.createElement("div", { key: d, style: { background: T.bg, padding: "9px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: isCurMonth && i === todayCol ? T.accent : T.textMute } }, d)), cells.map((d, i) => {
-    if (!d) return /* @__PURE__ */ React.createElement("div", { key: i, style: { background: T.bg, minHeight: 100 } });
-    const iso = toISO(d);
-    const list = apptsByDay[iso] || [];
-    const isToday = iso === toISO(today);
-    const ordered = list.slice().sort((x, y2) => (x.time || "").localeCompare(y2.time || ""));
-    return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => onDay(offOf(d)), style: { textAlign: "left", background: isToday ? T.accent + "0d" : T.bg, minHeight: 100, padding: "7px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "22" : "transparent" } }, d.getDate()), ordered.slice(0, 3).map((a, idx) => {
-      const c = dayApptColor(idx);
-      return /* @__PURE__ */ React.createElement("span", { key: idx, title: (a.time ? a.time + " \xB7 " : "") + (a.name || "Cita") + (a.proc ? " \xB7 " + a.proc : ""), style: { display: "flex", alignItems: "center", background: c + (T.dark ? "22" : "18"), borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time ? a.time + " " : "", a.name || "Cita");
-    }), ordered.length > 3 && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, color: T.accent, paddingLeft: 3 } }, "+", ordered.length - 3, " m\xE1s"));
-  })));
+  })))), nuevaBtn), (() => {
+    const veil = T.dark ? "rgba(10,14,22,.28)" : "rgba(255,255,255,.30)";
+    const veilHead = T.dark ? "rgba(10,14,22,.42)" : "rgba(255,255,255,.45)";
+    const gridLine = "1px solid " + T.line;
+    const cellBlur = { backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" };
+    const chipBg = T.dark ? "rgba(12,16,24,.55)" : "rgba(255,255,255,.62)";
+    return /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", border: gridLine, borderRadius: 12, overflow: "hidden", ...cellBlur } }, diasSemana.map((d, i) => /* @__PURE__ */ React.createElement("div", { key: d, style: { background: veilHead, padding: "9px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: isCurMonth && i === todayCol ? T.accent : T.textMute, borderRight: i < 6 ? gridLine : "none", borderBottom: gridLine } }, d)), cells.map((d, i) => {
+      const col = i % 7;
+      const isLastRow = i >= cells.length - (cells.length % 7 === 0 ? 7 : cells.length % 7);
+      const cellBorders = { borderRight: col < 6 ? gridLine : "none", borderBottom: isLastRow ? "none" : gridLine };
+      if (!d) return /* @__PURE__ */ React.createElement("div", { key: i, style: { background: veil, minHeight: 100, ...cellBorders } });
+      const iso = toISO(d);
+      const list = apptsByDay[iso] || [];
+      const isToday = iso === toISO(today);
+      const ordered = list.slice().sort((x, y2) => (x.time || "").localeCompare(y2.time || ""));
+      return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => onDay(offOf(d)), style: { textAlign: "left", background: isToday ? T.accent + "1e" : veil, minHeight: 100, padding: "7px 7px", border: "none", ...cellBorders, cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "33" : "transparent" } }, d.getDate()), ordered.slice(0, 3).map((a, idx) => {
+        const c = dayApptColor(idx);
+        return /* @__PURE__ */ React.createElement("span", { key: idx, title: (a.time ? a.time + " \xB7 " : "") + (a.name || "Cita") + (a.proc ? " \xB7 " + a.proc : ""), style: { display: "flex", alignItems: "center", background: chipBg, ...cellBlur, borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time ? a.time + " " : "", a.name || "Cita");
+      }), ordered.length > 3 && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, color: T.accent, paddingLeft: 3 } }, "+", ordered.length - 3, " m\xE1s"));
+    }));
+  })());
 }
 function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn }) {
   const D = window.JCDATA;
