@@ -2474,7 +2474,11 @@ function AdStat({ T, n, l, accent }) {
 }
 
 /* ─────────── AGENDA (tiempo real) ─────────── */
-const HPX = 70, OPEN = 480, CLOSE = 1200;
+// HPX = px por hora en la vista DIARIA. 112 hace que 15 min = 28 px (la altura mínima legible de
+// una cita), de modo que una evaluación de 15 min ocupa su alto REAL y ya no invade el hueco libre
+// siguiente. Con la escala anterior (70) el mínimo de 28 px se comía los espacios de 15 min y no se
+// veían para agendar. OPEN 08:00 / CLOSE 20:00.
+const HPX = 112, OPEN = 480, CLOSE = 1200;
 const OWNER_WA = "56997880877";
 const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 

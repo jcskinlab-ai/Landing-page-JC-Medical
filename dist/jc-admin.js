@@ -2154,7 +2154,7 @@ function AdStat({ T, n, l, accent }) {
   if (luxF) return /* @__PURE__ */ React.createElement("div", { style: { ...DS.card(T), padding: "14px 12px", textAlign: "center", borderColor: c ? c + "55" : T.line, ...DS.reveal(0) } }, c && /* @__PURE__ */ React.createElement("div", { style: { width: 5, height: 5, borderRadius: 999, background: c, margin: "0 auto 8px" } }), /* @__PURE__ */ React.createElement("div", { style: { ...DS.text(T, "stat"), fontSize: 24, color: c || T.text } }, n), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: DS.ft.eyebrow, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginTop: 6 } }, l));
   return /* @__PURE__ */ React.createElement("div", { style: { background: c ? c + "14" : T.dark ? "rgba(242,237,230,.03)" : "rgba(20,20,15,.02)", border: "1px solid " + (c ? c + "66" : T.line), borderRadius: 8, padding: "14px 8px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, color: c || T.text, lineHeight: 1 } }, n), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, marginTop: 7 } }, l));
 }
-const HPX = 70, OPEN = 480, CLOSE = 1200;
+const HPX = 112, OPEN = 480, CLOSE = 1200;
 const OWNER_WA = "56997880877";
 const wdN = ["Dom", "Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b"];
 function notifyCita(appt, patient, D) {
