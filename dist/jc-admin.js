@@ -230,6 +230,17 @@ function jcmNewFeat() {
   return true;
 }
 if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
+function isMediqueAdminPreview() {
+  try {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
+    var owner = ((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).ownerEmail || "").toString().trim().toLowerCase();
+    var sess = window.JCSAAS.userEmail && window.JCSAAS.userEmail() || "";
+    return owner === SUPER_ADMIN_EMAIL || sess === SUPER_ADMIN_EMAIL;
+  } catch (e) {
+    return false;
+  }
+}
+if (typeof window !== "undefined") window.isMediqueAdminPreview = isMediqueAdminPreview;
 var SUPER_ADMIN_EMAIL = "medique.cl@gmail.com";
 function jcmIsSuperAdmin() {
   try {
@@ -2366,6 +2377,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [edit, setEdit] = useState(null);
   const [editOnly, setEditOnly] = useState(null);
   const [toast, setToast] = useState(null);
+  const dayScrollRef = useRef(null);
   const [hoverA, setHoverA] = useState(null);
   const [fichaConfirm, setFichaConfirm] = useState(null);
   const [selProf, setSelProf] = useState("");
@@ -2488,6 +2500,18 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const dayTotalMin = list.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
   const daySorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
   const dayFirst = daySorted[0] || null, dayLast = daySorted[daySorted.length - 1] || null;
+  useEffect(() => {
+    if (view !== "dia") return;
+    if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
+    const el = dayScrollRef.current;
+    if (!el) return;
+    if (!dayFirst) {
+      el.scrollTop = 0;
+      return;
+    }
+    const top = (mins(dayFirst.time) - OPEN) * HPX / 60;
+    el.scrollTop = Math.max(0, top - 40);
+  }, [view, day, dayFirst && dayFirst.id]);
   const dayWindowMin = (() => {
     try {
       const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(dayDate);
@@ -2602,7 +2626,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     } }) : view === "mes" ? /* @__PURE__ */ React.createElement(MonthGrid, { T, appts, monthDate, setMonthDate, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, onDay: (off) => {
       setDay(off);
       setView("dia");
-    } }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 460px", minWidth: 0, overflow: "hidden", ...dayGlass(16) } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.serif, fontSize: 15, color: T.text } }, dayTitle), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { maxHeight: "64vh", overflowY: "auto", padding: "12px 0 10px" } }, /* @__PURE__ */ React.createElement("div", { onClick: clickTimeline, style: { position: "relative", height: hours.length * HPX, cursor: "copy" } }, (() => {
+    } }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 460px", minWidth: 0, overflow: "hidden", ...dayGlass(16) } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.serif, fontSize: 15, color: T.text } }, dayTitle), /* @__PURE__ */ React.createElement("div", { ref: dayScrollRef, className: "jc-scroll", style: { maxHeight: "64vh", overflowY: "auto", padding: "12px 0 10px" } }, /* @__PURE__ */ React.createElement("div", { onClick: clickTimeline, style: { position: "relative", height: hours.length * HPX, cursor: "copy" } }, (() => {
       const rows = [];
       for (let m = OPEN; m <= CLOSE; m += 15) rows.push(m);
       return rows.map((m) => {

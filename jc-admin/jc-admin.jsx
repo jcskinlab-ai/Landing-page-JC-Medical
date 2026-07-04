@@ -191,6 +191,18 @@ function isLosMedique() {
 // TODAS las clínicas (antes era beta solo para Los Medique). Push global.
 function jcmNewFeat() { return true; }
 if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
+// ¿La clínica activa es "medique admin" (la propia cuenta medique.cl@gmail.com, clínica "Revisión
+// Medique")? Nueva zona de pruebas privada: los próximos cambios se gatean aquí primero para
+// revisarlos antes de liberarlos a todas las clínicas (mismo patrón que se usó con Los Medique).
+function isMediqueAdminPreview() {
+  try {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
+    var owner = (((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}).ownerEmail || "").toString().trim().toLowerCase();
+    var sess = (window.JCSAAS.userEmail && window.JCSAAS.userEmail()) || "";
+    return owner === SUPER_ADMIN_EMAIL || sess === SUPER_ADMIN_EMAIL;
+  } catch (e) { return false; }
+}
+if (typeof window !== "undefined") window.isMediqueAdminPreview = isMediqueAdminPreview;
 // Asistente IA (Copilot): a pedido, su configuración deja de ser "cada dueño configura el suyo" y
 // pasa a ser EXCLUSIVA de la cuenta super-admin de la plataforma, que lo configura por todas las
 // clínicas. En modo local (sin SaaS/login) se permite siempre, para poder probar la pantalla.
@@ -2726,6 +2738,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [edit, setEdit] = useState(null);
   const [editOnly, setEditOnly] = useState(null); // null = edición completa · "fecha" | "duracion" = solo ese campo
   const [toast, setToast] = useState(null);
+  const dayScrollRef = useRef(null); // vista diaria: auto-scroll a la primera cita del día
   const [hoverA, setHoverA] = useState(null); // { a, x, y } · vista previa al pasar el cursor (vista día/lista)
   const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
   const [selProf, setSelProf] = useState(""); // profesional filtrado en la vista diaria (vacío = el primero)
@@ -2808,6 +2821,18 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const dayTotalMin = list.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
   const daySorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
   const dayFirst = daySorted[0] || null, dayLast = daySorted[daySorted.length - 1] || null;
+  // Vista diaria: al entrar (o cambiar de día), ubicar el scroll en la primera cita en vez de arrancar
+  // en las 08:00 — evita el scroll manual cuando el día parte más tarde. En preview de "medique admin"
+  // primero (isMediqueAdminPreview); se libera a todas las clínicas una vez revisado.
+  useEffect(() => {
+    if (view !== "dia") return;
+    if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
+    const el = dayScrollRef.current;
+    if (!el) return;
+    if (!dayFirst) { el.scrollTop = 0; return; }
+    const top = (mins(dayFirst.time) - OPEN) * HPX / 60;
+    el.scrollTop = Math.max(0, top - 40); // deja un poco de contexto arriba de la primera cita
+  }, [view, day, dayFirst && dayFirst.id]);
   const dayWindowMin = (() => {
     try { const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(dayDate); if (av && av.open && av.slots && av.slots.length) { const sm = av.slots.map(mins); return (Math.max.apply(null, sm) + 30) - Math.min.apply(null, sm); } } catch (e) {}
     return CLOSE - OPEN;
@@ -2963,7 +2988,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           {/* ── Columna izquierda: timeline del día ── */}
           <div style={{ flex: "1 1 460px", minWidth: 0, overflow: "hidden", ...dayGlass(16) }}>
             <div style={{ textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.serif, fontSize: 15, color: T.text }}>{dayTitle}</div>
-            <div className="jc-scroll" style={{ maxHeight: "64vh", overflowY: "auto", padding: "12px 0 10px" }}>
+            <div ref={dayScrollRef} className="jc-scroll" style={{ maxHeight: "64vh", overflowY: "auto", padding: "12px 0 10px" }}>
               <div onClick={clickTimeline} style={{ position: "relative", height: hours.length * HPX, cursor: "copy" }}>
                 {/* Líneas y etiquetas cada 15 min (hora en punto marcada) */}
                 {(() => { const rows = []; for (let m = OPEN; m <= CLOSE; m += 15) rows.push(m); return rows.map(m => {
