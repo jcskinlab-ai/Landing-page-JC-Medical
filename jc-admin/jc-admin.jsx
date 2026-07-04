@@ -2957,7 +2957,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           {/* ── Columna izquierda: timeline del día ── */}
           <div style={{ flex: "1 1 460px", minWidth: 0, overflow: "hidden", ...dayGlass(16) }}>
             <div style={{ textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.serif, fontSize: 15, color: T.text }}>{dayTitle}</div>
-            <div className="jc-scroll" style={{ maxHeight: "64vh", overflowY: "auto" }}>
+            <div className="jc-scroll" style={{ maxHeight: "64vh", overflowY: "auto", padding: "12px 0 10px" }}>
               <div onClick={clickTimeline} style={{ position: "relative", height: hours.length * HPX, cursor: "copy" }}>
                 {/* Líneas y etiquetas cada 15 min (hora en punto marcada) */}
                 {(() => { const rows = []; for (let m = OPEN; m <= CLOSE; m += 15) rows.push(m); return rows.map(m => {
@@ -3032,21 +3032,6 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                   {infoRow("Citas", list.length)}
                   {infoRow("Duración total", fmtDur(dayTotalMin))}
                   {infoRow("Tiempo libre", fmtDur(dayFreeMin))}
-                </div>
-                {/* Duraciones disponibles */}
-                <div style={card}>
-                  <div style={secT}>Duraciones disponibles</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                    {[15, 30, 45, 60, 90].map(n => (
-                      <button key={n} onClick={() => setNueva({ time: dayFirstFree, day, dur: String(n), fromSlot: true })} style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>{n} min</button>
-                    ))}
-                  </div>
-                </div>
-                {/* Línea de tiempo */}
-                <div style={card}>
-                  <div style={secT}>Línea de tiempo</div>
-                  {infoRow("Primera cita", dayFirst ? dayFirst.time : "—")}
-                  {infoRow("Última cita", dayLast ? endOf(dayLast) : "—")}
                 </div>
               </div>
             );
