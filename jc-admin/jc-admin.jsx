@@ -2821,6 +2821,23 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const dayTotalMin = list.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
   const daySorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
   const dayFirst = daySorted[0] || null, dayLast = daySorted[daySorted.length - 1] || null;
+  // Encabezado de la tarjeta del timeline: antes repetía la misma fecha que ya muestra la barra
+  // superior (ruido visual, a pedido del usuario). Ahora muestra un dato dinámico — la cita en
+  // curso / la próxima / la primera del día — que no está en ningún otro lado de la pantalla.
+  const dayHeaderInfo = (() => {
+    if (!dayFirst) return "Sin citas agendadas";
+    if (day === 0) {
+      const current = daySorted.find(a => mins(a.time) <= nowMin && nowMin < mins(a.time) + (parseInt(a.dur) || 60));
+      if (current) return "En curso: " + current.name + " · hasta " + endOf(current);
+      const upcoming = daySorted.find(a => mins(a.time) > nowMin);
+      if (upcoming) {
+        const startsIn = mins(upcoming.time) - nowMin;
+        return "Próxima cita: " + upcoming.name + " · " + (startsIn < 60 ? "en " + startsIn + " min" : "a las " + upcoming.time);
+      }
+      return "Sin más citas por hoy";
+    }
+    return "Primera cita: " + dayFirst.name + " a las " + dayFirst.time;
+  })();
   // Vista diaria: al entrar (o cambiar de día), ubicar el scroll en la primera cita en vez de arrancar
   // en las 08:00 — evita el scroll manual cuando el día parte más tarde. Probado en preview de
   // "medique admin" y liberado a TODAS las clínicas (push global).
@@ -2986,7 +3003,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
           {/* ── Columna izquierda: timeline del día ── */}
           <div style={{ flex: "1 1 460px", minWidth: 0, overflow: "hidden", ...dayGlass(16) }}>
-            <div style={{ textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.serif, fontSize: 15, color: T.text }}>{dayTitle}</div>
+            <div style={{ textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.textMute }}>
+              {(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview()) ? dayHeaderInfo : dayTitle}
+            </div>
             <div ref={dayScrollRef} className="jc-scroll" style={{ maxHeight: "64vh", overflowY: "auto", padding: "12px 0 10px" }}>
               <div onClick={clickTimeline} style={{ position: "relative", height: hours.length * HPX, cursor: "copy" }}>
                 {/* Líneas y etiquetas cada 15 min (hora en punto marcada) */}
