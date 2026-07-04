@@ -2546,7 +2546,7 @@ function procInitial(proc) {
   if (/rino/.test(n))                                  return "R";
   if (/sculptra|bioestim|col[aá]geno/.test(n))         return "S";
   if (/lipol[ií]t|disolver|lipolisis/.test(n))         return "L";
-  if (/evaluac/.test(n))                               return "Ev";
+  if (/evaluac/.test(n))                               return "E";
   if (/mesoterap|vitamina|nctf|rejuran|salm[oó]n/.test(n)) return "M";
   if (/hialur|armoniz|juv[eé]derm/.test(n))            return "H";
   if (/quemador|grasa/.test(n))                         return "Q";
@@ -2554,6 +2554,12 @@ function procInitial(proc) {
   if (/control/.test(n))                                return "C";
   return proc.trim().charAt(0).toUpperCase();
 }
+
+// Paleta de colores de la vista diaria: cada cita del día toma un color distinto según su orden
+// (no según su estado), para que el timeline se lea de un vistazo como en la referencia — no
+// todas las citas "pendiente" quedan del mismo tono de acento.
+const DAY_PALETTE = ["#3B5169", "#1F8A5B", "#A6821E", "#7C5CBF", "#2E6F9E", "#B0562B"];
+function dayApptColor(i) { return DAY_PALETTE[i % DAY_PALETTE.length]; }
 
 function ApptBlock({ T, a, onClick, compact }) {
   const st = jcmApptState(a, T);
@@ -3073,13 +3079,15 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       ) : view === "mes" ? (
         <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
       ) : (
-        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-          {/* ── Columna izquierda: timeline del día ── */}
-          <div style={{ flex: "1 1 460px", minWidth: 0, overflow: "hidden", ...dayGlass(16) }}>
-            <div style={{ textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.textMute }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "stretch", flexWrap: "wrap" }}>
+          {/* ── Columna izquierda: timeline del día ── (misma altura que el panel lateral: cabecera
+              fija + área con scroll propio que se reparte el resto — así ambas columnas terminan
+              parejas y "Citas anuladas" queda pegado abajo, sin el hueco vacío de horas sin citas). */}
+          <div style={{ flex: "1 1 460px", minWidth: 0, height: "72vh", display: "flex", flexDirection: "column", overflow: "hidden", ...dayGlass(16) }}>
+            <div style={{ flexShrink: 0, textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.textMute }}>
               {(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview()) ? dayHeaderInfo : dayTitle}
             </div>
-            <div ref={dayScrollRef} className="jc-scroll" style={{ maxHeight: "64vh", overflowY: "auto", padding: "12px 0 10px" }}>
+            <div ref={dayScrollRef} className="jc-scroll" style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "12px 0 10px" }}>
               <div onClick={clickTimeline} style={{ position: "relative", height: hours.length * HPX, cursor: "copy" }}>
                 {/* Líneas y etiquetas cada 15 min (hora en punto marcada) */}
                 {(() => { const rows = []; for (let m = OPEN; m <= CLOSE; m += 15) rows.push(m); return rows.map(m => {
@@ -3100,7 +3108,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                   </button>
                 ))}
                 {/* Bloques de cita — una línea: nombre · servicio [inicial] … rango + duración */}
-                {listStacked.map(a => { const stt = jcmApptState(a, T); const ini = procInitial(a.proc); return (
+                {listStacked.map((a, ai) => { const col = dayApptColor(ai); const ini = procInitial(a.proc); return (
                   <div key={a.id} data-appt onClick={e => { e.stopPropagation(); setEdit(a); setEditOnly(null); }}
                     onMouseEnter={e => {
                       if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
@@ -3114,11 +3122,11 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                       }, 200);
                     }}
                     onMouseLeave={() => { if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } if (dayHideT.current) clearTimeout(dayHideT.current); dayHideT.current = setTimeout(() => setHoverA(null), 160); }}
-                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: stt.color + (T.dark ? "22" : "18"), ...daySmallBlur, border: "1px solid " + stt.color + "33", borderLeft: "3px solid " + stt.color, borderRadius: 8, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? "22" : "18"), ...daySmallBlur, border: "1px solid " + col + "33", borderLeft: "3px solid " + col, borderRadius: 8, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                       <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                       {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {a.proc}</span>}
-                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: stt.color, background: stt.color + "22", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
+                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: col, background: col + "22", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                       <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
@@ -3142,7 +3150,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             const navMini = { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, cursor: "pointer" };
             const infoRow = (l, v) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{l}</span><span style={{ color: T.text, fontWeight: 600 }}>{v}</span></div>;
             return (
-              <div style={{ flex: "0 0 320px", maxWidth: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="jc-scroll" style={{ flex: "0 0 320px", maxWidth: "100%", height: "72vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14, paddingRight: 2 }}>
                 {/* Mini-calendario */}
                 <div style={card}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
