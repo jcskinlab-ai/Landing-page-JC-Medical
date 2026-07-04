@@ -2728,6 +2728,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [toast, setToast] = useState(null);
   const [hoverA, setHoverA] = useState(null); // { a, x, y } · vista previa al pasar el cursor (vista día/lista)
   const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
+  const [selProf, setSelProf] = useState(""); // profesional filtrado en la vista diaria (vacío = el primero)
+  const [dayProfOpen, setDayProfOpen] = useState(false);
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   // El mini-calendario del panel diario sigue al día seleccionado (sin pisar la navegación de meses < >).
@@ -2735,7 +2737,13 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   // Scroll al tope al montar (evita que al navegar se quede en la posición anterior).
   useEffect(() => { const el = document.getElementById("jcm-main-scroll"); if (el) el.scrollTop = 0; }, []);
   const D = window.JCDATA;
-  const list = appts.filter(a => apptDayOff(a) === day && a.status !== "anulada");
+  // Profesional seleccionado (vista diaria) — igual que la semanal: se filtra solo si hay 2+ profesionales.
+  const dayTeam = (() => { try { var t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {} return []; })();
+  const dayMultiProf = dayTeam.length >= 2;
+  const dayFirstProf = dayTeam[0] ? dayTeam[0].name : "";
+  const curProf = selProf || dayFirstProf;
+  const dayProfMatch = a => !dayMultiProf || ((a.prof || "").trim() ? (a.prof || "").trim() === curProf : curProf === dayFirstProf);
+  const list = appts.filter(a => apptDayOff(a) === day && a.status !== "anulada" && dayProfMatch(a));
   // Citas anuladas agrupadas por fecha de cita (no por fecha de anulación).
   const anuladas = appts.filter(a => a.status === "anulada").sort((a, b) => (b.anuladaAt || 0) - (a.anuladaAt || 0));
   const anuladasByDay = anuladas.reduce((acc, a) => { const k = a.fecha || "sin-fecha"; (acc[k] = acc[k] || []).push(a); return acc; }, {});
@@ -2833,25 +2841,17 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   // Glass de la vista diaria (mismo sistema JCDS de 2 niveles): panel = cards grandes; small = bloques de cita.
   const dayGlass = r => (luxF && DS && DS._glass) ? DS._glass(T, r) : { background: T.surface, border: "1px solid " + T.line, borderRadius: r, boxShadow: T.shadow || "none" };
   const daySmallBlur = (luxF && DS && DS.glassBlur) ? { backdropFilter: DS.glassBlur.small, WebkitBackdropFilter: DS.glassBlur.small } : {};
-  const viewToggleNode = (
-    <div style={luxF ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3 } : { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
-      <button onClick={() => setView("dia")} title="Vista lista / día" style={luxF
-        ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "dia" ? T.surface : "transparent", boxShadow: view === "dia" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "dia" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
-        : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "dia" ? T.accent : "transparent", color: view === "dia" ? (T.onAccent || "#fff") : T.textMute }}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
-      </button>
-      <button onClick={() => setView("semana")} title="Vista calendario / semana" style={luxF
-        ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "semana" ? T.surface : "transparent", boxShadow: view === "semana" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "semana" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
-        : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "semana" ? T.accent : "transparent", color: view === "semana" ? (T.onAccent || "#fff") : T.textMute }}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
-      </button>
-      <button onClick={() => setView("mes")} title="Vista mensual" style={luxF
-        ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: view === "mes" ? T.surface : "transparent", boxShadow: view === "mes" ? "0 1px 2px rgba(0,0,0,.06)" : "none", color: view === "mes" ? T.accent : T.textMute, transition: DS.trans("background,box-shadow,color") }
-        : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: view === "mes" ? T.accent : "transparent", color: view === "mes" ? (T.onAccent || "#fff") : T.textMute }}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 10h18M8 2v4M16 2v4" /><circle cx="8" cy="14.5" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="14.5" r="1" fill="currentColor" stroke="none" /><circle cx="16" cy="14.5" r="1" fill="currentColor" stroke="none" /></svg>
-      </button>
-    </div>
-  );
+  // Toggle de vista en TEXTO (Día / Semana / Mes) tipo segmented, con glass en lux (ref. diseño del usuario).
+  const viewToggleNode = (() => {
+    const seg = (k, l) => {
+      const on = view === k;
+      return <button key={k} onClick={() => setView(k)} style={{ padding: "7px 16px", borderRadius: luxF ? (DS.r.ctl || 9) : 8, border: "none", cursor: "pointer", background: on ? (luxF ? (T.dark ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.92)") : T.accent) : "transparent", color: on ? (luxF ? T.text : (T.onAccent || "#fff")) : T.textMute, fontFamily: T.sans, fontSize: 12.5, fontWeight: on ? 600 : 500, whiteSpace: "nowrap", boxShadow: (on && luxF) ? "0 1px 3px rgba(0,0,0,.18)" : "none", transition: "background .18s, color .18s" }}>{l}</button>;
+    };
+    const wrap = luxF
+      ? { display: "inline-flex", gap: 3, background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.45)", border: "1px solid " + T.line, borderRadius: (DS.r.seg || 12), padding: 3, ...daySmallBlur }
+      : { display: "inline-flex", gap: 3, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: 3 };
+    return <div style={wrap}>{seg("dia", "Día")}{seg("semana", "Semana")}{seg("mes", "Mes")}</div>;
+  })();
   const [icsMod, setIcsMod] = useState(false);
   const nuevaBtnNode = <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>;
   const icsBtnNode = (
@@ -2871,7 +2871,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           Scrim de legibilidad (design audit 7.4): el texto flota sobre la foto everest; un halo
           suave (oscuro en dark / claro en light) garantiza contraste aunque detrás caiga una zona
           clara u oscura de la montaña, sin agregar una caja opaca que rompa el look editorial. */}
-      {luxF && (() => { const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)"; return (
+      {luxF && view !== "dia" && (() => { const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)"; return (
         <div style={{ margin: "0 0 12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: T.sans, fontSize: 9, letterSpacing: ".26em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>
             <span style={{ display: "inline-block", width: 22, height: 1, background: T.gold || T.accent }} />
@@ -2911,6 +2911,30 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             <button onClick={() => setDay(day + 1)} title="Día siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
             {viewToggleNode}
             <div style={{ flex: 1, minWidth: 8 }} />
+            {dayMultiProf && (() => {
+              const iniOf = nm => (nm || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase();
+              const col = (dayTeam.find(x => x.name === curProf) || {}).color || T.accent;
+              return (
+                <div style={{ position: "relative" }}>
+                  <button onClick={() => setDayProfOpen(o => !o)} title="Ver agenda de un profesional" style={{ display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 12px 0 5px", border: "1px solid " + T.line, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220, ...ctlGlass }}>
+                    <span style={{ width: 24, height: 24, borderRadius: "50%", background: col + "22", color: col, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{iniOf(curProf)}</span>
+                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{curProf}</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                  {dayProfOpen && (<React.Fragment>
+                    <div onClick={() => setDayProfOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
+                    <div style={{ position: "absolute", top: 40, right: 0, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: "0 18px 44px -20px rgba(0,0,0,.55)", zIndex: 61, overflow: "hidden", padding: 4 }}>
+                      {dayTeam.map(m => { const on = m.name === curProf; const c = m.color || T.accent; return (
+                        <button key={m.id || m.name} onClick={() => { setSelProf(m.name); setDayProfOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "9px 12px", background: on ? T.accent + "14" : "transparent", border: "none", borderRadius: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: on ? T.accent : T.text }}>
+                          <span style={{ width: 22, height: 22, borderRadius: "50%", background: c + "22", color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, flexShrink: 0 }}>{iniOf(m.name)}</span>
+                          {m.name}
+                        </button>
+                      ); })}
+                    </div>
+                  </React.Fragment>)}
+                </div>
+              );
+            })()}
             {icsBtnNode}
             {nuevaBtnNode}
           </div>
