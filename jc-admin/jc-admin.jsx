@@ -2766,6 +2766,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
   const [selProf, setSelProf] = useState(""); // profesional filtrado en la vista diaria (vacío = el primero)
   const [dayProfOpen, setDayProfOpen] = useState(false);
+  const [quickPop, setQuickPop] = useState(null); // { type: "bloquear"|"recordatorio", x, y } · tarjeta de Acciones rápidas, junto al cursor
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   // El mini-calendario del panel diario sigue al día seleccionado (sin pisar la navegación de meses < >).
@@ -2878,6 +2879,13 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   })();
   const dayFreeMin = Math.max(0, dayWindowMin - dayTotalMin);
   const dayFirstFree = daySlots[0] ? daySlots[0].hhmm : "10:00";
+  const dayOccupPct = dayWindowMin > 0 ? Math.min(100, Math.round((dayTotalMin / dayWindowMin) * 100)) : 0;
+  // Día abierto/cerrado (según horario publicado para esta fecha) — insignia junto al título.
+  const dayIsOpen = (() => {
+    try { const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(dayDate); if (av) return !!av.open; } catch (e) {}
+    return true;
+  })();
+  const dayFechaKey = dayDate.getFullYear() + "-" + p2(dayDate.getMonth() + 1) + "-" + p2(dayDate.getDate());
   // Mini-calendario del mes (panel lateral). monthDate marca el mes visible; el día activo es dayDate.
   const miniY = monthDate.getFullYear(), miniMo = monthDate.getMonth();
   const miniFirstDow = (new Date(miniY, miniMo, 1).getDay() + 6) % 7; // Lun = 0
@@ -2905,6 +2913,23 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     if (ap.length >= 8) found = (patients || []).find(x => { const xp = clean(x.phone || ""); return xp.length >= 8 && (xp.slice(-8) === ap.slice(-8)); });
     if (!found) { const an = (appt.name || "").toLowerCase().trim(); found = (patients || []).find(x => { const xn = (x.name || "").toLowerCase(); return xn === an || (an.length >= 4 && (xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]))); }); }
     setFichaConfirm({ appt, patient: found || null });
+  }
+  // Tarjeta "Acciones rápidas" (panel lateral, vista día): bloquear una hora libre del día
+  // deja de aparecer disponible en la app del paciente / link de reserva.
+  function bloquearHoraDaily(hhmm) {
+    try {
+      const av = (D && D.availForDate) ? D.availForDate(dayDate) : { slots: [] };
+      D.saveDateSlots(dayFechaKey, (av.slots || []).filter(s => s !== hhmm));
+      window.jcmToast && window.jcmToast("Hora " + hhmm + " bloqueada para " + dayTitle.toLowerCase() + ".", "ok");
+    } catch (e) {}
+    setQuickPop(null);
+  }
+  // Recordatorio manual por WhatsApp a una cita de hoy (reusa el texto ya usado en la tarjeta de la cita).
+  function enviarRecordatorioDaily(a) {
+    const ph = (a.phone || "").replace(/\D/g, "");
+    if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmRecordatorioMsg(a)), "_blank", "noopener");
+    else window.jcmToast && window.jcmToast("Este paciente no tiene teléfono registrado.", "info");
+    setQuickPop(null);
   }
   const tabBtn = (k, l) => <button onClick={() => setView(k)} style={{ flex: 1, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 7, cursor: "pointer", background: view === k ? T.text : "transparent", color: view === k ? T.bg : T.textMute, border: "none" }}>{l}</button>;
 
@@ -2999,6 +3024,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
               <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, whiteSpace: "nowrap" }}>{dayTitle}</div>
+              <span style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, padding: "3px 10px", borderRadius: 999, whiteSpace: "nowrap", color: dayIsOpen ? "#16A34A" : "#C0285A", background: (dayIsOpen ? "#16A34A" : "#C0285A") + "18" }}>{dayIsOpen ? "Día abierto" : "Día cerrado"}</span>
             </div>
             <button onClick={() => setDay(0)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", ...ctlGlass }}>Hoy</button>
             <button onClick={() => setDay(day - 1)} title="Día anterior" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
@@ -3136,11 +3162,60 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                 </div>
                 {/* Información del día */}
                 <div style={card}>
-                  <div style={secT}>Información del día</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 11 }}>
+                    <div style={{ ...secT, marginBottom: 0 }}>Información del día</div>
+                    <button onClick={e => { e.stopPropagation(); setQuickPop({ type: "bloquear", x: Math.max(8, e.clientX - 288), y: Math.min(e.clientY, window.innerHeight - 300) }); }} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Editar</button>
+                  </div>
                   {infoRow("Citas", list.length)}
                   {infoRow("Duración total", fmtDur(dayTotalMin))}
                   {infoRow("Tiempo libre", fmtDur(dayFreeMin))}
+                  <div style={{ marginTop: 9 }}>
+                    <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
+                      <div style={{ width: dayOccupPct + "%", height: "100%", borderRadius: 999, background: T.accent }} />
+                    </div>
+                    <div style={{ textAlign: "right", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 5 }}>{dayOccupPct}% ocupado</div>
+                  </div>
                 </div>
+                {/* Acciones rápidas: "Bloquear horario" y "Agendar recordatorio" abren una tarjeta
+                    junto al cursor (no fija a la derecha de la pantalla) para elegir hora / paciente. */}
+                <div style={card}>
+                  <div style={secT}>Acciones rápidas</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                    <AdBtn T={T} primary onClick={() => setNueva({ time: dayFirstFree, day, fromSlot: true })}>+ Nueva cita</AdBtn>
+                    {[["bloquear", "Bloquear horario", <svg key="i1" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M6 18L18 6" /></svg>],
+                      ["recordatorio", "Agendar recordatorio", <svg key="i2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></svg>]
+                    ].map(([type, lbl, icon]) => (
+                      <button key={type} onClick={e => { e.stopPropagation(); const x = Math.max(8, Math.min(e.clientX + 10, window.innerWidth - 296)); const y = Math.max(8, Math.min(e.clientY, window.innerHeight - 320)); setQuickPop({ type, x, y }); }}
+                        style={{ display: "flex", alignItems: "center", gap: 9, height: 38, padding: "0 13px", borderRadius: 9, border: "1px solid " + T.line, background: "transparent", color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" }}>
+                        {icon}{lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Próximas citas: primeras citas agendadas después del día que se está viendo. */}
+                {(() => {
+                  const upcoming = appts.filter(a => a.status !== "anulada" && apptDayOff(a) > day).sort((a, b) => apptDayOff(a) - apptDayOff(b) || mins(a.time) - mins(b.time)).slice(0, 3);
+                  return (
+                    <div style={card}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 11 }}>
+                        <div style={{ ...secT, marginBottom: 0 }}>Próximas citas</div>
+                        <button onClick={() => setView("semana")} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Ver agenda</button>
+                      </div>
+                      {upcoming.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin próximas citas agendadas.</div>}
+                      {upcoming.map((a, i) => { const off = apptDayOff(a); const dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + off); const stt = jcmApptState(a, T); return (
+                        <div key={a.id} onClick={() => { setDay(off); setView("dia"); }} style={{ display: "flex", gap: 10, padding: "9px 0", borderTop: i > 0 ? "1px solid " + T.lineSoft : "none", cursor: "pointer" }}>
+                          <div style={{ width: 3, borderRadius: 3, background: stt.color, flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, textTransform: "capitalize" }}>{capS(DOW_FULL[dt.getDay()])}, {dt.getDate()} {MESES[dt.getMonth()].slice(0, 3)}</div>
+                            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, marginTop: 1 }}>{a.time}</div>
+                            <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{a.name}</div>
+                            {a.proc && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.proc}</div>}
+                          </div>
+                        </div>
+                      ); })}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -3288,6 +3363,41 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         );
       })()}
       {editComD && <ComentarioPopup T={T} appt={editComD} updateAppt={updateAppt} onClose={() => setEditComD(null)} />}
+      {/* Tarjeta de "Acciones rápidas" del sidebar (bloquear horario / recordatorio): se abre
+          junto al cursor con el que se hizo clic, igual que la vista previa de una cita — no
+          queda fija a la derecha de la pantalla. */}
+      {quickPop && (
+        <React.Fragment>
+          <div onClick={() => setQuickPop(null)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
+          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", left: quickPop.x, top: quickPop.y, zIndex: 91, width: 280, maxHeight: 320, overflowY: "auto", background: T.bg, border: "1px solid " + T.line, borderRadius: luxF ? DS.r.panel : 12, boxShadow: "0 20px 50px -16px rgba(0,0,0,.55)", padding: "13px 14px", animation: "jcFade .14s ease" }} className="jc-scroll">
+            {quickPop.type === "bloquear" ? (
+              <React.Fragment>
+                <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: T.textMute, marginBottom: 10 }}>Bloquear hora · {dayTitle}</div>
+                {daySlots.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>No quedan horas libres este día.</div>}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
+                  {daySlots.map(s => (
+                    <button key={s.hhmm} onClick={() => bloquearHoraDaily(s.hhmm)} style={{ padding: "7px 4px", borderRadius: 7, border: "1px solid " + T.line, background: "transparent", color: T.text, fontFamily: T.sans, fontSize: 12, cursor: "pointer" }}>{s.hhmm}</button>
+                  ))}
+                </div>
+              </React.Fragment>
+            ) : (
+              <React.Fragment>
+                <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: T.textMute, marginBottom: 10 }}>Recordatorio por WhatsApp · {dayTitle}</div>
+                {list.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>No hay citas agendadas este día.</div>}
+                {list.slice().sort((a, b) => mins(a.time) - mins(b.time)).map((a, i) => (
+                  <button key={a.id} onClick={() => enviarRecordatorioDaily(a)} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "9px 4px", borderTop: i > 0 ? "1px solid " + T.lineSoft : "none", borderLeft: "none", borderRight: "none", borderBottom: "none", background: "transparent", cursor: "pointer" }}>
+                    <span style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                      <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.time}{a.proc ? " · " + a.proc : ""}</div>
+                    </span>
+                    <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.accent, flexShrink: 0 }}>Enviar</span>
+                  </button>
+                ))}
+              </React.Fragment>
+            )}
+          </div>
+        </React.Fragment>
+      )}
     </div>
   );
 }
