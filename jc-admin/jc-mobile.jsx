@@ -99,7 +99,7 @@ function photoTheme(T) {
 // recortaba la montaña). Velo de legibilidad muy leve: la montaña se ve, el texto claro contrasta.
 function mobileBg(T) {
   const overlay = "linear-gradient(180deg, rgba(14,20,30,.26), rgba(12,16,26,.42) 50%, rgba(9,12,20,.62))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg')", backgroundColor: "#0B1018", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=3')", backgroundColor: "#0B1018", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
@@ -116,7 +116,7 @@ function LoginVideoBg({ children }) {
   const overlay = "linear-gradient(180deg, rgba(14,20,30,.3), rgba(12,16,26,.46) 50%, rgba(9,12,20,.68))";
   return (
     <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#0B1018" }}>
-      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg"
+      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=3"
         style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
         <source src="/assets/everest-login.mp4" type="video/mp4" />
       </video>
