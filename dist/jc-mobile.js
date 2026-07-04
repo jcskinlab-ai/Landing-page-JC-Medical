@@ -783,11 +783,14 @@ function ReportesOverlay({ T, appts, onBack }) {
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - (now.getDay() + 6) % 7);
   weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
   const monthKey = now.getFullYear() + "-" + now.getMonth();
   const inWeek = (a) => {
     const f = a.fecha || offToISO(a.day || 0);
     const d = /* @__PURE__ */ new Date(f + "T00:00:00");
-    return d >= weekStart;
+    return d >= weekStart && d <= weekEnd;
   };
   const inMonth = (a) => {
     const f = a.fecha || offToISO(a.day || 0);

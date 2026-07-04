@@ -1015,8 +1015,12 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 function ReportesOverlay({ T, appts, onBack }) {
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
+  // BUG corregido: faltaba el límite superior de la semana — sin "weekEnd" el filtro contaba TODAS
+  // las citas desde el lunes de esta semana en adelante (incluidas semanas futuras), no solo las
+  // 7 fechas de la semana actual.
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23,59,59,999);
   const monthKey = now.getFullYear()+"-"+now.getMonth();
-  const inWeek = a => { const f = a.fecha||offToISO(a.day||0); const d = new Date(f+"T00:00:00"); return d >= weekStart; };
+  const inWeek = a => { const f = a.fecha||offToISO(a.day||0); const d = new Date(f+"T00:00:00"); return d >= weekStart && d <= weekEnd; };
   const inMonth = a => { const f = a.fecha||offToISO(a.day||0); const d = new Date(f+"T00:00:00"); return (d.getFullYear()+"-"+d.getMonth())===monthKey; };
   const weekAppts = appts.filter(inWeek);
   const monthAppts = appts.filter(inMonth);
