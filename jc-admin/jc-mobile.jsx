@@ -55,7 +55,8 @@ function apptStateM(a, T) {
   if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#6EA8E8" };
   if (a.status === "confirmada")     return { label: "Confirmada",  color: "#4FC585" };
   if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#E4BA4D" };
-  return { label: "Agendado", color: T.accent };
+  // "Agendado" (pendiente de confirmar) = amarillo, coherente con la cápsula-resumen y el mockup.
+  return { label: "Agendado", color: "#E4BA4D" };
 }
 
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
@@ -333,6 +334,44 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
 }
 
 /* ═══════════ Home (tab "Citas") ═══════════ */
+// Tasa de ocupación REAL de un día (no un número inventado): slots con cita ÷ slots trabajables.
+// Reusa la misma lógica de HorariosTab (horario semanal + bloqueos por fecha + duración de cada cita).
+function occupancyForOff(appts, off) {
+  try {
+    const iso = offToISO(off);
+    const wd = new Date(iso + "T12:00:00").getDay();
+    let weekly = HALF_HOURS.slice();
+    const h = window.DB && window.DB.get("horarios_v1");
+    if (h && h[wd]) { weekly = h[wd].open === false ? [] : (h[wd].slots || HALF_HOURS.slice()); }
+    const map = (window.DB && window.DB.get("horarios_dates")) || {};
+    const avail = map[iso] != null ? map[iso] : weekly;
+    const occupied = new Set();
+    appts.filter(a => a.status !== "anulada" && (a.fecha || offToISO(a.day || 0)) === iso).forEach(a => {
+      if (!a.time) return;
+      const start = minsM(a.time);
+      const dur = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+      HALF_HOURS.forEach(s => { const m = minsM(s); if (m >= start && m < start + dur) occupied.add(s); });
+    });
+    const cap = new Set([...avail, ...occupied]).size;
+    return cap ? Math.round(occupied.size / cap * 100) : 0;
+  } catch (e) { return 0; }
+}
+// Cápsula-resumen del día (referencia): • verde confirmadas · • amarillo pendientes · • rojo no asistió.
+function DaySummary({ T, c, p, na, prefix }) {
+  const dot = (color, txt) => (
+    <span style={{ display:"flex", alignItems:"center", gap:5, whiteSpace:"nowrap" }}>
+      <span style={{ width:7, height:7, borderRadius:"50%", background:color, flexShrink:0 }} />
+      <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>{txt}</span>
+    </span>
+  );
+  return (
+    <div style={{ ...glassChip(T), borderRadius:12, padding:"9px 13px", display:"flex", alignItems:"center", gap:13, flexWrap:"wrap" }}>
+      {dot("#4FC585", (prefix?prefix+" ":"") + c + " confirmada" + (c===1?"":"s"))}
+      {dot("#E4BA4D", p + " pendiente" + (p===1?"":"s"))}
+      {dot("#F17A96", na + " no asistió")}
+    </div>
+  );
+}
 function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const today = todayISO();
   const yestISO = offToISO(-1);
@@ -343,6 +382,13 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const pendientes = todayAppts.filter(a => !(a.status==="confirmada"||a.status==="atendida"||a.attended||a.status==="anulada")).length;
   const delta = yestCount>0 ? Math.round((todayAppts.length-yestCount)/yestCount*100) : (todayAppts.length>0?100:0);
   const pct = n => todayAppts.length ? Math.round(n/todayAppts.length*100) : 0;
+  // Tasa de ocupación real de hoy y su variación vs ayer (puntos porcentuales).
+  const ocup = occupancyForOff(appts, 0);
+  const ocupDelta = ocup - occupancyForOff(appts, -1);
+  // Desglose del día para la cápsula-resumen.
+  const cToday  = todayAppts.filter(a => a.status==="confirmada" || a.status==="atendida" || a.attended).length;
+  const naToday = todayAppts.filter(a => a.status==="no_asistio").length;
+  const pToday  = todayAppts.length - cToday - naToday;
 
   const upcoming = active
     .filter(a => (a.fecha||offToISO(a.day||0)) >= today)
@@ -352,25 +398,34 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const fechaLarga = (() => { const d = new Date(); return DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); })();
 
-  const kpi = (label, val, sub, subColor) => (
-    <div style={{ flex:1, ...glassPanel(T,14), padding:"12px 12px 11px" }}>
-      <div style={{ fontFamily:T.sans, fontSize:9.5, letterSpacing:".08em", textTransform:"uppercase", color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{label}</div>
-      <div style={{ fontFamily:T.serif, fontSize:26, color:T.text, marginTop:4, lineHeight:1 }}>{val}</div>
-      {sub && <div style={{ fontFamily:T.sans, fontSize:10, color:subColor||T.textFaint, marginTop:5 }}>{sub}</div>}
+  // KPIs (referencia): 4 tarjetas glass con ícono arriba, etiqueta, número grande y variación.
+  const kpi = (icon, label, val, sub, subColor) => (
+    <div style={{ flex:1, minWidth:0, ...glassPanel(T,13), padding:"11px 5px 10px", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center" }}>
+      <div style={{ color:T.accent, opacity:.92, height:16, display:"flex", alignItems:"center" }}>{icon}</div>
+      <div style={{ fontFamily:T.sans, fontSize:8.5, letterSpacing:".02em", textTransform:"uppercase", color:T.textMute, lineHeight:1.15, marginTop:5, minHeight:21, display:"flex", alignItems:"center" }}>{label}</div>
+      <div style={{ fontFamily:T.serif, fontSize:23, color:T.text, marginTop:1, lineHeight:1 }}>{val}</div>
+      {sub && <div style={{ fontFamily:T.sans, fontSize:8.5, color:subColor||T.textFaint, marginTop:4, lineHeight:1.1 }}>{sub}</div>}
     </div>
   );
+  const IC = {
+    cal:  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+    check:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
+    clock:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>,
+    bars: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-8"/></svg>
+  };
   // Avatar de la clínica: foto guardada (jcm_admin_photo) o iniciales, como en la referencia.
   const avatarSrc = (() => { try { return localStorage.getItem("jcm_admin_photo") || ""; } catch(e) { return ""; } })();
   const ini = (clinNombre||"JC").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
 
   // Accesos rápidos (referencia): 4 tiles con ícono arriba-izquierda + etiqueta debajo. El primero
   // ("Nueva cita") va relleno de acento; el resto en glass.
+  // Accesos rápidos (referencia): 4 tiles glass con ícono centrado arriba y etiqueta debajo.
+  // "Nueva cita" destaca con su círculo de acento relleno; los demás lo llevan tenue.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"flex-start", justifyContent:"space-between", gap:10, minHeight:78, minWidth:0, cursor:"pointer", borderRadius:14,
-      ...(primary ? { background:T.accent, border:"1px solid "+T.accent } : glassPanel(T,14)), padding:"12px 11px" }}>
-      <div style={{ width:32, height:32, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-        background: primary ? "rgba(255,255,255,.22)" : T.accent+"2e", color: primary ? "#fff" : T.accent }}>{icon}</div>
-      <span style={{ fontFamily:T.sans, fontSize:11.5, fontWeight:500, lineHeight:1.2, color: primary ? "#fff" : T.text }}>{label}</span>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8, minHeight:84, minWidth:0, cursor:"pointer", ...glassPanel(T,15), padding:"13px 5px" }}>
+      <div style={{ width:40, height:40, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+        background: primary ? T.accent : T.accent+"26", color: primary ? "#fff" : T.accent, boxShadow: primary ? "0 6px 16px -6px "+T.accent : "none" }}>{icon}</div>
+      <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, lineHeight:1.15, textAlign:"center", color:T.text }}>{label}</span>
     </button>
   );
 
@@ -387,17 +442,20 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
         </div>
       </div>
 
-      <div style={{ display:"flex", gap:9 }}>
-        {kpi("Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer", delta>=0?"#4FC585":"#F17A96")}
-        {kpi("Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
-        {kpi("Pendientes", pendientes, pct(pendientes)+"% del total")}
+      <div style={{ display:"flex", gap:7 }}>
+        {kpi(IC.cal, "Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer", delta>=0?"#4FC585":"#F17A96")}
+        {kpi(IC.check, "Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
+        {kpi(IC.clock, "Pendientes", pendientes, pct(pendientes)+"% del total")}
+        {kpi(IC.bars, "Tasa de ocupación", ocup+"%", (ocupDelta>=0?"↑":"↓")+Math.abs(ocupDelta)+"% vs ayer", ocupDelta>=0?"#4FC585":"#F17A96")}
       </div>
 
+      {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
+
       <div style={{ display:"flex", gap:9 }}>
-        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
-        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
-        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
-        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+        {action(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
+        {action(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
+        {action(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
+        {action(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
       </div>
 
       <div>
@@ -412,16 +470,19 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
             const iso = a.fecha||offToISO(a.day||0);
             const dLbl = iso===today ? "Hoy" : (()=>{ const d=new Date(iso+"T00:00:00"); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:11, width:"100%", textAlign:"left", cursor:"pointer", ...glassPanel(T,13), padding:"11px 13px" }}>
-                <div style={{ flexShrink:0, textAlign:"center", minWidth:38 }}>
-                  <div style={{ fontFamily:T.serif, fontSize:15, color:T.text, lineHeight:1 }}>{a.time}</div>
-                  <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:".05em", textTransform:"uppercase", color:T.textFaint, marginTop:3 }}>{dLbl}</div>
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", ...glassPanel(T,13), padding:0, overflow:"hidden" }}>
+                <div style={{ width:4, background:st.color, flexShrink:0 }} />
+                <div style={{ flex:1, display:"flex", alignItems:"center", gap:11, padding:"11px 12px", minWidth:0 }}>
+                  <div style={{ flexShrink:0, minWidth:44 }}>
+                    <div style={{ fontFamily:T.serif, fontSize:16, color:T.text, lineHeight:1 }}>{a.time}</div>
+                    <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:".05em", textTransform:"uppercase", color:T.textFaint, marginTop:3 }}>{dLbl}</div>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:T.sans, fontSize:13.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
+                    <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.proc||"—"} · {durOf(a)}</div>
+                  </div>
+                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:8.5, fontWeight:700, letterSpacing:".04em", textTransform:"uppercase", color:st.color, background:st.color+"1c", border:"1px solid "+st.color+"55", borderRadius:7, padding:"4px 8px" }}>{st.label}</span>
                 </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontFamily:T.sans, fontSize:13.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
-                  <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.proc||"—"} · {durOf(a)}</div>
-                </div>
-                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:9, fontWeight:700, letterSpacing:".05em", textTransform:"uppercase", color:st.color, background:st.color+"1e", borderRadius:999, padding:"4px 9px" }}>{st.label}</span>
               </button>
             );
           })}
@@ -562,6 +623,11 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     .filter(a => { const f = a.fecha || offToISO(a.day||0); return f === selDay && (showAnuladas ? a.status === "anulada" : a.status !== "anulada"); })
     .sort((a,b) => minsM(a.time) - minsM(b.time));
   const anuladasCount = appts.filter(a => (a.fecha||offToISO(a.day||0))===selDay && a.status==="anulada").length;
+  // Desglose del día seleccionado para la cápsula-resumen (igual que en Home).
+  const selActive = appts.filter(a => (a.fecha||offToISO(a.day||0))===selDay && a.status!=="anulada");
+  const cSel  = selActive.filter(a => a.status==="confirmada"||a.status==="atendida"||a.attended).length;
+  const naSel = selActive.filter(a => a.status==="no_asistio").length;
+  const pSel  = selActive.length - cSel - naSel;
 
   useEffect(() => {
     if (!dayRef.current) return;
@@ -668,6 +734,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
           })}
         </div>
       </div>
+      {!showAnuladas && selActive.length>0 && <div style={{ padding:"0 14px 10px", flexShrink:0 }}><DaySummary T={T} c={cSel} p={pSel} na={naSel} /></div>}
       <div ref={dayRef} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
         <div style={{ position:"relative", marginLeft:48, paddingRight:12 }}>
           {CAL_HOURS.map(h => (

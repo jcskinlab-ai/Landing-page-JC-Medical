@@ -45,7 +45,7 @@ function apptStateM(a, T) {
   if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#6EA8E8" };
   if (a.status === "confirmada") return { label: "Confirmada", color: "#4FC585" };
   if (a.status === "pendiente_pago") return { label: "\u23F3 Transferencia", color: "#E4BA4D" };
-  return { label: "Agendado", color: T.accent };
+  return { label: "Agendado", color: "#E4BA4D" };
 }
 function localISO(d) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -310,6 +310,37 @@ function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, rest
     "WhatsApp"
   )));
 }
+function occupancyForOff(appts, off) {
+  try {
+    const iso = offToISO(off);
+    const wd = (/* @__PURE__ */ new Date(iso + "T12:00:00")).getDay();
+    let weekly = HALF_HOURS.slice();
+    const h = window.DB && window.DB.get("horarios_v1");
+    if (h && h[wd]) {
+      weekly = h[wd].open === false ? [] : h[wd].slots || HALF_HOURS.slice();
+    }
+    const map = window.DB && window.DB.get("horarios_dates") || {};
+    const avail = map[iso] != null ? map[iso] : weekly;
+    const occupied = /* @__PURE__ */ new Set();
+    appts.filter((a) => a.status !== "anulada" && (a.fecha || offToISO(a.day || 0)) === iso).forEach((a) => {
+      if (!a.time) return;
+      const start = minsM(a.time);
+      const dur = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+      HALF_HOURS.forEach((s) => {
+        const m = minsM(s);
+        if (m >= start && m < start + dur) occupied.add(s);
+      });
+    });
+    const cap = (/* @__PURE__ */ new Set([...avail, ...occupied])).size;
+    return cap ? Math.round(occupied.size / cap * 100) : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+function DaySummary({ T, c, p, na, prefix }) {
+  const dot = (color, txt) => /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, txt));
+  return /* @__PURE__ */ React.createElement("div", { style: { ...glassChip(T), borderRadius: 12, padding: "9px 13px", display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap" } }, dot("#4FC585", (prefix ? prefix + " " : "") + c + " confirmada" + (c === 1 ? "" : "s")), dot("#E4BA4D", p + " pendiente" + (p === 1 ? "" : "s")), dot("#F17A96", na + " no asisti\xF3"));
+}
 function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const today = todayISO();
   const yestISO = offToISO(-1);
@@ -320,6 +351,11 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const pendientes = todayAppts.filter((a) => !(a.status === "confirmada" || a.status === "atendida" || a.attended || a.status === "anulada")).length;
   const delta = yestCount > 0 ? Math.round((todayAppts.length - yestCount) / yestCount * 100) : todayAppts.length > 0 ? 100 : 0;
   const pct = (n) => todayAppts.length ? Math.round(n / todayAppts.length * 100) : 0;
+  const ocup = occupancyForOff(appts, 0);
+  const ocupDelta = ocup - occupancyForOff(appts, -1);
+  const cToday = todayAppts.filter((a) => a.status === "confirmada" || a.status === "atendida" || a.attended).length;
+  const naToday = todayAppts.filter((a) => a.status === "no_asistio").length;
+  const pToday = todayAppts.length - cToday - naToday;
   const upcoming = active.filter((a) => (a.fecha || offToISO(a.day || 0)) >= today).sort((a, b) => {
     const fa = a.fecha || offToISO(a.day || 0), fb = b.fecha || offToISO(b.day || 0);
     return fa < fb ? -1 : fa > fb ? 1 : minsM(a.time) - minsM(b.time);
@@ -336,7 +372,13 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
     const d = /* @__PURE__ */ new Date();
     return DOW_FULL[d.getDay()] + ", " + d.getDate() + " de " + MESES_LARGOS[d.getMonth()].toLowerCase();
   })();
-  const kpi = (label, val, sub, subColor) => /* @__PURE__ */ React.createElement("div", { style: { flex: 1, ...glassPanel(T, 14), padding: "12px 12px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, color: T.text, marginTop: 4, lineHeight: 1 } }, val), sub && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: subColor || T.textFaint, marginTop: 5 } }, sub));
+  const kpi = (icon, label, val, sub, subColor) => /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, ...glassPanel(T, 13), padding: "11px 5px 10px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { color: T.accent, opacity: 0.92, height: 16, display: "flex", alignItems: "center" } }, icon), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".02em", textTransform: "uppercase", color: T.textMute, lineHeight: 1.15, marginTop: 5, minHeight: 21, display: "flex", alignItems: "center" } }, label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 23, color: T.text, marginTop: 1, lineHeight: 1 } }, val), sub && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, color: subColor || T.textFaint, marginTop: 4, lineHeight: 1.1 } }, sub));
+  const IC = {
+    cal: /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "18", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M16 2v4M8 2v4M3 10h18" })),
+    check: /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("path", { d: "M9 11l3 3L22 4" }), /* @__PURE__ */ React.createElement("path", { d: "M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" })),
+    clock: /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "9" }), /* @__PURE__ */ React.createElement("path", { d: "M12 7v5l3 2" })),
+    bars: /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M3 3v18h18" }), /* @__PURE__ */ React.createElement("path", { d: "M8 17v-5M13 17V8M18 17v-8" }))
+  };
   const avatarSrc = (() => {
     try {
       return localStorage.getItem("jcm_admin_photo") || "";
@@ -345,38 +387,26 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
     }
   })();
   const ini = (clinNombre || "JC").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-  const action = (icon, label, onClick, primary) => /* @__PURE__ */ React.createElement("button", { onClick, style: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-    minHeight: 78,
-    minWidth: 0,
-    cursor: "pointer",
-    borderRadius: 14,
-    ...primary ? { background: T.accent, border: "1px solid " + T.accent } : glassPanel(T, 14),
-    padding: "12px 11px"
-  } }, /* @__PURE__ */ React.createElement("div", { style: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+  const action = (icon, label, onClick, primary) => /* @__PURE__ */ React.createElement("button", { onClick, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 84, minWidth: 0, cursor: "pointer", ...glassPanel(T, 15), padding: "13px 5px" } }, /* @__PURE__ */ React.createElement("div", { style: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    background: primary ? "rgba(255,255,255,.22)" : T.accent + "2e",
-    color: primary ? "#fff" : T.accent
-  } }, icon), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, lineHeight: 1.2, color: primary ? "#fff" : T.text } }, label));
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 16px 96px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 13 } }, avatarSrc ? /* @__PURE__ */ React.createElement("img", { src: avatarSrc, alt: "", style: { width: 52, height: 52, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid rgba(255,255,255,.25)" } }) : /* @__PURE__ */ React.createElement("div", { style: { width: 52, height: 52, borderRadius: "50%", background: T.accent + "33", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, flexShrink: 0, border: "1px solid rgba(255,255,255,.2)" } }, ini), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 23, color: T.text, lineHeight: 1.1 } }, "Hola", clinNombre ? ", " + clinNombre : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2, textTransform: "capitalize" } }, fechaLarga))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9 } }, kpi("Citas hoy", todayAppts.length, (delta >= 0 ? "\u2191" : "\u2193") + Math.abs(delta) + "% vs ayer", delta >= 0 ? "#4FC585" : "#F17A96"), kpi("Confirmadas", confirmadas, pct(confirmadas) + "% del total"), kpi("Pendientes", pendientes, pct(pendientes) + "% del total")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9 } }, action(/* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })), "Nueva cita", () => goTab("nueva"), true), action(/* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("path", { d: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" })), "Pacientes", () => openOverlay("pacientes")), action(/* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("path", { d: "M12 6v6l4 2" })), "Bloquear horario", () => goTab("horarios")), action(/* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("path", { d: "M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4" })), "Reportes", () => openOverlay("reportes"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute } }, "Pr\xF3ximas citas"), /* @__PURE__ */ React.createElement("button", { onClick: () => goTab("agenda"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.accent, display: "flex", alignItems: "center", gap: 3 } }, "Ver agenda ", /* @__PURE__ */ React.createElement("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), upcoming.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 14), padding: "22px 16px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Sin pr\xF3ximas citas agendadas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, upcoming.map((a) => {
+    background: primary ? T.accent : T.accent + "26",
+    color: primary ? "#fff" : T.accent,
+    boxShadow: primary ? "0 6px 16px -6px " + T.accent : "none"
+  } }, icon), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, fontWeight: 500, lineHeight: 1.15, textAlign: "center", color: T.text } }, label));
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 16px 96px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 13 } }, avatarSrc ? /* @__PURE__ */ React.createElement("img", { src: avatarSrc, alt: "", style: { width: 52, height: 52, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid rgba(255,255,255,.25)" } }) : /* @__PURE__ */ React.createElement("div", { style: { width: 52, height: 52, borderRadius: "50%", background: T.accent + "33", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, flexShrink: 0, border: "1px solid rgba(255,255,255,.2)" } }, ini), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 23, color: T.text, lineHeight: 1.1 } }, "Hola", clinNombre ? ", " + clinNombre : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2, textTransform: "capitalize" } }, fechaLarga))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, kpi(IC.cal, "Citas hoy", todayAppts.length, (delta >= 0 ? "\u2191" : "\u2193") + Math.abs(delta) + "% vs ayer", delta >= 0 ? "#4FC585" : "#F17A96"), kpi(IC.check, "Confirmadas", confirmadas, pct(confirmadas) + "% del total"), kpi(IC.clock, "Pendientes", pendientes, pct(pendientes) + "% del total"), kpi(IC.bars, "Tasa de ocupaci\xF3n", ocup + "%", (ocupDelta >= 0 ? "\u2191" : "\u2193") + Math.abs(ocupDelta) + "% vs ayer", ocupDelta >= 0 ? "#4FC585" : "#F17A96")), todayAppts.length > 0 && /* @__PURE__ */ React.createElement(DaySummary, { T, c: cToday, p: pToday, na: naToday, prefix: "Hoy:" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9 } }, action(/* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })), "Nueva cita", () => goTab("nueva"), true), action(/* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" })), "Pacientes", () => openOverlay("pacientes")), action(/* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("path", { d: "M12 6v6l4 2" })), "Bloquear horario", () => goTab("horarios")), action(/* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4" })), "Reportes", () => openOverlay("reportes"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute } }, "Pr\xF3ximas citas"), /* @__PURE__ */ React.createElement("button", { onClick: () => goTab("agenda"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.accent, display: "flex", alignItems: "center", gap: 3 } }, "Ver agenda ", /* @__PURE__ */ React.createElement("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), upcoming.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 14), padding: "22px 16px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Sin pr\xF3ximas citas agendadas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, upcoming.map((a) => {
     const st = apptStateM(a, T);
     const iso = a.fecha || offToISO(a.day || 0);
     const dLbl = iso === today ? "Hoy" : (() => {
       const d = /* @__PURE__ */ new Date(iso + "T00:00:00");
       return WDS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()];
     })();
-    return /* @__PURE__ */ React.createElement("button", { key: a.id, onClick: () => onOpenAppt(a), style: { display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", cursor: "pointer", ...glassPanel(T, 13), padding: "11px 13px" } }, /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, textAlign: "center", minWidth: 38 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, lineHeight: 1 } }, a.time), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8, letterSpacing: ".05em", textTransform: "uppercase", color: T.textFaint, marginTop: 3 } }, dLbl)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.proc || "\u2014", " \xB7 ", durOf(a))), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: st.color, background: st.color + "1e", borderRadius: 999, padding: "4px 9px" } }, st.label));
+    return /* @__PURE__ */ React.createElement("button", { key: a.id, onClick: () => onOpenAppt(a), style: { display: "flex", alignItems: "stretch", width: "100%", textAlign: "left", cursor: "pointer", ...glassPanel(T, 13), padding: 0, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 4, background: st.color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 11, padding: "11px 12px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, minWidth: 44 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text, lineHeight: 1 } }, a.time), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8, letterSpacing: ".05em", textTransform: "uppercase", color: T.textFaint, marginTop: 3 } }, dLbl)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.proc || "\u2014", " \xB7 ", durOf(a))), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: st.color, background: st.color + "1c", border: "1px solid " + st.color + "55", borderRadius: 7, padding: "4px 8px" } }, st.label)));
   }))));
 }
 function HorariosTab({ T, appts }) {
@@ -528,6 +558,10 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     return f === selDay && (showAnuladas ? a.status === "anulada" : a.status !== "anulada");
   }).sort((a, b) => minsM(a.time) - minsM(b.time));
   const anuladasCount = appts.filter((a) => (a.fecha || offToISO(a.day || 0)) === selDay && a.status === "anulada").length;
+  const selActive = appts.filter((a) => (a.fecha || offToISO(a.day || 0)) === selDay && a.status !== "anulada");
+  const cSel = selActive.filter((a) => a.status === "confirmada" || a.status === "atendida" || a.attended).length;
+  const naSel = selActive.filter((a) => a.status === "no_asistio").length;
+  const pSel = selActive.length - cSel - naSel;
   useEffect(() => {
     if (!dayRef.current) return;
     const firstMin = dayAppts.length ? minsM(dayAppts[0].time) : CAL_START * 60;
@@ -633,7 +667,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".06em", textTransform: "uppercase", color: isSel ? T.onAccent : T.textMute } }, d.i === 0 ? "HOY" : d.wd.toUpperCase()),
       /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 22, fontWeight: isToday ? "700" : "400", color: isSel ? T.onAccent : T.text, lineHeight: 1.2 } }, d.dd)
     );
-  }))), /* @__PURE__ */ React.createElement("div", { ref: dayRef, style: { flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginLeft: 48, paddingRight: 12 } }, CAL_HOURS.map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { position: "absolute", left: -48, right: 0, top: (h - CAL_START) * CAL_PX_HOUR, display: "flex", alignItems: "flex-start", zIndex: 1 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42, textAlign: "right", paddingRight: 8, lineHeight: 1, transform: "translateY(-5px)", flexShrink: 0 } }, h < 10 ? "0" + h : "" + h, ":00"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, borderTop: "1px solid " + (T.dark ? "rgba(255,255,255,.1)" : T.lineSoft), marginTop: 0 } }))), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", minHeight: (CAL_END - CAL_START) * CAL_PX_HOUR + 40 } }, dayAppts.map((a) => apptBlock(a))), dayAppts.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "50%", left: 0, right: 0, transform: "translateY(-50%)", textAlign: "center", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.textFaint } }, showAnuladas ? "Sin citas canceladas este d\xEDa" : "Sin citas este d\xEDa")))), fab);
+  }))), !showAnuladas && selActive.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 14px 10px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement(DaySummary, { T, c: cSel, p: pSel, na: naSel })), /* @__PURE__ */ React.createElement("div", { ref: dayRef, style: { flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginLeft: 48, paddingRight: 12 } }, CAL_HOURS.map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { position: "absolute", left: -48, right: 0, top: (h - CAL_START) * CAL_PX_HOUR, display: "flex", alignItems: "flex-start", zIndex: 1 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42, textAlign: "right", paddingRight: 8, lineHeight: 1, transform: "translateY(-5px)", flexShrink: 0 } }, h < 10 ? "0" + h : "" + h, ":00"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, borderTop: "1px solid " + (T.dark ? "rgba(255,255,255,.1)" : T.lineSoft), marginTop: 0 } }))), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", minHeight: (CAL_END - CAL_START) * CAL_PX_HOUR + 40 } }, dayAppts.map((a) => apptBlock(a))), dayAppts.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "50%", left: 0, right: 0, transform: "translateY(-50%)", textAlign: "center", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.textFaint } }, showAnuladas ? "Sin citas canceladas este d\xEDa" : "Sin citas este d\xEDa")))), fab);
 }
 function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [step, setStep] = useState(1);
