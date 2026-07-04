@@ -3490,13 +3490,17 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn
   const cells = [];
   for (let i = 0; i < startOff; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
-  const monthLbl = monthDate.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  // "Julio 2026" (sin "de" y con una sola mayúscula): toLocaleDateString + textTransform:capitalize
+  // producía "Julio De 2026" (capitalizaba también la preposición). Se arma el texto a mano.
+  const MESES_MG = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const monthLbl = MESES_MG[m].charAt(0).toUpperCase() + MESES_MG[m].slice(1) + " " + y;
   const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
   const todayCol = (today.getDay() + 6) % 7;
   const isCurMonth = today.getFullYear() === y && today.getMonth() === m;
   const ctlGlass = luxF ? { background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.5)" } : { background: T.surface };
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...ctlGlass };
-  const tabBtn = (k, l) => <button key={k} onClick={() => setView(k)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + (k === "mes" ? "transparent" : T.line), background: k === "mes" ? T.text : (ctlGlass.background), color: k === "mes" ? T.bg : T.textMute, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, cursor: "pointer" }}>{l}</button>;
+  // Tabs de texto sin borde individual (grupo plano, referencia): solo el activo lleva relleno.
+  const tabBtn = (k, l) => <button key={k} onClick={() => setView(k)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid transparent", background: k === "mes" ? T.text : "transparent", color: k === "mes" ? T.bg : T.textMute, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, cursor: "pointer" }}>{l}</button>;
   return (
     <div>
       {/* Mismo lenguaje que semana/día: navegación + tabs de texto a la IZQUIERDA, profesional +
@@ -3504,7 +3508,7 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn
           igual que en el resto de la agenda — solo las líneas divisorias y los chips de cita tienen color. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <button onClick={() => setMonthDate(new Date(y, m - 1, 1))} style={navBtn} title="Mes anterior">‹</button>
-        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, textTransform: "capitalize", minWidth: 140 }}>{monthLbl}</div>
+        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, minWidth: 140 }}>{monthLbl}</div>
         <button onClick={() => setMonthDate(new Date(y, m + 1, 1))} style={navBtn} title="Mes siguiente">›</button>
         <button onClick={() => setMonthDate(new Date())} style={{ ...navBtn, width: "auto", padding: "0 15px", fontSize: 12.5 }}>Hoy</button>
         {tabBtn("dia", "Día")}{tabBtn("semana", "Semana")}{tabBtn("mes", "Mes")}
