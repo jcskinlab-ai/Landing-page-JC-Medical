@@ -104,8 +104,8 @@ function photoTheme(T) {
   });
 }
 function mobileBg(T) {
-  const overlay = "linear-gradient(180deg, rgba(18,42,84,.26), rgba(15,34,70,.32) 52%, rgba(12,28,60,.46))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=6')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+  const overlay = "linear-gradient(180deg, rgba(16,38,78,.18), rgba(14,32,66,.24) 52%, rgba(12,28,60,.4))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=7')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
 }
 function glassPanel(T, radius) {
   return { background: "rgba(255,255,255,.1)", backdropFilter: "blur(30px) saturate(1.35)", WebkitBackdropFilter: "blur(30px) saturate(1.35)", border: "1px solid rgba(255,255,255,.28)", borderRadius: radius == null ? 18 : radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 26px -14px rgba(8,22,48,.55)" };
@@ -122,7 +122,7 @@ function LoginVideoBg({ children }) {
       loop: true,
       muted: true,
       playsInline: true,
-      poster: "/assets/everest-mobile.jpg?v=6",
+      poster: "/assets/everest-mobile.jpg?v=7",
       style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }
     },
     /* @__PURE__ */ React.createElement("source", { src: "/assets/everest-login.mp4", type: "video/mp4" })
