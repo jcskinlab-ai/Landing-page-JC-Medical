@@ -84,12 +84,17 @@ function weekDays() {
    una paleta "sobre foto": texto claro + glass translúcido de verdad (frost, deja ver la montaña),
    sin importar el tema día/noche del resto del sistema. photoTheme() lo aplica una sola vez en los
    entry points y TODA la app hereda el mismo lenguaje. */
-const ON_PHOTO = { text: "#F5F3EE", mute: "rgba(245,243,238,.74)", faint: "rgba(245,243,238,.5)" };
+const ON_PHOTO = { text: "#F5F7FB", mute: "rgba(235,242,252,.72)", faint: "rgba(235,242,252,.5)" };
+// Fuente del panel móvil = SF Pro (la del sistema en iPhone). En el iPhone del usuario -apple-system
+// renderiza SF Pro real → match exacto con la referencia. Se usa TANTO en serif como en sans para
+// que TODO el panel sea SF Pro (la referencia no usa serif en ningún lado), diferenciando por peso.
+const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', system-ui, Roboto, sans-serif";
 function photoTheme(T) {
   return Object.assign({}, T, {
     dark: true,                              // fuerza la rama "glass oscuro" en glassPanel/glassChip
     text: ON_PHOTO.text, textMute: ON_PHOTO.mute, textFaint: ON_PHOTO.faint,
     line: "rgba(255,255,255,.16)", lineSoft: "rgba(255,255,255,.09)",
+    serif: SF, sans: SF,                     // toda la tipografía del móvil en SF Pro (como el mockup)
     // Acento azul vivo (referencia del usuario, look iOS): botones primarios, FAB, tab activo,
     // pastillas de día y badges de estado. Texto blanco sobre el azul.
     accent: "#3B82F6", accentSoft: "rgba(59,130,246,.18)", onAccent: "#FFFFFF"
@@ -177,7 +182,7 @@ function LoginScreen({ T, onAuth }) {
   return (
     <LoginVideoBg>
       <img src="/assets/medique-logo.png" alt="Medique" style={{ width:52, height:52, marginBottom:10 }} />
-      <div style={{ fontFamily:T.serif, fontSize:30, fontWeight:300, color:"#fff" }}>Medique</div>
+      <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:600, color:"#fff" }}>Medique</div>
       <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.mute, marginBottom:44 }}>Panel móvil · Acceso privado</div>
       <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
         {setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} style={inp} />}
@@ -231,7 +236,7 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
             {(a.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}
           </div>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:T.serif, fontSize:19, color:T.text, lineHeight:1.15 }}>{a.name}</div>
+            <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text, lineHeight:1.15 }}>{a.name}</div>
             <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:2 }}>{a.time} · {a.proc||"—"} · {durLabel}</div>
             {matched && <button onClick={()=>onOpenFicha(matched.id)} style={{ marginTop:4, background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:11.5, color:T.accent, textDecoration:"underline" }}>Ver ficha del paciente →</button>}
           </div>
@@ -407,8 +412,8 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const kpi = (icon, label, val, sub, subColor) => (
     <div style={{ flex:1, minWidth:0, ...glassPanel(T,13), padding:"11px 5px 10px", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center" }}>
       <div style={{ color:T.accent, opacity:.92, height:16, display:"flex", alignItems:"center" }}>{icon}</div>
-      <div style={{ fontFamily:T.sans, fontSize:8.5, letterSpacing:".02em", textTransform:"uppercase", color:T.textMute, lineHeight:1.15, marginTop:5, minHeight:21, display:"flex", alignItems:"center" }}>{label}</div>
-      <div style={{ fontFamily:T.serif, fontSize:23, color:T.text, marginTop:1, lineHeight:1 }}>{val}</div>
+      <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, lineHeight:1.15, marginTop:6, minHeight:24, display:"flex", alignItems:"center" }}>{label}</div>
+      <div style={{ fontFamily:T.serif, fontSize:27, fontWeight:600, color:T.text, marginTop:2, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
       {sub && <div style={{ fontFamily:T.sans, fontSize:8.5, color:subColor||"rgba(230,240,255,.74)", marginTop:4, lineHeight:1.1 }}>{sub}</div>}
     </div>
   );
@@ -443,7 +448,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           ? <img src={avatarSrc} alt="" style={{ width:52, height:52, borderRadius:"50%", objectFit:"cover", flexShrink:0, border:"1px solid rgba(255,255,255,.25)" }} />
           : <div style={{ width:52, height:52, borderRadius:"50%", background:T.accent+"33", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.serif, fontSize:18, flexShrink:0, border:"1px solid rgba(255,255,255,.2)" }}>{ini}</div>}
         <div style={{ minWidth:0 }}>
-          <div style={{ fontFamily:T.serif, fontSize:23, color:T.text, lineHeight:1.1 }}>Hola{clinNombre?", "+clinNombre:""}</div>
+          <div style={{ fontFamily:T.serif, fontSize:25, fontWeight:600, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>Hola{clinNombre?", "+clinNombre:""}</div>
           <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:2, textTransform:"capitalize" }}>{fechaLarga}</div>
         </div>
       </div>
@@ -466,7 +471,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
 
       <div>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
-          <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".12em", textTransform:"uppercase", color:T.textMute }}>Próximas citas</span>
+          <span style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text }}>Próximas citas</span>
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
         {upcoming.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin próximas citas agendadas.</div>}
@@ -478,16 +483,16 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
             return (
               <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", ...glassPanel(T,13), padding:0, overflow:"hidden" }}>
                 <div style={{ width:4, background:st.color, flexShrink:0 }} />
-                <div style={{ flex:1, display:"flex", alignItems:"center", gap:11, padding:"11px 12px", minWidth:0 }}>
-                  <div style={{ flexShrink:0, minWidth:44 }}>
-                    <div style={{ fontFamily:T.serif, fontSize:16, color:T.text, lineHeight:1 }}>{a.time}</div>
-                    <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:".05em", textTransform:"uppercase", color:T.textFaint, marginTop:3 }}>{dLbl}</div>
+                <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"11px 11px", minWidth:0 }}>
+                  <div style={{ flexShrink:0, minWidth:38 }}>
+                    <div style={{ fontFamily:T.serif, fontSize:15, fontWeight:600, color:T.text, lineHeight:1 }}>{a.time}</div>
+                    <div style={{ fontFamily:T.sans, fontSize:9, color:T.textFaint, marginTop:3 }}>{dLbl}</div>
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontFamily:T.sans, fontSize:13.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
-                    <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.proc||"—"} · {durOf(a)}</div>
+                    <div style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
+                    <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{a.proc||"—"} · {durOf(a)}</div>
                   </div>
-                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:8.5, fontWeight:700, letterSpacing:".04em", textTransform:"uppercase", color:st.color, background:st.color+"1c", border:"1px solid "+st.color+"55", borderRadius:7, padding:"4px 8px" }}>{st.label}</span>
+                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:".03em", textTransform:"uppercase", color:st.color, background:st.color+"1c", border:"1px solid "+st.color+"55", borderRadius:6, padding:"3px 6px" }}>{st.label}</span>
                 </div>
               </button>
             );
@@ -553,8 +558,8 @@ function HorariosTab({ T, appts }) {
             <button key={i} onClick={()=>setSelOff(i)}
               style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px", borderRadius:10, minWidth:50, cursor:"pointer",
                 ...(selOff===i ? { background:T.accent, border:"1px solid "+T.accent } : { ...glassChip(T) }) }}>
-              <span style={{ fontFamily:T.sans, fontSize:8.5, letterSpacing:".06em", textTransform:"uppercase", color:selOff===i?T.onAccent:T.textMute }}>{i===0?"Hoy":d.wd}</span>
-              <span style={{ fontFamily:T.serif, fontSize:20, color:selOff===i?T.onAccent:T.text, marginTop:2 }}>{d.dd}</span>
+              <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color:selOff===i?T.onAccent:T.textMute }}>{i===0?"Hoy":d.wd}</span>
+              <span style={{ fontFamily:T.serif, fontSize:20, fontWeight:600, color:selOff===i?T.onAccent:T.text, marginTop:2 }}>{d.dd}</span>
             </button>
           ))}
         </div>
@@ -693,7 +698,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         {toggleRow}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
           <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>‹</button>
-          <div style={{ fontFamily:T.serif, fontSize:19, color:T.text }}>{MESES_LARGOS[monthCur.m]} {monthCur.y}</div>
+          <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text }}>{MESES_LARGOS[monthCur.m]} {monthCur.y}</div>
           <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>›</button>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0 10px 4px", flexShrink:0 }}>
@@ -733,7 +738,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
               <button key={d.iso} onClick={()=>setSelDay(d.iso)}
                 style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"7px 10px", borderRadius:10, minWidth:46, border:"none", cursor:"pointer",
                   background: isSel ? T.accent : "transparent" }}>
-                <span style={{ fontFamily:T.sans, fontSize:9, letterSpacing:".06em", textTransform:"uppercase", color: isSel ? T.onAccent : T.textMute }}>{d.i===0 ? "HOY" : d.wd.toUpperCase()}</span>
+                <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? T.onAccent : T.textMute }}>{d.i===0 ? "Hoy" : d.wd}</span>
                 <span style={{ fontFamily:T.sans, fontSize:22, fontWeight: isToday ? "700" : "400", color: isSel ? T.onAccent : T.text, lineHeight:1.2 }}>{d.dd}</span>
               </button>
             );
@@ -830,12 +835,12 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   }
 
   const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"13px 15px", borderRadius:10, border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), background:T.dark?"rgba(255,255,255,.06)":"#fff", color:T.text, outline:"none", boxSizing:"border-box" };
-  const lbl = { display:"block", fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:5 };
+  const lbl = { display:"block", fontFamily:T.sans, fontSize:13, fontWeight:500, color:T.text, marginBottom:8 };
   const STEPS = ["Paciente","Detalles","Confirmar"];
 
   return (
     <div style={{ padding:"14px 16px 90px", display:"flex", flexDirection:"column", gap:16 }}>
-      <div style={{ fontFamily:T.serif, fontSize:24, fontWeight:300, color:T.text }}>Nueva cita</div>
+      <div style={{ fontFamily:T.serif, fontSize:20, fontWeight:600, color:T.text }}>Nueva cita</div>
       <div style={{ display:"flex", alignItems:"center", gap:6 }}>
         {STEPS.map((s,i) => (
           <React.Fragment key={s}>
@@ -897,7 +902,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
               {!phoneOk && phone.length>PHONE_PFX.length && <div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3" }}>Ingresa los 8 dígitos del teléfono.</div>}
             </div>
           )}
-          <button onClick={()=>step1Ok && setStep(2)} disabled={!step1Ok} style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".1em", textTransform:"uppercase", border:"none", borderRadius:10, padding:"15px", cursor:step1Ok?"pointer":"not-allowed", opacity:step1Ok?1:.5 }}>Continuar</button>
+          <button onClick={()=>step1Ok && setStep(2)} disabled={!step1Ok} style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, border:"none", borderRadius:12, padding:"16px", cursor:step1Ok?"pointer":"not-allowed", opacity:step1Ok?1:.5 }}>Continuar</button>
         </div>
       )}
 
@@ -927,7 +932,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <button onClick={()=>setStep(1)} style={{ flex:1, background:"transparent", border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), color:T.textMute, fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"15px", cursor:"pointer" }}>Atrás</button>
-            <button onClick={()=>step2Ok && setStep(3)} disabled={!step2Ok} style={{ flex:2, background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".1em", textTransform:"uppercase", border:"none", borderRadius:10, padding:"15px", cursor:step2Ok?"pointer":"not-allowed", opacity:step2Ok?1:.5 }}>Continuar</button>
+            <button onClick={()=>step2Ok && setStep(3)} disabled={!step2Ok} style={{ flex:2, background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, border:"none", borderRadius:12, padding:"16px", cursor:step2Ok?"pointer":"not-allowed", opacity:step2Ok?1:.5 }}>Continuar</button>
           </div>
         </div>
       )}
@@ -948,7 +953,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           </label>
           <div style={{ display:"flex", gap:8 }}>
             <button onClick={()=>setStep(2)} style={{ flex:1, background:"transparent", border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), color:T.textMute, fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"15px", cursor:"pointer" }}>Atrás</button>
-            <button onClick={confirm} disabled={saved} style={{ flex:2, background:saved?"#1F8A5B":T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".1em", textTransform:"uppercase", border:"none", borderRadius:10, padding:"15px", cursor:"pointer", transition:"background .3s" }}>{saved?"✓ Cita guardada":"Confirmar cita"}</button>
+            <button onClick={confirm} disabled={saved} style={{ flex:2, background:saved?"#1F8A5B":T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, border:"none", borderRadius:12, padding:"16px", cursor:"pointer", transition:"background .3s" }}>{saved?"✓ Cita guardada":"Confirmar cita"}</button>
           </div>
         </div>
       )}
@@ -1298,17 +1303,17 @@ function MobileShell({ T, D, onLogout }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
     {bellCount>0 && <span style={{ position:"absolute", top:4, right:6, minWidth:16, height:16, padding:"0 4px", borderRadius:999, background:T.accent, color:"#fff", fontFamily:T.sans, fontSize:9, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", border:"1.5px solid rgba(255,255,255,.35)" }}>{bellCount}</span>}
   </button>;
-  const headerTitle = (txt) => <span style={{ fontFamily:T.serif, fontSize:18, color:T.text }}>{txt}</span>;
+  const headerTitle = (txt) => <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color:T.text }}>{txt}</span>;
   const renderHeader = () => {
     if (tab==="citas") return <><div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
         {hamburger}
-        <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg, #4C8DF5, #2A5FD0)", boxShadow:"0 4px 12px -4px rgba(42,95,208,.7)", fontFamily:T.serif, fontSize:18, color:"#fff", lineHeight:1 }}>M</div>
+        <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg, #4C8DF5, #2A5FD0)", boxShadow:"0 4px 12px -4px rgba(42,95,208,.7)", fontFamily:T.serif, fontSize:17, fontWeight:700, color:"#fff", lineHeight:1 }}>M</div>
         <div style={{ minWidth:0 }}>
           <div style={{ display:"flex", alignItems:"baseline", gap:5, lineHeight:1 }}>
-            <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:400, color:T.text }}>Medique</span>
+            <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color:T.text }}>Medique</span>
             {clinName && <span style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {clinName}</span>}
           </div>
-          <span style={{ fontFamily:T.sans, fontSize:9, letterSpacing:".12em", textTransform:"uppercase", color:T.textFaint, display:"block", marginTop:2 }}>Panel móvil</span>
+          <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, display:"block", marginTop:1 }}>Panel móvil</span>
         </div>
       </div>{bell}</>;
     if (tab==="nueva") return <>
@@ -1352,7 +1357,7 @@ function MobileShell({ T, D, onLogout }) {
         {tabs.map(({id,lbl,icon})=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"11px 4px 9px", background:"none", border:"none", cursor:"pointer",
-              color:tab===id?T.accent:T.textFaint, fontFamily:T.sans, fontSize:9, letterSpacing:".07em", textTransform:"uppercase" }}>
+              color:tab===id?T.accent:T.textFaint, fontFamily:T.sans, fontSize:10.5, fontWeight:500 }}>
             {icon}{lbl}
           </button>
         ))}
@@ -1503,7 +1508,7 @@ function MobileSaasGate() {
   </>);
 
   if (view === "recover") return center(<>
-    <div style={{ fontFamily:T.serif, fontSize:30, fontWeight:300, color:"#fff", marginBottom:6 }}>Recuperar contraseña</div>
+    <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:600, color:"#fff", marginBottom:6 }}>Recuperar contraseña</div>
     <div style={{ fontFamily:T.sans, fontSize:12.5, color:ON_PHOTO.mute, textAlign:"center", maxWidth:300, marginBottom:32, lineHeight:1.5 }}>Te enviaremos un enlace a tu correo para restablecerla.</div>
     <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
       <input placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRecover()} style={inp} />
@@ -1515,7 +1520,7 @@ function MobileSaasGate() {
   </>);
 
   return center(<>
-    <div style={{ fontFamily:T.serif, fontSize:30, fontWeight:300, color:"#fff", marginBottom:6 }}>Confirmar citas</div>
+    <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:600, color:"#fff", marginBottom:6 }}>Confirmar citas</div>
     <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.mute, marginBottom:44 }}>Panel móvil · Acceso de tu clínica</div>
     <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
       <input placeholder="Correo de tu clínica" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} style={inp} />
