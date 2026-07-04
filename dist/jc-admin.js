@@ -1221,6 +1221,24 @@ function apptDayOff(a) {
   }
   return a && typeof a.day === "number" ? a.day : 0;
 }
+function matchPatientForAppt(appt, patients) {
+  const clean = (s) => (s || "").replace(/\D/g, "");
+  const an = (appt.name || "").toLowerCase().trim();
+  const list = patients || [];
+  let found = list.find((x) => (x.name || "").toLowerCase().trim() === an);
+  if (found) return found;
+  const ap = clean(appt.phone || "");
+  if (ap.length >= 8) found = list.find((x) => {
+    const xp = clean(x.phone || "");
+    return xp.length >= 8 && xp.slice(-8) === ap.slice(-8);
+  });
+  if (found) return found;
+  if (an.length >= 4) found = list.find((x) => {
+    const xn = (x.name || "").toLowerCase();
+    return xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]);
+  });
+  return found || null;
+}
 function AdminApp() {
   const autoTheme = () => {
     const h = (/* @__PURE__ */ new Date()).getHours();
@@ -2638,21 +2656,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     addAppt(a);
   }
   function verFichaDaily(appt) {
-    const clean = (s) => (s || "").replace(/\D/g, "");
-    const ap = clean(appt.phone || "");
-    let found = null;
-    if (ap.length >= 8) found = (patients || []).find((x) => {
-      const xp = clean(x.phone || "");
-      return xp.length >= 8 && xp.slice(-8) === ap.slice(-8);
-    });
-    if (!found) {
-      const an = (appt.name || "").toLowerCase().trim();
-      found = (patients || []).find((x) => {
-        const xn = (x.name || "").toLowerCase();
-        return xn === an || an.length >= 4 && (xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]));
-      });
-    }
-    setFichaConfirm({ appt, patient: found || null });
+    setFichaConfirm({ appt, patient: matchPatientForAppt(appt, patients) });
   }
   function bloquearHoraDaily(hhmm) {
     try {
@@ -2727,21 +2731,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       setDay(off);
       setView("dia");
     }, onVerFicha: (appt) => {
-      const clean = (s) => (s || "").replace(/\D/g, "");
-      const ap = clean(appt.phone || "");
-      let found = null;
-      if (ap.length >= 8) found = (patients || []).find((x) => {
-        const xp = clean(x.phone || "");
-        return xp.length >= 8 && xp.slice(-8) === ap.slice(-8);
-      });
-      if (!found) {
-        const an = (appt.name || "").toLowerCase().trim();
-        found = (patients || []).find((x) => {
-          const xn = (x.name || "").toLowerCase();
-          return xn === an || an.length >= 4 && (xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]));
-        });
-      }
-      setFichaConfirm({ appt, patient: found || null });
+      setFichaConfirm({ appt, patient: matchPatientForAppt(appt, patients) });
     } }) : view === "mes" ? /* @__PURE__ */ React.createElement(MonthGrid, { T, appts, monthDate, setMonthDate, viewToggle: viewToggleNode, icsBtn: icsBtnNode, nuevaBtn: nuevaBtnNode, onDay: (off) => {
       setDay(off);
       setView("dia");

@@ -1478,6 +1478,26 @@ function apptDayOff(a) {
   return (a && typeof a.day === "number") ? a.day : 0;
 }
 
+// Busca la ficha del paciente que corresponde a una cita. Prioriza el NOMBRE EXACTO sobre el
+// teléfono: dos pacientes de una misma familia (madre/hija, pareja) suelen compartir número, y
+// buscar primero por teléfono traía la ficha equivocada aunque la persona correcta ya tuviera
+// su propia ficha (p.ej. importada de Excel) con el nombre exacto de la cita.
+function matchPatientForAppt(appt, patients) {
+  const clean = s => (s || "").replace(/\D/g, "");
+  const an = (appt.name || "").toLowerCase().trim();
+  const list = patients || [];
+  // 1) Nombre exacto — la señal más confiable, no se ve afectada por teléfonos compartidos.
+  let found = list.find(x => (x.name || "").toLowerCase().trim() === an);
+  if (found) return found;
+  // 2) Teléfono (últimos 8 dígitos) — solo si no hubo match exacto de nombre.
+  const ap = clean(appt.phone || "");
+  if (ap.length >= 8) found = list.find(x => { const xp = clean(x.phone || ""); return xp.length >= 8 && xp.slice(-8) === ap.slice(-8); });
+  if (found) return found;
+  // 3) Nombre parcial (un nombre es prefijo del otro) — último recurso.
+  if (an.length >= 4) found = list.find(x => { const xn = (x.name || "").toLowerCase(); return xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]); });
+  return found || null;
+}
+
 function AdminApp() {
   // Modo día automático 08:00–18:00; modo noche 18:00–08:00.
   const autoTheme = () => { const h = new Date().getHours(); return (h >= 8 && h < 18) ? "cielo" : "azul"; };
@@ -2970,12 +2990,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   // "Ficha" desde la tarjeta de acciones rápidas (vista día): mismo criterio de búsqueda
   // (por teléfono, si no por nombre) que ya usa la vista semana.
   function verFichaDaily(appt) {
-    const clean = s => (s || "").replace(/\D/g, "");
-    const ap = clean(appt.phone || "");
-    let found = null;
-    if (ap.length >= 8) found = (patients || []).find(x => { const xp = clean(x.phone || ""); return xp.length >= 8 && (xp.slice(-8) === ap.slice(-8)); });
-    if (!found) { const an = (appt.name || "").toLowerCase().trim(); found = (patients || []).find(x => { const xn = (x.name || "").toLowerCase(); return xn === an || (an.length >= 4 && (xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]))); }); }
-    setFichaConfirm({ appt, patient: found || null });
+    setFichaConfirm({ appt, patient: matchPatientForAppt(appt, patients) });
   }
   // Tarjeta "Acciones rápidas" (panel lateral, vista día): bloquear una hora libre del día
   // deja de aparecer disponible en la app del paciente / link de reserva.
@@ -3133,12 +3148,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
 
       {view === "semana" ? (
         <SemanaGrid T={T} week={week} appts={appts} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} icsBtn={icsBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={(appt, only) => { setEdit(appt); setEditOnly(only || null); }} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
-          const clean = s => (s || "").replace(/\D/g, "");
-          const ap = clean(appt.phone || "");
-          let found = null;
-          if (ap.length >= 8) found = (patients || []).find(x => { const xp = clean(x.phone || ""); return xp.length >= 8 && (xp.slice(-8) === ap.slice(-8)); });
-          if (!found) { const an = (appt.name || "").toLowerCase().trim(); found = (patients || []).find(x => { const xn = (x.name || "").toLowerCase(); return xn === an || (an.length >= 4 && (xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]))); }); }
-          setFichaConfirm({ appt, patient: found || null });
+          setFichaConfirm({ appt, patient: matchPatientForAppt(appt, patients) });
         }} />
       ) : view === "mes" ? (
         <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} viewToggle={viewToggleNode} icsBtn={icsBtnNode} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
