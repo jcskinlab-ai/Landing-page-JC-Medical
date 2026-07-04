@@ -3649,40 +3649,204 @@ function HorariosEditor({ T }) {
 /* ─────────── PENDIENTES ─────────── */
 function PendientesView({ T, patients, appts, go, openP, updatePatient, goApt }) {
   const D = window.JCDATA;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [showAllReci, setShowAllReci] = useState(false); // re-cita: colapsada (solo el primero) por defecto
   const recitas = (window.recitaDue ? window.recitaDue(patients) : []);
   // Consentimientos firmados hace más de 1 año → sugerir renovación
   const oneYear = Date.now() - 365 * 24 * 3600 * 1000;
   const porRenovar = patients.filter(p => p.consent && p.consentTs && p.consentTs < oneYear);
+
+  // ── Alertas del Contralor IA, redisеñadas como tarjetas KPI (referencia) ──
+  const hoyISO = new Date().toISOString().slice(0, 10);
+  const citasSinProfList = (appts || []).filter(a => a.status !== "anulada" && !(a.prof || "").trim() && (a.fecha || "") >= hoyISO);
+  const sinRutList = patients.filter(p => !(p.rut || "").trim());
+  const sinTelList = patients.filter(p => !(p.phone || "").replace(/\D/g, ""));
+  const sinConsentList = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : []);
+  const cobrosPendList = (() => { const L = []; try { patients.forEach(p => (p.billing || []).forEach(b => { if (!b.paid && b.amount > 0) L.push({ p, b }); })); } catch (e) {} return L; })();
+  // Último procedimiento no-evaluación agendado (contexto para la columna "Detalle").
+  const procHintFor = p => { const a = (appts || []).find(x => (x.patId === p.id || x.name === p.name) && x.status !== "anulada" && !/evaluaci/i.test(x.proc || "")); return a ? a.proc : ""; };
+  const alertas = [
+    sinConsentList.length && { t: "Consentimientos pendientes", n: sinConsentList.length, d: "Sin consentimiento firmado", to: "pendientes", c: "#C9A227", prio: "Alta", prioC: "#C0285A", kind: "patients", list: sinConsentList, tab: "consent", icon: <path d="M9 12l2 2 4-4M7 4h10a1 1 0 0 1 1 1v15l-3-2-3 2-3-2-3 2V5a1 1 0 0 1 1-1z" /> },
+    sinRutList.length && { t: "Fichas sin RUT", n: sinRutList.length, d: "Dificulta boletas y trazabilidad", to: "pacientes", c: "#C0285A", prio: "Media", prioC: "#C9A227", kind: "patients", list: sinRutList, tab: "fichaclinica", icon: <path d="M3 5h18v14H3zM3 10h18M7 15h4" /> },
+    sinTelList.length && { t: "Fichas sin teléfono", n: sinTelList.length, d: "No reciben recordatorios", to: "pacientes", c: "#2E6F9E", prio: "Baja", prioC: "#2E6F9E", kind: "patients", list: sinTelList, tab: "fichaclinica", icon: <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" /> },
+    citasSinProfList.length && { t: "Citas sin profesional", n: citasSinProfList.length, d: "Profesional no asignado", to: "agenda", c: "#7C5CBF", prio: "Alta", prioC: "#C0285A", kind: "appts", list: citasSinProfList, icon: <path d="M11.5 21S3 15.6 3 9.5A4.5 4.5 0 0 1 11.5 7 4.5 4.5 0 0 1 20 9.5C20 15.6 11.5 21 11.5 21z" /> },
+    cobrosPendList.length && { t: "Cobros pendientes", n: cobrosPendList.length, d: "Atención registrada sin pago", to: "caja", c: "#C9A227", prio: "Media", prioC: "#C9A227", kind: "cobros", list: cobrosPendList, tab: "facturacion", icon: <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /> },
+  ].filter(Boolean);
+  const [openAlert, setOpenAlert] = useState(null);
+  function revisar(a) {
+    if (a.list.length === 1) {
+      if (a.kind === "appts") { if (goApt) { goApt(a.list[0].id); return; } }
+      else if (a.kind === "cobros") { if (openP) { openP(a.list[0].p.id, a.tab); return; } }
+      else if (openP) { openP(a.list[0].id, a.tab); return; }
+    }
+    setOpenAlert(a);
+  }
+  const rowStyle = { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: T.text };
+
+  // ── Tabla unificada "Pendientes activos": aplana las 5 categorías de alertas en filas con
+  // Tipo / Paciente / Detalle / Fecha registro / Prioridad / Acciones (referencia). ──
+  const [pq, setPq] = useState(""); // buscador por nombre o RUT
+  const [ptipo, setPtipo] = useState(""); // filtro por tipo (vacío = todos)
+  const rowsAll = (() => {
+    const out = [];
+    alertas.forEach(a => {
+      if (a.kind === "patients") a.list.forEach(p => {
+        const hint = procHintFor(p);
+        out.push({ tipo: a.t, c: a.c, icon: a.icon, prio: a.prio, prioC: a.prioC, name: p.name, rut: p.rut || "—", detail: (hint ? hint + " · " : "") + a.d, fecha: p.fechaTs || 0, phone: p.phone, onGo: () => openP(p.id, a.tab) });
+      });
+      if (a.kind === "appts") a.list.forEach(x => {
+        const pat = patients.find(pp => pp.name === x.name);
+        out.push({ tipo: a.t, c: a.c, icon: a.icon, prio: a.prio, prioC: a.prioC, name: x.name || "Paciente", rut: (pat && pat.rut) || "—", detail: (x.proc ? x.proc + " · " : "") + a.d, fecha: x.fecha ? new Date(x.fecha + "T00:00:00").getTime() : 0, phone: x.phone || (pat && pat.phone), onGo: () => goApt(x.id) });
+      });
+      if (a.kind === "cobros") a.list.forEach(({ p, b }) => {
+        out.push({ tipo: a.t, c: a.c, icon: a.icon, prio: a.prio, prioC: a.prioC, name: p.name, rut: p.rut || "—", detail: (b.proc ? b.proc + " · " : "") + a.d + (b.amount ? " · " + D.fmt(b.amount) : ""), fecha: p.fechaTs || 0, phone: p.phone, onGo: () => openP(p.id, a.tab) });
+      });
+    });
+    return out.sort((x, y) => y.fecha - x.fecha);
+  })();
+  const pql = pq.trim().toLowerCase();
+  const rows = rowsAll.filter(r => {
+    if (ptipo && r.tipo !== ptipo) return false;
+    if (!pql) return true;
+    return (r.name || "").toLowerCase().includes(pql) || (r.rut || "").toLowerCase().includes(pql);
+  });
+  const tipos = Array.from(new Set(alertas.map(a => a.t)));
+  const fmtReg = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) + " " + new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "—";
+  const waHref = (name, phone) => { const ph = (phone || "").replace(/\D/g, ""); return ph.length >= 8 ? "https://wa.me/" + ph : null; };
+
   return (
     <div>
       <SecHead T={T} title="Pendientes" sub="Seguimientos clínicos y control de calidad." />
-      {/* Se quitó el bloque de tareas manuales (input "Nuevo pendiente" + columnas Pendientes/Completadas)
-          a pedido del usuario: Pendientes queda enfocado en el Contralor IA y los seguimientos clínicos. */}
-      {/* Contralor IA (fusionado): verificación automática de registros como pendientes inteligentes. */}
-      <ContraloriaView T={T} patients={patients} appts={appts} openP={openP} goApt={goApt} go={go} embed />
-      {/* "Consentimientos por firmar" se quitó: ya aparece como alerta "Consentimientos pendientes"
-          en el Contralor IA de arriba (evita duplicar la misma lista). Espaciado para despegar del Contralor. */}
-      <div style={{ marginTop: 26 }}>
-        {/* Campañas de re-cita ANTES que los consentimientos por renovar (a pedido del usuario). */}
-        <Group T={T} title={"Re-citar · esquema en curso (" + recitas.length + ")"}>
-          {/* Colapsada: muestra 2 pacientes; el resto se despliega para no ocupar tanto espacio. */}
-          {(showAllReci ? recitas : recitas.slice(0, 2)).map(({ p, r }) => <PendRow key={p.id} T={T} name={p.name} desc={r.motivo + " · " + r.precioFmt + " → " + r.descFmt} action="WhatsApp" href={window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""))} />)}
-          {!recitas.length && <Empty2 T={T}>Sin re-citas por contactar hoy.</Empty2>}
-          {recitas.length > 2 && <button onClick={() => setShowAllReci(v => !v)} style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.accent, background: "none", border: "1px dashed " + T.line, borderRadius: 8, padding: "8px 13px", cursor: "pointer", marginTop: 2 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: showAllReci ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
-            {showAllReci ? "Ver menos" : "Ver " + (recitas.length - 2) + " re-cita" + (recitas.length - 2 === 1 ? "" : "s") + " más"}
-          </button>}
-        </Group>
-        <Group T={T} title={"Consentimientos por renovar · +1 año (" + porRenovar.length + ")"}>
-          {porRenovar.map(p => { const meses = Math.floor((Date.now() - p.consentTs) / (30 * 24 * 3600 * 1000)); return <PendRow key={p.id} T={T} name={p.name} desc={"Firmado hace " + meses + " meses · " + (p.consentInfo || "Consentimiento")} action="Renovar" onClick={() => openP(p.id, "consent")} />; })}
-          {!porRenovar.length && <Empty2 T={T}>Todos los consentimientos están vigentes.</Empty2>}
-        </Group>
+      {/* Tarjetas KPI de alertas del Contralor IA (referencia): icono + número + descripción + ir a revisar. */}
+      {alertas.length === 0 ? (
+        <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid #1F8A5B44", borderRadius: 12, padding: "24px", textAlign: "center", marginBottom: 22 }}>
+          <div style={{ fontFamily: T.serif, fontSize: 19, color: "#1F8A5B" }}>✓ Todo en orden</div>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, marginTop: 6 }}>No se detectaron inconsistencias en los registros.</div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 22 }}>
+          {alertas.map((a, i) => (
+            <button key={a.t} onClick={() => revisar(a)} style={{ textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, ...(luxF ? DS.card(T) : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12 }), padding: "14px 15px" }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: a.c + "1c", color: a.c, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{a.icon}</svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1.1 }}>{a.n}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text, marginTop: 3 }}>{a.t}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 1 }}>{a.d}</div>
+              </div>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+          ))}
+        </div>
+      )}
+      {openAlert && (
+        <AdModal T={T} title={openAlert.t + " (" + openAlert.n + ")"} onClose={() => setOpenAlert(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {openAlert.kind === "appts" && openAlert.list.map(a => (
+              <button key={a.id} style={rowStyle} onClick={() => { setOpenAlert(null); if (goApt) goApt(a.id); }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{a.name || "Paciente"} <span style={{ color: T.textMute }}>· {a.fecha}{a.time ? " " + a.time : ""}{a.proc ? " · " + a.proc : ""}</span></span>
+                <span style={{ color: T.accent, fontSize: 11, flexShrink: 0 }}>Ir a la cita →</span>
+              </button>
+            ))}
+            {openAlert.kind === "cobros" && openAlert.list.map(({ p, b }, idx) => (
+              <button key={p.id + "_" + idx} style={rowStyle} onClick={() => { setOpenAlert(null); if (openP) openP(p.id, openAlert.tab); }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{p.name} <span style={{ color: T.textMute }}>· {b.proc || "Atención"}{b.amount ? " · " + D.fmt(b.amount) : ""}</span></span>
+                <span style={{ color: T.accent, fontSize: 11, flexShrink: 0 }}>Ir a la ficha →</span>
+              </button>
+            ))}
+            {openAlert.kind === "patients" && openAlert.list.map(p => (
+              <button key={p.id} style={rowStyle} onClick={() => { setOpenAlert(null); if (openP) openP(p.id, openAlert.tab); }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{p.name}{p.rut ? <span style={{ color: T.textMute }}> · {p.rut}</span> : null}</span>
+                <span style={{ color: T.accent, fontSize: 11, flexShrink: 0 }}>Ir a la ficha →</span>
+              </button>
+            ))}
+          </div>
+        </AdModal>
+      )}
+      {/* Campañas de re-cita: tarjetas horizontales (referencia) — avatar, motivo, WhatsApp, plazo y precio. */}
+      <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span>Re-citar · esquema en curso ({recitas.length})</span>
+        {recitas.length > 3 && <button onClick={() => setShowAllReci(v => !v)} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>{showAllReci ? "Ver menos" : "Ver todas (" + recitas.length + ")"} <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6" /></svg></button>}
       </div>
-      {/* Se quitaron las secciones "Mensajes de WhatsApp por responder", "Comentarios en Business
-          Manager" y "Seguimientos": eran listas SIEMPRE vacías (hardcodeadas a []), nunca se
-          poblaban, y solo agregaban ruido de secciones permanentemente vacías. Prefiere eliminar
-          antes que mostrar bandejas muertas. */}
+      {!recitas.length && <Empty2 T={T}>Sin re-citas por contactar hoy.</Empty2>}
+      {recitas.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12, marginBottom: 22 }}>
+          {(showAllReci ? recitas : recitas.slice(0, 3)).map(({ p, r }) => {
+            const dias = Math.max(0, Math.ceil((r.due - Date.now()) / 86400000));
+            const ini = (p.name || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase();
+            const href = window.recitaWa ? window.recitaWa(p, r) : ("https://wa.me/" + (p.phone || "").replace(/\D/g, ""));
+            return (
+              <div key={p.id} onClick={() => openP(p.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12, ...(luxF ? DS.card(T) : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12 }), padding: "13px 14px" }}>
+                <div style={{ width: 38, height: 38, borderRadius: "50%", background: T.accent + "22", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 14, flexShrink: 0 }}>{ini}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.motivo}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 6 }}>
+                    <span style={{ fontFamily: T.sans, fontSize: 9.5, fontWeight: 600, color: T.accent, background: T.accent + "16", borderRadius: 999, padding: "2px 8px" }}>En {dias} día{dias === 1 ? "" : "s"}</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
+                  <a href={href} target="_blank" rel="noopener" onClick={e => e.stopPropagation()} title="Contactar por WhatsApp" style={{ width: 32, height: 32, borderRadius: "50%", background: "#25D36622", color: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.6-.8-1.9-.9-.2-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.2.2-.3.2-.5.1-.3-.1-1.2-.5-2.3-1.5-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.4.1-.2 0-.3 0-.5-.1-.1-.6-1.5-.8-2-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-1 1-1 2.4s1 2.8 1.1 3c.1.2 2 3 4.8 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.6-.7 1.9-1.3.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z" /><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.3A10 10 0 1 0 12 2z" /></svg>
+                  </a>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 14, color: T.text }}>{r.descFmt}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint }}>de {r.precioFmt}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {/* Pendientes activos: tabla unificada de las 5 categorías, buscable y filtrable (referencia). */}
+      <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Pendientes activos ({rows.length})</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+          <input value={pq} onChange={e => setPq(e.target.value)} placeholder="Buscar por nombre o RUT" style={{ width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 12.5, outline: "none", boxSizing: "border-box" }} />
+        </div>
+        <select value={ptipo} onChange={e => setPtipo(e.target.value)} style={{ height: 36, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 12, padding: "0 10px" }}>
+          <option value="">Todos los tipos</option>
+          {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      {rows.length === 0 ? <Empty2 T={T}>Sin pendientes activos.</Empty2> : (
+        <div style={{ ...(luxF ? DS.card(T) : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12 }), overflow: "hidden", marginBottom: 26 }}>
+          {rows.map((r, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 15px", borderBottom: i === rows.length - 1 ? "none" : "1px solid " + T.lineSoft, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, width: 190, flexShrink: 0 }}>
+                <span style={{ width: 26, height: 26, borderRadius: 7, background: r.c + "1c", color: r.c, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{r.icon}</svg>
+                </span>
+                <span style={{ fontFamily: T.sans, fontSize: 12, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.tipo}</span>
+              </div>
+              <div style={{ width: 150, flexShrink: 0, minWidth: 0 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>{r.rut}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 140, fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.detail}</div>
+              <div style={{ width: 120, flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap" }}>{fmtReg(r.fecha)}</div>
+              <span style={{ width: 60, flexShrink: 0, textAlign: "center", fontFamily: T.sans, fontSize: 10, fontWeight: 700, letterSpacing: ".04em", color: r.prioC, background: r.prioC + "1a", borderRadius: 6, padding: "3px 0" }}>{r.prio}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                {waHref(r.name, r.phone) ? (
+                  <a href={waHref(r.name, r.phone)} target="_blank" rel="noopener" title="Contactar por WhatsApp" style={{ width: 28, height: 28, borderRadius: "50%", background: "#25D36622", color: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.6-.8-1.9-.9-.2-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.2.2-.3.2-.5.1-.3-.1-1.2-.5-2.3-1.5-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.4.1-.2 0-.3 0-.5-.1-.1-.6-1.5-.8-2-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-1 1-1 2.4s1 2.8 1.1 3c.1.2 2 3 4.8 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.6-.7 1.9-1.3.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z" /><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.3A10 10 0 1 0 12 2z" /></svg>
+                  </a>
+                ) : <span style={{ width: 28 }} />}
+                <button onClick={r.onGo} title="Ir al detalle" style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid " + T.line, background: "none", color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <Group T={T} title={"Consentimientos por renovar · +1 año (" + porRenovar.length + ")"}>
+        {porRenovar.map(p => { const meses = Math.floor((Date.now() - p.consentTs) / (30 * 24 * 3600 * 1000)); return <PendRow key={p.id} T={T} name={p.name} desc={"Firmado hace " + meses + " meses · " + (p.consentInfo || "Consentimiento")} action="Renovar" onClick={() => openP(p.id, "consent")} />; })}
+        {!porRenovar.length && <Empty2 T={T}>Todos los consentimientos están vigentes.</Empty2>}
+      </Group>
     </div>
   );
 }
