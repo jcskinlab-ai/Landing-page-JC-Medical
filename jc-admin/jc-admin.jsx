@@ -575,6 +575,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [tab, setTab] = useState("general");
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
   const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
+  const [openCitaDays, setOpenCitaDays] = useState(() => new Set()); // Próximas Citas: días desplegados
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
   // Dashboard = diseño editorial "lux" (foto 4 del usuario: embudo + anillo de ROAS + tarjetas glass).
   // DEFINITIVO — NO CAMBIAR sin indicación DIRECTA del usuario (pedido explícito 4-jul-2026, tras
@@ -1377,17 +1378,57 @@ function DashboardView({ T, D, A, appts, patients, go }) {
         </div>
       )}
 
-      {tab === "citas" && (
-        <div>
-          <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Próximas citas ({ord.length})</div>
-          {/* Grilla responsive (en vez de una columna angosta con maxWidth:720): aprovecha todo el
-              ancho disponible, como un panel de citas enterprise, en vez de dejar espacio muerto
-              a la derecha en pantallas anchas. */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 10 }}>
-            {ord.length ? ord.map(citaRow) : <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0" }}>No hay citas registradas.</div>}
+      {tab === "citas" && (() => {
+        // Agrupa las próximas citas POR DÍA (solo citas agendadas — NO incluye la campaña de re-citas).
+        // Cada día es un desplegable estilo calendario: cabecera con la fecha + nº de citas; al tocar
+        // se expande/colapsa la grilla de ese día. Por defecto abierto solo el día más cercano.
+        const MESES_C = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+        const DOW_C = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+        const capC = s => s.charAt(0).toUpperCase() + s.slice(1);
+        const dayKeyOfAppt = a => { const off = apptDayOff(a); const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + off); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+        const groupsMap = {};
+        ord.forEach(a => { const k = dayKeyOfAppt(a); (groupsMap[k] = groupsMap[k] || []).push(a); });
+        const dayKeys = Object.keys(groupsMap).sort();
+        const labelOfKey = k => {
+          const d = new Date(k + "T00:00:00"); const t = new Date(); t.setHours(0, 0, 0, 0);
+          const diff = Math.round((d - t) / 86400000);
+          if (diff === 0) return "Hoy · " + capC(DOW_C[d.getDay()]) + " " + d.getDate() + " " + MESES_C[d.getMonth()].slice(0, 3);
+          if (diff === 1) return "Mañana · " + capC(DOW_C[d.getDay()]) + " " + d.getDate() + " " + MESES_C[d.getMonth()].slice(0, 3);
+          return capC(DOW_C[d.getDay()]) + " " + d.getDate() + " de " + MESES_C[d.getMonth()] + (d.getFullYear() !== t.getFullYear() ? " " + d.getFullYear() : "");
+        };
+        const toggleDay = k => setOpenCitaDays(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
+        return (
+          <div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Próximas citas ({ord.length})</div>
+            {dayKeys.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0" }}>No hay citas registradas.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {dayKeys.map((k, gi) => {
+                const grp = groupsMap[k];
+                const isOpen = openCitaDays.size === 0 ? gi === 0 : openCitaDays.has(k);
+                return (
+                  <div key={k} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 14, overflow: "hidden" }}>
+                    <button onClick={() => toggleDay(k)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: navyAccent + "16", color: navyAccent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+                      </div>
+                      <span style={{ flex: 1, fontFamily: T.serif, fontSize: 16, color: T.text }}>{labelOfKey(k)}</span>
+                      <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, background: T.bg, border: "1px solid " + T.line, borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap" }}>{grp.length} cita{grp.length === 1 ? "" : "s"}</span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "transform .2s", transform: isOpen ? "rotate(180deg)" : "none" }}><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                    {isOpen && (
+                      <div style={{ padding: "0 14px 14px", borderTop: "1px solid " + T.lineSoft }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 10, marginTop: 12 }}>
+                          {grp.map(citaRow)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {tab === "notif" && (
         <div style={{ maxWidth: 720 }}>
