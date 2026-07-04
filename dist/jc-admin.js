@@ -2423,6 +2423,20 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       return { ...a, _top: top, _h: h };
     });
   })();
+  const daySlotMin = adminSlotMins();
+  const daySlots = (() => {
+    const out = [];
+    const p2 = (n) => (n < 10 ? "0" : "") + n;
+    for (let m = OPEN; m < CLOSE; m += daySlotMin) {
+      const blocked = list.some((a) => {
+        const as = mins(a.time), ad = parseInt(a.dur) || 60;
+        return m >= as && m < as + ad;
+      });
+      if (blocked) continue;
+      out.push({ hhmm: p2(Math.floor(m / 60)) + ":" + p2(m % 60), top: (m - OPEN) * HPX / 60, h: daySlotMin * HPX / 60 });
+    }
+    return out;
+  })();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNow = day === 0 && nowMin >= OPEN && nowMin <= CLOSE;
   const hours = [];
@@ -2495,18 +2509,31 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     } }) : view === "mes" ? /* @__PURE__ */ React.createElement(MonthGrid, { T, appts, monthDate, setMonthDate, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, onDay: (off) => {
       setDay(off);
       setView("dia");
-    } }) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 4 } }, week.map((d) => /* @__PURE__ */ React.createElement("button", { key: d.off, onClick: () => setDay(d.off), style: { flexShrink: 0, minWidth: 62, padding: "10px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center", background: day === d.off ? T.accent : T.surface, border: "1px solid " + (day === d.off ? T.accent : T.line) } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: day === d.off ? T.onAccent : T.textMute } }, d.lbl), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: day === d.off ? T.onAccent : T.text, marginTop: 2 } }, d.dd), /* @__PURE__ */ React.createElement("div", { style: { height: 5, marginTop: 5, display: "flex", justifyContent: "center", gap: 2 } }, d.count > 0 && Array.from({ length: Math.min(d.count, 3) }).map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { width: 4, height: 4, borderRadius: "50%", background: day === d.off ? T.onAccent : T.accent } })))))), /* @__PURE__ */ React.createElement("div", { onClick: clickTimeline, style: { position: "relative", height: hours.length * HPX, borderTop: "1px solid " + T.line, cursor: "copy" } }, hours.map((h, i) => /* @__PURE__ */ React.createElement("div", { key: h, style: { position: "absolute", top: i * HPX, left: 0, right: 0, height: HPX, borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: -8, fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42 } }, h, ":00"))), listStacked.map((a) => /* @__PURE__ */ React.createElement(
+    } }) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 4 } }, week.map((d) => /* @__PURE__ */ React.createElement("button", { key: d.off, onClick: () => setDay(d.off), style: { flexShrink: 0, minWidth: 62, padding: "10px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center", background: day === d.off ? T.accent : T.surface, border: "1px solid " + (day === d.off ? T.accent : T.line) } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: day === d.off ? T.onAccent : T.textMute } }, d.lbl), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: day === d.off ? T.onAccent : T.text, marginTop: 2 } }, d.dd), /* @__PURE__ */ React.createElement("div", { style: { height: 5, marginTop: 5, display: "flex", justifyContent: "center", gap: 2 } }, d.count > 0 && Array.from({ length: Math.min(d.count, 3) }).map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { width: 4, height: 4, borderRadius: "50%", background: day === d.off ? T.onAccent : T.accent } })))))), /* @__PURE__ */ React.createElement("div", { onClick: clickTimeline, style: { position: "relative", height: hours.length * HPX, borderTop: "1px solid " + T.line, cursor: "copy" } }, hours.map((h, i) => /* @__PURE__ */ React.createElement("div", { key: h, style: { position: "absolute", top: i * HPX, left: 0, right: 0, height: HPX, borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: -8, fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42 } }, h, ":00"))), daySlots.map((s) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: s.hhmm,
+        className: "jc-cell",
+        onClick: (e) => {
+          e.stopPropagation();
+          setNueva({ time: s.hhmm, day, fromSlot: true });
+        },
+        title: "Agendar " + s.hhmm,
+        style: { position: "absolute", left: 48, right: 4, top: s.top, height: s.h, background: "transparent", border: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }
+      },
+      /* @__PURE__ */ React.createElement("span", { className: "jc-cell-add", style: { width: 16, height: 16, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.6", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })))
+    )), listStacked.map((a) => /* @__PURE__ */ React.createElement(
       "div",
       {
         key: a.id,
-        style: { position: "absolute", left: 48, right: 4, top: a._top, height: a._h },
+        style: { position: "absolute", left: 48, right: 4, top: a._top, height: a._h, overflow: "hidden", borderRadius: 6, zIndex: 2 },
         onMouseEnter: (e) => {
           const r = e.currentTarget.getBoundingClientRect();
           setHoverA({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) });
         },
         onMouseLeave: () => setHoverA(null)
       },
-      /* @__PURE__ */ React.createElement(ApptBlock, { T, a, onClick: (x) => {
+      /* @__PURE__ */ React.createElement(ApptBlock, { T, a, compact: a._h < 46, onClick: (x) => {
         setHoverA(null);
         setEdit(x);
         setEditOnly(null);

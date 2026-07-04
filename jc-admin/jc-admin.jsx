@@ -2767,6 +2767,20 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       return { ...a, _top: top, _h: h };
     });
   })();
+  // Slots LIBRES de la vista diaria: un "+" clicable en cada tramo (15 o 30 min) NO cubierto por una
+  // cita, igual que en la vista semanal. Así el hueco disponible se ve SIEMPRE, aunque las cajas de
+  // citas queden pegadas entre sí (antes solo se veía la línea de tiempo vacía, sin señal de dónde agendar).
+  const daySlotMin = adminSlotMins();
+  const daySlots = (() => {
+    const out = [];
+    const p2 = n => (n < 10 ? "0" : "") + n;
+    for (let m = OPEN; m < CLOSE; m += daySlotMin) {
+      const blocked = list.some(a => { const as = mins(a.time), ad = parseInt(a.dur) || 60; return m >= as && m < as + ad; });
+      if (blocked) continue;
+      out.push({ hhmm: p2(Math.floor(m / 60)) + ":" + p2(m % 60), top: (m - OPEN) * HPX / 60, h: daySlotMin * HPX / 60 });
+    }
+    return out;
+  })();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNow = day === 0 && nowMin >= OPEN && nowMin <= CLOSE;
   const hours = []; for (let h = OPEN / 60; h < CLOSE / 60; h++) hours.push(h);
@@ -2893,11 +2907,20 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                 <div style={{ position: "absolute", left: 0, top: -8, fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42 }}>{h}:00</div>
               </div>
             ))}
+            {/* Slots libres: "+" clicable en cada hueco disponible (igual que la vista semanal). */}
+            {daySlots.map(s => (
+              <button key={s.hhmm} className="jc-cell" onClick={e => { e.stopPropagation(); setNueva({ time: s.hhmm, day, fromSlot: true }); }} title={"Agendar " + s.hhmm}
+                style={{ position: "absolute", left: 48, right: 4, top: s.top, height: s.h, background: "transparent", border: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }}>
+                <span className="jc-cell-add" style={{ width: 16, height: 16, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                </span>
+              </button>
+            ))}
             {listStacked.map(a => (
-              <div key={a.id} style={{ position: "absolute", left: 48, right: 4, top: a._top, height: a._h }}
+              <div key={a.id} style={{ position: "absolute", left: 48, right: 4, top: a._top, height: a._h, overflow: "hidden", borderRadius: 6, zIndex: 2 }}
                 onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHoverA({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
                 onMouseLeave={() => setHoverA(null)}>
-                <ApptBlock T={T} a={a} onClick={(x) => { setHoverA(null); setEdit(x); setEditOnly(null); }} />
+                <ApptBlock T={T} a={a} compact={a._h < 46} onClick={(x) => { setHoverA(null); setEdit(x); setEditOnly(null); }} />
               </div>
             ))}
             {showNow && (
