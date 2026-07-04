@@ -3293,6 +3293,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   // tarjeta hover con acciones. La única diferencia por clínica es la granularidad de la
   // agenda (15 min en JC Medical / 30 min en clínicas cliente), que la maneja adminSlotMins().
   const v2 = true;
+  // Rediseño de la tarjeta de cita (bloque sólido por color de estado, hora de inicio-término
+  // arriba, nombre e insignia): en preview de "medique admin" primero (ver [[jcm_preview_medique_admin]]).
+  const wkCardNew = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
   const activeAppt = menu ? appts.find(a => a.id === menu) : null;
   // Equipo de la clínica → desplegable de profesional (ver una agenda a la vez, sin "Todos").
   const team = (() => { try { var t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {} try { if (window.CADMIN && Array.isArray(CADMIN.team) && CADMIN.team.length) return CADMIN.team; } catch (e) {} return []; })();
@@ -3505,7 +3508,21 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                         }}
                         onMouseLeave={() => { if (showT.current) { clearTimeout(showT.current); showT.current = null; } if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
                         onClick={e => { e.stopPropagation(); if (showT.current) { clearTimeout(showT.current); showT.current = null; } setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
-                        {v2 ? (
+                        {wkCardNew ? (
+                          /* Rediseño (preview medique admin, ref. captura del usuario): bloque SÓLIDO del color
+                             de estado (no tinte translúcido) con la hora de inicio-término arriba, nombre del
+                             paciente en negrita debajo y, si hay altura, el servicio. Insignia con la inicial del
+                             procedimiento en la esquina. Mismo dato/funcionalidad que el estilo actual, solo el
+                             tratamiento visual cambia (fondo de la página y el resto del panel no se tocan). */
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" : accentColor, borderRadius: luxF ? DS.r.ctl : 8, padding: tall ? "5px 7px" : "2px 7px", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: tall ? "flex-start" : "center", gap: 1, boxShadow: "0 3px 10px -5px rgba(0,0,0,.5)" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                              <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 10, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time}{tall ? " - " + horaFin : ""}</span>
+                              {a.proc && <span style={{ flexShrink: 0, width: 14, height: 14, borderRadius: 3, background: "rgba(255,255,255,.3)", color: "#fff", fontFamily: T.sans, fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{a.proc[0].toUpperCase()}</span>}
+                            </div>
+                            <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                            {tall && <span style={{ fontFamily: T.sans, fontSize: 9.5, color: "rgba(255,255,255,.82)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{isPendPago ? "⏳ Pago pendiente" : (a.proc || "Cita")}</span>}
+                          </div>
+                        ) : v2 ? (
                           /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve. La tarjeta
                              muestra SIEMPRE (sin hover) nombre + hora de inicio y, si hay altura, servicio + hora
                              de término — la info operativa que recepción necesita de un vistazo (ref. del usuario).

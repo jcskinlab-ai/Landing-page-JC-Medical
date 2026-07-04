@@ -2826,6 +2826,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const hideT = useRef(null);
   const showT = useRef(null);
   const v2 = true;
+  const wkCardNew = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
   const activeAppt = menu ? appts.find((a) => a.id === menu) : null;
   const team = (() => {
     try {
@@ -2984,7 +2985,14 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
             setMenu(menu === a.id ? null : a.id);
           }
         },
-        v2 ? (
+        wkCardNew ? (
+          /* Rediseño (preview medique admin, ref. captura del usuario): bloque SÓLIDO del color
+             de estado (no tinte translúcido) con la hora de inicio-término arriba, nombre del
+             paciente en negrita debajo y, si hay altura, el servicio. Insignia con la inicial del
+             procedimiento en la esquina. Mismo dato/funcionalidad que el estilo actual, solo el
+             tratamiento visual cambia (fondo de la página y el resto del panel no se tocan). */
+          /* @__PURE__ */ React.createElement("div", { style: { height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" : accentColor, borderRadius: luxF ? DS.r.ctl : 8, padding: tall ? "5px 7px" : "2px 7px", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: tall ? "flex-start" : "center", gap: 1, boxShadow: "0 3px 10px -5px rgba(0,0,0,.5)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 10, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time, tall ? " - " + horaFin : ""), a.proc && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, width: 14, height: 14, borderRadius: 3, background: "rgba(255,255,255,.3)", color: "#fff", fontFamily: T.sans, fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" } }, a.proc[0].toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), tall && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9.5, color: "rgba(255,255,255,.82)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, isPendPago ? "\u23F3 Pago pendiente" : a.proc || "Cita"))
+        ) : v2 ? (
           /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve. La tarjeta
              muestra SIEMPRE (sin hover) nombre + hora de inicio y, si hay altura, servicio + hora
              de término — la info operativa que recepción necesita de un vistazo (ref. del usuario).
