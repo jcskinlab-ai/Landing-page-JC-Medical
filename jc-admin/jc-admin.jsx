@@ -83,11 +83,11 @@ function PatientSearch({ T, patients, onOpen, compact }) {
     ? { width: "100%", fontFamily: T.sans, fontSize: 12, padding: "7px 12px 7px 30px", borderRadius: 999, border: "1px solid " + (T.dark ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.6)"), background: T.dark ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.5)", color: T.text, outline: "none", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }
     : { width: "100%", fontFamily: T.sans, fontSize: 12.5, padding: "8px 12px 8px 32px", borderRadius: 999, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, outline: "none" };
   return (
-    <div style={{ position: "relative", flex: compact ? "0 1 150px" : "0 1 200px", maxWidth: compact ? 150 : 200, minWidth: 110 }}>
+    <div style={{ position: "relative", flex: compact ? "0 1 240px" : 1, maxWidth: compact ? 240 : 320, minWidth: 140 }}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.7" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
       <input value={q} onChange={e => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         type="search" name="jcm-buscar-paciente" autoComplete="off" data-nocap="" data-1p-ignore="true" data-lpignore="true"
-        placeholder="Buscar" style={inpStyle} />
+        placeholder="Buscar pacientes…" style={inpStyle} />
       {open && res.length > 0 && (
         <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, zIndex: 40, overflow: "hidden" }}>
           {res.map(p => (
@@ -3073,7 +3073,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           setFichaConfirm({ appt, patient: found || null });
         }} />
       ) : view === "mes" ? (
-        <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} setView={setView} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
+        <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} viewToggle={viewToggleNode} icsBtn={icsBtnNode} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
       ) : (
         <div style={{ display: "flex", gap: 16, alignItems: "stretch", flexWrap: "wrap" }}>
           {/* ── Columna izquierda: timeline del día ── (misma altura que el panel lateral: cabecera
@@ -3117,15 +3117,19 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                       }, 200);
                     }}
                     onMouseLeave={() => { if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } if (dayHideT.current) clearTimeout(dayHideT.current); dayHideT.current = setTimeout(() => setHoverA(null), 160); }}
-                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderLeft: "4px solid " + col, borderRadius: luxF ? DS.r.ctl : 6, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                      <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
-                      {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {a.proc}</span>}
-                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: "linear-gradient(180deg," + col + (T.dark ? "3a" : "24") + "," + col + (T.dark ? "20" : "12") + ")," + T.bg, border: "1px solid " + col + "44", borderLeft: "4px solid " + col, borderRadius: 8, padding: "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 12px -6px rgba(0,0,0,.55)" }}>
+                    {/* Fila superior: rango horario + duración (izq) · inicial del procedimiento (der) — igual que la referencia */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 }}>
+                        <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
+                        <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
+                      </span>
+                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: "#fff", background: col, borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                      <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
-                      <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
+                    {/* Fila inferior: nombre del paciente + procedimiento */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+                      <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                      {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc}</span>}
                     </div>
                   </div>
                 ); })}
@@ -3458,7 +3462,7 @@ function ComentarioPopup({ T, appt, updateAppt, onClose }) {
 }
 // Vista mensual de la agenda (día / semana / mes). Cada celda muestra el número de citas del día
 // y hasta 3 nombres; clic en un día abre la vista "día" para esa fecha.
-function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn }) {
+function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, icsBtn, nuevaBtn }) {
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const y = monthDate.getFullYear(), m = monthDate.getMonth();
   const first = new Date(y, m, 1);
@@ -3490,19 +3494,20 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn
   const isCurMonth = today.getFullYear() === y && today.getMonth() === m;
   const ctlGlass = luxF ? { background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.5)" } : { background: T.surface };
   const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...ctlGlass };
-  // Tabs de texto sin borde individual (grupo plano, referencia): solo el activo lleva relleno.
-  const tabBtn = (k, l) => <button key={k} onClick={() => setView(k)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid transparent", background: k === "mes" ? T.text : "transparent", color: k === "mes" ? T.bg : T.textMute, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, cursor: "pointer" }}>{l}</button>;
   return (
     <div>
-      {/* Mismo lenguaje que semana/día: navegación + tabs de texto a la IZQUIERDA, profesional +
-          "Nueva cita" a la DERECHA. Grilla sin fondo opaco (glass): la foto de fondo se transparenta
-          igual que en el resto de la agenda — solo las líneas divisorias y los chips de cita tienen color. */}
+      {/* Encabezado IDÉNTICO al de la vista día/semana (mismo lenguaje y tipografía, a pedido del
+          usuario): ícono + fecha serif + Hoy + ‹ › + toggle de vistas (íconos) a la IZQUIERDA;
+          profesional + Importar .ics + "Nueva Cita" a la DERECHA. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <button onClick={() => setMonthDate(new Date(y, m - 1, 1))} style={navBtn} title="Mes anterior">‹</button>
-        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, minWidth: 140 }}>{monthLbl}</div>
-        <button onClick={() => setMonthDate(new Date(y, m + 1, 1))} style={navBtn} title="Mes siguiente">›</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+          <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, whiteSpace: "nowrap" }}>{monthLbl}</div>
+        </div>
         <button onClick={() => setMonthDate(new Date())} style={{ ...navBtn, width: "auto", padding: "0 15px", fontSize: 12.5 }}>Hoy</button>
-        {tabBtn("dia", "Día")}{tabBtn("semana", "Semana")}{tabBtn("mes", "Mes")}
+        <button onClick={() => setMonthDate(new Date(y, m - 1, 1))} style={navBtn} title="Mes anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
+        <button onClick={() => setMonthDate(new Date(y, m + 1, 1))} style={navBtn} title="Mes siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
+        {viewToggle}
         <div style={{ flex: 1, minWidth: 8 }} />
         {multiProf && (
           <div style={{ position: "relative" }}>
@@ -3524,6 +3529,7 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn
             </React.Fragment>)}
           </div>
         )}
+        {icsBtn}
         {nuevaBtn}
       </div>
       {/* Grilla GLASS (referencia): la foto del fondo se transparenta a través de las celdas. En vez del
