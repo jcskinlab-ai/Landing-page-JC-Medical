@@ -2841,16 +2841,22 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   // Glass de la vista diaria (mismo sistema JCDS de 2 niveles): panel = cards grandes; small = bloques de cita.
   const dayGlass = r => (luxF && DS && DS._glass) ? DS._glass(T, r) : { background: T.surface, border: "1px solid " + T.line, borderRadius: r, boxShadow: T.shadow || "none" };
   const daySmallBlur = (luxF && DS && DS.glassBlur) ? { backdropFilter: DS.glassBlur.small, WebkitBackdropFilter: DS.glassBlur.small } : {};
-  // Toggle de vista en TEXTO (Día / Semana / Mes) tipo segmented, con glass en lux (ref. diseño del usuario).
+  // Toggle de vista con ICONOS (día / semana / mes), glass en lux — como estaba originalmente.
   const viewToggleNode = (() => {
-    const seg = (k, l) => {
+    const btn = (k, title, icon) => {
       const on = view === k;
-      return <button key={k} onClick={() => setView(k)} style={{ padding: "7px 16px", borderRadius: luxF ? (DS.r.ctl || 9) : 8, border: "none", cursor: "pointer", background: on ? (luxF ? (T.dark ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.92)") : T.accent) : "transparent", color: on ? (luxF ? T.text : (T.onAccent || "#fff")) : T.textMute, fontFamily: T.sans, fontSize: 12.5, fontWeight: on ? 600 : 500, whiteSpace: "nowrap", boxShadow: (on && luxF) ? "0 1px 3px rgba(0,0,0,.18)" : "none", transition: "background .18s, color .18s" }}>{l}</button>;
+      return <button key={k} onClick={() => setView(k)} title={title} style={luxF
+        ? { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 30, borderRadius: (DS.r.ctl || 8), cursor: "pointer", border: "none", background: on ? (T.dark ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.92)") : "transparent", boxShadow: on ? "0 1px 3px rgba(0,0,0,.18)" : "none", color: on ? T.text : T.textMute, transition: "background .18s, color .18s" }
+        : { display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 32, borderRadius: 7, cursor: "pointer", border: "none", background: on ? T.accent : "transparent", color: on ? (T.onAccent || "#fff") : T.textMute }}>{icon}</button>;
     };
     const wrap = luxF
-      ? { display: "inline-flex", gap: 3, background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.45)", border: "1px solid " + T.line, borderRadius: (DS.r.seg || 12), padding: 3, ...daySmallBlur }
-      : { display: "inline-flex", gap: 3, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: 3 };
-    return <div style={wrap}>{seg("dia", "Día")}{seg("semana", "Semana")}{seg("mes", "Mes")}</div>;
+      ? { display: "inline-flex", gap: 2, background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.45)", border: "1px solid " + T.line, borderRadius: (DS.r.seg || 12), padding: 3, ...daySmallBlur }
+      : { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 };
+    return <div style={wrap}>
+      {btn("dia", "Vista lista / día", <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>)}
+      {btn("semana", "Vista calendario / semana", <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>)}
+      {btn("mes", "Vista mensual", <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 10h18M8 2v4M16 2v4" /><circle cx="8" cy="14.5" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="14.5" r="1" fill="currentColor" stroke="none" /><circle cx="16" cy="14.5" r="1" fill="currentColor" stroke="none" /></svg>)}
+    </div>;
   })();
   const [icsMod, setIcsMod] = useState(false);
   const nuevaBtnNode = <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>;
