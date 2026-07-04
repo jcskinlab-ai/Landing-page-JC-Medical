@@ -109,6 +109,22 @@ function glassPanel(T, radius) {
 function glassChip(T) {
   return { background: "rgba(255,255,255,.11)", backdropFilter: "blur(20px) saturate(1.6)", WebkitBackdropFilter: "blur(20px) saturate(1.6)", border: "1px solid rgba(255,255,255,.15)" };
 }
+// Fondo de la pantalla de LOGIN (única pantalla con video, a pedido del usuario): nube/montaña en
+// movimiento en vez de la foto fija. autoPlay+muted+playsInline es obligatorio para que iOS/Android
+// lo reproduzcan solos sin gesto del usuario; poster = la foto fija mientras carga el video.
+function LoginVideoBg({ children }) {
+  const overlay = "linear-gradient(180deg, rgba(14,20,30,.3), rgba(12,16,26,.46) 50%, rgba(9,12,20,.68))";
+  return (
+    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#0B1018" }}>
+      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg"
+        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
+        <source src="/assets/everest-login.mp4" type="video/mp4" />
+      </video>
+      <div style={{ position:"absolute", inset:0, backgroundImage:overlay }} />
+      <div style={{ position:"relative", zIndex:1, width:"100%", display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
+    </div>
+  );
+}
 
 /* ─── Pacientes (helpers de datos — este bundle no carga jc-admin.jsx) ─── */
 function patientsAll() { try { return (window.DB && window.DB.get("patients")) || []; } catch (e) { return []; } }
@@ -153,7 +169,7 @@ function LoginScreen({ T, onAuth }) {
   }
   const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:10, border:"1px solid rgba(255,255,255,.18)", background:"rgba(255,255,255,.08)", color:"#fff", outline:"none", boxSizing:"border-box" };
   return (
-    <div style={{ minHeight:"100dvh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", ...mobileBg(T) }}>
+    <LoginVideoBg>
       <img src="/assets/medique-logo.png" alt="Medique" style={{ width:52, height:52, marginBottom:10 }} />
       <div style={{ fontFamily:T.serif, fontSize:30, fontWeight:300, color:"#fff" }}>Medique</div>
       <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.mute, marginBottom:44 }}>Panel móvil · Acceso privado</div>
@@ -166,7 +182,7 @@ function LoginScreen({ T, onAuth }) {
           {busy?"…":(setup?"Crear acceso":"Entrar")}
         </button>
       </div>
-    </div>
+    </LoginVideoBg>
   );
 }
 
@@ -1395,7 +1411,8 @@ function MobileSaasGate() {
   if (phase === "app") return <MobileShell T={T} D={D} onLogout={() => window.JCSAAS.logout()} />;
 
   const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:10, border:"1px solid rgba(255,255,255,.18)", background:"rgba(255,255,255,.08)", color:"#fff", outline:"none", boxSizing:"border-box" };
-  const center = (kids) => <div style={{ minHeight:"100dvh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", ...mobileBg(T) }}>{kids}</div>;
+  // Toda la "zona de login" (cargando/entrar/bloqueado/recuperar) comparte el mismo fondo en video.
+  const center = (kids) => <LoginVideoBg>{kids}</LoginVideoBg>;
 
   if (phase === "loading") return center(
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>

@@ -112,6 +112,21 @@ function glassPanel(T, radius) {
 function glassChip(T) {
   return { background: "rgba(255,255,255,.11)", backdropFilter: "blur(20px) saturate(1.6)", WebkitBackdropFilter: "blur(20px) saturate(1.6)", border: "1px solid rgba(255,255,255,.15)" };
 }
+function LoginVideoBg({ children }) {
+  const overlay = "linear-gradient(180deg, rgba(14,20,30,.3), rgba(12,16,26,.46) 50%, rgba(9,12,20,.68))";
+  return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", minHeight: "100dvh", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 24px", backgroundColor: "#0B1018" } }, /* @__PURE__ */ React.createElement(
+    "video",
+    {
+      autoPlay: true,
+      loop: true,
+      muted: true,
+      playsInline: true,
+      poster: "/assets/everest-mobile.jpg",
+      style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }
+    },
+    /* @__PURE__ */ React.createElement("source", { src: "/assets/everest-login.mp4", type: "video/mp4" })
+  ), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: overlay } }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center" } }, children));
+}
 function patientsAll() {
   try {
     return window.DB && window.DB.get("patients") || [];
@@ -176,7 +191,7 @@ function LoginScreen({ T, onAuth }) {
     }
   }
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 16, padding: "14px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.08)", color: "#fff", outline: "none", boxSizing: "border-box" };
-  return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 24px", ...mobileBg(T) } }, /* @__PURE__ */ React.createElement("img", { src: "/assets/medique-logo.png", alt: "Medique", style: { width: 52, height: 52, marginBottom: 10 } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 30, fontWeight: 300, color: "#fff" } }, "Medique"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: ON_PHOTO.mute, marginBottom: 44 } }, "Panel m\xF3vil \xB7 Acceso privado"), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 12 } }, setup && /* @__PURE__ */ React.createElement("input", { placeholder: "Usuario", value: user, onChange: (e) => setUser(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a del panel", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#FF8FA3", textAlign: "center" } }, err), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(LoginVideoBg, null, /* @__PURE__ */ React.createElement("img", { src: "/assets/medique-logo.png", alt: "Medique", style: { width: 52, height: 52, marginBottom: 10 } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 30, fontWeight: 300, color: "#fff" } }, "Medique"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: ON_PHOTO.mute, marginBottom: 44 } }, "Panel m\xF3vil \xB7 Acceso privado"), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 12 } }, setup && /* @__PURE__ */ React.createElement("input", { placeholder: "Usuario", value: user, onChange: (e) => setUser(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a del panel", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#FF8FA3", textAlign: "center" } }, err), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: submit,
@@ -1147,7 +1162,7 @@ function MobileSaasGate() {
   }
   if (phase === "app") return /* @__PURE__ */ React.createElement(MobileShell, { T, D, onLogout: () => window.JCSAAS.logout() });
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 16, padding: "14px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.08)", color: "#fff", outline: "none", boxSizing: "border-box" };
-  const center = (kids) => /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 24px", ...mobileBg(T) } }, kids);
+  const center = (kids) => /* @__PURE__ */ React.createElement(LoginVideoBg, null, kids);
   if (phase === "loading") return center(
     /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement("img", { src: "/assets/medique-logo.png", alt: "Medique", style: { width: 36, height: 36, marginBottom: 6 } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 24, color: "#fff" } }, "Medique"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: ON_PHOTO.mute } }, "Conectando\u2026"))
   );
