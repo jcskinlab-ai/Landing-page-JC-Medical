@@ -2502,7 +2502,6 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const dayFirst = daySorted[0] || null, dayLast = daySorted[daySorted.length - 1] || null;
   useEffect(() => {
     if (view !== "dia") return;
-    if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
     const el = dayScrollRef.current;
     if (!el) return;
     if (!dayFirst) {

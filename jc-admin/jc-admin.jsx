@@ -2822,11 +2822,10 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const daySorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
   const dayFirst = daySorted[0] || null, dayLast = daySorted[daySorted.length - 1] || null;
   // Vista diaria: al entrar (o cambiar de día), ubicar el scroll en la primera cita en vez de arrancar
-  // en las 08:00 — evita el scroll manual cuando el día parte más tarde. En preview de "medique admin"
-  // primero (isMediqueAdminPreview); se libera a todas las clínicas una vez revisado.
+  // en las 08:00 — evita el scroll manual cuando el día parte más tarde. Probado en preview de
+  // "medique admin" y liberado a TODAS las clínicas (push global).
   useEffect(() => {
     if (view !== "dia") return;
-    if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
     const el = dayScrollRef.current;
     if (!el) return;
     if (!dayFirst) { el.scrollTop = 0; return; }
