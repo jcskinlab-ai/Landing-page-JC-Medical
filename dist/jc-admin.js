@@ -2154,7 +2154,7 @@ function AdStat({ T, n, l, accent }) {
   if (luxF) return /* @__PURE__ */ React.createElement("div", { style: { ...DS.card(T), padding: "14px 12px", textAlign: "center", borderColor: c ? c + "55" : T.line, ...DS.reveal(0) } }, c && /* @__PURE__ */ React.createElement("div", { style: { width: 5, height: 5, borderRadius: 999, background: c, margin: "0 auto 8px" } }), /* @__PURE__ */ React.createElement("div", { style: { ...DS.text(T, "stat"), fontSize: 24, color: c || T.text } }, n), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: DS.ft.eyebrow, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginTop: 6 } }, l));
   return /* @__PURE__ */ React.createElement("div", { style: { background: c ? c + "14" : T.dark ? "rgba(242,237,230,.03)" : "rgba(20,20,15,.02)", border: "1px solid " + (c ? c + "66" : T.line), borderRadius: 8, padding: "14px 8px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, color: c || T.text, lineHeight: 1 } }, n), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, marginTop: 7 } }, l));
 }
-const HPX = 112, OPEN = 480, CLOSE = 1200;
+const HPX = 84, OPEN = 480, CLOSE = 1200;
 const OWNER_WA = "56997880877";
 const wdN = ["Dom", "Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b"];
 function notifyCita(appt, patient, D) {
@@ -2374,6 +2374,12 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     return () => clearInterval(id);
   }, []);
   useEffect(() => {
+    const d = /* @__PURE__ */ new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + day);
+    setMonthDate(new Date(d.getFullYear(), d.getMonth(), 1));
+  }, [day]);
+  useEffect(() => {
     const el = document.getElementById("jcm-main-scroll");
     if (el) el.scrollTop = 0;
   }, []);
@@ -2414,11 +2420,11 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     let cur = -1;
     return sorted.map((a) => {
       const dur = parseInt(a.dur) || 60;
-      const fullH = Math.max(28, dur * HPX / 60);
+      const fullH = Math.max(20, dur * HPX / 60);
       const nat = (mins(a.time) - OPEN) * HPX / 60;
       const pushed = cur >= 0 && nat < cur;
       const top = pushed ? cur + 2 : nat;
-      const h = pushed ? Math.max(28, Math.min(fullH, 36)) : fullH;
+      const h = pushed ? Math.max(20, Math.min(fullH, 30)) : fullH;
       cur = top + h;
       return { ...a, _top: top, _h: h };
     });
@@ -2426,14 +2432,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const daySlotMin = adminSlotMins();
   const daySlots = (() => {
     const out = [];
-    const p2 = (n) => (n < 10 ? "0" : "") + n;
+    const p22 = (n) => (n < 10 ? "0" : "") + n;
     for (let m = OPEN; m < CLOSE; m += daySlotMin) {
       const blocked = list.some((a) => {
         const as = mins(a.time), ad = parseInt(a.dur) || 60;
         return m >= as && m < as + ad;
       });
       if (blocked) continue;
-      out.push({ hhmm: p2(Math.floor(m / 60)) + ":" + p2(m % 60), top: (m - OPEN) * HPX / 60, h: daySlotMin * HPX / 60 });
+      out.push({ hhmm: p22(Math.floor(m / 60)) + ":" + p22(m % 60), top: (m - OPEN) * HPX / 60, h: daySlotMin * HPX / 60 });
     }
     return out;
   })();
@@ -2448,6 +2454,55 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     dt.setDate(b0.getDate() + off);
     week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Ma\xF1ana" : wdN[dt.getDay()], count: appts.filter((a) => apptDayOff(a) === off && a.status !== "anulada").length });
   }
+  const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const DOW_FULL = ["domingo", "lunes", "martes", "mi\xE9rcoles", "jueves", "viernes", "s\xE1bado"];
+  const capS = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const p2 = (n) => (n < 10 ? "0" : "") + n;
+  const hhmmOf = (m) => p2(Math.floor(m / 60)) + ":" + p2(m % 60);
+  const dayDate = (() => {
+    const d = /* @__PURE__ */ new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + day);
+    return d;
+  })();
+  const dayTitle = capS(DOW_FULL[dayDate.getDay()]) + " " + dayDate.getDate() + " de " + MESES[dayDate.getMonth()] + ", " + dayDate.getFullYear();
+  const fmtDur = (m) => {
+    const h = Math.floor(m / 60), mm = m % 60;
+    return (h ? h + "h" : "") + (h && mm ? " " : "") + (mm ? mm + "m" : h ? "" : "0m");
+  };
+  const endOf = (a) => hhmmOf(mins(a.time) + (parseInt(a.dur) || 60));
+  const dayTotalMin = list.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
+  const daySorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
+  const dayFirst = daySorted[0] || null, dayLast = daySorted[daySorted.length - 1] || null;
+  const dayWindowMin = (() => {
+    try {
+      const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(dayDate);
+      if (av && av.open && av.slots && av.slots.length) {
+        const sm = av.slots.map(mins);
+        return Math.max.apply(null, sm) + 30 - Math.min.apply(null, sm);
+      }
+    } catch (e) {
+    }
+    return CLOSE - OPEN;
+  })();
+  const dayFreeMin = Math.max(0, dayWindowMin - dayTotalMin);
+  const dayFirstFree = daySlots[0] ? daySlots[0].hhmm : "10:00";
+  const miniY = monthDate.getFullYear(), miniMo = monthDate.getMonth();
+  const miniFirstDow = (new Date(miniY, miniMo, 1).getDay() + 6) % 7;
+  const miniCells = [];
+  for (let i = 0; i < 42; i++) {
+    const cd = new Date(miniY, miniMo, 1 - miniFirstDow + i);
+    miniCells.push({ date: cd, inMonth: cd.getMonth() === miniMo });
+  }
+  const dayKeyOf = (d) => d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
+  const todayKey = dayKeyOf(/* @__PURE__ */ new Date());
+  const offsetOfDate = (d) => {
+    const t = /* @__PURE__ */ new Date();
+    t.setHours(0, 0, 0, 0);
+    const dd = new Date(d);
+    dd.setHours(0, 0, 0, 0);
+    return Math.round((dd - t) / 864e5);
+  };
   function clickTimeline(e) {
     if (e.target.closest("[data-appt]")) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -2484,7 +2539,10 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         const n = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada").length;
         return n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy.";
       })(), " Gestiona horarios, confirma asistencias y agenda nuevas atenciones."));
-    })(), !isBase && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), viewToggleNode, onSyncWeb && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: traerWeb }, webBusy ? "Trayendo\u2026" : "\u21BB Traer reservas web"), nuevaBtnNode), isBase && view === "dia" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 } }, luxF ? viewToggleNode : /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text } }, "Reservas y Citas"), luxF && /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 8 } }), !luxF && viewToggleNode, icsBtnNode, nuevaBtnNode), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, icsBtn: icsBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: (appt, only) => {
+    })(), !isBase && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 12, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, margin: 0 } }, "Reservas y Citas"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2 } }, "Gestiona la agenda de la cl\xEDnica, confirma asistencias y asigna puntos.")), viewToggleNode, onSyncWeb && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: traerWeb }, webBusy ? "Trayendo\u2026" : "\u21BB Traer reservas web"), nuevaBtnNode), isBase && view === "dia" && (() => {
+      const navBtn = { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer" };
+      return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, /* @__PURE__ */ React.createElement("svg", { width: "18", height: "18", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.text, whiteSpace: "nowrap" } }, dayTitle)), /* @__PURE__ */ React.createElement("button", { onClick: () => setDay(0), style: { height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" } }, "Hoy"), /* @__PURE__ */ React.createElement("button", { onClick: () => setDay(day - 1), title: "D\xEDa anterior", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M15 18l-6-6 6-6" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setDay(day + 1), title: "D\xEDa siguiente", style: navBtn }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" }))), viewToggleNode, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 8 } }), icsBtnNode, nuevaBtnNode);
+    })(), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, icsBtn: icsBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: (appt, only) => {
       setEdit(appt);
       setEditOnly(only || null);
     }, updateAppt, removeAppt, onDay: (off) => {
@@ -2509,7 +2567,15 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     } }) : view === "mes" ? /* @__PURE__ */ React.createElement(MonthGrid, { T, appts, monthDate, setMonthDate, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, onDay: (off) => {
       setDay(off);
       setView("dia");
-    } }) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 4 } }, week.map((d) => /* @__PURE__ */ React.createElement("button", { key: d.off, onClick: () => setDay(d.off), style: { flexShrink: 0, minWidth: 62, padding: "10px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center", background: day === d.off ? T.accent : T.surface, border: "1px solid " + (day === d.off ? T.accent : T.line) } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: day === d.off ? T.onAccent : T.textMute } }, d.lbl), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 20, color: day === d.off ? T.onAccent : T.text, marginTop: 2 } }, d.dd), /* @__PURE__ */ React.createElement("div", { style: { height: 5, marginTop: 5, display: "flex", justifyContent: "center", gap: 2 } }, d.count > 0 && Array.from({ length: Math.min(d.count, 3) }).map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { width: 4, height: 4, borderRadius: "50%", background: day === d.off ? T.onAccent : T.accent } })))))), /* @__PURE__ */ React.createElement("div", { onClick: clickTimeline, style: { position: "relative", height: hours.length * HPX, borderTop: "1px solid " + T.line, cursor: "copy" } }, hours.map((h, i) => /* @__PURE__ */ React.createElement("div", { key: h, style: { position: "absolute", top: i * HPX, left: 0, right: 0, height: HPX, borderBottom: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: -8, fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42 } }, h, ":00"))), daySlots.map((s) => /* @__PURE__ */ React.createElement(
+    } }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 460px", minWidth: 0, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.serif, fontSize: 15, color: T.text } }, dayTitle), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { maxHeight: "64vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { onClick: clickTimeline, style: { position: "relative", height: hours.length * HPX, cursor: "copy" } }, (() => {
+      const rows = [];
+      for (let m = OPEN; m <= CLOSE; m += 15) rows.push(m);
+      return rows.map((m) => {
+        const isHour = m % 60 === 0;
+        const top = (m - OPEN) * HPX / 60;
+        return /* @__PURE__ */ React.createElement("div", { key: m, style: { position: "absolute", left: 0, right: 0, top, height: 0, borderTop: "1px solid " + (isHour ? T.line : T.lineSoft) } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 10, top: -7, fontFamily: T.sans, fontSize: isHour ? 10.5 : 9, fontWeight: isHour ? 600 : 400, color: isHour ? T.textMute : T.textFaint } }, hhmmOf(m)));
+      });
+    })(), daySlots.map((s) => /* @__PURE__ */ React.createElement(
       "button",
       {
         key: s.hhmm,
@@ -2519,26 +2585,38 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           setNueva({ time: s.hhmm, day, fromSlot: true });
         },
         title: "Agendar " + s.hhmm,
-        style: { position: "absolute", left: 48, right: 4, top: s.top, height: s.h, background: "transparent", border: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }
+        style: { position: "absolute", left: 60, right: 8, top: s.top, height: s.h, background: "transparent", border: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }
       },
       /* @__PURE__ */ React.createElement("span", { className: "jc-cell-add", style: { width: 16, height: 16, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.6", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })))
-    )), listStacked.map((a) => /* @__PURE__ */ React.createElement(
-      "div",
-      {
-        key: a.id,
-        style: { position: "absolute", left: 48, right: 4, top: a._top, height: a._h, overflow: "hidden", borderRadius: 6, zIndex: 2 },
-        onMouseEnter: (e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setHoverA({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) });
+    )), listStacked.map((a) => {
+      const stt = jcmApptState(a, T);
+      const ini = procInitial(a.proc);
+      return /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          key: a.id,
+          "data-appt": true,
+          onClick: (e) => {
+            e.stopPropagation();
+            setEdit(a);
+            setEditOnly(null);
+          },
+          style: { position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: T.surface2 || T.surface, border: "1px solid " + stt.color + "44", borderLeft: "3px solid " + stt.color, borderRadius: 7, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2 }
         },
-        onMouseLeave: () => setHoverA(null)
-      },
-      /* @__PURE__ */ React.createElement(ApptBlock, { T, a, compact: a._h < 46, onClick: (x) => {
-        setHoverA(null);
-        setEdit(x);
-        setEditOnly(null);
-      } })
-    )), showNow && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 42, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 2, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" } }, "Ahora ", fmtTime(now)))), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 } }, "Toca un espacio libre para crear una cita \xB7 toca una cita para editarla.")), anuladas.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 22, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "14px 18px 10px" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: "#9AA0A6", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.textMute } }, "Citas anuladas (", anuladas.length, ")"), /* @__PURE__ */ React.createElement("div", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 11, color: T.textFaint } }, "Restaura si fue un error")), anuladaDayKeys.map((k, ki) => {
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), a.proc && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "\xB7 ", a.proc), ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: stt.color, background: stt.color + "22", borderRadius: 4, padding: "1px 5px" } }, ini)),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap" } }, a.time, " - ", endOf(a)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, whiteSpace: "nowrap" } }, parseInt(a.dur) || 60, " min"))
+      );
+    }), showNow && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 54, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 4, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" } }, "Ahora ", fmtTime(now)))))), (() => {
+      const card = { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: 15 };
+      const secT = { fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 11 };
+      const navMini = { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, cursor: "pointer" };
+      const infoRow = (l, v) => /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontFamily: T.sans, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.textMute } }, l), /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 600 } }, v));
+      return /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 320px", maxWidth: "100%", display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: card }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(new Date(miniY, miniMo - 1, 1)), style: navMini }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M15 18l-6-6 6-6" }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 14.5, color: T.text } }, capS(MESES[miniMo]), " ", miniY), /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(new Date(miniY, miniMo + 1, 1)), style: navMini }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 } }, ["Lu", "Ma", "Mi", "Ju", "Vi", "S\xE1", "Do"].map((w) => /* @__PURE__ */ React.createElement("div", { key: w, style: { textAlign: "center", fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, padding: "2px 0" } }, w))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 } }, miniCells.map((c, i) => {
+        const sel = dayKeyOf(c.date) === dayKeyOf(dayDate);
+        const isTd = dayKeyOf(c.date) === todayKey;
+        return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => setDay(offsetOfDate(c.date)), style: { height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "none", cursor: "pointer", background: sel ? T.accent : "transparent", color: sel ? T.onAccent || "#fff" : c.inMonth ? T.text : T.textFaint, fontFamily: T.sans, fontSize: 12, fontWeight: sel || isTd ? 600 : 400, boxShadow: !sel && isTd ? "inset 0 0 0 1px " + T.accent : "none" } }, c.date.getDate());
+      })), /* @__PURE__ */ React.createElement("button", { onClick: () => setDay(0), style: { width: "100%", marginTop: 12, padding: "9px", borderRadius: 9, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" } }, "Ir a hoy")), /* @__PURE__ */ React.createElement("div", { style: card }, /* @__PURE__ */ React.createElement("div", { style: secT }, "Informaci\xF3n del d\xEDa"), infoRow("Citas", list.length), infoRow("Duraci\xF3n total", fmtDur(dayTotalMin)), infoRow("Tiempo libre", fmtDur(dayFreeMin))), /* @__PURE__ */ React.createElement("div", { style: card }, /* @__PURE__ */ React.createElement("div", { style: secT }, "Duraciones disponibles"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, [15, 30, 45, 60, 90].map((n) => /* @__PURE__ */ React.createElement("button", { key: n, onClick: () => setNueva({ time: dayFirstFree, day, dur: String(n), fromSlot: true }), style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 12px", cursor: "pointer" } }, n, " min")))), /* @__PURE__ */ React.createElement("div", { style: card }, /* @__PURE__ */ React.createElement("div", { style: secT }, "L\xEDnea de tiempo"), infoRow("Primera cita", dayFirst ? dayFirst.time : "\u2014"), infoRow("\xDAltima cita", dayLast ? endOf(dayLast) : "\u2014")));
+    })()), anuladas.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 22, background: T.surface, border: "1px solid " + T.line, borderRadius: 12, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "14px 18px 10px" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: "#9AA0A6", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.textMute } }, "Citas anuladas (", anuladas.length, ")"), /* @__PURE__ */ React.createElement("div", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 11, color: T.textFaint } }, "Restaura si fue un error")), anuladaDayKeys.map((k, ki) => {
       const group = anuladasByDay[k];
       const isOpen = openADays.has(k);
       return /* @__PURE__ */ React.createElement("div", { key: k, style: { borderTop: ki === 0 ? "1px solid " + T.lineSoft : "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("button", { onClick: () => toggleADay(k), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "#9AA0A6", strokeWidth: "2", strokeLinecap: "round", style: { flexShrink: 0, transition: "transform .2s", transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.textMute, flex: 1 } }, fmtADay(k)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, background: T.lineSoft, borderRadius: 999, padding: "2px 8px" } }, group.length, " cita", group.length !== 1 ? "s" : "")), isOpen && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid " + T.lineSoft } }, group.map((a, ai) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderBottom: ai < group.length - 1 ? "1px solid " + T.lineSoft : "none", background: T.bg } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.textMute, textDecoration: "line-through", textDecorationColor: "#9AA0A6" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, [a.proc, a.time && a.time + " h"].filter(Boolean).join("  \xB7  "), a.phone ? "  \xB7  " + a.phone : ""), a.anuladaAt && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 } }, "Anulada el ", new Date(a.anuladaAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" }), " \xB7 ", new Date(a.anuladaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => updateAppt(a.id, { status: "pendiente", anuladaAt: null }), style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.accent, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "6px 11px", cursor: "pointer" } }, "Restaurar")))));

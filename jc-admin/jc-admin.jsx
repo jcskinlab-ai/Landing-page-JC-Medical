@@ -2474,11 +2474,10 @@ function AdStat({ T, n, l, accent }) {
 }
 
 /* ─────────── AGENDA (tiempo real) ─────────── */
-// HPX = px por hora en la vista DIARIA. 112 hace que 15 min = 28 px (la altura mínima legible de
-// una cita), de modo que una evaluación de 15 min ocupa su alto REAL y ya no invade el hueco libre
-// siguiente. Con la escala anterior (70) el mínimo de 28 px se comía los espacios de 15 min y no se
-// veían para agendar. OPEN 08:00 / CLOSE 20:00.
-const HPX = 112, OPEN = 480, CLOSE = 1200;
+// HPX = px por hora en la vista DIARIA (rediseño estilo agenda + panel lateral). 84 → 15 min = 21 px:
+// suficiente para el bloque de una línea (nombre · servicio … hora) y para el "+" del hueco libre,
+// manteniendo la densidad del diseño de referencia. OPEN 08:00 / CLOSE 20:00.
+const HPX = 84, OPEN = 480, CLOSE = 1200;
 const OWNER_WA = "56997880877";
 const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
@@ -2731,6 +2730,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
+  // El mini-calendario del panel diario sigue al día seleccionado (sin pisar la navegación de meses < >).
+  useEffect(() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + day); setMonthDate(new Date(d.getFullYear(), d.getMonth(), 1)); }, [day]);
   // Scroll al tope al montar (evita que al navegar se quede en la posición anterior).
   useEffect(() => { const el = document.getElementById("jcm-main-scroll"); if (el) el.scrollTop = 0; }, []);
   const D = window.JCDATA;
@@ -2758,11 +2759,11 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     let cur = -1;
     return sorted.map(a => {
       const dur = parseInt(a.dur) || 60;
-      const fullH = Math.max(28, dur * HPX / 60);
+      const fullH = Math.max(20, dur * HPX / 60);
       const nat = (mins(a.time) - OPEN) * HPX / 60;
       const pushed = cur >= 0 && nat < cur;
       const top = pushed ? cur + 2 : nat;
-      const h = pushed ? Math.max(28, Math.min(fullH, 36)) : fullH;
+      const h = pushed ? Math.max(20, Math.min(fullH, 30)) : fullH;
       cur = top + h;
       return { ...a, _top: top, _h: h };
     });
@@ -2785,6 +2786,33 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const showNow = day === 0 && nowMin >= OPEN && nowMin <= CLOSE;
   const hours = []; for (let h = OPEN / 60; h < CLOSE / 60; h++) hours.push(h);
   const week = []; const b0 = new Date(); for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), wd: wdN[dt.getDay()], lbl: off === 0 ? "Hoy" : off === 1 ? "Mañana" : wdN[dt.getDay()], count: appts.filter(a => apptDayOff(a) === off && a.status !== "anulada").length }); }
+
+  // ── Datos de la vista DIARIA (rediseño: timeline + panel lateral de información) ──
+  const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const DOW_FULL = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const capS = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const p2 = n => (n < 10 ? "0" : "") + n;
+  const hhmmOf = m => p2(Math.floor(m / 60)) + ":" + p2(m % 60);
+  const dayDate = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + day); return d; })();
+  const dayTitle = capS(DOW_FULL[dayDate.getDay()]) + " " + dayDate.getDate() + " de " + MESES[dayDate.getMonth()] + ", " + dayDate.getFullYear();
+  const fmtDur = m => { const h = Math.floor(m / 60), mm = m % 60; return (h ? h + "h" : "") + (h && mm ? " " : "") + (mm ? mm + "m" : (h ? "" : "0m")); };
+  const endOf = a => hhmmOf(mins(a.time) + (parseInt(a.dur) || 60));
+  const dayTotalMin = list.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
+  const daySorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
+  const dayFirst = daySorted[0] || null, dayLast = daySorted[daySorted.length - 1] || null;
+  const dayWindowMin = (() => {
+    try { const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(dayDate); if (av && av.open && av.slots && av.slots.length) { const sm = av.slots.map(mins); return (Math.max.apply(null, sm) + 30) - Math.min.apply(null, sm); } } catch (e) {}
+    return CLOSE - OPEN;
+  })();
+  const dayFreeMin = Math.max(0, dayWindowMin - dayTotalMin);
+  const dayFirstFree = daySlots[0] ? daySlots[0].hhmm : "10:00";
+  // Mini-calendario del mes (panel lateral). monthDate marca el mes visible; el día activo es dayDate.
+  const miniY = monthDate.getFullYear(), miniMo = monthDate.getMonth();
+  const miniFirstDow = (new Date(miniY, miniMo, 1).getDay() + 6) % 7; // Lun = 0
+  const miniCells = []; for (let i = 0; i < 42; i++) { const cd = new Date(miniY, miniMo, 1 - miniFirstDow + i); miniCells.push({ date: cd, inMonth: cd.getMonth() === miniMo }); }
+  const dayKeyOf = d => d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
+  const todayKey = dayKeyOf(new Date());
+  const offsetOfDate = d => { const t = new Date(); t.setHours(0, 0, 0, 0); const dd = new Date(d); dd.setHours(0, 0, 0, 0); return Math.round((dd - t) / 86400000); };
 
   function clickTimeline(e) {
     if (e.target.closest("[data-appt]")) return;
@@ -2865,17 +2893,25 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           {nuevaBtnNode}
         </div>
       )}
-      {/* En v2 (lista), una mini-barra superior con el toggle + Nueva cita (la semana ya los lleva inline).
-          Mismo orden que semana/mes: selector de vista a la IZQUIERDA, acciones a la derecha (armonía). */}
-      {isBase && view === "dia" && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          {luxF ? viewToggleNode : <div style={{ flex: 1, fontFamily: T.serif, fontSize: 18, color: T.text }}>Reservas y Citas</div>}
-          {luxF && <div style={{ flex: 1, minWidth: 8 }} />}
-          {!luxF && viewToggleNode}
-          {icsBtnNode}
-          {nuevaBtnNode}
-        </div>
-      )}
+      {/* Barra superior de la vista DIARIA: fecha + Hoy/‹/› + toggle a la izquierda; acciones a la derecha. */}
+      {isBase && view === "dia" && (() => {
+        const navBtn = { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer" };
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+              <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, whiteSpace: "nowrap" }}>{dayTitle}</div>
+            </div>
+            <button onClick={() => setDay(0)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" }}>Hoy</button>
+            <button onClick={() => setDay(day - 1)} title="Día anterior" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
+            <button onClick={() => setDay(day + 1)} title="Día siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
+            {viewToggleNode}
+            <div style={{ flex: 1, minWidth: 8 }} />
+            {icsBtnNode}
+            {nuevaBtnNode}
+          </div>
+        );
+      })()}
 
       {view === "semana" ? (
         <SemanaGrid T={T} week={week} appts={appts} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} icsBtn={icsBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={(appt, only) => { setEdit(appt); setEditOnly(only || null); }} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
@@ -2889,48 +2925,104 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       ) : view === "mes" ? (
         <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
       ) : (
-        <div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
-            {week.map(d => (
-              <button key={d.off} onClick={() => setDay(d.off)} style={{ flexShrink: 0, minWidth: 62, padding: "10px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center", background: day === d.off ? T.accent : T.surface, border: "1px solid " + (day === d.off ? T.accent : T.line) }}>
-                <div style={{ fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: day === d.off ? T.onAccent : T.textMute }}>{d.lbl}</div>
-                <div style={{ fontFamily: T.serif, fontSize: 20, color: day === d.off ? T.onAccent : T.text, marginTop: 2 }}>{d.dd}</div>
-                <div style={{ height: 5, marginTop: 5, display: "flex", justifyContent: "center", gap: 2 }}>
-                  {d.count > 0 && Array.from({ length: Math.min(d.count, 3) }).map((_, i) => <span key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: day === d.off ? T.onAccent : T.accent }} />)}
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+          {/* ── Columna izquierda: timeline del día ── */}
+          <div style={{ flex: "1 1 460px", minWidth: 0, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, overflow: "hidden" }}>
+            <div style={{ textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.serif, fontSize: 15, color: T.text }}>{dayTitle}</div>
+            <div className="jc-scroll" style={{ maxHeight: "64vh", overflowY: "auto" }}>
+              <div onClick={clickTimeline} style={{ position: "relative", height: hours.length * HPX, cursor: "copy" }}>
+                {/* Líneas y etiquetas cada 15 min (hora en punto marcada) */}
+                {(() => { const rows = []; for (let m = OPEN; m <= CLOSE; m += 15) rows.push(m); return rows.map(m => {
+                  const isHour = m % 60 === 0; const top = (m - OPEN) * HPX / 60;
+                  return (
+                    <div key={m} style={{ position: "absolute", left: 0, right: 0, top, height: 0, borderTop: "1px solid " + (isHour ? T.line : T.lineSoft) }}>
+                      <span style={{ position: "absolute", left: 10, top: -7, fontFamily: T.sans, fontSize: isHour ? 10.5 : 9, fontWeight: isHour ? 600 : 400, color: isHour ? T.textMute : T.textFaint }}>{hhmmOf(m)}</span>
+                    </div>
+                  );
+                }); })()}
+                {/* Slots libres: "+" clicable en cada hueco disponible (igual que la vista semanal) */}
+                {daySlots.map(s => (
+                  <button key={s.hhmm} className="jc-cell" onClick={e => { e.stopPropagation(); setNueva({ time: s.hhmm, day, fromSlot: true }); }} title={"Agendar " + s.hhmm}
+                    style={{ position: "absolute", left: 60, right: 8, top: s.top, height: s.h, background: "transparent", border: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }}>
+                    <span className="jc-cell-add" style={{ width: 16, height: 16, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                    </span>
+                  </button>
+                ))}
+                {/* Bloques de cita — una línea: nombre · servicio [inicial] … rango + duración */}
+                {listStacked.map(a => { const stt = jcmApptState(a, T); const ini = procInitial(a.proc); return (
+                  <div key={a.id} data-appt onClick={e => { e.stopPropagation(); setEdit(a); setEditOnly(null); }}
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: T.surface2 || T.surface, border: "1px solid " + stt.color + "44", borderLeft: "3px solid " + stt.color, borderRadius: 7, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                      <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                      {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {a.proc}</span>}
+                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: stt.color, background: stt.color + "22", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
+                      <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
+                    </div>
+                  </div>
+                ); })}
+                {showNow && (
+                  <div style={{ position: "absolute", left: 54, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" }}>
+                    <span style={{ position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" }} />
+                    <span style={{ position: "absolute", right: 4, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" }}>Ahora {fmtTime(now)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* ── Columna derecha: panel de información del día ── */}
+          {(() => {
+            const card = { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: 15 };
+            const secT = { fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 11 };
+            const navMini = { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, cursor: "pointer" };
+            const infoRow = (l, v) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{l}</span><span style={{ color: T.text, fontWeight: 600 }}>{v}</span></div>;
+            return (
+              <div style={{ flex: "0 0 320px", maxWidth: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Mini-calendario */}
+                <div style={card}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                    <button onClick={() => setMonthDate(new Date(miniY, miniMo - 1, 1))} style={navMini}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
+                    <span style={{ fontFamily: T.serif, fontSize: 14.5, color: T.text }}>{capS(MESES[miniMo])} {miniY}</span>
+                    <button onClick={() => setMonthDate(new Date(miniY, miniMo + 1, 1))} style={navMini}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 }}>
+                    {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map(w => <div key={w} style={{ textAlign: "center", fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, padding: "2px 0" }}>{w}</div>)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
+                    {miniCells.map((c, i) => { const sel = dayKeyOf(c.date) === dayKeyOf(dayDate); const isTd = dayKeyOf(c.date) === todayKey; return (
+                      <button key={i} onClick={() => setDay(offsetOfDate(c.date))} style={{ height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "none", cursor: "pointer", background: sel ? T.accent : "transparent", color: sel ? (T.onAccent || "#fff") : (c.inMonth ? T.text : T.textFaint), fontFamily: T.sans, fontSize: 12, fontWeight: (sel || isTd) ? 600 : 400, boxShadow: (!sel && isTd) ? "inset 0 0 0 1px " + T.accent : "none" }}>{c.date.getDate()}</button>
+                    ); })}
+                  </div>
+                  <button onClick={() => setDay(0)} style={{ width: "100%", marginTop: 12, padding: "9px", borderRadius: 9, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" }}>Ir a hoy</button>
                 </div>
-              </button>
-            ))}
-          </div>
-          <div onClick={clickTimeline} style={{ position: "relative", height: hours.length * HPX, borderTop: "1px solid " + T.line, cursor: "copy" }}>
-            {hours.map((h, i) => (
-              <div key={h} style={{ position: "absolute", top: i * HPX, left: 0, right: 0, height: HPX, borderBottom: "1px solid " + T.lineSoft }}>
-                <div style={{ position: "absolute", left: 0, top: -8, fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42 }}>{h}:00</div>
+                {/* Información del día */}
+                <div style={card}>
+                  <div style={secT}>Información del día</div>
+                  {infoRow("Citas", list.length)}
+                  {infoRow("Duración total", fmtDur(dayTotalMin))}
+                  {infoRow("Tiempo libre", fmtDur(dayFreeMin))}
+                </div>
+                {/* Duraciones disponibles */}
+                <div style={card}>
+                  <div style={secT}>Duraciones disponibles</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                    {[15, 30, 45, 60, 90].map(n => (
+                      <button key={n} onClick={() => setNueva({ time: dayFirstFree, day, dur: String(n), fromSlot: true })} style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>{n} min</button>
+                    ))}
+                  </div>
+                </div>
+                {/* Línea de tiempo */}
+                <div style={card}>
+                  <div style={secT}>Línea de tiempo</div>
+                  {infoRow("Primera cita", dayFirst ? dayFirst.time : "—")}
+                  {infoRow("Última cita", dayLast ? endOf(dayLast) : "—")}
+                </div>
               </div>
-            ))}
-            {/* Slots libres: "+" clicable en cada hueco disponible (igual que la vista semanal). */}
-            {daySlots.map(s => (
-              <button key={s.hhmm} className="jc-cell" onClick={e => { e.stopPropagation(); setNueva({ time: s.hhmm, day, fromSlot: true }); }} title={"Agendar " + s.hhmm}
-                style={{ position: "absolute", left: 48, right: 4, top: s.top, height: s.h, background: "transparent", border: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }}>
-                <span className="jc-cell-add" style={{ width: 16, height: 16, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                </span>
-              </button>
-            ))}
-            {listStacked.map(a => (
-              <div key={a.id} style={{ position: "absolute", left: 48, right: 4, top: a._top, height: a._h, overflow: "hidden", borderRadius: 6, zIndex: 2 }}
-                onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHoverA({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }}
-                onMouseLeave={() => setHoverA(null)}>
-                <ApptBlock T={T} a={a} compact={a._h < 46} onClick={(x) => { setHoverA(null); setEdit(x); setEditOnly(null); }} />
-              </div>
-            ))}
-            {showNow && (
-              <div style={{ position: "absolute", left: 42, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" }}>
-                <span style={{ position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" }} />
-                <span style={{ position: "absolute", right: 2, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" }}>Ahora {fmtTime(now)}</span>
-              </div>
-            )}
-          </div>
-          <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 }}>Toca un espacio libre para crear una cita · toca una cita para editarla.</p>
+            );
+          })()}
         </div>
       )}
 
