@@ -5330,6 +5330,7 @@ function CajaView({ T }) {
   const [periodo, setPeriodo] = useState("hoy"); // hoy | semana | mes
   const [payQ, setPayQ] = useState(""); // P12: buscador de pagos
   const [tratScope, setTratScope] = useState("mes"); // P12: ranking mensual | histórico (no diario)
+  const [showAllTrat, setShowAllTrat] = useState(false); // "Tratamientos que más venden": top 1 + expandir (ref.)
   const now = new Date();
   const hoyDay = _localDay(now);
   // Rango de la semana actual (lunes a domingo, en hora local).
@@ -5396,51 +5397,95 @@ function CajaView({ T }) {
   // En semana/mes, antepone la fecha (día/mes) a la hora para distinguir entre días.
   const cuando = m => (periodo !== "hoy" && m._day ? m._day.slice(8) + "/" + m._day.slice(5, 7) + " · " : "") + hora(m.ts);
   const chip = (k, l) => <button key={k} onClick={() => setPeriodo(k)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "7px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (periodo === k ? T.accent : T.line), background: periodo === k ? T.surface2 : T.surface, color: periodo === k ? T.text : T.textMute }}>{l}</button>;
+  // Día abierto/cerrado (mismo criterio que la Agenda): insignia junto a la fecha del encabezado.
+  const dayIsOpenVentas = (() => {
+    try { const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(now); if (av) return !!av.open; } catch (e) {}
+    return true;
+  })();
+  const margenPct = ingresos > 0 ? Math.round((neto / ingresos) * 100) : 0;
+  // Tarjetas KPI (glass translúcido, NO opaca el fondo): icono + número + sub-dato + barra de color abajo.
+  const kpiCardV = { ...(luxF ? DS.card(T) : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12 }), padding: "14px 16px", position: "relative", overflow: "hidden" };
+  const ventaKpis = [
+    { l: "Ingresos (bruto)", v: D.fmt(ingresos), sub: ventasCount + " venta" + (ventasCount === 1 ? "" : "s") + " " + subLbl, c: "#1F8A5B", icon: <path d="M3 17l6-6 4 4 8-8M21 7v6h-6" /> },
+    ...(adCost > 0 ? [{ l: "Publicidad", v: D.fmt(costoPub), sub: atenciones.length + " atención" + (atenciones.length === 1 ? "" : "es"), c: "#B8860B", icon: <path d="M3 11v2a1 1 0 0 0 1 1h3l4 4V6L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8M20.5 5a9 9 0 0 1 0 14" /> }] : []),
+    { l: "Egresos", v: D.fmt(egresos), sub: manuales.filter(m => m.type === "egreso").length + " movimiento" + (manuales.filter(m => m.type === "egreso").length === 1 ? "" : "s"), c: "#C0285A", icon: <path d="M17 7l-10 10M7 7h10v10" /> },
+    { l: adCost > 0 ? "Líquido (ganancia)" : "Neto (ganancia)", v: D.fmt(neto), sub: margenPct + "% margen neto", c: T.accent, icon: <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /> },
+  ];
 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-        <SecHead T={T} title="Registro de Ventas" sub={ventasCount + " venta" + (ventasCount === 1 ? "" : "s") + " " + periodoLbl} />
-        <div style={{ display: "flex", gap: 8 }}>
-          <AdBtn T={T} onClick={() => setCierre(true)}>Cierre del día</AdBtn>
+        <div>
+          <SecHead T={T} title="Registro de Ventas" sub={ventasCount + " venta" + (ventasCount === 1 ? "" : "s") + " " + periodoLbl} />
+          <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 6 }}>
+            <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute }}>{fechaTxt.charAt(0).toUpperCase() + fechaTxt.slice(1)}</span>
+            <span style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, padding: "3px 10px", borderRadius: 999, whiteSpace: "nowrap", color: dayIsOpenVentas ? "#16A34A" : "#C0285A", background: (dayIsOpenVentas ? "#16A34A" : "#C0285A") + "18" }}>{dayIsOpenVentas ? "Día abierto" : "Día cerrado"}</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={() => setCierre(true)} title="Cierre del día" style={{ width: 38, height: 38, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M9 14l2 2 4-4" /></svg>
+          </button>
           <AdBtn T={T} primary onClick={() => setMov(true)}>+ Movimiento</AdBtn>
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>{chip("hoy", "Hoy")}{chip("semana", "Esta semana")}{chip("mes", "Este mes")}</div>
-      <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Caja</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (adCost > 0 ? 4 : 3) + ",1fr)", gap: 10, marginBottom: 18 }}>
-        <CajaCard T={T} l="Ingresos (bruto)" v={D.fmt(ingresos)} c="#1F8A5B" />
-        {adCost > 0 && <CajaCard T={T} l="Publicidad" v={D.fmt(costoPub)} c="#B8860B" />}
-        <CajaCard T={T} l="Egresos" v={D.fmt(egresos)} c="#C0285A" />
-        <CajaCard T={T} l={adCost > 0 ? "Líquido (ganancia)" : "Neto (ganancia)"} v={D.fmt(neto)} c={T.accent} strong />
-      </div>
-      {/* Flujo de caja (6 meses) integrado en Registro de Ventas. */}
-      <FlujoCajaChart T={T} />
-      {/* Ranking de tratamientos que más venden: debajo del flujo/tráfico (a pedido). */}
-      <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px", marginBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Tratamientos que más venden · {tratScope === "mes" ? "este mes" : "histórico"}</div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {[["mes", "Este mes"], ["hist", "Histórico"]].map(([k, l]) => (
-              <button key={k} onClick={() => setTratScope(k)} style={{ fontFamily: T.sans, fontSize: 11, padding: "6px 12px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (tratScope === k ? T.accent : T.line), background: tratScope === k ? T.surface2 : T.surface, color: tratScope === k ? T.text : T.textMute }}>{l}</button>
-            ))}
-          </div>
-        </div>
-        {topTrat.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no hay ventas {tratScope === "mes" ? "este mes" : "registradas"}. Aparecerá cuando cobres atenciones desde la ficha del paciente.</div>}
-        {topTrat.map((t, i) => {
-          const max = topTrat[0].total || 1;
-          return (
-            <div key={t.name} style={{ padding: "9px 0", borderBottom: i === topTrat.length - 1 ? "none" : "1px solid " + T.lineSoft }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-                <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{t.name}</span>
-                <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap" }}>{t.n} venta{t.n === 1 ? "" : "s"} · <b style={{ color: "#1F8A5B" }}>{D.fmt(t.total)}</b></span>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 18 }}>
+        {ventaKpis.map(k => (
+          <div key={k.l} style={kpiCardV}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: k.c + "1c", color: k.c, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{k.icon}</svg>
               </div>
-              <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: Math.max(6, Math.round(t.total / max * 100)) + "%", background: T.accent, borderRadius: 999, ...(luxF ? DS.barGrow(i, "x") : {}) }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, whiteSpace: "nowrap" }}>{k.l}</div>
+                <div style={{ fontFamily: T.serif, fontSize: 21, color: T.text, lineHeight: 1.2 }}>{k.v}</div>
               </div>
             </div>
-          );
-        })}
+            <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 8 }}>{k.sub}</div>
+            <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: k.c }} />
+          </div>
+        ))}
+      </div>
+      {/* Flujo de caja + Tratamientos que más venden lado a lado (referencia): el gráfico se lleva
+          el espacio ancho y el ranking queda como tarjeta destacada compacta (top 1 + expandir). */}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(240px,1fr)", gap: 16, alignItems: "start", marginBottom: 2 }}>
+        <FlujoCajaChart T={T} />
+        <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>Tratamientos que más venden</div>
+            <select value={tratScope} onChange={e => setTratScope(e.target.value)} style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, background: "none", border: "1px solid " + T.line, borderRadius: 7, padding: "3px 6px" }}>
+              <option value="mes">Este mes</option>
+              <option value="hist">Histórico</option>
+            </select>
+          </div>
+          {topTrat.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Aún no hay ventas {tratScope === "mes" ? "este mes" : "registradas"}. Aparecerá cuando cobres atenciones desde la ficha del paciente.</div>}
+          {topTrat.slice(0, showAllTrat ? topTrat.length : 1).map((t, i) => {
+            const max = topTrat[0].total || 1;
+            return (
+              <div key={t.name} style={{ padding: "9px 0", borderBottom: i === (showAllTrat ? topTrat.length : 1) - 1 ? "none" : "1px solid " + T.lineSoft }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: "#1F8A5B1c", color: "#1F8A5B", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 10h18M8 4v4" /></svg>
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{t.n} venta{t.n === 1 ? "" : "s"}</div>
+                  </div>
+                  <div style={{ fontFamily: T.serif, fontSize: 15, color: "#1F8A5B", flexShrink: 0 }}>{D.fmt(t.total)}</div>
+                </div>
+                <div style={{ height: 5, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: Math.max(6, Math.round(t.total / max * 100)) + "%", background: T.accent, borderRadius: 999, ...(luxF ? DS.barGrow(i, "x") : {}) }} />
+                </div>
+              </div>
+            );
+          })}
+          {topTrat.length > 1 && (
+            <button onClick={() => setShowAllTrat(v => !v)} style={{ width: "100%", marginTop: 8, padding: "9px", borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>
+              {showAllTrat ? "Ver menos" : "Ver reporte completo"}
+            </button>
+          )}
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
         <div style={luxF ? { ...DS.card(T), padding: "18px 20px" } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "16px 18px" }}>

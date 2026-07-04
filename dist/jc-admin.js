@@ -648,7 +648,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null);
   const [movCaja, setMovCaja] = useState(false);
   const fmt = D && D.fmt ? D.fmt : (n) => "$" + (n || 0).toLocaleString("es-CL");
-  const lux = typeof isLosMedique === "function" && isLosMedique();
+  const lux = false;
   const navyAccent = lux ? T.dark ? "#7891A6" : "#5C7488" : T.accent;
   const hoy = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada");
   const ingresosHoy = typeof window.cashToday === "function" ? (window.cashToday() || []).filter((m) => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
@@ -2687,7 +2687,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         });
       }
       setFichaConfirm({ appt, patient: found || null });
-    } }) : view === "mes" ? /* @__PURE__ */ React.createElement(MonthGrid, { T, appts, monthDate, setMonthDate, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, onDay: (off) => {
+    } }) : view === "mes" ? /* @__PURE__ */ React.createElement(MonthGrid, { T, appts, monthDate, setMonthDate, setView, nuevaBtn: nuevaBtnNode, onDay: (off) => {
       setDay(off);
       setView("dia");
     } }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, alignItems: "stretch", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 460px", minWidth: 0, height: "72vh", display: "flex", flexDirection: "column", overflow: "hidden", ...dayGlass(16) } }, /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.textMute } }, typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview() ? dayHeaderInfo : dayTitle), /* @__PURE__ */ React.createElement("div", { ref: dayScrollRef, className: "jc-scroll", style: { flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "12px 0 10px" } }, /* @__PURE__ */ React.createElement("div", { onClick: clickTimeline, style: { position: "relative", height: hours.length * HPX, cursor: "copy" } }, (() => {
@@ -2949,7 +2949,8 @@ function ComentarioPopup({ T, appt, updateAppt, onClose }) {
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 94, background: "rgba(0,0,0,.38)" } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 95, width: 340, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 24px 60px -16px rgba(0,0,0,.6)", padding: "22px 20px 18px", animation: "jcFade .16s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, color: T.text, marginBottom: 4 } }, appt.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14 } }, appt.time, " \xB7 ", appt.proc || "Procedimiento"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Comentario"), /* @__PURE__ */ React.createElement("textarea", { value: txt, onChange: (e) => setTxt(e.target.value), placeholder: "Ej. Abona el d\xEDa de la atenci\xF3n", rows: 3, style: { width: "100%", boxSizing: "border-box", background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 11px", fontFamily: T.sans, fontSize: 13, color: T.text, resize: "vertical", outline: "none" }, autoFocus: true }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 12 } }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: { flex: 1, height: 36, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: save, style: { flex: 2, height: 36, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, cursor: "pointer" } }, "Guardar comentario"))));
 }
-function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nuevaBtn }) {
+function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn }) {
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const y = monthDate.getFullYear(), m = monthDate.getMonth();
   const first = new Date(y, m, 1);
   const startOff = (first.getDay() + 6) % 7;
@@ -2962,9 +2963,27 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nueva
   function offOf(d) {
     return Math.round((d.getTime() - today.getTime()) / 864e5);
   }
+  const team = (() => {
+    try {
+      var t = window.DB && DB.get("team");
+      if (Array.isArray(t) && t.length) return t;
+    } catch (e) {
+    }
+    return [];
+  })();
+  const multiProf = team.length >= 2;
+  const firstProf = team[0] ? team[0].name : "";
+  const [selProf, setSelProf] = useState(firstProf);
+  const [profOpen, setProfOpen] = useState(false);
+  const profMatch = (a) => !multiProf || ((a.prof || "").trim() ? (a.prof || "").trim() === selProf : selProf === firstProf);
+  const profIni = (nm) => (nm || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const selProfColor = (() => {
+    const t2 = team.find((x) => x.name === selProf);
+    return t2 && t2.color || T.accent;
+  })();
   const apptsByDay = {};
   (appts || []).forEach((a) => {
-    if (a.status === "anulada") return;
+    if (a.status === "anulada" || !profMatch(a)) return;
     const k = a.fecha;
     if (!k) return;
     (apptsByDay[k] = apptsByDay[k] || []).push(a);
@@ -2974,16 +2993,27 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nueva
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
   const monthLbl = monthDate.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
   const diasSemana = ["Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b", "Dom"];
-  const navBtn = { width: 30, height: 30, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(new Date(y, m - 1, 1)), style: navBtn, title: "Mes anterior" }, "\u2039"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.text, textTransform: "capitalize", minWidth: 140 } }, monthLbl), /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(new Date(y, m + 1, 1)), style: navBtn, title: "Mes siguiente" }, "\u203A"), viewToggle, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 8 } }), nuevaBtn), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, background: T.line, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" } }, diasSemana.map((d) => /* @__PURE__ */ React.createElement("div", { key: d, style: { background: T.surface2 || T.surface, padding: "8px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute } }, d)), cells.map((d, i) => {
-    if (!d) return /* @__PURE__ */ React.createElement("div", { key: i, style: { background: T.bg, minHeight: 92 } });
+  const todayCol = (today.getDay() + 6) % 7;
+  const isCurMonth = today.getFullYear() === y && today.getMonth() === m;
+  const ctlGlass = luxF ? { background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.5)" } : { background: T.surface };
+  const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...ctlGlass };
+  const tabBtn = (k, l) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setView(k), style: { height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + (k === "mes" ? "transparent" : T.line), background: k === "mes" ? T.text : ctlGlass.background, color: k === "mes" ? T.bg : T.textMute, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, cursor: "pointer" } }, l);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(new Date(y, m - 1, 1)), style: navBtn, title: "Mes anterior" }, "\u2039"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.text, textTransform: "capitalize", minWidth: 140 } }, monthLbl), /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(new Date(y, m + 1, 1)), style: navBtn, title: "Mes siguiente" }, "\u203A"), /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthDate(/* @__PURE__ */ new Date()), style: { ...navBtn, width: "auto", padding: "0 15px", fontSize: 12.5 } }, "Hoy"), tabBtn("dia", "D\xEDa"), tabBtn("semana", "Semana"), tabBtn("mes", "Mes"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 8 } }), multiProf && /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setProfOpen((o) => !o), title: "Ver agenda de un profesional", style: { display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 12px 0 5px", border: "1px solid " + T.line, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220, ...ctlGlass } }, /* @__PURE__ */ React.createElement("span", { style: { width: 24, height: 24, borderRadius: "50%", background: selProfColor + "22", color: selProfColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 } }, profIni(selProf)), /* @__PURE__ */ React.createElement("span", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, selProf || "Profesional"), /* @__PURE__ */ React.createElement("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), profOpen && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setProfOpen(false), style: { position: "fixed", inset: 0, zIndex: 60 } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 40, right: 0, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: "0 18px 44px -20px rgba(0,0,0,.55)", zIndex: 61, overflow: "hidden", padding: 4 } }, team.map((t2) => {
+    const on = t2.name === selProf;
+    const c = t2.color || T.accent;
+    return /* @__PURE__ */ React.createElement("button", { key: t2.id || t2.name, onClick: () => {
+      setSelProf(t2.name);
+      setProfOpen(false);
+    }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "9px 12px", background: on ? T.accent + "14" : "transparent", border: "none", borderRadius: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: on ? T.accent : T.text } }, /* @__PURE__ */ React.createElement("span", { style: { width: 22, height: 22, borderRadius: "50%", background: c + "22", color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, flexShrink: 0 } }, profIni(t2.name)), t2.name);
+  })))), nuevaBtn), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, background: T.lineSoft, border: "1px solid " + T.line, borderRadius: 12, overflow: "hidden" } }, diasSemana.map((d, i) => /* @__PURE__ */ React.createElement("div", { key: d, style: { background: T.bg, padding: "9px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: isCurMonth && i === todayCol ? T.accent : T.textMute } }, d)), cells.map((d, i) => {
+    if (!d) return /* @__PURE__ */ React.createElement("div", { key: i, style: { background: T.bg, minHeight: 100 } });
     const iso = toISO(d);
     const list = apptsByDay[iso] || [];
     const isToday = iso === toISO(today);
     const ordered = list.slice().sort((x, y2) => (x.time || "").localeCompare(y2.time || ""));
-    return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => onDay(offOf(d)), style: { textAlign: "left", background: T.surface, minHeight: 92, padding: "6px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accentSoft || "transparent" : "transparent" } }, d.getDate()), ordered.slice(0, 3).map((a, idx) => {
+    return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => onDay(offOf(d)), style: { textAlign: "left", background: isToday ? T.accent + "0d" : T.bg, minHeight: 100, padding: "7px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "22" : "transparent" } }, d.getDate()), ordered.slice(0, 3).map((a, idx) => {
       const c = window.jcmApptState ? window.jcmApptState(a, T).color : T.accent;
-      return /* @__PURE__ */ React.createElement("span", { key: idx, title: (a.time ? a.time + " \xB7 " : "") + (a.name || "Cita") + (a.proc ? " \xB7 " + a.proc : ""), style: { display: "flex", alignItems: "center", background: c + (T.dark ? "2e" : "20"), borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time ? a.time + " " : "", a.name || "Cita");
+      return /* @__PURE__ */ React.createElement("span", { key: idx, title: (a.time ? a.time + " \xB7 " : "") + (a.name || "Cita") + (a.proc ? " \xB7 " + a.proc : ""), style: { display: "flex", alignItems: "center", background: c + (T.dark ? "22" : "18"), borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time ? a.time + " " : "", a.name || "Cita");
     }), ordered.length > 3 && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, color: T.accent, paddingLeft: 3 } }, "+", ordered.length - 3, " m\xE1s"));
   })));
 }
@@ -3001,7 +3031,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const hideT = useRef(null);
   const showT = useRef(null);
   const v2 = true;
-  const wkSidebar = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
+  const wkSidebar = false;
   const activeAppt = menu ? appts.find((a) => a.id === menu) : null;
   const team = (() => {
     try {

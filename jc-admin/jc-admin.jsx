@@ -576,8 +576,11 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
   const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
-  // "lux" = rediseño editorial del dashboard, gateado a Los Medique (preview antes del push global).
-  const lux = typeof isLosMedique === "function" && isLosMedique();
+  // Dashboard vuelve al diseño ORIGINAL (pedido explícito del usuario, 4-jul-2026): aunque
+  // isLosMedique()/jcdsLux() esté en push global para el resto del panel (Agenda, Ficha, etc.),
+  // el Dashboard usa su propio flag fijo en false. No reactivar el rediseño lux aquí sin que el
+  // usuario lo pida directamente.
+  const lux = false;
   // Acento neutro (pedido explícito): el celeste vivo del tema "azul" (navyAccent) se sentía muy
   // saturado en la pastilla activa y las barras del embudo. Un slate-azulado apagado (misma
   // familia que el panel navy "Facturaste este mes", no el texto celeste de esa tarjeta).
@@ -3071,7 +3074,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           setFichaConfirm({ appt, patient: found || null });
         }} />
       ) : view === "mes" ? (
-        <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
+        <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} setView={setView} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
       ) : (
         <div style={{ display: "flex", gap: 16, alignItems: "stretch", flexWrap: "wrap" }}>
           {/* ── Columna izquierda: timeline del día ── (misma altura que el panel lateral: cabecera
@@ -3456,7 +3459,8 @@ function ComentarioPopup({ T, appt, updateAppt, onClose }) {
 }
 // Vista mensual de la agenda (día / semana / mes). Cada celda muestra el número de citas del día
 // y hasta 3 nombres; clic en un día abre la vista "día" para esa fecha.
-function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nuevaBtn }) {
+function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, setView, nuevaBtn }) {
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const y = monthDate.getFullYear(), m = monthDate.getMonth();
   const first = new Date(y, m, 1);
   const startOff = (first.getDay() + 6) % 7; // lunes = 0
@@ -3464,39 +3468,74 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, nueva
   const today = new Date(); today.setHours(0, 0, 0, 0);
   function toISO(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
   function offOf(d) { return Math.round((d.getTime() - today.getTime()) / 86400000); }
+  // Profesional (mismo criterio auto-contenido que día/semana): solo se filtra si hay 2+ en el equipo.
+  const team = (() => { try { var t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {} return []; })();
+  const multiProf = team.length >= 2;
+  const firstProf = team[0] ? team[0].name : "";
+  const [selProf, setSelProf] = useState(firstProf);
+  const [profOpen, setProfOpen] = useState(false);
+  const profMatch = a => !multiProf || ((a.prof || "").trim() ? (a.prof || "").trim() === selProf : selProf === firstProf);
+  const profIni = nm => (nm || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const selProfColor = (() => { const t2 = team.find(x => x.name === selProf); return (t2 && t2.color) || T.accent; })();
   const apptsByDay = {};
-  (appts || []).forEach(a => { if (a.status === "anulada") return; const k = a.fecha; if (!k) return; (apptsByDay[k] = apptsByDay[k] || []).push(a); });
+  (appts || []).forEach(a => { if (a.status === "anulada" || !profMatch(a)) return; const k = a.fecha; if (!k) return; (apptsByDay[k] = apptsByDay[k] || []).push(a); });
   const cells = [];
   for (let i = 0; i < startOff; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
   const monthLbl = monthDate.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
   const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-  const navBtn = { width: 30, height: 30, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
+  const todayCol = (today.getDay() + 6) % 7;
+  const isCurMonth = today.getFullYear() === y && today.getMonth() === m;
+  const ctlGlass = luxF ? { background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.5)" } : { background: T.surface };
+  const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...ctlGlass };
+  const tabBtn = (k, l) => <button key={k} onClick={() => setView(k)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + (k === "mes" ? "transparent" : T.line), background: k === "mes" ? T.text : (ctlGlass.background), color: k === "mes" ? T.bg : T.textMute, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, cursor: "pointer" }}>{l}</button>;
   return (
     <div>
-      {/* Mismo orden que semana/día: navegación + selector de vista a la IZQUIERDA, acciones a la
-          derecha (armonía del sistema — el toggle no se desplaza al cambiar de vista). */}
+      {/* Mismo lenguaje que semana/día: navegación + tabs de texto a la IZQUIERDA, profesional +
+          "Nueva cita" a la DERECHA. Grilla sin fondo opaco (glass): la foto de fondo se transparenta
+          igual que en el resto de la agenda — solo las líneas divisorias y los chips de cita tienen color. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <button onClick={() => setMonthDate(new Date(y, m - 1, 1))} style={navBtn} title="Mes anterior">‹</button>
         <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, textTransform: "capitalize", minWidth: 140 }}>{monthLbl}</div>
         <button onClick={() => setMonthDate(new Date(y, m + 1, 1))} style={navBtn} title="Mes siguiente">›</button>
-        {viewToggle}
+        <button onClick={() => setMonthDate(new Date())} style={{ ...navBtn, width: "auto", padding: "0 15px", fontSize: 12.5 }}>Hoy</button>
+        {tabBtn("dia", "Día")}{tabBtn("semana", "Semana")}{tabBtn("mes", "Mes")}
         <div style={{ flex: 1, minWidth: 8 }} />
+        {multiProf && (
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setProfOpen(o => !o)} title="Ver agenda de un profesional" style={{ display: "flex", alignItems: "center", gap: 8, height: 34, padding: "0 12px 0 5px", border: "1px solid " + T.line, borderRadius: 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220, ...ctlGlass }}>
+              <span style={{ width: 24, height: 24, borderRadius: "50%", background: selProfColor + "22", color: selProfColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{profIni(selProf)}</span>
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selProf || "Profesional"}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 9l6 6 6-6" /></svg>
+            </button>
+            {profOpen && (<React.Fragment>
+              <div onClick={() => setProfOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
+              <div style={{ position: "absolute", top: 40, right: 0, minWidth: 210, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: "0 18px 44px -20px rgba(0,0,0,.55)", zIndex: 61, overflow: "hidden", padding: 4 }}>
+                {team.map(t2 => { const on = t2.name === selProf; const c = t2.color || T.accent; return (
+                  <button key={t2.id || t2.name} onClick={() => { setSelProf(t2.name); setProfOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "9px 12px", background: on ? T.accent + "14" : "transparent", border: "none", borderRadius: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: on ? T.accent : T.text }}>
+                    <span style={{ width: 22, height: 22, borderRadius: "50%", background: c + "22", color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, flexShrink: 0 }}>{profIni(t2.name)}</span>
+                    {t2.name}
+                  </button>
+                ); })}
+              </div>
+            </React.Fragment>)}
+          </div>
+        )}
         {nuevaBtn}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, background: T.line, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" }}>
-        {diasSemana.map(d => <div key={d} style={{ background: T.surface2 || T.surface, padding: "8px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute }}>{d}</div>)}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, background: T.lineSoft, border: "1px solid " + T.line, borderRadius: 12, overflow: "hidden" }}>
+        {diasSemana.map((d, i) => <div key={d} style={{ background: T.bg, padding: "9px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: (isCurMonth && i === todayCol) ? T.accent : T.textMute }}>{d}</div>)}
         {cells.map((d, i) => {
-          if (!d) return <div key={i} style={{ background: T.bg, minHeight: 92 }} />;
+          if (!d) return <div key={i} style={{ background: T.bg, minHeight: 100 }} />;
           const iso = toISO(d);
           const list = apptsByDay[iso] || [];
           const isToday = iso === toISO(today);
           const ordered = list.slice().sort((x, y) => (x.time || "").localeCompare(y.time || ""));
           return (
-            <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: T.surface, minHeight: 92, padding: "6px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
-              <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? (T.accentSoft || "transparent") : "transparent" }}>{d.getDate()}</span>
+            <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: isToday ? T.accent + "0d" : T.bg, minHeight: 100, padding: "7px 7px", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
+              <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "22" : "transparent" }}>{d.getDate()}</span>
               {ordered.slice(0, 3).map((a, idx) => { const c = window.jcmApptState ? window.jcmApptState(a, T).color : T.accent; return (
-                <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", background: c + (T.dark ? "2e" : "20"), borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", background: c + (T.dark ? "22" : "18"), borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {a.time ? a.time + " " : ""}{a.name || "Cita"}
                 </span>
               ); })}
@@ -3527,10 +3566,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   // tarjeta hover con acciones. La única diferencia por clínica es la granularidad de la
   // agenda (15 min en JC Medical / 30 min en clínicas cliente), que la maneja adminSlotMins().
   const v2 = true;
-  // Sidebar de la semana (mini-calendario + Resumen del día), estilo de la referencia del usuario.
-  // Las TARJETAS de cita NO cambian: se mantiene el estilo "barra Medilink" actual (pedido explícito).
-  // En preview de "medique admin" (incluye JC Medical con pacientes reales) antes del global.
-  const wkSidebar = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
+  // Sidebar de la semana (mini-calendario + Resumen del día): quitado a pedido explícito del
+  // usuario (4-jul-2026) — la vista semanal deja solo el calendario a ancho completo.
+  const wkSidebar = false;
   const activeAppt = menu ? appts.find(a => a.id === menu) : null;
   // Equipo de la clínica → desplegable de profesional (ver una agenda a la vez, sin "Todos").
   const team = (() => { try { var t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {} try { if (window.CADMIN && Array.isArray(CADMIN.team) && CADMIN.team.length) return CADMIN.team; } catch (e) {} return []; })();
