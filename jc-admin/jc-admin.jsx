@@ -1876,6 +1876,51 @@ function AdminApp() {
     SIDE_ACT = T.dark ? "rgba(239,234,224,.10)" : (T.accentSoft || "rgba(84,112,127,.12)");
   const SIDE_GLASS = shellLux ? { backdropFilter: window.JCDS.glassBlur.panel, WebkitBackdropFilter: window.JCDS.glassBlur.panel } : {};
   const SIDE_LOGO = "/assets/medique-logo.png";
+  // Fusionar el buscador + la barra de navegación horizontal + el perfil en UNA sola fila (en vez de
+  // dos filas separadas), para reducir el espacio superior sin usar — a pedido del usuario. Se arma
+  // el contenido de la barra de navegación una sola vez (navBarInner) para poder ubicarlo en la fila
+  // fusionada o en su fila propia según headerMerge, sin duplicar el JSX.
+  const headerMerge = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
+  const navBarInner = (() => {
+    const items = adminNavItems(); const byKey = {}; items.forEach(n => { byKey[n.k] = n.l; });
+    const seg = shellLux;
+    const segActive = seg ? (T.dark ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.92)") : null;
+    const segTx = seg ? (T.dark ? "#F2EDE6" : T.accent) : null;
+    const segMute = seg ? (T.dark ? "rgba(239,234,224,.60)" : T.textMute) : null;
+    const btnStyle = active => seg
+      ? { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 15px", borderRadius: 11, cursor: "pointer", border: "none", background: active ? segActive : "none", boxShadow: active ? "0 1px 3px rgba(0,0,0,.18)" : "none", color: active ? segTx : segMute, fontFamily: T.sans, fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .18s " + T.ease }
+      : { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease };
+    // Pestañas fijas (acceso rápido) primero.
+    const pins = NAV_PINNED.filter(k => byKey[k]).map(k => {
+      const active = section === k;
+      return (
+        <button key={"pin-" + k} onClick={() => nav(k)} style={btnStyle(active)}>
+          {k === "pendientes" && pendCount > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? (seg ? "#C0285A" : (T.onAccent || "#fff")) : "#C0285A" }} />}
+          {byKey[k]}
+        </button>
+      );
+    });
+    // Grupos desplegables con el resto (sin las fijas).
+    const grps = NAV_TOP_GROUPS.map(g => {
+      const keys = g.keys.filter(k => byKey[k] && NAV_PINNED.indexOf(k) < 0); if (!keys.length) return null;
+      const activeInGroup = keys.indexOf(section) >= 0;
+      const st = btnStyle(activeInGroup); st.gap = 7;
+      return (
+        <button key={g.l} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const MENU_W = 210; const rightAlign = r.left + MENU_W > window.innerWidth - 8; setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, right: rightAlign ? Math.max(8, window.innerWidth - r.right) : null, y: r.bottom + 5, keys: keys, byKey: byKey }); }}
+          style={st}>
+          {activeInGroup ? g.l + " · " + byKey[section] : g.l}
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+      );
+    });
+    const divider = <span key="nav-div" style={{ flexShrink: 0, width: 1, alignSelf: "stretch", background: seg ? (T.dark ? "rgba(255,255,255,.12)" : "rgba(20,20,15,.12)") : T.line, margin: "3px 5px" }} />;
+    const content = pins.concat(divider).concat(grps);
+    if (!seg) return content;
+    // Contenedor segmented glass (estilo Ficha): una sola pastilla redondeada translúcida.
+    // `margin:0 auto` la centra en la página cuando hay espacio y la deja scrolleable desde el
+    // inicio si llegara a desbordar (evita el bug de justify-content:center + overflow).
+    return <div style={{ display: "inline-flex", alignItems: "center", gap: 3, margin: headerMerge ? "0" : "0 auto", background: T.dark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.5)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.62)"), borderRadius: 16, padding: 4, backdropFilter: window.JCDS.glassBlur.panel, WebkitBackdropFilter: window.JCDS.glassBlur.panel, boxShadow: "0 8px 24px -14px rgba(0,0,0,.5)" }}>{content}</div>;
+  })();
   return (
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
       <div className="jc-admin-frame" style={{ ...(everestBg ? { backgroundImage: everestBg, backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" } : { background: T.bg }), boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" }}>
@@ -1925,10 +1970,17 @@ function AdminApp() {
 
         {/* MAIN */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: shellLux ? "12px 18px 6px" : "13px 18px 10px", borderBottom: "1px solid " + (shellLux ? "transparent" : T.line), background: shellLux ? "transparent" : T.navBg, backdropFilter: shellLux ? "none" : "blur(16px)", WebkitBackdropFilter: shellLux ? "none" : "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" }}>
-            {/* Izquierda: solo el buscador de pacientes (nombre, RUT, teléfono o correo) */}
-            <PatientSearch T={T} patients={patients} compact={shellLux} onOpen={(id) => { setOpenPatient(id); setSection("pacientes"); }} />
-            <div style={{ flex: 1 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: shellLux ? (headerMerge ? "10px 18px" : "12px 18px 6px") : "13px 18px 10px", borderBottom: "1px solid " + ((shellLux && !headerMerge) ? "transparent" : T.line), background: shellLux ? "transparent" : T.navBg, backdropFilter: shellLux ? "none" : "blur(16px)", WebkitBackdropFilter: shellLux ? "none" : "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" }}>
+            {/* Izquierda: solo el buscador de pacientes (nombre, RUT, teléfono o correo).
+                Fusionado (headerMerge): más chico, ancho fijo, para dejar sitio a la barra de navegación. */}
+            <div style={headerMerge ? { flexShrink: 0, width: 170 } : undefined}>
+              <PatientSearch T={T} patients={patients} compact={shellLux} onOpen={(id) => { setOpenPatient(id); setSection("pacientes"); }} />
+            </div>
+            {/* Fusionada: la barra de navegación horizontal ocupa el espacio central de ESTA fila
+                (en vez de tener su propia fila abajo), para reducir el espacio superior sin usar. */}
+            {headerMerge
+              ? <div className="jc-scroll" style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, overflowX: "auto" }}>{navBarInner}</div>
+              : <div style={{ flex: 1 }} />}
             {/* Derecha: dropdown de perfil */}
             <div ref={profileRef} style={{ position: "relative" }}>
               <button onClick={() => setProfileOpen(o => !o)} style={{ display: "flex", alignItems: "center", gap: 9, background: profileOpen ? (T.chipBg || "rgba(0,0,0,.06)") : "none", border: "1px solid " + (profileOpen ? T.chipBorder : "transparent"), cursor: "pointer", padding: "5px 10px 5px 6px", borderRadius: 10, transition: "all .15s" }}>
@@ -1988,49 +2040,14 @@ function AdminApp() {
             </button>
           </div>
 
-          {/* barra dashboard horizontal · grupos desplegables (F8) · en lux: segmented glass (estilo Ficha) */}
-          <div className="jc-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", padding: shellLux ? "12px 16px" : "7px 16px", borderBottom: shellLux ? "none" : "1px solid " + T.line, background: shellLux ? "transparent" : T.navBg, position: "relative", zIndex: 5, flexShrink: 0 }}>
-            {(() => {
-              const items = adminNavItems(); const byKey = {}; items.forEach(n => { byKey[n.k] = n.l; });
-              const seg = shellLux;
-              const segActive = seg ? (T.dark ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.92)") : null;
-              const segTx = seg ? (T.dark ? "#F2EDE6" : T.accent) : null;
-              const segMute = seg ? (T.dark ? "rgba(239,234,224,.60)" : T.textMute) : null;
-              const btnStyle = active => seg
-                ? { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 15px", borderRadius: 11, cursor: "pointer", border: "none", background: active ? segActive : "none", boxShadow: active ? "0 1px 3px rgba(0,0,0,.18)" : "none", color: active ? segTx : segMute, fontFamily: T.sans, fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .18s " + T.ease }
-                : { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? (T.onAccent || "#fff") : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease };
-              // Pestañas fijas (acceso rápido) primero.
-              const pins = NAV_PINNED.filter(k => byKey[k]).map(k => {
-                const active = section === k;
-                return (
-                  <button key={"pin-" + k} onClick={() => nav(k)} style={btnStyle(active)}>
-                    {k === "pendientes" && pendCount > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? (seg ? "#C0285A" : (T.onAccent || "#fff")) : "#C0285A" }} />}
-                    {byKey[k]}
-                  </button>
-                );
-              });
-              // Grupos desplegables con el resto (sin las fijas).
-              const grps = NAV_TOP_GROUPS.map(g => {
-                const keys = g.keys.filter(k => byKey[k] && NAV_PINNED.indexOf(k) < 0); if (!keys.length) return null;
-                const activeInGroup = keys.indexOf(section) >= 0;
-                const st = btnStyle(activeInGroup); st.gap = 7;
-                return (
-                  <button key={g.l} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const MENU_W = 210; const rightAlign = r.left + MENU_W > window.innerWidth - 8; setTopGrp(topGrp && topGrp.l === g.l ? null : { l: g.l, x: r.left, right: rightAlign ? Math.max(8, window.innerWidth - r.right) : null, y: r.bottom + 5, keys: keys, byKey: byKey }); }}
-                    style={st}>
-                    {activeInGroup ? g.l + " · " + byKey[section] : g.l}
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>
-                  </button>
-                );
-              });
-              const divider = <span key="nav-div" style={{ flexShrink: 0, width: 1, alignSelf: "stretch", background: seg ? (T.dark ? "rgba(255,255,255,.12)" : "rgba(20,20,15,.12)") : T.line, margin: "3px 5px" }} />;
-              const content = pins.concat(divider).concat(grps);
-              if (!seg) return content;
-              // Contenedor segmented glass (estilo Ficha): una sola pastilla redondeada translúcida.
-              // `margin:0 auto` la centra en la página cuando hay espacio y la deja scrolleable desde el
-              // inicio si llegara a desbordar (evita el bug de justify-content:center + overflow).
-              return <div style={{ display: "inline-flex", alignItems: "center", gap: 3, margin: "0 auto", background: T.dark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.5)", border: "1px solid " + (T.dark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.62)"), borderRadius: 16, padding: 4, backdropFilter: window.JCDS.glassBlur.panel, WebkitBackdropFilter: window.JCDS.glassBlur.panel, boxShadow: "0 8px 24px -14px rgba(0,0,0,.5)" }}>{content}</div>;
-            })()}
-          </div>
+          {/* barra dashboard horizontal · grupos desplegables (F8) · en lux: segmented glass (estilo Ficha).
+              Si headerMerge, esta fila propia NO se dibuja: el mismo contenido (navBarInner) ya se ubicó
+              arriba, fusionado con el buscador y el perfil. */}
+          {!headerMerge && (
+            <div className="jc-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", padding: shellLux ? "12px 16px" : "7px 16px", borderBottom: shellLux ? "none" : "1px solid " + T.line, background: shellLux ? "transparent" : T.navBg, position: "relative", zIndex: 5, flexShrink: 0 }}>
+              {navBarInner}
+            </div>
+          )}
           {topGrp && (<>
             <div onClick={() => setTopGrp(null)} style={{ position: "fixed", inset: 0, zIndex: 50 }} />
             <div className="jc-scroll" style={{ position: "fixed", top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto", ...(topGrp.right != null ? { right: topGrp.right } : { left: topGrp.x }) }}>
@@ -2934,16 +2951,30 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           Scrim de legibilidad (design audit 7.4): el texto flota sobre la foto everest; un halo
           suave (oscuro en dark / claro en light) garantiza contraste aunque detrás caiga una zona
           clara u oscura de la montaña, sin agregar una caja opaca que rompa el look editorial. */}
-      {luxF && view !== "dia" && (() => { const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)"; return (
-        <div style={{ margin: "0 0 12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: T.sans, fontSize: 9, letterSpacing: ".26em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>
-            <span style={{ display: "inline-block", width: 22, height: 1, background: T.gold || T.accent }} />
-            Agenda de la clínica
+      {luxF && view !== "dia" && (() => {
+        const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)";
+        const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length;
+        // Compacto (ref. del usuario): título + insignia "N citas hoy" en una sola línea, en vez del
+        // bloque de 3 líneas (eyebrow + título + subtítulo) que ocupaba espacio de más arriba de la barra.
+        if (typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview()) {
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 12px" }}>
+              <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: 20, letterSpacing: "-.01em", color: T.text, margin: 0, lineHeight: 1, textShadow: heroShadow }}>Agenda</h1>
+              <span style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.accent, background: T.accent + "18", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap" }}>{n} cita{n === 1 ? "" : "s"} hoy</span>
+            </div>
+          );
+        }
+        return (
+          <div style={{ margin: "0 0 12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: T.sans, fontSize: 9, letterSpacing: ".26em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>
+              <span style={{ display: "inline-block", width: 22, height: 1, background: T.gold || T.accent }} />
+              Agenda de la clínica
+            </div>
+            <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(19px, 2vw, 23px)", letterSpacing: "-.01em", color: T.text, margin: "5px 0 0", lineHeight: 1.05, textShadow: heroShadow }}>Reservas y Citas</h1>
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 4, textShadow: heroShadow }}>{n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
           </div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(19px, 2vw, 23px)", letterSpacing: "-.01em", color: T.text, margin: "5px 0 0", lineHeight: 1.05, textShadow: heroShadow }}>Reservas y Citas</h1>
-          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 4, textShadow: heroShadow }}>{(() => { const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length; return n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."; })()} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
-        </div>
-      ); })()}
+        );
+      })()}
       {/* Cabecera grande: solo en clínicas que NO son la base (v2 la colapsa a una línea en SemanaGrid). */}
       {!isBase && (
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
