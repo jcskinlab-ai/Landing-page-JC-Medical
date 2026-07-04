@@ -2743,6 +2743,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [toast, setToast] = useState(null);
   const dayScrollRef = useRef(null); // vista diaria: auto-scroll a la primera cita del día
   const [hoverA, setHoverA] = useState(null); // { a, x, y } · vista previa al pasar el cursor (vista día/lista)
+  const dayShowT = useRef(null); const dayHideT = useRef(null); // retardo mostrar/ocultar la tarjeta (vista día)
+  const [editComD, setEditComD] = useState(null); // appt para popup de comentario (vista día)
+  const [cancelArmD, setCancelArmD] = useState(null); // id de cita "armada": pide 2º click para cancelar (vista día)
   const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
   const [selProf, setSelProf] = useState(""); // profesional filtrado en la vista diaria (vacío = el primero)
   const [dayProfOpen, setDayProfOpen] = useState(false);
@@ -2875,6 +2878,16 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   }
   function onCreate(a) {
     addAppt(a);
+  }
+  // "Ficha" desde la tarjeta de acciones rápidas (vista día): mismo criterio de búsqueda
+  // (por teléfono, si no por nombre) que ya usa la vista semana.
+  function verFichaDaily(appt) {
+    const clean = s => (s || "").replace(/\D/g, "");
+    const ap = clean(appt.phone || "");
+    let found = null;
+    if (ap.length >= 8) found = (patients || []).find(x => { const xp = clean(x.phone || ""); return xp.length >= 8 && (xp.slice(-8) === ap.slice(-8)); });
+    if (!found) { const an = (appt.name || "").toLowerCase().trim(); found = (patients || []).find(x => { const xn = (x.name || "").toLowerCase(); return xn === an || (an.length >= 4 && (xn.startsWith(an.split(" ")[0]) || an.startsWith(xn.split(" ")[0]))); }); }
+    setFichaConfirm({ appt, patient: found || null });
   }
   const tabBtn = (k, l) => <button onClick={() => setView(k)} style={{ flex: 1, fontFamily: T.sans, fontSize: 11, fontWeight: 500, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 7, cursor: "pointer", background: view === k ? T.text : "transparent", color: view === k ? T.bg : T.textMute, border: "none" }}>{l}</button>;
 
@@ -3032,6 +3045,18 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                 {/* Bloques de cita — una línea: nombre · servicio [inicial] … rango + duración */}
                 {listStacked.map(a => { const stt = jcmApptState(a, T); const ini = procInitial(a.proc); return (
                   <div key={a.id} data-appt onClick={e => { e.stopPropagation(); setEdit(a); setEditOnly(null); }}
+                    onMouseEnter={e => {
+                      if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
+                      if (dayHideT.current) clearTimeout(dayHideT.current);
+                      if (dayShowT.current) clearTimeout(dayShowT.current);
+                      const el = e.currentTarget;
+                      dayShowT.current = setTimeout(() => {
+                        const r = el.getBoundingClientRect();
+                        let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288;
+                        setHoverA({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 380) });
+                      }, 200);
+                    }}
+                    onMouseLeave={() => { if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } if (dayHideT.current) clearTimeout(dayHideT.current); dayHideT.current = setTimeout(() => setHoverA(null), 160); }}
                     style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: stt.color + (T.dark ? "22" : "18"), ...daySmallBlur, border: "1px solid " + stt.color + "33", borderLeft: "3px solid " + stt.color, borderRadius: 8, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                       <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
@@ -3172,22 +3197,66 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           </div>
         </div>
       )}
-      {/* Vista previa momentánea al pasar el cursor sobre una cita (vista día/lista) */}
+      {/* Tarjeta de acciones rápidas al pasar el cursor sobre una cita (vista día) — mismo diseño y
+          botones que ya tiene la vista semana (avatar + estado + tabla + Ficha/Confirmar/Atendido/
+          No asistió/Cancelar/Comentario), a pedido del usuario para tener paridad entre ambas vistas. */}
       {hoverA && hoverA.a && !edit && (() => {
         const a = hoverA.a, isPP = a.status === "pendiente_pago";
         const _hs2 = jcmApptState(a, T); const ac = _hs2.color, estado = _hs2.label;
+        const ini = (a.name || "").split(" ").slice(0, 2).map(w => (w[0] || "")).join("").toUpperCase();
+        const rows = [["Hora", a.time], ["Duración", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "—"], ["Estado", estado, ac]];
+        if ((a.prof || "").trim()) rows.push(["Profesional", a.prof, (dayTeam.find(x => x.name === a.prof) || {}).color || T.accent]);
         return (
-          <div style={{ position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
-            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
-            {[["Hora", a.time], ["Duración", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "—"], ["Estado", estado]].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 }}>
-                <span style={{ color: T.textMute }}>{k}</span>
-                <span style={{ color: T.text, fontWeight: 500, textAlign: "right" }}>{v}</span>
+          <div onMouseEnter={() => { if (dayHideT.current) clearTimeout(dayHideT.current); }} onMouseLeave={() => setHoverA(null)}
+            style={{ position: "fixed", left: hoverA.x, top: hoverA.y, zIndex: 90, width: 280, background: T.bg, border: "1px solid " + T.line, borderRadius: luxF ? DS.r.panel : 12, boxShadow: "0 20px 50px -16px rgba(0,0,0,.55)", overflow: "hidden", animation: "jcFade .14s ease" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 15px 11px", borderBottom: "1px solid " + T.lineSoft }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: ac, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>{ini}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: T.serif, fontSize: 16, color: T.text, lineHeight: 1.15 }}>{a.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: ac, marginTop: 3 }}>{estado}</div>
               </div>
-            ))}
+            </div>
+            <div style={{ padding: "6px 15px 11px" }}>
+              {rows.map(([k, v, c], i) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid " + T.lineSoft : "none" }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, flexShrink: 0 }}>{k}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: c || T.text, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            {a.comentario && <div style={{ padding: "0 15px 11px" }}><div style={{ padding: "9px 11px", background: T.surface, borderRadius: 8, fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.comentario}</div></div>}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "0 15px 13px" }}>
+              {(() => {
+                const isConf = a.status === "confirmada";
+                const confirmarAsist = () => { const ph = (a.phone || "").replace(/\D/g, ""); if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmConfirmAsistMsg(a)), "_blank", "noopener"); else window.jcmToast && window.jcmToast("Este paciente no tiene teléfono registrado.", "info"); };
+                return [
+                  ["Ficha",      () => { verFichaDaily(a); },                                                              T.textMute, ""],
+                  [isConf ? "Confirmada ✓" : "Confirmar", () => updateAppt(a.id, { status: isConf ? "pendiente" : "confirmada", attended: false }), "#16A34A", isConf ? "green" : ""],
+                  ["Confirmar asist.", confirmarAsist,                                                                     "#1F8A5B",  ""],
+                  ["Atendido",   () => updateAppt(a.id, { status: "atendida",   attended: true }),                        "#C9A227",  ""],
+                  ["No asistió", () => updateAppt(a.id, { status: "no_asistio", attended: false }),                       "#C0285A",  ""],
+                  ["Cancelar",   () => { updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(a); }, "#C0285A",  "red"],
+                  ["Comentario", () => { setEditComD(a); },                                                                T.textMute, ""]
+                ].map(([lbl, fn, col, st]) => {
+                  const isCancel = lbl === "Cancelar";
+                  const armed = isCancel && cancelArmD === a.id;
+                  const filledRed = st === "red" || armed, filledGreen = st === "green";
+                  const bg = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.surface;
+                  const brd = filledRed ? "#C0285A" : filledGreen ? "#16A34A" : T.line;
+                  const fg = (filledRed || filledGreen) ? "#fff" : col;
+                  const onClk = () => {
+                    if (isCancel && !armed) { setCancelArmD(a.id); setTimeout(() => setCancelArmD(c => c === a.id ? null : c), 3500); return; }
+                    if (isCancel) setCancelArmD(null);
+                    fn(); if (lbl !== "Confirmar asist.") setHoverA(null);
+                  };
+                  return <button key={lbl} onClick={onClk} title={armed ? "Toca de nuevo para cancelar la cita" : ""} style={{ height: 30, borderRadius: 7, border: "1px solid " + brd, background: bg, color: fg, fontFamily: T.sans, fontSize: 10.5, fontWeight: (filledRed || filledGreen) ? 600 : 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px" }}>{armed ? "¿Seguro? Sí" : lbl}</button>;
+                });
+              })()}
+            </div>
           </div>
         );
       })()}
+      {editComD && <ComentarioPopup T={T} appt={editComD} updateAppt={updateAppt} onClose={() => setEditComD(null)} />}
     </div>
   );
 }
