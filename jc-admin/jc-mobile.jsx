@@ -47,12 +47,14 @@ const STATUS_STEPS = [
   { key: "no_asistio",  label: "No asistió" },
   { key: "anulada",     label: "Cancelar" }
 ];
+// Colores de estado tonificados para leer sobre la foto OSCURA del panel móvil (los del escritorio
+// —#1A50A3, #B8860B— quedaban muy apagados sobre el fondo).
 function apptStateM(a, T) {
   if (a.status === "anulada")        return { label: "Cancelada",   color: T.textFaint };
-  if (a.status === "no_asistio")     return { label: "No asistió",  color: "#C0285A" };
-  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#1A50A3" };
-  if (a.status === "confirmada")     return { label: "Confirmada",  color: "#16A34A" };
-  if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#B8860B" };
+  if (a.status === "no_asistio")     return { label: "No asistió",  color: "#F17A96" };
+  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#6EA8E8" };
+  if (a.status === "confirmada")     return { label: "Confirmada",  color: "#4FC585" };
+  if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#E4BA4D" };
   return { label: "Agendado", color: T.accent };
 }
 
@@ -76,29 +78,37 @@ function weekDays() {
   });
 }
 
-/* ─── Fondo Everest + glass (referencia del usuario) ───
-   Una sola fuente de verdad para el tratamiento visual: el fondo fijo (foto retrato del Everest +
-   velo de legibilidad) y el "glass" translúcido de cabecera/tarjetas/tab bar, para que TODA la app
-   comparta el mismo lenguaje sin repetir los valores en cada componente. */
-function mobileBg(T) {
-  const overlay = T.dark
-    ? "linear-gradient(180deg, rgba(8,12,20,.55), rgba(8,12,20,.72) 45%, rgba(8,12,20,.92))"
-    : "linear-gradient(180deg, rgba(20,26,36,.42), rgba(20,26,36,.6) 45%, rgba(20,26,36,.85))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg')", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat", backgroundAttachment: "fixed" };
+/* ─── Fondo Everest + glass (referencia: iOS 26 "liquid glass") ───
+   El panel móvil vive SIEMPRE sobre la foto (wallpaper de iPhone), que es oscura. Por eso se fuerza
+   una paleta "sobre foto": texto claro + glass translúcido de verdad (frost, deja ver la montaña),
+   sin importar el tema día/noche del resto del sistema. photoTheme() lo aplica una sola vez en los
+   entry points y TODA la app hereda el mismo lenguaje. */
+const ON_PHOTO = { text: "#F5F3EE", mute: "rgba(245,243,238,.74)", faint: "rgba(245,243,238,.5)" };
+function photoTheme(T) {
+  return Object.assign({}, T, {
+    dark: true,                              // fuerza la rama "glass oscuro" en glassPanel/glassChip
+    text: ON_PHOTO.text, textMute: ON_PHOTO.mute, textFaint: ON_PHOTO.faint,
+    line: "rgba(255,255,255,.16)", lineSoft: "rgba(255,255,255,.09)",
+    // Acento más claro que el navy del escritorio para que lea sobre la foto oscura (badges,
+    // botones, iconos). Texto oscuro sobre el acento claro = look "frosted blue" tipo iOS.
+    accent: "#9BB6CC", onAccent: "#0E1620"
+  });
 }
+// Wallpaper: la foto se muestra COMPLETA (es un wallpaper de iPhone, no se recorta ni se amplía).
+// Va en el contenedor raíz del panel (no "fixed", que se ancla al viewport ancho del escritorio y
+// recortaba la montaña). Velo de legibilidad muy leve: la montaña se ve, el texto claro contrasta.
+function mobileBg(T) {
+  const overlay = "linear-gradient(180deg, rgba(14,20,30,.26), rgba(12,16,26,.42) 50%, rgba(9,12,20,.62))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg')", backgroundColor: "#0B1018", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+}
+// Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
+// transparente detrás de cada tarjeta sin perder legibilidad.
 function glassPanel(T, radius) {
-  return T.dark
-    ? { background: "rgba(255,255,255,.06)", backdropFilter: "blur(20px) saturate(1.3)", WebkitBackdropFilter: "blur(20px) saturate(1.3)", border: "1px solid rgba(255,255,255,.10)", borderRadius: radius==null?14:radius }
-    : { background: "rgba(255,255,255,.55)", backdropFilter: "blur(20px) saturate(1.3)", WebkitBackdropFilter: "blur(20px) saturate(1.3)", border: "1px solid rgba(255,255,255,.7)", borderRadius: radius==null?14:radius };
+  return { background: "rgba(255,255,255,.09)", backdropFilter: "blur(26px) saturate(1.7)", WebkitBackdropFilter: "blur(26px) saturate(1.7)", border: "1px solid rgba(255,255,255,.16)", borderRadius: radius==null?16:radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" };
 }
 function glassChip(T) {
-  return T.dark
-    ? { background: "rgba(255,255,255,.08)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,.12)" }
-    : { background: "rgba(255,255,255,.6)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,.75)" };
+  return { background: "rgba(255,255,255,.11)", backdropFilter: "blur(20px) saturate(1.6)", WebkitBackdropFilter: "blur(20px) saturate(1.6)", border: "1px solid rgba(255,255,255,.15)" };
 }
-// Texto sobre foto: siempre claro (la foto es oscura arriba y abajo por el velo), independiente del
-// tema día/noche del resto del panel — mismo criterio que el rediseño de escritorio.
-const ON_PHOTO = { text: "#F4F1EA", mute: "rgba(244,241,234,.72)", faint: "rgba(244,241,234,.48)" };
 
 /* ─── Pacientes (helpers de datos — este bundle no carga jc-admin.jsx) ─── */
 function patientsAll() { try { return (window.DB && window.DB.get("patients")) || []; } catch (e) { return []; } }
@@ -333,10 +343,13 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
       {sub && <div style={{ fontFamily:T.sans, fontSize:10, color:subColor||T.textFaint, marginTop:5 }}>{sub}</div>}
     </div>
   );
+  // Accesos rápidos COMPACTOS: una sola fila de 4 (icono + etiqueta corta), para dejar el
+  // protagonismo a la información de las citas — a pedido del usuario (los botones grandes ocupaban
+  // demasiado). Estilo tile chico tipo iOS.
   const action = (icon, label, onClick) => (
-    <button onClick={onClick} style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:8, ...glassPanel(T,14), padding:"13px 12px", cursor:"pointer", textAlign:"left" }}>
-      <div style={{ width:34, height:34, borderRadius:9, background:T.accent+"22", color:T.accent, display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
-      <span style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:500, color:T.text }}>{label}</span>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6, ...glassPanel(T,13), padding:"11px 4px 9px", cursor:"pointer", minWidth:0 }}>
+      <div style={{ width:30, height:30, borderRadius:9, background:T.accent+"2e", color:T.accent, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{icon}</div>
+      <span style={{ fontFamily:T.sans, fontSize:10.5, fontWeight:500, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%", textAlign:"center" }}>{label}</span>
     </button>
   );
 
@@ -353,11 +366,11 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
         {kpi("Pendientes", pendientes, pct(pendientes)+"% del total")}
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:9 }}>
-        {action(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"))}
-        {action(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
-        {action(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
-        {action(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+      <div style={{ display:"flex", gap:8 }}>
+        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M12 5v14M5 12h14"/></svg>, "Nueva", ()=>goTab("nueva"))}
+        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
+        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Horarios", ()=>goTab("horarios"))}
+        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
       </div>
 
       <div>
@@ -1239,11 +1252,11 @@ function MobileShell({ T, D, onLogout }) {
 /* ─── Entry point (modo local) ─── */
 function MobileAdmin() {
   const TK = window.JCTHEME;
-  const T = jcmMobileTheme((TK && (TK.marfil || TK.cielo || TK.editorial)) || {
+  const T = photoTheme(jcmMobileTheme((TK && (TK.marfil || TK.cielo || TK.editorial)) || {
     bg:"#F5F2EC", surface:"#fff", text:"#1A1A14", textMute:"#5C5A50", textFaint:"#8A8674",
     line:"rgba(20,20,15,.12)", lineSoft:"rgba(20,20,15,.08)", accent:"#54707F", onAccent:"#fff",
     sans:"'Jost',sans-serif", serif:"'Marcellus',serif", navBg:"rgba(245,242,236,.96)"
-  });
+  }));
   const D = window.JCDATA;
   const authed0 = !!(window.jcmAdminHasPass&&window.jcmAdminHasPass()&&window.jcmAdminHasSession&&window.jcmAdminHasSession());
   const [authed, setAuthed] = useState(authed0);
@@ -1254,11 +1267,11 @@ function MobileAdmin() {
 /* ─── Entry point SaaS (multi-clínica): carga data cacheada inmediatamente ─── */
 function MobileSaasGate() {
   const TK = window.JCTHEME;
-  const T = jcmMobileTheme((TK && (TK.marfil || TK.cielo || TK.editorial)) || {
+  const T = photoTheme(jcmMobileTheme((TK && (TK.marfil || TK.cielo || TK.editorial)) || {
     bg:"#F5F2EC", surface:"#fff", text:"#1A1A14", textMute:"#5C5A50", textFaint:"#8A8674",
     line:"rgba(20,20,15,.12)", lineSoft:"rgba(20,20,15,.08)", accent:"#54707F", onAccent:"#fff",
     sans:"'Jost',sans-serif", serif:"'Marcellus',serif", navBg:"rgba(245,242,236,.96)"
-  });
+  }));
   const D = window.JCDATA;
 
   const hasCachedSession = !!(

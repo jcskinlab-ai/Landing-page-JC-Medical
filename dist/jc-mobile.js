@@ -41,10 +41,10 @@ const STATUS_STEPS = [
 ];
 function apptStateM(a, T) {
   if (a.status === "anulada") return { label: "Cancelada", color: T.textFaint };
-  if (a.status === "no_asistio") return { label: "No asisti\xF3", color: "#C0285A" };
-  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#1A50A3" };
-  if (a.status === "confirmada") return { label: "Confirmada", color: "#16A34A" };
-  if (a.status === "pendiente_pago") return { label: "\u23F3 Transferencia", color: "#B8860B" };
+  if (a.status === "no_asistio") return { label: "No asisti\xF3", color: "#F17A96" };
+  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#6EA8E8" };
+  if (a.status === "confirmada") return { label: "Confirmada", color: "#4FC585" };
+  if (a.status === "pendiente_pago") return { label: "\u23F3 Transferencia", color: "#E4BA4D" };
   return { label: "Agendado", color: T.accent };
 }
 function localISO(d) {
@@ -85,17 +85,32 @@ function weekDays() {
     return { iso, label, wd: WDS[d.getDay()], dd: d.getDate(), i };
   });
 }
+const ON_PHOTO = { text: "#F5F3EE", mute: "rgba(245,243,238,.74)", faint: "rgba(245,243,238,.5)" };
+function photoTheme(T) {
+  return Object.assign({}, T, {
+    dark: true,
+    // fuerza la rama "glass oscuro" en glassPanel/glassChip
+    text: ON_PHOTO.text,
+    textMute: ON_PHOTO.mute,
+    textFaint: ON_PHOTO.faint,
+    line: "rgba(255,255,255,.16)",
+    lineSoft: "rgba(255,255,255,.09)",
+    // Acento más claro que el navy del escritorio para que lea sobre la foto oscura (badges,
+    // botones, iconos). Texto oscuro sobre el acento claro = look "frosted blue" tipo iOS.
+    accent: "#9BB6CC",
+    onAccent: "#0E1620"
+  });
+}
 function mobileBg(T) {
-  const overlay = T.dark ? "linear-gradient(180deg, rgba(8,12,20,.55), rgba(8,12,20,.72) 45%, rgba(8,12,20,.92))" : "linear-gradient(180deg, rgba(20,26,36,.42), rgba(20,26,36,.6) 45%, rgba(20,26,36,.85))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg')", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat", backgroundAttachment: "fixed" };
+  const overlay = "linear-gradient(180deg, rgba(14,20,30,.26), rgba(12,16,26,.42) 50%, rgba(9,12,20,.62))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg')", backgroundColor: "#0B1018", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
 }
 function glassPanel(T, radius) {
-  return T.dark ? { background: "rgba(255,255,255,.06)", backdropFilter: "blur(20px) saturate(1.3)", WebkitBackdropFilter: "blur(20px) saturate(1.3)", border: "1px solid rgba(255,255,255,.10)", borderRadius: radius == null ? 14 : radius } : { background: "rgba(255,255,255,.55)", backdropFilter: "blur(20px) saturate(1.3)", WebkitBackdropFilter: "blur(20px) saturate(1.3)", border: "1px solid rgba(255,255,255,.7)", borderRadius: radius == null ? 14 : radius };
+  return { background: "rgba(255,255,255,.09)", backdropFilter: "blur(26px) saturate(1.7)", WebkitBackdropFilter: "blur(26px) saturate(1.7)", border: "1px solid rgba(255,255,255,.16)", borderRadius: radius == null ? 16 : radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" };
 }
 function glassChip(T) {
-  return T.dark ? { background: "rgba(255,255,255,.08)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,.12)" } : { background: "rgba(255,255,255,.6)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,.75)" };
+  return { background: "rgba(255,255,255,.11)", backdropFilter: "blur(20px) saturate(1.6)", WebkitBackdropFilter: "blur(20px) saturate(1.6)", border: "1px solid rgba(255,255,255,.15)" };
 }
-const ON_PHOTO = { text: "#F4F1EA", mute: "rgba(244,241,234,.72)", faint: "rgba(244,241,234,.48)" };
 function patientsAll() {
   try {
     return window.DB && window.DB.get("patients") || [];
@@ -306,8 +321,8 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
     return DOW_FULL[d.getDay()] + ", " + d.getDate() + " de " + MESES_LARGOS[d.getMonth()].toLowerCase();
   })();
   const kpi = (label, val, sub, subColor) => /* @__PURE__ */ React.createElement("div", { style: { flex: 1, ...glassPanel(T, 14), padding: "12px 12px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 26, color: T.text, marginTop: 4, lineHeight: 1 } }, val), sub && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: subColor || T.textFaint, marginTop: 5 } }, sub));
-  const action = (icon, label, onClick) => /* @__PURE__ */ React.createElement("button", { onClick, style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, ...glassPanel(T, 14), padding: "13px 12px", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 34, height: 34, borderRadius: 9, background: T.accent + "22", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, icon), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text } }, label));
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 14px 90px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 23, color: T.text } }, "Hola", clinNombre ? ", " + clinNombre : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2, textTransform: "capitalize" } }, fechaLarga)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9 } }, kpi("Citas hoy", todayAppts.length, (delta >= 0 ? "\u2191" : "\u2193") + Math.abs(delta) + "% vs ayer", delta >= 0 ? "#16A34A" : "#C0285A"), kpi("Confirmadas", confirmadas, pct(confirmadas) + "% del total"), kpi("Pendientes", pendientes, pct(pendientes) + "% del total")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 9 } }, action(/* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })), "Nueva cita", () => goTab("nueva")), action(/* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" })), "Pacientes", () => openOverlay("pacientes")), action(/* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("path", { d: "M12 6v6l4 2" })), "Bloquear horario", () => goTab("horarios")), action(/* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4" })), "Reportes", () => openOverlay("reportes"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute } }, "Pr\xF3ximas citas"), /* @__PURE__ */ React.createElement("button", { onClick: () => goTab("agenda"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.accent, display: "flex", alignItems: "center", gap: 3 } }, "Ver agenda ", /* @__PURE__ */ React.createElement("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), upcoming.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 14), padding: "22px 16px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Sin pr\xF3ximas citas agendadas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, upcoming.map((a) => {
+  const action = (icon, label, onClick) => /* @__PURE__ */ React.createElement("button", { onClick, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, ...glassPanel(T, 13), padding: "11px 4px 9px", cursor: "pointer", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, height: 30, borderRadius: 9, background: T.accent + "2e", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, icon), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%", textAlign: "center" } }, label));
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 14px 90px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 23, color: T.text } }, "Hola", clinNombre ? ", " + clinNombre : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 2, textTransform: "capitalize" } }, fechaLarga)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9 } }, kpi("Citas hoy", todayAppts.length, (delta >= 0 ? "\u2191" : "\u2193") + Math.abs(delta) + "% vs ayer", delta >= 0 ? "#16A34A" : "#C0285A"), kpi("Confirmadas", confirmadas, pct(confirmadas) + "% del total"), kpi("Pendientes", pendientes, pct(pendientes) + "% del total")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, action(/* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })), "Nueva", () => goTab("nueva")), action(/* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("path", { d: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" })), "Pacientes", () => openOverlay("pacientes")), action(/* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("path", { d: "M12 6v6l4 2" })), "Horarios", () => goTab("horarios")), action(/* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("path", { d: "M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4" })), "Reportes", () => openOverlay("reportes"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute } }, "Pr\xF3ximas citas"), /* @__PURE__ */ React.createElement("button", { onClick: () => goTab("agenda"), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.accent, display: "flex", alignItems: "center", gap: 3 } }, "Ver agenda ", /* @__PURE__ */ React.createElement("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })))), upcoming.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 14), padding: "22px 16px", textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: T.textFaint } }, "Sin pr\xF3ximas citas agendadas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, upcoming.map((a) => {
     const st = apptStateM(a, T);
     const iso = a.fecha || offToISO(a.day || 0);
     const dLbl = iso === today ? "Hoy" : (() => {
@@ -967,7 +982,7 @@ function MobileShell({ T, D, onLogout }) {
 }
 function MobileAdmin() {
   const TK = window.JCTHEME;
-  const T = jcmMobileTheme(TK && (TK.marfil || TK.cielo || TK.editorial) || {
+  const T = photoTheme(jcmMobileTheme(TK && (TK.marfil || TK.cielo || TK.editorial) || {
     bg: "#F5F2EC",
     surface: "#fff",
     text: "#1A1A14",
@@ -980,7 +995,7 @@ function MobileAdmin() {
     sans: "'Jost',sans-serif",
     serif: "'Marcellus',serif",
     navBg: "rgba(245,242,236,.96)"
-  });
+  }));
   const D = window.JCDATA;
   const authed0 = !!(window.jcmAdminHasPass && window.jcmAdminHasPass() && window.jcmAdminHasSession && window.jcmAdminHasSession());
   const [authed, setAuthed] = useState(authed0);
@@ -995,7 +1010,7 @@ function MobileAdmin() {
 }
 function MobileSaasGate() {
   const TK = window.JCTHEME;
-  const T = jcmMobileTheme(TK && (TK.marfil || TK.cielo || TK.editorial) || {
+  const T = photoTheme(jcmMobileTheme(TK && (TK.marfil || TK.cielo || TK.editorial) || {
     bg: "#F5F2EC",
     surface: "#fff",
     text: "#1A1A14",
@@ -1008,7 +1023,7 @@ function MobileSaasGate() {
     sans: "'Jost',sans-serif",
     serif: "'Marcellus',serif",
     navBg: "rgba(245,242,236,.96)"
-  });
+  }));
   const D = window.JCDATA;
   const hasCachedSession = !!(window.JCSAAS && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId() && window.DB && (window.DB.get("appointments") || window.DB.get("patients")));
   const [phase, setPhase] = useState(hasCachedSession ? "app" : "loading");
