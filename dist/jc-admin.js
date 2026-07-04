@@ -648,7 +648,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null);
   const [movCaja, setMovCaja] = useState(false);
   const fmt = D && D.fmt ? D.fmt : (n) => "$" + (n || 0).toLocaleString("es-CL");
-  const lux = false;
+  const lux = typeof isLosMedique === "function" && isLosMedique();
   const navyAccent = lux ? T.dark ? "#7891A6" : "#5C7488" : T.accent;
   const hoy = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada");
   const ingresosHoy = typeof window.cashToday === "function" ? (window.cashToday() || []).filter((m) => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;

@@ -576,11 +576,9 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [kpiPopup, setKpiPopup] = useState(null); // "pacientes" | "citas" | "nuevos" | "ingresos"
   const [movCaja, setMovCaja] = useState(false); // historial de movimientos de caja (día/semana/mes)
   const fmt = (D && D.fmt) ? D.fmt : (n => "$" + (n || 0).toLocaleString("es-CL"));
-  // Dashboard vuelve al diseño ORIGINAL (pedido explícito del usuario, 4-jul-2026): aunque
-  // isLosMedique()/jcdsLux() esté en push global para el resto del panel (Agenda, Ficha, etc.),
-  // el Dashboard usa su propio flag fijo en false. No reactivar el rediseño lux aquí sin que el
-  // usuario lo pida directamente.
-  const lux = false;
+  // "lux" = rediseño editorial del dashboard, en push global (isLosMedique() liberado a todas
+  // las clínicas desde el 2-jul-2026).
+  const lux = typeof isLosMedique === "function" && isLosMedique();
   // Acento neutro (pedido explícito): el celeste vivo del tema "azul" (navyAccent) se sentía muy
   // saturado en la pastilla activa y las barras del embudo. Un slate-azulado apagado (misma
   // familia que el panel navy "Facturaste este mes", no el texto celeste de esa tarjeta).
