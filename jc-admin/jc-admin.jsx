@@ -3716,7 +3716,10 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const hours = []; for (let h = 8; h <= 20; h++) hours.push(h);
   const hourOf = t => parseInt((t || "0").split(":")[0], 10);
   const atCell = (off, h) => appts.filter(a => apptDayOff(a) === off && hourOf(a.time) === h);
-  const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
+  // Mismo "glass" translúcido que usan los controles de día/mes (antes esta vista usaba T.surface
+  // opaco), para que Hoy/‹/›/profesional se vean idénticos en las tres vistas.
+  const ctlGlass = luxF ? { background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.5)" } : { background: T.surface };
+  const navBtn = { width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", ...ctlGlass };
   const WPX = 70, WK_OPEN = 8, WK_CLOSE = 20; // jornada 08:00–20:00; cada hora (incl. 20:00) es una casilla completa
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
   const slots = adminSlots(), slotPx = WPX * adminSlotMins() / 60; // 15 min (JC Medical) o 30 min (otras clínicas)
@@ -3811,14 +3814,14 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           (profesional como chip con avatar, Importar, + Nueva Cita). En el resto de clínicas queda la fila
           plana de siempre. */}
       {(() => {
-        const hoyBtn = <button onClick={() => setWkOff(0)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, background: T.surface, border: "1px solid " + T.line, borderRadius: luxF ? DS.r.ctl : 9, padding: "8px 16px", cursor: "pointer" }}>Hoy</button>;
+        const hoyBtn = <button onClick={() => setWkOff(0)} style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: wkOff === 0 ? T.textMute : T.text, border: "1px solid " + T.line, borderRadius: luxF ? DS.r.ctl : 9, height: 34, padding: "0 16px", cursor: "pointer", ...ctlGlass }}>Hoy</button>;
         const prevBtn = <button onClick={() => setWkOff(wkOff - 1)} title="Semana anterior" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>;
         const nextBtn = <button onClick={() => setWkOff(wkOff + 1)} title="Semana siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>;
         const profNode = (v2 && team.length > 0) ? (
           <div style={{ position: "relative" }}>
-            <button onClick={() => setProfOpen(o => !o)} title="Ver agenda de un profesional" style={{ display: "flex", alignItems: "center", gap: 8, height: 34, padding: luxF ? "0 12px 0 5px" : "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: luxF ? DS.r.pill : 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220 }}>
+            <button onClick={() => setProfOpen(o => !o)} title="Ver agenda de un profesional" style={{ display: "flex", alignItems: "center", gap: 8, height: 34, padding: luxF ? "0 12px 0 5px" : "0 13px", border: "1px solid " + T.line, borderRadius: luxF ? 9 : 9, color: T.text, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", maxWidth: 220, ...ctlGlass }}>
               {luxF
-                ? <span style={{ width: 24, height: 24, borderRadius: "50%", background: selProfColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 9.5, fontWeight: 700, flexShrink: 0 }}>{profIni(selProf)}</span>
+                ? <span style={{ width: 24, height: 24, borderRadius: "50%", background: selProfColor + "22", color: selProfColor, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{profIni(selProf)}</span>
                 : <span style={{ width: 9, height: 9, borderRadius: "50%", background: selProfColor, flexShrink: 0 }} />}
               <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selProf || "Profesional"}</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" style={{ flexShrink: 0 }}><path d="M6 9l6 6 6-6" /></svg>
@@ -3834,7 +3837,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                     return (
                     <button key={m.id || m.name} onClick={() => { setSelProf(m.name); setProfOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 14px", background: m.name === selProf ? T.accent + "14" : "transparent", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: m.name === selProf ? T.accent : T.textMute }}>
                       {luxF
-                        ? <span style={{ width: 24, height: 24, borderRadius: "50%", background: m.color || T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 9.5, fontWeight: 700, flexShrink: 0 }}>{profIni(m.name)}</span>
+                        ? <span style={{ width: 24, height: 24, borderRadius: "50%", background: (m.color || T.accent) + "22", color: m.color || T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 9.5, fontWeight: 700, flexShrink: 0 }}>{profIni(m.name)}</span>
                         : <span style={{ width: 9, height: 9, borderRadius: "50%", background: m.color || T.accent, flexShrink: 0 }} />}
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
