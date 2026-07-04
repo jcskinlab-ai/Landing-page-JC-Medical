@@ -191,15 +191,18 @@ function isLosMedique() {
 // TODAS las clínicas (antes era beta solo para Los Medique). Push global.
 function jcmNewFeat() { return true; }
 if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
-// ¿La clínica activa es "medique admin" (la propia cuenta medique.cl@gmail.com, clínica "Revisión
-// Medique")? Nueva zona de pruebas privada: los próximos cambios se gatean aquí primero para
-// revisarlos antes de liberarlos a todas las clínicas (mismo patrón que se usó con Los Medique).
+// ¿La clínica activa es una zona de pruebas privada del usuario? Cambios nuevos se gatean aquí
+// primero para revisarlos (con datos/pacientes reales si se prueba en JC Medical) antes de
+// liberarlos a todas las clínicas (mismo patrón que se usó con Los Medique). Reconoce DOS cuentas:
+// medique.cl@gmail.com (clínica "Revisión Medique", vacía) y jc.skinlab@gmail.com (JC Medical, la
+// clínica real del dueño con pacientes agendados — pedido explícito: probar ahí antes del global).
+var JC_MEDICAL_EMAIL = "jc.skinlab@gmail.com";
 function isMediqueAdminPreview() {
   try {
     if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
     var owner = (((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {}).ownerEmail || "").toString().trim().toLowerCase();
     var sess = (window.JCSAAS.userEmail && window.JCSAAS.userEmail()) || "";
-    return owner === SUPER_ADMIN_EMAIL || sess === SUPER_ADMIN_EMAIL;
+    return owner === SUPER_ADMIN_EMAIL || sess === SUPER_ADMIN_EMAIL || owner === JC_MEDICAL_EMAIL || sess === JC_MEDICAL_EMAIL;
   } catch (e) { return false; }
 }
 if (typeof window !== "undefined") window.isMediqueAdminPreview = isMediqueAdminPreview;

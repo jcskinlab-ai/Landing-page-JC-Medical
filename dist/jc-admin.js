@@ -230,12 +230,13 @@ function jcmNewFeat() {
   return true;
 }
 if (typeof window !== "undefined") window.jcmNewFeat = jcmNewFeat;
+var JC_MEDICAL_EMAIL = "jc.skinlab@gmail.com";
 function isMediqueAdminPreview() {
   try {
     if (!(window.JCSAAS && window.JCSAAS.enabled)) return false;
     var owner = ((window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).ownerEmail || "").toString().trim().toLowerCase();
     var sess = window.JCSAAS.userEmail && window.JCSAAS.userEmail() || "";
-    return owner === SUPER_ADMIN_EMAIL || sess === SUPER_ADMIN_EMAIL;
+    return owner === SUPER_ADMIN_EMAIL || sess === SUPER_ADMIN_EMAIL || owner === JC_MEDICAL_EMAIL || sess === JC_MEDICAL_EMAIL;
   } catch (e) {
     return false;
   }
