@@ -465,19 +465,6 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
     return best;
   };
   const calTs = p => apptFechaTs(p) || p.fechaTs || 0;
-  // Próxima cita agendada (fecha futura más cercana) — para la columna "Próxima cita" de la tabla.
-  const nextApptTs = p => {
-    const todayTs = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
-    let best = 0;
-    ax.forEach(a => {
-      if (a.status === "anulada") return;
-      if (!((a.patId && a.patId === p.id) || a.name === p.name)) return;
-      if (!a.fecha) return;
-      const ts = new Date(a.fecha + "T00:00:00").getTime();
-      if (!isNaN(ts) && ts >= todayTs && (!best || ts < best)) best = ts;
-    });
-    return best;
-  };
   // Modo "Calendario": ordenado por la fecha de la agenda (o Excel/creación), más reciente primero.
   if (filt === "calendario") list = list.slice().sort((a, b) => calTs(b) - calTs(a));
   // Modo "Recientes": ordenado por cuándo se abrió la ficha por última vez (sin importar la fecha de registro).
@@ -489,66 +476,26 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const waLink = (p, r) => recitaWa(p, r);
   const fmtD = d => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
-  // Tabs con subrayado (estilo de la referencia) — mismos 6 filtros de siempre, solo cambia el trazo visual.
-  const tab = (k, l, set, cur) => <button key={k} onClick={() => { set(k); setPage(1); }} style={{ position: "relative", fontFamily: T.sans, fontSize: 12.5, fontWeight: cur === k ? 600 : 500, padding: "9px 2px", cursor: "pointer", border: "none", background: "none", color: cur === k ? T.text : T.textMute, whiteSpace: "nowrap" }}>
-    {l}
-    {cur === k && <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: 2, borderRadius: 2, background: T.accent }} />}
-  </button>;
-  // ── Tarjetas KPI (glass translúcido — NO opaca el fondo, misma familia que el resto del panel) ──
-  const todayTs0 = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
-  const monthKey = (() => { const d = new Date(); return d.getFullYear() + "-" + d.getMonth(); })();
-  const nuevosEsteMes = patients.filter(p => { if (!p.fechaTs) return false; const d = new Date(p.fechaTs); return (d.getFullYear() + "-" + d.getMonth()) === monthKey; }).length;
-  const agendadosHoy = ax.filter(a => a.status !== "anulada" && typeof apptDayOff === "function" && apptDayOff(a) === 0).length;
-  const sinConsentCount = patients.filter(p => !p.consent).length;
-  const interesadosCount = patients.filter(p => meta(p).inte).length;
-  const recientes7d = Object.keys(opened).filter(id => (Date.now() - (opened[id] || 0)) <= 7 * 86400000).length;
-  const pct = n => patients.length ? Math.round((n / patients.length) * 100) : 0;
-  const kpiCard = { background: luxF ? (T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.4)") : T.surface, border: "1px solid " + T.line, borderRadius: luxF ? DS.r.panel : 12, padding: "14px 16px", ...(luxF ? { backdropFilter: DS.glassBlur.small, WebkitBackdropFilter: DS.glassBlur.small } : {}), position: "relative", overflow: "hidden" };
-  const kpis = [
-    { label: "Total pacientes", value: patients.length, sub: "+" + nuevosEsteMes + " este mes", color: "#1F8A5B", icon: <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /> },
-    { label: "Agendados hoy", value: agendadosHoy, sub: pct(agendadosHoy) + "% del total", color: "#2E6F9E", icon: <path d="M3 4h18M8 2v4M16 2v4M4 8h16v13H4z" /> },
-    { label: "Pendientes", value: sinConsentCount, sub: pct(sinConsentCount) + "% del total", color: "#C9A227", icon: <path d="M12 7v5l3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" /> },
-    { label: "Interesados", value: interesadosCount, sub: pct(interesadosCount) + "% del total", color: "#7C5CBF", icon: <path d="M11.5 21S3 15.6 3 9.5A4.5 4.5 0 0 1 11.5 7 4.5 4.5 0 0 1 20 9.5C20 15.6 11.5 21 11.5 21z" /> },
-    { label: "Recientes", value: recientes7d, sub: "Últimos 7 días", color: "#1F8A5B", icon: <path d="M9 12l2 2 4-4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /> },
-  ];
-  // ── Paginación (10 por página, a pedido de la referencia) ──
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const totalPages = Math.max(1, Math.ceil(list.length / pageSize));
-  const pageClamped = Math.min(page, totalPages);
-  const pageList = list.slice((pageClamped - 1) * pageSize, pageClamped * pageSize);
+  // Filtros como control segmentado rectangular (mismo estilo que Dashboard/Tratamientos), no píldoras sueltas.
+  const chip = (k, l, set, cur) => <button key={k} onClick={() => set(k)} style={luxF
+    ? { fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: cur === k ? 600 : 500, padding: "8px 14px", borderRadius: DS.r.ctl, cursor: "pointer", border: "none", background: cur === k ? T.surface : "transparent", boxShadow: cur === k ? "0 1px 2px rgba(0,0,0,.08)" : "none", color: cur === k ? T.accent : T.textMute, whiteSpace: "nowrap", transition: DS.trans("background,color,box-shadow") }
+    : { fontFamily: T.sans, fontSize: 11, padding: "7px 12px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (cur === k ? T.accent : T.line), background: cur === k ? T.surface2 : T.surface, color: cur === k ? T.text : T.textMute }}>{l}</button>;
   return (
     <div style={{ padding: "4px 0 20px" }}>
-      {/* Tarjetas KPI */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 16 }}>
-        {kpis.map(k => (
-          <div key={k.label} style={kpiCard}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 9, background: k.color + "1c", color: k.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{k.icon}</svg>
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: T.textMute, whiteSpace: "nowrap" }}>{k.label}</div>
-                <div style={{ fontFamily: T.serif, fontSize: 21, color: T.text, lineHeight: 1.2 }}>{k.value}</div>
-              </div>
-            </div>
-            <div style={{ fontFamily: T.sans, fontSize: 10.5, color: k.color, marginTop: 8, fontWeight: 600 }}>{k.sub}</div>
-            <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: k.color }} />
-          </div>
-        ))}
-      </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-          <input value={q} onChange={e => { setQ(e.target.value); setPage(1); }} placeholder="Buscar por nombre o RUT del paciente…" style={luxF
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por nombre o RUT…" style={luxF
             ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4, padding: "0 14px 0 38px" }
             : { width: "100%", padding: "12px 14px 12px 38px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none" }} />
         </div>
         <AdBtn T={T} primary onClick={() => setNuevo(true)}>+ Paciente</AdBtn>
       </div>
-      {/* filtros — tabs con subrayado */}
-      <div style={{ display: "flex", gap: 18, marginBottom: 10, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid " + T.lineSoft }}>
-        {tab("todos", "Todos", setFilt, filt)}{tab("recientes", "Recientes", setFilt, filt)}{tab("calendario", "Calendario", setFilt, filt)}{tab("agendado", "Agendados", setFilt, filt)}{tab("comprado", "Comprados", setFilt, filt)}{tab("interesado", "Interesados", setFilt, filt)}
+      {/* filtros — control segmentado */}
+      <div style={luxF
+        ? { display: "inline-flex", gap: 2, marginBottom: 10, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, maxWidth: "100%", flexWrap: "wrap" }
+        : { display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+        {chip("recientes", "Recientes", setFilt, filt)}{chip("calendario", "Calendario", setFilt, filt)}{chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
       </div>
       {/* campañas de re-cita */}
       <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasDue.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasDue.length ? "rgba(31,138,91,.35)" : T.line) }}>
@@ -583,17 +530,14 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       {luxF && list.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 10px 9px", borderBottom: "1px solid " + T.line, marginBottom: 2 }}>
           <div style={{ width: 44, flexShrink: 0 }} />
-          <div style={{ width: 200, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Paciente · {list.length}</div>
+          <div style={{ width: 210, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Paciente · {list.length}</div>
           <div style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Contacto</div>
-          <div style={{ width: 96, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Última cita</div>
-          <div style={{ width: 96, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Próxima cita</div>
-          <div style={{ width: 130, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Procedimiento</div>
-          <div style={{ width: 92, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Estado</div>
-          <div style={{ width: 78, flexShrink: 0, textAlign: "right", fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Visto</div>
+          <div style={{ width: 158, flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>Procedimiento</div>
+          <div style={{ width: 92, flexShrink: 0, textAlign: "right", fontFamily: T.sans, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint }}>{filt === "recientes" ? "Visto" : "Última cita"}</div>
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column" }}>
-        {pageList.map((p, pi) => {
+        {list.map((p, pi) => {
           const m = meta(p);
           // Último procedimiento realizado (el más reciente del historial). Si aún no tiene ninguno,
           // se cae al estado del embudo (Agendado / Interesado) para no dejar la celda vacía.
@@ -602,20 +546,17 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
           // Chip único (misma medida para procedimiento, estado y consentimiento) — armonía en la
           // columna: todos comparten fontSize/padding/radio; solo cambian colores y mayúsculas.
           const pill = (text, o) => <span title={o.title || text} style={{ display: "inline-flex", alignItems: "center", maxWidth: "100%", fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".05em", textTransform: o.upper ? "uppercase" : "none", color: o.fg, background: o.bg, border: "1px solid " + o.bd, borderRadius: DS.r.pill, padding: "3px 9px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.5 }}>{text}</span>;
-          // Estado (columna propia, separada del procedimiento): Comprado > Agendado > Interesado.
-          const estadoChip = m.comp
-            ? pill("Comprado", { fg: "#16A34A", bg: "#16A34A1c", bd: "#16A34A33", upper: true })
-            : m.ag ? pill("Agendado", { fg: T.accent, bg: T.chipBg, bd: T.chipBorder, upper: true })
-              : pill("Interesado", { fg: T.textMute, bg: "transparent", bd: T.line, upper: true });
+          const procChip = lastProc
+            ? pill(lastProc, { fg: T.accent, bg: T.chipBg, bd: T.chipBorder, upper: false })
+            : (m.ag ? pill("Agendado", { fg: T.accent, bg: T.chipBg, bd: T.chipBorder, upper: true }) : pill("Interesado", { fg: T.textMute, bg: "transparent", bd: T.line, upper: true }));
           const icoPhone = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" /></svg>;
           const icoMail = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>;
-          const nextTs = nextApptTs(p);
           if (luxF) return (
             <button key={p.id} onClick={() => openPatient(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "12px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background"), ...DS.reveal(pi) }}
               onMouseEnter={e => { e.currentTarget.style.background = T.surface2 || T.surface; }}
               onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
               <Avatar T={T} name={p.name} size={44} />
-              <div style={{ width: 200, flexShrink: 0, minWidth: 0 }}>
+              <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 14.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 }}>{p.rut || "Sin RUT"}{p.age ? " · " + p.age + " años" : ""}</div>
               </div>
@@ -625,19 +566,16 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
                 {p.email && <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, color: T.textMute, minWidth: 0 }}>{icoMail}<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span></span>}
                 {!p.phone && !p.email && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, fontStyle: "italic" }}>Sin contacto</span>}
               </div>
-              <div style={{ width: 96, flexShrink: 0 }}>
-                {calTs(p) ? <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span> : <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>—</span>}
-              </div>
-              <div style={{ width: 96, flexShrink: 0 }}>
-                {nextTs ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(nextTs)}</span> : <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin citas próximas</span>}
-              </div>
-              <div style={{ width: 130, flexShrink: 0, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {lastProc ? pill(lastProc, { fg: T.text, bg: T.surface2 || T.surface, bd: T.line, upper: false }) : <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint }}>—</span>}
+              <div style={{ width: 158, flexShrink: 0, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {procChip}
                 {!p.consent && pill("Consent.", { fg: DS.warn, bg: DS.warn + "14", bd: DS.warn + "33", upper: true })}
               </div>
-              <div style={{ width: 92, flexShrink: 0 }}>{estadoChip}</div>
-              <div style={{ width: 78, flexShrink: 0, textAlign: "right" }}>
-                <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
+              <div style={{ width: 92, flexShrink: 0, textAlign: "right" }}>
+                {filt === "recientes"
+                  ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
+                  : (calTs(p)
+                    ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span>
+                    : <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" }}>—</span>)}
               </div>
             </button>
           );
@@ -659,9 +597,11 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
                 </div>}
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-                {nextTs
-                  ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>Próxima: {fmtFecha(nextTs)}</span>
-                  : (calTs(p) ? <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span> : null)}
+                {filt === "recientes"
+                  ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" }}>{fmtVisto(opened[p.id])}</span>
+                  : (calTs(p)
+                    ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span>
+                    : (filt === "calendario" ? <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" }}>Sin fecha</span> : null))}
                 {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
                 {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
               </div>
@@ -670,26 +610,6 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
         })}
         {list.length === 0 && <div style={{ padding: "30px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin resultados.</div>}
       </div>
-      {/* Paginación */}
-      {list.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
-            Mostrando {(pageClamped - 1) * pageSize + 1} a {Math.min(pageClamped * pageSize, list.length)} de {list.length} pacientes
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={pageClamped <= 1} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: pageClamped <= 1 ? "default" : "pointer", opacity: pageClamped <= 1 ? .5 : 1 }}>‹</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, pageClamped - 3), Math.max(0, pageClamped - 3) + 5).map(n => (
-              <button key={n} onClick={() => setPage(n)} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid " + (n === pageClamped ? T.accent : T.line), background: n === pageClamped ? T.accent : T.surface, color: n === pageClamped ? (T.onAccent || "#fff") : T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 12 }}>{n}</button>
-            ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={pageClamped >= totalPages} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: pageClamped >= totalPages ? "default" : "pointer", opacity: pageClamped >= totalPages ? .5 : 1 }}>›</button>
-          </div>
-          <select value={pageSize} onChange={e => { setPageSize(parseInt(e.target.value, 10)); setPage(1); }} style={{ height: 30, borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 11.5, padding: "0 8px" }}>
-            <option value={10}>10 por página</option>
-            <option value={25}>25 por página</option>
-            <option value={50}>50 por página</option>
-          </select>
-        </div>
-      )}
       {nuevo && <NewPatientModal T={T} onClose={() => setNuevo(false)} onSave={p => { addPatient(p); setNuevo(false); }} />}
     </div>
   );
