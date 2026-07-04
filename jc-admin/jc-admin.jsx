@@ -1122,8 +1122,22 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   );
 
   /* ── notificación ── */
-  const notif = (ic, color, title, sub, action, fn) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" }}>
+  // Notificación con el MISMO lenguaje de tarjeta que "Próximas Citas" (citaRow lux): tarjeta
+  // completa clicable, ícono en caja de color a la izquierda, separador fino, título + detalle, y
+  // chevron a la derecha (sin botón "Ver" suelto que dejaba espacio muerto). Look SaaS enterprise.
+  const notif = (ic, color, title, sub, action, fn, key) => lux ? (
+    <div key={key} onClick={fn} style={{ display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "13px 16px", cursor: "pointer", transition: "transform .2s " + T.ease + ", border-color .2s" }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = color + "66"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = T.line; }}>
+      <div style={{ width: 40, height: 40, borderRadius: 11, background: color + "16", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><DashIcon name={ic} c={color} size={18} /></div>
+      <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid " + T.line, paddingLeft: 14 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
+      </div>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="m9 18 6-6-6-6" /></svg>
+    </div>
+  ) : (
+    <div key={key} style={{ display: "flex", alignItems: "center", gap: 12, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px" }}>
       <div style={{ width: 36, height: 36, borderRadius: 9, background: color + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><DashIcon name={ic} c={color} size={17} /></div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{title}</div>
@@ -1431,9 +1445,10 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       })()}
 
       {tab === "notif" && (
-        <div style={{ maxWidth: 720 }}>
+        <div>
           <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Notificaciones</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+          {/* Misma grilla responsive que Próximas Citas: aprovecha todo el ancho, sin espacio muerto. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 10 }}>
             {wa.map(m => notif("whatsapp", green, m.name + " escribió por WhatsApp", "\u201c" + m.msg + "\u201d · " + m.ago, "Responder", () => go("pendientes")))}
             {biz.map(b => notif("campana", navyAccent, b.name + " comentó en " + b.net, "\u201c" + b.msg + "\u201d · " + b.ago, "Ver", () => go("marketing")))}
             {sinConsent.length > 0 && notif("alerta", "#C9A227", sinConsent.length + " consentimiento(s) por firmar", "Revisa las fichas pendientes", "Ver", () => go("pendientes"))}
