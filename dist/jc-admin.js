@@ -2202,10 +2202,6 @@ function procInitial(proc) {
   if (/control/.test(n)) return "C";
   return proc.trim().charAt(0).toUpperCase();
 }
-const DAY_PALETTE = ["#3B5169", "#1F8A5B", "#A6821E", "#7C5CBF", "#2E6F9E", "#B0562B"];
-function dayApptColor(i) {
-  return DAY_PALETTE[i % DAY_PALETTE.length];
-}
 function ApptBlock({ T, a, onClick, compact }) {
   const st = jcmApptState(a, T);
   const ini = procInitial(a.proc);
@@ -2647,7 +2643,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     // Aire a los costados alineando TODA la agenda (hero, barra, grilla) a un mismo borde y a un tope
     // ancho centrado. No se usa el 1180 del Dashboard a propósito: un calendario necesita ancho (Cron/
     // Google Calendar no encierran la grilla), pero 1560 le da respiro sin apretar las 7 columnas.
-    /* @__PURE__ */ React.createElement("div", { style: luxF ? { maxWidth: 1560, margin: "0 auto" } : void 0 }, luxF && view !== "dia" && (() => {
+    /* @__PURE__ */ React.createElement("div", { style: luxF ? { maxWidth: 1560, margin: "0 auto" } : void 0 }, luxF && (() => {
       const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)";
       const n = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada").length;
       if (typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview()) {
@@ -2715,8 +2711,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         style: { position: "absolute", left: 60, right: 8, top: s.top, height: s.h, background: "transparent", border: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }
       },
       /* @__PURE__ */ React.createElement("span", { className: "jc-cell-add", style: { width: 16, height: 16, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.6", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })))
-    )), listStacked.map((a, ai) => {
-      const col = dayApptColor(ai);
+    )), listStacked.map((a) => {
+      const col = jcmApptState(a, T).color;
       const ini = procInitial(a.proc);
       return /* @__PURE__ */ React.createElement(
         "div",
@@ -2732,12 +2728,11 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
             if (dayHideT.current) clearTimeout(dayHideT.current);
             if (dayShowT.current) clearTimeout(dayShowT.current);
-            const el = e.currentTarget;
+            const mx = e.clientX, my = e.clientY;
             dayShowT.current = setTimeout(() => {
-              const r = el.getBoundingClientRect();
-              let x = r.right + 8;
-              if (x + 280 > window.innerWidth) x = r.left - 288;
-              setHoverA({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 380) });
+              let x = mx + 16;
+              if (x + 280 > window.innerWidth) x = mx - 296;
+              setHoverA({ a, x: Math.max(8, x), y: Math.max(8, Math.min(my - 10, window.innerHeight - 380)) });
             }, 200);
           },
           onMouseLeave: () => {
@@ -2748,9 +2743,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             if (dayHideT.current) clearTimeout(dayHideT.current);
             dayHideT.current = setTimeout(() => setHoverA(null), 160);
           },
-          style: { position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? "22" : "18"), ...daySmallBlur, border: "1px solid " + col + "33", borderLeft: "3px solid " + col, borderRadius: 8, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }
+          style: { position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? luxF ? "1e" : "26" : luxF ? "14" : "1c"), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderLeft: "4px solid " + col, borderRadius: luxF ? DS.r.ctl : 6, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }
         },
-        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), a.proc && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "\xB7 ", a.proc), ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: col, background: col + "22", borderRadius: 4, padding: "1px 5px" } }, ini)),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), a.proc && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "\xB7 ", a.proc), ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" } }, ini)),
         /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap" } }, a.time, " - ", endOf(a)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, whiteSpace: "nowrap" } }, parseInt(a.dur) || 60, " min"))
       );
     }), showNow && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 54, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 4, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" } }, "Ahora ", fmtTime(now)))))), (() => {
@@ -3176,15 +3171,14 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           onMouseEnter: (e) => {
             if (hideT.current) clearTimeout(hideT.current);
             if (showT.current) clearTimeout(showT.current);
-            const el = e.currentTarget;
+            const mx = e.clientX, my = e.clientY;
             showT.current = setTimeout(() => {
-              const r = el.getBoundingClientRect();
               if (v2) {
-                let x = r.right + 8;
-                if (x + 280 > window.innerWidth) x = r.left - 288;
-                setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) });
+                let x = mx + 16;
+                if (x + 280 > window.innerWidth) x = mx - 296;
+                setHover({ a, x: Math.max(8, x), y: Math.max(8, Math.min(my - 10, window.innerHeight - 360)) });
               } else {
-                setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) });
+                setHover({ a, x: Math.min(mx + 16, window.innerWidth - 250), y: Math.max(8, Math.min(my - 10, window.innerHeight - 180)) });
               }
             }, 200);
           },

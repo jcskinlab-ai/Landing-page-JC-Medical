@@ -2555,12 +2555,6 @@ function procInitial(proc) {
   return proc.trim().charAt(0).toUpperCase();
 }
 
-// Paleta de colores de la vista diaria: cada cita del día toma un color distinto según su orden
-// (no según su estado), para que el timeline se lea de un vistazo como en la referencia — no
-// todas las citas "pendiente" quedan del mismo tono de acento.
-const DAY_PALETTE = ["#3B5169", "#1F8A5B", "#A6821E", "#7C5CBF", "#2E6F9E", "#B0562B"];
-function dayApptColor(i) { return DAY_PALETTE[i % DAY_PALETTE.length]; }
-
 function ApptBlock({ T, a, onClick, compact }) {
   const st = jcmApptState(a, T);
   const ini = procInitial(a.proc);
@@ -2982,7 +2976,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           Scrim de legibilidad (design audit 7.4): el texto flota sobre la foto everest; un halo
           suave (oscuro en dark / claro en light) garantiza contraste aunque detrás caiga una zona
           clara u oscura de la montaña, sin agregar una caja opaca que rompa el look editorial. */}
-      {luxF && view !== "dia" && (() => {
+      {luxF && (() => {
         const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)";
         const n = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada").length;
         // Compacto (ref. del usuario): título + insignia "N citas hoy" en una sola línea, en vez del
@@ -3108,25 +3102,24 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                   </button>
                 ))}
                 {/* Bloques de cita — una línea: nombre · servicio [inicial] … rango + duración */}
-                {listStacked.map((a, ai) => { const col = dayApptColor(ai); const ini = procInitial(a.proc); return (
+                {listStacked.map(a => { const col = jcmApptState(a, T).color; const ini = procInitial(a.proc); return (
                   <div key={a.id} data-appt onClick={e => { e.stopPropagation(); setEdit(a); setEditOnly(null); }}
                     onMouseEnter={e => {
                       if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
                       if (dayHideT.current) clearTimeout(dayHideT.current);
                       if (dayShowT.current) clearTimeout(dayShowT.current);
-                      const el = e.currentTarget;
+                      const mx = e.clientX, my = e.clientY;
                       dayShowT.current = setTimeout(() => {
-                        const r = el.getBoundingClientRect();
-                        let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288;
-                        setHoverA({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 380) });
+                        let x = mx + 16; if (x + 280 > window.innerWidth) x = mx - 296;
+                        setHoverA({ a, x: Math.max(8, x), y: Math.max(8, Math.min(my - 10, window.innerHeight - 380)) });
                       }, 200);
                     }}
                     onMouseLeave={() => { if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } if (dayHideT.current) clearTimeout(dayHideT.current); dayHideT.current = setTimeout(() => setHoverA(null), 160); }}
-                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? "22" : "18"), ...daySmallBlur, border: "1px solid " + col + "33", borderLeft: "3px solid " + col, borderRadius: 8, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderLeft: "4px solid " + col, borderRadius: luxF ? DS.r.ctl : 6, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                       <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                       {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {a.proc}</span>}
-                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: col, background: col + "22", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
+                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 600, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                       <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
@@ -3794,11 +3787,10 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                         onMouseEnter={e => {
                           if (hideT.current) clearTimeout(hideT.current);
                           if (showT.current) clearTimeout(showT.current);
-                          const el = e.currentTarget;
+                          const mx = e.clientX, my = e.clientY;
                           showT.current = setTimeout(() => {
-                            const r = el.getBoundingClientRect();
-                            if (v2) { let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288; setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) }); }
-                            else { setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }
+                            if (v2) { let x = mx + 16; if (x + 280 > window.innerWidth) x = mx - 296; setHover({ a, x: Math.max(8, x), y: Math.max(8, Math.min(my - 10, window.innerHeight - 360)) }); }
+                            else { setHover({ a, x: Math.min(mx + 16, window.innerWidth - 250), y: Math.max(8, Math.min(my - 10, window.innerHeight - 180)) }); }
                           }, 200);
                         }}
                         onMouseLeave={() => { if (showT.current) { clearTimeout(showT.current); showT.current = null; } if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
