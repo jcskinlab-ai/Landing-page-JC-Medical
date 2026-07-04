@@ -3301,7 +3301,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const D = window.JCDATA;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [wkOff, setWkOff] = useState(0);
-  const [wkMiniMonth, setWkMiniMonth] = useState(() => new Date()); // mes visible del mini-calendario (preview)
   const [menu, setMenu] = useState(null); // appt id abierto
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [menuDayOff, setMenuDayOff] = useState(null);
@@ -3316,9 +3315,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   // tarjeta hover con acciones. La única diferencia por clínica es la granularidad de la
   // agenda (15 min en JC Medical / 30 min en clínicas cliente), que la maneja adminSlotMins().
   const v2 = true;
-  // Rediseño de la tarjeta de cita (bloque sólido por color de estado, hora de inicio-término
-  // arriba, nombre e insignia): en preview de "medique admin" primero (ver [[jcm_preview_medique_admin]]).
-  const wkCardNew = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
   const activeAppt = menu ? appts.find(a => a.id === menu) : null;
   // Equipo de la clínica → desplegable de profesional (ver una agenda a la vez, sin "Todos").
   const team = (() => { try { var t = window.DB && DB.get("team"); if (Array.isArray(t) && t.length) return t; } catch (e) {} try { if (window.CADMIN && Array.isArray(CADMIN.team) && CADMIN.team.length) return CADMIN.team; } catch (e) {} return []; })();
@@ -3364,215 +3360,6 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       return { ...a, _top: top, _h: h };
     });
   };
-
-  // Grilla semanal + texto de ayuda del "+": se guarda en una variable para poder envolverla junto al
-  // sidebar nuevo (preview) sin duplicar el JSX — se usa en una de las dos ramas de más abajo según wkCardNew.
-  const weekGridBlock = (
-    <>
-      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: (v2 && !luxF) ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
-        <div style={{ minWidth: 900 }}>
-          {/* Encabezado días (en v2: hora a ambos lados) */}
-          <div style={{ display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
-            <div style={{ borderBottom: "1px solid " + T.line }} />
-            {days.map((d, i) => (
-              v2 ? (
-                /* Encabezado horizontal en una línea (ahorra espacio): "Lunes 22 jun" */
-                <div key={i} style={{ padding: "11px 6px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "12" : "transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  <span style={{ fontFamily: T.serif, fontSize: 15.5, color: d.isToday ? T.accent : T.text }}>{DOWS_FULL[d.date.getDay()]} {d.dd}</span>
-                  <span style={{ fontFamily: T.sans, fontSize: 10, color: d.isToday ? T.accent : T.textMute, marginLeft: 5 }}>{MES[d.date.getMonth()].slice(0, 3)}</span>
-                </div>
-              ) : (
-                <div key={i} style={{ padding: "12px 4px 10px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }}>
-                  <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", color: d.isToday ? T.accent : T.textMute }}>{d.dow}</div>
-                  {d.isToday
-                    ? <div style={{ margin: "3px auto 0", width: 30, height: 30, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", fontFamily: T.serif, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" }}>{d.dd}</div>
-                    : <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, marginTop: 2 }}>{d.dd}</div>}
-                </div>
-              )
-            ))}
-            {v2 && <div style={{ borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }} />}
-          </div>
-          {/* Timeline continuo por columna */}
-          <div style={{ display: "flex", position: "relative" }}>
-            {/* Etiquetas de hora (en punto y media hora) */}
-            <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
-              {ADMIN_HALF_HOURS.map((hhmm, i) => {
-                const half = hhmm.endsWith(":30"); // las medias horas, más pequeñas y tenues
-                return (
-                  <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 9 : (v2 ? 10.5 : 10), fontWeight: (v2 && !half) ? 600 : 400, color: luxF ? (half ? T.textMute : T.text) : (v2 ? (half ? T.textFaint : T.textMute) : T.textFaint), opacity: half ? (v2 ? 0.8 : 0.5) : 1, pointerEvents: "none", userSelect: "none" }}>
-                    {hhmm}
-                  </div>
-                );
-              })}
-            </div>
-            {/* Columnas de días */}
-            {days.map((d, ci) => {
-              const da = appts.filter(a => apptDayOff(a) === d.off && a.status !== "anulada" && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60 && (!v2 || profMatch(a)));
-              return (
-                <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
-                  {/* Zonas clicables (15 o 30 min según la clínica); bloqueadas si hay una cita que cubre ese tramo */}
-                  {slots.map((hhmm, i) => {
-                    const isHourLine = hhmm.endsWith(":00"); // borde marcado en la hora en punto
-                    const isHalfLine = hhmm.endsWith(":30"); // borde sutil en la media hora
-                    // v2: el "+" no se dibuja donde hay una cita visible (sin ruido detrás de las citas).
-                    const blocked = v2
-                      ? da.some(a => { const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(hhmm); return ts >= as && ts < as + ad; })
-                      : appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
-                    return (
-                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * slotPx, height: slotPx, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none" }}>
-                        {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
-                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
-                          <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                          </span>
-                        </button>}
-                      </div>
-                    );
-                  })}
-                  {/* Bloques de citas apilados verticalmente */}
-                  {stackAppts(da).map(a => {
-                    const isPendPago = a.status === "pendiente_pago";
-                    const accentColor = jcmApptState(a, T).color;
-                    // Hora de término = inicio + duración; se muestra siempre (sin hover) junto al servicio.
-                    const _durMin = parseInt(a.dur) || 60;
-                    const _endMin = mins(a.time) + _durMin;
-                    const horaFin = String(Math.floor(_endMin / 60)).padStart(2, "0") + ":" + String(_endMin % 60).padStart(2, "0");
-                    const tall = a._h >= 38; // hay altura para la 2ª línea (servicio + hora fin)
-                    return (
-                      <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
-                        onMouseEnter={e => {
-                          if (hideT.current) clearTimeout(hideT.current);
-                          if (showT.current) clearTimeout(showT.current);
-                          const el = e.currentTarget;
-                          showT.current = setTimeout(() => {
-                            const r = el.getBoundingClientRect();
-                            if (v2) { let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288; setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) }); }
-                            else { setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }
-                          }, 200);
-                        }}
-                        onMouseLeave={() => { if (showT.current) { clearTimeout(showT.current); showT.current = null; } if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
-                        onClick={e => { e.stopPropagation(); if (showT.current) { clearTimeout(showT.current); showT.current = null; } setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
-                        {wkCardNew ? (
-                          /* Rediseño (preview medique admin, ref. captura del usuario): bloque SÓLIDO del color
-                             de estado (no tinte translúcido) con la hora de inicio-término arriba, nombre del
-                             paciente en negrita debajo y, si hay altura, el servicio. Insignia con la inicial del
-                             procedimiento en la esquina. Mismo dato/funcionalidad que el estilo actual, solo el
-                             tratamiento visual cambia (fondo de la página y el resto del panel no se tocan). */
-                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" : accentColor, borderRadius: luxF ? DS.r.ctl : 8, padding: tall ? "5px 7px" : "2px 7px", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: tall ? "flex-start" : "center", gap: 1, boxShadow: "0 3px 10px -5px rgba(0,0,0,.5)" }}>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                              <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 10, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time}{tall ? " - " + horaFin : ""}</span>
-                              {a.proc && <span style={{ flexShrink: 0, width: 14, height: 14, borderRadius: 3, background: "rgba(255,255,255,.3)", color: "#fff", fontFamily: T.sans, fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{a.proc[0].toUpperCase()}</span>}
-                            </div>
-                            <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
-                            {tall && <span style={{ fontFamily: T.sans, fontSize: 9.5, color: "rgba(255,255,255,.82)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{isPendPago ? "⏳ Pago pendiente" : (a.proc || "Cita")}</span>}
-                          </div>
-                        ) : v2 ? (
-                          /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve. La tarjeta
-                             muestra SIEMPRE (sin hover) nombre + hora de inicio y, si hay altura, servicio + hora
-                             de término — la info operativa que recepción necesita de un vistazo (ref. del usuario).
-                             En Los Medique (luxF) el tinte es cristal esmerilado (backdrop-blur Nivel 2) para que la
-                             montaña del fondo se transparente y la cita no sea un bloque pastel opaco. */
-                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...(luxF ? { backdropFilter: window.JCDS.glassBlur.small, WebkitBackdropFilter: window.JCDS.glassBlur.small } : {}), border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderLeft: "4px solid " + accentColor, borderRadius: luxF ? DS.r.ctl : 6, padding: tall ? "4px 6px 4px 8px" : "0 6px 0 8px", overflow: "hidden", display: "flex", alignItems: tall ? "stretch" : "center", gap: 6 }}>
-                            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 }}>
-                              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                                <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
-                                <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: T.text }}>{a.time}</span>
-                              </div>
-                              {tall && <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                                <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{isPendPago ? "⏳ Pago pendiente" : (a.proc || "Cita")}</span>
-                                <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textFaint }}>– {horaFin}</span>
-                              </div>}
-                            </div>
-                            {a.proc && <span style={{ flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
-                          </div>
-                        ) : (
-                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
-                              <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
-                            </div>
-                            {a._h > 26 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {(parseInt(a.dur) || 60)} min{a.proc ? " · " + (isPendPago ? "⏳ Pago pendiente" : a.proc) : ""}</div>}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-            {/* Etiquetas de hora del lado derecho (solo v2: hora a ambos lados, estilo Medilink) */}
-            {v2 && (
-              <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, overflow: "hidden" }}>
-                {ADMIN_HALF_HOURS.map((hhmm, i) => {
-                  const half = hhmm.endsWith(":30");
-                  return (
-                    <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, left: 6, fontFamily: T.sans, fontSize: half ? 9 : 10.5, fontWeight: half ? 400 : 600, color: luxF ? (half ? T.textMute : T.text) : (half ? T.textFaint : T.textMute), opacity: half ? 0.8 : 1, pointerEvents: "none", userSelect: "none" }}>
-                      {hhmm}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 }}>Pasa el mouse por un horario libre y toca el <b style={{ color: T.accent }}>+</b> para agendar · pasa el cursor por una cita para ver el detalle y acciones.</p>
-    </>
-  );
-
-  // Sidebar de la vista SEMANAL (preview medique admin, ref. captura del usuario): mini-calendario +
-  // "Información del día" de HOY (mismo criterio y estilo que la vista Día — se resume SIEMPRE hoy,
-  // sin importar qué semana se esté mirando, igual que en la referencia). NO agrega el sistema de
-  // "tipos de cita" ni los filtros de profesional/clínica de la referencia — quedaron fuera de
-  // alcance a pedido del usuario.
-  const weekSidebarBlock = !wkCardNew ? null : (() => {
-    const card = { ...((luxF && DS && DS._glass) ? DS._glass(T, 16) : { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow || "none" }), padding: 15 };
-    const secT = { fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 11 };
-    const navMini = { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, cursor: "pointer" };
-    const infoRow = (l, v) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{l}</span><span style={{ color: T.text, fontWeight: 600 }}>{v}</span></div>;
-    const fmtDur = m => { const h = Math.floor(m / 60), mm = m % 60; return (h ? h + "h" : "") + (h && mm ? " " : "") + (mm ? mm + "m" : (h ? "" : "0m")); };
-    const y = wkMiniMonth.getFullYear(), mo = wkMiniMonth.getMonth();
-    const firstDow = (new Date(y, mo, 1).getDay() + 6) % 7;
-    const cells = []; for (let i = 0; i < 42; i++) { const cd = new Date(y, mo, 1 - firstDow + i); cells.push({ date: cd, inMonth: cd.getMonth() === mo }); }
-    const keyOf = d => d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
-    const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
-    const todayKey = keyOf(todayD);
-    const offsetOfDate = d => { const t = new Date(); t.setHours(0, 0, 0, 0); const dd = new Date(d); dd.setHours(0, 0, 0, 0); return Math.round((dd - t) / 86400000); };
-    // Resumen de HOY (no de la semana en pantalla): mismo criterio que la vista Día.
-    const todayList = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada" && (!v2 || profMatch(a)));
-    const todayTotalMin = todayList.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
-    const todayWindowMin = (() => {
-      try { const av = window.JCDATA && window.JCDATA.availForDate && window.JCDATA.availForDate(todayD); if (av && av.open && av.slots && av.slots.length) { const sm = av.slots.map(mins); return (Math.max.apply(null, sm) + 30) - Math.min.apply(null, sm); } } catch (e) {}
-      return (WK_CLOSE - WK_OPEN) * 60;
-    })();
-    const todayFreeMin = Math.max(0, todayWindowMin - todayTotalMin);
-    return (
-      <div style={{ flex: "0 0 320px", maxWidth: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={card}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <button onClick={() => setWkMiniMonth(new Date(y, mo - 1, 1))} style={navMini}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
-            <span style={{ fontFamily: T.serif, fontSize: 14.5, color: T.text }}>{MES[mo].charAt(0).toUpperCase() + MES[mo].slice(1)} {y}</span>
-            <button onClick={() => setWkMiniMonth(new Date(y, mo + 1, 1))} style={navMini}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 }}>
-            {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map(w => <div key={w} style={{ textAlign: "center", fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, padding: "2px 0" }}>{w}</div>)}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
-            {cells.map((c, i) => { const isTd = keyOf(c.date) === todayKey; return (
-              <button key={i} onClick={() => onDay(offsetOfDate(c.date))} style={{ height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "none", cursor: "pointer", background: isTd ? T.accent : "transparent", color: isTd ? (T.onAccent || "#fff") : (c.inMonth ? T.text : T.textFaint), fontFamily: T.sans, fontSize: 12, fontWeight: isTd ? 600 : 400 }}>{c.date.getDate()}</button>
-            ); })}
-          </div>
-          <button onClick={() => onDay(0)} style={{ width: "100%", marginTop: 12, padding: "9px", borderRadius: 9, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" }}>Ir a hoy</button>
-        </div>
-        <div style={card}>
-          <div style={secT}>Información del día</div>
-          {infoRow("Citas", todayList.length)}
-          {infoRow("Duración total", fmtDur(todayTotalMin))}
-          {infoRow("Tiempo libre", fmtDur(todayFreeMin))}
-        </div>
-      </div>
-    );
-  })();
 
   return (
     <div>
@@ -3657,12 +3444,140 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         );
       })()}
 
-      {wkCardNew ? (
-        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-          <div style={{ flex: "1 1 0", minWidth: 0 }}>{weekGridBlock}</div>
-          {weekSidebarBlock}
+      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: (v2 && !luxF) ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
+        <div style={{ minWidth: 900 }}>
+          {/* Encabezado días (en v2: hora a ambos lados) */}
+          <div style={{ display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
+            <div style={{ borderBottom: "1px solid " + T.line }} />
+            {days.map((d, i) => (
+              v2 ? (
+                /* Encabezado horizontal en una línea (ahorra espacio): "Lunes 22 jun" */
+                <div key={i} style={{ padding: "11px 6px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "12" : "transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ fontFamily: T.serif, fontSize: 15.5, color: d.isToday ? T.accent : T.text }}>{DOWS_FULL[d.date.getDay()]} {d.dd}</span>
+                  <span style={{ fontFamily: T.sans, fontSize: 10, color: d.isToday ? T.accent : T.textMute, marginLeft: 5 }}>{MES[d.date.getMonth()].slice(0, 3)}</span>
+                </div>
+              ) : (
+                <div key={i} style={{ padding: "12px 4px 10px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }}>
+                  <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", color: d.isToday ? T.accent : T.textMute }}>{d.dow}</div>
+                  {d.isToday
+                    ? <div style={{ margin: "3px auto 0", width: 30, height: 30, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", fontFamily: T.serif, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" }}>{d.dd}</div>
+                    : <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, marginTop: 2 }}>{d.dd}</div>}
+                </div>
+              )
+            ))}
+            {v2 && <div style={{ borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft }} />}
+          </div>
+          {/* Timeline continuo por columna */}
+          <div style={{ display: "flex", position: "relative" }}>
+            {/* Etiquetas de hora (en punto y media hora) */}
+            <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" }}>
+              {ADMIN_HALF_HOURS.map((hhmm, i) => {
+                const half = hhmm.endsWith(":30"); // las medias horas, más pequeñas y tenues
+                return (
+                  <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, right: 6, fontFamily: T.sans, fontSize: half ? 9 : (v2 ? 10.5 : 10), fontWeight: (v2 && !half) ? 600 : 400, color: luxF ? (half ? T.textMute : T.text) : (v2 ? (half ? T.textFaint : T.textMute) : T.textFaint), opacity: half ? (v2 ? 0.8 : 0.5) : 1, pointerEvents: "none", userSelect: "none" }}>
+                    {hhmm}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Columnas de días */}
+            {days.map((d, ci) => {
+              const da = appts.filter(a => apptDayOff(a) === d.off && a.status !== "anulada" && mins(a.time) >= WK_OPEN * 60 && mins(a.time) < (WK_CLOSE + 1) * 60 && (!v2 || profMatch(a)));
+              return (
+                <div key={ci} style={{ flex: "1 1 0", minWidth: 112, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "08" : "transparent" }}>
+                  {/* Zonas clicables (15 o 30 min según la clínica); bloqueadas si hay una cita que cubre ese tramo */}
+                  {slots.map((hhmm, i) => {
+                    const isHourLine = hhmm.endsWith(":00"); // borde marcado en la hora en punto
+                    const isHalfLine = hhmm.endsWith(":30"); // borde sutil en la media hora
+                    // v2: el "+" no se dibuja donde hay una cita visible (sin ruido detrás de las citas).
+                    const blocked = v2
+                      ? da.some(a => { const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(hhmm); return ts >= as && ts < as + ad; })
+                      : appts.some(a => { if (a.day !== d.off) return false; const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(hhmm); return ts >= as && ts < as + ad; });
+                    return (
+                      <div key={hhmm} style={{ position: "absolute", left: 0, right: 0, top: i * slotPx, height: slotPx, borderBottom: (isHourLine || isHalfLine) ? "1px solid " + T.lineSoft : "none" }}>
+                        {!blocked && <button className="jc-cell" onClick={() => onNew(d.off, hhmm)} title={"Agendar " + hhmm}
+                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                          <span className="jc-cell-add" style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid " + T.line, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                          </span>
+                        </button>}
+                      </div>
+                    );
+                  })}
+                  {/* Bloques de citas apilados verticalmente */}
+                  {stackAppts(da).map(a => {
+                    const isPendPago = a.status === "pendiente_pago";
+                    const accentColor = jcmApptState(a, T).color;
+                    // Hora de término = inicio + duración; se muestra siempre (sin hover) junto al servicio.
+                    const _durMin = parseInt(a.dur) || 60;
+                    const _endMin = mins(a.time) + _durMin;
+                    const horaFin = String(Math.floor(_endMin / 60)).padStart(2, "0") + ":" + String(_endMin % 60).padStart(2, "0");
+                    const tall = a._h >= 38; // hay altura para la 2ª línea (servicio + hora fin)
+                    return (
+                      <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
+                        onMouseEnter={e => {
+                          if (hideT.current) clearTimeout(hideT.current);
+                          if (showT.current) clearTimeout(showT.current);
+                          const el = e.currentTarget;
+                          showT.current = setTimeout(() => {
+                            const r = el.getBoundingClientRect();
+                            if (v2) { let x = r.right + 8; if (x + 280 > window.innerWidth) x = r.left - 288; setHover({ a, x: Math.max(8, x), y: Math.min(r.top, window.innerHeight - 360) }); }
+                            else { setHover({ a, x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.min(r.top, window.innerHeight - 180) }); }
+                          }, 200);
+                        }}
+                        onMouseLeave={() => { if (showT.current) { clearTimeout(showT.current); showT.current = null; } if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
+                        onClick={e => { e.stopPropagation(); if (showT.current) { clearTimeout(showT.current); showT.current = null; } setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
+                        {v2 ? (
+                          /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve. La tarjeta
+                             muestra SIEMPRE (sin hover) nombre + hora de inicio y, si hay altura, servicio + hora
+                             de término — la info operativa que recepción necesita de un vistazo (ref. del usuario).
+                             En Los Medique (luxF) el tinte es cristal esmerilado (backdrop-blur Nivel 2) para que la
+                             montaña del fondo se transparente y la cita no sea un bloque pastel opaco. */
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...(luxF ? { backdropFilter: window.JCDS.glassBlur.small, WebkitBackdropFilter: window.JCDS.glassBlur.small } : {}), border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderLeft: "4px solid " + accentColor, borderRadius: luxF ? DS.r.ctl : 6, padding: tall ? "4px 6px 4px 8px" : "0 6px 0 8px", overflow: "hidden", display: "flex", alignItems: tall ? "stretch" : "center", gap: 6 }}>
+                            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 }}>
+                              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                                <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: T.text }}>{a.time}</span>
+                              </div>
+                              {tall && <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{isPendPago ? "⏳ Pago pendiente" : (a.proc || "Cita")}</span>
+                                <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textFaint }}>– {horaFin}</span>
+                              </div>}
+                            </div>
+                            {a.proc && <span style={{ flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
+                          </div>
+                        ) : (
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
+                              <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                            </div>
+                            {a._h > 26 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {(parseInt(a.dur) || 60)} min{a.proc ? " · " + (isPendPago ? "⏳ Pago pendiente" : a.proc) : ""}</div>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {/* Etiquetas de hora del lado derecho (solo v2: hora a ambos lados, estilo Medilink) */}
+            {v2 && (
+              <div style={{ width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, overflow: "hidden" }}>
+                {ADMIN_HALF_HOURS.map((hhmm, i) => {
+                  const half = hhmm.endsWith(":30");
+                  return (
+                    <div key={hhmm} style={{ position: "absolute", top: i * (WPX / 2) + 2, left: 6, fontFamily: T.sans, fontSize: half ? 9 : 10.5, fontWeight: half ? 400 : 600, color: luxF ? (half ? T.textMute : T.text) : (half ? T.textFaint : T.textMute), opacity: half ? 0.8 : 1, pointerEvents: "none", userSelect: "none" }}>
+                      {hhmm}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
-      ) : weekGridBlock}
+      </div>
+      <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 12 }}>Pasa el mouse por un horario libre y toca el <b style={{ color: T.accent }}>+</b> para agendar · pasa el cursor por una cita para ver el detalle y acciones.</p>
       {/* Tarjeta al pasar el cursor: avatar + estado + tabla (Hora/Duración/Procedimiento/Estado/Profesional) + acciones rápidas.
           Interactiva: el retardo de cierre permite mover el cursor de la cita a la tarjeta para tocar un botón. */}
       {hover && hover.a && !menu && (() => {
