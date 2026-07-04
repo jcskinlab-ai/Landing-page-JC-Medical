@@ -3076,6 +3076,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [editCom, setEditCom] = useState(null);
   const [cancelArm, setCancelArm] = useState(null);
   const hideT = useRef(null);
+  const wkScrollRef = useRef(null);
   const showT = useRef(null);
   const v2 = true;
   const wkSidebar = false;
@@ -3126,6 +3127,20 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX;
   const slots = adminSlots(), slotPx = WPX * adminSlotMins() / 60;
   const topW = (t) => (mins(t) - WK_OPEN * 60) * WPX / 60;
+  const wkFirstMin = (() => {
+    const offs = days.map((d) => d.off);
+    const mn = appts.filter((a) => a.status !== "anulada" && offs.indexOf(apptDayOff(a)) >= 0 && (!v2 || profMatch(a))).reduce((min, a) => Math.min(min, mins(a.time)), Infinity);
+    return isFinite(mn) ? mn : null;
+  })();
+  useEffect(() => {
+    const el = wkScrollRef.current;
+    if (!el) return;
+    if (wkFirstMin == null) {
+      el.scrollTop = 0;
+      return;
+    }
+    el.scrollTop = Math.max(0, (wkFirstMin - WK_OPEN * 60) * WPX / 60 - 40);
+  }, [wkOff, selProf, wkFirstMin]);
   const stackAppts = (list) => {
     if (!list.length) return [];
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
@@ -3203,7 +3218,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     const titleNode = /* @__PURE__ */ React.createElement("div", { style: { ...luxF ? { minWidth: 150 } : { flex: 1, minWidth: 160 }, fontFamily: T.serif, fontSize: v2 ? 18 : 21, color: T.text } }, days[0].dd, " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[start.getMonth()])), " \u2013 ", last.getDate(), " de ", /* @__PURE__ */ React.createElement("span", { style: { fontStyle: "italic", color: T.accent } }, cap(MES[last.getMonth()])));
     if (luxF) return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, iconNode, titleNode, /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6 } }, hoyBtn, prevBtn, nextBtn), v2 && viewToggle, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 8 } }), profNode, v2 && icsBtn, v2 && nuevaBtn);
     return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } }, iconNode, titleNode, v2 && viewToggle, v2 && icsBtn, v2 && nuevaBtn, profNode, hoyBtn, prevBtn, nextBtn);
-  })(), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 0", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 && !luxF ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 900 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" } }, /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line } }), days.map((d, i) => v2 ? (
+  })(), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 0", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { ref: wkScrollRef, className: "jc-scroll", style: { overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: v2 && !luxF ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 900 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" } }, /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line } }), days.map((d, i) => v2 ? (
     /* Encabezado horizontal en una línea (ahorra espacio): "Lunes 22 jun" */
     /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: "11px 6px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft, background: d.isToday ? T.accent + "12" : "transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 15.5, color: d.isToday ? T.accent : T.text } }, DOWS_FULL[d.date.getDay()], " ", d.dd), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: d.isToday ? T.accent : T.textMute, marginLeft: 5 } }, MES[d.date.getMonth()].slice(0, 3)))
   ) : /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: "12px 4px 10px", textAlign: "center", borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".1em", color: d.isToday ? T.accent : T.textMute } }, d.dow), d.isToday ? /* @__PURE__ */ React.createElement("div", { style: { margin: "3px auto 0", width: 30, height: 30, borderRadius: "50%", background: T.accent, color: T.onAccent || "#fff", fontFamily: T.serif, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" } }, d.dd) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text, marginTop: 2 } }, d.dd))), v2 && /* @__PURE__ */ React.createElement("div", { style: { borderBottom: "1px solid " + T.line, borderLeft: "1px solid " + T.lineSoft } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderRight: "1px solid " + T.lineSoft, overflow: "hidden" } }, ADMIN_HALF_HOURS.map((hhmm, i) => {

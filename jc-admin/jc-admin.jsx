@@ -3639,6 +3639,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const [editCom, setEditCom] = useState(null); // appt para popup de comentario rápido
   const [cancelArm, setCancelArm] = useState(null); // id de cita "armada": pide segundo click para cancelar
   const hideT = useRef(null); // retardo para poder mover el cursor de la cita al tooltip (acciones)
+  const wkScrollRef = useRef(null); // auto-scroll a la primera cita de la semana (igual que la vista día)
   const showT = useRef(null); // retardo de 0,2s antes de mostrar el popover: al recorrer la agenda con
   // el cursor (sin intención de detenerse), antes se abría al instante en cada cita y molestaba.
   // ── Nueva agenda (estilo Medilink barra) — ACTIVA PARA TODAS LAS CLÍNICAS ──
@@ -3677,6 +3678,20 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
   const wkGridH = (WK_CLOSE - WK_OPEN + 1) * WPX; // +1 hora para que las 20:00 tengan casilla completa (cierre 21:00 sin etiqueta)
   const slots = adminSlots(), slotPx = WPX * adminSlotMins() / 60; // 15 min (JC Medical) o 30 min (otras clínicas)
   const topW = t => (mins(t) - WK_OPEN * 60) * WPX / 60;
+  // Cita más temprana de la semana visible (para ubicar el scroll inicial ahí, igual que la vista día).
+  const wkFirstMin = (() => {
+    const offs = days.map(d => d.off);
+    const mn = appts.filter(a => a.status !== "anulada" && offs.indexOf(apptDayOff(a)) >= 0 && (!v2 || profMatch(a)))
+      .reduce((min, a) => Math.min(min, mins(a.time)), Infinity);
+    return isFinite(mn) ? mn : null;
+  })();
+  // Al entrar a la vista semanal (o cambiar de semana/profesional), ubicar el scroll en la primera
+  // cita en vez de arrancar en 08:00 — evita el scroll manual cuando la semana parte más tarde.
+  useEffect(() => {
+    const el = wkScrollRef.current; if (!el) return;
+    if (wkFirstMin == null) { el.scrollTop = 0; return; }
+    el.scrollTop = Math.max(0, (wkFirstMin - WK_OPEN * 60) * WPX / 60 - 40); // deja algo de contexto arriba
+  }, [wkOff, selProf, wkFirstMin]);
 
   // Apila citas solapadas verticalmente (ancho completo, empuja las siguientes hacia abajo)
   const stackAppts = list => {
@@ -3831,7 +3846,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
        <div style={{ flex: "1 1 0", minWidth: 0 }}>
-      <div className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: (v2 && !luxF) ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
+      <div ref={wkScrollRef} className="jc-scroll" style={{ overflowX: "auto", overflowY: "auto", maxHeight: v2 ? "76vh" : "74vh", margin: (v2 && !luxF) ? "0 10px" : 0, border: "1px solid " + T.line, borderRadius: v2 ? 16 : 12, boxShadow: v2 ? T.shadow : "none" }}>
         <div style={{ minWidth: 900 }}>
           {/* Encabezado días (en v2: hora a ambos lados) */}
           <div style={{ display: "grid", gridTemplateColumns: v2 ? "52px repeat(7, minmax(112px,1fr)) 52px" : "52px repeat(7, minmax(112px,1fr))", position: "sticky", top: 0, zIndex: 3, background: T.navBg, backdropFilter: "blur(8px)" }}>
