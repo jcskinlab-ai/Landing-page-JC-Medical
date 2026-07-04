@@ -2445,6 +2445,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [selProf, setSelProf] = useState("");
   const [dayProfOpen, setDayProfOpen] = useState(false);
   const [quickPop, setQuickPop] = useState(null);
+  const [dayMenu, setDayMenu] = useState(null);
   const [now, setNow] = useState(/* @__PURE__ */ new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(/* @__PURE__ */ new Date()), 3e4);
@@ -2683,7 +2684,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     return /* @__PURE__ */ React.createElement("div", { style: wrap }, btn("dia", "Vista lista / d\xEDa", /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }))), btn("semana", "Vista calendario / semana", /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" }))), btn("mes", "Vista mensual", /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 10h18M8 2v4M16 2v4" }), /* @__PURE__ */ React.createElement("circle", { cx: "8", cy: "14.5", r: "1", fill: "currentColor", stroke: "none" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "14.5", r: "1", fill: "currentColor", stroke: "none" }), /* @__PURE__ */ React.createElement("circle", { cx: "16", cy: "14.5", r: "1", fill: "currentColor", stroke: "none" }))));
   })();
   const [icsMod, setIcsMod] = useState(false);
-  const nuevaBtnNode = /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNueva({ time: "10:00", day: view === "dia" ? day : 0 }) }, "+ Nueva Cita");
+  const nuevaBtnNode = /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => setNueva(view === "dia" ? { time: dayFirstFree, day, fromSlot: true } : { time: "10:00", day: 0 }) }, "+ Nueva Cita");
   const icsBtnNode = /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -2776,8 +2777,15 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           "data-appt": true,
           onClick: (e) => {
             e.stopPropagation();
-            setEdit(a);
-            setEditOnly(null);
+            if (dayShowT.current) {
+              clearTimeout(dayShowT.current);
+              dayShowT.current = null;
+            }
+            setHoverA(null);
+            const mx = e.clientX, my = e.clientY;
+            let x = mx + 6;
+            if (x + 224 > window.innerWidth) x = mx - 230;
+            setDayMenu({ a, x: Math.max(8, x), y: Math.max(8, Math.min(my, window.innerHeight - 430)) });
           },
           onMouseEnter: (e) => {
             if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
@@ -2785,6 +2793,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             if (dayShowT.current) clearTimeout(dayShowT.current);
             const mx = e.clientX, my = e.clientY;
             dayShowT.current = setTimeout(() => {
+              if (dayMenu) return;
               let x = mx + 16;
               if (x + 280 > window.innerWidth) x = mx - 296;
               setHoverA({ a, x: Math.max(8, x), y: Math.max(8, Math.min(my - 10, window.innerHeight - 380)) });
@@ -2871,7 +2880,60 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       const np = addPatient({ name: (a.name || "").trim(), phone: (a.phone || "").trim(), rut: (a.rut || "").trim(), email: (a.email || "").trim(), age: 0 });
       if (np && np.id && onOpenPatient) onOpenPatient(np.id);
       setFichaConfirm(null);
-    }, style: { flex: 2, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" } }, "Crear ficha ahora")))), hoverA && hoverA.a && !edit && (() => {
+    }, style: { flex: 2, fontFamily: T.sans, fontSize: 13, fontWeight: 600, padding: "11px", borderRadius: 8, cursor: "pointer", background: T.accent, color: T.onAccent || "#fff", border: "none" } }, "Crear ficha ahora")))), dayMenu && dayMenu.a && (() => {
+      const a = dayMenu.a;
+      const items = [
+        ["Ver ficha del paciente", () => {
+          verFichaDaily(a);
+          setDayMenu(null);
+        }],
+        ["\u270E Editar duraci\xF3n", () => {
+          setEdit(a);
+          setEditOnly("duracion");
+          setDayMenu(null);
+        }, T.accent],
+        ["\u{1F4C5} Cambiar fecha", () => {
+          setEdit(a);
+          setEditOnly("fecha");
+          setDayMenu(null);
+        }, T.accent],
+        ["__sep", null],
+        ["Agregar comentario", () => {
+          setEditComD(a);
+          setDayMenu(null);
+        }],
+        ["__sep", null],
+        ...a.status === "pendiente_pago" ? [["\u2713 Confirmar transferencia", () => {
+          updateAppt(a.id, { status: "confirmada" });
+          setDayMenu(null);
+        }, "#1F8A5B"]] : [],
+        ["Confirmar cita", () => {
+          updateAppt(a.id, { status: "confirmada", attended: false });
+          setDayMenu(null);
+        }, "#16A34A"],
+        ["Confirmar asistencia (WhatsApp)", () => {
+          const ph = (a.phone || "").replace(/\D/g, "");
+          if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmConfirmAsistMsg(a)), "_blank", "noopener");
+          else window.jcmToast && window.jcmToast("Este paciente no tiene tel\xE9fono registrado.", "info");
+          setDayMenu(null);
+        }, "#1F8A5B"],
+        ["Marcar como atendido", () => {
+          updateAppt(a.id, { status: "atendida", attended: true });
+          setDayMenu(null);
+        }],
+        ["No asisti\xF3", () => {
+          updateAppt(a.id, { status: "no_asistio", attended: false });
+          setDayMenu(null);
+        }, "#C0285A"],
+        ["__sep", null],
+        ["Anular cita", () => {
+          updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() });
+          jcmCancelNotice(a);
+          setDayMenu(null);
+        }, "#C0285A"]
+      ];
+      return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: () => setDayMenu(null), style: { position: "fixed", inset: 0, zIndex: 79 } }), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "fixed", left: dayMenu.x, top: dayMenu.y, zIndex: 80, minWidth: 214, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", overflow: "hidden", padding: "4px 0", animation: "jcSlideUp .2s ease" } }, items.map((it, i) => it[0] === "__sep" ? /* @__PURE__ */ React.createElement("div", { key: i, style: { height: 1, background: T.lineSoft, margin: "4px 0" } }) : /* @__PURE__ */ React.createElement("button", { key: i, onClick: it[1], style: { display: "block", width: "100%", textAlign: "left", padding: "10px 15px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[2] || T.text } }, it[0]))));
+    })(), hoverA && hoverA.a && !edit && !dayMenu && (() => {
       const a = hoverA.a, isPP = a.status === "pendiente_pago";
       const _hs2 = jcmApptState(a, T);
       const ac = _hs2.color, estado = _hs2.label;

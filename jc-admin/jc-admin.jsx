@@ -2830,6 +2830,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [selProf, setSelProf] = useState(""); // profesional filtrado en la vista diaria (vacío = el primero)
   const [dayProfOpen, setDayProfOpen] = useState(false);
   const [quickPop, setQuickPop] = useState(null); // { type: "bloquear"|"recordatorio", x, y } · tarjeta de Acciones rápidas, junto al cursor
+  const [dayMenu, setDayMenu] = useState(null); // { a, x, y } · menú de acciones al hacer clic en una cita (vista día), igual que la semanal
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
   // El mini-calendario del panel diario sigue al día seleccionado (sin pisar la navegación de meses < >).
@@ -3021,7 +3022,10 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     </div>;
   })();
   const [icsMod, setIcsMod] = useState(false);
-  const nuevaBtnNode = <AdBtn T={T} primary onClick={() => setNueva({ time: "10:00", day: view === "dia" ? day : 0 })}>+ Nueva Cita</AdBtn>;
+  // En la vista DIARIA, "Nueva Cita" salta directo al paso de datos del paciente (fromSlot) con el
+  // primer horario libre del día que se está viendo — en vez de la grilla de selección de hora. En
+  // semana/mes mantiene la grilla (elegir día/hora primero).
+  const nuevaBtnNode = <AdBtn T={T} primary onClick={() => setNueva(view === "dia" ? { time: dayFirstFree, day, fromSlot: true } : { time: "10:00", day: 0 })}>+ Nueva Cita</AdBtn>;
   const icsBtnNode = (
     <button onClick={() => setIcsMod(true)} title="Importar citas desde archivo de calendario (.ics)"
       style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 13px", border: "1px solid " + T.line, background: T.surface, borderRadius: 9, fontFamily: T.sans, fontSize: 12, color: T.textMute, cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -3173,13 +3177,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                 ))}
                 {/* Bloques de cita — una línea: nombre · servicio [inicial] … rango + duración */}
                 {listStacked.map(a => { const col = jcmApptState(a, T).color; const ini = procInitial(a.proc); return (
-                  <div key={a.id} data-appt onClick={e => { e.stopPropagation(); setEdit(a); setEditOnly(null); }}
+                  <div key={a.id} data-appt onClick={e => { e.stopPropagation(); if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } setHoverA(null); const mx = e.clientX, my = e.clientY; let x = mx + 6; if (x + 224 > window.innerWidth) x = mx - 230; setDayMenu({ a, x: Math.max(8, x), y: Math.max(8, Math.min(my, window.innerHeight - 430)) }); }}
                     onMouseEnter={e => {
                       if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
                       if (dayHideT.current) clearTimeout(dayHideT.current);
                       if (dayShowT.current) clearTimeout(dayShowT.current);
                       const mx = e.clientX, my = e.clientY;
                       dayShowT.current = setTimeout(() => {
+                        if (dayMenu) return;
                         let x = mx + 16; if (x + 280 > window.innerWidth) x = mx - 296;
                         setHoverA({ a, x: Math.max(8, x), y: Math.max(8, Math.min(my - 10, window.innerHeight - 380)) });
                       }, 200);
@@ -3381,7 +3386,41 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       {/* Tarjeta de acciones rápidas al pasar el cursor sobre una cita (vista día) — mismo diseño y
           botones que ya tiene la vista semana (avatar + estado + tabla + Ficha/Confirmar/Atendido/
           No asistió/Cancelar/Comentario), a pedido del usuario para tener paridad entre ambas vistas. */}
-      {hoverA && hoverA.a && !edit && (() => {
+      {/* Menú de acciones al hacer CLIC en una cita (vista día) — mismas opciones que la vista semanal. */}
+      {dayMenu && dayMenu.a && (() => {
+        const a = dayMenu.a;
+        const items = [
+          ["Ver ficha del paciente", () => { verFichaDaily(a); setDayMenu(null); }],
+          ["✎ Editar duración", () => { setEdit(a); setEditOnly("duracion"); setDayMenu(null); }, T.accent],
+          ["📅 Cambiar fecha", () => { setEdit(a); setEditOnly("fecha"); setDayMenu(null); }, T.accent],
+          ["__sep", null],
+          ["Agregar comentario", () => { setEditComD(a); setDayMenu(null); }],
+          ["__sep", null],
+          ...(a.status === "pendiente_pago" ? [["✓ Confirmar transferencia", () => { updateAppt(a.id, { status: "confirmada" }); setDayMenu(null); }, "#1F8A5B"]] : []),
+          ["Confirmar cita", () => { updateAppt(a.id, { status: "confirmada", attended: false }); setDayMenu(null); }, "#16A34A"],
+          ["Confirmar asistencia (WhatsApp)", () => {
+            const ph = (a.phone || "").replace(/\D/g, "");
+            if (ph.length >= 8) window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(jcmConfirmAsistMsg(a)), "_blank", "noopener");
+            else window.jcmToast && window.jcmToast("Este paciente no tiene teléfono registrado.", "info");
+            setDayMenu(null);
+          }, "#1F8A5B"],
+          ["Marcar como atendido", () => { updateAppt(a.id, { status: "atendida", attended: true }); setDayMenu(null); }],
+          ["No asistió", () => { updateAppt(a.id, { status: "no_asistio", attended: false }); setDayMenu(null); }, "#C0285A"],
+          ["__sep", null],
+          ["Anular cita", () => { updateAppt(a.id, { status: "anulada", attended: false, anuladaAt: Date.now() }); jcmCancelNotice(a); setDayMenu(null); }, "#C0285A"]
+        ];
+        return (
+          <React.Fragment>
+            <div onClick={() => setDayMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 79 }} />
+            <div onClick={e => e.stopPropagation()} style={{ position: "fixed", left: dayMenu.x, top: dayMenu.y, zIndex: 80, minWidth: 214, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", overflow: "hidden", padding: "4px 0", animation: "jcSlideUp .2s ease" }}>
+              {items.map((it, i) => it[0] === "__sep"
+                ? <div key={i} style={{ height: 1, background: T.lineSoft, margin: "4px 0" }} />
+                : <button key={i} onClick={it[1]} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 15px", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: it[2] || T.text }}>{it[0]}</button>)}
+            </div>
+          </React.Fragment>
+        );
+      })()}
+      {hoverA && hoverA.a && !edit && !dayMenu && (() => {
         const a = hoverA.a, isPP = a.status === "pendiente_pago";
         const _hs2 = jcmApptState(a, T); const ac = _hs2.color, estado = _hs2.label;
         const ini = (a.name || "").split(" ").slice(0, 2).map(w => (w[0] || "")).join("").toUpperCase();
