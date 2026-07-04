@@ -1378,9 +1378,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       )}
 
       {tab === "citas" && (
-        <div style={{ maxWidth: 720 }}>
+        <div>
           <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: T.text, fontWeight: 600, marginBottom: 12 }}>Próximas citas ({ord.length})</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+          {/* Grilla responsive (en vez de una columna angosta con maxWidth:720): aprovecha todo el
+              ancho disponible, como un panel de citas enterprise, en vez de dejar espacio muerto
+              a la derecha en pantallas anchas. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 10 }}>
             {ord.length ? ord.map(citaRow) : <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "20px 0" }}>No hay citas registradas.</div>}
           </div>
         </div>
@@ -1882,7 +1885,9 @@ function AdminApp() {
   // dos filas separadas), para reducir el espacio superior sin usar — a pedido del usuario. Se arma
   // el contenido de la barra de navegación una sola vez (navBarInner) para poder ubicarlo en la fila
   // fusionada o en su fila propia según headerMerge, sin duplicar el JSX.
-  const headerMerge = typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview();
+  // Deshecho a pedido del usuario (4-jul-2026): la barra de navegación vuelve a su fila propia,
+  // separada del buscador — igual que el resto de las clínicas — para que nada quede cortado.
+  const headerMerge = false;
   const navBarInner = (() => {
     const items = adminNavItems(); const byKey = {}; items.forEach(n => { byKey[n.k] = n.l; });
     const seg = shellLux;
@@ -3023,14 +3028,18 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         const navBtn = { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, cursor: "pointer", ...ctlGlass };
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
               <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, whiteSpace: "nowrap" }}>{dayTitle}</div>
               <span style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, padding: "3px 10px", borderRadius: 999, whiteSpace: "nowrap", color: dayIsOpen ? "#16A34A" : "#C0285A", background: (dayIsOpen ? "#16A34A" : "#C0285A") + "18" }}>{dayIsOpen ? "Día abierto" : "Día cerrado"}</span>
             </div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <button onClick={() => setDay(0)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", ...ctlGlass }}>Hoy</button>
             <button onClick={() => setDay(day - 1)} title="Día anterior" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
             <button onClick={() => setDay(day + 1)} title="Día siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
+            </div>
             {viewToggleNode}
             <div style={{ flex: 1, minWidth: 8 }} />
             {dayMultiProf && (() => {
@@ -3079,7 +3088,10 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           {/* ── Columna izquierda: timeline del día ── (misma altura que el panel lateral: cabecera
               fija + área con scroll propio que se reparte el resto — así ambas columnas terminan
               parejas y "Citas anuladas" queda pegado abajo, sin el hueco vacío de horas sin citas). */}
-          <div style={{ flex: "1 1 460px", minWidth: 0, height: "72vh", display: "flex", flexDirection: "column", overflow: "hidden", ...dayGlass(16) }}>
+          {/* Sin tinte de fondo (igual que el contenedor de la grilla semanal): solo borde, para que la
+              foto se vea al 100% detrás del timeline — antes el panel glass (aunque translúcido) le
+              restaba nitidez a la montaña comparado con la vista semanal. */}
+          <div style={{ flex: "1 1 460px", minWidth: 0, height: "72vh", display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid " + T.line, borderRadius: luxF ? 16 : 12, boxShadow: luxF ? T.shadow : "none" }}>
             <div style={{ flexShrink: 0, textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.textMute }}>
               {(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview()) ? dayHeaderInfo : dayTitle}
             </div>
@@ -3117,14 +3129,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                       }, 200);
                     }}
                     onMouseLeave={() => { if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } if (dayHideT.current) clearTimeout(dayHideT.current); dayHideT.current = setTimeout(() => setHoverA(null), 160); }}
-                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: "linear-gradient(180deg," + col + (T.dark ? "3a" : "24") + "," + col + (T.dark ? "20" : "12") + ")," + T.bg, border: "1px solid " + col + "44", borderLeft: "4px solid " + col, borderRadius: 8, padding: "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 12px -6px rgba(0,0,0,.55)" }}>
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderLeft: "4px solid " + col, borderRadius: luxF ? DS.r.ctl : 6, padding: "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
                     {/* Fila superior: rango horario + duración (izq) · inicial del procedimiento (der) — igual que la referencia */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       <span style={{ display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 }}>
                         <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
                         <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
                       </span>
-                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: "#fff", background: col, borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
+                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
                     </div>
                     {/* Fila inferior: nombre del paciente + procedimiento */}
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
@@ -3500,13 +3512,15 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, icsBt
           usuario): ícono + fecha serif + Hoy + ‹ › + toggle de vistas (íconos) a la IZQUIERDA;
           profesional + Importar .ics + "Nueva Cita" a la DERECHA. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
-          <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, whiteSpace: "nowrap" }}>{monthLbl}</div>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: T.accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
         </div>
-        <button onClick={() => setMonthDate(new Date())} style={{ ...navBtn, width: "auto", padding: "0 15px", fontSize: 12.5 }}>Hoy</button>
-        <button onClick={() => setMonthDate(new Date(y, m - 1, 1))} style={navBtn} title="Mes anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
-        <button onClick={() => setMonthDate(new Date(y, m + 1, 1))} style={navBtn} title="Mes siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
+        <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, whiteSpace: "nowrap" }}>{monthLbl}</div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setMonthDate(new Date())} style={{ ...navBtn, width: "auto", padding: "0 15px", fontSize: 12.5 }}>Hoy</button>
+          <button onClick={() => setMonthDate(new Date(y, m - 1, 1))} style={navBtn} title="Mes anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
+          <button onClick={() => setMonthDate(new Date(y, m + 1, 1))} style={navBtn} title="Mes siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
+        </div>
         {viewToggle}
         <div style={{ flex: 1, minWidth: 8 }} />
         {multiProf && (
