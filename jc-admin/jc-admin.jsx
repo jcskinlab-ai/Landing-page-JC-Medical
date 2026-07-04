@@ -2830,6 +2830,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   // "+ Nueva Cita" se inyectan dentro de la barra de la semana, SemanaGrid).
   const isBase = true;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  // Glass de la vista diaria (mismo sistema JCDS de 2 niveles): panel = cards grandes; small = bloques de cita.
+  const dayGlass = r => (luxF && DS && DS._glass) ? DS._glass(T, r) : { background: T.surface, border: "1px solid " + T.line, borderRadius: r, boxShadow: T.shadow || "none" };
+  const daySmallBlur = (luxF && DS && DS.glassBlur) ? { backdropFilter: DS.glassBlur.small, WebkitBackdropFilter: DS.glassBlur.small } : {};
   const viewToggleNode = (
     <div style={luxF ? { display: "inline-flex", gap: 2, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3 } : { display: "inline-flex", gap: 4, background: T.surface, border: "1px solid " + T.line, borderRadius: 9, padding: 4 }}>
       <button onClick={() => setView("dia")} title="Vista lista / día" style={luxF
@@ -2895,14 +2898,15 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       )}
       {/* Barra superior de la vista DIARIA: fecha + Hoy/‹/› + toggle a la izquierda; acciones a la derecha. */}
       {isBase && view === "dia" && (() => {
-        const navBtn = { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer" };
+        const ctlGlass = luxF ? { background: T.dark ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.5)", ...daySmallBlur } : { background: T.surface };
+        const navBtn = { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, cursor: "pointer", ...ctlGlass };
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
               <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, whiteSpace: "nowrap" }}>{dayTitle}</div>
             </div>
-            <button onClick={() => setDay(0)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + T.line, background: T.surface, color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer" }}>Hoy</button>
+            <button onClick={() => setDay(0)} style={{ height: 34, padding: "0 15px", borderRadius: 9, border: "1px solid " + T.line, color: T.textMute, fontFamily: T.sans, fontSize: 12.5, cursor: "pointer", ...ctlGlass }}>Hoy</button>
             <button onClick={() => setDay(day - 1)} title="Día anterior" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg></button>
             <button onClick={() => setDay(day + 1)} title="Día siguiente" style={navBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
             {viewToggleNode}
@@ -2927,7 +2931,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       ) : (
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
           {/* ── Columna izquierda: timeline del día ── */}
-          <div style={{ flex: "1 1 460px", minWidth: 0, background: T.surface, border: "1px solid " + T.line, borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ flex: "1 1 460px", minWidth: 0, overflow: "hidden", ...dayGlass(16) }}>
             <div style={{ textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.serif, fontSize: 15, color: T.text }}>{dayTitle}</div>
             <div className="jc-scroll" style={{ maxHeight: "64vh", overflowY: "auto" }}>
               <div onClick={clickTimeline} style={{ position: "relative", height: hours.length * HPX, cursor: "copy" }}>
@@ -2952,7 +2956,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                 {/* Bloques de cita — una línea: nombre · servicio [inicial] … rango + duración */}
                 {listStacked.map(a => { const stt = jcmApptState(a, T); const ini = procInitial(a.proc); return (
                   <div key={a.id} data-appt onClick={e => { e.stopPropagation(); setEdit(a); setEditOnly(null); }}
-                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: T.surface2 || T.surface, border: "1px solid " + stt.color + "44", borderLeft: "3px solid " + stt.color, borderRadius: 7, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2 }}>
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: stt.color + (T.dark ? "22" : "18"), ...daySmallBlur, border: "1px solid " + stt.color + "33", borderLeft: "3px solid " + stt.color, borderRadius: 8, padding: "0 10px", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                       <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                       {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {a.proc}</span>}
@@ -2975,7 +2979,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           </div>
           {/* ── Columna derecha: panel de información del día ── */}
           {(() => {
-            const card = { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: 15 };
+            const card = { ...dayGlass(16), padding: 15 };
             const secT = { fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 11 };
             const navMini = { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, cursor: "pointer" };
             const infoRow = (l, v) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{l}</span><span style={{ color: T.text, fontWeight: 600 }}>{v}</span></div>;
