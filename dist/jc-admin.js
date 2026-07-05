@@ -4356,7 +4356,18 @@ function SaasGate() {
   const pBtn = (label, onClick, disabled) => /* @__PURE__ */ React.createElement("button", { onClick, disabled, style: { marginTop: 4, padding: "14px", borderRadius: 6, border: "none", background: T.primaryBg, color: T.primaryText, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 } }, label);
   const gBtn = (label, onClick) => /* @__PURE__ */ React.createElement("button", { onClick, style: { marginTop: 4, padding: "13px", borderRadius: 6, border: "1px solid " + T.line, background: "transparent", color: T.text, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" } }, label);
   const link = (label, onClick) => /* @__PURE__ */ React.createElement("button", { onClick, style: { background: "none", border: "none", cursor: "pointer", color: T.accent, fontFamily: T.sans, fontSize: 12, textDecoration: "underline", padding: 6 } }, label);
-  const wrap = (title, subtitle, body, footer) => /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, padding: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 380 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" } }, "Medique \xB7 Panel cl\xEDnico"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 34, color: T.text, textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 } }, title), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" } }, subtitle), body, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: 14 } }, footer)));
+  const wrap = (title, subtitle, body, footer) => /* @__PURE__ */ React.createElement("div", { style: {
+    minHeight: "100dvh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    backgroundImage: "linear-gradient(rgba(9,11,15,.76), rgba(9,11,15,.90)), url('/assets/everest.jpg')",
+    backgroundColor: T.bg,
+    backgroundSize: "cover",
+    backgroundPosition: "center top",
+    backgroundRepeat: "no-repeat"
+  } }, /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 380 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" } }, "Medique \xB7 Panel cl\xEDnico"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 34, color: T.text, textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 } }, title), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" } }, subtitle), body, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: 14 } }, footer)));
   if (phase === "loading") return wrap("Conectando\u2026", "Verificando tu sesi\xF3n.", /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", color: T.textMute, fontFamily: T.sans, fontSize: 12 } }, "Un momento\u2026"), null);
   if (phase === "otp") {
     return wrap(

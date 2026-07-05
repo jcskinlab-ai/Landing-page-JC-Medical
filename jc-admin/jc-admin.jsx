@@ -5224,8 +5224,11 @@ function SaasGate() {
   const pBtn = (label, onClick, disabled) => (<button onClick={onClick} disabled={disabled} style={{ marginTop: 4, padding: "14px", borderRadius: 6, border: "none", background: T.primaryBg, color: T.primaryText, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 }}>{label}</button>);
   const gBtn = (label, onClick) => (<button onClick={onClick} style={{ marginTop: 4, padding: "13px", borderRadius: 6, border: "1px solid " + T.line, background: "transparent", color: T.text, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>{label}</button>);
   const link = (label, onClick) => (<button onClick={onClick} style={{ background: "none", border: "none", cursor: "pointer", color: T.accent, fontFamily: T.sans, fontSize: 12, textDecoration: "underline", padding: 6 }}>{label}</button>);
+  // Fondo Everest (misma foto/velo que el resto del panel "lux") en el login del portal.
   const wrap = (title, subtitle, body, footer) => (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, padding: 24 }}>
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+      backgroundImage: "linear-gradient(rgba(9,11,15,.76), rgba(9,11,15,.90)), url('/assets/everest.jpg')",
+      backgroundColor: T.bg, backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" }}>Medique · Panel clínico</div>
         <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 34, color: T.text, textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 }}>{title}</h1>
