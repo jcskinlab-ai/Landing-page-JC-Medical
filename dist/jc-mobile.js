@@ -149,7 +149,7 @@ function LoginVideoBg({ children }) {
       poster: "/assets/everest-mobile.jpg?v=7",
       style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }
     },
-    /* @__PURE__ */ React.createElement("source", { src: "/assets/everest-login.mp4", type: "video/mp4" })
+    /* @__PURE__ */ React.createElement("source", { src: "/assets/everest-login.mp4?v=2", type: "video/mp4" })
   ), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: overlay } }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center" } }, children));
 }
 function patientsAll() {

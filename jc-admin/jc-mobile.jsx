@@ -149,7 +149,7 @@ function LoginVideoBg({ children }) {
     <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#12294F" }}>
       <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=7"
         style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
-        <source src="/assets/everest-login.mp4" type="video/mp4" />
+        <source src="/assets/everest-login.mp4?v=2" type="video/mp4" />
       </video>
       <div style={{ position:"absolute", inset:0, backgroundImage:overlay }} />
       <div style={{ position:"relative", zIndex:1, width:"100%", display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
