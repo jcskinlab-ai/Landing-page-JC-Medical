@@ -121,7 +121,7 @@ function photoTheme(T) {
 }
 function mobileBg(T) {
   const overlay = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=9')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=10')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
 }
 function glassPanel(T, radius) {
   return {
@@ -143,18 +143,21 @@ function glassChip(T) {
 }
 function LoginVideoBg({ children }) {
   const overlay = "linear-gradient(180deg, rgba(18,44,84,.4), rgba(16,38,74,.5) 50%, rgba(12,30,62,.7))";
-  return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", minHeight: "100dvh", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 24px", backgroundColor: "#12294F" } }, /* @__PURE__ */ React.createElement(
-    "video",
-    {
-      autoPlay: true,
-      loop: true,
-      muted: true,
-      playsInline: true,
-      poster: "/assets/everest-mobile.jpg?v=9",
-      style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }
-    },
-    /* @__PURE__ */ React.createElement("source", { src: "/assets/everest-login.mp4?v=2", type: "video/mp4" })
-  ), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: overlay } }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center" } }, children));
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    position: "relative",
+    minHeight: "100dvh",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "30px 24px",
+    backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=10')",
+    backgroundColor: "#12294F",
+    backgroundSize: "cover",
+    backgroundPosition: "center top",
+    backgroundRepeat: "no-repeat"
+  } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center" } }, children));
 }
 function consentPendingM(patients, appts) {
   appts = appts || [];

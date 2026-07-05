@@ -133,7 +133,7 @@ function mobileBg(T) {
   // Velo OSCURO navy casi negro (pedido: "como el portal de escritorio"): la montaña desenfocada
   // queda apenas visible como una textura tenue, el conjunto lee oscuro y premium (iOS 26).
   const overlay = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=9')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=10')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
@@ -158,18 +158,13 @@ function glassChip(T) {
     border: "1px solid rgba(255,255,255,.075)"
   };
 }
-// Fondo de la pantalla de LOGIN (única pantalla con video, a pedido del usuario): nube/montaña en
-// movimiento en vez de la foto fija. autoPlay+muted+playsInline es obligatorio para que iOS/Android
-// lo reproduzcan solos sin gesto del usuario; poster = la foto fija mientras carga el video.
+// Fondo de la pantalla de LOGIN: foto fija (pedido del usuario) — se quita el video de nubes en
+// movimiento que usaba esta pantalla, para que la nueva foto se vea consistente en toda la app.
 function LoginVideoBg({ children }) {
   const overlay = "linear-gradient(180deg, rgba(18,44,84,.4), rgba(16,38,74,.5) 50%, rgba(12,30,62,.7))";
   return (
-    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#12294F" }}>
-      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=9"
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
-        <source src="/assets/everest-login.mp4?v=2" type="video/mp4" />
-      </video>
-      <div style={{ position:"absolute", inset:0, backgroundImage:overlay }} />
+    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px",
+      backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=10')", backgroundColor:"#12294F", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }}>
       <div style={{ position:"relative", zIndex:1, width:"100%", display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
     </div>
   );
