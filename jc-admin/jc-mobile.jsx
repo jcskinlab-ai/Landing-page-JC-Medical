@@ -50,13 +50,25 @@ const STATUS_STEPS = [
 // Colores de estado tonificados para leer sobre la foto OSCURA del panel móvil (los del escritorio
 // —#1A50A3, #B8860B— quedaban muy apagados sobre el fondo).
 function apptStateM(a, T) {
+  // Color de la BARRA lateral y el punto (tokens del MD: verde/amarillo/rojo/azul).
   if (a.status === "anulada")        return { label: "Cancelada",   color: T.textFaint };
-  if (a.status === "no_asistio")     return { label: "No asistió",  color: "#F17A96" };
+  if (a.status === "no_asistio")     return { label: "No asistió",  color: "#FF6B7D" };
   if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#6EA8E8" };
-  if (a.status === "confirmada")     return { label: "Confirmada",  color: "#4FC585" };
-  if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#E4BA4D" };
+  if (a.status === "confirmada")     return { label: "Confirmada",  color: "#46D27A" };
+  if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#F5B93D" };
   // "Agendado" (pendiente de confirmar) = amarillo, coherente con la cápsula-resumen y el mockup.
-  return { label: "Agendado", color: "#E4BA4D" };
+  return { label: "Agendado", color: "#F5B93D" };
+}
+// Estilo del BADGE de estado (referencia/MD): Confirmada/Atendida = contorno azul; Pendiente y
+// No asistió = pastilla RELLENA (amarillo con texto oscuro / rojo con texto claro). Distinto del
+// color de la barra a propósito (la barra de "confirmada" es verde, su badge es azul).
+function apptBadge(a) {
+  if (a.status === "anulada")        return { label:"Cancelada",  color:"rgba(235,242,252,.6)", bg:"transparent",           border:"rgba(235,242,252,.35)" };
+  if (a.status === "no_asistio")     return { label:"No asistió", color:"#FFFFFF",              bg:"#FF6B7D",                border:"#FF6B7D" };
+  if (a.attended || a.status === "atendida") return { label:"Atendida", color:"#8FB8FF", bg:"rgba(78,141,255,.16)", border:"rgba(78,141,255,.55)" };
+  if (a.status === "confirmada")     return { label:"Confirmada", color:"#8FB8FF",              bg:"rgba(78,141,255,.14)",   border:"rgba(78,141,255,.55)" };
+  if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#241A00",          bg:"#F5B93D",                border:"#F5B93D" };
+  return { label:"Agendado", color:"#241A00", bg:"#F5B93D", border:"#F5B93D" };
 }
 
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
@@ -112,13 +124,21 @@ function mobileBg(T) {
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
 function glassPanel(T, radius) {
-  // Frosted glass estilo Apple (referencia): tinte NEUTRO (blanco, sin cargar a azul), muy translúcido
-  // para que la foto se vea nítida por detrás, borde fino brillante + brillo interior arriba y una
-  // sombra suave que despega la tarjeta del fondo. Nunca opaco.
-  return { background: "rgba(255,255,255,.1)", backdropFilter: "blur(30px) saturate(1.35)", WebkitBackdropFilter: "blur(30px) saturate(1.35)", border: "1px solid rgba(255,255,255,.28)", borderRadius: radius==null?18:radius, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 26px -14px rgba(8,22,48,.55)" };
+  // Frosted glass EXACTO del MD: base navy translúcida + degradado blanco (brillo Apple) + un reflejo
+  // radial arriba-izquierda, borde fino y sombra de profundidad. Deja ver la montaña, nunca opaco.
+  return {
+    background: "radial-gradient(120% 80% at 22% 0%, rgba(255,255,255,.14), transparent 42%), linear-gradient(180deg, rgba(255,255,255,.105), rgba(255,255,255,.045)), rgba(16,41,78,.34)",
+    backdropFilter: "blur(28px) saturate(1.7)", WebkitBackdropFilter: "blur(28px) saturate(1.7)",
+    border: "1px solid rgba(255,255,255,.16)", borderRadius: radius==null?20:radius,
+    boxShadow: "0 14px 40px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.05)"
+  };
 }
 function glassChip(T) {
-  return { background: "rgba(255,255,255,.12)", backdropFilter: "blur(26px) saturate(1.35)", WebkitBackdropFilter: "blur(26px) saturate(1.35)", border: "1px solid rgba(255,255,255,.24)" };
+  return {
+    background: "linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.04)), rgba(16,41,78,.3)",
+    backdropFilter: "blur(26px) saturate(1.7)", WebkitBackdropFilter: "blur(26px) saturate(1.7)",
+    border: "1px solid rgba(255,255,255,.14)"
+  };
 }
 // Fondo de la pantalla de LOGIN (única pantalla con video, a pedido del usuario): nube/montaña en
 // movimiento en vez de la foto fija. autoPlay+muted+playsInline es obligatorio para que iOS/Android
@@ -410,7 +430,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
 
   // KPIs (referencia): 4 tarjetas glass con ícono arriba, etiqueta, número grande y variación.
   const kpi = (icon, label, val, sub, subColor) => (
-    <div style={{ flex:1, minWidth:0, ...glassPanel(T,13), padding:"11px 5px 10px", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center" }}>
+    <div style={{ flex:1, minWidth:0, ...glassPanel(T,18), padding:"12px 5px 11px", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center" }}>
       <div style={{ color:T.accent, opacity:.92, height:16, display:"flex", alignItems:"center" }}>{icon}</div>
       <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, lineHeight:1.15, marginTop:6, minHeight:24, display:"flex", alignItems:"center" }}>{label}</div>
       <div style={{ fontFamily:T.serif, fontSize:27, fontWeight:600, color:T.text, marginTop:2, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
@@ -478,10 +498,11 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {upcoming.map(a => {
             const st = apptStateM(a, T);
+            const bd = apptBadge(a);
             const iso = a.fecha||offToISO(a.day||0);
             const dLbl = iso===today ? "Hoy" : (()=>{ const d=new Date(iso+"T00:00:00"); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", ...glassPanel(T,13), padding:0, overflow:"hidden" }}>
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", ...glassPanel(T,16), padding:0, overflow:"hidden" }}>
                 <div style={{ width:4, background:st.color, flexShrink:0 }} />
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"11px 11px", minWidth:0 }}>
                   <div style={{ flexShrink:0, minWidth:38 }}>
@@ -492,7 +513,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
                     <div style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
                     <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{a.proc||"—"} · {durOf(a)}</div>
                   </div>
-                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:".03em", textTransform:"uppercase", color:st.color, background:st.color+"1c", border:"1px solid "+st.color+"55", borderRadius:6, padding:"3px 6px" }}>{st.label}</span>
+                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:".03em", textTransform:"uppercase", color:bd.color, background:bd.bg, border:"1px solid "+bd.border, borderRadius:6, padding:"3px 7px" }}>{bd.label}</span>
                 </div>
               </button>
             );
