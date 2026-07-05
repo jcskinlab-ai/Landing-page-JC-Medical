@@ -435,7 +435,7 @@ function DaySummary({ T, c, p, na, prefix, bars }) {
     ? <span style={{ width:1, height:14, background:"rgba(255,255,255,.14)" }} />
     : <span style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint }}>·</span>;
   return (
-    <div style={{ ...glassChip(T), borderRadius:14, padding:"11px 12px", display:"flex", alignItems:"center", justifyContent: bars?"space-around":"center", gap:8, flexWrap:"wrap" }}>
+    <div style={{ ...glassChip(T), borderRadius: bars?14:12, padding: bars?"11px 10px":"9px 12px", display:"flex", alignItems:"center", justifyContent: bars?"space-around":"center", gap:8, flexWrap:"wrap" }}>
       {dot("#46D27A", (prefix?prefix+" ":"") + c + " confirmada" + (c===1?"":"s"))}
       {sep}
       {dot("#E8B84D", p + " pendiente" + (p===1?"":"s"))}
@@ -660,7 +660,12 @@ function HorariosTab({ T, appts }) {
 }
 
 /* ─── Tab Agenda (calendario estilo iPhone) ─── */
-const CAL_PX_HOUR = 90; // píxeles por hora (tarjetas ricas de la referencia necesitan más aire)
+// BUG corregido: con 90px/hora + altura mínima forzada de 76px, dos citas seguidas de 30 min
+// (ej. 15:00-15:30 y 15:30-16:00) se superponían — el mínimo forzado (76px) era MAYOR que el
+// espacio real entre sus horas de inicio (45px). Con 150px/hora, 30 min ya ocupan ~75px de forma
+// NATURAL (sin forzar nada), así que las tarjetas nunca se pisan entre sí: la altura siempre es
+// proporcional a la duración real, nunca mayor que el tramo que le corresponde.
+const CAL_PX_HOUR = 150; // píxeles por hora
 const CAL_START   = 8;  // primera hora visible
 const CAL_END     = 20; // última hora visible
 const CAL_HOURS   = Array.from({length: CAL_END - CAL_START + 1}, (_,i) => CAL_START + i);
@@ -713,7 +718,11 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     const startMin = minsM(a.time);
     const durMin = parseInt(a.dur) || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
     const topPx   = (startMin - CAL_START * 60) * (CAL_PX_HOUR / 60);
-    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 76);
+    // Altura SIEMPRE proporcional a la duración real (sin mínimo forzado por encima de eso):
+    // así nunca puede invadir el tramo de la cita siguiente. Solo un piso de seguridad mínimo
+    // (28px) para datos corruptos con duración ~0, que en la práctica nunca ocurre.
+    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 28);
+    const compact = heightPx < 56; // citas muy cortas (ej. 15 min): layout de una sola línea
     const st = apptStateM(a, T);
     const bd = apptBadge(a);
     const isAnulada = a.status === "anulada";
@@ -724,26 +733,35 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       <button key={a.id} onClick={()=>onOpenAppt(a)} style={{
         position:"absolute", top: topPx, left: 0, right: 0, height: heightPx,
         display:"flex", alignItems:"stretch", textAlign:"left", cursor:"pointer",
-        ...glassPanel(T, 14), padding:0, overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
+        ...glassPanel(T, compact?10:14), padding:0, overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
       }}>
-        <div style={{ width:4, background:st.color, flexShrink:0 }} />
+        <div style={{ width:compact?3:4, background:st.color, flexShrink:0 }} />
+        {compact ? (
+          // Cita corta: una sola línea (nombre + hora + punto de estado), sin procedimiento ni divisor.
+          <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:8, padding:"0 10px" }}>
+            <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{a.name}</span>
+            <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11.5, fontWeight:600, color:st.color }}>{a.time}</span>
+            <span style={{ width:6, height:6, borderRadius:"50%", background:st.color, flexShrink:0 }} />
+          </div>
+        ) : (
         <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center" }}>
           {/* Izquierda: nombre + procedimiento */}
-          <div style={{ flex:1, minWidth:0, padding:"10px 12px" }}>
-            <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.25, textDecoration:isAnulada?"line-through":"none" }}>{a.name}</div>
-            <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:2 }}>{a.proc||"—"}</div>
+          <div style={{ flex:1, minWidth:0, padding:"12px 12px" }}>
+            <div style={{ fontFamily:T.sans, fontSize:17, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.25, textDecoration:isAnulada?"line-through":"none" }}>{a.name}</div>
+            <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:3 }}>{a.proc||"—"}</div>
           </div>
           {/* Divisor vertical (referencia) */}
           <div style={{ width:1, alignSelf:"center", height:"52%", background:"rgba(255,255,255,.12)", flexShrink:0 }} />
           {/* Derecha: rango horario coloreado + estado con punto */}
-          <div style={{ width:118, flexShrink:0, padding:"10px 12px", textAlign:"right" }}>
-            <div style={{ fontFamily:T.sans, fontSize:14, fontWeight:600, color:st.color }}>{range}</div>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:6, marginTop:5 }}>
-              <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>{bd.label}</span>
+          <div style={{ width:128, flexShrink:0, padding:"12px 14px", textAlign:"right" }}>
+            <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:st.color }}>{range}</div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:6, marginTop:6 }}>
+              <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{bd.label}</span>
               <span style={{ width:7, height:7, borderRadius:"50%", background:st.color, flexShrink:0 }} />
             </div>
           </div>
         </div>
+        )}
       </button>
     );
   }
@@ -751,9 +769,9 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   // Segmentado Día/Mes (el filtro de canceladas ahora vive en el icono del header, como la referencia).
   const toggleRow = (
     <div style={{ display:"flex", gap:5, padding:"10px 14px 8px", flexShrink:0, ...glassChip(T), border:"none", background:"transparent" }}>
-      <div style={{ display:"flex", flex:1, gap:4, padding:4, borderRadius:11, ...glassChip(T) }}>
+      <div style={{ display:"flex", flex:1, gap:4, padding:5, borderRadius:14, ...glassChip(T) }}>
         {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:13.5, fontWeight:view===k?600:500, padding:"9px", borderRadius:10, cursor:"pointer",
+          <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:14, fontWeight:view===k?600:500, padding:"9px", borderRadius:10, cursor:"pointer",
             ...(view===k
               ? { background:"linear-gradient(180deg, rgba(88,142,246,.28), rgba(48,104,214,.22))", color:"#fff", border:"1px solid rgba(130,175,255,.45)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(40,90,200,.6)" }
               : { background:"transparent", color:T.textMute, border:"1px solid transparent" }) }}>{l}</button>
@@ -815,7 +833,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 150px)" }}>
       {toggleRow}
       <div style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
-        <div style={{ display:"flex", padding:"2px 10px 8px", minWidth:"max-content", gap:2 }}>
+        <div style={{ display:"flex", padding:"12px 10px 4px", minWidth:"max-content", gap:3 }}>
           {days.map(d => {
             const isSel = d.iso === selDay;
             const isToday = d.iso === today;
@@ -831,7 +849,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
           })}
         </div>
       </div>
-      {!showAnuladas && selActive.length>0 && <div style={{ padding:"0 14px 10px", flexShrink:0 }}><DaySummary T={T} c={cSel} p={pSel} na={naSel} bars /></div>}
+      {!showAnuladas && selActive.length>0 && <div style={{ padding:"12px 16px 8px", flexShrink:0 }}><DaySummary T={T} c={cSel} p={pSel} na={naSel} bars /></div>}
       <div ref={dayRef} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
         <div style={{ position:"relative", marginLeft:48, paddingRight:12 }}>
           {CAL_HOURS.map(h => (
