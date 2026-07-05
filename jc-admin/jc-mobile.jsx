@@ -237,18 +237,22 @@ function LoginScreen({ T, onAuth }) {
       onAuth();
     } catch(e) { setErr("Error de conexión"); setBusy(false); }
   }
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:10, border:"1px solid rgba(255,255,255,.18)", background:"rgba(255,255,255,.08)", color:"#fff", outline:"none", boxSizing:"border-box" };
+  // Mismo tratamiento sobrio que el login SaaS (ver MobileSaasGate): serif elegante, inputs
+  // mínimos y botón neutro en vez del azul vivo de los CTA dentro de la app.
+  const SERIF = "'Marcellus', Georgia, serif";
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:9, border:"1px solid rgba(255,255,255,.09)", background:"rgba(0,0,0,.22)", color:"#fff", outline:"none", boxSizing:"border-box" };
+  const btnSober = { background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:600, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:9, padding:"16px", cursor:"pointer", marginTop:4 };
   return (
     <LoginVideoBg>
       <img src="/assets/medique-logo.png" alt="Medique" style={{ width:52, height:52, marginBottom:10 }} />
-      <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:600, color:"#fff" }}>Medique</div>
-      <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.mute, marginBottom:44 }}>Panel móvil · Acceso privado</div>
+      <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.faint, marginBottom:12 }}>Medique · Panel móvil</div>
+      <div style={{ fontFamily:SERIF, fontSize:30, fontWeight:400, color:"#fff", marginBottom:8 }}>Acceso privado</div>
+      <div style={{ fontFamily:T.sans, fontSize:13, color:ON_PHOTO.mute, marginBottom:36 }}>Accede al panel de tu clínica.</div>
       <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
         {setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} style={inp} />}
         <input type="password" placeholder="Contraseña del panel" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp} />
         {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#FF8FA3", textAlign:"center" }}>{err}</div>}
-        <button onClick={submit} disabled={busy}
-          style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:10, padding:"16px", cursor:"pointer", opacity:busy?.6:1, marginTop:4 }}>
+        <button onClick={submit} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>
           {busy?"…":(setup?"Crear acceso":"Entrar")}
         </button>
       </div>
@@ -1703,45 +1707,56 @@ function MobileSaasGate() {
 
   if (phase === "app") return <MobileShell T={T} D={D} onLogout={() => window.JCSAAS.logout()} />;
 
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:10, border:"1px solid rgba(255,255,255,.18)", background:"rgba(255,255,255,.08)", color:"#fff", outline:"none", boxSizing:"border-box" };
-  // Toda la "zona de login" (cargando/entrar/bloqueado/recuperar) comparte el mismo fondo en video.
+  // Pedido del usuario: login más SOBRIO, como el del portal de escritorio — inputs mínimos casi
+  // sin borde (se distinguen solo por el relleno oscuro, no por un contorno brillante) y sin blur.
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:9, border:"1px solid rgba(255,255,255,.09)", background:"rgba(0,0,0,.22)", color:"#fff", outline:"none", boxSizing:"border-box" };
+  // Botón NEUTRO (no el azul vivo de los CTA dentro de la app): pastilla clara apagada con texto
+  // oscuro, igual de sobria que el "ENTRAR" del portal — el acento de color no pertenece al login.
+  const btnSober = { background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:600, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:9, padding:"16px", cursor:"pointer", marginTop:4 };
+  const linkSober = { background:"none", border:"none", cursor:"pointer", color:ON_PHOTO.mute, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 };
+  // Serif elegante (Marcellus, la del portal de escritorio) SOLO para los títulos del login — el
+  // resto del panel (una vez adentro) se queda en SF Pro, eso no cambia.
+  const SERIF = "'Marcellus', Georgia, serif";
+  // Toda la "zona de login" (cargando/entrar/bloqueado/recuperar) comparte el mismo fondo.
   const center = (kids) => <LoginVideoBg>{kids}</LoginVideoBg>;
 
   if (phase === "loading") return center(
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
       <img src="/assets/medique-logo.png" alt="Medique" style={{ width:36, height:36, marginBottom:6 }} />
-      <div style={{ fontFamily:T.serif, fontSize:24, color:"#fff" }}>Medique</div>
+      <div style={{ fontFamily:SERIF, fontSize:24, color:"#fff" }}>Medique</div>
       <div style={{ fontFamily:T.sans, fontSize:12, color:ON_PHOTO.mute }}>Conectando…</div>
     </div>
   );
 
   if (phase === "blocked") return center(<>
-    <div style={{ fontFamily:T.serif, fontSize:26, color:"#fff", marginBottom:8 }}>Plan inactivo</div>
+    <div style={{ fontFamily:SERIF, fontSize:26, color:"#fff", marginBottom:8 }}>Plan inactivo</div>
     <div style={{ fontFamily:T.sans, fontSize:13, color:ON_PHOTO.mute, textAlign:"center", maxWidth:300, marginBottom:18 }}>El acceso de tu clínica no está activo. Escríbenos para reactivarlo.</div>
     <button onClick={()=>window.JCSAAS.logout()} style={{ background:"none", border:"1px solid rgba(255,255,255,.25)", color:"#fff", fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"12px 18px", cursor:"pointer" }}>Cerrar sesión</button>
   </>);
 
   if (view === "recover") return center(<>
-    <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:600, color:"#fff", marginBottom:6 }}>Recuperar contraseña</div>
-    <div style={{ fontFamily:T.sans, fontSize:12.5, color:ON_PHOTO.mute, textAlign:"center", maxWidth:300, marginBottom:32, lineHeight:1.5 }}>Te enviaremos un enlace a tu correo para restablecerla.</div>
+    <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.faint, marginBottom:12 }}>Medique · Panel móvil</div>
+    <div style={{ fontFamily:SERIF, fontSize:30, fontWeight:400, color:"#fff", marginBottom:8 }}>Recuperar contraseña</div>
+    <div style={{ fontFamily:T.sans, fontSize:13, color:ON_PHOTO.mute, textAlign:"center", maxWidth:300, marginBottom:36, lineHeight:1.5 }}>Te enviaremos un enlace a tu correo para restablecerla.</div>
     <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
       <input placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRecover()} style={inp} />
       {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#FF8FA3", textAlign:"center" }}>{err}</div>}
       {msg && <div style={{ fontFamily:T.sans, fontSize:12, color:"#7CDDA8", textAlign:"center" }}>{msg}</div>}
-      <button onClick={doRecover} disabled={busy||!email.trim()} style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:10, padding:"16px", cursor:"pointer", opacity:(busy||!email.trim())?.6:1, marginTop:4 }}>{busy?"Enviando…":"Enviar enlace"}</button>
-      <button onClick={()=>{ setView("login"); setErr(""); setMsg(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:T.accent, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 }}>← Volver</button>
+      <button onClick={doRecover} disabled={busy||!email.trim()} style={{ ...btnSober, opacity:(busy||!email.trim())?.6:1 }}>{busy?"Enviando…":"Enviar enlace"}</button>
+      <button onClick={()=>{ setView("login"); setErr(""); setMsg(""); }} style={linkSober}>← Volver</button>
     </div>
   </>);
 
   return center(<>
-    <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:600, color:"#fff", marginBottom:6 }}>Confirmar citas</div>
-    <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.mute, marginBottom:44 }}>Panel móvil · Acceso de tu clínica</div>
+    <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.faint, marginBottom:12 }}>Medique · Panel móvil</div>
+    <div style={{ fontFamily:SERIF, fontSize:30, fontWeight:400, color:"#fff", marginBottom:8 }}>Confirmar citas</div>
+    <div style={{ fontFamily:T.sans, fontSize:13, color:ON_PHOTO.mute, marginBottom:36 }}>Accede al panel de tu clínica.</div>
     <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
       <input placeholder="Correo de tu clínica" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} style={inp} />
       <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={inp} />
       {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#FF8FA3", textAlign:"center" }}>{err}</div>}
-      <button onClick={doLogin} disabled={busy} style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:10, padding:"16px", cursor:"pointer", opacity:busy?.6:1, marginTop:4 }}>{busy?"…":"Entrar"}</button>
-      <button onClick={()=>{ setView("recover"); setErr(""); setMsg(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:T.accent, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 }}>¿Olvidaste tu contraseña?</button>
+      <button onClick={doLogin} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>{busy?"…":"Entrar"}</button>
+      <button onClick={()=>{ setView("recover"); setErr(""); setMsg(""); }} style={linkSober}>¿Olvidaste tu contraseña?</button>
     </div>
   </>);
 }
