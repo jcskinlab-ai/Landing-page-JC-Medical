@@ -758,9 +758,12 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       }}>
         <div style={{ width:compact?3:4, background:st.color, flexShrink:0 }} />
         {compact ? (
-          // Cita corta: una sola línea (nombre + hora + punto de estado), sin procedimiento ni divisor.
+          // Cita corta: una sola línea — nombre + procedimiento (o "Evaluación general" si
+          // corresponde) truncados juntos con "…", más hora y punto de estado a la derecha.
           <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:8, padding:"0 10px" }}>
-            <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{a.name}</span>
+            <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>
+              {a.name}<span style={{ fontWeight:400, color:T.textMute }}> · {a.proc||"—"}</span>
+            </span>
             <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11.5, fontWeight:600, color:st.color }}>{a.time}</span>
             <span style={{ width:6, height:6, borderRadius:"50%", background:st.color, flexShrink:0 }} />
           </div>
