@@ -127,17 +127,17 @@ function glassPanel(T, radius) {
   // Frosted glass EXACTO del MD: base navy translúcida + degradado blanco (brillo Apple) + un reflejo
   // radial arriba-izquierda, borde fino y sombra de profundidad. Deja ver la montaña, nunca opaco.
   return {
-    background: "radial-gradient(120% 80% at 22% 0%, rgba(255,255,255,.14), transparent 42%), linear-gradient(180deg, rgba(255,255,255,.105), rgba(255,255,255,.045)), rgba(16,41,78,.34)",
-    backdropFilter: "blur(28px) saturate(1.7)", WebkitBackdropFilter: "blur(28px) saturate(1.7)",
-    border: "1px solid rgba(255,255,255,.16)", borderRadius: radius==null?20:radius,
-    boxShadow: "0 14px 40px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.05)"
+    background: "linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.035) 34%, rgba(255,255,255,0) 70%), linear-gradient(180deg, rgba(82,124,179,.2), rgba(21,54,98,.34))",
+    backdropFilter: "blur(30px) saturate(1.65) brightness(1.05)", WebkitBackdropFilter: "blur(30px) saturate(1.65) brightness(1.05)",
+    border: "1px solid rgba(255,255,255,.2)", borderRadius: radius==null?20:radius,
+    boxShadow: "0 18px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.06)"
   };
 }
 function glassChip(T) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.04)), rgba(16,41,78,.3)",
-    backdropFilter: "blur(26px) saturate(1.7)", WebkitBackdropFilter: "blur(26px) saturate(1.7)",
-    border: "1px solid rgba(255,255,255,.14)"
+    background: "linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.03) 40%, rgba(255,255,255,0) 72%), linear-gradient(180deg, rgba(82,124,179,.17), rgba(21,54,98,.3))",
+    backdropFilter: "blur(28px) saturate(1.6) brightness(1.04)", WebkitBackdropFilter: "blur(28px) saturate(1.6) brightness(1.04)",
+    border: "1px solid rgba(255,255,255,.16)"
   };
 }
 // Fondo de la pantalla de LOGIN (única pantalla con video, a pedido del usuario): nube/montaña en
@@ -423,18 +423,18 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const upcoming = active
     .filter(a => (a.fecha||offToISO(a.day||0)) >= today)
     .sort((a,b) => { const fa=a.fecha||offToISO(a.day||0), fb=b.fecha||offToISO(b.day||0); return fa<fb?-1:fa>fb?1:minsM(a.time)-minsM(b.time); })
-    .slice(0, 6);
+    .slice(0, 5);
 
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
-  const fechaLarga = (() => { const d = new Date(); return DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); })();
+  const fechaLarga = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
 
   // KPIs (referencia): 4 tarjetas glass con ícono arriba, etiqueta, número grande y variación.
   const kpi = (icon, label, val, sub, subColor) => (
-    <div style={{ flex:1, minWidth:0, ...glassPanel(T,18), padding:"12px 5px 11px", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center" }}>
+    <div style={{ flex:1, minWidth:0, minHeight:118, ...glassPanel(T,20), padding:"14px 5px 12px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"space-between", textAlign:"center" }}>
       <div style={{ color:T.accent, opacity:.92, height:16, display:"flex", alignItems:"center" }}>{icon}</div>
       <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, lineHeight:1.15, marginTop:6, minHeight:24, display:"flex", alignItems:"center" }}>{label}</div>
-      <div style={{ fontFamily:T.serif, fontSize:27, fontWeight:600, color:T.text, marginTop:2, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
-      {sub && <div style={{ fontFamily:T.sans, fontSize:8.5, color:subColor||"rgba(230,240,255,.74)", marginTop:4, lineHeight:1.1 }}>{sub}</div>}
+      <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:600, color:T.text, marginTop:3, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
+      {sub && <div style={{ fontFamily:T.sans, fontSize:8.5, color:subColor||"rgba(230,240,255,.74)", marginTop:5, lineHeight:1.1 }}>{sub}</div>}
     </div>
   );
   const IC = {
@@ -451,8 +451,11 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // ("Nueva cita") va relleno de acento; el resto en glass.
   // Accesos rápidos (referencia): 4 tiles glass con ícono centrado arriba y etiqueta debajo.
   // "Nueva cita" destaca con su círculo de acento relleno; los demás lo llevan tenue.
+  // Inner tiles (referencia): superficie sutil dentro de UN contenedor glass exterior, no 4 tarjetas
+  // pesadas sueltas. "Nueva cita" lleva el círculo azul; los demás, ícono de línea claro.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:9, minHeight:90, minWidth:0, cursor:"pointer", ...glassPanel(T,16), padding:"15px 5px" }}>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:9, minHeight:88, minWidth:0, cursor:"pointer", borderRadius:16,
+      background: primary ? "rgba(63,131,255,.14)" : "rgba(255,255,255,.055)", border:"1px solid "+(primary?"rgba(63,131,255,.35)":"rgba(255,255,255,.1)"), padding:"14px 5px" }}>
       {primary
         ? <div style={{ width:44, height:44, borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 8px 18px -6px "+T.accent }}>{icon}</div>
         : <div style={{ height:44, display:"flex", alignItems:"center", justifyContent:"center", color:"#DCE9FF" }}>{icon}</div>}
@@ -469,7 +472,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           : <div style={{ width:52, height:52, borderRadius:"50%", background:T.accent+"33", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.serif, fontSize:18, flexShrink:0, border:"1px solid rgba(255,255,255,.2)" }}>{ini}</div>}
         <div style={{ minWidth:0 }}>
           <div style={{ fontFamily:T.serif, fontSize:25, fontWeight:600, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>Hola{clinNombre?", "+clinNombre:""}</div>
-          <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:2, textTransform:"capitalize" }}>{fechaLarga}</div>
+          <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:2 }}>{fechaLarga}</div>
         </div>
       </div>
 
@@ -482,7 +485,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
 
       {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
 
-      <div style={{ display:"flex", gap:9 }}>
+      <div style={{ ...glassPanel(T,22), display:"flex", gap:9, padding:10 }}>
         {action(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
         {action(<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
         {action(<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
@@ -715,7 +718,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   if (view === "mes") {
     const WD = ["L","M","M","J","V","S","D"];
     return (
-      <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 132px)" }}>
+      <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 150px)" }}>
         {toggleRow}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
           <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>‹</button>
@@ -748,7 +751,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   }
 
   return (
-    <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 132px)" }}>
+    <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 150px)" }}>
       {toggleRow}
       <div style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
         <div style={{ display:"flex", padding:"2px 10px 8px", minWidth:"max-content", gap:2 }}>
@@ -855,7 +858,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     setTimeout(()=>{ setSaved(false); onDone(); }, 900);
   }
 
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"13px 15px", borderRadius:10, border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), background:T.dark?"rgba(255,255,255,.06)":"#fff", color:T.text, outline:"none", boxSizing:"border-box" };
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"15px 15px", minHeight:54, borderRadius:14, border:"1px solid rgba(255,255,255,.22)", background:"linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03)), rgba(16,41,78,.42)", backdropFilter:"blur(24px) saturate(1.5)", WebkitBackdropFilter:"blur(24px) saturate(1.5)", color:T.text, outline:"none", boxSizing:"border-box" };
   const lbl = { display:"block", fontFamily:T.sans, fontSize:13, fontWeight:500, color:T.text, marginBottom:8 };
   const STEPS = ["Paciente","Detalles","Confirmar"];
 
@@ -1349,12 +1352,14 @@ function MobileShell({ T, D, onLogout }) {
       : <div style={{ width:34 }} />;
     return <>{hamburger}{headerTitle(titleMap[tab])}{rightAction}</>;
   };
+  // Barra inferior EXACTA de la referencia: Citas · Agenda · Pacientes · Reportes · Más.
+  // Pacientes y Reportes abren sus overlays; Nueva cita y Horarios se acceden desde accesos rápidos.
   const tabs = [
-    { id:"citas",    lbl:"Citas",    icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
-    { id:"horarios", lbl:"Horarios", icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> },
-    { id:"nueva",    lbl:"Nueva",    icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 5v14M5 12h14"/></svg> },
-    { id:"agenda",   lbl:"Agenda",   icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg> },
-    { id:"mas",      lbl:"Más",      icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg> },
+    { lbl:"Citas",     on: tab==="citas" && !overlay,     act:()=>{ setOverlay(null); setTab("citas"); },  icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
+    { lbl:"Agenda",    on: tab==="agenda" && !overlay,    act:()=>{ setOverlay(null); setTab("agenda"); }, icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg> },
+    { lbl:"Pacientes", on: overlay==="pacientes",          act:()=>setOverlay("pacientes"),               icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+    { lbl:"Reportes",  on: overlay==="reportes",           act:()=>setOverlay("reportes"),                icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg> },
+    { lbl:"Más",       on: tab==="mas" && !overlay,        act:()=>{ setOverlay(null); setTab("mas"); },    icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg> },
   ];
 
   return (
@@ -1373,15 +1378,19 @@ function MobileShell({ T, D, onLogout }) {
         {tab==="mas"      && <MasTab      T={T} openOverlay={setOverlay} onLogout={onLogout} />}
       </div>
 
-      {/* Tab bar */}
-      <div style={{ display:"flex", ...glassChip(T), borderLeft:"none", borderRight:"none", borderBottom:"none", paddingBottom:"env(safe-area-inset-bottom,8px)", position:"sticky", bottom:0 }}>
-        {tabs.map(({id,lbl,icon})=>(
-          <button key={id} onClick={()=>setTab(id)}
-            style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"11px 4px 9px", background:"none", border:"none", cursor:"pointer",
-              color:tab===id?T.accent:T.textFaint, fontFamily:T.sans, fontSize:10.5, fontWeight:500 }}>
-            {icon}{lbl}
-          </button>
-        ))}
+      {/* Tab bar — isla flotante redondeada (referencia): pastilla azul con glow en el activo */}
+      <div style={{ position:"sticky", bottom:0, padding:"0 12px calc(10px + env(safe-area-inset-bottom,0px))", pointerEvents:"none" }}>
+        <div style={{ display:"flex", gap:2, ...glassPanel(T,26), padding:"7px 6px", pointerEvents:"auto", boxShadow:"0 18px 44px -14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.16)" }}>
+          {tabs.map(({lbl,icon,on,act})=>(
+            <button key={lbl} onClick={act}
+              style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"8px 2px", borderRadius:16, cursor:"pointer", border:"none",
+                background: on ? "rgba(63,131,255,.2)" : "transparent",
+                boxShadow: on ? "0 6px 16px -6px rgba(63,131,255,.7), inset 0 0 0 1px rgba(120,170,255,.3)" : "none",
+                color: on?"#EAF1FF":T.textFaint, fontFamily:T.sans, fontSize:10, fontWeight:on?600:500 }}>
+              {icon}{lbl}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Overlays de navegación tipo iOS push */}
