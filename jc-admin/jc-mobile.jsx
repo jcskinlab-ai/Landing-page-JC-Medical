@@ -37,6 +37,44 @@ const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov"
 const MESES_LARGOS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DOW_FULL = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
+/* ═══ Mensajes de WhatsApp — EXACTOS a los del portal de escritorio (jcmCitaConfirmMsg /
+   jcmConfirmAsistMsg en jc-admin.jsx) ═══ replicados aquí porque ese bundle no carga en el móvil. */
+// Link "inteligente" de mapa (P11 en el portal): usa el link propio de la clínica si lo guardó,
+// si no lo arma desde la dirección — en iPhone/Android abre la app nativa de Maps.
+function clinicMapsLinkM() {
+  try { const m = window.DB && window.DB.cfg && window.DB.cfg().clinic_maps; if (m && (""+m).trim()) return (""+m).trim(); } catch(e) {}
+  let addr = "";
+  try { const d = window.DB && window.DB.cfg && window.DB.cfg().clinic_addr; addr = (d && (""+d).trim()) || ""; } catch(e) {}
+  return addr ? ("https://www.medique.cl/ir?to="+encodeURIComponent(addr)) : "";
+}
+// Mensaje de confirmación al CREAR una cita nueva — mismo texto que el portal: fecha, hora,
+// tratamiento, profesional, dirección y "cómo llegar" con el link inteligente de mapa.
+function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir) {
+  const d = new Date(iso+"T12:00:00");
+  const wd = WDS[d.getDay()], dd = d.getDate(), mm = MESES[d.getMonth()];
+  const maps = clinicMapsLinkM();
+  const L = ["Hola "+name+" 👋", "", "Tu cita en "+clinNombre+" quedó confirmada:", "",
+    "🗓️ Fecha: "+wd+" "+dd+" "+mm, "⏰ Hora: "+time+" hrs", "💉 Tratamiento: "+proc, "👨‍⚕️ Profesional: "+(prof||"")];
+  if (clinDir) L.push("📍 Dirección: "+clinDir);
+  if (maps) L.push("", "🏥 Cómo llegar: "+maps);
+  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.", "", "¡Nos vemos pronto!");
+  return L.join("\n");
+}
+// Mensaje del botón "Confirmar asistencia" — mismo texto que el portal: pide responder SÍ/NO,
+// con fecha/hora en español y el link de "cómo llegar".
+function jcmConfirmAsistMsgM(a, clinNombre) {
+  const maps = clinicMapsLinkM();
+  let fecha = "";
+  try { if (a.fecha) fecha = new Date(a.fecha+"T00:00:00").toLocaleDateString("es-CL", { weekday:"long", day:"numeric", month:"long" }); } catch(e) {}
+  const cuando = (fecha?"el "+fecha:"") + (a.time ? ((fecha?" a las ":"a las ")+a.time+" hrs") : "");
+  const L = ["Hola "+(a.name||"")+",", "",
+    "Te escribimos de "+clinNombre+" para confirmar tu asistencia a tu cita"+(cuando?" "+cuando:"")+(a.proc?" ("+a.proc+")":"")+".", "",
+    "¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar"];
+  if (maps) L.push("", "Cómo llegar: "+maps);
+  L.push("", "¡Te esperamos!");
+  return L.join("\n");
+}
+
 function minsM(t) { if (!t) return 0; const [h,m] = t.split(":"); return parseInt(h)*60+parseInt(m||0); }
 // Estados OFICIALES de una cita (pedido explícito del usuario): Agendado · Confirmado · Atendido ·
 // No asistió · Cancelada. "Agendado" es el estado por defecto (antes se mostraba "Pendiente").
@@ -394,11 +432,13 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
         )}
 
         {waPhone && (
-          <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+a.name+", confirmamos tu cita en "+clinNombre+":\n📅 "+(a.fecha||"")+" · "+a.time+" hrs"+(clinDir?"\n📍 "+clinDir:"")+"\n💉 "+(a.proc||"")+" ("+durLabel+")\n⏰ La espera máxima para su atención es de 15 minutos, para no retrasar las atenciones siguientes")}
+          // Mismo mensaje que el botón "Confirmar asistencia" del portal de escritorio
+          // (jcmConfirmAsistMsg): pide responder SÍ/NO, con fecha/hora en español y cómo llegar.
+          <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent(jcmConfirmAsistMsgM(a, clinNombre))}
             target="_blank" rel="noopener"
             style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"#1F8A5B22", border:"1px solid #1F8A5B55", borderRadius:9, padding:"12px", textDecoration:"none", color:"#1F8A5B", fontFamily:T.sans, fontSize:12.5, fontWeight:500 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="#1F8A5B"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z"/></svg>
-            WhatsApp
+            Confirmar asistencia
           </a>
         )}
       </div>
@@ -681,6 +721,31 @@ const CAL_START   = 8;  // primera hora visible
 const CAL_END     = 20; // última hora visible
 const CAL_HOURS   = Array.from({length: CAL_END - CAL_START + 1}, (_,i) => CAL_START + i);
 
+// Nombre abreviado (pedido del usuario): con nombres muy largos, en vez de cortar con "…" a mitad
+// de una palabra, se muestra nombre + primer apellido + SOLO LA INICIAL del segundo apellido.
+// Convención chilena: los últimos 2 términos son los apellidos; todo lo anterior es el nombre.
+// Con 2 palabras o menos (nombre + un apellido) no hay nada que abreviar, se deja tal cual.
+function abbrevNameM(name) {
+  const words = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 2) return name || "";
+  const given = words.slice(0, -2).join(" ");
+  const s1 = words[words.length - 2], s2 = words[words.length - 1];
+  return given + " " + s1 + " " + s2[0].toUpperCase() + ".";
+}
+// Procedimiento abreviado (pedido del usuario, códigos fijos): solo para los procedimientos más
+// frecuentes que se listaron explícitamente — cualquier otro procedimiento se deja con su nombre
+// completo (no se inventan códigos para los que no se pidieron).
+function abbrevProcM(proc) {
+  const p = (proc || "").toLowerCase();
+  if (p.includes("botox") && p.includes("3 zona")) return "B3Z";
+  if (p.includes("botox") && (p.includes("full face") || p.includes("8 zona"))) return "BFF";
+  if (p.includes("rinomodela")) return "R";
+  if (p.includes("sculptra")) return "S";
+  if (p.includes("evaluaci")) return "EV";
+  if (p.includes("quemador")) return "Q";
+  return proc || "—";
+}
+
 function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
@@ -766,7 +831,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
           // corresponde) truncados juntos con "…", más hora y punto de estado a la derecha.
           <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:8, padding:"0 10px" }}>
             <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>
-              {a.name}<span style={{ fontWeight:400, color:T.textMute }}> · {a.proc||"—"}</span>
+              {abbrevNameM(a.name)}<span style={{ fontWeight:400, color:T.textMute }}> · {abbrevProcM(a.proc)}</span>
             </span>
             <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11.5, fontWeight:600, color:st.color }}>{a.time}</span>
             <span style={{ width:6, height:6, borderRadius:"50%", background:st.color, flexShrink:0 }} />
@@ -775,8 +840,8 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center" }}>
           {/* Izquierda: nombre + procedimiento */}
           <div style={{ flex:1, minWidth:0, padding:"12px 12px" }}>
-            <div style={{ fontFamily:T.sans, fontSize:17, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.25, textDecoration:isAnulada?"line-through":"none" }}>{a.name}</div>
-            <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:3 }}>{a.proc||"—"}</div>
+            <div style={{ fontFamily:T.sans, fontSize:17, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.25, textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</div>
+            <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:3 }}>{abbrevProcM(a.proc)}</div>
           </div>
           {/* Divisor vertical (referencia) */}
           <div style={{ width:1, alignSelf:"center", height:"52%", background:"rgba(255,255,255,.12)", flexShrink:0 }} />
@@ -960,7 +1025,15 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     addAppt({ id:Date.now().toString(36), patId, name:finalName.trim(), rut:(finalRut||"").trim(), phone:(finalPhone||"").trim(), email:(finalEmail||"").trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"pendiente", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
     if (notifyWa && finalPhone) {
       const waP = (finalPhone||"").replace(/\D/g,"");
-      if (waP.length>=8) setTimeout(()=>window.open("https://wa.me/56"+waP.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+finalName+", tu cita quedó agendada para el "+fecha+" a las "+time+" hrs · "+proc), "_blank", "noopener"), 300);
+      if (waP.length>=8) {
+        // Mismo mensaje que el portal de escritorio (jcmCitaConfirmMsg): fecha, hora, tratamiento,
+        // profesional, dirección y "cómo llegar" con el link inteligente de mapa.
+        const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || "la clínica"; } catch(e) { return "la clínica"; } })();
+        const clinDir = (() => { try { const d = window.DB && window.DB.cfg && window.DB.cfg().clinic_addr; return (d && (""+d).trim()) || ""; } catch(e) { return ""; } })();
+        const clinPro = (() => { try { const p = window.DB && window.DB.cfg && window.DB.cfg().professional; return (p && (""+p).trim()) || (((window.JCDATA||{}).contact||{}).pro || ""); } catch(e) { return ""; } })();
+        const msg = jcmCitaConfirmMsgM(finalName, fecha, time, proc, clinPro, clinNombre, clinDir);
+        setTimeout(()=>window.open("https://wa.me/56"+waP.replace(/^(56|0)/,"")+"?text="+encodeURIComponent(msg), "_blank", "noopener"), 300);
+      }
     }
     setSaved(true);
     setTimeout(()=>{ setSaved(false); onDone(); }, 900);

@@ -27,6 +27,58 @@ const WDS = ["Dom", "Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b"];
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const MESES_LARGOS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DOW_FULL = ["Domingo", "Lunes", "Martes", "Mi\xE9rcoles", "Jueves", "Viernes", "S\xE1bado"];
+function clinicMapsLinkM() {
+  try {
+    const m = window.DB && window.DB.cfg && window.DB.cfg().clinic_maps;
+    if (m && ("" + m).trim()) return ("" + m).trim();
+  } catch (e) {
+  }
+  let addr = "";
+  try {
+    const d = window.DB && window.DB.cfg && window.DB.cfg().clinic_addr;
+    addr = d && ("" + d).trim() || "";
+  } catch (e) {
+  }
+  return addr ? "https://www.medique.cl/ir?to=" + encodeURIComponent(addr) : "";
+}
+function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir) {
+  const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
+  const wd = WDS[d.getDay()], dd = d.getDate(), mm = MESES[d.getMonth()];
+  const maps = clinicMapsLinkM();
+  const L = [
+    "Hola " + name + " \u{1F44B}",
+    "",
+    "Tu cita en " + clinNombre + " qued\xF3 confirmada:",
+    "",
+    "\u{1F5D3}\uFE0F Fecha: " + wd + " " + dd + " " + mm,
+    "\u23F0 Hora: " + time + " hrs",
+    "\u{1F489} Tratamiento: " + proc,
+    "\u{1F468}\u200D\u2695\uFE0F Profesional: " + (prof || "")
+  ];
+  if (clinDir) L.push("\u{1F4CD} Direcci\xF3n: " + clinDir);
+  if (maps) L.push("", "\u{1F3E5} C\xF3mo llegar: " + maps);
+  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.", "", "\xA1Nos vemos pronto!");
+  return L.join("\n");
+}
+function jcmConfirmAsistMsgM(a, clinNombre) {
+  const maps = clinicMapsLinkM();
+  let fecha = "";
+  try {
+    if (a.fecha) fecha = (/* @__PURE__ */ new Date(a.fecha + "T00:00:00")).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  } catch (e) {
+  }
+  const cuando = (fecha ? "el " + fecha : "") + (a.time ? (fecha ? " a las " : "a las ") + a.time + " hrs" : "");
+  const L = [
+    "Hola " + (a.name || "") + ",",
+    "",
+    "Te escribimos de " + clinNombre + " para confirmar tu asistencia a tu cita" + (cuando ? " " + cuando : "") + (a.proc ? " (" + a.proc + ")" : "") + ".",
+    "",
+    "\xBFNos confirmas? Responde *S\xCD* para confirmar o *NO* si necesitas reagendar"
+  ];
+  if (maps) L.push("", "C\xF3mo llegar: " + maps);
+  L.push("", "\xA1Te esperamos!");
+  return L.join("\n");
+}
 function minsM(t) {
   if (!t) return 0;
   const [h, m] = t.split(":");
@@ -351,16 +403,18 @@ function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, rest
   }, style: { flex: 2, height: 38, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "Guardar cambios"))) : /* @__PURE__ */ React.createElement("button", { onClick: () => {
     setEf({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
     setEdit(true);
-  }, style: { display: "flex", alignItems: "center", gap: 8, width: "100%", ...glassChip(T), borderRadius: 9, padding: "10px 12px", cursor: "pointer", textAlign: "left", color: T.text, fontFamily: T.sans, fontSize: 12.5, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" })), "Editar fecha, hora, duraci\xF3n o procedimiento"), waPhone && /* @__PURE__ */ React.createElement(
+  }, style: { display: "flex", alignItems: "center", gap: 8, width: "100%", ...glassChip(T), borderRadius: 9, padding: "10px 12px", cursor: "pointer", textAlign: "left", color: T.text, fontFamily: T.sans, fontSize: 12.5, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" })), "Editar fecha, hora, duraci\xF3n o procedimiento"), waPhone && // Mismo mensaje que el botón "Confirmar asistencia" del portal de escritorio
+  // (jcmConfirmAsistMsg): pide responder SÍ/NO, con fecha/hora en español y cómo llegar.
+  /* @__PURE__ */ React.createElement(
     "a",
     {
-      href: "https://wa.me/56" + waPhone.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent("Hola " + a.name + ", confirmamos tu cita en " + clinNombre + ":\n\u{1F4C5} " + (a.fecha || "") + " \xB7 " + a.time + " hrs" + (clinDir ? "\n\u{1F4CD} " + clinDir : "") + "\n\u{1F489} " + (a.proc || "") + " (" + durLabel + ")\n\u23F0 La espera m\xE1xima para su atenci\xF3n es de 15 minutos, para no retrasar las atenciones siguientes"),
+      href: "https://wa.me/56" + waPhone.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent(jcmConfirmAsistMsgM(a, clinNombre)),
       target: "_blank",
       rel: "noopener",
       style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#1F8A5B22", border: "1px solid #1F8A5B55", borderRadius: 9, padding: "12px", textDecoration: "none", color: "#1F8A5B", fontFamily: T.sans, fontSize: 12.5, fontWeight: 500 }
     },
     /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "#1F8A5B" }, /* @__PURE__ */ React.createElement("path", { d: "M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z" })),
-    "WhatsApp"
+    "Confirmar asistencia"
   )));
 }
 function occupancyForOff(appts, off) {
@@ -586,6 +640,23 @@ const CAL_PX_HOUR = 60;
 const CAL_START = 8;
 const CAL_END = 20;
 const CAL_HOURS = Array.from({ length: CAL_END - CAL_START + 1 }, (_, i) => CAL_START + i);
+function abbrevNameM(name) {
+  const words = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 2) return name || "";
+  const given = words.slice(0, -2).join(" ");
+  const s1 = words[words.length - 2], s2 = words[words.length - 1];
+  return given + " " + s1 + " " + s2[0].toUpperCase() + ".";
+}
+function abbrevProcM(proc) {
+  const p = (proc || "").toLowerCase();
+  if (p.includes("botox") && p.includes("3 zona")) return "B3Z";
+  if (p.includes("botox") && (p.includes("full face") || p.includes("8 zona"))) return "BFF";
+  if (p.includes("rinomodela")) return "R";
+  if (p.includes("sculptra")) return "S";
+  if (p.includes("evaluaci")) return "EV";
+  if (p.includes("quemador")) return "Q";
+  return proc || "\u2014";
+}
 function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
@@ -675,8 +746,8 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     } }, /* @__PURE__ */ React.createElement("div", { style: { width: compact ? 3 : 4, background: st.color, flexShrink: 0 } }), compact ? (
       // Cita corta: una sola línea — nombre + procedimiento (o "Evaluación general" si
       // corresponde) truncados juntos con "…", más hora y punto de estado a la derecha.
-      /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, padding: "0 10px" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: isAnulada ? "line-through" : "none" } }, a.name, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: T.textMute } }, " \xB7 ", a.proc || "\u2014")), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: st.color } }, a.time), /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: st.color, flexShrink: 0 } }))
-    ) : /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, padding: "12px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 17, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25, textDecoration: isAnulada ? "line-through" : "none" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 3 } }, a.proc || "\u2014")), /* @__PURE__ */ React.createElement("div", { style: { width: 1, alignSelf: "center", height: "52%", background: "rgba(255,255,255,.12)", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { width: 128, flexShrink: 0, padding: "12px 14px", textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 15, fontWeight: 600, color: st.color } }, range), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, bd.label), /* @__PURE__ */ React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: st.color, flexShrink: 0 } })))));
+      /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, padding: "0 10px" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: isAnulada ? "line-through" : "none" } }, abbrevNameM(a.name), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: T.textMute } }, " \xB7 ", abbrevProcM(a.proc))), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: st.color } }, a.time), /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: st.color, flexShrink: 0 } }))
+    ) : /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, padding: "12px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 17, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25, textDecoration: isAnulada ? "line-through" : "none" } }, abbrevNameM(a.name)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 3 } }, abbrevProcM(a.proc))), /* @__PURE__ */ React.createElement("div", { style: { width: 1, alignSelf: "center", height: "52%", background: "rgba(255,255,255,.12)", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { width: 128, flexShrink: 0, padding: "12px 14px", textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 15, fontWeight: 600, color: st.color } }, range), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, bd.label), /* @__PURE__ */ React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: st.color, flexShrink: 0 } })))));
   }
   const toggleRow = /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, padding: "10px 14px 8px", flexShrink: 0, ...glassChip(T), border: "none", background: "transparent" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flex: 1, gap: 4, padding: 5, borderRadius: 14, ...glassChip(T) } }, [["dia", "D\xEDa"], ["mes", "Mes"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setView(k), style: {
     flex: 1,
@@ -829,7 +900,34 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     addAppt({ id: Date.now().toString(36), patId, name: finalName.trim(), rut: (finalRut || "").trim(), phone: (finalPhone || "").trim(), email: (finalEmail || "").trim(), proc, dur, time, fecha, day: isoToDayOff(fecha), status: "pendiente", source: "movil", comentario: comment.trim() || void 0, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
     if (notifyWa && finalPhone) {
       const waP = (finalPhone || "").replace(/\D/g, "");
-      if (waP.length >= 8) setTimeout(() => window.open("https://wa.me/56" + waP.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent("Hola " + finalName + ", tu cita qued\xF3 agendada para el " + fecha + " a las " + time + " hrs \xB7 " + proc), "_blank", "noopener"), 300);
+      if (waP.length >= 8) {
+        const clinNombre = (() => {
+          try {
+            const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name;
+            return n && ("" + n).trim() || "la cl\xEDnica";
+          } catch (e) {
+            return "la cl\xEDnica";
+          }
+        })();
+        const clinDir = (() => {
+          try {
+            const d = window.DB && window.DB.cfg && window.DB.cfg().clinic_addr;
+            return d && ("" + d).trim() || "";
+          } catch (e) {
+            return "";
+          }
+        })();
+        const clinPro = (() => {
+          try {
+            const p = window.DB && window.DB.cfg && window.DB.cfg().professional;
+            return p && ("" + p).trim() || (((window.JCDATA || {}).contact || {}).pro || "");
+          } catch (e) {
+            return "";
+          }
+        })();
+        const msg = jcmCitaConfirmMsgM(finalName, fecha, time, proc, clinPro, clinNombre, clinDir);
+        setTimeout(() => window.open("https://wa.me/56" + waP.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent(msg), "_blank", "noopener"), 300);
+      }
     }
     setSaved(true);
     setTimeout(() => {
