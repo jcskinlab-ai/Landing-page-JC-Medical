@@ -116,25 +116,25 @@ function photoTheme(T) {
   });
 }
 function mobileBg(T) {
-  const overlay = "linear-gradient(180deg, rgba(14,34,72,.5), rgba(13,30,64,.5) 50%, rgba(11,26,56,.58))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=8')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
+  const overlay = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=9')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
 }
 function glassPanel(T, radius) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.035) 34%, rgba(255,255,255,0) 70%), linear-gradient(180deg, rgba(82,124,179,.2), rgba(21,54,98,.34))",
-    backdropFilter: "blur(30px) saturate(1.65) brightness(1.05)",
-    WebkitBackdropFilter: "blur(30px) saturate(1.65) brightness(1.05)",
+    background: "linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.04) 42%, rgba(255,255,255,.012) 100%), rgba(150,175,210,.05)",
+    backdropFilter: "blur(34px) saturate(1.35) brightness(1.12)",
+    WebkitBackdropFilter: "blur(34px) saturate(1.35) brightness(1.12)",
     border: "1px solid rgba(255,255,255,.2)",
     borderRadius: radius == null ? 20 : radius,
-    boxShadow: "0 18px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.06)"
+    boxShadow: "0 16px 46px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(255,255,255,.05)"
   };
 }
 function glassChip(T) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.03) 40%, rgba(255,255,255,0) 72%), linear-gradient(180deg, rgba(82,124,179,.17), rgba(21,54,98,.3))",
-    backdropFilter: "blur(28px) saturate(1.6) brightness(1.04)",
-    WebkitBackdropFilter: "blur(28px) saturate(1.6) brightness(1.04)",
-    border: "1px solid rgba(255,255,255,.16)"
+    background: "linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03) 46%, rgba(255,255,255,.01) 100%), rgba(150,175,210,.04)",
+    backdropFilter: "blur(32px) saturate(1.3) brightness(1.1)",
+    WebkitBackdropFilter: "blur(32px) saturate(1.3) brightness(1.1)",
+    border: "1px solid rgba(255,255,255,.17)"
   };
 }
 function LoginVideoBg({ children }) {
@@ -146,7 +146,7 @@ function LoginVideoBg({ children }) {
       loop: true,
       muted: true,
       playsInline: true,
-      poster: "/assets/everest-mobile.jpg?v=8",
+      poster: "/assets/everest-mobile.jpg?v=9",
       style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }
     },
     /* @__PURE__ */ React.createElement("source", { src: "/assets/everest-login.mp4?v=2", type: "video/mp4" })

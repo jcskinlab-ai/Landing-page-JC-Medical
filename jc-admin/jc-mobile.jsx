@@ -122,26 +122,29 @@ function mobileBg(T) {
   // Fondo v3 ya viene DESENFOCADO (como la referencia: el detalle de la montaña se disuelve). El velo
   // azul es ahora más parejo y con más cuerpo para unificar el tono en un azul profundo (la banda de
   // nubes clara de v3 queda tenue) y que el texto blanco resalte, igual que en las 3 referencias.
-  const overlay = "linear-gradient(180deg, rgba(14,34,72,.5), rgba(13,30,64,.5) 50%, rgba(11,26,56,.58))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=8')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
+  // Velo OSCURO navy casi negro (pedido: "como el portal de escritorio"): la montaña desenfocada
+  // queda apenas visible como una textura tenue, el conjunto lee oscuro y premium (iOS 26).
+  const overlay = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=9')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
 function glassPanel(T, radius) {
-  // Frosted glass EXACTO del MD: base navy translúcida + degradado blanco (brillo Apple) + un reflejo
-  // radial arriba-izquierda, borde fino y sombra de profundidad. Deja ver la montaña, nunca opaco.
+  // "Liquid glass" iOS 26 (pedido del usuario): muy CRISTALINO — casi sin tinte de color, el fondo
+  // oscuro se ve a través. Brillo blanco arriba (reflejo Apple) + borde fino claro + sombra de
+  // profundidad para despegar la tarjeta del fondo negro. Blur alto. Nunca opaco.
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.035) 34%, rgba(255,255,255,0) 70%), linear-gradient(180deg, rgba(82,124,179,.2), rgba(21,54,98,.34))",
-    backdropFilter: "blur(30px) saturate(1.65) brightness(1.05)", WebkitBackdropFilter: "blur(30px) saturate(1.65) brightness(1.05)",
+    background: "linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.04) 42%, rgba(255,255,255,.012) 100%), rgba(150,175,210,.05)",
+    backdropFilter: "blur(34px) saturate(1.35) brightness(1.12)", WebkitBackdropFilter: "blur(34px) saturate(1.35) brightness(1.12)",
     border: "1px solid rgba(255,255,255,.2)", borderRadius: radius==null?20:radius,
-    boxShadow: "0 18px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.06)"
+    boxShadow: "0 16px 46px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(255,255,255,.05)"
   };
 }
 function glassChip(T) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.03) 40%, rgba(255,255,255,0) 72%), linear-gradient(180deg, rgba(82,124,179,.17), rgba(21,54,98,.3))",
-    backdropFilter: "blur(28px) saturate(1.6) brightness(1.04)", WebkitBackdropFilter: "blur(28px) saturate(1.6) brightness(1.04)",
-    border: "1px solid rgba(255,255,255,.16)"
+    background: "linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03) 46%, rgba(255,255,255,.01) 100%), rgba(150,175,210,.04)",
+    backdropFilter: "blur(32px) saturate(1.3) brightness(1.1)", WebkitBackdropFilter: "blur(32px) saturate(1.3) brightness(1.1)",
+    border: "1px solid rgba(255,255,255,.17)"
   };
 }
 // Fondo de la pantalla de LOGIN (única pantalla con video, a pedido del usuario): nube/montaña en
@@ -151,7 +154,7 @@ function LoginVideoBg({ children }) {
   const overlay = "linear-gradient(180deg, rgba(18,44,84,.4), rgba(16,38,74,.5) 50%, rgba(12,30,62,.7))";
   return (
     <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#12294F" }}>
-      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=8"
+      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=9"
         style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
         <source src="/assets/everest-login.mp4?v=2" type="video/mp4" />
       </video>
