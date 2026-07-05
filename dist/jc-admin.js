@@ -1711,6 +1711,12 @@ function AdminApp() {
       if (!window.jcmEmailBackup) return;
       var to = window.clinicReplyTo && window.clinicReplyTo() || "";
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return;
+      var clinicId = "";
+      try {
+        clinicId = window.JCSAAS && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId() || "";
+      } catch (e) {
+      }
+      var minDays = clinicId === "jc-medical-qI9deP" ? 1 : 7;
       var last = "";
       try {
         last = DB.get("auto_backup_lastrun") || "";
@@ -1720,7 +1726,7 @@ function AdminApp() {
       now.setHours(0, 0, 0, 0);
       if (last) {
         var ld = /* @__PURE__ */ new Date(last + "T00:00:00");
-        if (!isNaN(ld.getTime()) && now - ld < 7 * 864e5) return;
+        if (!isNaN(ld.getTime()) && now - ld < minDays * 864e5) return;
       }
       var iso = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
       var timer = setTimeout(function() {
@@ -1731,7 +1737,7 @@ function AdminApp() {
             } catch (e) {
             }
             try {
-              window.jcmToast && window.jcmToast("Respaldo semanal enviado a tu correo.", "ok");
+              window.jcmToast && window.jcmToast("Respaldo enviado a tu correo.", "ok");
             } catch (e) {
             }
           }

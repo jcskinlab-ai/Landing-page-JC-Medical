@@ -1848,24 +1848,29 @@ function AdminApp() {
     } catch (e) {}
   }, []);
 
-  // ── Motor de RESPALDO automático por correo (1×/semana, al abrir el panel) ──
+  // ── Motor de RESPALDO automático por correo (al abrir el panel) ──
   // Envía el respaldo .json de fichas+citas como adjunto al correo de la clínica. Reemplaza el
-  // "descargar a mano". Dedup por fecha: solo si pasaron ≥7 días desde el último envío confirmado.
+  // "descargar a mano". Dedup por fecha.
+  // Frecuencia: JC Medical = DIARIO (a pedido, como red de seguridad reforzada); el resto = semanal.
+  // Nota: al ser del lado cliente, se dispara la primera vez que se abre el panel cada día — no a una
+  // hora exacta. Para JC Medical eso da un respaldo por día (captura el cierre del día previo).
   useEffect(function () {
     try {
       if (!window.jcmEmailBackup) return;
       var to = (window.clinicReplyTo && window.clinicReplyTo()) || "";
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return; // sin correo configurado → no hay a dónde enviarlo
+      var clinicId = ""; try { clinicId = (window.JCSAAS && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || ""; } catch (e) {}
+      var minDays = (clinicId === "jc-medical-qI9deP") ? 1 : 7; // JC Medical diario, resto semanal
       var last = ""; try { last = DB.get("auto_backup_lastrun") || ""; } catch (e) {}
       var now = new Date(); now.setHours(0, 0, 0, 0);
-      if (last) { var ld = new Date(last + "T00:00:00"); if (!isNaN(ld.getTime()) && (now - ld) < 7 * 86400000) return; }
+      if (last) { var ld = new Date(last + "T00:00:00"); if (!isNaN(ld.getTime()) && (now - ld) < minDays * 86400000) return; }
       var iso = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
       // Después de los recordatorios (5s) para no encimar dos envíos al abrir.
       var timer = setTimeout(function () {
         window.jcmEmailBackup({ silent: true }).then(function (r) {
           if (r && r.ok) {
             try { DB.set("auto_backup_lastrun", iso); } catch (e) {}
-            try { window.jcmToast && window.jcmToast("Respaldo semanal enviado a tu correo.", "ok"); } catch (e) {}
+            try { window.jcmToast && window.jcmToast("Respaldo enviado a tu correo.", "ok"); } catch (e) {}
           }
         });
       }, 11000);
