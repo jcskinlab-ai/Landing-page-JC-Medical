@@ -59,19 +59,17 @@ function apptStateM(a, T) {
   // "Agendado" (pendiente de confirmar) = amarillo, coherente con la cápsula-resumen y el mockup.
   return { label: "Agendado", color: "#F5B93D" };
 }
-// Estilo del BADGE de estado (referencia/MD): Confirmada/Atendida = contorno azul; Pendiente y
-// No asistió = pastilla RELLENA (amarillo con texto oscuro / rojo con texto claro). Distinto del
-// color de la barra a propósito (la barra de "confirmada" es verde, su badge es azul).
-// Todos los badges comparten el mismo patrón (fidelidad a la referencia): relleno traslúcido
-// tenue de su color + borde + texto en ese color. Ninguno lleva relleno sólido con texto de
-// contraste — ni "No asistió" ni "Agendado", que antes rompían la consistencia.
+// Estilo del BADGE de estado — EXACTO a los recortes de referencia del usuario:
+//  · Confirmada / Atendida = CONTORNO azul (texto azul claro, fondo azul muy tenue, borde azul).
+//  · Pendiente = pastilla RELLENA dorada con texto oscuro.
+//  · No asistió = pastilla RELLENA roja con texto blanco.
 function apptBadge(a) {
   if (a.status === "anulada")        return { label:"Cancelada",  color:"rgba(235,242,252,.6)", bg:"transparent",           border:"rgba(235,242,252,.35)" };
-  if (a.status === "no_asistio")     return { label:"No asistió", color:"#FF8FA0",              bg:"rgba(255,107,125,.16)", border:"rgba(255,107,125,.5)" };
-  if (a.attended || a.status === "atendida") return { label:"Atendida", color:"#8FB8FF", bg:"rgba(78,141,255,.16)", border:"rgba(78,141,255,.55)" };
-  if (a.status === "confirmada")     return { label:"Confirmada", color:"#8FB8FF",              bg:"rgba(78,141,255,.14)",   border:"rgba(78,141,255,.55)" };
-  if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#FFCE6E",          bg:"rgba(245,185,61,.16)",  border:"rgba(245,185,61,.5)" };
-  return { label:"Agendado", color:"#FFCE6E", bg:"rgba(245,185,61,.16)", border:"rgba(245,185,61,.5)" };
+  if (a.status === "no_asistio")     return { label:"No asistió", color:"#FFFFFF",              bg:"#E5566B",                border:"#E5566B" };
+  if (a.attended || a.status === "atendida") return { label:"Atendida", color:"#9CC0FF", bg:"rgba(78,141,255,.14)", border:"rgba(120,165,255,.55)" };
+  if (a.status === "confirmada")     return { label:"Confirmada", color:"#9CC0FF",              bg:"rgba(78,141,255,.14)",   border:"rgba(120,165,255,.55)" };
+  if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#2A1F00",          bg:"#E8B84D",                border:"#E8B84D" };
+  return { label:"Pendiente", color:"#2A1F00", bg:"#E8B84D", border:"#E8B84D" };
 }
 
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
@@ -400,11 +398,15 @@ function DaySummary({ T, c, p, na, prefix }) {
       <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>{txt}</span>
     </span>
   );
+  // Separador "·" entre los tres estados, igual que la referencia.
+  const sep = <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textFaint }}>·</span>;
   return (
-    <div style={{ ...glassChip(T), borderRadius:12, padding:"9px 13px", display:"flex", alignItems:"center", gap:13, flexWrap:"wrap" }}>
-      {dot("#4FC585", (prefix?prefix+" ":"") + c + " confirmada" + (c===1?"":"s"))}
-      {dot("#E4BA4D", p + " pendiente" + (p===1?"":"s"))}
-      {dot("#F17A96", na + " no asistió")}
+    <div style={{ ...glassChip(T), borderRadius:12, padding:"9px 14px", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+      {dot("#46D27A", (prefix?prefix+" ":"") + c + " confirmada" + (c===1?"":"s"))}
+      {sep}
+      {dot("#E8B84D", p + " pendiente" + (p===1?"":"s"))}
+      {sep}
+      {dot("#FF6B7D", na + " no asistió")}
     </div>
   );
 }
@@ -514,15 +516,16 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
               <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", ...glassPanel(T,16), padding:0, overflow:"hidden" }}>
                 <div style={{ width:4, background:st.color, flexShrink:0 }} />
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"11px 11px", minWidth:0 }}>
-                  <div style={{ flexShrink:0, minWidth:38 }}>
-                    <div style={{ fontFamily:T.serif, fontSize:15, fontWeight:600, color:T.text, lineHeight:1 }}>{a.time}</div>
-                    <div style={{ fontFamily:T.sans, fontSize:9, color:T.textFaint, marginTop:3 }}>{dLbl}</div>
+                  <div style={{ flexShrink:0, minWidth:40 }}>
+                    {/* La hora va coloreada con el color del estado (referencia): verde/dorado/rojo. */}
+                    <div style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color:st.color, lineHeight:1 }}>{a.time}</div>
+                    {iso!==today && <div style={{ fontFamily:T.sans, fontSize:9, color:T.textFaint, marginTop:3 }}>{dLbl}</div>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
                     <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{a.proc||"—"} · {durOf(a)}</div>
                   </div>
-                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:".03em", textTransform:"uppercase", color:bd.color, background:bd.bg, border:"1px solid "+bd.border, borderRadius:6, padding:"3px 7px" }}>{bd.label}</span>
+                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:".03em", textTransform:"uppercase", color:bd.color, background:bd.bg, border:"1px solid "+bd.border, borderRadius:6, padding:"3px 8px" }}>{bd.label}</span>
                 </div>
               </button>
             );
@@ -1403,11 +1406,12 @@ function MobileShell({ T, D, onLogout }) {
         <div style={{ display:"flex", gap:2, ...glassPanel(T,26), padding:"7px 6px", pointerEvents:"auto", boxShadow:"0 18px 44px -14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.16)" }}>
           {tabs.map(({lbl,icon,on,act})=>(
             <button key={lbl} onClick={act}
-              style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"8px 2px", borderRadius:16, cursor:"pointer", border:"none",
-                background: on ? "rgba(63,131,255,.2)" : "transparent",
-                boxShadow: on ? "0 6px 16px -6px rgba(63,131,255,.7), inset 0 0 0 1px rgba(120,170,255,.3)" : "none",
-                color: on?"#EAF1FF":T.textFaint, fontFamily:T.sans, fontSize:10, fontWeight:on?600:500 }}>
-              {icon}{lbl}
+              style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"6px 2px", background:"transparent", border:"none", cursor:"pointer" }}>
+              {/* Activo (referencia): el ícono va dentro de un cuadro azul relleno; etiqueta en azul. */}
+              <div style={{ width:38, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
+                background: on ? T.accent : "transparent", color: on ? "#fff" : T.textFaint,
+                boxShadow: on ? "0 6px 14px -6px "+T.accent : "none" }}>{icon}</div>
+              <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:on?600:500, color: on ? "#CFE0FF" : T.textFaint }}>{lbl}</span>
             </button>
           ))}
         </div>

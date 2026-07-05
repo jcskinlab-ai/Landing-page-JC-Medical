@@ -49,11 +49,11 @@ function apptStateM(a, T) {
 }
 function apptBadge(a) {
   if (a.status === "anulada") return { label: "Cancelada", color: "rgba(235,242,252,.6)", bg: "transparent", border: "rgba(235,242,252,.35)" };
-  if (a.status === "no_asistio") return { label: "No asisti\xF3", color: "#FF8FA0", bg: "rgba(255,107,125,.16)", border: "rgba(255,107,125,.5)" };
-  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#8FB8FF", bg: "rgba(78,141,255,.16)", border: "rgba(78,141,255,.55)" };
-  if (a.status === "confirmada") return { label: "Confirmada", color: "#8FB8FF", bg: "rgba(78,141,255,.14)", border: "rgba(78,141,255,.55)" };
-  if (a.status === "pendiente_pago") return { label: "Transferencia", color: "#FFCE6E", bg: "rgba(245,185,61,.16)", border: "rgba(245,185,61,.5)" };
-  return { label: "Agendado", color: "#FFCE6E", bg: "rgba(245,185,61,.16)", border: "rgba(245,185,61,.5)" };
+  if (a.status === "no_asistio") return { label: "No asisti\xF3", color: "#FFFFFF", bg: "#E5566B", border: "#E5566B" };
+  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#9CC0FF", bg: "rgba(78,141,255,.14)", border: "rgba(120,165,255,.55)" };
+  if (a.status === "confirmada") return { label: "Confirmada", color: "#9CC0FF", bg: "rgba(78,141,255,.14)", border: "rgba(120,165,255,.55)" };
+  if (a.status === "pendiente_pago") return { label: "Transferencia", color: "#2A1F00", bg: "#E8B84D", border: "#E8B84D" };
+  return { label: "Pendiente", color: "#2A1F00", bg: "#E8B84D", border: "#E8B84D" };
 }
 function localISO(d) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -364,7 +364,8 @@ function occupancyForOff(appts, off) {
 }
 function DaySummary({ T, c, p, na, prefix }) {
   const dot = (color, txt) => /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, txt));
-  return /* @__PURE__ */ React.createElement("div", { style: { ...glassChip(T), borderRadius: 12, padding: "9px 13px", display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap" } }, dot("#4FC585", (prefix ? prefix + " " : "") + c + " confirmada" + (c === 1 ? "" : "s")), dot("#E4BA4D", p + " pendiente" + (p === 1 ? "" : "s")), dot("#F17A96", na + " no asisti\xF3"));
+  const sep = /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textFaint } }, "\xB7");
+  return /* @__PURE__ */ React.createElement("div", { style: { ...glassChip(T), borderRadius: 12, padding: "9px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, dot("#46D27A", (prefix ? prefix + " " : "") + c + " confirmada" + (c === 1 ? "" : "s")), sep, dot("#E8B84D", p + " pendiente" + (p === 1 ? "" : "s")), sep, dot("#FF6B7D", na + " no asisti\xF3"));
 }
 function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const today = todayISO();
@@ -436,7 +437,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
       const d = /* @__PURE__ */ new Date(iso + "T00:00:00");
       return WDS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()];
     })();
-    return /* @__PURE__ */ React.createElement("button", { key: a.id, onClick: () => onOpenAppt(a), style: { display: "flex", alignItems: "stretch", width: "100%", textAlign: "left", cursor: "pointer", ...glassPanel(T, 16), padding: 0, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 4, background: st.color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "11px 11px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, minWidth: 38 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1 } }, a.time), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, color: T.textFaint, marginTop: 3 } }, dLbl)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 } }, a.proc || "\u2014", " \xB7 ", durOf(a))), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase", color: bd.color, background: bd.bg, border: "1px solid " + bd.border, borderRadius: 6, padding: "3px 7px" } }, bd.label)));
+    return /* @__PURE__ */ React.createElement("button", { key: a.id, onClick: () => onOpenAppt(a), style: { display: "flex", alignItems: "stretch", width: "100%", textAlign: "left", cursor: "pointer", ...glassPanel(T, 16), padding: 0, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 4, background: st.color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "11px 11px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, minWidth: 40 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 16, fontWeight: 600, color: st.color, lineHeight: 1 } }, a.time), iso !== today && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, color: T.textFaint, marginTop: 3 } }, dLbl)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 } }, a.proc || "\u2014", " \xB7 ", durOf(a))), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase", color: bd.color, background: bd.bg, border: "1px solid " + bd.border, borderRadius: 6, padding: "3px 8px" } }, bd.label)));
   }))));
 }
 function HorariosTab({ T, appts }) {
@@ -1085,26 +1086,20 @@ function MobileShell({ T, D, onLogout }) {
     {
       key: lbl,
       onClick: act,
-      style: {
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 3,
-        padding: "8px 2px",
-        borderRadius: 16,
-        cursor: "pointer",
-        border: "none",
-        background: on ? "rgba(63,131,255,.2)" : "transparent",
-        boxShadow: on ? "0 6px 16px -6px rgba(63,131,255,.7), inset 0 0 0 1px rgba(120,170,255,.3)" : "none",
-        color: on ? "#EAF1FF" : T.textFaint,
-        fontFamily: T.sans,
-        fontSize: 10,
-        fontWeight: on ? 600 : 500
-      }
+      style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer" }
     },
-    icon,
-    lbl
+    /* @__PURE__ */ React.createElement("div", { style: {
+      width: 38,
+      height: 32,
+      borderRadius: 11,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: on ? T.accent : "transparent",
+      color: on ? "#fff" : T.textFaint,
+      boxShadow: on ? "0 6px 14px -6px " + T.accent : "none"
+    } }, icon),
+    /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, fontWeight: on ? 600 : 500, color: on ? "#CFE0FF" : T.textFaint } }, lbl)
   )))), overlay === "pacientes" && /* @__PURE__ */ React.createElement(PacientesOverlay, { T, patients, appts, addPatient, onBack: () => setOverlay(null), onOpenFicha: (id) => setOverlay({ type: "ficha", id }) }), overlay === "reportes" && /* @__PURE__ */ React.createElement(ReportesOverlay, { T, appts, onBack: () => setOverlay(null) }), overlay && overlay.type === "ficha" && /* @__PURE__ */ React.createElement(FichaOverlay, { T, patientId: overlay.id, patients, appts, updatePatient, onBack: () => setOverlay(null) }), apptSheet && /* @__PURE__ */ React.createElement(
     ApptSheet,
     {
