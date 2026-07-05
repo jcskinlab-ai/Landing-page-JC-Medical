@@ -165,6 +165,32 @@ function LoginVideoBg({ children }) {
 }
 
 /* ─── Pacientes (helpers de datos — este bundle no carga jc-admin.jsx) ─── */
+// Consentimientos pendientes — misma lógica que window.jcmConsentPending del portal (jc-admin-b.jsx),
+// replicada aquí porque ese bundle NO carga en el móvil. Pacientes SIN consentimiento firmado que
+// tienen una cita activa próxima (no evaluación, no anulada/atendida/no_asistió). Matchea por
+// id/nombre/RUT/teléfono para no perder citas creadas desde la agenda.
+function consentPendingM(patients, appts) {
+  appts = appts || [];
+  const rutN = r => ("" + (r || "")).replace(/[^0-9kK]/g, "").toLowerCase();
+  const telN = t => ("" + (t || "")).replace(/\D/g, "").slice(-8);
+  const needId = new Set(), needNm = new Set(), needRut = new Set(), needTel = new Set();
+  appts.forEach(a => {
+    if (["anulada","cancelada","no_asistio","atendida"].indexOf(a.status) >= 0 || a.attended) return;
+    if (/evaluaci/i.test(a.proc || "")) return;
+    if (a.patId) needId.add(a.patId);
+    const nm = (a.name || "").toLowerCase().trim(); if (nm) needNm.add(nm);
+    const r = rutN(a.rut); if (r.length >= 6) needRut.add(r);
+    const t = telN(a.phone); if (t.length === 8) needTel.add(t);
+  });
+  return (patients || []).filter(p => {
+    if (p.consent) return false;
+    if (needId.has(p.id)) return true;
+    if (needNm.has((p.name || "").toLowerCase().trim())) return true;
+    const r = rutN(p.rut); if (r.length >= 6 && needRut.has(r)) return true;
+    const t = telN(p.phone); if (t.length === 8 && needTel.has(t)) return true;
+    return false;
+  });
+}
 function patientsAll() { try { return (window.DB && window.DB.get("patients")) || []; } catch (e) { return []; } }
 function savePatientsM(list) { try { window.DB && window.DB.set("patients", list); } catch (e) {} }
 function addPatientM(p) {
@@ -398,13 +424,13 @@ function DaySummary({ T, c, p, na, prefix }) {
   const dot = (color, txt) => (
     <span style={{ display:"flex", alignItems:"center", gap:5, whiteSpace:"nowrap" }}>
       <span style={{ width:7, height:7, borderRadius:"50%", background:color, flexShrink:0 }} />
-      <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>{txt}</span>
+      <span style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{txt}</span>
     </span>
   );
   // Separador "·" entre los tres estados, igual que la referencia.
-  const sep = <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textFaint }}>·</span>;
+  const sep = <span style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint }}>·</span>;
   return (
-    <div style={{ ...glassChip(T), borderRadius:12, padding:"9px 14px", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+    <div style={{ ...glassChip(T), borderRadius:12, padding:"9px 12px", display:"flex", alignItems:"center", justifyContent:"center", gap:8, flexWrap:"wrap" }}>
       {dot("#46D27A", (prefix?prefix+" ":"") + c + " confirmada" + (c===1?"":"s"))}
       {sep}
       {dot("#E8B84D", p + " pendiente" + (p===1?"":"s"))}
@@ -439,13 +465,13 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const fechaLarga = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
 
-  // KPIs (referencia): 4 tarjetas glass con ícono arriba, etiqueta, número grande y variación.
+  // KPIs — más compactos/cuadrados (pedido del usuario: ocupar menos espacio).
   const kpi = (icon, label, val, sub, subColor) => (
-    <div style={{ flex:1, minWidth:0, minHeight:118, ...glassPanel(T,20), padding:"14px 5px 12px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"space-between", textAlign:"center" }}>
-      <div style={{ color:T.accent, opacity:.92, height:16, display:"flex", alignItems:"center" }}>{icon}</div>
-      <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, lineHeight:1.15, marginTop:6, minHeight:24, display:"flex", alignItems:"center" }}>{label}</div>
-      <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:600, color:T.text, marginTop:3, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
-      {sub && <div style={{ fontFamily:T.sans, fontSize:8.5, color:subColor||"rgba(230,240,255,.74)", marginTop:5, lineHeight:1.1 }}>{sub}</div>}
+    <div style={{ flex:1, minWidth:0, ...glassPanel(T,16), padding:"9px 4px 8px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}>
+      <div style={{ color:T.accent, opacity:.92, height:14, display:"flex", alignItems:"center" }}>{icon}</div>
+      <div style={{ fontFamily:T.sans, fontSize:9.5, color:T.textMute, lineHeight:1.1, marginTop:4, minHeight:20, display:"flex", alignItems:"center" }}>{label}</div>
+      <div style={{ fontFamily:T.serif, fontSize:22, fontWeight:600, color:T.text, marginTop:1, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
+      {sub && <div style={{ fontFamily:T.sans, fontSize:8, color:subColor||"rgba(230,240,255,.72)", marginTop:3, lineHeight:1.1 }}>{sub}</div>}
     </div>
   );
   const IC = {
@@ -465,28 +491,18 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // Inner tiles (referencia): superficie sutil dentro de UN contenedor glass exterior, no 4 tarjetas
   // pesadas sueltas. "Nueva cita" lleva el círculo azul; los demás, ícono de línea claro.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:9, minHeight:88, minWidth:0, cursor:"pointer", borderRadius:16,
-      background: primary ? "rgba(63,131,255,.14)" : "rgba(255,255,255,.055)", border:"1px solid "+(primary?"rgba(63,131,255,.35)":"rgba(255,255,255,.1)"), padding:"14px 5px" }}>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6, minHeight:70, minWidth:0, cursor:"pointer", borderRadius:14,
+      background: primary ? "rgba(63,131,255,.14)" : "rgba(255,255,255,.055)", border:"1px solid "+(primary?"rgba(63,131,255,.35)":"rgba(255,255,255,.1)"), padding:"10px 4px" }}>
       {primary
-        ? <div style={{ width:44, height:44, borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 8px 18px -6px "+T.accent }}>{icon}</div>
-        : <div style={{ height:44, display:"flex", alignItems:"center", justifyContent:"center", color:"#DCE9FF" }}>{icon}</div>}
-      <span style={{ fontFamily:T.sans, fontSize:11.5, fontWeight:500, lineHeight:1.15, textAlign:"center", color:T.text }}>{label}</span>
+        ? <div style={{ width:36, height:36, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 6px 14px -6px "+T.accent }}>{icon}</div>
+        : <div style={{ height:36, display:"flex", alignItems:"center", justifyContent:"center", color:"#DCE9FF" }}>{icon}</div>}
+      <span style={{ fontFamily:T.sans, fontSize:10.5, fontWeight:500, lineHeight:1.1, textAlign:"center", color:T.text }}>{label}</span>
     </button>
   );
 
   return (
-    <div style={{ padding:"10px 16px 96px", display:"flex", flexDirection:"column", gap:16 }}>
-      {/* Saludo con avatar */}
-      <div style={{ display:"flex", alignItems:"center", gap:13 }}>
-        {avatarSrc
-          ? <img src={avatarSrc} alt="" style={{ width:52, height:52, borderRadius:"50%", objectFit:"cover", flexShrink:0, border:"1px solid rgba(255,255,255,.25)" }} />
-          : <div style={{ width:52, height:52, borderRadius:"50%", background:T.accent+"33", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.serif, fontSize:18, flexShrink:0, border:"1px solid rgba(255,255,255,.2)" }}>{ini}</div>}
-        <div style={{ minWidth:0 }}>
-          <div style={{ fontFamily:T.serif, fontSize:25, fontWeight:600, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>Hola{clinNombre?", "+clinNombre:""}</div>
-          <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:2 }}>{fechaLarga}</div>
-        </div>
-      </div>
-
+    <div style={{ padding:"14px 16px 96px", display:"flex", flexDirection:"column", gap:14 }}>
+      {/* Saludo/avatar eliminados a pedido del usuario (ahorro de espacio): la fecha vive en el header. */}
       <div style={{ display:"flex", gap:7 }}>
         {kpi(IC.cal, "Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer")}
         {kpi(IC.check, "Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
@@ -1256,6 +1272,7 @@ function MobileShell({ T, D, onLogout }) {
   const [overlay, setOverlay] = useState(null); // null | "pacientes" | "reportes" | {type:"ficha", id}
   const [apptSheet, setApptSheet] = useState(null); // appt abierta en la hoja de acciones
   const [drawer, setDrawer] = useState(false); // menú lateral (hamburguesa)
+  const [notifOpen, setNotifOpen] = useState(false); // panel de pendientes (campana)
   const [agShowAnuladas, setAgShowAnuladas] = useState(false); // filtro de canceladas (icono del header en Agenda)
   const [appts, setAppts] = useState(() => (window.DB&&window.DB.get("appointments"))||[]);
   const [patients, setPatients] = useState(() => (window.DB&&window.DB.get("patients"))||[]);
@@ -1344,12 +1361,15 @@ function MobileShell({ T, D, onLogout }) {
   function updatePatient(id, patch) { updatePatientM(id, patch); setPatients(patientsAll()); }
 
   const pendPago = appts.filter(a=>a.status==="pendiente_pago");
-  const bellCount = pendPago.length;
+  const pendConsent = consentPendingM(patients, appts);   // consentimientos por firmar (como el portal)
+  const bellCount = pendPago.length + pendConsent.length;
   const clinName = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
+  // Fecha del día para el subtítulo del header (reemplaza a "Panel móvil").
+  const fechaHeader = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
   const hamburger = <button onClick={()=>setDrawer(true)} aria-label="Menú" style={{ width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginLeft:-6 }}>
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
   </button>;
-  const bell = <button onClick={()=>setTab("citas")} aria-label="Alertas" style={{ position:"relative", width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginRight:-4 }}>
+  const bell = <button onClick={()=>setNotifOpen(true)} aria-label="Pendientes" style={{ position:"relative", width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginRight:-4 }}>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
     {bellCount>0 && <span style={{ position:"absolute", top:4, right:6, minWidth:16, height:16, padding:"0 4px", borderRadius:999, background:T.accent, color:"#fff", fontFamily:T.sans, fontSize:9, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", border:"1.5px solid rgba(255,255,255,.35)" }}>{bellCount}</span>}
   </button>;
@@ -1357,13 +1377,17 @@ function MobileShell({ T, D, onLogout }) {
   const renderHeader = () => {
     if (tab==="citas") return <><div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
         {hamburger}
-        <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg, #4C8DF5, #2A5FD0)", boxShadow:"0 4px 12px -4px rgba(42,95,208,.7)", fontFamily:T.serif, fontSize:17, fontWeight:700, color:"#fff", lineHeight:1 }}>M</div>
+        {/* Logo oficial de Medique (monograma navy) sobre cuadro blanco para que se vea en el header oscuro. */}
+        <div style={{ width:34, height:34, borderRadius:9, flexShrink:0, background:"#FFFFFF", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", boxShadow:"0 3px 10px -4px rgba(0,0,0,.55)" }}>
+          <img src="/assets/medique-logo.png" alt="Medique" style={{ width:34, height:34, objectFit:"contain" }} />
+        </div>
         <div style={{ minWidth:0 }}>
           <div style={{ display:"flex", alignItems:"baseline", gap:5, lineHeight:1 }}>
             <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color:T.text }}>Medique</span>
             {clinName && <span style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {clinName}</span>}
           </div>
-          <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, display:"block", marginTop:1 }}>Panel móvil</span>
+          {/* Fecha del día (reemplaza a "Panel móvil"). */}
+          <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, display:"block", marginTop:1 }}>{fechaHeader}</span>
         </div>
       </div>{bell}</>;
     if (tab==="nueva") return <>
@@ -1424,6 +1448,47 @@ function MobileShell({ T, D, onLogout }) {
       {overlay==="pacientes" && <PacientesOverlay T={T} patients={patients} appts={appts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} />}
       {overlay==="reportes" && <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} />}
       {overlay && overlay.type==="ficha" && <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={appts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} />}
+
+      {/* Panel de PENDIENTES (campana): consentimientos por firmar + pagos por confirmar (datos reales). */}
+      {notifOpen && (() => {
+        const closeN = () => setNotifOpen(false);
+        const openFichaN = (id) => { setNotifOpen(false); setOverlay({ type:"ficha", id }); };
+        const openApptN = (a) => { setNotifOpen(false); setApptSheet(a); };
+        const total = pendConsent.length + pendPago.length;
+        const docIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 14l2 2 4-4"/></svg>;
+        const payIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>;
+        const row = (color, icon, title, sub, onClick) => (
+          <button key={title+sub} onClick={onClick} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderRadius:12, padding:"11px 12px", cursor:"pointer" }}>
+            <div style={{ width:36, height:36, borderRadius:10, flexShrink:0, background:color+"22", color:color, display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:T.sans, fontSize:13.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{title}</div>
+              <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        );
+        const label = (txt) => <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".08em", textTransform:"uppercase", color:T.textFaint, padding:"10px 12px 3px" }}>{txt}</div>;
+        return (
+          <div onMouseDown={e=>{ if(e.target===e.currentTarget) closeN(); }} style={{ position:"fixed", inset:0, zIndex:410, background:"rgba(0,0,0,.55)", display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+            <div onClick={e=>e.stopPropagation()} style={{ background:"linear-gradient(180deg, rgba(22,30,48,.98), rgba(13,19,32,.99))", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", borderTop:"1px solid rgba(255,255,255,.14)", borderRadius:"22px 22px 0 0", maxHeight:"78dvh", display:"flex", flexDirection:"column", paddingBottom:"env(safe-area-inset-bottom,10px)", animation:"jcFade .2s ease" }}>
+              <div style={{ padding:"14px 16px 11px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:"1px solid rgba(255,255,255,.1)" }}>
+                <div>
+                  <div style={{ fontFamily:T.serif, fontSize:18, fontWeight:600, color:T.text }}>Pendientes</div>
+                  <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, marginTop:1 }}>{total===0 ? "Todo al día" : total+" por resolver"}</div>
+                </div>
+                <button onClick={closeN} aria-label="Cerrar" style={{ width:34, height:34, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+              </div>
+              <div className="jc-scroll" style={{ flex:1, overflowY:"auto", padding:"6px 8px 14px", display:"flex", flexDirection:"column", gap:1 }}>
+                {total===0 && <div style={{ padding:"40px 16px", textAlign:"center", fontFamily:T.sans, fontSize:13, color:T.textFaint }}>Sin pendientes · todo en orden ✓</div>}
+                {pendConsent.length>0 && label("Consentimientos por firmar")}
+                {pendConsent.map(p => row("#E8B84D", docIcon, p.name||"Paciente", "Consentimiento por firmar", ()=>openFichaN(p.id)))}
+                {pendPago.length>0 && label("Pagos por confirmar")}
+                {pendPago.map(a => row("#6EA8E8", payIcon, a.name||"Paciente", "Transferencia por confirmar" + (a.time?" · "+a.time:""), ()=>openApptN(a)))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Hoja de acciones de una cita (estados oficiales) */}
       {apptSheet && (
