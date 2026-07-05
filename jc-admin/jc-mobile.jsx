@@ -62,13 +62,16 @@ function apptStateM(a, T) {
 // Estilo del BADGE de estado (referencia/MD): Confirmada/Atendida = contorno azul; Pendiente y
 // No asistió = pastilla RELLENA (amarillo con texto oscuro / rojo con texto claro). Distinto del
 // color de la barra a propósito (la barra de "confirmada" es verde, su badge es azul).
+// Todos los badges comparten el mismo patrón (fidelidad a la referencia): relleno traslúcido
+// tenue de su color + borde + texto en ese color. Ninguno lleva relleno sólido con texto de
+// contraste — ni "No asistió" ni "Agendado", que antes rompían la consistencia.
 function apptBadge(a) {
   if (a.status === "anulada")        return { label:"Cancelada",  color:"rgba(235,242,252,.6)", bg:"transparent",           border:"rgba(235,242,252,.35)" };
-  if (a.status === "no_asistio")     return { label:"No asistió", color:"#FFFFFF",              bg:"#FF6B7D",                border:"#FF6B7D" };
+  if (a.status === "no_asistio")     return { label:"No asistió", color:"#FF8FA0",              bg:"rgba(255,107,125,.16)", border:"rgba(255,107,125,.5)" };
   if (a.attended || a.status === "atendida") return { label:"Atendida", color:"#8FB8FF", bg:"rgba(78,141,255,.16)", border:"rgba(78,141,255,.55)" };
   if (a.status === "confirmada")     return { label:"Confirmada", color:"#8FB8FF",              bg:"rgba(78,141,255,.14)",   border:"rgba(78,141,255,.55)" };
-  if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#241A00",          bg:"#F5B93D",                border:"#F5B93D" };
-  return { label:"Agendado", color:"#241A00", bg:"#F5B93D", border:"#F5B93D" };
+  if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#FFCE6E",          bg:"rgba(245,185,61,.16)",  border:"rgba(245,185,61,.5)" };
+  return { label:"Agendado", color:"#FFCE6E", bg:"rgba(245,185,61,.16)", border:"rgba(245,185,61,.5)" };
 }
 
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
@@ -671,26 +674,34 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     dayRef.current.scrollTop = targetPx;
   }, [selDay, showAnuladas]);
 
+  // Tarjeta de cita en el timeline (fidelidad a la referencia): glass card con barra de color a
+  // la izquierda + badge de estado a la derecha — igual lenguaje que las tarjetas de Home, no un
+  // bloque plano con solo borde superior. Alto proporcional a la duración real (más correcto que
+  // la referencia, que muestra alturas fijas) — mantiene la utilidad real del timeline.
   function apptBlock(a) {
     const startMin = minsM(a.time);
     const durMin = parseInt(a.dur) || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
     const topPx   = (startMin - CAL_START * 60) * (CAL_PX_HOUR / 60);
-    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 28);
+    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 32);
     const st = apptStateM(a, T);
+    const bd = apptBadge(a);
     const isAnulada = a.status === "anulada";
     return (
       <button key={a.id} onClick={()=>onOpenAppt(a)} style={{
         position:"absolute", top: topPx, left: 0, right: 0, height: heightPx,
-        background: st.color + "24", border:"none",
-        borderTop: "2px solid " + st.color, borderRadius: 8,
-        padding: "3px 9px", overflow:"hidden", boxSizing:"border-box",
-        cursor:"pointer", textAlign:"left", opacity:isAnulada?.55:1,
-        textDecoration:isAnulada?"line-through":"none"
+        display:"flex", alignItems:"stretch", textAlign:"left", cursor:"pointer",
+        ...glassPanel(T, 12), padding:0, overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
       }}>
-        <div style={{ fontFamily:T.sans, fontSize:11.5, fontWeight:700, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.3 }}>{a.name}</div>
-        {heightPx > 30 && (
-          <div style={{ fontFamily:T.sans, fontSize:10, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.time} · {a.proc||"—"}</div>
-        )}
+        <div style={{ width:3, background:st.color, flexShrink:0 }} />
+        <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:7, padding:"5px 9px" }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:700, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.25, textDecoration:isAnulada?"line-through":"none" }}>{a.name}</div>
+            {heightPx > 34 && (
+              <div style={{ fontFamily:T.sans, fontSize:9.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.time} · {a.proc||"—"}</div>
+            )}
+          </div>
+          <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:7.5, fontWeight:700, letterSpacing:".03em", textTransform:"uppercase", color:bd.color, background:bd.bg, border:"1px solid "+bd.border, borderRadius:6, padding:"2px 6px" }}>{bd.label}</span>
+        </div>
       </button>
     );
   }
