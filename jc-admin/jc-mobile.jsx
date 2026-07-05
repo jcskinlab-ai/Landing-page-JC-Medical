@@ -133,18 +133,21 @@ function glassPanel(T, radius) {
   // "Liquid glass" iOS 26 (pedido del usuario): muy CRISTALINO — casi sin tinte de color, el fondo
   // oscuro se ve a través. Brillo blanco arriba (reflejo Apple) + borde fino claro + sombra de
   // profundidad para despegar la tarjeta del fondo negro. Blur alto. Nunca opaco.
+  // Glass navy PROFUNDO (referencia premium iOS 26 oscuro): sin el highlight blanco fuerte ni el
+  // brightness que lo dejaba "escarchado gris". Relleno navy translúcido + borde fino sutil + brillo
+  // superior tenue, para que la tarjeta lea oscura, con cuerpo y profundidad sobre el fondo negro.
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.04) 42%, rgba(255,255,255,.012) 100%), rgba(150,175,210,.05)",
-    backdropFilter: "blur(34px) saturate(1.35) brightness(1.12)", WebkitBackdropFilter: "blur(34px) saturate(1.35) brightness(1.12)",
-    border: "1px solid rgba(255,255,255,.2)", borderRadius: radius==null?20:radius,
-    boxShadow: "0 16px 46px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(255,255,255,.05)"
+    background: "linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.018) 50%, rgba(255,255,255,.006) 100%), rgba(24,33,49,.46)",
+    backdropFilter: "blur(28px) saturate(1.3)", WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+    border: "1px solid rgba(255,255,255,.085)", borderRadius: radius==null?20:radius,
+    boxShadow: "0 18px 42px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.10)"
   };
 }
 function glassChip(T) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03) 46%, rgba(255,255,255,.01) 100%), rgba(150,175,210,.04)",
-    backdropFilter: "blur(32px) saturate(1.3) brightness(1.1)", WebkitBackdropFilter: "blur(32px) saturate(1.3) brightness(1.1)",
-    border: "1px solid rgba(255,255,255,.17)"
+    background: "linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015) 50%, rgba(255,255,255,.005) 100%), rgba(22,31,47,.42)",
+    backdropFilter: "blur(26px) saturate(1.25)", WebkitBackdropFilter: "blur(26px) saturate(1.25)",
+    border: "1px solid rgba(255,255,255,.075)"
   };
 }
 // Fondo de la pantalla de LOGIN (única pantalla con video, a pedido del usuario): nube/montaña en
@@ -420,17 +423,19 @@ function occupancyForOff(appts, off) {
   } catch (e) { return 0; }
 }
 // Cápsula-resumen del día (referencia): • verde confirmadas · • amarillo pendientes · • rojo no asistió.
-function DaySummary({ T, c, p, na, prefix }) {
+function DaySummary({ T, c, p, na, prefix, bars }) {
   const dot = (color, txt) => (
-    <span style={{ display:"flex", alignItems:"center", gap:5, whiteSpace:"nowrap" }}>
+    <span style={{ display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap" }}>
       <span style={{ width:7, height:7, borderRadius:"50%", background:color, flexShrink:0 }} />
-      <span style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{txt}</span>
+      <span style={{ fontFamily:T.sans, fontSize:bars?12:10.5, color:T.textMute }}>{txt}</span>
     </span>
   );
-  // Separador "·" entre los tres estados, igual que la referencia.
-  const sep = <span style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint }}>·</span>;
+  // Separador entre los tres estados: barra vertical en Agenda (referencia), "·" en Home.
+  const sep = bars
+    ? <span style={{ width:1, height:14, background:"rgba(255,255,255,.14)" }} />
+    : <span style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint }}>·</span>;
   return (
-    <div style={{ ...glassChip(T), borderRadius:12, padding:"9px 12px", display:"flex", alignItems:"center", justifyContent:"center", gap:8, flexWrap:"wrap" }}>
+    <div style={{ ...glassChip(T), borderRadius:14, padding:"11px 12px", display:"flex", alignItems:"center", justifyContent: bars?"space-around":"center", gap:8, flexWrap:"wrap" }}>
       {dot("#46D27A", (prefix?prefix+" ":"") + c + " confirmada" + (c===1?"":"s"))}
       {sep}
       {dot("#E8B84D", p + " pendiente" + (p===1?"":"s"))}
@@ -467,7 +472,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
 
   // KPIs — más compactos/cuadrados (pedido del usuario: ocupar menos espacio).
   const kpi = (icon, label, val, sub, subColor) => (
-    <div style={{ flex:1, minWidth:0, ...glassPanel(T,16), padding:"9px 4px 8px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}>
+    <div style={{ flex:1, minWidth:0, ...glassPanel(T,18), padding:"14px 4px 13px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}>
       <div style={{ color:T.accent, opacity:.92, height:14, display:"flex", alignItems:"center" }}>{icon}</div>
       <div style={{ fontFamily:T.sans, fontSize:9.5, color:T.textMute, lineHeight:1.1, marginTop:4, minHeight:20, display:"flex", alignItems:"center" }}>{label}</div>
       <div style={{ fontFamily:T.serif, fontSize:22, fontWeight:600, color:T.text, marginTop:1, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
@@ -491,7 +496,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // Inner tiles (referencia): superficie sutil dentro de UN contenedor glass exterior, no 4 tarjetas
   // pesadas sueltas. "Nueva cita" lleva el círculo azul; los demás, ícono de línea claro.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6, minHeight:70, minWidth:0, cursor:"pointer", borderRadius:14,
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6, minHeight:70, minWidth:0, cursor:"pointer", borderRadius:16,
       background: primary ? "rgba(63,131,255,.14)" : "rgba(255,255,255,.055)", border:"1px solid "+(primary?"rgba(63,131,255,.35)":"rgba(255,255,255,.1)"), padding:"10px 4px" }}>
       {primary
         ? <div style={{ width:36, height:36, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 6px 14px -6px "+T.accent }}>{icon}</div>
@@ -654,7 +659,7 @@ function HorariosTab({ T, appts }) {
 }
 
 /* ─── Tab Agenda (calendario estilo iPhone) ─── */
-const CAL_PX_HOUR = 64; // píxeles por hora
+const CAL_PX_HOUR = 90; // píxeles por hora (tarjetas ricas de la referencia necesitan más aire)
 const CAL_START   = 8;  // primera hora visible
 const CAL_END     = 20; // última hora visible
 const CAL_HOURS   = Array.from({length: CAL_END - CAL_START + 1}, (_,i) => CAL_START + i);
@@ -707,25 +712,36 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     const startMin = minsM(a.time);
     const durMin = parseInt(a.dur) || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
     const topPx   = (startMin - CAL_START * 60) * (CAL_PX_HOUR / 60);
-    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 32);
+    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 76);
     const st = apptStateM(a, T);
     const bd = apptBadge(a);
     const isAnulada = a.status === "anulada";
+    // Rango horario (referencia): inicio – fin, calculado con la duración real.
+    const fmt = m => { const h=Math.floor(m/60), mm=m%60; return (h<10?"0":"")+h+":"+(mm<10?"0":"")+mm; };
+    const range = a.time + " – " + fmt(startMin + durMin);
     return (
       <button key={a.id} onClick={()=>onOpenAppt(a)} style={{
         position:"absolute", top: topPx, left: 0, right: 0, height: heightPx,
         display:"flex", alignItems:"stretch", textAlign:"left", cursor:"pointer",
-        ...glassPanel(T, 12), padding:0, overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
+        ...glassPanel(T, 14), padding:0, overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
       }}>
-        <div style={{ width:3, background:st.color, flexShrink:0 }} />
-        <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:7, padding:"5px 9px" }}>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:700, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.25, textDecoration:isAnulada?"line-through":"none" }}>{a.name}</div>
-            {heightPx > 34 && (
-              <div style={{ fontFamily:T.sans, fontSize:9.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.time} · {a.proc||"—"}</div>
-            )}
+        <div style={{ width:4, background:st.color, flexShrink:0 }} />
+        <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center" }}>
+          {/* Izquierda: nombre + procedimiento */}
+          <div style={{ flex:1, minWidth:0, padding:"10px 12px" }}>
+            <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.25, textDecoration:isAnulada?"line-through":"none" }}>{a.name}</div>
+            <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:2 }}>{a.proc||"—"}</div>
           </div>
-          <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:7.5, fontWeight:700, letterSpacing:".03em", textTransform:"uppercase", color:bd.color, background:bd.bg, border:"1px solid "+bd.border, borderRadius:6, padding:"2px 6px" }}>{bd.label}</span>
+          {/* Divisor vertical (referencia) */}
+          <div style={{ width:1, alignSelf:"center", height:"52%", background:"rgba(255,255,255,.12)", flexShrink:0 }} />
+          {/* Derecha: rango horario coloreado + estado con punto */}
+          <div style={{ width:118, flexShrink:0, padding:"10px 12px", textAlign:"right" }}>
+            <div style={{ fontFamily:T.sans, fontSize:14, fontWeight:600, color:st.color }}>{range}</div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:6, marginTop:5 }}>
+              <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>{bd.label}</span>
+              <span style={{ width:7, height:7, borderRadius:"50%", background:st.color, flexShrink:0 }} />
+            </div>
+          </div>
         </div>
       </button>
     );
@@ -736,8 +752,10 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     <div style={{ display:"flex", gap:5, padding:"10px 14px 8px", flexShrink:0, ...glassChip(T), border:"none", background:"transparent" }}>
       <div style={{ display:"flex", flex:1, gap:4, padding:4, borderRadius:11, ...glassChip(T) }}>
         {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:12.5, fontWeight:view===k?700:500, padding:"8px", borderRadius:8, cursor:"pointer", border:"none",
-            ...(view===k ? { background:T.accent, color:T.onAccent } : { background:"transparent", color:T.textMute }) }}>{l}</button>
+          <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:13.5, fontWeight:view===k?600:500, padding:"9px", borderRadius:10, cursor:"pointer",
+            ...(view===k
+              ? { background:"linear-gradient(180deg, rgba(88,142,246,.28), rgba(48,104,214,.22))", color:"#fff", border:"1px solid rgba(130,175,255,.45)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(40,90,200,.6)" }
+              : { background:"transparent", color:T.textMute, border:"1px solid transparent" }) }}>{l}</button>
         ))}
       </div>
       {showAnuladas && view==="dia" && <span style={{ alignSelf:"center", fontFamily:T.sans, fontSize:10.5, color:"#F1657F", whiteSpace:"nowrap" }}>Canceladas ({anuladasCount})</span>}
@@ -802,16 +820,17 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             const isToday = d.iso === today;
             return (
               <button key={d.iso} onClick={()=>setSelDay(d.iso)}
-                style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"7px 10px", borderRadius:10, minWidth:46, border:"none", cursor:"pointer",
-                  background: isSel ? T.accent : "transparent" }}>
-                <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? T.onAccent : T.textMute }}>{d.i===0 ? "Hoy" : d.wd}</span>
-                <span style={{ fontFamily:T.sans, fontSize:22, fontWeight: isToday ? "700" : "400", color: isSel ? T.onAccent : T.text, lineHeight:1.2 }}>{d.dd}</span>
+                style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"8px 10px 6px", borderRadius:14, minWidth:46, cursor:"pointer",
+                  background: isSel ? "rgba(59,130,246,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(130,175,255,.55)" : "transparent") }}>
+                <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#7FB0FF" : T.textMute }}>{d.i===0 ? "Hoy" : d.wd}</span>
+                <span style={{ fontFamily:T.sans, fontSize:22, fontWeight: isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
+                <div style={{ width:5, height:5, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
               </button>
             );
           })}
         </div>
       </div>
-      {!showAnuladas && selActive.length>0 && <div style={{ padding:"0 14px 10px", flexShrink:0 }}><DaySummary T={T} c={cSel} p={pSel} na={naSel} /></div>}
+      {!showAnuladas && selActive.length>0 && <div style={{ padding:"0 14px 10px", flexShrink:0 }}><DaySummary T={T} c={cSel} p={pSel} na={naSel} bars /></div>}
       <div ref={dayRef} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
         <div style={{ position:"relative", marginLeft:48, paddingRight:12 }}>
           {CAL_HOURS.map(h => (
@@ -1047,9 +1066,12 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
   return (
     <OverlayShell T={T} title="Pacientes" onBack={onBack}>
       <div style={{ padding:"12px 16px", display:"flex", flexDirection:"column", gap:10 }}>
-        <div style={{ display:"flex", gap:8 }}>
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, RUT o teléfono…" style={{ ...inp, flex:1 }} />
-          <button onClick={()=>setNuevo(v=>!v)} style={{ flexShrink:0, width:44, height:44, borderRadius:9, border:"none", background:T.accent, color:T.onAccent, cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+        <div style={{ display:"flex", gap:10 }}>
+          <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, ...glassChip(T), borderRadius:13, padding:"0 14px" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, RUT o teléfono…" style={{ flex:1, background:"transparent", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:14, padding:"13px 0" }} />
+          </div>
+          <button onClick={()=>setNuevo(v=>!v)} aria-label="Nuevo paciente" style={{ flexShrink:0, width:50, borderRadius:13, border:"none", background:T.accent, color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 8px 20px -8px "+T.accent }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
         {nuevo && (
           <div style={{ ...glassPanel(T,12), padding:"13px 14px", display:"flex", flexDirection:"column", gap:9 }}>
@@ -1066,13 +1088,14 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
           {list.map(p => {
             const nextA = appts.filter(a=>(a.patId===p.id || a.name===p.name) && a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=todayISO()).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""))[0];
             return (
-              <button key={p.id} onClick={()=>onOpenFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:11, width:"100%", textAlign:"left", ...glassPanel(T,12), padding:"11px 13px", cursor:"pointer" }}>
-                <div style={{ width:38, height:38, borderRadius:"50%", background:T.accent+"22", color:T.accent, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:13, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+              <button key={p.id} onClick={()=>onOpenFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", ...glassPanel(T,16), padding:"12px 14px", cursor:"pointer" }}>
+                <div style={{ width:46, height:46, borderRadius:"50%", flexShrink:0, background:"rgba(59,130,246,.16)", border:"1px solid rgba(120,160,240,.3)", color:"#89B4FF", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:14, fontWeight:700 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontFamily:T.sans, fontSize:14, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
-                  <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{[p.rut,p.phone].filter(Boolean).join(" · ")}</div>
+                  <div style={{ fontFamily:T.sans, fontSize:16, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
+                  <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:2 }}>{[p.rut,p.phone].filter(Boolean).join(" · ")}</div>
                 </div>
-                {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:9.5, color:T.accent, background:T.accent+"1c", borderRadius:999, padding:"3px 8px", whiteSpace:"nowrap" }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:nextA.fecha}</span>}
+                {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:12, color:"#9BC0FF", ...glassChip(T), borderRadius:999, padding:"5px 11px", whiteSpace:"nowrap" }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:(()=>{ const d=new Date((nextA.fecha||"")+"T00:00:00"); return isNaN(d.getTime())?nextA.fecha:d.getDate()+" "+MESES[d.getMonth()].toLowerCase(); })()}</span>}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round" style={{ flexShrink:0 }}><path d="M9 18l6-6-6-6"/></svg>
               </button>
             );
           })}
@@ -1191,32 +1214,49 @@ function ReportesOverlay({ T, appts, onBack }) {
   const topProc = Object.keys(porProc).map(k=>({name:k,n:porProc[k]})).sort((a,b)=>b.n-a.n).slice(0,5);
   const maxProc = topProc[0] ? topProc[0].n : 1;
 
-  const row = (label, val, color) => (
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid "+(T.dark?"rgba(255,255,255,.08)":T.lineSoft) }}>
-      <span style={{ fontFamily:T.sans, fontSize:13, color:T.textMute }}>{label}</span>
-      <span style={{ fontFamily:T.sans, fontSize:14, fontWeight:600, color:color||T.text }}>{val}</span>
+  // Fila con ícono en círculo de color + valor coloreado (referencia).
+  const RIC = {
+    cal:  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+    check:<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>,
+    user: <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="8" r="4"/><path d="M5 21v-1a6 6 0 0 1 12 0v1"/></svg>,
+    xmark:<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>,
+    pct:  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 15l8-6"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/></svg>
+  };
+  const row = (icon, iconColor, label, val, valColor, last) => (
+    <div style={{ display:"flex", alignItems:"center", gap:13, padding:"12px 0", borderBottom: last ? "none" : "1px solid rgba(255,255,255,.07)" }}>
+      <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:iconColor+"22", color:iconColor, display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
+      <span style={{ flex:1, fontFamily:T.sans, fontSize:15, color:T.text }}>{label}</span>
+      <span style={{ fontFamily:T.sans, fontSize:17, fontWeight:700, color:valColor||T.text }}>{val}</span>
     </div>
   );
 
   return (
     <OverlayShell T={T} title="Reportes" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:16 }}>
-        <div style={{ ...glassPanel(T,12), padding:"13px 16px" }}>
-          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.accent, marginBottom:4 }}>Esta semana</div>
-          {row("Citas totales", weekAppts.filter(a=>a.status!=="anulada").length)}
-          {row("Confirmadas", countBy(weekAppts, a=>a.status==="confirmada"||a.status==="atendida"), "#16A34A")}
-          {row("Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), "#1A50A3")}
-          {row("No asistió", countBy(weekAppts, a=>a.status==="no_asistio"), "#C0285A")}
-          {row("Canceladas", countBy(weekAppts, a=>a.status==="anulada"), T.textFaint)}
-          {row("Tasa de inasistencia", noShowRate+"%", noShowRate>15?"#C0285A":"#16A34A")}
+        <div style={{ ...glassPanel(T,20), padding:"6px 16px 8px" }}>
+          <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:"#5B93F5", fontWeight:600, padding:"14px 0 6px" }}>Esta semana</div>
+          {row(RIC.cal,   "#7FA8E8", "Citas totales", weekAppts.filter(a=>a.status!=="anulada").length)}
+          {row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, a=>a.status==="confirmada"||a.status==="atendida"), "#46D27A")}
+          {row(RIC.user,  "#6EA8FF", "Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), "#6EA8FF")}
+          {row(RIC.user,  "#FF6B7D", "No asistió", countBy(weekAppts, a=>a.status==="no_asistio"), "#FF6B7D")}
+          {row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, a=>a.status==="anulada"))}
+          {row(RIC.pct,   noShowRate>15?"#FF6B7D":"#46D27A", "Tasa de inasistencia", noShowRate+"%", noShowRate>15?"#FF6B7D":"#46D27A", true)}
         </div>
-        <div style={{ ...glassPanel(T,12), padding:"13px 16px" }}>
-          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.accent, marginBottom:10 }}>Procedimientos del mes</div>
-          {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textFaint }}>Sin datos este mes.</div>}
-          {topProc.map(t => (
-            <div key={t.name} style={{ marginBottom:9 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", fontFamily:T.sans, fontSize:12, color:T.text, marginBottom:4 }}><span>{t.name}</span><span style={{ color:T.textMute }}>{t.n}</span></div>
-              <div style={{ height:5, borderRadius:999, background:T.dark?"rgba(255,255,255,.1)":T.lineSoft, overflow:"hidden" }}><div style={{ height:"100%", width:Math.max(6,Math.round(t.n/maxProc*100))+"%", background:T.accent, borderRadius:999 }} /></div>
+        <div style={{ ...glassPanel(T,20), padding:"6px 16px 10px" }}>
+          <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:"#5B93F5", fontWeight:600, padding:"14px 0 8px" }}>Procedimientos del mes</div>
+          {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:13, color:T.textFaint, padding:"6px 0 12px" }}>Sin datos este mes.</div>}
+          {topProc.map((t,i) => (
+            <div key={t.name} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", borderBottom: i===topProc.length-1?"none":"1px solid rgba(255,255,255,.06)" }}>
+              <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:"rgba(59,130,246,.14)", color:"#6EA8FF", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
+                  <span style={{ fontFamily:T.sans, fontSize:16, fontWeight:700, color:T.text, marginLeft:8, flexShrink:0 }}>{t.n}</span>
+                </div>
+                <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8 }}><div style={{ height:"100%", width:Math.max(6,Math.round(t.n/maxProc*100))+"%", background:"linear-gradient(90deg,#3B82F6,#5EA0FF)", borderRadius:999 }} /></div>
+              </div>
             </div>
           ))}
         </div>
@@ -1228,22 +1268,24 @@ function ReportesOverlay({ T, appts, onBack }) {
 /* ═══════════ Overlay: Más (Pacientes/Reportes/Configuración/Salir) ═══════════ */
 function MasTab({ T, openOverlay, onLogout }) {
   const item = (icon, label, onClick, danger) => (
-    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:13, width:"100%", textAlign:"left", ...glassPanel(T,13), padding:"14px 15px", cursor:"pointer" }}>
-      <div style={{ width:38, height:38, borderRadius:10, background:(danger?"#C0285A":T.accent)+"1e", color:danger?"#C0285A":T.accent, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{icon}</div>
-      <span style={{ fontFamily:T.sans, fontSize:14, fontWeight:500, color:danger?"#C0285A":T.text, flex:1 }}>{label}</span>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:15, width:"100%", textAlign:"left", ...glassPanel(T,18), padding:"18px 16px", cursor:"pointer",
+      ...(danger ? { background:"linear-gradient(180deg, rgba(255,90,110,.10), rgba(255,70,90,.04) 60%), rgba(40,20,26,.42)" } : {}) }}>
+      <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:(danger?"rgba(255,90,110,.16)":"rgba(59,130,246,.16)"), border:"1px solid "+(danger?"rgba(255,120,140,.3)":"rgba(120,160,240,.28)"), color:danger?"#FF6B7D":"#6EA8FF", display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
+      <span style={{ fontFamily:T.sans, fontSize:18, fontWeight:600, color:danger?"#FF6B7D":T.text, flex:1 }}>{label}</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={danger?"rgba(255,107,125,.7)":T.textFaint} strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
     </button>
   );
   return (
-    <div style={{ padding:"10px 16px 90px", display:"flex", flexDirection:"column", gap:9 }}>
+    <div style={{ padding:"14px 16px 90px", display:"flex", flexDirection:"column", gap:12 }}>
       {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
       {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
       <button onClick={()=>{ const b = document.getElementById("jcm-mob-rfab-icon2"); if(b){ b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{b.style.transition="";b.style.transform="";},600);} window.dispatchEvent(new CustomEvent("jcsaas:data")); }}
-        style={{ display:"flex", alignItems:"center", gap:13, width:"100%", textAlign:"left", ...glassPanel(T,13), padding:"14px 15px", cursor:"pointer" }}>
-        <div style={{ width:38, height:38, borderRadius:10, background:T.accent+"1e", color:T.accent, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-          <svg id="jcm-mob-rfab-icon2" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        style={{ display:"flex", alignItems:"center", gap:15, width:"100%", textAlign:"left", ...glassPanel(T,18), padding:"18px 16px", cursor:"pointer" }}>
+        <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:"rgba(59,130,246,.16)", border:"1px solid rgba(120,160,240,.28)", color:"#6EA8FF", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <svg id="jcm-mob-rfab-icon2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
         </div>
-        <span style={{ fontFamily:T.sans, fontSize:14, fontWeight:500, color:T.text, flex:1 }}>Actualizar datos</span>
+        <span style={{ fontFamily:T.sans, fontSize:18, fontWeight:600, color:T.text, flex:1 }}>Actualizar datos</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
       </button>
       <div style={{ height:1, background:T.dark?"rgba(255,255,255,.1)":T.lineSoft, margin:"8px 4px" }} />
       {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>, "Cerrar sesión", onLogout, true)}
@@ -1254,12 +1296,13 @@ function MasTab({ T, openOverlay, onLogout }) {
 /* ─── Contenedor de pantallas superpuestas (Pacientes/Ficha/Reportes) — navegación tipo iOS push ─── */
 function OverlayShell({ T, title, onBack, children }) {
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:200, ...mobileBg(T), display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
-      <div style={{ padding:"calc(10px + env(safe-area-inset-top,0px)) 12px 10px", display:"flex", alignItems:"center", gap:8, ...glassChip(T), borderLeft:"none", borderRight:"none", borderTop:"none" }}>
-        <button onClick={onBack} aria-label="Volver" style={{ width:36, height:36, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+    <div style={{ position:"fixed", inset:0, zIndex:200, background:"radial-gradient(125% 80% at 72% -5%, #142944 0%, #0c1a2e 45%, #081120 100%)", backgroundColor:"#081120", display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
+      {/* Header overlay (referencia): botón atrás en círculo glass + título grande a la izquierda, sin barra. */}
+      <div style={{ padding:"calc(14px + env(safe-area-inset-top,0px)) 18px 10px", display:"flex", alignItems:"center", gap:14, flexShrink:0 }}>
+        <button onClick={onBack} aria-label="Volver" style={{ width:38, height:38, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <span style={{ fontFamily:T.serif, fontSize:18, color:T.text }}>{title}</span>
+        <span style={{ fontFamily:T.sans, fontSize:26, fontWeight:700, color:T.text, letterSpacing:"-.01em" }}>{title}</span>
       </div>
       <div style={{ flex:1, overflowY:"auto" }}>{children}</div>
     </div>
@@ -1392,7 +1435,7 @@ function MobileShell({ T, D, onLogout }) {
       </div>{bell}</>;
     if (tab==="nueva") return <>
       <button onClick={()=>setTab("citas")} aria-label="Volver" style={{ width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginLeft:-6 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg></button>
-      {headerTitle("Nueva cita")}
+      <span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.sans, fontSize:20, fontWeight:600, color:T.text }}>Nueva cita</span>
       <button onClick={()=>setTab("citas")} aria-label="Cerrar" style={{ width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-6 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </>;
     // agenda / horarios / mas: hamburguesa + título centrado + acción a la derecha (filtro en Agenda)
@@ -1400,7 +1443,7 @@ function MobileShell({ T, D, onLogout }) {
     const rightAction = tab==="agenda"
       ? <button onClick={()=>setAgShowAnuladas(v=>!v)} aria-label="Filtro" style={{ width:38, height:38, borderRadius:"50%", border:"none", background:agShowAnuladas?T.accentSoft:"none", color:agShowAnuladas?T.accent:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-4 }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
       : <div style={{ width:34 }} />;
-    return <>{hamburger}{headerTitle(titleMap[tab])}{rightAction}</>;
+    return <>{hamburger}<span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.sans, fontSize:20, fontWeight:600, color:T.text }}>{titleMap[tab]}</span>{rightAction}</>;
   };
   // Barra inferior EXACTA de la referencia: Citas · Agenda · Pacientes · Reportes · Más.
   // Pacientes y Reportes abren sus overlays; Nueva cita y Horarios se acceden desde accesos rápidos.
@@ -1415,8 +1458,12 @@ function MobileShell({ T, D, onLogout }) {
   return (
     <div style={{ minHeight:"100dvh", ...mobileBg(T), display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
       {/* Header dinámico por pestaña (referencia): hamburguesa + título/marca + acción a la derecha */}
-      <div style={{ padding:"calc(11px + env(safe-area-inset-top,0px)) 12px 9px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, ...glassChip(T), borderLeft:"none", borderRight:"none", borderTop:"none", position:"sticky", top:0, zIndex:10 }}>
-        {renderHeader()}
+      {/* Header = TARJETA FLOTANTE redondeada (referencia), no barra recta full-width. Gutter lateral +
+          safe-area arriba; la tarjeta glass va redondeada con borde completo. */}
+      <div style={{ position:"sticky", top:0, zIndex:10, padding:"calc(8px + env(safe-area-inset-top,0px)) 14px 4px" }}>
+        {tab==="citas"
+          ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, ...glassChip(T), borderRadius:20, padding:"11px 14px" }}>{renderHeader()}</div>
+          : <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"6px 4px 6px", minHeight:42 }}>{renderHeader()}</div>}
       </div>
 
       {/* Content */}
@@ -1439,6 +1486,8 @@ function MobileShell({ T, D, onLogout }) {
                 background: on ? T.accent : "transparent", color: on ? "#fff" : T.textFaint,
                 boxShadow: on ? "0 6px 14px -6px "+T.accent : "none" }}>{icon}</div>
               <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:on?600:500, color: on ? "#CFE0FF" : T.textFaint }}>{lbl}</span>
+              {/* Puntito indicador del activo (referencia) */}
+              <div style={{ width:5, height:5, borderRadius:"50%", background: on ? T.accent : "transparent", marginTop:1 }} />
             </button>
           ))}
         </div>
