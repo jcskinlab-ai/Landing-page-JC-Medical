@@ -613,10 +613,11 @@ function HorariosTab({ T, appts }) {
         <div style={{ display:"flex", gap:8, padding:"6px 2px 12px", minWidth:"max-content" }}>
           {days.map((d,i)=>(
             <button key={i} onClick={()=>setSelOff(i)}
-              style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px", borderRadius:10, minWidth:50, cursor:"pointer",
-                ...(selOff===i ? { background:T.accent, border:"1px solid "+T.accent } : { ...glassChip(T) }) }}>
-              <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color:selOff===i?T.onAccent:T.textMute }}>{i===0?"Hoy":d.wd}</span>
-              <span style={{ fontFamily:T.serif, fontSize:20, fontWeight:600, color:selOff===i?T.onAccent:T.text, marginTop:2 }}>{d.dd}</span>
+              style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"8px 10px 6px", borderRadius:14, minWidth:50, cursor:"pointer",
+                background: selOff===i ? "rgba(59,130,246,.12)" : "transparent", border:"1px solid "+(selOff===i ? "rgba(130,175,255,.55)" : "transparent") }}>
+              <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color:selOff===i?"#7FB0FF":T.textMute }}>{i===0?"Hoy":d.wd}</span>
+              <span style={{ fontFamily:T.sans, fontSize:20, fontWeight:600, color:T.text }}>{d.dd}</span>
+              <div style={{ width:5, height:5, borderRadius:"50%", background:selOff===i?T.accent:"transparent" }} />
             </button>
           ))}
         </div>
@@ -925,7 +926,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
 
   return (
     <div style={{ padding:"14px 16px 90px", display:"flex", flexDirection:"column", gap:16 }}>
-      <div style={{ fontFamily:T.serif, fontSize:20, fontWeight:600, color:T.text }}>Nueva cita</div>
+      {/* El título "Nueva cita" ya vive en el header de la pestaña; no se duplica aquí. */}
       <div style={{ display:"flex", alignItems:"center", gap:6 }}>
         {STEPS.map((s,i) => (
           <React.Fragment key={s}>
@@ -965,7 +966,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
                 <div style={{ marginTop:9, display:"flex", flexDirection:"column", gap:6 }}>
                   {results.map(p => (
                     <button key={p.id} onClick={()=>{ setPid(p.id); setQ(p.name); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", ...glassChip(T), borderRadius:9, padding:"10px 12px", cursor:"pointer" }}>
-                      <div style={{ width:30, height:30, borderRadius:"50%", background:T.accent+"22", color:T.accent, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:11, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                      <div style={{ width:30, height:30, borderRadius:"50%", background:"rgba(59,130,246,.16)", border:"1px solid rgba(120,160,240,.3)", color:"#89B4FF", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:11, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                       <div style={{ minWidth:0 }}>
                         <div style={{ fontFamily:T.sans, fontSize:13, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
                         <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{[p.rut, p.phone].filter(Boolean).join(" · ")}</div>
@@ -1125,7 +1126,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
     <OverlayShell T={T} title="Ficha del paciente" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:14 }}>
         <div style={{ display:"flex", alignItems:"center", gap:13 }}>
-          <div style={{ width:56, height:56, borderRadius:"50%", background:T.accent+"22", color:T.accent, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.serif, fontSize:20, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+          <div style={{ width:56, height:56, borderRadius:"50%", background:"rgba(59,130,246,.16)", border:"1px solid rgba(120,160,240,.3)", color:"#89B4FF", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:19, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
           <div style={{ minWidth:0 }}>
             <div style={{ fontFamily:T.serif, fontSize:19, color:T.text }}>{p.name}</div>
             <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{[p.rut, p.age?p.age+" años":""].filter(Boolean).join(" · ")}</div>
@@ -1519,7 +1520,7 @@ function MobileShell({ T, D, onLogout }) {
         const label = (txt) => <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".08em", textTransform:"uppercase", color:T.textFaint, padding:"10px 12px 3px" }}>{txt}</div>;
         return (
           <div onMouseDown={e=>{ if(e.target===e.currentTarget) closeN(); }} style={{ position:"fixed", inset:0, zIndex:410, background:"rgba(0,0,0,.55)", display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
-            <div onClick={e=>e.stopPropagation()} style={{ background:"linear-gradient(180deg, rgba(22,30,48,.98), rgba(13,19,32,.99))", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", borderTop:"1px solid rgba(255,255,255,.14)", borderRadius:"22px 22px 0 0", maxHeight:"78dvh", display:"flex", flexDirection:"column", paddingBottom:"env(safe-area-inset-bottom,10px)", animation:"jcFade .2s ease" }}>
+            <div onClick={e=>e.stopPropagation()} style={{ ...glassPanel(T,24), borderBottomLeftRadius:0, borderBottomRightRadius:0, maxHeight:"78dvh", display:"flex", flexDirection:"column", paddingBottom:"env(safe-area-inset-bottom,10px)", animation:"jcFade .2s ease" }}>
               <div style={{ padding:"14px 16px 11px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:"1px solid rgba(255,255,255,.1)" }}>
                 <div>
                   <div style={{ fontFamily:T.serif, fontSize:18, fontWeight:600, color:T.text }}>Pendientes</div>
@@ -1558,7 +1559,7 @@ function MobileShell({ T, D, onLogout }) {
         );
         return (
           <div onMouseDown={e=>{ if(e.target===e.currentTarget) setDrawer(false); }} style={{ position:"fixed", inset:0, zIndex:400, background:"rgba(0,0,0,.5)", display:"flex" }}>
-            <div onClick={e=>e.stopPropagation()} style={{ width:"78%", maxWidth:320, height:"100%", ...mobileBg(T), display:"flex", flexDirection:"column", boxShadow:"8px 0 40px -10px rgba(0,0,0,.6)", animation:"jcDrawerIn .22s ease" }}>
+            <div onClick={e=>e.stopPropagation()} style={{ width:"78%", maxWidth:320, height:"100%", background:"radial-gradient(125% 80% at 72% -5%, #142944 0%, #0c1a2e 45%, #081120 100%)", backgroundColor:"#081120", display:"flex", flexDirection:"column", boxShadow:"8px 0 40px -10px rgba(0,0,0,.6)", animation:"jcDrawerIn .22s ease" }}>
               <div style={{ ...glassChip(T), border:"none", padding:"calc(16px + env(safe-area-inset-top,0px)) 16px 16px", display:"flex", alignItems:"center", gap:11 }}>
                 <img src="/assets/medique-logo.png" alt="Medique" style={{ width:34, height:34, flexShrink:0 }} />
                 <div style={{ minWidth:0 }}>
