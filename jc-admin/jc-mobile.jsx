@@ -1501,7 +1501,7 @@ function MobileShell({ T, D, onLogout }) {
   ];
 
   return (
-    <div style={{ minHeight:"100dvh", ...mobileBg(T), display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
+    <div style={{ height:"100dvh", overflow:"hidden", ...mobileBg(T), display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
       {/* Header dinámico por pestaña (referencia): hamburguesa + título/marca + acción a la derecha */}
       {/* Header = TARJETA FLOTANTE redondeada (referencia), no barra recta full-width. Gutter lateral +
           safe-area arriba; la tarjeta glass va redondeada con borde completo. */}

@@ -12,9 +12,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{height:100%;-webkit-text-size-adjust:100%;touch-action:manipulation}
+  /* Bloquea el desplazamiento/rebote de la PÁGINA (no del contenido interno de la app): sin esto,
+     al arrastrar hacia arriba/abajo en iOS el documento entero se movía y dejaba ver el fondo negro
+     del body detrás. El body queda fijo (position:fixed + inset:0, la técnica clásica más robusta
+     en iOS Safari) y overscroll-behavior como refuerzo en navegadores modernos. El scroll de listas,
+     agenda, etc. sigue funcionando porque esos contenedores tienen su propio overflow-y:auto interno. */
+  html{height:100%;overflow:hidden}
+  body{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-text-size-adjust:100%;touch-action:manipulation}
   body{font-family:'Jost',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#070707;-webkit-font-smoothing:antialiased}
-  #root{height:100%}
+  #root{height:100%;overflow:hidden}
   button{font-family:inherit}input,select,textarea{font-family:inherit}
   select{-webkit-appearance:none}
   @keyframes jcFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -54,6 +60,6 @@
 <script src="jcm_saas_config.js?v=7"></script>
 <script src="jcm_saas.js?v=28"></script>
 
-<script src="/dist/jc-mobile.js?v=40"></script>
+<script src="/dist/jc-mobile.js?v=41"></script>
 </body>
 </html>
