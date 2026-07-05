@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Medique · Panel Móvil</title>
 <link rel="preconnect" href="https://unpkg.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{height:100%;-webkit-text-size-adjust:100%}
+  html,body{height:100%;-webkit-text-size-adjust:100%;touch-action:manipulation}
   body{font-family:'Jost',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#070707;-webkit-font-smoothing:antialiased}
   #root{height:100%}
   button{font-family:inherit}input,select,textarea{font-family:inherit}
@@ -22,6 +22,15 @@
   @keyframes jcDrawerIn{from{transform:translateX(-100%)}to{transform:none}}
   .jc-scroll::-webkit-scrollbar{width:0;height:0}
 </style>
+<script>
+  // Bloquea el zoom (pedido del usuario: si se hace zoom, la pantalla se buguea). El meta viewport
+  // (maximum-scale=1, user-scalable=no) no basta en iOS Safari, que ignora user-scalable en varias
+  // versiones — se refuerza cancelando el gesto nativo de pellizco y cualquier touchmove multitáctil.
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, { passive:false });
+  document.addEventListener('gesturechange', function(e){ e.preventDefault(); }, { passive:false });
+  document.addEventListener('gestureend', function(e){ e.preventDefault(); }, { passive:false });
+  document.addEventListener('touchmove', function(e){ if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive:false });
+</script>
 </head>
 <body>
 <div id="root"></div>
@@ -45,6 +54,6 @@
 <script src="jcm_saas_config.js?v=7"></script>
 <script src="jcm_saas.js?v=28"></script>
 
-<script src="/dist/jc-mobile.js?v=38"></script>
+<script src="/dist/jc-mobile.js?v=40"></script>
 </body>
 </html>

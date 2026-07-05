@@ -585,7 +585,7 @@ function HorariosTab({ T, appts }) {
     );
   })));
 }
-const CAL_PX_HOUR = 90;
+const CAL_PX_HOUR = 60;
 const CAL_START = 8;
 const CAL_END = 20;
 const CAL_HOURS = Array.from({ length: CAL_END - CAL_START + 1 }, (_, i) => CAL_START + i);
@@ -650,7 +650,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     const startMin = minsM(a.time);
     const durMin = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
     const topPx = (startMin - CAL_START * 60) * (CAL_PX_HOUR / 60);
-    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 20);
+    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 13);
     const compact = heightPx < 56;
     const st = apptStateM(a, T);
     const bd = apptBadge(a);
@@ -828,7 +828,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       const np = addPatient({ name: name.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
       patId = np.id;
     }
-    addAppt({ id: Date.now().toString(36), patId, name: finalName.trim(), rut: (finalRut || "").trim(), phone: (finalPhone || "").trim(), email: (finalEmail || "").trim(), proc, dur, time, fecha, day: isoToDayOff(fecha), status: "confirmada", source: "movil", comentario: comment.trim() || void 0, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+    addAppt({ id: Date.now().toString(36), patId, name: finalName.trim(), rut: (finalRut || "").trim(), phone: (finalPhone || "").trim(), email: (finalEmail || "").trim(), proc, dur, time, fecha, day: isoToDayOff(fecha), status: "pendiente", source: "movil", comentario: comment.trim() || void 0, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
     if (notifyWa && finalPhone) {
       const waP = (finalPhone || "").replace(/\D/g, "");
       if (waP.length >= 8) setTimeout(() => window.open("https://wa.me/56" + waP.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent("Hola " + finalName + ", tu cita qued\xF3 agendada para el " + fecha + " a las " + time + " hrs \xB7 " + proc), "_blank", "noopener"), 300);

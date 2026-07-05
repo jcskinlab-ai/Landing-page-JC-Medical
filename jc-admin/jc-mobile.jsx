@@ -672,12 +672,12 @@ function HorariosTab({ T, appts }) {
 // de 30 min se superponían — el mínimo forzado era MAYOR que el espacio real entre sus horas de
 // inicio. La regla que evita que vuelva a pasar: la altura de una tarjeta SIEMPRE es proporcional
 // a su duración real (nunca forzada por encima de eso), así nunca puede invadir el tramo siguiente.
-// Densidad (pedido del usuario, referencia estilo Calendario de iPhone): 90px/hora deja ver más
-// horas en pantalla sin hacer scroll. A esta densidad, 30 min = 45px → por debajo del umbral
-// "rico" (56px) y se muestra en el layout compacto de una línea; 45+ min sigue en el layout rico
-// de 2 columnas. El piso de seguridad (ver heightPx) se ajustó a 20px para que nunca exceda el
-// espacio real de una cita de 15 min (22.5px), el caso más corto — si no, volvería a superponerse.
-const CAL_PX_HOUR = 90; // píxeles por hora
+// Densidad (pedido del usuario: alejar más la vista para que quepan más citas sin scroll):
+// bajado de 90 a 60px/hora. A esta densidad, 30 y 45 min ya se muestran en el layout compacto de
+// una línea (por debajo del umbral "rico" de 56px); solo 60+ min mantiene el layout rico de 2
+// columnas. El piso de seguridad (ver heightPx) baja a 13px para que nunca exceda el espacio real
+// de una cita de 15 min (15px), el caso más corto — si no, volvería a superponerse.
+const CAL_PX_HOUR = 60; // píxeles por hora
 const CAL_START   = 8;  // primera hora visible
 const CAL_END     = 20; // última hora visible
 const CAL_HOURS   = Array.from({length: CAL_END - CAL_START + 1}, (_,i) => CAL_START + i);
@@ -747,7 +747,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     // Altura SIEMPRE proporcional a la duración real (sin mínimo forzado por encima de eso):
     // así nunca puede invadir el tramo de la cita siguiente. Solo un piso de seguridad mínimo
     // (28px) para datos corruptos con duración ~0, que en la práctica nunca ocurre.
-    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 20);
+    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 13);
     const compact = heightPx < 56; // citas muy cortas (ej. 15 min): layout de una sola línea
     const st = apptStateM(a, T);
     const bd = apptBadge(a);
@@ -953,9 +953,9 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       const np = addPatient({ name: name.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
       patId = np.id;
     }
-    // Igual que antes del rediseño: una cita creada a mano desde el móvil queda "Confirmada" de
-    // entrada (ya se acordó con el paciente al momento de agendar), no "Agendado".
-    addAppt({ id:Date.now().toString(36), patId, name:finalName.trim(), rut:(finalRut||"").trim(), phone:(finalPhone||"").trim(), email:(finalEmail||"").trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"confirmada", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
+    // Pedido del usuario: crear la cita NO debe dejarla "Confirmada" — solo "Agendado" (pendiente).
+    // Confirmar la asistencia del paciente es un paso aparte, que se hace desde la hoja de la cita.
+    addAppt({ id:Date.now().toString(36), patId, name:finalName.trim(), rut:(finalRut||"").trim(), phone:(finalPhone||"").trim(), email:(finalEmail||"").trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"pendiente", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
     if (notifyWa && finalPhone) {
       const waP = (finalPhone||"").replace(/\D/g,"");
       if (waP.length>=8) setTimeout(()=>window.open("https://wa.me/56"+waP.replace(/^(56|0)/,"")+"?text="+encodeURIComponent("Hola "+finalName+", tu cita quedó agendada para el "+fecha+" a las "+time+" hrs · "+proc), "_blank", "noopener"), 300);
