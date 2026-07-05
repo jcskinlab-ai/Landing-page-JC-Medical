@@ -116,8 +116,8 @@ function photoTheme(T) {
   });
 }
 function mobileBg(T) {
-  const overlay = "linear-gradient(180deg, rgba(16,38,78,.18), rgba(14,32,66,.24) 52%, rgba(12,28,60,.4))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=7')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
+  const overlay = "linear-gradient(180deg, rgba(14,34,72,.5), rgba(13,30,64,.5) 50%, rgba(11,26,56,.58))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=8')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
 }
 function glassPanel(T, radius) {
   return {
@@ -146,7 +146,7 @@ function LoginVideoBg({ children }) {
       loop: true,
       muted: true,
       playsInline: true,
-      poster: "/assets/everest-mobile.jpg?v=7",
+      poster: "/assets/everest-mobile.jpg?v=8",
       style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }
     },
     /* @__PURE__ */ React.createElement("source", { src: "/assets/everest-login.mp4?v=2", type: "video/mp4" })
@@ -640,9 +640,27 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       onClick: () => goTab("nueva"),
       title: "Nueva cita",
       "aria-label": "Nueva cita",
-      style: { position: "absolute", right: 16, bottom: "16px", width: 52, height: 52, borderRadius: "50%", border: "none", background: T.accent, color: T.onAccent, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 }
+      style: {
+        position: "absolute",
+        right: 16,
+        bottom: "16px",
+        width: 56,
+        height: 56,
+        borderRadius: "50%",
+        background: "rgba(63,131,255,.32)",
+        border: "1px solid rgba(150,190,255,.5)",
+        color: "#EAF2FF",
+        cursor: "pointer",
+        backdropFilter: "blur(16px) saturate(1.5)",
+        WebkitBackdropFilter: "blur(16px) saturate(1.5)",
+        boxShadow: "0 12px 28px -10px rgba(10,25,55,.6), inset 0 1px 0 rgba(255,255,255,.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 5
+      }
     },
-    /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" }))
+    /* @__PURE__ */ React.createElement("svg", { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" }))
   );
   if (view === "mes") {
     const WD = ["L", "M", "M", "J", "V", "S", "D"];

@@ -121,8 +121,11 @@ function photoTheme(T) {
 function mobileBg(T) {
   // Velo AZUL (no gris/negro): unifica todo en el azul cerúleo de la referencia y mantiene el texto
   // blanco legible sobre la foto brillante, sin apagar la montaña.
-  const overlay = "linear-gradient(180deg, rgba(16,38,78,.18), rgba(14,32,66,.24) 52%, rgba(12,28,60,.4))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=7')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
+  // Fondo v3 ya viene DESENFOCADO (como la referencia: el detalle de la montaña se disuelve). El velo
+  // azul es ahora más parejo y con más cuerpo para unificar el tono en un azul profundo (la banda de
+  // nubes clara de v3 queda tenue) y que el texto blanco resalte, igual que en las 3 referencias.
+  const overlay = "linear-gradient(180deg, rgba(14,34,72,.5), rgba(13,30,64,.5) 50%, rgba(11,26,56,.58))";
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=8')", backgroundColor: "#12294F", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
@@ -150,7 +153,7 @@ function LoginVideoBg({ children }) {
   const overlay = "linear-gradient(180deg, rgba(18,44,84,.4), rgba(16,38,74,.5) 50%, rgba(12,30,62,.7))";
   return (
     <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#12294F" }}>
-      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=7"
+      <video autoPlay loop muted playsInline poster="/assets/everest-mobile.jpg?v=8"
         style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}>
         <source src="/assets/everest-login.mp4?v=2" type="video/mp4" />
       </video>
@@ -719,10 +722,16 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     </div>
   );
 
+  // FAB glass (pedido del usuario): translúcido con blur para que NO tape el contenido de la agenda
+  // que queda detrás. Círculo de acento tenue + borde fino, mantiene el ícono "+" legible.
   const fab = (
     <button onClick={()=>goTab("nueva")} title="Nueva cita" aria-label="Nueva cita"
-      style={{ position:"absolute", right:16, bottom:16+"px", width:52, height:52, borderRadius:"50%", border:"none", background:T.accent, color:T.onAccent, cursor:"pointer", boxShadow:"0 10px 24px -8px rgba(0,0,0,.55)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:5 }}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      style={{ position:"absolute", right:16, bottom:16+"px", width:56, height:56, borderRadius:"50%",
+        background:"rgba(63,131,255,.32)", border:"1px solid rgba(150,190,255,.5)", color:"#EAF2FF", cursor:"pointer",
+        backdropFilter:"blur(16px) saturate(1.5)", WebkitBackdropFilter:"blur(16px) saturate(1.5)",
+        boxShadow:"0 12px 28px -10px rgba(10,25,55,.6), inset 0 1px 0 rgba(255,255,255,.35)",
+        display:"flex", alignItems:"center", justifyContent:"center", zIndex:5 }}>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   );
 
