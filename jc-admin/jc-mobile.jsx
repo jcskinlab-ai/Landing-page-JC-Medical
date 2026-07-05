@@ -82,13 +82,21 @@ function isoToDayOff(iso) { const d = new Date(iso+"T00:00:00"), t = new Date();
 function procList() { try { return window.JCDATA.catalog.reduce((a,s) => { s.groups.forEach(g => g.items.forEach(it => a.push(it.n))); return a; }, []); } catch(e) { return []; } }
 function durOf(a) { const d = a.dur || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc)+" min" : "30 min"); return (""+d).replace(/\s*minutos?\b/i, " min").trim(); }
 
-/* ─── 7 días fijos desde hoy ─── */
-function weekDays() {
+/* ─── Semana (lunes a domingo) que CONTIENE la fecha dada ───
+   Reemplaza los antiguos "7 días fijos desde hoy": aquella lista nunca incluía un día elegido
+   desde la vista Mes si caía fuera de esa ventana (pasado, u otro mes) — el selector de días
+   no tenía ningún botón que marcar como seleccionado y parecía "bugeado". Ahora la tira siempre
+   se recalcula a partir del día seleccionado, así que cualquier fecha (pasada, futura, de otro
+   mes) queda representada y marcada correctamente; deslizar la tira avanza/retrocede semana. */
+function weekOf(iso) {
+  const ref = new Date(iso + "T12:00:00");
+  const dow = (ref.getDay() + 6) % 7; // 0=lunes … 6=domingo
+  const monday = new Date(ref); monday.setDate(ref.getDate() - dow);
+  const todayIso = todayISO();
   return Array.from({length:7}, (_,i) => {
-    const d = new Date(); d.setDate(d.getDate()+i);
-    const iso = localISO(d);
-    const label = i===0 ? "Hoy" : WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()];
-    return { iso, label, wd: WDS[d.getDay()], dd: d.getDate(), i };
+    const d = new Date(monday); d.setDate(monday.getDate() + i);
+    const dIso = localISO(d);
+    return { iso: dIso, wd: WDS[d.getDay()], dd: d.getDate(), isToday: dIso === todayIso };
   });
 }
 
@@ -660,23 +668,41 @@ function HorariosTab({ T, appts }) {
 }
 
 /* ─── Tab Agenda (calendario estilo iPhone) ─── */
-// BUG corregido: con 90px/hora + altura mínima forzada de 76px, dos citas seguidas de 30 min
-// (ej. 15:00-15:30 y 15:30-16:00) se superponían — el mínimo forzado (76px) era MAYOR que el
-// espacio real entre sus horas de inicio (45px). Con 150px/hora, 30 min ya ocupan ~75px de forma
-// NATURAL (sin forzar nada), así que las tarjetas nunca se pisan entre sí: la altura siempre es
-// proporcional a la duración real, nunca mayor que el tramo que le corresponde.
-const CAL_PX_HOUR = 150; // píxeles por hora
+// BUG corregido (histórico): con 90px/hora + altura mínima forzada de 76px, dos citas seguidas
+// de 30 min se superponían — el mínimo forzado era MAYOR que el espacio real entre sus horas de
+// inicio. La regla que evita que vuelva a pasar: la altura de una tarjeta SIEMPRE es proporcional
+// a su duración real (nunca forzada por encima de eso), así nunca puede invadir el tramo siguiente.
+// Densidad (pedido del usuario, referencia estilo Calendario de iPhone): 90px/hora deja ver más
+// horas en pantalla sin hacer scroll. A esta densidad, 30 min = 45px → por debajo del umbral
+// "rico" (56px) y se muestra en el layout compacto de una línea; 45+ min sigue en el layout rico
+// de 2 columnas. El piso de seguridad (ver heightPx) se ajustó a 20px para que nunca exceda el
+// espacio real de una cita de 15 min (22.5px), el caso más corto — si no, volvería a superponerse.
+const CAL_PX_HOUR = 90; // píxeles por hora
 const CAL_START   = 8;  // primera hora visible
 const CAL_END     = 20; // última hora visible
 const CAL_HOURS   = Array.from({length: CAL_END - CAL_START + 1}, (_,i) => CAL_START + i);
 
 function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
   const today = todayISO();
-  const days = weekDays();
   const [selDay, setSelDay] = useState(today);
+  // La semana mostrada SIEMPRE es la que contiene selDay (ver weekOf) — sincronizada con
+  // cualquier fecha, incluida la elegida desde la vista Mes.
+  const days = useMemo(() => weekOf(selDay), [selDay]);
   const [view, setView] = useState("dia");
   const [monthCur, setMonthCur] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const dayRef = useMemo(() => React.createRef(), []);
+  // Deslizar la tira de días avanza/retrocede una semana completa (7 días), como pediste.
+  const stripTouchX = useRef(null);
+  function stripTouchStart(e) { stripTouchX.current = e.touches[0].clientX; }
+  function stripTouchEnd(e) {
+    if (stripTouchX.current == null) return;
+    const dx = e.changedTouches[0].clientX - stripTouchX.current;
+    stripTouchX.current = null;
+    if (Math.abs(dx) < 40) return; // umbral mínimo para contar como swipe
+    const d = new Date(selDay + "T12:00:00");
+    d.setDate(d.getDate() + (dx < 0 ? 7 : -7));
+    setSelDay(localISO(d));
+  }
   const apptCountByDate = useMemo(() => {
     const map = {};
     appts.forEach(a => { if (a.status === "anulada") return; const f = a.fecha || offToISO(a.day || 0); map[f] = (map[f] || 0) + 1; });
@@ -721,7 +747,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     // Altura SIEMPRE proporcional a la duración real (sin mínimo forzado por encima de eso):
     // así nunca puede invadir el tramo de la cita siguiente. Solo un piso de seguridad mínimo
     // (28px) para datos corruptos con duración ~0, que en la práctica nunca ocurre.
-    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 28);
+    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 20);
     const compact = heightPx < 56; // citas muy cortas (ej. 15 min): layout de una sola línea
     const st = apptStateM(a, T);
     const bd = apptBadge(a);
@@ -832,17 +858,17 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   return (
     <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 150px)" }}>
       {toggleRow}
-      <div style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
+      {/* Semana deslizable (swipe): izquierda=semana anterior, derecha=semana siguiente. */}
+      <div onTouchStart={stripTouchStart} onTouchEnd={stripTouchEnd} style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
         <div style={{ display:"flex", padding:"12px 10px 4px", minWidth:"max-content", gap:3 }}>
           {days.map(d => {
             const isSel = d.iso === selDay;
-            const isToday = d.iso === today;
             return (
               <button key={d.iso} onClick={()=>setSelDay(d.iso)}
                 style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"8px 10px 6px", borderRadius:14, minWidth:46, cursor:"pointer",
                   background: isSel ? "rgba(59,130,246,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(130,175,255,.55)" : "transparent") }}>
-                <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#7FB0FF" : T.textMute }}>{d.i===0 ? "Hoy" : d.wd}</span>
-                <span style={{ fontFamily:T.sans, fontSize:22, fontWeight: isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
+                <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#7FB0FF" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
+                <span style={{ fontFamily:T.sans, fontSize:22, fontWeight: d.isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
                 <div style={{ width:5, height:5, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
               </button>
             );
