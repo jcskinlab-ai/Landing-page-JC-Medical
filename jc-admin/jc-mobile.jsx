@@ -580,14 +580,18 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
         {upcoming.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin próximas citas agendadas.</div>}
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {upcoming.map(a => {
+        {/* Lista PLANA (pedido: más minimalista, como la versión inicial) — UN solo contenedor
+            glass, filas separadas por línea fina, no una tarjeta individual por cita. La barra de
+            color y la duración de cada cita quedan dentro de su fila, no en un panel propio. */}
+        {upcoming.length>0 && (
+        <div style={{ ...glassPanel(T,18), display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          {upcoming.map((a,i) => {
             const st = apptStateM(a, T);
             const bd = apptBadge(a);
             const iso = a.fecha||offToISO(a.day||0);
             const dLbl = iso===today ? "Hoy" : (()=>{ const d=new Date(iso+"T00:00:00"); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", ...glassPanel(T,16), padding:0, overflow:"hidden" }}>
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", background:"none", border:"none", borderBottom: i===upcoming.length-1?"none":"1px solid rgba(255,255,255,.08)" }}>
                 <div style={{ width:4, background:st.color, flexShrink:0 }} />
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"11px 11px", minWidth:0 }}>
                   <div style={{ flexShrink:0, minWidth:40 }}>
@@ -605,6 +609,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
             );
           })}
         </div>
+        )}
       </div>
     </div>
   );
@@ -1206,19 +1211,21 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
             <button onClick={saveNuevo} disabled={!f.name.trim()} style={{ background:T.accent, color:T.onAccent, border:"none", borderRadius:9, padding:"12px", fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer", opacity:f.name.trim()?1:.5 }}>Guardar paciente</button>
           </div>
         )}
-        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+        {/* Lista PLANA (pedido: más minimalista) — UN solo contenedor glass, filas separadas por
+            línea fina (como Contactos de iOS), no una tarjeta individual por paciente. */}
+        <div style={{ ...glassPanel(T,18), display:"flex", flexDirection:"column", overflow:"hidden" }}>
           {list.length===0 && <div style={{ textAlign:"center", padding:"30px 0", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin pacientes{ql?" que coincidan":""}.</div>}
-          {list.map(p => {
+          {list.map((p,i) => {
             const nextA = appts.filter(a=>(a.patId===p.id || a.name===p.name) && a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=todayISO()).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""))[0];
             return (
-              <button key={p.id} onClick={()=>onOpenFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", ...glassPanel(T,16), padding:"12px 14px", cursor:"pointer" }}>
-                <div style={{ width:46, height:46, borderRadius:"50%", flexShrink:0, background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.3)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:14, fontWeight:700 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+              <button key={p.id} onClick={()=>onOpenFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: i===list.length-1?"none":"1px solid rgba(255,255,255,.08)", padding:"11px 14px", cursor:"pointer" }}>
+                <div style={{ width:36, height:36, borderRadius:"50%", flexShrink:0, background:"rgba(120,145,166,.16)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12.5, fontWeight:600 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontFamily:T.sans, fontSize:16, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
-                  <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:2 }}>{[p.rut,p.phone].filter(Boolean).join(" · ")}</div>
+                  <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
+                  <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{[p.rut,p.phone].filter(Boolean).join(" · ")}</div>
                 </div>
-                {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:12, color:"#A9BAC7", ...glassChip(T), borderRadius:999, padding:"5px 11px", whiteSpace:"nowrap" }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:(()=>{ const d=new Date((nextA.fecha||"")+"T00:00:00"); return isNaN(d.getTime())?nextA.fecha:d.getDate()+" "+MESES[d.getMonth()].toLowerCase(); })()}</span>}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round" style={{ flexShrink:0 }}><path d="M9 18l6-6-6-6"/></svg>
+                {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11.5, color:"#A9BAC7" }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:(()=>{ const d=new Date((nextA.fecha||"")+"T00:00:00"); return isNaN(d.getTime())?nextA.fecha:d.getDate()+" "+MESES[d.getMonth()].toLowerCase(); })()}</span>}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round" style={{ flexShrink:0 }}><path d="M9 18l6-6-6-6"/></svg>
               </button>
             );
           })}
