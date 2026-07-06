@@ -77,7 +77,15 @@
   .nav-right{display:flex;align-items:center;gap:18px}
   .nav-right .login{font-size:14.5px;color:var(--text-2)}
   .nav-right .login:hover{color:var(--text)}
-  .burger{display:none;background:none;border:1px solid var(--line-2);border-radius:9px;width:42px;height:38px;color:var(--text);cursor:pointer;margin-left:auto}
+  .burger{display:none;position:relative;background:none;border:1px solid var(--line-2);border-radius:9px;width:42px;height:38px;color:var(--text);cursor:pointer;margin-left:auto;transition:border-color .2s,background .2s}
+  .burger span{position:absolute;top:50%;left:50%;width:18px;height:2px;background:currentColor;border-radius:2px;transform:translate(-50%,-50%);transition:background .18s}
+  .burger span::before,.burger span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:currentColor;border-radius:2px;transition:transform .34s cubic-bezier(.2,.8,.2,1)}
+  .burger span::before{top:-6px}
+  .burger span::after{top:6px}
+  body:has(.mobile-menu.show) .burger{border-color:var(--ice);background:rgba(182,202,221,.09)}
+  body:has(.mobile-menu.show) .burger span{background:transparent}
+  body:has(.mobile-menu.show) .burger span::before{transform:translateY(6px) rotate(45deg)}
+  body:has(.mobile-menu.show) .burger span::after{transform:translateY(-6px) rotate(-45deg)}
 
   /* avatar */
   .av{border-radius:50%;background:linear-gradient(135deg,#2b3a4d,#405066);display:grid;place-items:center;color:var(--ice-soft);font-family:var(--serif);border:1px solid var(--line-2);flex:0 0 auto}
@@ -613,9 +621,16 @@
   }
 
   /* mobile menu */
-  .mobile-menu{display:none;position:fixed;inset:0;z-index:55;background:rgba(5,13,24,.72);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);padding:130px 28px 26px;flex-direction:column;gap:8px}
-  .mobile-menu.show{display:flex}
-  .mobile-menu a{font-size:18px;color:var(--text);padding:14px 0;border-bottom:1px solid var(--line)}
+  .mobile-menu{display:flex;position:fixed;inset:0;z-index:55;background:rgba(9,11,16,.82);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);padding:130px 28px 26px;flex-direction:column;gap:8px;opacity:0;visibility:hidden;transform:translateY(-10px);transition:opacity .3s ease,transform .42s cubic-bezier(.2,.8,.2,1),visibility .3s;pointer-events:none}
+  .mobile-menu.show{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+  .mobile-menu a{font-size:18px;color:var(--text);padding:14px 0;border-bottom:1px solid var(--line);opacity:0;transform:translateY(16px);transition:opacity .45s ease,transform .5s cubic-bezier(.2,.8,.2,1),color .2s}
+  .mobile-menu.show a{opacity:1;transform:none}
+  .mobile-menu.show a:nth-child(1){transition-delay:.08s}
+  .mobile-menu.show a:nth-child(2){transition-delay:.13s}
+  .mobile-menu.show a:nth-child(3){transition-delay:.18s}
+  .mobile-menu.show a:nth-child(4){transition-delay:.23s}
+  .mobile-menu.show a:nth-child(5){transition-delay:.28s}
+  .mobile-menu.show a:nth-child(6){transition-delay:.33s}
   .mobile-menu a.btn{border-bottom:0;padding:14px 22px}
   .mobile-menu a.btn-primary{color:var(--btn-text)}
 
@@ -720,11 +735,11 @@
       <a class="login" href="https://portal.medique.cl">Iniciar sesión</a>
       <a class="btn btn-primary btn-sm" href="#demo">Agendar demo</a>
     </div>
-    <button class="burger" aria-label="Menú" onclick="document.getElementById('mm').classList.toggle('show')">☰</button>
+    <button class="burger" aria-label="Menú" onclick="document.getElementById('mm').classList.toggle('show')"><span></span></button>
    </div>
   </div>
 </nav>
-<div class="mobile-menu" id="mm">
+<div class="mobile-menu" id="mm" onclick="if(event.target===this)this.classList.remove('show')">
   <a href="#modulos" onclick="document.getElementById('mm').classList.remove('show')">Producto</a>
   <a href="#agenda" onclick="document.getElementById('mm').classList.remove('show')">Funciones</a>
   <a href="#precios" onclick="document.getElementById('mm').classList.remove('show')">Precios</a>
