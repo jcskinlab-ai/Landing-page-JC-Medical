@@ -104,6 +104,16 @@ function localISO(d) {
 function todayISO() { return localISO(new Date()); }
 function offToISO(off) { const d = new Date(); d.setDate(d.getDate()+off); return localISO(d); }
 function isoToDayOff(iso) { const d = new Date(iso+"T00:00:00"), t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
+// Etiqueta de día relativa (Hoy/Mañana/Ayer) o "Jue 9 Jul" para el resto — compartida por el
+// buscador de Agenda y los divisores de día de "Próximas citas" en Inicio.
+function dayLabelM(iso) {
+  const off = isoToDayOff(iso);
+  if (off === 0) return "Hoy";
+  if (off === 1) return "Mañana";
+  if (off === -1) return "Ayer";
+  const d = new Date(iso+"T00:00:00");
+  return WDS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()];
+}
 function procList() { try { return window.JCDATA.catalog.reduce((a,s) => { s.groups.forEach(g => g.items.forEach(it => a.push(it.n))); return a; }, []); } catch(e) { return []; } }
 function durOf(a) { const d = a.dur || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc)+" min" : "30 min"); return (""+d).replace(/\s*minutos?\b/i, " min").trim(); }
 
@@ -492,7 +502,16 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const upcoming = active
     .filter(a => (a.fecha||offToISO(a.day||0)) >= today)
     .sort((a,b) => { const fa=a.fecha||offToISO(a.day||0), fb=b.fecha||offToISO(b.day||0); return fa<fb?-1:fa>fb?1:minsM(a.time)-minsM(b.time); })
-    .slice(0, 5);
+    .slice(0, 8);
+  // Agrupa por día para los divisores de "Próximas citas" — upcoming ya viene ordenado por fecha,
+  // así que los mismos días quedan contiguos y basta comparar contra el último grupo abierto.
+  const upcomingByDay = [];
+  upcoming.forEach(a => {
+    const f = a.fecha || offToISO(a.day||0);
+    const g = upcomingByDay[upcomingByDay.length-1];
+    if (g && g.fecha === f) g.items.push(a);
+    else upcomingByDay.push({ fecha: f, items: [a] });
+  });
 
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const fechaLarga = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
@@ -571,20 +590,30 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
             </div>
           )}
           {/* Tarjeta plana (pedido): hora | nombre ... abreviación del procedimiento al borde derecho,
-              todo alineado en la línea media de la tarjeta. Punto de color al inicio = estado. */}
+              todo alineado en la línea media de la tarjeta. Punto de color al inicio = estado.
+              Agrupadas por día (pedido): cada grupo lleva la MISMA barra de sección (eyebrow uppercase
+              tracked, color accent) que ya usan Reportes ("Esta semana") y el drawer de pendientes —
+              ningún motivo visual nuevo, solo el existente aplicado a estos divisores. */}
           {upcoming.length>0 && (
-          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-            {upcoming.map((a,i) => {
-              const st = apptStateM(a, T);
-              return (
-                <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px" }}>
-                  <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
-                  <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
-                  <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
-                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
-                </button>
-              );
-            })}
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            {upcomingByDay.map(g => (
+              <div key={g.fecha}>
+                <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"0 0 6px" }}>{dayLabelM(g.fecha)}</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                  {g.items.map(a => {
+                    const st = apptStateM(a, T);
+                    return (
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px" }}>
+                        <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+                        <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
+                        <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
+                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
           )}
         </div>
@@ -736,6 +765,18 @@ function abbrevProcM(proc) {
 function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
+  // Buscador de pacientes (pedido): evita scrollear día por día para encontrar una cita. Busca en
+  // TODAS las citas (pasadas y futuras, pedido) por nombre/apellido (mismo campo) o RUT — ambos ya
+  // vienen guardados directo en la cita (appt.name/appt.rut), sin necesitar la lista de pacientes.
+  const [q, setQ] = useState("");
+  const ql = q.trim().toLowerCase();
+  const searchResults = !ql ? [] : appts
+    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql))
+    // Más relevante primero: la cita más cercana a hoy (antes o después), no solo cronológica.
+    .map(a => ({ a, off: isoToDayOff(a.fecha||offToISO(a.day||0)) }))
+    .sort((x,y) => { const dx=Math.abs(x.off), dy=Math.abs(y.off); return dx!==dy ? dx-dy : y.off-x.off; })
+    .slice(0, 10)
+    .map(x => x.a);
   // Tira de días CONTINUA (pedido): scrolleable de forma directa (scroll nativo), no paginada
   // semana por semana. Hacia atrás solo llega hasta el día 1 del mes actual (pedido) — hacia
   // adelante, un rango amplio fijo (60 días) para navegar cómodo sin ser infinito.
@@ -843,6 +884,44 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     </div>
   );
 
+  // Barra de búsqueda (pedido): mismo chip glass + ícono lupa que ya usa el buscador de Pacientes,
+  // para no introducir un lenguaje visual nuevo. Vive siempre debajo del segmentado Día/Mes, en
+  // ambas vistas — buscar no depende de qué vista esté abierta.
+  const searchBar = (
+    <div style={{ padding:"0 14px 8px", flexShrink:0 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, ...glassChip(T), borderRadius:13, padding:"0 14px" }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, apellido o RUT…" style={{ flex:1, background:"transparent", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:13.5, padding:"11px 0" }} />
+        {q && <button onClick={()=>setQ("")} aria-label="Limpiar búsqueda" style={{ flexShrink:0, background:"none", border:"none", color:T.textMute, cursor:"pointer", padding:4, display:"flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>}
+      </div>
+    </div>
+  );
+
+  // Resultados de búsqueda (pedido): reemplaza la vista Día/Mes mientras se busca — al tocar un
+  // resultado se abre la ficha de la cita directamente (misma ApptSheet que el resto del panel; no
+  // depende de que la fecha esté dentro del rango visible de la tira de días).
+  const searchResultsBody = (
+    <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", padding:"0 14px 16px" }}>
+      {searchResults.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Sin resultados para "{q.trim()}".</div>}
+      {searchResults.length>0 && (
+        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+          {searchResults.map(a => {
+            const st = apptStateM(a, T);
+            const isAnulada = a.status === "anulada";
+            return (
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px", opacity:isAnulada?.6:1 }}>
+                <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:78 }}>{dayLabelM(a.fecha||offToISO(a.day||0))} {a.time}</span>
+                <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{a.name}</span>
+                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   // FAB con el mismo nivel de "Liquid Glass" que la pantalla principal (pedido): brillo superior +
   // blur/saturación más altos, no solo un tinte plano. zIndex alto: siempre queda SOBRE la lista de
   // citas que scrollea detrás — nunca la tapa a ella, pero ella tampoco lo tapa a él.
@@ -863,31 +942,34 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     return (
       <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
         {toggleRow}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
-          <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>‹</button>
-          <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text }}>{MESES_LARGOS[monthCur.m]} {monthCur.y}</div>
-          <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>›</button>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0 10px 4px", flexShrink:0 }}>
-          {WD.map((w,i)=><div key={i} style={{ textAlign:"center", fontFamily:T.sans, fontSize:10, letterSpacing:".08em", color:T.textMute }}>{w}</div>)}
-        </div>
-        <div style={{ flex:1, overflowY:"auto", padding:"0 10px 16px" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
-            {monthGrid.map(c=>{
-              const n = apptCountByDate[c.iso] || 0;
-              const isToday = c.iso === today;
-              return (
-                <button key={c.iso} onClick={()=>{ setSelDay(c.iso); setView("dia"); }} style={{ aspectRatio:"1/1", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, borderRadius:10, cursor:"pointer",
-                  background: isToday ? T.accent+"22" : (n?glassChip(T).background:"transparent"),
-                  border:"1px solid "+(isToday?T.accent:(n?(T.dark?"rgba(255,255,255,.12)":T.line):"transparent")),
-                  opacity: c.inMonth?1:.32 }}>
-                  <span style={{ fontFamily:T.sans, fontSize:14, fontWeight:isToday?700:500, color:isToday?T.accent:T.text }}>{c.dd}</span>
-                  {n>0 && <span style={{ display:"flex", gap:2 }}>{Array.from({length:Math.min(n,3)}).map((_,i)=><span key={i} style={{ width:5, height:5, borderRadius:"50%", background:T.accent }} />)}</span>}
-                </button>
-              );
-            })}
+        {searchBar}
+        {ql ? searchResultsBody : (<>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
+            <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>‹</button>
+            <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text }}>{MESES_LARGOS[monthCur.m]} {monthCur.y}</div>
+            <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>›</button>
           </div>
-        </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0 10px 4px", flexShrink:0 }}>
+            {WD.map((w,i)=><div key={i} style={{ textAlign:"center", fontFamily:T.sans, fontSize:10, letterSpacing:".08em", color:T.textMute }}>{w}</div>)}
+          </div>
+          <div style={{ flex:1, overflowY:"auto", padding:"0 10px 16px" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+              {monthGrid.map(c=>{
+                const n = apptCountByDate[c.iso] || 0;
+                const isToday = c.iso === today;
+                return (
+                  <button key={c.iso} onClick={()=>{ setSelDay(c.iso); setView("dia"); }} style={{ aspectRatio:"1/1", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, borderRadius:10, cursor:"pointer",
+                    background: isToday ? T.accent+"22" : (n?glassChip(T).background:"transparent"),
+                    border:"1px solid "+(isToday?T.accent:(n?(T.dark?"rgba(255,255,255,.12)":T.line):"transparent")),
+                    opacity: c.inMonth?1:.32 }}>
+                    <span style={{ fontFamily:T.sans, fontSize:14, fontWeight:isToday?700:500, color:isToday?T.accent:T.text }}>{c.dd}</span>
+                    {n>0 && <span style={{ display:"flex", gap:2 }}>{Array.from({length:Math.min(n,3)}).map((_,i)=><span key={i} style={{ width:5, height:5, borderRadius:"50%", background:T.accent }} />)}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>)}
         {fab}
       </div>
     );
@@ -896,44 +978,47 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   return (
     <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
       {toggleRow}
-      {/* Tira de días continua (pedido): scroll horizontal nativo y directo, sin paginar por semana.
-          Esta zona y los botones de arriba quedan FIJOS — solo la lista de citas más abajo scrollea. */}
-      <div ref={stripRef} style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
-        <div style={{ display:"flex", padding:"8px 10px 4px", minWidth:"max-content", gap:2 }}>
-          {stripDays.map(d => {
-            const isSel = d.iso === selDay;
-            return (
-              <button key={d.iso} ref={el=>{ dayBtnRefs.current[d.iso]=el; }} onClick={()=>setSelDay(d.iso)}
-                style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1, padding:"6px 8px 5px", borderRadius:12, minWidth:38, cursor:"pointer",
-                  background: isSel ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(150,170,185,.55)" : "transparent") }}>
-                <span style={{ fontFamily:T.sans, fontSize:9.5, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
-                <span style={{ fontFamily:T.sans, fontSize:17, fontWeight: d.isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
-                <div style={{ width:4, height:4, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      {!showAnuladas && selActive.length>0 && <div style={{ padding:"12px 16px 8px", flexShrink:0 }}><DaySummary T={T} c={cSel} p={pSel} na={naSel} bars /></div>}
-      <div ref={dayRef} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
-        <div style={{ position:"relative", marginLeft:48, paddingRight:12 }}>
-          {CAL_HOURS.map(h => (
-            <div key={h} style={{ position:"absolute", left:-48, right:0, top: (h - CAL_START) * CAL_PX_HOUR, display:"flex", alignItems:"flex-start", zIndex:1 }}>
-              <span style={{ fontFamily:T.sans, fontSize:10, color:T.textFaint, width:42, textAlign:"right", paddingRight:8, lineHeight:1, transform:"translateY(-5px)", flexShrink:0 }}>{h<10?"0"+h:""+h}:00</span>
-              <div style={{ flex:1, borderTop:"1px solid "+(T.dark?"rgba(255,255,255,.1)":T.lineSoft), marginTop:0 }} />
-            </div>
-          ))}
-          <div style={{ position:"relative", minHeight: (CAL_END - CAL_START) * CAL_PX_HOUR + 40 }}>
-            {dayAppts.map(a => apptBlock(a))}
+      {searchBar}
+      {ql ? searchResultsBody : (<>
+        {/* Tira de días continua (pedido): scroll horizontal nativo y directo, sin paginar por semana.
+            Esta zona y los botones de arriba quedan FIJOS — solo la lista de citas más abajo scrollea. */}
+        <div ref={stripRef} style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
+          <div style={{ display:"flex", padding:"8px 10px 4px", minWidth:"max-content", gap:2 }}>
+            {stripDays.map(d => {
+              const isSel = d.iso === selDay;
+              return (
+                <button key={d.iso} ref={el=>{ dayBtnRefs.current[d.iso]=el; }} onClick={()=>setSelDay(d.iso)}
+                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1, padding:"6px 8px 5px", borderRadius:12, minWidth:38, cursor:"pointer",
+                    background: isSel ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(150,170,185,.55)" : "transparent") }}>
+                  <span style={{ fontFamily:T.sans, fontSize:9.5, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
+                  <span style={{ fontFamily:T.sans, fontSize:17, fontWeight: d.isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
+                  <div style={{ width:4, height:4, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
+                </button>
+              );
+            })}
           </div>
-          {dayAppts.length === 0 && (
-            <div style={{ position:"absolute", top:"46%", left:0, right:0, transform:"translateY(-50%)", textAlign:"center", pointerEvents:"none", display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
-              <div style={{ fontFamily:T.serif, fontSize:18, color:T.textMute }}>{showAnuladas?"Sin citas canceladas este día":"Sin citas este día"}</div>
-              {!showAnuladas && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Toca + para agendar una cita.</div>}
-            </div>
-          )}
         </div>
-      </div>
+        {!showAnuladas && selActive.length>0 && <div style={{ padding:"12px 16px 8px", flexShrink:0 }}><DaySummary T={T} c={cSel} p={pSel} na={naSel} bars /></div>}
+        <div ref={dayRef} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
+          <div style={{ position:"relative", marginLeft:48, paddingRight:12 }}>
+            {CAL_HOURS.map(h => (
+              <div key={h} style={{ position:"absolute", left:-48, right:0, top: (h - CAL_START) * CAL_PX_HOUR, display:"flex", alignItems:"flex-start", zIndex:1 }}>
+                <span style={{ fontFamily:T.sans, fontSize:10, color:T.textFaint, width:42, textAlign:"right", paddingRight:8, lineHeight:1, transform:"translateY(-5px)", flexShrink:0 }}>{h<10?"0"+h:""+h}:00</span>
+                <div style={{ flex:1, borderTop:"1px solid "+(T.dark?"rgba(255,255,255,.1)":T.lineSoft), marginTop:0 }} />
+              </div>
+            ))}
+            <div style={{ position:"relative", minHeight: (CAL_END - CAL_START) * CAL_PX_HOUR + 40 }}>
+              {dayAppts.map(a => apptBlock(a))}
+            </div>
+            {dayAppts.length === 0 && (
+              <div style={{ position:"absolute", top:"46%", left:0, right:0, transform:"translateY(-50%)", textAlign:"center", pointerEvents:"none", display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                <div style={{ fontFamily:T.serif, fontSize:18, color:T.textMute }}>{showAnuladas?"Sin citas canceladas este día":"Sin citas este día"}</div>
+                {!showAnuladas && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Toca + para agendar una cita.</div>}
+              </div>
+            )}
+          </div>
+        </div>
+      </>)}
       {fab}
     </div>
   );
