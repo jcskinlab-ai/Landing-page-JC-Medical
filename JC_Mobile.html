@@ -27,6 +27,9 @@
   @keyframes jcPop{0%{transform:scale(.7);opacity:0}70%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
   @keyframes jcDrawerIn{from{transform:translateX(-100%)}to{transform:none}}
   .jc-scroll::-webkit-scrollbar{width:0;height:0}
+  /* Placeholder legible sobre el glass oscuro del panel (el gris por defecto del navegador
+     queda bajo AA sobre fondo oscuro). Scoped al móvil: aquí toda la UI vive sobre la foto. */
+  input::placeholder,textarea::placeholder{color:rgba(235,242,252,.6);opacity:1}
 </style>
 <script>
   // Bloquea el zoom (pedido del usuario: si se hace zoom, la pantalla se buguea). El meta viewport

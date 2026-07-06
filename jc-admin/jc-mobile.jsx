@@ -337,7 +337,7 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
           </div>
         ) : (
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontFamily:T.sans, fontSize:9.5, letterSpacing:".14em", textTransform:"uppercase", color:T.textFaint, marginBottom:8 }}>Estado de la cita</div>
+            <div style={{ fontFamily:T.sans, fontSize:9.5, letterSpacing:".14em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Estado de la cita</div>
             {!confirmCancel ? (
               <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
                 {STATUS_STEPS.map(s => {
@@ -376,7 +376,7 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
         ) : (
           <button onClick={()=>setEditCom(true)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", ...glassChip(T), borderRadius:9, padding:"10px 12px", cursor:"pointer", textAlign:"left", marginBottom:10 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <span style={{ fontFamily:T.sans, fontSize:12, color:a.comentario?T.text:T.textFaint, flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.comentario || "Agregar comentario"}</span>
+            <span style={{ fontFamily:T.sans, fontSize:12, color:a.comentario?T.text:T.textMute, flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.comentario || "Agregar comentario"}</span>
           </button>
         )}
 
@@ -503,7 +503,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
     <div style={{ flex:1, minWidth:0, ...glassPanel(T,14), padding:"6px 8px 6px", display:"flex", flexDirection:"column", gap:1 }}>
       <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:".03em", textTransform:"uppercase", color:T.textMute, lineHeight:1.2 }}>{label}</div>
       <div style={{ fontFamily:FRAUNCES, fontSize:21, fontWeight:500, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>{val}</div>
-      {sub && <div style={{ fontFamily:T.sans, fontSize:7.5, color:subColor||T.textFaint, lineHeight:1.1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>}
+      {sub && <div style={{ fontFamily:T.sans, fontSize:7.5, color:subColor||T.textMute, lineHeight:1.1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>}
     </div>
   );
   // Avatar de la clínica: foto guardada (jcm_admin_photo) o iniciales, como en la referencia.
@@ -869,7 +869,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
           <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>›</button>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0 10px 4px", flexShrink:0 }}>
-          {WD.map((w,i)=><div key={i} style={{ textAlign:"center", fontFamily:T.sans, fontSize:10, letterSpacing:".08em", color:T.textFaint }}>{w}</div>)}
+          {WD.map((w,i)=><div key={i} style={{ textAlign:"center", fontFamily:T.sans, fontSize:10, letterSpacing:".08em", color:T.textMute }}>{w}</div>)}
         </div>
         <div style={{ flex:1, overflowY:"auto", padding:"0 10px 16px" }}>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
@@ -1072,7 +1072,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
                 </div>
               )}
               {!selectedPatient && ql.length>=2 && results.length===0 && (
-                <div style={{ marginTop:9, fontFamily:T.sans, fontSize:12, color:T.textFaint }}>Sin resultados. Prueba con "Paciente nuevo".</div>
+                <div style={{ marginTop:9, fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin resultados. Prueba con "Paciente nuevo".</div>
               )}
             </div>
           ) : (
@@ -1184,7 +1184,7 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
         {/* Lista PLANA (pedido: más minimalista) — UN solo contenedor glass, filas separadas por
             línea fina (como Contactos de iOS), no una tarjeta individual por paciente. */}
         <div style={{ ...glassPanel(T,18), display:"flex", flexDirection:"column", overflow:"hidden" }}>
-          {list.length===0 && <div style={{ textAlign:"center", padding:"30px 0", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin pacientes{ql?" que coincidan":""}.</div>}
+          {list.length===0 && <div style={{ textAlign:"center", padding:"30px 0", fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Sin pacientes{ql?" que coincidan":""}.</div>}
           {list.map((p,i) => {
             const nextA = appts.filter(a=>(a.patId===p.id || a.name===p.name) && a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=todayISO()).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""))[0];
             return (
@@ -1211,7 +1211,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
   const [edit, setEdit] = useState(false);
   const [f, setF] = useState({ phone:p?p.phone||"":"", email:p?p.email||"":"", notas:p?p.notas||"":"" });
   useEffect(()=>{ if(p) setF({ phone:p.phone||"", email:p.email||"", notas:p.notas||"" }); }, [patientId]);
-  if (!p) return <OverlayShell T={T} title="Ficha" onBack={onBack}><div style={{ padding:30, textAlign:"center", fontFamily:T.sans, color:T.textFaint }}>Paciente no encontrado.</div></OverlayShell>;
+  if (!p) return <OverlayShell T={T} title="Ficha" onBack={onBack}><div style={{ padding:30, textAlign:"center", fontFamily:T.sans, color:T.textMute }}>Paciente no encontrado.</div></OverlayShell>;
 
   const mine = appts.filter(a => a.patId===p.id || a.name===p.name);
   const today = todayISO();
@@ -1266,7 +1266,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 
         <div>
           <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Próximas citas ({proximas.length})</div>
-          {proximas.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textFaint }}>Sin próximas citas.</div>}
+          {proximas.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin próximas citas.</div>}
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {proximas.map(a => (
               <div key={a.id} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px" }}>
@@ -1279,7 +1279,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 
         <div>
           <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Historial ({pasadas.length})</div>
-          {pasadas.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textFaint }}>Sin atenciones registradas.</div>}
+          {pasadas.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin atenciones registradas.</div>}
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {pasadas.slice(0,20).map(a => (
               <div key={a.id} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px", opacity:a.status==="anulada"?.55:1 }}>
@@ -1648,7 +1648,7 @@ function MobileShell({ T, D, onLogout }) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
           </button>
         );
-        const label = (txt) => <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".08em", textTransform:"uppercase", color:T.textFaint, padding:"10px 12px 3px" }}>{txt}</div>;
+        const label = (txt) => <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".08em", textTransform:"uppercase", color:T.textMute, padding:"10px 12px 3px" }}>{txt}</div>;
         return (
           <div onMouseDown={e=>{ if(e.target===e.currentTarget) closeN(); }} style={{ position:"fixed", inset:0, zIndex:410, background:"rgba(0,0,0,.55)", display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
             <div onClick={e=>e.stopPropagation()} style={{ ...glassPanel(T,24), borderBottomLeftRadius:0, borderBottomRightRadius:0, maxHeight:"78dvh", display:"flex", flexDirection:"column", paddingBottom:"env(safe-area-inset-bottom,10px)", animation:"jcFade .2s ease" }}>
@@ -1660,7 +1660,7 @@ function MobileShell({ T, D, onLogout }) {
                 <button onClick={closeN} aria-label="Cerrar" style={{ width:34, height:34, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
               </div>
               <div className="jc-scroll" style={{ flex:1, overflowY:"auto", padding:"6px 8px 14px", display:"flex", flexDirection:"column", gap:1 }}>
-                {total===0 && <div style={{ padding:"40px 16px", textAlign:"center", fontFamily:T.sans, fontSize:13, color:T.textFaint }}>Sin pendientes · todo en orden ✓</div>}
+                {total===0 && <div style={{ padding:"40px 16px", textAlign:"center", fontFamily:T.sans, fontSize:13, color:T.textMute }}>Sin pendientes · todo en orden ✓</div>}
                 {pendConsent.length>0 && label("Consentimientos por firmar")}
                 {pendConsent.map(p => row("#E8B84D", docIcon, p.name||"Paciente", "Consentimiento por firmar", ()=>openFichaN(p.id)))}
                 {pendPago.length>0 && label("Pagos por confirmar")}
