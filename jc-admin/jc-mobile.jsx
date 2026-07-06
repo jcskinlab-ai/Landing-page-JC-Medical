@@ -97,21 +97,6 @@ function apptStateM(a, T) {
   // "Agendado" (pendiente de confirmar) = amarillo, coherente con la cápsula-resumen y el mockup.
   return { label: "Agendado", color: "#F5B93D" };
 }
-// Estilo del BADGE de estado — EXACTO a los recortes de referencia del usuario:
-//  · Confirmada / Atendida = CONTORNO azul (texto azul claro, fondo azul muy tenue, borde azul).
-//  · Pendiente = pastilla RELLENA dorada con texto oscuro.
-//  · No asistió = pastilla RELLENA roja con texto blanco.
-// Pedido: TODAS las etiquetas de estado son de contorno de color (texto+borde en el color del
-// estado, relleno muy tenue) — antes "No asistió"/"Transferencia"/"Pendiente" eran sólidas.
-function apptBadge(a) {
-  if (a.status === "anulada")        return { label:"Cancelada",  color:"rgba(235,242,252,.6)", bg:"transparent",              border:"rgba(235,242,252,.35)" };
-  if (a.status === "no_asistio")     return { label:"No asistió", color:"#E5566B",              bg:"rgba(229,86,107,.14)",     border:"rgba(229,86,107,.55)" };
-  if (a.attended || a.status === "atendida") return { label:"Atendida", color:"#A9BAC7", bg:"rgba(120,145,166,.14)", border:"rgba(120,165,255,.55)" };
-  if (a.status === "confirmada")     return { label:"Confirmada", color:"#A9BAC7",              bg:"rgba(120,145,166,.14)",   border:"rgba(120,165,255,.55)" };
-  if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#E8B84D",           bg:"rgba(232,184,77,.14)",    border:"rgba(232,184,77,.55)" };
-  return { label:"Pendiente", color:"#E8B84D", bg:"rgba(232,184,77,.14)", border:"rgba(232,184,77,.55)" };
-}
-
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
 function localISO(d) {
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
@@ -128,18 +113,6 @@ function durOf(a) { const d = a.dur || (window.JCDATA&&window.JCDATA.procMin ? w
    no tenía ningún botón que marcar como seleccionado y parecía "bugeado". Ahora la tira siempre
    se recalcula a partir del día seleccionado, así que cualquier fecha (pasada, futura, de otro
    mes) queda representada y marcada correctamente; deslizar la tira avanza/retrocede semana. */
-function weekOf(iso) {
-  const ref = new Date(iso + "T12:00:00");
-  const dow = (ref.getDay() + 6) % 7; // 0=lunes … 6=domingo
-  const monday = new Date(ref); monday.setDate(ref.getDate() - dow);
-  const todayIso = todayISO();
-  return Array.from({length:7}, (_,i) => {
-    const d = new Date(monday); d.setDate(monday.getDate() + i);
-    const dIso = localISO(d);
-    return { iso: dIso, wd: WDS[d.getDay()], dd: d.getDate(), isToday: dIso === todayIso };
-  });
-}
-
 /* ─── Fondo Everest + glass (referencia: iOS 26 "liquid glass") ───
    El panel móvil vive SIEMPRE sobre la foto (wallpaper de iPhone), que es oscura. Por eso se fuerza
    una paleta "sobre foto": texto claro + glass translúcido de verdad (frost, deja ver la montaña),
@@ -178,7 +151,7 @@ function mobileBg(T) {
   // Velo OSCURO navy casi negro (pedido: "como el portal de escritorio"): la montaña desenfocada
   // queda apenas visible como una textura tenue, el conjunto lee oscuro y premium (iOS 26).
   const overlay = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=10')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
+  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=11')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
@@ -199,14 +172,14 @@ function glassChip(T) {
     border: "1px solid rgba(255,255,255,.1)"
   };
 }
-// Fondo de la pantalla de LOGIN: foto fija (pedido del usuario) — se quita el video de nubes en
-// movimiento que usaba esta pantalla, para que la nueva foto se vea consistente en toda la app.
+// Fondo de la pantalla de LOGIN: foto fija + velo casi negro, IDÉNTICO al login del portal de
+// escritorio (SaasGate, jc-admin.jsx) — antes era un velo azulado más claro, propio del móvil.
 function LoginVideoBg({ children }) {
-  const overlay = "linear-gradient(180deg, rgba(18,44,84,.4), rgba(16,38,74,.5) 50%, rgba(12,30,62,.7))";
+  const overlay = "linear-gradient(rgba(9,11,15,.76), rgba(9,11,15,.90))";
   return (
     <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px",
-      backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=10')", backgroundColor:"#12294F", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }}>
-      <div style={{ position:"relative", zIndex:1, width:"100%", display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
+      backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=11')", backgroundColor:"#070707", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }}>
+      <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:340, display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
     </div>
   );
 }
@@ -278,21 +251,20 @@ function LoginScreen({ T, onAuth }) {
       onAuth();
     } catch(e) { setErr("Error de conexión"); setBusy(false); }
   }
-  // Mismo tratamiento sobrio que el login SaaS (ver MobileSaasGate): serif elegante, inputs
-  // mínimos y botón neutro en vez del azul vivo de los CTA dentro de la app.
-  const SERIF = FRAUNCES; // prueba de diseño: Fraunces (la serif real del portal), no Marcellus
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:9, border:"1px solid rgba(255,255,255,.09)", background:"rgba(0,0,0,.22)", color:"#fff", outline:"none", boxSizing:"border-box" };
-  const btnSober = { background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:600, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:9, padding:"16px", cursor:"pointer", marginTop:4 };
+  // Aspecto IDÉNTICO al login del portal de escritorio (SaasGate, jc-admin.jsx): sin logo, eyebrow
+  // en el color de acento, serif fina, inputs opacos con radio 6 (no glass translúcido).
+  const SERIF = FRAUNCES; // la serif real del portal (Fraunces), no Marcellus
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid rgba(255,255,255,.14)", background:"rgba(20,22,28,.85)", color:"#fff", outline:"none", boxSizing:"border-box" };
+  const btnSober = { width:"100%", background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:500, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"14px", cursor:"pointer", marginTop:4 };
   return (
     <LoginVideoBg>
-      <img src="/assets/medique-logo.png" alt="Medique" style={{ width:52, height:52, marginBottom:10 }} />
-      <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.faint, marginBottom:12 }}>Medique · Panel móvil</div>
-      <div style={{ fontFamily:SERIF, fontSize:30, fontWeight:400, color:"#fff", marginBottom:8 }}>Acceso privado</div>
-      <div style={{ fontFamily:T.sans, fontSize:13, color:ON_PHOTO.mute, marginBottom:36 }}>Accede al panel de tu clínica.</div>
-      <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
+      <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".28em", textTransform:"uppercase", color:T.accent, textAlign:"center" }}>Medique · Panel móvil</div>
+      <h1 style={{ fontFamily:SERIF, fontWeight:300, fontSize:34, color:"#fff", textAlign:"center", margin:"12px 0 6px", lineHeight:1.05 }}>Acceso privado</h1>
+      <p style={{ fontFamily:T.sans, fontSize:12.5, color:ON_PHOTO.mute, textAlign:"center", lineHeight:1.6, margin:"0 0 22px" }}>Accede al panel de tu clínica.</p>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
         {setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} style={inp} />}
         <input type="password" placeholder="Contraseña del panel" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp} />
-        {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#FF8FA3", textAlign:"center" }}>{err}</div>}
+        {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#E0607A", textAlign:"center" }}>{err}</div>}
         <button onClick={submit} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>
           {busy?"…":(setup?"Crear acceso":"Entrar")}
         </button>
@@ -520,22 +492,15 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const fechaLarga = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
 
-  // KPIs — Apple-senior (prueba de diseño): cifra en Fraunces MÁS CHICA (20px, no 22/28) para no
-  // competir con el header; la jerarquía se construye con peso/color, no tamaño exagerado.
-  const kpi = (icon, label, val, sub, subColor) => (
-    <div style={{ flex:1, minWidth:0, ...glassPanel(T,18), padding:"11px 4px 10px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", gap:3 }}>
-      <div style={{ color:T.accent, opacity:.85, height:14, display:"flex", alignItems:"center" }}>{icon}</div>
-      <div style={{ fontFamily:T.sans, fontSize:9, color:T.textMute, lineHeight:1.1, minHeight:20, display:"flex", alignItems:"center" }}>{label}</div>
-      <div style={{ fontFamily:FRAUNCES, fontSize:20, fontWeight:500, color:T.text, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
-      {sub && <div style={{ fontFamily:T.sans, fontSize:8, color:subColor||T.textFaint, marginTop:1, lineHeight:1.1 }}>{sub}</div>}
+  // KPIs — dashboard horizontal DELGADO (pedido), igual lenguaje que el KPI del portal de escritorio:
+  // etiqueta pequeña en mayúsculas arriba + cifra grande debajo, sin ícono, tarjeta fina.
+  const kpi = (label, val, sub, subColor) => (
+    <div style={{ flex:1, minWidth:0, ...glassPanel(T,14), padding:"9px 10px 8px", display:"flex", flexDirection:"column", gap:2 }}>
+      <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:".03em", textTransform:"uppercase", color:T.textMute, lineHeight:1.2 }}>{label}</div>
+      <div style={{ fontFamily:FRAUNCES, fontSize:18, fontWeight:500, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>{val}</div>
+      {sub && <div style={{ fontFamily:T.sans, fontSize:7.5, color:subColor||T.textFaint, lineHeight:1.1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>}
     </div>
   );
-  const IC = {
-    cal:  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-    check:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
-    clock:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>,
-    bars: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-8"/></svg>
-  };
   // Avatar de la clínica: foto guardada (jcm_admin_photo) o iniciales, como en la referencia.
   const avatarSrc = (() => { try { return localStorage.getItem("jcm_admin_photo") || ""; } catch(e) { return ""; } })();
   const ini = (clinNombre||"JC").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
@@ -561,10 +526,10 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
     <div style={{ padding:"12px 16px 110px", display:"flex", flexDirection:"column", gap:12 }}>
       {/* Saludo/avatar eliminados a pedido del usuario (ahorro de espacio): la fecha vive en el header. */}
       <div style={{ display:"flex", gap:7 }}>
-        {kpi(IC.cal, "Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer")}
-        {kpi(IC.check, "Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
-        {kpi(IC.clock, "Pendientes", pendientes, pct(pendientes)+"% del total")}
-        {kpi(IC.bars, "Tasa de ocupación", ocup+"%", (ocupDelta>=0?"↑":"↓")+Math.abs(ocupDelta)+"% vs ayer")}
+        {kpi("Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer")}
+        {kpi("Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
+        {kpi("Pendientes", pendientes, pct(pendientes)+"% del total")}
+        {kpi("Ocupación", ocup+"%", (ocupDelta>=0?"↑":"↓")+Math.abs(ocupDelta)+"% vs ayer")}
       </div>
 
       {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
@@ -582,29 +547,18 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
         {upcoming.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin próximas citas agendadas.</div>}
-        {/* Tarjeta estilo portal (pedido): borde completo de color de estado, insignia de una letra
-            del procedimiento en la esquina superior derecha, nombre+hora en la primera fila y
-            procedimiento+hora de término en la segunda (si hay procedimiento). */}
+        {/* Tarjeta plana (pedido): hora | nombre ... abreviación del procedimiento al borde derecho,
+            todo alineado en la línea media de la tarjeta. Barra izquierda de color = estado. */}
         {upcoming.length>0 && (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
           {upcoming.map((a,i) => {
             const st = apptStateM(a, T);
-            const ini = procInitialM(a.proc);
-            const iso = a.fecha||offToISO(a.day||0);
-            const dLbl = iso===today ? "Hoy" : (()=>{ const d=new Date(iso+"T00:00:00"); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
-            const startMin = minsM(a.time);
-            const durMin = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
-            const endMin = startMin + durMin;
-            const endLbl = (h=>{ const hh=Math.floor(h/60), mm=h%60; return (hh<10?"0":"")+hh+":"+(mm<10?"0":"")+mm; })(endMin);
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ position:"relative", width:"100%", textAlign:"left", cursor:"pointer", background:"color-mix(in srgb, "+st.color+" 10%, transparent)", border:"1px solid color-mix(in srgb, "+st.color+" 40%, transparent)", borderRadius:14, padding:"10px 34px 10px 12px" }}>
-                <div style={{ display:"flex", alignItems:"baseline", gap:6, minWidth:0 }}>
-                  <span style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
-                  <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.textMute, marginLeft:"auto" }}>{a.time}</span>
-                </div>
-                {a.proc && <div style={{ marginTop:2, fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.proc} — {endLbl}</div>}
-                {iso!==today && <div style={{ marginTop:2, fontFamily:T.sans, fontSize:9, color:T.textFaint }}>{dLbl}</div>}
-                {ini && <span style={{ position:"absolute", top:8, right:8, width:18, height:18, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:9.5, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 16%, transparent)" }}>{ini}</span>}
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px 10px 0" }}>
+                <div style={{ width:3, alignSelf:"stretch", background:st.color, flexShrink:0 }} />
+                <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
+                <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
+                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10.5, fontWeight:600, color:T.textMute }}>{abbrevProcM(a.proc)}</span>
               </button>
             );
           })}
@@ -740,9 +694,9 @@ function abbrevNameM(name) {
   const s1 = words[words.length - 2], s2 = words[words.length - 1];
   return given + " " + s1 + " " + s2[0].toUpperCase() + ".";
 }
-// Procedimiento abreviado (pedido del usuario, códigos fijos): solo para los procedimientos más
-// frecuentes que se listaron explícitamente — cualquier otro procedimiento se deja con su nombre
-// completo (no se inventan códigos para los que no se pidieron).
+// Procedimiento abreviado: códigos fijos para los más frecuentes (pedido original del usuario);
+// cualquier otro procedimiento cae a la inicial (no el nombre completo) — esta abreviación se
+// usa SIEMPRE en tarjetas de una sola línea (Home/Agenda), donde el nombre completo desbordaría.
 function abbrevProcM(proc) {
   const p = (proc || "").toLowerCase();
   if (p.includes("botox") && p.includes("3 zona")) return "B3Z";
@@ -751,48 +705,34 @@ function abbrevProcM(proc) {
   if (p.includes("sculptra")) return "S";
   if (p.includes("evaluaci")) return "EV";
   if (p.includes("quemador")) return "Q";
-  return proc || "—";
-}
-// Iniciál de una letra para la insignia de la tarjeta de "Próximas citas" (idéntica a procInitial()
-// del portal de escritorio, jc-admin.jsx) — distinta de abbrevProcM: esa es para el texto abreviado
-// del procedimiento, esta es solo la letra que va dentro del badge de la esquina de la tarjeta.
-function procInitialM(proc) {
-  if (!proc) return "";
-  const n = proc.toLowerCase();
-  if (/botox|toxina|btx|tox\b/.test(n)) return "B";
-  if (/rino/.test(n)) return "R";
-  if (/sculptra|bioestim|col[aá]geno/.test(n)) return "S";
-  if (/lipol[ií]t|disolver|lipolisis/.test(n)) return "L";
-  if (/evaluac/.test(n)) return "E";
-  if (/mesoterap|vitamina|nctf|rejuran|salm[oó]n/.test(n)) return "M";
-  if (/hialur|armoniz|juv[eé]derm/.test(n)) return "H";
-  if (/quemador|grasa/.test(n)) return "Q";
-  if (/plasma|prp/.test(n)) return "P";
-  if (/control/.test(n)) return "C";
+  if (!proc) return "—";
   return proc.trim().charAt(0).toUpperCase();
 }
 
 function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
-  // La semana mostrada SIEMPRE es la que contiene selDay (ver weekOf) — sincronizada con
-  // cualquier fecha, incluida la elegida desde la vista Mes.
-  const days = useMemo(() => weekOf(selDay), [selDay]);
+  // Tira de días CONTINUA (pedido): un rango largo y fijo de días consecutivos, scrolleable de
+  // forma directa (scroll nativo), no paginada semana por semana.
+  const stripDays = useMemo(() => {
+    const arr = [];
+    for (let i=-14; i<=60; i++) {
+      const d = new Date(); d.setDate(d.getDate()+i);
+      const iso = localISO(d);
+      arr.push({ iso, wd: WDS[d.getDay()], dd: d.getDate(), isToday: iso===today });
+    }
+    return arr;
+  }, [today]);
   const [view, setView] = useState("dia");
   const [monthCur, setMonthCur] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const dayRef = useMemo(() => React.createRef(), []);
-  // Deslizar la tira de días avanza/retrocede una semana completa (7 días), como pediste.
-  const stripTouchX = useRef(null);
-  function stripTouchStart(e) { stripTouchX.current = e.touches[0].clientX; }
-  function stripTouchEnd(e) {
-    if (stripTouchX.current == null) return;
-    const dx = e.changedTouches[0].clientX - stripTouchX.current;
-    stripTouchX.current = null;
-    if (Math.abs(dx) < 40) return; // umbral mínimo para contar como swipe
-    const d = new Date(selDay + "T12:00:00");
-    d.setDate(d.getDate() + (dx < 0 ? 7 : -7));
-    setSelDay(localISO(d));
-  }
+  // Centra automáticamente el día seleccionado en la tira (al entrar y al elegir uno desde Mes).
+  const stripRef = useRef(null);
+  const dayBtnRefs = useRef({});
+  useEffect(() => {
+    const el = dayBtnRefs.current[selDay];
+    if (el && el.scrollIntoView) el.scrollIntoView({ inline:"center", block:"nearest" });
+  }, [selDay]);
   const apptCountByDate = useMemo(() => {
     const map = {};
     appts.forEach(a => { if (a.status === "anulada") return; const f = a.fecha || offToISO(a.day || 0); map[f] = (map[f] || 0) + 1; });
@@ -837,60 +777,33 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     // Altura SIEMPRE proporcional a la duración real (sin mínimo forzado por encima de eso):
     // así nunca puede invadir el tramo de la cita siguiente. Solo un piso de seguridad mínimo
     // (28px) para datos corruptos con duración ~0, que en la práctica nunca ocurre.
-    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 13);
-    const compact = heightPx < 56; // citas muy cortas (ej. 15 min): layout de una sola línea
+    const heightPx = Math.max(durMin * (CAL_PX_HOUR / 60), 15);
     const st = apptStateM(a, T);
-    const bd = apptBadge(a);
     const isAnulada = a.status === "anulada";
-    // Rango horario (referencia): inicio – fin, calculado con la duración real.
-    const fmt = m => { const h=Math.floor(m/60), mm=m%60; return (h<10?"0":"")+h+":"+(mm<10?"0":"")+mm; };
-    const range = a.time + " – " + fmt(startMin + durMin);
     return (
       <button key={a.id} onClick={()=>onOpenAppt(a)} style={{
         position:"absolute", top: topPx, left: 0, right: 0, height: heightPx,
-        display:"flex", alignItems:"stretch", textAlign:"left", cursor:"pointer",
-        ...glassPanel(T, compact?10:14), padding:0, overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
+        display:"flex", alignItems:"center", gap:8, textAlign:"left", cursor:"pointer",
+        background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10,
+        padding:0, overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
       }}>
-        <div style={{ width:compact?3:4, background:st.color, flexShrink:0 }} />
-        {compact ? (
-          // Cita corta: una sola línea — nombre + procedimiento (o "Evaluación general" si
-          // corresponde) truncados juntos con "…", más hora y punto de estado a la derecha.
-          <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:8, padding:"0 10px" }}>
-            <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>
-              {abbrevNameM(a.name)}<span style={{ fontWeight:400, color:T.textMute }}> · {abbrevProcM(a.proc)}</span>
-            </span>
-            <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
-            <span style={{ width:6, height:6, borderRadius:"50%", background:st.color, flexShrink:0 }} />
-          </div>
-        ) : (
-        <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center" }}>
-          {/* Izquierda: nombre + procedimiento */}
-          <div style={{ flex:1, minWidth:0, padding:"12px 12px" }}>
-            <div style={{ fontFamily:T.sans, fontSize:17, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.25, textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</div>
-            <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:3 }}>{abbrevProcM(a.proc)}</div>
-          </div>
-          {/* Divisor vertical (referencia) */}
-          <div style={{ width:1, alignSelf:"center", height:"52%", background:"rgba(255,255,255,.12)", flexShrink:0 }} />
-          {/* Derecha: rango horario coloreado + estado con punto */}
-          <div style={{ width:128, flexShrink:0, padding:"12px 14px", textAlign:"right" }}>
-            <div style={{ fontFamily:FRAUNCES, fontSize:15, fontWeight:500, color:T.text }}>{range}</div>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:6, marginTop:6 }}>
-              <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{bd.label}</span>
-              <span style={{ width:7, height:7, borderRadius:"50%", background:st.color, flexShrink:0 }} />
-            </div>
-          </div>
-        </div>
-        )}
+        {/* Plana (pedido): mismo diseño que la página principal — hora | nombre … abreviación del
+            procedimiento al borde derecho, barra izquierda de color = estado. */}
+        <div style={{ width:3, alignSelf:"stretch", background:st.color, flexShrink:0 }} />
+        <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
+        <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</span>
+        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:600, color:T.textMute, paddingRight:10 }}>{abbrevProcM(a.proc)}</span>
       </button>
     );
   }
 
   // Segmentado Día/Mes (el filtro de canceladas ahora vive en el icono del header, como la referencia).
+  // Pedido: más chico, para dejar más protagonismo a la tira de días y las citas.
   const toggleRow = (
-    <div style={{ display:"flex", gap:5, padding:"10px 14px 8px", flexShrink:0, ...glassChip(T), border:"none", background:"transparent" }}>
-      <div style={{ display:"flex", flex:1, gap:4, padding:5, borderRadius:14, ...glassChip(T) }}>
+    <div style={{ display:"flex", gap:5, padding:"8px 14px 6px", flexShrink:0, ...glassChip(T), border:"none", background:"transparent" }}>
+      <div style={{ display:"flex", flex:1, gap:3, padding:3, borderRadius:11, ...glassChip(T) }}>
         {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:14, fontWeight:view===k?600:500, padding:"9px", borderRadius:10, cursor:"pointer",
+          <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:12, fontWeight:view===k?600:500, padding:"6px", borderRadius:8, cursor:"pointer",
             ...(view===k
               ? { background:"linear-gradient(180deg, rgba(88,142,246,.28), rgba(48,104,214,.22))", color:"#fff", border:"1px solid rgba(150,170,185,.45)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(40,90,200,.6)" }
               : { background:"transparent", color:T.textMute, border:"1px solid transparent" }) }}>{l}</button>
@@ -900,15 +813,17 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     </div>
   );
 
-  // FAB glass (pedido del usuario): translúcido con blur para que NO tape el contenido de la agenda
-  // que queda detrás. Círculo de acento tenue + borde fino, mantiene el ícono "+" legible.
+  // FAB con el mismo nivel de "Liquid Glass" que la pantalla principal (pedido): brillo superior +
+  // blur/saturación más altos, no solo un tinte plano. zIndex alto: siempre queda SOBRE la lista de
+  // citas que scrollea detrás — nunca la tapa a ella, pero ella tampoco lo tapa a él.
   const fab = (
     <button onClick={()=>goTab("nueva")} title="Nueva cita" aria-label="Nueva cita"
       style={{ position:"absolute", right:16, bottom:16+"px", width:56, height:56, borderRadius:"50%",
-        background:"rgba(120,145,166,.32)", border:"1px solid rgba(160,180,195,.5)", color:"#EAF2FF", cursor:"pointer",
-        backdropFilter:"blur(16px) saturate(1.5)", WebkitBackdropFilter:"blur(16px) saturate(1.5)",
-        boxShadow:"0 12px 28px -10px rgba(10,25,55,.6), inset 0 1px 0 rgba(255,255,255,.35)",
-        display:"flex", alignItems:"center", justifyContent:"center", zIndex:5 }}>
+        background:"linear-gradient(180deg, rgba(120,145,166,.42), rgba(120,145,166,.24) 45%, rgba(120,145,166,.3) 100%)",
+        border:"1px solid rgba(160,180,195,.5)", color:"#EAF2FF", cursor:"pointer",
+        backdropFilter:"blur(28px) saturate(1.6)", WebkitBackdropFilter:"blur(28px) saturate(1.6)",
+        boxShadow:"0 12px 28px -10px rgba(10,25,55,.6), inset 0 1px 0 rgba(255,255,255,.4)",
+        display:"flex", alignItems:"center", justifyContent:"center", zIndex:6 }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   );
@@ -951,18 +866,19 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   return (
     <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 150px)" }}>
       {toggleRow}
-      {/* Semana deslizable (swipe): izquierda=semana anterior, derecha=semana siguiente. */}
-      <div onTouchStart={stripTouchStart} onTouchEnd={stripTouchEnd} style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
-        <div style={{ display:"flex", padding:"12px 10px 4px", minWidth:"max-content", gap:3 }}>
-          {days.map(d => {
+      {/* Tira de días continua (pedido): scroll horizontal nativo y directo, sin paginar por semana.
+          Esta zona y los botones de arriba quedan FIJOS — solo la lista de citas más abajo scrollea. */}
+      <div ref={stripRef} style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
+        <div style={{ display:"flex", padding:"8px 10px 4px", minWidth:"max-content", gap:2 }}>
+          {stripDays.map(d => {
             const isSel = d.iso === selDay;
             return (
-              <button key={d.iso} onClick={()=>setSelDay(d.iso)}
-                style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"8px 10px 6px", borderRadius:14, minWidth:46, cursor:"pointer",
+              <button key={d.iso} ref={el=>{ dayBtnRefs.current[d.iso]=el; }} onClick={()=>setSelDay(d.iso)}
+                style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1, padding:"6px 8px 5px", borderRadius:12, minWidth:38, cursor:"pointer",
                   background: isSel ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(150,170,185,.55)" : "transparent") }}>
-                <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
-                <span style={{ fontFamily:T.sans, fontSize:22, fontWeight: d.isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
-                <div style={{ width:5, height:5, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
+                <span style={{ fontFamily:T.sans, fontSize:9.5, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
+                <span style={{ fontFamily:T.sans, fontSize:17, fontWeight: d.isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
+                <div style={{ width:4, height:4, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
               </button>
             );
           })}
@@ -1566,19 +1482,14 @@ function MobileShell({ T, D, onLogout }) {
   </button>;
   const headerTitle = (txt) => <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color:T.text }}>{txt}</span>;
   const renderHeader = () => {
-    if (tab==="citas") return <><div style={{ display:"flex", alignItems:"center", gap:7, minWidth:0 }}>
+    if (tab==="citas") return <><div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
         {hamburger}
-        {/* Logo oficial de Medique (monograma navy) sobre cuadro blanco para que se vea en el header oscuro.
-            Pedido: header más chico para dar protagonismo a los KPI de abajo. */}
-        <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, background:"#FFFFFF", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", boxShadow:"0 3px 10px -4px rgba(0,0,0,.55)" }}>
-          <img src="/assets/medique-logo.png" alt="Medique" style={{ width:28, height:28, objectFit:"contain" }} />
-        </div>
-        <div style={{ minWidth:0 }}>
-          {/* Pedido: solo el logo representa la marca Medique — el texto pasa a ser el nombre
-              de la clínica que corresponda (no "Medique · X"). */}
-          <div style={{ fontFamily:FRAUNCES, fontSize:14, fontWeight:500, color:T.text, lineHeight:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName || "Medique"}</div>
-          {/* Fecha del día, tal cual estaba. */}
-          <span style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, display:"block", marginTop:2 }}>{fechaHeader}</span>
+        {/* Pedido: logo SIN fondo blanco, directo sobre el header oscuro. */}
+        <img src="/assets/medique-logo.png" alt="Medique" style={{ width:24, height:24, objectFit:"contain", flexShrink:0 }} />
+        {/* Pedido: nombre de la clínica + fecha en UNA sola línea horizontal, alineada con la campana. */}
+        <div style={{ display:"flex", alignItems:"baseline", gap:5, minWidth:0 }}>
+          <span style={{ fontFamily:FRAUNCES, fontSize:13.5, fontWeight:500, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName || "Medique"}</span>
+          <span style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {fechaHeader}</span>
         </div>
       </div>{bell}</>;
     if (tab==="nueva") return <>
@@ -1808,56 +1719,53 @@ function MobileSaasGate() {
 
   if (phase === "app") return <MobileShell T={T} D={D} onLogout={() => window.JCSAAS.logout()} />;
 
-  // Pedido del usuario: login más SOBRIO, como el del portal de escritorio — inputs mínimos casi
-  // sin borde (se distinguen solo por el relleno oscuro, no por un contorno brillante) y sin blur.
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:9, border:"1px solid rgba(255,255,255,.09)", background:"rgba(0,0,0,.22)", color:"#fff", outline:"none", boxSizing:"border-box" };
-  // Botón NEUTRO (no el azul vivo de los CTA dentro de la app): pastilla clara apagada con texto
-  // oscuro, igual de sobria que el "ENTRAR" del portal — el acento de color no pertenece al login.
-  const btnSober = { background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:600, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:9, padding:"16px", cursor:"pointer", marginTop:4 };
-  const linkSober = { background:"none", border:"none", cursor:"pointer", color:ON_PHOTO.mute, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 };
-  // Serif elegante (Marcellus, la del portal de escritorio) SOLO para los títulos del login — el
-  // resto del panel (una vez adentro) se queda en SF Pro, eso no cambia.
-  const SERIF = FRAUNCES; // prueba de diseño: Fraunces (la serif real del portal), no Marcellus
+  // Aspecto IDÉNTICO al login del portal de escritorio (SaasGate, jc-admin.jsx): sin logo, eyebrow
+  // en el color de acento, serif fina centrada, inputs opacos con radio 6 (no glass translúcido).
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid rgba(255,255,255,.14)", background:"rgba(20,22,28,.85)", color:"#fff", outline:"none", boxSizing:"border-box" };
+  const btnSober = { width:"100%", background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:500, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"14px", cursor:"pointer", marginTop:4 };
+  const linkSober = { background:"none", border:"none", cursor:"pointer", color:T.accent, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 };
+  const SERIF = FRAUNCES; // la serif real del portal (Fraunces), no Marcellus
+  const eyebrow = { fontFamily:T.sans, fontSize:10, letterSpacing:".28em", textTransform:"uppercase", color:T.accent, textAlign:"center" };
+  const title = { fontFamily:SERIF, fontWeight:300, fontSize:34, color:"#fff", textAlign:"center", margin:"12px 0 6px", lineHeight:1.05 };
+  const subtitle = { fontFamily:T.sans, fontSize:12.5, color:ON_PHOTO.mute, textAlign:"center", lineHeight:1.6, margin:"0 0 22px" };
   // Toda la "zona de login" (cargando/entrar/bloqueado/recuperar) comparte el mismo fondo.
   const center = (kids) => <LoginVideoBg>{kids}</LoginVideoBg>;
 
-  if (phase === "loading") return center(
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
-      <img src="/assets/medique-logo.png" alt="Medique" style={{ width:36, height:36, marginBottom:6 }} />
-      <div style={{ fontFamily:SERIF, fontSize:24, color:"#fff" }}>Medique</div>
-      <div style={{ fontFamily:T.sans, fontSize:12, color:ON_PHOTO.mute }}>Conectando…</div>
-    </div>
-  );
+  if (phase === "loading") return center(<>
+    <div style={eyebrow}>Medique · Panel móvil</div>
+    <h1 style={title}>Conectando…</h1>
+    <p style={subtitle}>Verificando tu sesión.</p>
+  </>);
 
   if (phase === "blocked") return center(<>
-    <div style={{ fontFamily:SERIF, fontSize:26, color:"#fff", marginBottom:8 }}>Plan inactivo</div>
-    <div style={{ fontFamily:T.sans, fontSize:13, color:ON_PHOTO.mute, textAlign:"center", maxWidth:300, marginBottom:18 }}>El acceso de tu clínica no está activo. Escríbenos para reactivarlo.</div>
-    <button onClick={()=>window.JCSAAS.logout()} style={{ background:"none", border:"1px solid rgba(255,255,255,.25)", color:"#fff", fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"12px 18px", cursor:"pointer" }}>Cerrar sesión</button>
+    <h1 style={title}>Plan inactivo</h1>
+    <p style={subtitle}>El acceso de tu clínica no está activo. Escríbenos para reactivarlo.</p>
+    <button onClick={()=>window.JCSAAS.logout()} style={{ background:"none", border:"1px solid rgba(255,255,255,.25)", color:"#fff", fontFamily:T.sans, fontSize:12, borderRadius:6, padding:"12px 18px", cursor:"pointer" }}>Cerrar sesión</button>
   </>);
 
   if (view === "recover") return center(<>
-    <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.faint, marginBottom:12 }}>Medique · Panel móvil</div>
-    <div style={{ fontFamily:SERIF, fontSize:30, fontWeight:400, color:"#fff", marginBottom:8 }}>Recuperar contraseña</div>
-    <div style={{ fontFamily:T.sans, fontSize:13, color:ON_PHOTO.mute, textAlign:"center", maxWidth:300, marginBottom:36, lineHeight:1.5 }}>Te enviaremos un enlace a tu correo para restablecerla.</div>
-    <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
+    <div style={eyebrow}>Medique · Panel móvil</div>
+    <h1 style={title}>Recuperar contraseña</h1>
+    <p style={subtitle}>Te enviaremos un enlace a tu correo para restablecerla.</p>
+    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
       <input placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRecover()} style={inp} />
-      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#FF8FA3", textAlign:"center" }}>{err}</div>}
+      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#E0607A", textAlign:"center" }}>{err}</div>}
       {msg && <div style={{ fontFamily:T.sans, fontSize:12, color:"#7CDDA8", textAlign:"center" }}>{msg}</div>}
       <button onClick={doRecover} disabled={busy||!email.trim()} style={{ ...btnSober, opacity:(busy||!email.trim())?.6:1 }}>{busy?"Enviando…":"Enviar enlace"}</button>
-      <button onClick={()=>{ setView("login"); setErr(""); setMsg(""); }} style={linkSober}>← Volver</button>
+      <div style={{ textAlign:"center" }}><button onClick={()=>{ setView("login"); setErr(""); setMsg(""); }} style={linkSober}>← Volver</button></div>
     </div>
   </>);
 
   return center(<>
-    <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".18em", textTransform:"uppercase", color:ON_PHOTO.faint, marginBottom:12 }}>Medique · Panel móvil</div>
-    <div style={{ fontFamily:SERIF, fontSize:30, fontWeight:400, color:"#fff", marginBottom:8 }}>Confirmar citas</div>
-    <div style={{ fontFamily:T.sans, fontSize:13, color:ON_PHOTO.mute, marginBottom:36 }}>Accede al panel de tu clínica.</div>
-    <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 }}>
+    <div style={eyebrow}>Medique · Panel móvil</div>
+    <h1 style={title}>Confirmar citas</h1>
+    <p style={subtitle}>Accede al panel de tu clínica.</p>
+    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
       <input placeholder="Correo de tu clínica" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} style={inp} />
       <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={inp} />
-      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#FF8FA3", textAlign:"center" }}>{err}</div>}
+      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#E0607A", textAlign:"center" }}>{err}</div>}
       <button onClick={doLogin} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>{busy?"…":"Entrar"}</button>
-      <button onClick={()=>{ setView("recover"); setErr(""); setMsg(""); }} style={linkSober}>¿Olvidaste tu contraseña?</button>
+      <div style={{ textAlign:"center" }}><button onClick={()=>{ setView("recover"); setErr(""); }} style={linkSober}>¿Olvidaste tu contraseña?</button></div>
     </div>
   </>);
 }
