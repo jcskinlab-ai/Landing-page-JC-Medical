@@ -2377,21 +2377,28 @@ function ConfigView({ T }) {
   function copyLink() { try { navigator.clipboard.writeText(bookUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (e) {} }
   function copyMobile() { try { navigator.clipboard.writeText(mobileUrl); setCopiedMob(true); setTimeout(() => setCopiedMob(false), 1800); } catch (e) {} }
   // Calendario suscribible: las citas aparecen solas en Google/Apple Calendar (no descargar .ics).
-  const [calUrl, setCalUrl] = useState("");
+  // Un link POR CATEGORÍA (procedimiento/evaluación): cada uno se suscribe como un calendario
+  // aparte, así se colorea distinto UNA vez y desde ahí queda automático — funciona igual en
+  // Android que en iPhone (no depende de que el calendario respete color por evento).
+  const CAL_CATS = [
+    { id: "procedimiento", swatch: "#54707F" },
+    { id: "evaluacion", swatch: "#C9A227" }
+  ];
+  const [calLinks, setCalLinks] = useState(null); // { procedimiento:{label,url,webcal}, evaluacion:{...} } | null
   const [calBusy, setCalBusy] = useState(false);
   const [calErr, setCalErr] = useState("");
-  const [calCopied, setCalCopied] = useState(false);
+  const [calCopiedId, setCalCopiedId] = useState("");
   function genCal() {
     if (!window.mediqueCalendarLink) { setCalErr("No disponible en este momento."); return; }
     setCalBusy(true); setCalErr("");
     window.mediqueCalendarLink().then(r => {
       setCalBusy(false);
-      if (r && r.ok && r.url) setCalUrl(r.url);
+      if (r && r.ok && r.categorias) setCalLinks(r.categorias);
       else if (r && r.configured === false) setCalErr("Aún no está activo: falta que el administrador agregue la clave de servicio de Firebase en el servidor.");
       else setCalErr((r && r.error) || "No se pudo generar el link del calendario.");
     });
   }
-  function copyCal() { try { navigator.clipboard.writeText(calUrl); setCalCopied(true); setTimeout(() => setCalCopied(false), 1800); } catch (e) {} }
+  function copyCal(id, url) { try { navigator.clipboard.writeText(url); setCalCopiedId(id); setTimeout(() => setCalCopiedId(""), 1800); } catch (e) {} }
   return (
     <div>
       <SecHead T={T} title="Configuración de la clínica" sub="Administra la información pública y los detalles de tu clínica." />
@@ -2441,27 +2448,37 @@ function ConfigView({ T }) {
           </div>
         </div>
       </div>
-      {/* Calendario que se actualiza solo — suscripción por URL (no descargar .ics) */}
+      {/* Calendario que se actualiza solo — suscripción por URL, un feed por categoría (no descargar .ics) */}
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
         <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4M9 16l2 2 4-4" /></svg>
           Calendario que se actualiza solo
         </div>
-        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px", lineHeight: 1.5 }}>Suscribe este calendario UNA vez en Google Calendar (o Apple/Outlook) y tus reservas aparecen solas en tu teléfono y PC, sin descargar nada. Google lo revisa cada varias horas (no es instantáneo).</div>
-        {!calUrl ? (
+        <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, margin: "5px 0 14px", lineHeight: 1.5 }}>Dos calendarios separados —procedimientos y evaluaciones— para que en tu teléfono y PC se vean en dos colores distintos. Suscribe cada uno UNA vez y elígele su color ahí; desde ese momento cada cita nueva cae sola en el que corresponde. Google/Apple/Outlook revisan el link cada varias horas (no es instantáneo).</div>
+        {!calLinks ? (
           <div>
-            <AdBtn T={T} primary onClick={genCal}>{calBusy ? "Generando…" : "Generar mi link de calendario"}</AdBtn>
+            <AdBtn T={T} primary onClick={genCal}>{calBusy ? "Generando…" : "Generar mis links de calendario"}</AdBtn>
             {calErr && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#e06a6a", marginTop: 10, lineHeight: 1.5 }}>{calErr}</div>}
           </div>
         ) : (
-          <div>
-            <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Tu link de suscripción</span>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input readOnly value={calUrl} onFocus={e => e.target.select()} style={{ flex: 1, fontFamily: T.sans, fontSize: 12.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" }} />
-              <button onClick={copyCal} title="Copiar" style={{ flexShrink: 0, padding: "0 13px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{calCopied ? "✓" : "Copiar"}</button>
-            </div>
-            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10, lineHeight: 1.6 }}>
-              <b style={{ color: T.text }}>Cómo suscribirlo en Google Calendar:</b> abre <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener" style={{ color: T.accent, textDecoration: "underline" }}>Agregar desde URL ↗</a>, pega el link de arriba y pulsa “Agregar calendario”. (En el celular ya lo verás porque sincroniza tu Google).
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {CAL_CATS.map(c => {
+              const cal = calLinks[c.id]; if (!cal) return null;
+              return (
+                <div key={c.id}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>
+                    <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: c.swatch, flexShrink: 0 }} />
+                    {cal.label}
+                  </span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input readOnly value={cal.url} onFocus={e => e.target.select()} style={{ flex: 1, fontFamily: T.sans, fontSize: 12.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface2, color: T.text, outline: "none" }} />
+                    <button onClick={() => copyCal(c.id, cal.url)} title="Copiar" style={{ flexShrink: 0, padding: "0 13px", borderRadius: 8, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 11.5 }}>{calCopiedId === c.id ? "✓" : "Copiar"}</button>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.6 }}>
+              <b style={{ color: T.text }}>Cómo suscribir cada uno en Google Calendar:</b> abre <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener" style={{ color: T.accent, textDecoration: "underline" }}>Agregar desde URL ↗</a>, pega el link de esa categoría y pulsa “Agregar calendario”. Repite con el otro link. Luego, en la lista “Mis calendarios”, tócale los tres puntos a cada uno → Color, y elige uno distinto para cada categoría. (En el celular ya los verás porque sincroniza tu cuenta Google).
             </div>
           </div>
         )}

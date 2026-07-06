@@ -98,11 +98,26 @@ async function readAppointments(sa, projectId, clinicId) {
   try { return JSON.parse(v) || []; } catch (e) { return []; }
 }
 
-// Genera el .ics (citas desde hace 30 días en adelante). Las horas van en UTC explícito (con "Z"):
-// la hora del panel es hora de Chile (America/Santiago); la convertimos al instante UTC real
-// (calculando el offset, incl. horario de verano) para que el calendario la muestre BIEN en cualquier
-// zona. Antes iba sin zona → Google la tomaba como UTC y la corría ~4 h.
-function buildICS(appts, clinicName) {
+// Misma convención que ya usa el resto del código (mobile: consentPendingM, jc-data.js procMin):
+// "evaluación" se identifica por texto libre en a.proc, no hay categoría estructurada en los datos.
+const esEvaluacion = proc => /evaluaci/i.test(proc || "");
+
+// Colores de cada categoría (RFC 7986 COLOR, nombres CSS extendidos por compatibilidad amplia).
+// Apple Calendar (iOS 16+/macOS Ventura+) SÍ lee este color por evento; Google/Outlook lo ignoran
+// y muestran un solo color por calendario suscrito (por eso además se separan en dos feeds/enlaces:
+// así cada uno se puede colorear una vez, distinto, y funciona igual en Android que en iPhone).
+const CAT_META = {
+  procedimiento: { label: "Procedimientos", color: "steelblue" },
+  evaluacion: { label: "Evaluaciones", color: "darkorange" }
+};
+
+// Genera el .ics (citas desde hace 30 días en adelante, excluye anuladas). Las horas van en UTC
+// explícito (con "Z"): la hora del panel es hora de Chile (America/Santiago); la convertimos al
+// instante UTC real (calculando el offset, incl. horario de verano) para que el calendario la
+// muestre BIEN en cualquier zona. Antes iba sin zona → Google la tomaba como UTC y la corría ~4 h.
+// `cat` (opcional): "procedimiento" | "evaluacion" — filtra y colorea; sin valor = todas (compat
+// con links ya suscritos antes de que existiera la separación por categoría).
+function buildICS(appts, clinicName, cat) {
   const TZ = "America/Santiago";
   const pad = n => ("0" + n).slice(-2);
   const esc = s => ("" + (s == null ? "" : s)).replace(/([\\;,])/g, "\\$1").replace(/\n/g, "\\n");
@@ -123,10 +138,15 @@ function buildICS(appts, clinicName) {
   const fmtZ = ms => { const d = new Date(ms); return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + "T" + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + "00Z"; };
   const desdeMs = Date.now() - 30 * 86400000;
   const stamp = fmtZ(Date.now());
+  const meta = CAT_META[cat];
+  const calName = "Reservas · " + (clinicName || "Medique") + (meta ? " — " + meta.label : "");
   let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Medique//Agenda//ES\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
-  ics += "X-WR-CALNAME:" + esc("Reservas · " + (clinicName || "Medique")) + "\r\nX-WR-TIMEZONE:" + TZ + "\r\n";
+  ics += "X-WR-CALNAME:" + esc(calName) + "\r\nX-WR-TIMEZONE:" + TZ + "\r\n";
+  if (meta) ics += "COLOR:" + meta.color + "\r\n"; // RFC 7986: color del calendario completo (Apple lo respeta al suscribir)
   (Array.isArray(appts) ? appts : []).forEach((a, i) => {
-    if (!a || !a.fecha) return;
+    if (!a || !a.fecha || a.status === "anulada") return; // una cita cancelada no debe aparecer en el celular
+    if (cat === "procedimiento" && esEvaluacion(a.proc)) return;
+    if (cat === "evaluacion" && !esEvaluacion(a.proc)) return;
     const s = startMs(a.fecha, a.time);
     if (isNaN(s) || s < desdeMs) return;
     const dur = parseInt(a.dur, 10) || a.durMin || 30;
@@ -134,6 +154,7 @@ function buildICS(appts, clinicName) {
       "\r\nDTSTART:" + fmtZ(s) + "\r\nDTEND:" + fmtZ(s + dur * 60000) +
       "\r\nSUMMARY:" + esc((a.proc || "Cita") + (a.name ? " · " + a.name : "")) +
       "\r\nDESCRIPTION:" + esc("Cita en " + (clinicName || "Medique") + (a.phone ? " · " + a.phone : "")) +
+      (meta ? "\r\nCOLOR:" + meta.color : "") + // RFC 7986: color por evento (best-effort; Google/Outlook lo ignoran)
       "\r\nEND:VEVENT\r\n";
   });
   ics += "END:VCALENDAR\r\n";
@@ -160,9 +181,17 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const clinicId = (body.clinicId || "").toString().trim();
     if (!clinicId) return res.status(400).json({ ok: false, error: "Falta clinicId." });
+    // Un link por categoría (procedimiento/evaluación): mismo token — no es secreto per-categoría,
+    // "cat" solo filtra qué citas trae el feed. Cada uno se suscribe como un calendario aparte, así
+    // se puede colorear distinto en Google/Apple/Outlook por igual (no es un truco solo de iPhone).
     const token = calToken(sa, clinicId);
-    const httpsUrl = "https://medique.cl/api/calendar?c=" + encodeURIComponent(clinicId) + "&token=" + token;
-    return res.status(200).json({ ok: true, url: httpsUrl, webcal: httpsUrl.replace(/^https:/, "webcal:") });
+    const base = "https://medique.cl/api/calendar?c=" + encodeURIComponent(clinicId) + "&token=" + token;
+    const categorias = {};
+    Object.keys(CAT_META).forEach(cat => {
+      const httpsUrl = base + "&cat=" + cat;
+      categorias[cat] = { label: CAT_META[cat].label, url: httpsUrl, webcal: httpsUrl.replace(/^https:/, "webcal:") };
+    });
+    return res.status(200).json({ ok: true, categorias });
   }
 
   // ── OPTIONS (preflight del POST) ──
@@ -187,7 +216,9 @@ export default async function handler(req, res) {
   try {
     const appts = await readAppointments(sa, PROJECT_ID, clinicId);
     const clinicName = (req.query.n || "Medique").toString().slice(0, 80);
-    const ics = buildICS(appts, clinicName);
+    const catRaw = (req.query.cat || "").toString();
+    const cat = CAT_META[catRaw] ? catRaw : undefined; // valor desconocido o ausente = todas (compat con links viejos)
+    const ics = buildICS(appts, clinicName, cat);
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.setHeader("Content-Disposition", 'inline; filename="medique.ics"');

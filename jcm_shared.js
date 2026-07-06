@@ -371,8 +371,9 @@ function mediqueMeta(opts) {
 if (typeof window !== 'undefined') window.mediqueMeta = mediqueMeta;
 
 // ── CLIENTE CALENDARIO SUSCRIBIBLE (/api/calendar) ──
-// Pide al servidor la URL de suscripción del calendario de la clínica (citas que se actualizan
-// solas en Google/Apple/Outlook). → Promise { ok, url, webcal } | { ok:false, configured?, error }
+// Pide al servidor las URLs de suscripción del calendario de la clínica — una por categoría
+// (procedimiento/evaluación), para que cada una se pueda colorear distinto en Google/Apple/Outlook.
+// → Promise { ok, categorias: { procedimiento:{label,url,webcal}, evaluacion:{...} } } | { ok:false, configured?, error }
 function mediqueCalendarLink() {
   try {
     var cid = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || '';
