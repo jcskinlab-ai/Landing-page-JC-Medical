@@ -61,10 +61,10 @@
 
   /* announcement */
   .anno{background:var(--bg-2);border-bottom:1px solid var(--line);font-size:13.5px;color:var(--text-2)}
-  .anno .wrap{display:flex;align-items:center;justify-content:center;gap:10px;height:44px;position:relative;text-align:center}
+  .anno .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;min-height:44px;padding:10px 46px;position:relative;text-align:center}
   .anno b{color:var(--text);font-weight:500}
-  .anno a{color:var(--ice);font-weight:500}
-  .anno .x{position:absolute;right:28px;color:var(--text-3);background:none;border:0;cursor:pointer;font-size:18px;line-height:1}
+  .anno a{color:var(--text);font-weight:500;text-decoration:underline;text-underline-offset:2px}
+  .anno .x{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text-3);background:none;border:0;cursor:pointer;font-size:18px;line-height:1}
   .anno.hide{display:none}
 
   /* nav */
@@ -457,6 +457,8 @@
   .fld label{display:block;font-size:12px;color:var(--text-2);margin-bottom:6px}
   .fld input,.fld select,.fld textarea{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(236,230,220,.2);border-radius:12px;padding:12px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s}
   .fld select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-2) 50%),linear-gradient(135deg,var(--text-2) 50%,transparent 50%);background-position:calc(100% - 18px) 18px,calc(100% - 13px) 18px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+  .fld select option{background:#181817;color:#f2ede6}
+  .fld select,.fld input,.fld textarea{color-scheme:dark}
   .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--ice);box-shadow:0 0 0 3px rgba(242,237,230,.16)}
   .fld input.err,.fld select.err{border-color:#e2687a;box-shadow:0 0 0 3px rgba(226,104,122,.16)}
   .fld textarea{resize:vertical}
@@ -676,7 +678,7 @@
     .plan.reco,.plan.reco:hover{transform:none}
     .cta-final{padding:30px 22px}
     .foot .col[style]{text-align:left!important}
-    .anno{font-size:12px}.anno .x{right:14px}
+    .anno{font-size:12px}
     .social p{max-width:none}
     .blobs i{filter:blur(64px)}
     .tcard blockquote{font-size:17px}
