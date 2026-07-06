@@ -104,8 +104,8 @@ function apptStateM(a, T) {
 function apptBadge(a) {
   if (a.status === "anulada")        return { label:"Cancelada",  color:"rgba(235,242,252,.6)", bg:"transparent",           border:"rgba(235,242,252,.35)" };
   if (a.status === "no_asistio")     return { label:"No asistió", color:"#FFFFFF",              bg:"#E5566B",                border:"#E5566B" };
-  if (a.attended || a.status === "atendida") return { label:"Atendida", color:"#9CC0FF", bg:"rgba(78,141,255,.14)", border:"rgba(120,165,255,.55)" };
-  if (a.status === "confirmada")     return { label:"Confirmada", color:"#9CC0FF",              bg:"rgba(78,141,255,.14)",   border:"rgba(120,165,255,.55)" };
+  if (a.attended || a.status === "atendida") return { label:"Atendida", color:"#A9BAC7", bg:"rgba(120,145,166,.14)", border:"rgba(120,165,255,.55)" };
+  if (a.status === "confirmada")     return { label:"Confirmada", color:"#A9BAC7",              bg:"rgba(120,145,166,.14)",   border:"rgba(120,165,255,.55)" };
   if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#2A1F00",          bg:"#E8B84D",                border:"#E8B84D" };
   return { label:"Pendiente", color:"#2A1F00", bg:"#E8B84D", border:"#E8B84D" };
 }
@@ -148,15 +148,20 @@ const ON_PHOTO = { text: "#F5F7FB", mute: "rgba(235,242,252,.72)", faint: "rgba(
 // renderiza SF Pro real → match exacto con la referencia. Se usa TANTO en serif como en sans para
 // que TODO el panel sea SF Pro (la referencia no usa serif en ningún lado), diferenciando por peso.
 const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', system-ui, Roboto, sans-serif";
+// Prueba de diseño (rama aparte, restaurable): acento de marca Fraunces — la MISMA serif real del
+// portal de escritorio (navyAccent) — usado SOLO en 3 lugares puntuales: el título "Medique" del
+// header, las cifras de los KPI y la hora de las citas (Home + Agenda). Todo lo demás sigue en SF
+// Pro real, sin tocar la regla previa de "todo el panel es SF Pro".
+const FRAUNCES = "'Fraunces', Georgia, serif";
 function photoTheme(T) {
   return Object.assign({}, T, {
     dark: true,                              // fuerza la rama "glass oscuro" en glassPanel/glassChip
     text: ON_PHOTO.text, textMute: ON_PHOTO.mute, textFaint: ON_PHOTO.faint,
     line: "rgba(255,255,255,.16)", lineSoft: "rgba(255,255,255,.09)",
     serif: SF, sans: SF,                     // toda la tipografía del móvil en SF Pro (como el mockup)
-    // Acento azul vivo (referencia del usuario, look iOS): botones primarios, FAB, tab activo,
-    // pastillas de día y badges de estado. Texto blanco sobre el azul.
-    accent: "#3B82F6", accentSoft: "rgba(59,130,246,.18)", onAccent: "#FFFFFF"
+    // Acento SLATE apagado (navyAccent del portal — el mismo que reemplazó al celeste/turquesa
+    // "saturado" en jc-admin.jsx): #7891A6 en oscuro. Reemplaza al azul vivo anterior.
+    accent: "#7891A6", accentSoft: "rgba(120,145,166,.16)", onAccent: "#FFFFFF"
   });
 }
 // Wallpaper: la foto se muestra COMPLETA (es un wallpaper de iPhone, no se recorta ni se amplía).
@@ -175,25 +180,21 @@ function mobileBg(T) {
 }
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
+// "Liquid Glass" (iOS 26, validado en maqueta): brillo superior que se disuelve hacia la base
+// translúcida — simula el refractado/especular del material real (no solo un tinte plano+blur).
 function glassPanel(T, radius) {
-  // "Liquid glass" iOS 26 (pedido del usuario): muy CRISTALINO — casi sin tinte de color, el fondo
-  // oscuro se ve a través. Brillo blanco arriba (reflejo Apple) + borde fino claro + sombra de
-  // profundidad para despegar la tarjeta del fondo negro. Blur alto. Nunca opaco.
-  // Glass navy PROFUNDO (referencia premium iOS 26 oscuro): sin el highlight blanco fuerte ni el
-  // brightness que lo dejaba "escarchado gris". Relleno navy translúcido + borde fino sutil + brillo
-  // superior tenue, para que la tarjeta lea oscura, con cuerpo y profundidad sobre el fondo negro.
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.018) 50%, rgba(255,255,255,.006) 100%), rgba(24,33,49,.46)",
-    backdropFilter: "blur(28px) saturate(1.3)", WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-    border: "1px solid rgba(255,255,255,.085)", borderRadius: radius==null?20:radius,
-    boxShadow: "0 18px 42px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.10)"
+    background: "linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03) 45%, rgba(255,255,255,.045) 100%)",
+    backdropFilter: "blur(28px) saturate(1.5)", WebkitBackdropFilter: "blur(28px) saturate(1.5)",
+    border: "1px solid rgba(255,255,255,.1)", borderRadius: radius==null?20:radius,
+    boxShadow: "0 18px 42px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.14)"
   };
 }
 function glassChip(T) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015) 50%, rgba(255,255,255,.005) 100%), rgba(22,31,47,.42)",
-    backdropFilter: "blur(26px) saturate(1.25)", WebkitBackdropFilter: "blur(26px) saturate(1.25)",
-    border: "1px solid rgba(255,255,255,.075)"
+    background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.025) 45%, rgba(255,255,255,.04) 100%)",
+    backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)",
+    border: "1px solid rgba(255,255,255,.1)"
   };
 }
 // Fondo de la pantalla de LOGIN: foto fija (pedido del usuario) — se quita el video de nubes en
@@ -277,7 +278,7 @@ function LoginScreen({ T, onAuth }) {
   }
   // Mismo tratamiento sobrio que el login SaaS (ver MobileSaasGate): serif elegante, inputs
   // mínimos y botón neutro en vez del azul vivo de los CTA dentro de la app.
-  const SERIF = "'Marcellus', Georgia, serif";
+  const SERIF = FRAUNCES; // prueba de diseño: Fraunces (la serif real del portal), no Marcellus
   const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:9, border:"1px solid rgba(255,255,255,.09)", background:"rgba(0,0,0,.22)", color:"#fff", outline:"none", boxSizing:"border-box" };
   const btnSober = { background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:600, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:9, padding:"16px", cursor:"pointer", marginTop:4 };
   return (
@@ -517,13 +518,14 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const fechaLarga = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
 
-  // KPIs — más compactos/cuadrados (pedido del usuario: ocupar menos espacio).
+  // KPIs — Apple-senior (prueba de diseño): cifra en Fraunces MÁS CHICA (20px, no 22/28) para no
+  // competir con el header; la jerarquía se construye con peso/color, no tamaño exagerado.
   const kpi = (icon, label, val, sub, subColor) => (
-    <div style={{ flex:1, minWidth:0, ...glassPanel(T,18), padding:"14px 4px 13px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}>
-      <div style={{ color:T.accent, opacity:.92, height:14, display:"flex", alignItems:"center" }}>{icon}</div>
-      <div style={{ fontFamily:T.sans, fontSize:9.5, color:T.textMute, lineHeight:1.1, marginTop:4, minHeight:20, display:"flex", alignItems:"center" }}>{label}</div>
-      <div style={{ fontFamily:T.serif, fontSize:22, fontWeight:600, color:T.text, marginTop:1, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
-      {sub && <div style={{ fontFamily:T.sans, fontSize:8, color:subColor||"rgba(230,240,255,.72)", marginTop:3, lineHeight:1.1 }}>{sub}</div>}
+    <div style={{ flex:1, minWidth:0, ...glassPanel(T,18), padding:"11px 4px 10px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", gap:3 }}>
+      <div style={{ color:T.accent, opacity:.85, height:14, display:"flex", alignItems:"center" }}>{icon}</div>
+      <div style={{ fontFamily:T.sans, fontSize:9, color:T.textMute, lineHeight:1.1, minHeight:20, display:"flex", alignItems:"center" }}>{label}</div>
+      <div style={{ fontFamily:FRAUNCES, fontSize:20, fontWeight:500, color:T.text, lineHeight:1, letterSpacing:"-.01em" }}>{val}</div>
+      {sub && <div style={{ fontFamily:T.sans, fontSize:8, color:subColor||T.textFaint, marginTop:1, lineHeight:1.1 }}>{sub}</div>}
     </div>
   );
   const IC = {
@@ -542,13 +544,14 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // "Nueva cita" destaca con su círculo de acento relleno; los demás lo llevan tenue.
   // Inner tiles (referencia): superficie sutil dentro de UN contenedor glass exterior, no 4 tarjetas
   // pesadas sueltas. "Nueva cita" lleva el círculo azul; los demás, ícono de línea claro.
+  // Botones más pequeños/minimalistas (prueba de diseño): antes 70px de alto y círculo de 36px.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6, minHeight:70, minWidth:0, cursor:"pointer", borderRadius:16,
-      background: primary ? "rgba(63,131,255,.14)" : "rgba(255,255,255,.055)", border:"1px solid "+(primary?"rgba(63,131,255,.35)":"rgba(255,255,255,.1)"), padding:"10px 4px" }}>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:5, minHeight:54, minWidth:0, cursor:"pointer", borderRadius:13,
+      background: primary ? T.accentSoft : "rgba(255,255,255,.035)", border:"1px solid "+(primary?"rgba(120,145,166,.4)":"rgba(255,255,255,.08)"), padding:"8px 4px" }}>
       {primary
-        ? <div style={{ width:36, height:36, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 6px 14px -6px "+T.accent }}>{icon}</div>
-        : <div style={{ height:36, display:"flex", alignItems:"center", justifyContent:"center", color:"#DCE9FF" }}>{icon}</div>}
-      <span style={{ fontFamily:T.sans, fontSize:10.5, fontWeight:500, lineHeight:1.1, textAlign:"center", color:T.text }}>{label}</span>
+        ? <div style={{ width:28, height:28, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 4px 10px -4px "+T.accent }}>{icon}</div>
+        : <div style={{ height:28, display:"flex", alignItems:"center", justifyContent:"center", color:"#A9BAC7" }}>{icon}</div>}
+      <span style={{ fontFamily:T.sans, fontSize:9.5, fontWeight:500, lineHeight:1.1, textAlign:"center", color:T.text }}>{label}</span>
     </button>
   );
 
@@ -565,10 +568,10 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
       {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
 
       <div style={{ ...glassPanel(T,22), display:"flex", gap:9, padding:10 }}>
-        {action(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
-        {action(<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
-        {action(<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
-        {action(<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
+        {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
+        {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
+        {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
       </div>
 
       <div>
@@ -588,8 +591,8 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
                 <div style={{ width:4, background:st.color, flexShrink:0 }} />
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"11px 11px", minWidth:0 }}>
                   <div style={{ flexShrink:0, minWidth:40 }}>
-                    {/* La hora va coloreada con el color del estado (referencia): verde/dorado/rojo. */}
-                    <div style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color:st.color, lineHeight:1 }}>{a.time}</div>
+                    {/* Hora en color NEUTRO (pedido): el color queda solo en la barra izquierda y la etiqueta de estado. */}
+                    <div style={{ fontFamily:FRAUNCES, fontSize:16, fontWeight:500, color:T.text, lineHeight:1 }}>{a.time}</div>
                     {iso!==today && <div style={{ fontFamily:T.sans, fontSize:9, color:T.textFaint, marginTop:3 }}>{dLbl}</div>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
@@ -661,8 +664,8 @@ function HorariosTab({ T, appts }) {
           {days.map((d,i)=>(
             <button key={i} onClick={()=>setSelOff(i)}
               style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"8px 10px 6px", borderRadius:14, minWidth:50, cursor:"pointer",
-                background: selOff===i ? "rgba(59,130,246,.12)" : "transparent", border:"1px solid "+(selOff===i ? "rgba(130,175,255,.55)" : "transparent") }}>
-              <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color:selOff===i?"#7FB0FF":T.textMute }}>{i===0?"Hoy":d.wd}</span>
+                background: selOff===i ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(selOff===i ? "rgba(150,170,185,.55)" : "transparent") }}>
+              <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color:selOff===i?"#A9BAC7":T.textMute }}>{i===0?"Hoy":d.wd}</span>
               <span style={{ fontFamily:T.sans, fontSize:20, fontWeight:600, color:T.text }}>{d.dd}</span>
               <div style={{ width:5, height:5, borderRadius:"50%", background:selOff===i?T.accent:"transparent" }} />
             </button>
@@ -833,7 +836,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>
               {abbrevNameM(a.name)}<span style={{ fontWeight:400, color:T.textMute }}> · {abbrevProcM(a.proc)}</span>
             </span>
-            <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11.5, fontWeight:600, color:st.color }}>{a.time}</span>
+            <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
             <span style={{ width:6, height:6, borderRadius:"50%", background:st.color, flexShrink:0 }} />
           </div>
         ) : (
@@ -847,7 +850,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
           <div style={{ width:1, alignSelf:"center", height:"52%", background:"rgba(255,255,255,.12)", flexShrink:0 }} />
           {/* Derecha: rango horario coloreado + estado con punto */}
           <div style={{ width:128, flexShrink:0, padding:"12px 14px", textAlign:"right" }}>
-            <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:st.color }}>{range}</div>
+            <div style={{ fontFamily:FRAUNCES, fontSize:15, fontWeight:500, color:T.text }}>{range}</div>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:6, marginTop:6 }}>
               <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{bd.label}</span>
               <span style={{ width:7, height:7, borderRadius:"50%", background:st.color, flexShrink:0 }} />
@@ -866,7 +869,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
           <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:14, fontWeight:view===k?600:500, padding:"9px", borderRadius:10, cursor:"pointer",
             ...(view===k
-              ? { background:"linear-gradient(180deg, rgba(88,142,246,.28), rgba(48,104,214,.22))", color:"#fff", border:"1px solid rgba(130,175,255,.45)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(40,90,200,.6)" }
+              ? { background:"linear-gradient(180deg, rgba(88,142,246,.28), rgba(48,104,214,.22))", color:"#fff", border:"1px solid rgba(150,170,185,.45)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(40,90,200,.6)" }
               : { background:"transparent", color:T.textMute, border:"1px solid transparent" }) }}>{l}</button>
         ))}
       </div>
@@ -879,7 +882,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const fab = (
     <button onClick={()=>goTab("nueva")} title="Nueva cita" aria-label="Nueva cita"
       style={{ position:"absolute", right:16, bottom:16+"px", width:56, height:56, borderRadius:"50%",
-        background:"rgba(63,131,255,.32)", border:"1px solid rgba(150,190,255,.5)", color:"#EAF2FF", cursor:"pointer",
+        background:"rgba(120,145,166,.32)", border:"1px solid rgba(160,180,195,.5)", color:"#EAF2FF", cursor:"pointer",
         backdropFilter:"blur(16px) saturate(1.5)", WebkitBackdropFilter:"blur(16px) saturate(1.5)",
         boxShadow:"0 12px 28px -10px rgba(10,25,55,.6), inset 0 1px 0 rgba(255,255,255,.35)",
         display:"flex", alignItems:"center", justifyContent:"center", zIndex:5 }}>
@@ -933,8 +936,8 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             return (
               <button key={d.iso} onClick={()=>setSelDay(d.iso)}
                 style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"8px 10px 6px", borderRadius:14, minWidth:46, cursor:"pointer",
-                  background: isSel ? "rgba(59,130,246,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(130,175,255,.55)" : "transparent") }}>
-                <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#7FB0FF" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
+                  background: isSel ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(150,170,185,.55)" : "transparent") }}>
+                <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
                 <span style={{ fontFamily:T.sans, fontSize:22, fontWeight: d.isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
                 <div style={{ width:5, height:5, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
               </button>
@@ -1085,7 +1088,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
                 <div style={{ marginTop:9, display:"flex", flexDirection:"column", gap:6 }}>
                   {results.map(p => (
                     <button key={p.id} onClick={()=>{ setPid(p.id); setQ(p.name); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", ...glassChip(T), borderRadius:9, padding:"10px 12px", cursor:"pointer" }}>
-                      <div style={{ width:30, height:30, borderRadius:"50%", background:"rgba(59,130,246,.16)", border:"1px solid rgba(120,160,240,.3)", color:"#89B4FF", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:11, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                      <div style={{ width:30, height:30, borderRadius:"50%", background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.3)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:11, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                       <div style={{ minWidth:0 }}>
                         <div style={{ fontFamily:T.sans, fontSize:13, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
                         <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{[p.rut, p.phone].filter(Boolean).join(" · ")}</div>
@@ -1209,12 +1212,12 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
             const nextA = appts.filter(a=>(a.patId===p.id || a.name===p.name) && a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=todayISO()).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""))[0];
             return (
               <button key={p.id} onClick={()=>onOpenFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", ...glassPanel(T,16), padding:"12px 14px", cursor:"pointer" }}>
-                <div style={{ width:46, height:46, borderRadius:"50%", flexShrink:0, background:"rgba(59,130,246,.16)", border:"1px solid rgba(120,160,240,.3)", color:"#89B4FF", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:14, fontWeight:700 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                <div style={{ width:46, height:46, borderRadius:"50%", flexShrink:0, background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.3)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:14, fontWeight:700 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontFamily:T.sans, fontSize:16, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
                   <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:2 }}>{[p.rut,p.phone].filter(Boolean).join(" · ")}</div>
                 </div>
-                {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:12, color:"#9BC0FF", ...glassChip(T), borderRadius:999, padding:"5px 11px", whiteSpace:"nowrap" }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:(()=>{ const d=new Date((nextA.fecha||"")+"T00:00:00"); return isNaN(d.getTime())?nextA.fecha:d.getDate()+" "+MESES[d.getMonth()].toLowerCase(); })()}</span>}
+                {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:12, color:"#A9BAC7", ...glassChip(T), borderRadius:999, padding:"5px 11px", whiteSpace:"nowrap" }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:(()=>{ const d=new Date((nextA.fecha||"")+"T00:00:00"); return isNaN(d.getTime())?nextA.fecha:d.getDate()+" "+MESES[d.getMonth()].toLowerCase(); })()}</span>}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round" style={{ flexShrink:0 }}><path d="M9 18l6-6-6-6"/></svg>
               </button>
             );
@@ -1245,7 +1248,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
     <OverlayShell T={T} title="Ficha del paciente" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:14 }}>
         <div style={{ display:"flex", alignItems:"center", gap:13 }}>
-          <div style={{ width:56, height:56, borderRadius:"50%", background:"rgba(59,130,246,.16)", border:"1px solid rgba(120,160,240,.3)", color:"#89B4FF", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:19, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+          <div style={{ width:56, height:56, borderRadius:"50%", background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.3)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:19, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
           <div style={{ minWidth:0 }}>
             <div style={{ fontFamily:T.serif, fontSize:19, color:T.text }}>{p.name}</div>
             <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{[p.rut, p.age?p.age+" años":""].filter(Boolean).join(" · ")}</div>
@@ -1357,7 +1360,7 @@ function ReportesOverlay({ T, appts, onBack }) {
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:"#5B93F5", fontWeight:600, padding:"14px 0 6px" }}>Esta semana</div>
           {row(RIC.cal,   "#7FA8E8", "Citas totales", weekAppts.filter(a=>a.status!=="anulada").length)}
           {row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, a=>a.status==="confirmada"||a.status==="atendida"), "#46D27A")}
-          {row(RIC.user,  "#6EA8FF", "Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), "#6EA8FF")}
+          {row(RIC.user,  "#A9BAC7", "Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), "#A9BAC7")}
           {row(RIC.user,  "#FF6B7D", "No asistió", countBy(weekAppts, a=>a.status==="no_asistio"), "#FF6B7D")}
           {row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, a=>a.status==="anulada"))}
           {row(RIC.pct,   noShowRate>15?"#FF6B7D":"#46D27A", "Tasa de inasistencia", noShowRate+"%", noShowRate>15?"#FF6B7D":"#46D27A", true)}
@@ -1367,7 +1370,7 @@ function ReportesOverlay({ T, appts, onBack }) {
           {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:13, color:T.textFaint, padding:"6px 0 12px" }}>Sin datos este mes.</div>}
           {topProc.map((t,i) => (
             <div key={t.name} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", borderBottom: i===topProc.length-1?"none":"1px solid rgba(255,255,255,.06)" }}>
-              <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:"rgba(59,130,246,.14)", color:"#6EA8FF", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:"rgba(120,145,166,.14)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>
               </div>
               <div style={{ flex:1, minWidth:0 }}>
@@ -1375,7 +1378,7 @@ function ReportesOverlay({ T, appts, onBack }) {
                   <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
                   <span style={{ fontFamily:T.sans, fontSize:16, fontWeight:700, color:T.text, marginLeft:8, flexShrink:0 }}>{t.n}</span>
                 </div>
-                <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8 }}><div style={{ height:"100%", width:Math.max(6,Math.round(t.n/maxProc*100))+"%", background:"linear-gradient(90deg,#3B82F6,#5EA0FF)", borderRadius:999 }} /></div>
+                <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8 }}><div style={{ height:"100%", width:Math.max(6,Math.round(t.n/maxProc*100))+"%", background:"linear-gradient(90deg,#7891A6,#A9BAC7)", borderRadius:999 }} /></div>
               </div>
             </div>
           ))}
@@ -1390,7 +1393,7 @@ function MasTab({ T, openOverlay, onLogout }) {
   const item = (icon, label, onClick, danger) => (
     <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:15, width:"100%", textAlign:"left", ...glassPanel(T,18), padding:"18px 16px", cursor:"pointer",
       ...(danger ? { background:"linear-gradient(180deg, rgba(255,90,110,.10), rgba(255,70,90,.04) 60%), rgba(40,20,26,.42)" } : {}) }}>
-      <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:(danger?"rgba(255,90,110,.16)":"rgba(59,130,246,.16)"), border:"1px solid "+(danger?"rgba(255,120,140,.3)":"rgba(120,160,240,.28)"), color:danger?"#FF6B7D":"#6EA8FF", display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
+      <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:(danger?"rgba(255,90,110,.16)":"rgba(120,145,166,.16)"), border:"1px solid "+(danger?"rgba(255,120,140,.3)":"rgba(130,150,170,.28)"), color:danger?"#FF6B7D":"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
       <span style={{ fontFamily:T.sans, fontSize:18, fontWeight:600, color:danger?"#FF6B7D":T.text, flex:1 }}>{label}</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={danger?"rgba(255,107,125,.7)":T.textFaint} strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
     </button>
@@ -1401,7 +1404,7 @@ function MasTab({ T, openOverlay, onLogout }) {
       {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
       <button onClick={()=>{ const b = document.getElementById("jcm-mob-rfab-icon2"); if(b){ b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{b.style.transition="";b.style.transform="";},600);} window.dispatchEvent(new CustomEvent("jcsaas:data")); }}
         style={{ display:"flex", alignItems:"center", gap:15, width:"100%", textAlign:"left", ...glassPanel(T,18), padding:"18px 16px", cursor:"pointer" }}>
-        <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:"rgba(59,130,246,.16)", border:"1px solid rgba(120,160,240,.28)", color:"#6EA8FF", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.28)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>
           <svg id="jcm-mob-rfab-icon2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
         </div>
         <span style={{ fontFamily:T.sans, fontSize:18, fontWeight:600, color:T.text, flex:1 }}>Actualizar datos</span>
@@ -1546,7 +1549,7 @@ function MobileShell({ T, D, onLogout }) {
         </div>
         <div style={{ minWidth:0 }}>
           <div style={{ display:"flex", alignItems:"baseline", gap:5, lineHeight:1 }}>
-            <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color:T.text }}>Medique</span>
+            <span style={{ fontFamily:FRAUNCES, fontSize:16, fontWeight:500, color:T.text }}>Medique</span>
             {clinName && <span style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {clinName}</span>}
           </div>
           {/* Fecha del día (reemplaza a "Panel móvil"). */}
@@ -1682,7 +1685,7 @@ function MobileShell({ T, D, onLogout }) {
               <div style={{ ...glassChip(T), border:"none", padding:"calc(16px + env(safe-area-inset-top,0px)) 16px 16px", display:"flex", alignItems:"center", gap:11 }}>
                 <img src="/assets/medique-logo.png" alt="Medique" style={{ width:34, height:34, flexShrink:0 }} />
                 <div style={{ minWidth:0 }}>
-                  <div style={{ fontFamily:T.serif, fontSize:18, color:T.text }}>Medique</div>
+                  <div style={{ fontFamily:FRAUNCES, fontSize:18, color:T.text }}>Medique</div>
                   {clinName && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName}</div>}
                 </div>
               </div>
@@ -1789,7 +1792,7 @@ function MobileSaasGate() {
   const linkSober = { background:"none", border:"none", cursor:"pointer", color:ON_PHOTO.mute, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 };
   // Serif elegante (Marcellus, la del portal de escritorio) SOLO para los títulos del login — el
   // resto del panel (una vez adentro) se queda en SF Pro, eso no cambia.
-  const SERIF = "'Marcellus', Georgia, serif";
+  const SERIF = FRAUNCES; // prueba de diseño: Fraunces (la serif real del portal), no Marcellus
   // Toda la "zona de login" (cargando/entrar/bloqueado/recuperar) comparte el mismo fondo.
   const center = (kids) => <LoginVideoBg>{kids}</LoginVideoBg>;
 
