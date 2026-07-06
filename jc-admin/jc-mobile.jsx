@@ -936,6 +936,10 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [phone, setPhone] = useState(PHONE_PFX);
   function onPhone(v) { const digits = v.startsWith(PHONE_PFX) ? v.slice(PHONE_PFX.length).replace(/\D/g, "") : v.replace(/\D/g, "").replace(/^569?/, ""); setPhone(PHONE_PFX + digits.slice(0, 8)); }
   const phoneOk = phone.replace(/\D/g, "").length >= 11;
+  // RUT OBLIGATORIO para paciente nuevo (pedido): se formatea al escribir y se valida con módulo 11
+  // (mismos helpers que el portal, jcm_shared.js). Se autoriza sin RUT solo si el helper no cargó.
+  function onRut(v) { setRut(window.jcmFmtRut ? window.jcmFmtRut(v) : v); }
+  const rutOk = window.jcmValidRut ? window.jcmValidRut(rut) : (rut||"").replace(/[^0-9kK]/g,"").length >= 2;
   const [email, setEmail] = useState("");
   // Paso 2 — detalles
   const procs = procList();
@@ -959,7 +963,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const finalRut = tipo==="existente" ? (selectedPatient?selectedPatient.rut:"") : rut;
   const finalEmail = tipo==="existente" ? (selectedPatient?selectedPatient.email:"") : email;
 
-  const step1Ok = tipo==="existente" ? !!selectedPatient : (name.trim() && phoneOk);
+  const step1Ok = tipo==="existente" ? !!selectedPatient : (name.trim() && rutOk && phoneOk);
   const step2Ok = !!proc && !!fecha && !!time;
 
   const slotsMap = (window.DB && window.DB.get('horarios_dates')) || {};
@@ -1058,7 +1062,8 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               <div><label style={lbl}>Nombre completo</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido" style={inp} /></div>
-              <div><label style={lbl}>RUT (opcional)</label><input value={rut} onChange={e=>setRut(e.target.value)} placeholder="12.345.678-9" style={inp} /></div>
+              <div><label style={lbl}>RUT</label><input value={rut} onChange={e=>onRut(e.target.value)} inputMode="numeric" placeholder="12.345.678-9" style={{...inp, borderColor: (rutOk || !rut) ? undefined : "#C0285A88"}} /></div>
+              {rut && !rutOk && <div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3" }}>Revisa el RUT: el dígito verificador no coincide.</div>}
               <div><label style={lbl}>Teléfono</label><input type="tel" inputMode="numeric" value={phone} onChange={e=>onPhone(e.target.value)} style={{...inp, borderColor: phoneOk?undefined:"#C0285A88"}} /></div>
               <div><label style={lbl}>Correo (opcional)</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="correo@ejemplo.com" style={inp} /></div>
               {!phoneOk && phone.length>PHONE_PFX.length && <div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3" }}>Ingresa los 8 dígitos del teléfono.</div>}
