@@ -558,7 +558,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   );
 
   return (
-    <div style={{ padding:"14px 16px 96px", display:"flex", flexDirection:"column", gap:14 }}>
+    <div style={{ padding:"12px 16px 110px", display:"flex", flexDirection:"column", gap:12 }}>
       {/* Saludo/avatar eliminados a pedido del usuario (ahorro de espacio): la fecha vive en el header. */}
       <div style={{ display:"flex", gap:7 }}>
         {kpi(IC.cal, "Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer")}
@@ -582,31 +582,29 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
         {upcoming.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin próximas citas agendadas.</div>}
-        {/* Planas pero LEVEMENTE separadas (pedido): no un solo contenedor pegado (eso queda para
-            Pacientes) — cada cita es su propia fila plana (sin el glass pesado de antes) con un
-            pequeño espacio entre una y otra. */}
+        {/* Tarjeta estilo portal (pedido): borde completo de color de estado, insignia de una letra
+            del procedimiento en la esquina superior derecha, nombre+hora en la primera fila y
+            procedimiento+hora de término en la segunda (si hay procedimiento). */}
         {upcoming.length>0 && (
-        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {upcoming.map((a,i) => {
             const st = apptStateM(a, T);
-            const bd = apptBadge(a);
+            const ini = procInitialM(a.proc);
             const iso = a.fecha||offToISO(a.day||0);
             const dLbl = iso===today ? "Hoy" : (()=>{ const d=new Date(iso+"T00:00:00"); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
+            const startMin = minsM(a.time);
+            const durMin = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+            const endMin = startMin + durMin;
+            const endLbl = (h=>{ const hh=Math.floor(h/60), mm=h%60; return (hh<10?"0":"")+hh+":"+(mm<10?"0":"")+mm; })(endMin);
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:14, overflow:"hidden" }}>
-                <div style={{ width:4, background:st.color, flexShrink:0 }} />
-                <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"11px 11px", minWidth:0 }}>
-                  <div style={{ flexShrink:0, minWidth:40 }}>
-                    {/* Hora en color NEUTRO (pedido): el color queda solo en la barra izquierda y la etiqueta de estado. */}
-                    <div style={{ fontFamily:FRAUNCES, fontSize:16, fontWeight:500, color:T.text, lineHeight:1 }}>{a.time}</div>
-                    {iso!==today && <div style={{ fontFamily:T.sans, fontSize:9, color:T.textFaint, marginTop:3 }}>{dLbl}</div>}
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
-                    <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{a.proc||"—"} · {durOf(a)}</div>
-                  </div>
-                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:".03em", textTransform:"uppercase", color:bd.color, background:bd.bg, border:"1px solid "+bd.border, borderRadius:6, padding:"3px 8px" }}>{bd.label}</span>
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ position:"relative", width:"100%", textAlign:"left", cursor:"pointer", background:"color-mix(in srgb, "+st.color+" 10%, transparent)", border:"1px solid color-mix(in srgb, "+st.color+" 40%, transparent)", borderRadius:14, padding:"10px 34px 10px 12px" }}>
+                <div style={{ display:"flex", alignItems:"baseline", gap:6, minWidth:0 }}>
+                  <span style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
+                  <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.textMute, marginLeft:"auto" }}>{a.time}</span>
                 </div>
+                {a.proc && <div style={{ marginTop:2, fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.proc} — {endLbl}</div>}
+                {iso!==today && <div style={{ marginTop:2, fontFamily:T.sans, fontSize:9, color:T.textFaint }}>{dLbl}</div>}
+                {ini && <span style={{ position:"absolute", top:8, right:8, width:18, height:18, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:9.5, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 16%, transparent)" }}>{ini}</span>}
               </button>
             );
           })}
@@ -754,6 +752,24 @@ function abbrevProcM(proc) {
   if (p.includes("evaluaci")) return "EV";
   if (p.includes("quemador")) return "Q";
   return proc || "—";
+}
+// Iniciál de una letra para la insignia de la tarjeta de "Próximas citas" (idéntica a procInitial()
+// del portal de escritorio, jc-admin.jsx) — distinta de abbrevProcM: esa es para el texto abreviado
+// del procedimiento, esta es solo la letra que va dentro del badge de la esquina de la tarjeta.
+function procInitialM(proc) {
+  if (!proc) return "";
+  const n = proc.toLowerCase();
+  if (/botox|toxina|btx|tox\b/.test(n)) return "B";
+  if (/rino/.test(n)) return "R";
+  if (/sculptra|bioestim|col[aá]geno/.test(n)) return "S";
+  if (/lipol[ií]t|disolver|lipolisis/.test(n)) return "L";
+  if (/evaluac/.test(n)) return "E";
+  if (/mesoterap|vitamina|nctf|rejuran|salm[oó]n/.test(n)) return "M";
+  if (/hialur|armoniz|juv[eé]derm/.test(n)) return "H";
+  if (/quemador|grasa/.test(n)) return "Q";
+  if (/plasma|prp/.test(n)) return "P";
+  if (/control/.test(n)) return "C";
+  return proc.trim().charAt(0).toUpperCase();
 }
 
 function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
@@ -1550,18 +1566,19 @@ function MobileShell({ T, D, onLogout }) {
   </button>;
   const headerTitle = (txt) => <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color:T.text }}>{txt}</span>;
   const renderHeader = () => {
-    if (tab==="citas") return <><div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
+    if (tab==="citas") return <><div style={{ display:"flex", alignItems:"center", gap:7, minWidth:0 }}>
         {hamburger}
-        {/* Logo oficial de Medique (monograma navy) sobre cuadro blanco para que se vea en el header oscuro. */}
-        <div style={{ width:34, height:34, borderRadius:9, flexShrink:0, background:"#FFFFFF", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", boxShadow:"0 3px 10px -4px rgba(0,0,0,.55)" }}>
-          <img src="/assets/medique-logo.png" alt="Medique" style={{ width:34, height:34, objectFit:"contain" }} />
+        {/* Logo oficial de Medique (monograma navy) sobre cuadro blanco para que se vea en el header oscuro.
+            Pedido: header más chico para dar protagonismo a los KPI de abajo. */}
+        <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, background:"#FFFFFF", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", boxShadow:"0 3px 10px -4px rgba(0,0,0,.55)" }}>
+          <img src="/assets/medique-logo.png" alt="Medique" style={{ width:28, height:28, objectFit:"contain" }} />
         </div>
         <div style={{ minWidth:0 }}>
           {/* Pedido: solo el logo representa la marca Medique — el texto pasa a ser el nombre
               de la clínica que corresponda (no "Medique · X"). */}
-          <div style={{ fontFamily:FRAUNCES, fontSize:16, fontWeight:500, color:T.text, lineHeight:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName || "Medique"}</div>
+          <div style={{ fontFamily:FRAUNCES, fontSize:14, fontWeight:500, color:T.text, lineHeight:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName || "Medique"}</div>
           {/* Fecha del día, tal cual estaba. */}
-          <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, display:"block", marginTop:3 }}>{fechaHeader}</span>
+          <span style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, display:"block", marginTop:2 }}>{fechaHeader}</span>
         </div>
       </div>{bell}</>;
     if (tab==="nueva") return <>
@@ -1593,7 +1610,7 @@ function MobileShell({ T, D, onLogout }) {
           safe-area arriba; la tarjeta glass va redondeada con borde completo. */}
       <div style={{ position:"sticky", top:0, zIndex:10, padding:"calc(8px + env(safe-area-inset-top,0px)) 14px 4px" }}>
         {tab==="citas"
-          ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, ...glassChip(T), borderRadius:20, padding:"11px 14px" }}>{renderHeader()}</div>
+          ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, ...glassChip(T), borderRadius:18, padding:"8px 12px" }}>{renderHeader()}</div>
           : <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"6px 4px 6px", minHeight:42 }}>{renderHeader()}</div>}
       </div>
 
