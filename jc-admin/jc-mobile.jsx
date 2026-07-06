@@ -101,13 +101,15 @@ function apptStateM(a, T) {
 //  · Confirmada / Atendida = CONTORNO azul (texto azul claro, fondo azul muy tenue, borde azul).
 //  · Pendiente = pastilla RELLENA dorada con texto oscuro.
 //  · No asistió = pastilla RELLENA roja con texto blanco.
+// Pedido: TODAS las etiquetas de estado son de contorno de color (texto+borde en el color del
+// estado, relleno muy tenue) — antes "No asistió"/"Transferencia"/"Pendiente" eran sólidas.
 function apptBadge(a) {
-  if (a.status === "anulada")        return { label:"Cancelada",  color:"rgba(235,242,252,.6)", bg:"transparent",           border:"rgba(235,242,252,.35)" };
-  if (a.status === "no_asistio")     return { label:"No asistió", color:"#FFFFFF",              bg:"#E5566B",                border:"#E5566B" };
+  if (a.status === "anulada")        return { label:"Cancelada",  color:"rgba(235,242,252,.6)", bg:"transparent",              border:"rgba(235,242,252,.35)" };
+  if (a.status === "no_asistio")     return { label:"No asistió", color:"#E5566B",              bg:"rgba(229,86,107,.14)",     border:"rgba(229,86,107,.55)" };
   if (a.attended || a.status === "atendida") return { label:"Atendida", color:"#A9BAC7", bg:"rgba(120,145,166,.14)", border:"rgba(120,165,255,.55)" };
   if (a.status === "confirmada")     return { label:"Confirmada", color:"#A9BAC7",              bg:"rgba(120,145,166,.14)",   border:"rgba(120,165,255,.55)" };
-  if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#2A1F00",          bg:"#E8B84D",                border:"#E8B84D" };
-  return { label:"Pendiente", color:"#2A1F00", bg:"#E8B84D", border:"#E8B84D" };
+  if (a.status === "pendiente_pago") return { label:"Transferencia", color:"#E8B84D",           bg:"rgba(232,184,77,.14)",    border:"rgba(232,184,77,.55)" };
+  return { label:"Pendiente", color:"#E8B84D", bg:"rgba(232,184,77,.14)", border:"rgba(232,184,77,.55)" };
 }
 
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
@@ -580,18 +582,18 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
         {upcoming.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin próximas citas agendadas.</div>}
-        {/* Lista PLANA (pedido: más minimalista, como la versión inicial) — UN solo contenedor
-            glass, filas separadas por línea fina, no una tarjeta individual por cita. La barra de
-            color y la duración de cada cita quedan dentro de su fila, no en un panel propio. */}
+        {/* Planas pero LEVEMENTE separadas (pedido): no un solo contenedor pegado (eso queda para
+            Pacientes) — cada cita es su propia fila plana (sin el glass pesado de antes) con un
+            pequeño espacio entre una y otra. */}
         {upcoming.length>0 && (
-        <div style={{ ...glassPanel(T,18), display:"flex", flexDirection:"column", overflow:"hidden" }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
           {upcoming.map((a,i) => {
             const st = apptStateM(a, T);
             const bd = apptBadge(a);
             const iso = a.fecha||offToISO(a.day||0);
             const dLbl = iso===today ? "Hoy" : (()=>{ const d=new Date(iso+"T00:00:00"); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", background:"none", border:"none", borderBottom: i===upcoming.length-1?"none":"1px solid rgba(255,255,255,.08)" }}>
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"stretch", width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:14, overflow:"hidden" }}>
                 <div style={{ width:4, background:st.color, flexShrink:0 }} />
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"11px 11px", minWidth:0 }}>
                   <div style={{ flexShrink:0, minWidth:40 }}>
@@ -1555,12 +1557,11 @@ function MobileShell({ T, D, onLogout }) {
           <img src="/assets/medique-logo.png" alt="Medique" style={{ width:34, height:34, objectFit:"contain" }} />
         </div>
         <div style={{ minWidth:0 }}>
-          <div style={{ display:"flex", alignItems:"baseline", gap:5, lineHeight:1 }}>
-            <span style={{ fontFamily:FRAUNCES, fontSize:16, fontWeight:500, color:T.text }}>Medique</span>
-            {clinName && <span style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {clinName}</span>}
-          </div>
-          {/* Fecha del día (reemplaza a "Panel móvil"). */}
-          <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, display:"block", marginTop:1 }}>{fechaHeader}</span>
+          {/* Pedido: solo el logo representa la marca Medique — el texto pasa a ser el nombre
+              de la clínica que corresponda (no "Medique · X"). */}
+          <div style={{ fontFamily:FRAUNCES, fontSize:16, fontWeight:500, color:T.text, lineHeight:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName || "Medique"}</div>
+          {/* Fecha del día, tal cual estaba. */}
+          <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, display:"block", marginTop:3 }}>{fechaHeader}</span>
         </div>
       </div>{bell}</>;
     if (tab==="nueva") return <>
@@ -1692,8 +1693,8 @@ function MobileShell({ T, D, onLogout }) {
               <div style={{ ...glassChip(T), border:"none", padding:"calc(16px + env(safe-area-inset-top,0px)) 16px 16px", display:"flex", alignItems:"center", gap:11 }}>
                 <img src="/assets/medique-logo.png" alt="Medique" style={{ width:34, height:34, flexShrink:0 }} />
                 <div style={{ minWidth:0 }}>
-                  <div style={{ fontFamily:FRAUNCES, fontSize:18, color:T.text }}>Medique</div>
-                  {clinName && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName}</div>}
+                  {/* Mismo criterio que el header: solo el logo es "Medique", el texto es la clínica. */}
+                  <div style={{ fontFamily:FRAUNCES, fontSize:18, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName || "Medique"}</div>
                 </div>
               </div>
               <div className="jc-scroll" style={{ flex:1, overflowY:"auto", padding:"12px 8px", display:"flex", flexDirection:"column", gap:2 }}>
