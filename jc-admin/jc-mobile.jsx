@@ -139,20 +139,6 @@ function photoTheme(T) {
     accent: "#7891A6", accentSoft: "rgba(120,145,166,.16)", onAccent: "#FFFFFF"
   });
 }
-// Wallpaper: la foto se muestra COMPLETA (es un wallpaper de iPhone, no se recorta ni se amplía).
-// Va en el contenedor raíz del panel (no "fixed", que se ancla al viewport ancho del escritorio y
-// recortaba la montaña). Velo de legibilidad muy leve: la montaña se ve, el texto claro contrasta.
-function mobileBg(T) {
-  // Velo AZUL (no gris/negro): unifica todo en el azul cerúleo de la referencia y mantiene el texto
-  // blanco legible sobre la foto brillante, sin apagar la montaña.
-  // Fondo v3 ya viene DESENFOCADO (como la referencia: el detalle de la montaña se disuelve). El velo
-  // azul es ahora más parejo y con más cuerpo para unificar el tono en un azul profundo (la banda de
-  // nubes clara de v3 queda tenue) y que el texto blanco resalte, igual que en las 3 referencias.
-  // Velo OSCURO navy casi negro (pedido: "como el portal de escritorio"): la montaña desenfocada
-  // queda apenas visible como una textura tenue, el conjunto lee oscuro y premium (iOS 26).
-  const overlay = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
-  return { backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=11')", backgroundColor: "#070B12", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" };
-}
 // Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
 // transparente detrás de cada tarjeta sin perder legibilidad.
 // "Liquid Glass" (iOS 26, validado en maqueta): brillo superior que se disuelve hacia la base
@@ -174,11 +160,14 @@ function glassChip(T) {
 }
 // Fondo de la pantalla de LOGIN: foto fija + velo casi negro, IDÉNTICO al login del portal de
 // escritorio (SaasGate, jc-admin.jsx) — antes era un velo azulado más claro, propio del móvil.
+// La foto va DESENFOCADA en su propia capa (no la nueva v3, que a diferencia de la anterior no
+// viene pre-desenfocada) para que el texto/los inputs no se pierdan contra el detalle de la montaña.
 function LoginVideoBg({ children }) {
   const overlay = "linear-gradient(rgba(9,11,15,.76), rgba(9,11,15,.90))";
   return (
-    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px",
-      backgroundImage: overlay + ", url('/assets/everest-mobile.jpg?v=11')", backgroundColor:"#070707", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }}>
+    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#070707" }}>
+      <div style={{ position:"absolute", inset:-24, backgroundImage:"url('/assets/everest-mobile.jpg?v=11')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat", filter:"blur(22px)", transform:"scale(1.08)" }} />
+      <div style={{ position:"absolute", inset:0, backgroundImage:overlay }} />
       <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:340, display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
     </div>
   );
@@ -492,12 +481,12 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const fechaLarga = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
 
-  // KPIs — dashboard horizontal DELGADO (pedido), igual lenguaje que el KPI del portal de escritorio:
-  // etiqueta pequeña en mayúsculas arriba + cifra grande debajo, sin ícono, tarjeta fina.
+  // KPIs — dashboard horizontal (pedido): cifra grande (tamaño de la versión anterior, más legible)
+  // pero tarjeta más compacta (~75% del padding actual) para que el bloque en conjunto ocupe menos.
   const kpi = (label, val, sub, subColor) => (
-    <div style={{ flex:1, minWidth:0, ...glassPanel(T,14), padding:"9px 10px 8px", display:"flex", flexDirection:"column", gap:2 }}>
+    <div style={{ flex:1, minWidth:0, ...glassPanel(T,14), padding:"6px 8px 6px", display:"flex", flexDirection:"column", gap:1 }}>
       <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:".03em", textTransform:"uppercase", color:T.textMute, lineHeight:1.2 }}>{label}</div>
-      <div style={{ fontFamily:FRAUNCES, fontSize:18, fontWeight:500, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>{val}</div>
+      <div style={{ fontFamily:FRAUNCES, fontSize:21, fontWeight:500, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>{val}</div>
       {sub && <div style={{ fontFamily:T.sans, fontSize:7.5, color:subColor||T.textFaint, lineHeight:1.1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>}
     </div>
   );
@@ -558,7 +547,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
                 <div style={{ width:3, alignSelf:"stretch", background:st.color, flexShrink:0 }} />
                 <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
                 <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
-                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10.5, fontWeight:600, color:T.textMute }}>{abbrevProcM(a.proc)}</span>
+                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
               </button>
             );
           })}
@@ -712,11 +701,15 @@ function abbrevProcM(proc) {
 function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
-  // Tira de días CONTINUA (pedido): un rango largo y fijo de días consecutivos, scrolleable de
-  // forma directa (scroll nativo), no paginada semana por semana.
+  // Tira de días CONTINUA (pedido): scrolleable de forma directa (scroll nativo), no paginada
+  // semana por semana. Hacia atrás solo llega hasta el día 1 del mes actual (pedido) — hacia
+  // adelante, un rango amplio fijo (60 días) para navegar cómodo sin ser infinito.
   const stripDays = useMemo(() => {
+    const now = new Date(); now.setHours(0,0,0,0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const daysFromStart = Math.round((now - monthStart) / 86400000);
     const arr = [];
-    for (let i=-14; i<=60; i++) {
+    for (let i=-daysFromStart; i<=60; i++) {
       const d = new Date(); d.setDate(d.getDate()+i);
       const iso = localISO(d);
       arr.push({ iso, wd: WDS[d.getDay()], dd: d.getDate(), isToday: iso===today });
@@ -792,7 +785,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         <div style={{ width:3, alignSelf:"stretch", background:st.color, flexShrink:0 }} />
         <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</span>
-        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:600, color:T.textMute, paddingRight:10 }}>{abbrevProcM(a.proc)}</span>
+        <span style={{ flexShrink:0, marginRight:10, fontFamily:T.sans, fontSize:9, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:5, padding:"2px 6px" }}>{abbrevProcM(a.proc)}</span>
       </button>
     );
   }
@@ -803,7 +796,9 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     <div style={{ display:"flex", gap:5, padding:"8px 14px 6px", flexShrink:0, ...glassChip(T), border:"none", background:"transparent" }}>
       <div style={{ display:"flex", flex:1, gap:3, padding:3, borderRadius:11, ...glassChip(T) }}>
         {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setView(k)} style={{ flex:1, fontFamily:T.sans, fontSize:12, fontWeight:view===k?600:500, padding:"6px", borderRadius:8, cursor:"pointer",
+          // Pedido: al tocar "Día" siempre vuelve al día de HOY automáticamente (no se queda en
+          // el último día que se haya elegido).
+          <button key={k} onClick={()=>{ setView(k); if (k==="dia") setSelDay(today); }} style={{ flex:1, fontFamily:T.sans, fontSize:12, fontWeight:view===k?600:500, padding:"6px", borderRadius:8, cursor:"pointer",
             ...(view===k
               ? { background:"linear-gradient(180deg, rgba(88,142,246,.28), rgba(48,104,214,.22))", color:"#fff", border:"1px solid rgba(150,170,185,.45)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(40,90,200,.6)" }
               : { background:"transparent", color:T.textMute, border:"1px solid transparent" }) }}>{l}</button>
@@ -831,7 +826,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   if (view === "mes") {
     const WD = ["L","M","M","J","V","S","D"];
     return (
-      <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 150px)" }}>
+      <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
         {toggleRow}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
           <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>‹</button>
@@ -864,7 +859,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   }
 
   return (
-    <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"calc(100dvh - 150px)" }}>
+    <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
       {toggleRow}
       {/* Tira de días continua (pedido): scroll horizontal nativo y directo, sin paginar por semana.
           Esta zona y los botones de arriba quedan FIJOS — solo la lista de citas más abajo scrollea. */}
@@ -1514,41 +1509,56 @@ function MobileShell({ T, D, onLogout }) {
     { lbl:"Más",       on: tab==="mas" && !overlay,        act:()=>{ setOverlay(null); setTab("mas"); },    icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg> },
   ];
 
+  // Fondo con BLUR real (pedido): antes el filtro se aplicaba a toda la foto de fondo sobre el
+  // mismo contenedor que la interfaz — la nueva foto (v3) no venía pre-desenfocada como la anterior,
+  // así que los elementos se perdían contra el detalle nítido de la montaña. Ahora la foto vive en
+  // una capa propia, aparte y detrás (position:absolute, agrandada para que el blur no deje ver
+  // bordes transparentes), y el contenido real va en una capa separada ENCIMA — así el blur nunca
+  // toca el texto/los controles, solo la imagen.
+  const bgOverlay = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
   return (
-    <div style={{ height:"100dvh", overflow:"hidden", ...mobileBg(T), display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
-      {/* Header dinámico por pestaña (referencia): hamburguesa + título/marca + acción a la derecha */}
-      {/* Header = TARJETA FLOTANTE redondeada (referencia), no barra recta full-width. Gutter lateral +
-          safe-area arriba; la tarjeta glass va redondeada con borde completo. */}
-      <div style={{ position:"sticky", top:0, zIndex:10, padding:"calc(8px + env(safe-area-inset-top,0px)) 14px 4px" }}>
-        {tab==="citas"
-          ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, ...glassChip(T), borderRadius:18, padding:"8px 12px" }}>{renderHeader()}</div>
-          : <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"6px 4px 6px", minHeight:42 }}>{renderHeader()}</div>}
-      </div>
+    <div style={{ height:"100dvh", overflow:"hidden", position:"relative", backgroundColor:"#070B12", maxWidth:480, margin:"0 auto" }}>
+      <div style={{ position:"absolute", inset:-24, backgroundImage:"url('/assets/everest-mobile.jpg?v=11')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat", filter:"blur(22px)", transform:"scale(1.08)" }} />
+      <div style={{ position:"absolute", inset:0, backgroundImage:bgOverlay }} />
+      <div style={{ position:"relative", zIndex:1, height:"100%", display:"flex", flexDirection:"column" }}>
+        {/* Header dinámico por pestaña (referencia): hamburguesa + título/marca + acción a la derecha */}
+        {/* Header = TARJETA FLOTANTE redondeada (referencia), no barra recta full-width. Gutter lateral +
+            safe-area arriba; la tarjeta glass va redondeada con borde completo. */}
+        <div style={{ position:"sticky", top:0, zIndex:10, padding:"calc(8px + env(safe-area-inset-top,0px)) 14px 4px" }}>
+          {tab==="citas"
+            ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, ...glassChip(T), borderRadius:18, padding:"8px 12px" }}>{renderHeader()}</div>
+            : <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"6px 4px 6px", minHeight:42 }}>{renderHeader()}</div>}
+        </div>
 
-      {/* Content */}
-      <div style={{ flex:1, overflowY:"auto" }}>
-        {tab==="citas"    && <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} />}
-        {tab==="horarios" && <HorariosTab T={T} appts={appts} />}
-        {tab==="nueva"    && <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} />}
-        {tab==="agenda"   && <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} />}
-        {tab==="mas"      && <MasTab      T={T} openOverlay={setOverlay} onLogout={onLogout} />}
-      </div>
+        {/* Content */}
+        {/* Pedido: en Agenda, la pantalla queda fija (encabezado/tira de días/segmento no se mueven) —
+            solo el horario de citas scrollea, así que este contenedor exterior NO debe tener su propio
+            scroll para esa pestaña (si no, "flotaba" y se veía la foto de fondo por encima). Agenda
+            maneja su scroll interno sola. */}
+        <div style={{ flex:1, overflowY: tab==="agenda" ? "hidden" : "auto" }}>
+          {tab==="citas"    && <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} />}
+          {tab==="horarios" && <HorariosTab T={T} appts={appts} />}
+          {tab==="nueva"    && <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} />}
+          {tab==="agenda"   && <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} />}
+          {tab==="mas"      && <MasTab      T={T} openOverlay={setOverlay} onLogout={onLogout} />}
+        </div>
 
-      {/* Tab bar — isla flotante redondeada (referencia): pastilla azul con glow en el activo */}
-      <div style={{ position:"sticky", bottom:0, padding:"0 12px calc(10px + env(safe-area-inset-bottom,0px))", pointerEvents:"none" }}>
-        <div style={{ display:"flex", gap:2, ...glassPanel(T,26), padding:"7px 6px", pointerEvents:"auto", boxShadow:"0 18px 44px -14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.16)" }}>
-          {tabs.map(({lbl,icon,on,act})=>(
-            <button key={lbl} onClick={act}
-              style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"6px 2px", background:"transparent", border:"none", cursor:"pointer" }}>
-              {/* Activo (referencia): el ícono va dentro de un cuadro azul relleno; etiqueta en azul. */}
-              <div style={{ width:38, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
-                background: on ? T.accent : "transparent", color: on ? "#fff" : T.textFaint,
-                boxShadow: on ? "0 6px 14px -6px "+T.accent : "none" }}>{icon}</div>
-              <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:on?600:500, color: on ? "#CFE0FF" : T.textFaint }}>{lbl}</span>
-              {/* Puntito indicador del activo (referencia) */}
-              <div style={{ width:5, height:5, borderRadius:"50%", background: on ? T.accent : "transparent", marginTop:1 }} />
-            </button>
-          ))}
+        {/* Tab bar — isla flotante redondeada (referencia): pastilla azul con glow en el activo */}
+        <div style={{ position:"sticky", bottom:0, padding:"0 12px calc(10px + env(safe-area-inset-bottom,0px))", pointerEvents:"none" }}>
+          <div style={{ display:"flex", gap:2, ...glassPanel(T,26), padding:"7px 6px", pointerEvents:"auto", boxShadow:"0 18px 44px -14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.16)" }}>
+            {tabs.map(({lbl,icon,on,act})=>(
+              <button key={lbl} onClick={act}
+                style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"6px 2px", background:"transparent", border:"none", cursor:"pointer" }}>
+                {/* Activo (referencia): el ícono va dentro de un cuadro azul relleno; etiqueta en azul. */}
+                <div style={{ width:38, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
+                  background: on ? T.accent : "transparent", color: on ? "#fff" : T.textFaint,
+                  boxShadow: on ? "0 6px 14px -6px "+T.accent : "none" }}>{icon}</div>
+                <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:on?600:500, color: on ? "#CFE0FF" : T.textFaint }}>{lbl}</span>
+                {/* Puntito indicador del activo (referencia) */}
+                <div style={{ width:5, height:5, borderRadius:"50%", background: on ? T.accent : "transparent", marginTop:1 }} />
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
