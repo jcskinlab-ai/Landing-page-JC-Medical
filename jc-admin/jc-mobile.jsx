@@ -475,11 +475,15 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const yestCount = active.filter(a => (a.fecha||offToISO(a.day||0)) === yestISO).length;
   const confirmadas = todayAppts.filter(a => a.status==="confirmada" || a.status==="atendida" || a.attended).length;
   const pendientes = todayAppts.filter(a => !(a.status==="confirmada"||a.status==="atendida"||a.attended||a.status==="anulada")).length;
-  const delta = yestCount>0 ? Math.round((todayAppts.length-yestCount)/yestCount*100) : (todayAppts.length>0?100:0);
+  // Delta vs ayer en CONTEO ABSOLUTO, no en porcentaje: con volúmenes chicos de clínica un
+  // "+500%" es ruido engañoso (ayer 1 → hoy 6). "+5 vs ayer" es honesto y legible (principio
+  // PRODUCT.md: textos sin hipérbole). Ocupación sí es un % real, su delta va en puntos (pts).
+  const delta = todayAppts.length - yestCount;
   const pct = n => todayAppts.length ? Math.round(n/todayAppts.length*100) : 0;
   // Tasa de ocupación real de hoy y su variación vs ayer (puntos porcentuales).
   const ocup = occupancyForOff(appts, 0);
   const ocupDelta = ocup - occupancyForOff(appts, -1);
+  const vsAyer = (n, unit) => n>0 ? "+"+n+(unit||"")+" vs ayer" : n<0 ? "−"+Math.abs(n)+(unit||"")+" vs ayer" : "igual que ayer";
   // Desglose del día para la cápsula-resumen.
   const cToday  = todayAppts.filter(a => a.status==="confirmada" || a.status==="atendida" || a.attended).length;
   const naToday = todayAppts.filter(a => a.status==="no_asistio").length;
@@ -531,10 +535,10 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
       {/* Bloque FIJO: KPI + resumen del día + pila de accesos rápidos. */}
       <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:12 }}>
         <div style={{ display:"flex", gap:7 }}>
-          {kpi("Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer")}
+          {kpi("Citas hoy", todayAppts.length, vsAyer(delta))}
           {kpi("Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
           {kpi("Pendientes", pendientes, pct(pendientes)+"% del total")}
-          {kpi("Ocupación", ocup+"%", (ocupDelta>=0?"↑":"↓")+Math.abs(ocupDelta)+"% vs ayer")}
+          {kpi("Ocupación", ocup+"%", vsAyer(ocupDelta, " pts"))}
         </div>
 
         {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
@@ -554,16 +558,27 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
         <div style={{ flex:1, minHeight:0, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom:14 }}>
-          {upcoming.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin próximas citas agendadas.</div>}
+          {upcoming.length===0 && (
+            <div style={{ ...glassPanel(T,14), padding:"26px 18px", textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:11 }}>
+              <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", display:"flex", alignItems:"center", justifyContent:"center", color:T.textMute }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              </div>
+              <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, lineHeight:1.5 }}>No tienes próximas citas.<br/>Agenda la primera para empezar el día.</div>
+              <button onClick={()=>goTab("nueva")} style={{ display:"inline-flex", alignItems:"center", gap:6, ...glassChip(T), borderRadius:10, padding:"9px 15px", color:T.text, fontFamily:T.sans, fontSize:12.5, fontWeight:600, cursor:"pointer" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                Nueva cita
+              </button>
+            </div>
+          )}
           {/* Tarjeta plana (pedido): hora | nombre ... abreviación del procedimiento al borde derecho,
-              todo alineado en la línea media de la tarjeta. Barra izquierda de color = estado. */}
+              todo alineado en la línea media de la tarjeta. Punto de color al inicio = estado. */}
           {upcoming.length>0 && (
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
             {upcoming.map((a,i) => {
               const st = apptStateM(a, T);
               return (
-                <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px 10px 0" }}>
-                  <div style={{ width:3, alignSelf:"stretch", background:st.color, flexShrink:0 }} />
+                <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px" }}>
+                  <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
                   <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
                   <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
                   <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
@@ -798,11 +813,11 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         position:"absolute", top: topPx, left: 0, right: 0, height: heightPx,
         display:"flex", alignItems:"center", gap:8, textAlign:"left", cursor:"pointer",
         background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10,
-        padding:0, overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
+        padding:"0 0 0 12px", overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
       }}>
         {/* Plana (pedido): mismo diseño que la página principal — hora | nombre … abreviación del
-            procedimiento al borde derecho, barra izquierda de color = estado. */}
-        <div style={{ width:3, alignSelf:"stretch", background:st.color, flexShrink:0 }} />
+            procedimiento al borde derecho, punto de color al inicio = estado (antes barra lateral 3px). */}
+        <span aria-hidden="true" title={st.label} style={{ width:8, height:8, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 2.5px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
         <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</span>
         <span style={{ flexShrink:0, marginRight:10, fontFamily:T.sans, fontSize:9, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:5, padding:"2px 6px" }}>{abbrevProcM(a.proc)}</span>
@@ -912,8 +927,9 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             {dayAppts.map(a => apptBlock(a))}
           </div>
           {dayAppts.length === 0 && (
-            <div style={{ position:"absolute", top:"50%", left:0, right:0, transform:"translateY(-50%)", textAlign:"center", pointerEvents:"none" }}>
-              <div style={{ fontFamily:T.serif, fontSize:18, color:T.textFaint }}>{showAnuladas?"Sin citas canceladas este día":"Sin citas este día"}</div>
+            <div style={{ position:"absolute", top:"46%", left:0, right:0, transform:"translateY(-50%)", textAlign:"center", pointerEvents:"none", display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+              <div style={{ fontFamily:T.serif, fontSize:18, color:T.textMute }}>{showAnuladas?"Sin citas canceladas este día":"Sin citas este día"}</div>
+              {!showAnuladas && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Toca + para agendar una cita.</div>}
             </div>
           )}
         </div>
@@ -1328,12 +1344,11 @@ function ReportesOverlay({ T, appts, onBack }) {
         </div>
         <div style={{ ...glassPanel(T,20), padding:"6px 16px 10px" }}>
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 8px" }}>Procedimientos del mes</div>
-          {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:13, color:T.textFaint, padding:"6px 0 12px" }}>Sin datos este mes.</div>}
+          {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, padding:"6px 0 12px" }}>Sin datos este mes.</div>}
           {topProc.map((t,i) => (
             <div key={t.name} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", borderBottom: i===topProc.length-1?"none":"1px solid rgba(255,255,255,.06)" }}>
-              <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:"rgba(120,145,166,.14)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>
-              </div>
+              {/* Ranking: número de posición (antes un icono de barras idéntico en todas las filas, que no aportaba). */}
+              <div style={{ width:30, height:30, borderRadius:9, flexShrink:0, background:"rgba(120,145,166,.14)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:13, fontWeight:700 }}>{i+1}</div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
