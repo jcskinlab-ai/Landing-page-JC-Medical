@@ -101,9 +101,6 @@
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='120' cy='60' r='1' opacity='.9'/%3E%3Ccircle cx='300' cy='110' r='.7' opacity='.6'/%3E%3Ccircle cx='480' cy='50' r='1.2' opacity='.85'/%3E%3Ccircle cx='560' cy='150' r='.6' opacity='.5'/%3E%3Ccircle cx='700' cy='90' r='.8' opacity='.7'/%3E%3Ccircle cx='820' cy='40' r='1' opacity='.8'/%3E%3Ccircle cx='940' cy='130' r='.7' opacity='.55'/%3E%3Ccircle cx='1080' cy='70' r='1.1' opacity='.85'/%3E%3Ccircle cx='1180' cy='160' r='.6' opacity='.5'/%3E%3Ccircle cx='1300' cy='60' r='.9' opacity='.75'/%3E%3Ccircle cx='1420' cy='120' r='.8' opacity='.6'/%3E%3Ccircle cx='1520' cy='50' r='1' opacity='.8'/%3E%3Ccircle cx='80' cy='200' r='.7' opacity='.55'/%3E%3Ccircle cx='220' cy='260' r='1' opacity='.8'/%3E%3Ccircle cx='360' cy='220' r='.6' opacity='.5'/%3E%3Ccircle cx='520' cy='290' r='.8' opacity='.65'/%3E%3Ccircle cx='640' cy='240' r='.7' opacity='.55'/%3E%3Ccircle cx='760' cy='300' r='1' opacity='.75'/%3E%3Ccircle cx='900' cy='250' r='.6' opacity='.5'/%3E%3Ccircle cx='1020' cy='300' r='.8' opacity='.6'/%3E%3Ccircle cx='1160' cy='240' r='.9' opacity='.7'/%3E%3Ccircle cx='1280' cy='290' r='.6' opacity='.5'/%3E%3Ccircle cx='1400' cy='230' r='.8' opacity='.6'/%3E%3Ccircle cx='1540' cy='280' r='.7' opacity='.55'/%3E%3Ccircle cx='160' cy='360' r='.6' opacity='.45'/%3E%3Ccircle cx='300' cy='410' r='.8' opacity='.6'/%3E%3Ccircle cx='460' cy='370' r='.7' opacity='.5'/%3E%3Ccircle cx='600' cy='420' r='.6' opacity='.45'/%3E%3Ccircle cx='720' cy='380' r='.9' opacity='.65'/%3E%3Ccircle cx='880' cy='420' r='.6' opacity='.45'/%3E%3Ccircle cx='1000' cy='370' r='.7' opacity='.5'/%3E%3Ccircle cx='1140' cy='410' r='.8' opacity='.55'/%3E%3Ccircle cx='1260' cy='360' r='.6' opacity='.45'/%3E%3Ccircle cx='1380' cy='400' r='.7' opacity='.5'/%3E%3Ccircle cx='1500' cy='360' r='.6' opacity='.4'/%3E%3Ccircle cx='390' cy='150' r='1.5' opacity='.95'/%3E%3Ccircle cx='1010' cy='175' r='1.3' opacity='.9'/%3E%3Ccircle cx='650' cy='55' r='.5' opacity='.45'/%3E%3Ccircle cx='190' cy='110' r='.5' opacity='.4'/%3E%3Ccircle cx='1330' cy='175' r='.5' opacity='.4'/%3E%3C/g%3E%3C/svg%3E") top center/cover no-repeat}
   @keyframes twinkle{0%,100%{opacity:.5}50%{opacity:.95}}
   .moon{position:fixed;top:-16vh;right:6vw;width:54vw;height:54vw;max-width:780px;max-height:780px;z-index:-1;pointer-events:none;background:radial-gradient(circle,rgba(160,190,224,.18),rgba(150,182,218,.06) 40%,transparent 66%)}
-  /* scroll progress bar */
-  .scroll-progress{position:fixed;top:0;left:0;right:0;height:2.5px;z-index:80;pointer-events:none;background:rgba(242,237,230,.06)}
-  .scroll-progress i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--ice),var(--text));box-shadow:0 0 12px var(--glow);transition:width .08s linear}
   .ice{text-shadow:0 0 20px var(--glow)}
   .hero h1 .ice,.h2 .ice{text-shadow:none;filter:drop-shadow(0 0 20px var(--glow))}
   .btn-primary{box-shadow:0 12px 40px -14px rgba(214,224,236,.5),inset 0 1px 0 rgba(255,255,255,.7)}
@@ -712,7 +709,6 @@
 </head>
 <body>
 
-<div class="scroll-progress" aria-hidden="true"><i></i></div>
 <div class="bgfx" aria-hidden="true"></div>
 <div class="stars" aria-hidden="true"></div>
 <div class="moon" aria-hidden="true"></div>
@@ -1398,15 +1394,12 @@
     el.style.opacity=0;el.style.transform='translateY(22px)';el.style.transition='opacity .7s cubic-bezier(.2,.8,.2,1),transform .7s cubic-bezier(.2,.8,.2,1)';io.observe(el);
   });
 
-  // scroll: barra de progreso + parallax en montaña/estrellas/luna
+  // scroll: parallax en montaña/estrellas/luna
   if(!reduceMotion){
     var bgfx=document.querySelector('.bgfx'),stars=document.querySelector('.stars'),moon=document.querySelector('.moon'),blobs=document.querySelector('.blobs');
-    var progressBar=document.querySelector('.scroll-progress i');
     var ticking=false;
     function onScrollFrame(){
       var y=window.scrollY||window.pageYOffset;
-      var max=document.documentElement.scrollHeight-window.innerHeight;
-      if(progressBar) progressBar.style.width=(max>0?Math.min(100,y/max*100):0)+'%';
       if(bgfx) bgfx.style.transform='translateY('+(y*-0.06)+'px)';
       if(stars) stars.style.transform='translateY('+(y*-0.12)+'px)';
       if(moon) moon.style.transform='translateY('+(y*0.08)+'px)';
