@@ -525,47 +525,54 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   );
 
   return (
-    <div style={{ padding:"12px 16px 110px", display:"flex", flexDirection:"column", gap:12 }}>
-      {/* Saludo/avatar eliminados a pedido del usuario (ahorro de espacio): la fecha vive en el header. */}
-      <div style={{ display:"flex", gap:7 }}>
-        {kpi("Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer")}
-        {kpi("Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
-        {kpi("Pendientes", pendientes, pct(pendientes)+"% del total")}
-        {kpi("Ocupación", ocup+"%", (ocupDelta>=0?"↑":"↓")+Math.abs(ocupDelta)+"% vs ayer")}
+    // Pedido: los KPI y los accesos rápidos quedan FIJOS — solo la lista de "Próximas citas"
+    // scrollea. Por eso el contenedor ocupa todo el alto y su bloque superior no se desplaza.
+    <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"12px 16px 0" }}>
+      {/* Bloque FIJO: KPI + resumen del día + pila de accesos rápidos. */}
+      <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:12 }}>
+        <div style={{ display:"flex", gap:7 }}>
+          {kpi("Citas hoy", todayAppts.length, (delta>=0?"↑":"↓")+Math.abs(delta)+"% vs ayer")}
+          {kpi("Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
+          {kpi("Pendientes", pendientes, pct(pendientes)+"% del total")}
+          {kpi("Ocupación", ocup+"%", (ocupDelta>=0?"↑":"↓")+Math.abs(ocupDelta)+"% vs ayer")}
+        </div>
+
+        {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
+
+        <div style={{ ...glassPanel(T,18), display:"flex", gap:7, padding:7 }}>
+          {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
+          {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
+          {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
+          {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+        </div>
       </div>
 
-      {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
-
-      <div style={{ ...glassPanel(T,18), display:"flex", gap:7, padding:7 }}>
-        {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
-        {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
-        {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
-        {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
-      </div>
-
-      <div>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+      {/* Próximas citas: el título queda fijo, solo la LISTA scrollea. */}
+      <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", marginTop:12 }}>
+        <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
           <span style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text }}>Próximas citas</span>
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
-        {upcoming.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin próximas citas agendadas.</div>}
-        {/* Tarjeta plana (pedido): hora | nombre ... abreviación del procedimiento al borde derecho,
-            todo alineado en la línea media de la tarjeta. Barra izquierda de color = estado. */}
-        {upcoming.length>0 && (
-        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-          {upcoming.map((a,i) => {
-            const st = apptStateM(a, T);
-            return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px 10px 0" }}>
-                <div style={{ width:3, alignSelf:"stretch", background:st.color, flexShrink:0 }} />
-                <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
-                <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
-                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
-              </button>
-            );
-          })}
+        <div style={{ flex:1, minHeight:0, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom:14 }}>
+          {upcoming.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textFaint }}>Sin próximas citas agendadas.</div>}
+          {/* Tarjeta plana (pedido): hora | nombre ... abreviación del procedimiento al borde derecho,
+              todo alineado en la línea media de la tarjeta. Barra izquierda de color = estado. */}
+          {upcoming.length>0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            {upcoming.map((a,i) => {
+              const st = apptStateM(a, T);
+              return (
+                <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px 10px 0" }}>
+                  <div style={{ width:3, alignSelf:"stretch", background:st.color, flexShrink:0 }} />
+                  <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
+                  <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
+                  <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
+                </button>
+              );
+            })}
+          </div>
+          )}
         </div>
-        )}
       </div>
     </div>
   );
@@ -1568,11 +1575,10 @@ function MobileShell({ T, D, onLogout }) {
         </div>
 
         {/* Content */}
-        {/* Pedido: en Agenda, la pantalla queda fija (encabezado/tira de días/segmento no se mueven) —
-            solo el horario de citas scrollea, así que este contenedor exterior NO debe tener su propio
-            scroll para esa pestaña (si no, "flotaba" y se veía la foto de fondo por encima). Agenda
-            maneja su scroll interno sola. */}
-        <div style={{ flex:1, overflowY: tab==="agenda" ? "hidden" : "auto" }}>
+        {/* Pedido: en Agenda y en Inicio la pantalla queda fija (KPI/accesos/encabezados no se mueven)
+            — solo scrollea la lista interna (próximas citas / horario). Por eso este contenedor
+            exterior NO tiene scroll propio para esas pestañas; cada una maneja su scroll interno. */}
+        <div style={{ flex:1, minHeight:0, overflowY: (tab==="agenda"||tab==="citas") ? "hidden" : "auto" }}>
           {tab==="citas"    && <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} />}
           {tab==="horarios" && <HorariosTab T={T} appts={appts} />}
           {tab==="nueva"    && <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} />}
