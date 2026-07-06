@@ -158,6 +158,18 @@ function glassChip(T) {
     border: "1px solid rgba(255,255,255,.1)"
   };
 }
+// Capas de fondo del panel (foto desenfocada + velo oscuro): MISMO fondo en TODAS las pantallas
+// (Inicio, Agenda, Pacientes, Reportes, menú lateral) para que no haya un navy azulado distinto en
+// unas y la foto en otras. Se usa como primeras dos capas dentro de un contenedor position:relative.
+const MOBILE_BG_OVERLAY = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
+function PhotoBgLayers() {
+  return (
+    <>
+      <div style={{ position:"absolute", inset:-24, backgroundImage:"url('/assets/everest-mobile.jpg?v=11')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat", filter:"blur(22px)", transform:"scale(1.08)" }} />
+      <div style={{ position:"absolute", inset:0, backgroundImage:MOBILE_BG_OVERLAY }} />
+    </>
+  );
+}
 // Fondo de la pantalla de LOGIN: foto fija + velo casi negro, IDÉNTICO al login del portal de
 // escritorio (SaasGate, jc-admin.jsx) — antes era un velo azulado más claro, propio del móvil.
 // La foto va DESENFOCADA en su propia capa (no la nueva v3, que a diferencia de la anterior no
@@ -500,14 +512,15 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // "Nueva cita" destaca con su círculo de acento relleno; los demás lo llevan tenue.
   // Inner tiles (referencia): superficie sutil dentro de UN contenedor glass exterior, no 4 tarjetas
   // pesadas sueltas. "Nueva cita" lleva el círculo azul; los demás, ícono de línea claro.
-  // Botones más pequeños/minimalistas (prueba de diseño): antes 70px de alto y círculo de 36px.
+  // Pila flotante de accesos rápidos reducida a ~75% (pedido): se conserva el TAMAÑO de los íconos
+  // (svg + círculo de 28px), solo se reduce lo demás — alto, paddings, separaciones y la etiqueta.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:5, minHeight:54, minWidth:0, cursor:"pointer", borderRadius:13,
-      background: primary ? T.accentSoft : "rgba(255,255,255,.035)", border:"1px solid "+(primary?"rgba(120,145,166,.4)":"rgba(255,255,255,.08)"), padding:"8px 4px" }}>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, minHeight:42, minWidth:0, cursor:"pointer", borderRadius:11,
+      background: primary ? T.accentSoft : "rgba(255,255,255,.035)", border:"1px solid "+(primary?"rgba(120,145,166,.4)":"rgba(255,255,255,.08)"), padding:"5px 3px" }}>
       {primary
         ? <div style={{ width:28, height:28, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 4px 10px -4px "+T.accent }}>{icon}</div>
         : <div style={{ height:28, display:"flex", alignItems:"center", justifyContent:"center", color:"#A9BAC7" }}>{icon}</div>}
-      <span style={{ fontFamily:T.sans, fontSize:9.5, fontWeight:500, lineHeight:1.1, textAlign:"center", color:T.text }}>{label}</span>
+      <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:500, lineHeight:1.05, textAlign:"center", color:T.text }}>{label}</span>
     </button>
   );
 
@@ -523,7 +536,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
 
       {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
 
-      <div style={{ ...glassPanel(T,22), display:"flex", gap:9, padding:10 }}>
+      <div style={{ ...glassPanel(T,18), display:"flex", gap:7, padding:7 }}>
         {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
         {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
         {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
@@ -1293,7 +1306,7 @@ function ReportesOverlay({ T, appts, onBack }) {
     <OverlayShell T={T} title="Reportes" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:16 }}>
         <div style={{ ...glassPanel(T,20), padding:"6px 16px 8px" }}>
-          <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:"#5B93F5", fontWeight:600, padding:"14px 0 6px" }}>Esta semana</div>
+          <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 6px" }}>Esta semana</div>
           {row(RIC.cal,   "#7FA8E8", "Citas totales", weekAppts.filter(a=>a.status!=="anulada").length)}
           {row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, a=>a.status==="confirmada"||a.status==="atendida"), "#46D27A")}
           {row(RIC.user,  "#A9BAC7", "Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), "#A9BAC7")}
@@ -1302,7 +1315,7 @@ function ReportesOverlay({ T, appts, onBack }) {
           {row(RIC.pct,   noShowRate>15?"#FF6B7D":"#46D27A", "Tasa de inasistencia", noShowRate+"%", noShowRate>15?"#FF6B7D":"#46D27A", true)}
         </div>
         <div style={{ ...glassPanel(T,20), padding:"6px 16px 10px" }}>
-          <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:"#5B93F5", fontWeight:600, padding:"14px 0 8px" }}>Procedimientos del mes</div>
+          <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 8px" }}>Procedimientos del mes</div>
           {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:13, color:T.textFaint, padding:"6px 0 12px" }}>Sin datos este mes.</div>}
           {topProc.map((t,i) => (
             <div key={t.name} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", borderBottom: i===topProc.length-1?"none":"1px solid rgba(255,255,255,.06)" }}>
@@ -1354,16 +1367,21 @@ function MasTab({ T, openOverlay, onLogout }) {
 
 /* ─── Contenedor de pantallas superpuestas (Pacientes/Ficha/Reportes) — navegación tipo iOS push ─── */
 function OverlayShell({ T, title, onBack, children }) {
+  // Mismo fondo (foto desenfocada + velo) que Inicio/Agenda — antes era un navy azulado radial
+  // propio de los overlays, que se veía distinto al resto de la app (pedido: unificar).
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:200, background:"radial-gradient(125% 80% at 72% -5%, #142944 0%, #0c1a2e 45%, #081120 100%)", backgroundColor:"#081120", display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
-      {/* Header overlay (referencia): botón atrás en círculo glass + título grande a la izquierda, sin barra. */}
-      <div style={{ padding:"calc(14px + env(safe-area-inset-top,0px)) 18px 10px", display:"flex", alignItems:"center", gap:14, flexShrink:0 }}>
-        <button onClick={onBack} aria-label="Volver" style={{ width:38, height:38, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <span style={{ fontFamily:T.sans, fontSize:26, fontWeight:700, color:T.text, letterSpacing:"-.01em" }}>{title}</span>
+    <div style={{ position:"fixed", inset:0, zIndex:200, overflow:"hidden", backgroundColor:"#070B12", display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
+      <PhotoBgLayers />
+      <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", height:"100%" }}>
+        {/* Header overlay (referencia): botón atrás en círculo glass + título grande a la izquierda, sin barra. */}
+        <div style={{ padding:"calc(14px + env(safe-area-inset-top,0px)) 18px 10px", display:"flex", alignItems:"center", gap:14, flexShrink:0 }}>
+          <button onClick={onBack} aria-label="Volver" style={{ width:38, height:38, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span style={{ fontFamily:T.sans, fontSize:26, fontWeight:700, color:T.text, letterSpacing:"-.01em" }}>{title}</span>
+        </div>
+        <div style={{ flex:1, overflowY:"auto" }}>{children}</div>
       </div>
-      <div style={{ flex:1, overflowY:"auto" }}>{children}</div>
     </div>
   );
 }
@@ -1378,6 +1396,30 @@ function MobileShell({ T, D, onLogout }) {
   const [agShowAnuladas, setAgShowAnuladas] = useState(false); // filtro de canceladas (icono del header en Agenda)
   const [appts, setAppts] = useState(() => (window.DB&&window.DB.get("appointments"))||[]);
   const [patients, setPatients] = useState(() => (window.DB&&window.DB.get("patients"))||[]);
+
+  // Gesto iOS: deslizar desde el BORDE IZQUIERDO hacia la derecha = "volver atrás" (como el pop
+  // interactivo nativo). Solo cuenta si el toque EMPIEZA pegado al borde (≤24px), es un movimiento
+  // horizontal claro (dx grande, dy chico) y hay algo a lo que volver. Cierra en orden: campana →
+  // hoja de cita → overlay (Pacientes/Reportes/Ficha) → pestaña que no sea Inicio. Si el menú lateral
+  // está abierto no hace nada (ese se cierra deslizando hacia el otro lado / tocando fuera).
+  const edgeTouch = useRef(null);
+  function onRootTouchStart(e) {
+    if (!e.touches || e.touches.length !== 1) { edgeTouch.current = null; return; }
+    const t = e.touches[0];
+    edgeTouch.current = t.clientX <= 24 ? { x: t.clientX, y: t.clientY } : null;
+  }
+  function onRootTouchEnd(e) {
+    const start = edgeTouch.current; edgeTouch.current = null;
+    if (!start || !e.changedTouches || !e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x, dy = t.clientY - start.y;
+    if (dx < 70 || Math.abs(dy) > 45) return; // debe ser un swipe claramente horizontal hacia la derecha
+    if (drawer) return;
+    if (notifOpen) { setNotifOpen(false); return; }
+    if (apptSheet) { setApptSheet(null); return; }
+    if (overlay) { setOverlay(null); return; }
+    if (tab !== "citas") { setTab("citas"); return; }
+  }
 
   useEffect(() => {
     function reload() {
@@ -1509,17 +1551,12 @@ function MobileShell({ T, D, onLogout }) {
     { lbl:"Más",       on: tab==="mas" && !overlay,        act:()=>{ setOverlay(null); setTab("mas"); },    icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg> },
   ];
 
-  // Fondo con BLUR real (pedido): antes el filtro se aplicaba a toda la foto de fondo sobre el
-  // mismo contenedor que la interfaz — la nueva foto (v3) no venía pre-desenfocada como la anterior,
-  // así que los elementos se perdían contra el detalle nítido de la montaña. Ahora la foto vive en
-  // una capa propia, aparte y detrás (position:absolute, agrandada para que el blur no deje ver
-  // bordes transparentes), y el contenido real va en una capa separada ENCIMA — así el blur nunca
-  // toca el texto/los controles, solo la imagen.
-  const bgOverlay = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
+  // Fondo con BLUR real (pedido): la foto vive en su propia capa aparte y detrás (PhotoBgLayers),
+  // y el contenido real va en una capa separada ENCIMA — así el blur nunca toca el texto/los
+  // controles, solo la imagen. El MISMO fondo se reutiliza en overlays y menú lateral.
   return (
-    <div style={{ height:"100dvh", overflow:"hidden", position:"relative", backgroundColor:"#070B12", maxWidth:480, margin:"0 auto" }}>
-      <div style={{ position:"absolute", inset:-24, backgroundImage:"url('/assets/everest-mobile.jpg?v=11')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat", filter:"blur(22px)", transform:"scale(1.08)" }} />
-      <div style={{ position:"absolute", inset:0, backgroundImage:bgOverlay }} />
+    <div onTouchStart={onRootTouchStart} onTouchEnd={onRootTouchEnd} style={{ height:"100dvh", overflow:"hidden", position:"relative", backgroundColor:"#070B12", maxWidth:480, margin:"0 auto" }}>
+      <PhotoBgLayers />
       <div style={{ position:"relative", zIndex:1, height:"100%", display:"flex", flexDirection:"column" }}>
         {/* Header dinámico por pestaña (referencia): hamburguesa + título/marca + acción a la derecha */}
         {/* Header = TARJETA FLOTANTE redondeada (referencia), no barra recta full-width. Gutter lateral +
@@ -1627,7 +1664,11 @@ function MobileShell({ T, D, onLogout }) {
         );
         return (
           <div onMouseDown={e=>{ if(e.target===e.currentTarget) setDrawer(false); }} style={{ position:"fixed", inset:0, zIndex:400, background:"rgba(0,0,0,.5)", display:"flex" }}>
-            <div onClick={e=>e.stopPropagation()} style={{ width:"78%", maxWidth:320, height:"100%", background:"radial-gradient(125% 80% at 72% -5%, #142944 0%, #0c1a2e 45%, #081120 100%)", backgroundColor:"#081120", display:"flex", flexDirection:"column", boxShadow:"8px 0 40px -10px rgba(0,0,0,.6)", animation:"jcDrawerIn .22s ease" }}>
+            {/* Mismo fondo (foto desenfocada + velo) que el resto del panel — antes era un navy azulado
+                radial distinto (pedido: unificar el color con la pantalla principal). */}
+            <div onClick={e=>e.stopPropagation()} style={{ position:"relative", overflow:"hidden", width:"78%", maxWidth:320, height:"100%", backgroundColor:"#070B12", display:"flex", flexDirection:"column", boxShadow:"8px 0 40px -10px rgba(0,0,0,.6)", animation:"jcDrawerIn .22s ease" }}>
+              <PhotoBgLayers />
+              <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", height:"100%" }}>
               <div style={{ ...glassChip(T), border:"none", padding:"calc(16px + env(safe-area-inset-top,0px)) 16px 16px", display:"flex", alignItems:"center", gap:11 }}>
                 <img src="/assets/medique-logo.png" alt="Medique" style={{ width:34, height:34, flexShrink:0 }} />
                 <div style={{ minWidth:0 }}>
@@ -1645,6 +1686,7 @@ function MobileShell({ T, D, onLogout }) {
                 <div style={{ height:1, background:"rgba(255,255,255,.1)", margin:"8px 12px" }} />
                 {navItem(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>, "Actualizar datos", ()=>{ window.dispatchEvent(new CustomEvent("jcsaas:data")); setDrawer(false); })}
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>, "Cerrar sesión", ()=>{ setDrawer(false); onLogout(); }, true)}
+              </div>
               </div>
             </div>
           </div>
