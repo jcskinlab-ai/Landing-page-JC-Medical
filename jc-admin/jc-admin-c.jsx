@@ -3947,12 +3947,15 @@ function SalaEsperaView({ T, appts, patients, updatePatient }) {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {items.map(a => (
-                  <div key={a.id} style={luxF ? { background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + cc, borderRadius: DS.r.ctl, padding: "10px 12px" } : { background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + cc, borderRadius: 8, padding: "10px 12px" }}>
+                  <div key={a.id} style={luxF ? { background: T.bg, border: "1px solid " + T.line, borderRadius: DS.r.ctl, padding: "10px 12px" } : { background: T.bg, border: "1px solid " + T.line, borderRadius: 8, padding: "10px 12px" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
                       <Avatar T={T} name={a.name} size={30} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
-                        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.time}{a.proc ? " · " + a.proc : ""}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: cc, flexShrink: 0 }} />
+                          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                        </div>
+                        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1 }}>{a.time}{a.proc ? " · " + a.proc : ""}</div>
                       </div>
                       <button onClick={() => eliminarDeSala(a)} title="Quitar de sala de espera" style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: "2px 3px", display: "flex", borderRadius: 4, marginTop: -1 }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -6075,7 +6078,7 @@ function ContraloriaView({ T, patients, appts, openP, goApt, go, embed }) {
       <IAHero T={T} color="#8B5CF6" title="Control de calidad continuo" sub="Verificación automática de registros · alertas de inconsistencias · control de calidad continuo." icon={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>} />
       {ok ? <div style={{ background: "rgba(31,138,91,.08)", border: "1px solid #1F8A5B44", borderRadius: 12, padding: "24px", textAlign: "center", maxWidth: 760 }}><div style={{ fontFamily: T.serif, fontSize: 19, color: "#1F8A5B" }}>✓ Todo en orden</div><div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, marginTop: 6 }}>No se detectaron inconsistencias en los registros.</div></div>
         : <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 780 }}>{alertas.map((a, i) => (
-            <div key={i} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 14, ...window.JCDS.card(T), borderLeft: "4px solid " + a.c, padding: "14px 16px", ...window.JCDS.reveal(i) } : { display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderLeft: "4px solid " + a.c, borderRadius: 10, padding: "14px 16px" }}>
+            <div key={i} style={window.JCDS && (typeof jcdsLux === "function" && jcdsLux()) ? { display: "flex", alignItems: "center", gap: 14, ...window.JCDS.card(T), padding: "14px 16px", ...window.JCDS.reveal(i) } : { display: "flex", alignItems: "center", gap: 14, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "14px 16px" }}>
               <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: a.c + "1c", color: a.c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 18, fontWeight: 600 }}>{a.n}</span>
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text }}>{a.t}</div><div style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 }}>{a.d}</div></div>
               {/* Botón "Revisar" tintado con el color de la alerta → refuerza la severidad de un vistazo. */}

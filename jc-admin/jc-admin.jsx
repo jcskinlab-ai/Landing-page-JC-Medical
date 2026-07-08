@@ -2039,7 +2039,7 @@ function AdminApp() {
                         {head}
                       </button>)}
                     {!navOpen && head && n.k !== "dashboard" && <div style={{ height: 1, background: SIDE_LINE, margin: "7px 14px" }} />}
-                    {!collapsed && <button onClick={() => nav(n.k)} title={n.l} style={{
+                    {!collapsed && <button onClick={() => nav(n.k)} title={n.l} aria-label={n.l} aria-current={active ? "page" : undefined} style={{
                       display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 14, width: "100%", padding: navOpen ? "12px 19px" : "12px 0", background: active ? SIDE_ACT : "none",
                       border: "none", borderLeft: "3px solid " + (active ? T.accent : "transparent"), cursor: "pointer", whiteSpace: "nowrap", position: "relative"
                     }}>
@@ -2648,9 +2648,12 @@ function ApptBlock({ T, a, onClick, compact }) {
   const ini = procInitial(a.proc);
   const nameLabel = ini ? a.name + " • " + ini : a.name;
   return (
-    <div data-appt onClick={e => { e.stopPropagation(); onClick(a); }} style={{ cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderLeft: "3px solid " + st.color, borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
-        <span style={{ fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameLabel}</span>
+    <div data-appt onClick={e => { e.stopPropagation(); onClick(a); }} style={{ cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 6, alignItems: "center" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: st.color, flexShrink: 0 }} />
+          <span style={{ fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameLabel}</span>
+        </span>
         {!compact && <span style={{ fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 }}>{a.time}</span>}
       </div>
       <div style={{ fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{compact ? a.time + " · " + a.proc : a.proc}</div>
@@ -3203,10 +3206,11 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                       }, 200);
                     }}
                     onMouseLeave={() => { if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } if (dayHideT.current) clearTimeout(dayHideT.current); dayHideT.current = setTimeout(() => setHoverA(null), 160); }}
-                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderLeft: "4px solid " + col, borderRadius: luxF ? DS.r.ctl : 6, padding: "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
                     {/* Fila superior: rango horario + duración (izq) · inicial del procedimiento (der) — igual que la referencia */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       <span style={{ display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 }}>
+                        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 }} />
                         <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
                         <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
                       </span>
@@ -3661,7 +3665,8 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, icsBt
                 <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: isToday ? T.accent + "1e" : veil, minHeight: 100, padding: "7px 7px", border: "none", ...cellBorders, cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
                   <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "33" : "transparent" }}>{d.getDate()}</span>
                   {ordered.slice(0, 3).map((a, idx) => { const c = jcmApptState(a, T).color; return (
-                    <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", background: chipBg, ...cellBlur, borderLeft: "3px solid " + c, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", gap: 5, background: chipBg, ...cellBlur, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: c, flexShrink: 0 }} />
                       {a.time ? a.time + " " : ""}{a.name || "Cita"}
                     </span>
                   ); })}
@@ -3980,12 +3985,14 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                         onMouseLeave={() => { if (showT.current) { clearTimeout(showT.current); showT.current = null; } if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
                         onClick={e => { e.stopPropagation(); if (showT.current) { clearTimeout(showT.current); showT.current = null; } setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
                         {v2 ? (
-                          /* Estilo "Medilink barra": barra lateral del color del estado + tinte leve. La tarjeta
-                             muestra SIEMPRE (sin hover) nombre + hora de inicio y, si hay altura, servicio + hora
-                             de término — la info operativa que recepción necesita de un vistazo (ref. del usuario).
-                             En Los Medique (luxF) el tinte es cristal esmerilado (backdrop-blur Nivel 2) para que la
-                             montaña del fondo se transparente y la cita no sea un bloque pastel opaco. */
-                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...(luxF ? { backdropFilter: window.JCDS.glassBlur.small, WebkitBackdropFilter: window.JCDS.glassBlur.small } : {}), border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderLeft: "4px solid " + accentColor, borderRadius: luxF ? DS.r.ctl : 6, padding: tall ? "4px 6px 4px 8px" : "0 6px 0 8px", overflow: "hidden", display: "flex", alignItems: tall ? "stretch" : "center", gap: 6 }}>
+                          /* Estilo "Medilink barra": tinte leve del color del estado (ya no barra lateral —
+                             ban de impeccable, side-stripe border; el tinte + el badge de inicial ya bastan).
+                             La tarjeta muestra SIEMPRE (sin hover) nombre + hora de inicio y, si hay altura,
+                             servicio + hora de término — la info operativa que recepción necesita de un vistazo
+                             (ref. del usuario). En Los Medique (luxF) el tinte es cristal esmerilado (backdrop-blur
+                             Nivel 2) para que la montaña del fondo se transparente y la cita no sea un bloque
+                             pastel opaco. */
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...(luxF ? { backdropFilter: window.JCDS.glassBlur.small, WebkitBackdropFilter: window.JCDS.glassBlur.small } : {}), border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: tall ? "4px 6px 4px 8px" : "0 6px 0 8px", overflow: "hidden", display: "flex", alignItems: tall ? "stretch" : "center", gap: 6 }}>
                             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 }}>
                               <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                                 <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
@@ -3999,7 +4006,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                             {a.proc && <span style={{ flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
                           </div>
                         ) : (
-                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderLeft: "3px solid " + accentColor, borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
+                          <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                               <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
                               <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
@@ -4096,8 +4103,11 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
           </div>
         ) : (
           /* Vista clásica (otras clínicas): tabla simple, sin acciones */
-          <div style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderLeft: "3px solid " + ac, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
-            <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, marginBottom: 8 }}>{a.name}</div>
+          <div style={{ position: "fixed", left: hover.x, top: hover.y, zIndex: 90, width: 232, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: "0 18px 44px -14px rgba(0,0,0,.5)", padding: "12px 14px", pointerEvents: "none", animation: "jcFade .14s ease" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
+              <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: ac, flexShrink: 0 }} />
+              <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text }}>{a.name}</div>
+            </div>
             {[["Hora", a.time], ["Duración", (parseInt(a.dur) || 60) + " min"], ["Procedimiento", a.proc || "—"], ["Estado", estado]].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontFamily: T.sans, fontSize: 11.5 }}>
                 <span style={{ color: T.textMute }}>{k}</span>

@@ -123,7 +123,10 @@ if (typeof window !== "undefined") { window.jcmDocHTML = jcmDocHTML; window.jcmS
 // Paleta de avatares · tonos apagados y profesionales (misma familia sobria del sistema navy/glass,
 // nada de neón). Color determinista por nombre → cada paciente/persona tiene su monograma con color,
 // lo que da vida y ayuda a escanear listas (patrón Attio/Linear/Notion). Solo en Los Medique.
-var JCM_AVATAR_COLORS = ["#5C7488", "#6B8E7A", "#8A7CA8", "#B07C6E", "#7E8CA0", "#9A8458", "#6E93A6", "#A07189", "#5F8A7B", "#8C6E8F"];
+// Oscurecidos lo mínimo posible (mismo tono, más profundo) para que el texto blanco de las
+// iniciales cumpla WCAG AA (4.5:1) en los 10 — el detector de impeccable marcó 9/10 bajo el
+// mínimo (solo #5C7488 pasaba de por sí; el resto rondaba 3.3-4.4:1).
+var JCM_AVATAR_COLORS = ["#5C7488", "#5E7D6B", "#7C6D9E", "#A06757", "#67768C", "#87734D", "#577B8D", "#996680", "#567C6F", "#896C8C"];
 function jcmAvatarColor(name) { var s = "" + (name || "?"), h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return JCM_AVATAR_COLORS[h % JCM_AVATAR_COLORS.length]; }
 if (typeof window !== "undefined") { window.jcmAvatarColor = jcmAvatarColor; }
 function Avatar({ T, name, src, size }) {
@@ -930,8 +933,11 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
                   <div style={{ fontFamily: T.sans, fontSize: DS.ft.sub, color: v ? T.text : T.textFaint, lineHeight: 1.5 }}>{v || "Sin registros."}</div>
                 </div>
               ) : (
-                <div key={l} style={{ background: T.surface, border: "1px solid " + T.line, borderLeft: "3px solid " + c, borderRadius: 8, padding: "12px 14px" }}>
-                  <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 5 }}>{l}</div>
+                <div key={l} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: 999, background: c, flexShrink: 0 }} />
+                    <span style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute }}>{l}</span>
+                  </div>
                   <div style={{ fontFamily: T.sans, fontSize: 12, color: v ? T.text : T.textFaint, lineHeight: 1.5 }}>{v || "Sin registros."}</div>
                 </div>
               )
@@ -2321,7 +2327,8 @@ function AuditoriaIA({ T, patient, go }) {
           </div>
         : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {issues.map((it, i) => (
-              <div key={i} style={{ display: "flex", gap: 11, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, borderLeft: "3px solid " + toneC[it.tone] }}>
+              <div key={i} style={{ display: "flex", gap: 11, padding: "14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line }}>
+                <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: toneC[it.tone], flexShrink: 0, marginTop: 6 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{it.t}</div>
                   <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 3, lineHeight: 1.5 }}>{it.d}</div>
