@@ -2400,7 +2400,6 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   } catch (e) {}
   const maxw = Math.max(1, week[0], week[1], week[2], week[3], week[4], week[5], week[6]);
   const sinCons = (window.jcmConsentPending ? window.jcmConsentPending(patients, appts) : patients.filter(p => !p.consent));
-  const greet = now.getHours() < 13 ? "Buenos días" : now.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
 
   // ─────────── Dashboard REDISEÑADO (gateado a Los Medique · preview antes del push global) ───────────
   // Reutiliza exactamente los mismos datos/handlers ya calculados arriba; solo cambia el layout.
@@ -2433,8 +2432,8 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {/* Hero editorial */}
         <div style={{ marginBottom: 26 }}>
-          <div style={eyebrow}>{rule} &nbsp; {greet}, {clinicDisplayName()}</div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: 40, letterSpacing: "-.015em", color: T.text, marginTop: 12, lineHeight: 1.02, textTransform: "capitalize" }}>{fechaLarga}</h1>
+          {/* Saludo eliminado (pedido, consistente con el Dashboard): la fecha queda de título. */}
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: 40, letterSpacing: "-.015em", color: T.text, marginTop: 0, lineHeight: 1.02, textTransform: "capitalize" }}>{fechaLarga}</h1>
           <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8 }}>{wkCitas} {wkCitas === 1 ? "cita" : "citas"} esta semana{wkMonto > 0 ? " · " + D.fmt(wkMonto) + " cobrado" : ""}</div>
         </div>
 
@@ -2532,8 +2531,8 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
   }
   return (
     <div>
-      <div style={{ fontFamily: T.sans, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent }}>{greet}, {clinicDisplayName()}</div>
-      <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, marginTop: 8, lineHeight: 1.05 }}>{now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}</h1>
+      {/* Saludo eliminado (pedido, consistente con el Dashboard): la fecha queda de título. */}
+      <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 32, letterSpacing: "-.02em", color: T.text, marginTop: 0, lineHeight: 1.05 }}>{now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}</h1>
 
       {/* Resumen semanal */}
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "18px 18px", marginTop: 16 }}>
