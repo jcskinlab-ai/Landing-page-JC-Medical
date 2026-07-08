@@ -5032,8 +5032,14 @@ function OnboardingWizard({ T, onDone }) {
     );
   };
 
+  // Mismo fondo (foto Everest + velo oscuro) que la pantalla de login inicial (SaasGate → wrap()),
+  // para que el onboarding se sienta parte del mismo flujo de acceso, no una pantalla aparte.
   return (
-    <div className="jc-stage" style={{ background: T.bg, minHeight: "100dvh", padding: "24px 16px" }}>
+    <div className="jc-stage" style={{
+      backgroundImage: "linear-gradient(rgba(9,11,15,.76), rgba(9,11,15,.90)), url('/assets/everest.jpg')",
+      backgroundColor: T.bg, backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat",
+      minHeight: "100dvh", padding: "24px 16px"
+    }}>
       <div style={{ width: "100%", maxWidth: 460, animation: "jcSlideUp .5s cubic-bezier(.22,1,.36,1) both" }}>
         {/* Encabezado */}
         <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
