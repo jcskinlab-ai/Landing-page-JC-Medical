@@ -513,13 +513,23 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   );
 }
 function HorariosTab({ T, appts }) {
-  const [selOff, setSelOff] = useState(0);
-  const days = Array.from({ length: 14 }, (_, i) => {
-    const d = /* @__PURE__ */ new Date();
-    d.setDate(d.getDate() + i);
-    return { off: i, iso: localISO(d), wd: WDS[d.getDay()], dd: d.getDate() };
-  });
-  const selDay = days[selOff];
+  const today = todayISO();
+  const [selDay, setSelDay] = useState(today);
+  const stripDays = useMemo(() => {
+    const arr = [];
+    for (let i = -14; i <= 60; i++) {
+      const d = /* @__PURE__ */ new Date();
+      d.setDate(d.getDate() + i);
+      const iso = localISO(d);
+      arr.push({ iso, wd: WDS[d.getDay()], dd: d.getDate(), isToday: iso === today });
+    }
+    return arr;
+  }, [today]);
+  const dayBtnRefs = useRef({});
+  useEffect(() => {
+    const el = dayBtnRefs.current[selDay];
+    if (el && el.scrollIntoView) el.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [selDay]);
   const [slotsMap, setSlotsMap] = useState(() => window.DB && window.DB.get("horarios_dates") || {});
   useEffect(() => {
     function reload() {
@@ -531,16 +541,16 @@ function HorariosTab({ T, appts }) {
   const weeklySlots = (() => {
     try {
       var h = window.DB && window.DB.get("horarios_v1");
-      var wd = (/* @__PURE__ */ new Date(selDay.iso + "T12:00:00")).getDay();
+      var wd = (/* @__PURE__ */ new Date(selDay + "T12:00:00")).getDay();
       if (h && h[wd] && h[wd].open !== false) return h[wd].slots || HALF_HOURS.slice();
       if (h && h[wd] && h[wd].open === false) return [];
     } catch (e) {
     }
     return HALF_HOURS.slice();
   })();
-  const avail = slotsMap[selDay.iso] != null ? slotsMap[selDay.iso] : weeklySlots;
+  const avail = slotsMap[selDay] != null ? slotsMap[selDay] : weeklySlots;
   const occupied = /* @__PURE__ */ new Set();
-  appts.filter((a) => a.status !== "anulada" && (a.fecha ? a.fecha === selDay.iso : a.day === selOff)).forEach((a) => {
+  appts.filter((a) => a.status !== "anulada" && (a.fecha ? a.fecha === selDay : offToISO(a.day || 0) === selDay)).forEach((a) => {
     if (!a.time) return;
     const startMin = minsM(a.time);
     const durMin = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
@@ -562,44 +572,50 @@ function HorariosTab({ T, appts }) {
   function toggle(slot) {
     if (occupied.has(slot)) return;
     const map = window.DB && window.DB.get("horarios_dates") || {};
-    const cur = map[selDay.iso] != null ? [...map[selDay.iso]] : weeklySlots.slice();
-    map[selDay.iso] = cur.includes(slot) ? cur.filter((s) => s !== slot) : [...cur, slot].sort();
+    const cur = map[selDay] != null ? [...map[selDay]] : weeklySlots.slice();
+    map[selDay] = cur.includes(slot) ? cur.filter((s) => s !== slot) : [...cur, slot].sort();
     saveMap(map);
   }
   function blockAll() {
     const m = window.DB && window.DB.get("horarios_dates") || {};
-    m[selDay.iso] = [];
+    m[selDay] = [];
     saveMap(m);
   }
   function openAll() {
     const m = window.DB && window.DB.get("horarios_dates") || {};
-    delete m[selDay.iso];
+    delete m[selDay];
     saveMap(m);
   }
   const availCount = avail.filter((s) => !occupied.has(s)).length;
   const blockedCount = HALF_HOURS.filter((s) => !avail.includes(s) && !occupied.has(s)).length;
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 12px 90px" } }, /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, padding: "6px 2px 12px", minWidth: "max-content" } }, days.map((d, i) => /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      key: i,
-      onClick: () => setSelOff(i),
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 2,
-        padding: "8px 10px 6px",
-        borderRadius: 14,
-        minWidth: 50,
-        cursor: "pointer",
-        background: selOff === i ? "rgba(120,145,166,.12)" : "transparent",
-        border: "1px solid " + (selOff === i ? "rgba(150,170,185,.55)" : "transparent")
-      }
-    },
-    /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, fontWeight: 500, color: selOff === i ? "#A9BAC7" : T.textMute } }, i === 0 ? "Hoy" : d.wd),
-    /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 20, fontWeight: 600, color: T.text } }, d.dd),
-    /* @__PURE__ */ React.createElement("div", { style: { width: 5, height: 5, borderRadius: "50%", background: selOff === i ? T.accent : "transparent" } })
-  )))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 14), padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.sans, fontSize: 11, color: T.textMute, minWidth: 160 } }, /* @__PURE__ */ React.createElement("span", { style: { color: "#1F8A5B", fontWeight: 600 } }, availCount), " disponibles \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: T.textFaint } }, blockedCount), " bloqueadas \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: "#B8860B", fontWeight: 600 } }, occupied.size), " con cita"), /* @__PURE__ */ React.createElement("button", { onClick: openAll, style: { background: "#1F8A5B18", border: "1px solid #1F8A5B44", color: "#1F8A5B", borderRadius: 8, padding: "8px 12px", fontFamily: T.sans, fontSize: 10.5, cursor: "pointer" } }, "Abrir todo"), /* @__PURE__ */ React.createElement("button", { onClick: blockAll, style: { background: "#C0285A18", border: "1px solid #C0285A44", color: "#C0285A", borderRadius: 8, padding: "8px 12px", fontFamily: T.sans, fontSize: 10.5, cursor: "pointer" } }, "Bloquear todo")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, padding: "2px 2px 10px" } }, [["#1F8A5B", "Disponible"], ["#C0285A", "Bloqueado"], ["#B8860B", "Con cita"]].map(([c, l]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 9, height: 9, borderRadius: 3, background: c } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.textMute } }, l)))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 7 } }, HALF_HOURS.map((slot) => {
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 12px 90px" } }, /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, padding: "6px 2px 12px", minWidth: "max-content" } }, stripDays.map((d) => {
+    const isSel = d.iso === selDay;
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: d.iso,
+        ref: (el) => {
+          dayBtnRefs.current[d.iso] = el;
+        },
+        onClick: () => setSelDay(d.iso),
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 2,
+          padding: "7px 9px 5px",
+          borderRadius: 12,
+          minWidth: 42,
+          cursor: "pointer",
+          background: isSel ? "rgba(120,145,166,.12)" : "transparent",
+          border: "1px solid " + (isSel ? "rgba(150,170,185,.55)" : "transparent")
+        }
+      },
+      /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, fontWeight: 500, color: isSel ? "#A9BAC7" : T.textMute } }, d.isToday ? "Hoy" : d.wd),
+      /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 18, fontWeight: 600, color: T.text } }, d.dd),
+      /* @__PURE__ */ React.createElement("div", { style: { width: 5, height: 5, borderRadius: "50%", background: isSel ? T.accent : "transparent" } })
+    );
+  }))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 14), padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.sans, fontSize: 11, color: T.textMute, minWidth: 160 } }, /* @__PURE__ */ React.createElement("span", { style: { color: "#1F8A5B", fontWeight: 600 } }, availCount), " disponibles \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: T.textFaint } }, blockedCount), " bloqueadas \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: "#B8860B", fontWeight: 600 } }, occupied.size), " con cita"), /* @__PURE__ */ React.createElement("button", { onClick: openAll, style: { background: "#1F8A5B18", border: "1px solid #1F8A5B44", color: "#1F8A5B", borderRadius: 8, padding: "8px 12px", fontFamily: T.sans, fontSize: 10.5, cursor: "pointer" } }, "Abrir todo"), /* @__PURE__ */ React.createElement("button", { onClick: blockAll, style: { background: "#C0285A18", border: "1px solid #C0285A44", color: "#C0285A", borderRadius: 8, padding: "8px 12px", fontFamily: T.sans, fontSize: 10.5, cursor: "pointer" } }, "Bloquear todo")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, padding: "2px 2px 10px" } }, [["#1F8A5B", "Disponible"], ["#C0285A", "Bloqueado"], ["#B8860B", "Con cita"]].map(([c, l]) => /* @__PURE__ */ React.createElement("div", { key: l, style: { display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 9, height: 9, borderRadius: 3, background: c } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.textMute } }, l)))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 7 } }, HALF_HOURS.map((slot) => {
     const isOcc = occupied.has(slot);
     const isAvail = avail.includes(slot);
     return /* @__PURE__ */ React.createElement(
