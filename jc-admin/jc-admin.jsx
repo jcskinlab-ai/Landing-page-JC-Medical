@@ -1986,6 +1986,9 @@ function AdminApp() {
   // Deshecho a pedido del usuario (4-jul-2026): la barra de navegación vuelve a su fila propia,
   // separada del buscador — igual que el resto de las clínicas — para que nada quede cortado.
   const headerMerge = false;
+  // Navegación ÚNICA = top bar (pedido): el sidebar de íconos se desactiva para no duplicar la
+  // misma nav en dos lugares. Flag reversible — poner true restaura el sidebar tal cual estaba.
+  const showSidebar = false;
   const navBarInner = (() => {
     const items = adminNavItems(); const byKey = {}; items.forEach(n => { byKey[n.k] = n.l; });
     const seg = shellLux;
@@ -2029,7 +2032,8 @@ function AdminApp() {
   return (
     <div className="jc-stage" style={{ background: T.dark ? "#070707" : "#DCD7CC" }}>
       <div className="jc-admin-frame" style={{ ...(everestBg ? { backgroundImage: everestBg, backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" } : { background: T.bg }), boxShadow: T.shadow, color: T.text, display: "flex", flexDirection: "row" }}>
-        {/* SIDEBAR — única navegación */}
+        {/* SIDEBAR desactivado (pedido: la navegación única es el top bar). showSidebar lo restaura. */}
+        {showSidebar && (
         <div onMouseEnter={() => setNavOpen(true)} onMouseLeave={() => { setNavOpen(false); resetNavGroups(); }}
           style={{ width: RAIL, flexShrink: 0, background: shellLux ? "transparent" : SIDE_BG, position: "relative", zIndex: 20 }}>
           <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, ...SIDE_GLASS, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" }}>
@@ -2072,10 +2076,18 @@ function AdminApp() {
             </div>
           </div>
         </div>
+        )}
 
         {/* MAIN */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: shellLux ? (headerMerge ? "10px 18px" : "12px 18px 6px") : "13px 18px 10px", borderBottom: "1px solid " + ((shellLux && !headerMerge) ? "transparent" : T.line), background: shellLux ? "transparent" : T.navBg, backdropFilter: shellLux ? "none" : "blur(16px)", WebkitBackdropFilter: shellLux ? "none" : "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" }}>
+            {/* Logo de la clínica (reubicado del sidebar quitado): ancla de marca arriba-izquierda +
+                atajo al Dashboard, para no perder la marca al desactivar el sidebar. */}
+            <button onClick={() => nav("dashboard")} title="Ir al Dashboard" style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              <span style={T.dark ? { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } : { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <img src={SIDE_LOGO} alt="Medique" style={{ width: 30, height: 30, objectFit: "contain" }} />
+              </span>
+            </button>
             {/* Izquierda: solo el buscador de pacientes (nombre, RUT, teléfono o correo).
                 Fusionado (headerMerge): más chico, ancho fijo, para dejar sitio a la barra de navegación. */}
             <div style={headerMerge ? { flexShrink: 0, width: 170 } : undefined}>
