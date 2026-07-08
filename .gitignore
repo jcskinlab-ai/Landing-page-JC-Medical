@@ -9,7 +9,9 @@ serviceAccount*.json
 *.serviceaccount.json
 
 # Prototipos de diseño (no publicar) y documentos/PDF sueltos
+# designs/ (raíz) = JC Medical (design-system.html). Medique/designs/ = mockups del panel Medique.
 designs/
-Documentos-Legales/
-Medique-Resumen.pdf
+Medique/designs/
+Medique/Documentos-Legales/
+Medique/Medique-Resumen.pdf
 /assets/logoof *.png
