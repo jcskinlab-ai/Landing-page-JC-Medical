@@ -1440,7 +1440,7 @@ function ConsentView({ T, patients, updatePatient }) {
             var _mf = window.DB.get("pconsm_" + p.id);
             window.DB.set("pconsm_" + p.id, Array.isArray(_mf) ? [_nts].concat(_mf) : [_nts]);
           } catch(e) {}
-          updatePatient(p.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " · " + r.fields.fecha, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+          updatePatient(p.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " · " + r.fields.fecha, aiPhotoConsent: !!r.fields.aiPhotos, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
           setSigning(null);
         }} />}
     </div>
@@ -1581,11 +1581,15 @@ function SignConsentModal({ T, data, onClose, onSign }) {
   const [sigPac, setSigPac] = useState(null);
   const [sigPro, setSigPro] = useState(null);
   const [agree, setAgree] = useState(false);
+  // Objeción/restricción específica (Ley 21.719 — Principio de Individuos): autorización APARTE
+  // y opcional para el uso de fotografías clínicas con fines de análisis por IA. No es requisito
+  // para firmar el consentimiento general: el paciente puede tratarse igual sin autorizar esto.
+  const [aiPhotos, setAiPhotos] = useState(false);
   const ready = agree && sigPac && sigPro;
   const uline = { border: "none", borderBottom: "1px solid " + T.textMute, background: "transparent", color: T.text, fontFamily: T.sans, fontSize: 12, padding: "2px 4px", outline: "none" };
   return (
     <AdModal T={T} title="Consentimiento informado" onClose={onClose} wide
-      footer={<AdBtn T={T} primary full onClick={() => ready && onSign({ tpl, sigPac, sigPro, fields: { nombre, ci, edad, prof, fecha } })}>{ready ? "Confirmar y guardar consentimiento firmado" : "Acepta y firma (paciente y enfermero) para continuar"}</AdBtn>}>
+      footer={<AdBtn T={T} primary full onClick={() => ready && onSign({ tpl, sigPac, sigPro, fields: { nombre, ci, edad, prof, fecha, aiPhotos } })}>{ready ? "Confirmar y guardar consentimiento firmado" : "Acepta y firma (paciente y enfermero) para continuar"}</AdBtn>}>
       <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap" }}>
         {allTpls.map(c => <button key={c.id} onClick={() => setTpl(c)} style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".06em", padding: "8px 12px", borderRadius: 8, cursor: "pointer", background: tpl.id === c.id ? T.surface2 : T.surface, color: tpl.id === c.id ? T.text : T.textMute, border: "1px solid " + (tpl.id === c.id ? T.accent : T.line) }}>{c.title}</button>)}
       </div>
@@ -1612,6 +1616,12 @@ function SignConsentModal({ T, data, onClose, onSign }) {
           {agree && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.onAccent} strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>}
         </button>
         <span style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>El paciente declara haber leído y aceptado este consentimiento informado.</span>
+      </label>
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 16 }}>
+        <button onClick={() => setAiPhotos(!aiPhotos)} style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 4, border: "1px solid " + (aiPhotos ? T.accent : T.chipBorder), background: aiPhotos ? T.accent : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {aiPhotos && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.onAccent} strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>}
+        </button>
+        <span style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>Además, <strong>autorizo</strong> (opcional, no es requisito para atenderme) el uso de mis fotografías clínicas con fines de análisis asistido por inteligencia artificial. Puedo cambiar esta decisión cuando quiera, avisando a la clínica.</span>
       </label>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
@@ -1937,7 +1947,7 @@ function ConsentTab({ T, patient, updatePatient }) {
         // La edad se sincroniza con la ficha: si el consentimiento la trae y la ficha no la tenía, la guarda.
         const _age = parseInt(r.fields && r.fields.edad, 10);
         const _agePatch = (_age && !patient.age) ? { age: _age } : {};
-        updatePatient(patient.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " · " + r.fields.fecha, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+        updatePatient(patient.id, { consent: true, consentTs: Date.now(), consentInfo: r.tpl.title + " · " + r.fields.fecha, aiPhotoConsent: !!r.fields.aiPhotos, ..._agePatch, consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
         setSigning(false);
         try { window.jcmToast && window.jcmToast("Consentimiento guardado. Se abrió en una pestaña para tu respaldo.", "ok"); } catch (e) {}
         // Abre el consentimiento firmado en una PESTAÑA NUEVA (sin lanzar la impresión).
@@ -2371,10 +2381,11 @@ function ResumenIA({ T, patient }) {
       c.embarazo && ("Embarazo/lactancia: " + c.embarazo),
       c.skincare && ("Skincare: " + c.skincare),
     ].filter(Boolean).join(". ");
+    // Pseudonimización hacia la IA externa (Groq, Ley 21.719): nombre, RUT, teléfono y correo
+    // NUNCA se envían — el resumen se redacta solo con hechos clínicos. La app ya sabe a qué
+    // paciente pertenece (se muestra dentro de su propia ficha), el modelo no necesita su identidad.
     return [
-      "Paciente: " + patient.name + (patient.age ? ", " + patient.age + " años" : "") + (patient.rut ? ", RUT " + patient.rut : ""),
-      patient.phone && ("Teléfono: " + patient.phone),
-      patient.email && ("Correo: " + patient.email),
+      "Paciente" + (patient.age ? " de " + patient.age + " años" : ""),
       "Tratamientos etiquetados: " + ((patient.tags || []).join(", ") || "ninguno"),
       clinFields && ("Clínica: " + clinFields),
       "Historial de sesiones (" + (patient.history || []).length + "): " + (hist || "sin sesiones"),

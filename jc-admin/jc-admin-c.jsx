@@ -5947,7 +5947,9 @@ function ResumenClinicoView({ T, patients, appts }) {
     if (!window.mediqueAI) { window.jcmToast && window.jcmToast("La IA no está disponible (falta GROQ_API_KEY).", "info"); return; }
     setBusy(true); setOut("");
     const hist = (pat.recetas || []).slice(0, 12).map(r => "- " + r.fecha + ": " + (r.diag || r.tipo) + " · " + (r.rp || "").slice(0, 120)).join("\n");
-    const cxt = "Paciente: " + (pat.name || "") + (pat.age ? " (" + pat.age + " años)" : "") + "\nRUT: " + (pat.rut || "—") + "\nAlergias/condiciones: " + (alergias || "no registradas") + "\nEtiquetas: " + ((pat.tags || []).join(", ") || "—") + "\nHistorial:\n" + (hist || "sin registros");
+    // Pseudonimización hacia la IA externa (Groq, Ley 21.719): nombre y RUT NUNCA se envían — el
+    // panel ya sabe a qué paciente pertenece el resumen (se muestra en su propia tarjeta).
+    const cxt = "Paciente" + (pat.age ? " de " + pat.age + " años" : "") + "\nAlergias/condiciones: " + (alergias || "no registradas") + "\nEtiquetas: " + ((pat.tags || []).join(", ") || "—") + "\nHistorial:\n" + (hist || "sin registros");
     try {
       const r = await window.mediqueAI([{ role: "user", content: "Eres asistente clínico. Resume la historia del paciente en 5-8 viñetas claras (condiciones activas, tratamientos en curso, alertas de alergias, y próximos controles sugeridos). Español de Chile. Datos:\n\n" + cxt }], jcmClinicCtx(), { max_tokens: 550 });
       setOut(jcmAIReply(r) || ("No pude generar el resumen" + (jcmAIError(r) ? ": " + jcmAIError(r) : ". Intenta de nuevo.")));

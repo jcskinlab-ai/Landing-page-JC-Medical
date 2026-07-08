@@ -100,11 +100,16 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     e.preventDefault();
   }
 
+  // Minimización de datos hacia la IA externa (Groq, Ley 21.719): NUNCA se envía el listado de
+  // nombres de pacientes ni con quién son las citas de hoy — solo horarios/procedimientos y
+  // conteos agregados. El emparejamiento por nombre para agendar (matchPatient) ocurre siempre
+  // LOCAL en el navegador, así que el modelo no necesita conocer la lista de pacientes para eso.
   function ctx() {
     let n = 0; D.catalog.forEach(s => s.groups.forEach(g => n += g.items.length));
-    const hoy = appts.filter(a => a.day === 0).map(a => a.time + " " + a.name + " (" + a.proc + ")").join("; ");
-    const pend = patients.filter(p => !p.consent).map(p => p.name).join(", ");
-    return "Catálogo: " + n + " procedimientos. Citas de hoy: " + (hoy || "ninguna") + ". Pacientes: " + patients.map(p => p.name).join(", ") + ". Consentimientos pendientes: " + (pend || "ninguno") + ".";
+    const hoyList = appts.filter(a => a.day === 0);
+    const hoy = hoyList.map(a => a.time + " (" + a.proc + ")").join("; ");
+    const pendCount = patients.filter(p => !p.consent).length;
+    return "Catálogo: " + n + " procedimientos. Citas de hoy (" + hoyList.length + "): " + (hoy || "ninguna") + ". Pacientes registrados: " + patients.length + ". Consentimientos pendientes: " + pendCount + ".";
   }
 
   // ── Agendar por voz/texto ──

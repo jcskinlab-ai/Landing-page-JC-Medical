@@ -135,9 +135,10 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
   function ctx() {
     let n = 0;
     D.catalog.forEach((s) => s.groups.forEach((g) => n += g.items.length));
-    const hoy = appts.filter((a) => a.day === 0).map((a) => a.time + " " + a.name + " (" + a.proc + ")").join("; ");
-    const pend = patients.filter((p) => !p.consent).map((p) => p.name).join(", ");
-    return "Cat\xE1logo: " + n + " procedimientos. Citas de hoy: " + (hoy || "ninguna") + ". Pacientes: " + patients.map((p) => p.name).join(", ") + ". Consentimientos pendientes: " + (pend || "ninguno") + ".";
+    const hoyList = appts.filter((a) => a.day === 0);
+    const hoy = hoyList.map((a) => a.time + " (" + a.proc + ")").join("; ");
+    const pendCount = patients.filter((p) => !p.consent).length;
+    return "Cat\xE1logo: " + n + " procedimientos. Citas de hoy (" + hoyList.length + "): " + (hoy || "ninguna") + ". Pacientes registrados: " + patients.length + ". Consentimientos pendientes: " + pendCount + ".";
   }
   function procFromText(t) {
     let found = null;

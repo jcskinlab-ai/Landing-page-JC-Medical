@@ -4917,7 +4917,7 @@ function ResumenClinicoView({ T, patients, appts }) {
     setBusy(true);
     setOut("");
     const hist = (pat.recetas || []).slice(0, 12).map((r) => "- " + r.fecha + ": " + (r.diag || r.tipo) + " \xB7 " + (r.rp || "").slice(0, 120)).join("\n");
-    const cxt = "Paciente: " + (pat.name || "") + (pat.age ? " (" + pat.age + " a\xF1os)" : "") + "\nRUT: " + (pat.rut || "\u2014") + "\nAlergias/condiciones: " + (alergias || "no registradas") + "\nEtiquetas: " + ((pat.tags || []).join(", ") || "\u2014") + "\nHistorial:\n" + (hist || "sin registros");
+    const cxt = "Paciente" + (pat.age ? " de " + pat.age + " a\xF1os" : "") + "\nAlergias/condiciones: " + (alergias || "no registradas") + "\nEtiquetas: " + ((pat.tags || []).join(", ") || "\u2014") + "\nHistorial:\n" + (hist || "sin registros");
     try {
       const r = await window.mediqueAI([{ role: "user", content: "Eres asistente cl\xEDnico. Resume la historia del paciente en 5-8 vi\xF1etas claras (condiciones activas, tratamientos en curso, alertas de alergias, y pr\xF3ximos controles sugeridos). Espa\xF1ol de Chile. Datos:\n\n" + cxt }], jcmClinicCtx(), { max_tokens: 550 });
       setOut(jcmAIReply(r) || "No pude generar el resumen" + (jcmAIError(r) ? ": " + jcmAIError(r) : ". Intenta de nuevo."));
