@@ -227,11 +227,21 @@
   .dots i{width:5px;height:5px;border-radius:50%;background:var(--line-2)}
   .dots i.on{background:var(--ice)}
 
-  /* OS band */
+  /* OS band — scroll walkthrough: panel fijo (sticky) + features que se activan al pasar */
   .os .sec-head{margin-bottom:34px}
-  .os-row{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);overflow:hidden}
-  .os-item{display:flex;gap:16px;padding:26px 28px;border-left:1px solid var(--line)}
-  .os-item:first-child{border-left:0}
+  .os-walk{display:grid;grid-template-columns:.86fr 1.14fr;gap:56px;align-items:start}
+  .os-walk-visual{position:sticky;top:112px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.005));padding:44px 32px;display:flex;flex-direction:column;align-items:center;gap:18px;min-height:280px;justify-content:center}
+  .os-walk-icon{position:relative;width:68px;height:68px}
+  .os-walk-icon svg{position:absolute;inset:0;width:68px;height:68px;padding:16px;box-sizing:border-box;border-radius:16px;background:rgba(242,237,230,.1);border:1px solid var(--line-2);color:var(--ice);opacity:0;transition:opacity .5s ease}
+  .os-walk-icon svg.active{opacity:1}
+  .os-walk-label{font-family:var(--serif);font-size:19px;text-align:center;min-height:1.3em}
+  .os-walk-dots{display:flex;gap:8px}
+  .os-walk-dots i{width:6px;height:6px;border-radius:50%;background:var(--line-2);transition:background .35s,transform .35s}
+  .os-walk-dots i.active{background:var(--ice);transform:scale(1.35)}
+  .os-row{display:flex;flex-direction:column}
+  .os-item{display:flex;gap:16px;padding:34px 4px;min-height:38vh;align-items:center;opacity:.4;transform:translateY(6px);transition:opacity .5s ease,transform .5s ease}
+  .os-item:first-child{opacity:1;transform:none}
+  .os-item.active{opacity:1;transform:none}
   .os-item .ic{width:44px;height:44px;border-radius:11px;background:rgba(242,237,230,.1);border:1px solid var(--line-2);display:grid;place-items:center;color:var(--ice);flex:0 0 auto}
   .os-item h3{font-size:16px;margin:2px 0 6px;font-weight:600}
   .os-item p{margin:0;color:var(--text-2);font-size:14px}
@@ -668,7 +678,11 @@
 
   @media(max-width:980px){
     .hero-grid{grid-template-columns:minmax(0,1fr);gap:44px}
-    .os-row{grid-template-columns:1fr}.os-item{border-left:0;border-top:1px solid var(--line)}.os-item:first-child{border-top:0}
+    /* mobile: sin pin ni activacion por scroll — todo visible y estatico, como pide la skill (mobile-first, sin experiencias solo-desktop) */
+    .os-walk{display:block}
+    .os-walk-visual{display:none}
+    .os-item{min-height:auto;padding:22px 4px;opacity:1;transform:none;border-top:1px solid var(--line)}
+    .os-item:first-child{border-top:0}
     .mods-grid{grid-template-columns:1fr}
     .grid4{grid-template-columns:1fr 1fr}
     .plans{grid-template-columns:1fr 1fr;gap:22px}
@@ -971,10 +985,21 @@
       <h2 class="h2">El sistema operativo para clínicas estéticas <span class="ice">que quieren crecer.</span></h2>
       <p class="sub">Una plataforma completa, segura y diseñada para la realidad de las clínicas en Chile.</p>
     </div>
-    <div class="os-row">
-      <div class="os-item"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 21h18M6 21V8l6-4 6 4v13M10 21v-5h4v5"/></svg></div><div><h3>Multi-clínica</h3><p>Administra todas tus sedes desde un solo lugar.</p></div></div>
-      <div class="os-item"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div><div><h3>Datos aislados por sede</h3><p>Privacidad y seguridad total para cada ubicación.</p></div></div>
-      <div class="os-item"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg></div><div><h3>Hecho para medicina estética</h3><p>Flujos, fichas y controles pensados para tu especialidad.</p></div></div>
+    <div class="os-walk">
+      <div class="os-walk-visual" aria-hidden="true">
+        <div class="os-walk-icon">
+          <svg class="active" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 21h18M6 21V8l6-4 6 4v13M10 21v-5h4v5"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg>
+        </div>
+        <div class="os-walk-label">Multi-clínica</div>
+        <div class="os-walk-dots"><i class="active"></i><i></i><i></i></div>
+      </div>
+      <div class="os-row">
+        <div class="os-item"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 21h18M6 21V8l6-4 6 4v13M10 21v-5h4v5"/></svg></div><div><h3>Multi-clínica</h3><p>Administra todas tus sedes desde un solo lugar.</p></div></div>
+        <div class="os-item"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div><div><h3>Datos aislados por sede</h3><p>Privacidad y seguridad total para cada ubicación.</p></div></div>
+        <div class="os-item"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg></div><div><h3>Hecho para medicina estética</h3><p>Flujos, fichas y controles pensados para tu especialidad.</p></div></div>
+      </div>
     </div>
   </div>
 </section>
@@ -1552,7 +1577,11 @@
 
   // scroll reveal (con cascada escalonada dentro de cada grilla)
   var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){x.target.style.opacity=1;x.target.style.transform='';x.target.style.filter='';io.unobserve(x.target);}})},{threshold:.12});
-  var revealGroups=document.querySelectorAll('.mods-grid,.grid4,.plans,.os-row,.mkt-kpis,.res-grid,.faq-list,.dash-cards');
+  var revealGroups=document.querySelectorAll('.mods-grid,.grid4,.plans,.mkt-kpis,.res-grid,.faq-list,.dash-cards');
+  // .os-row queda fuera a propósito: sus .os-item ya tienen su propio sistema de
+  // entrada/activación (walkthrough con panel fijo) — si además el reveal genérico
+  // les fijara opacity:1 inline al revelarlos, esa inline ganaría por especificidad
+  // sobre la clase .active y el resaltado del walkthrough dejaría de verse.
   var staggered=new Set();
   revealGroups.forEach(function(g){
     [].forEach.call(g.children,function(el,i){
@@ -1630,6 +1659,28 @@
       });
     },{rootMargin:'-40% 0px -55% 0px'});
     Object.keys(secToHref).forEach(function(id){var s=document.getElementById(id);if(s)spy.observe(s);});
+
+    // walkthrough del panel "sistema operativo": el visual fijo (sticky) se actualiza
+    // segun que feature va cruzando el centro del viewport (misma tecnica que el scroll-spy del nav)
+    var osWalk=document.querySelector('.os-walk');
+    if(osWalk){
+      var osItems=[].slice.call(osWalk.querySelectorAll('.os-item'));
+      var osIcons=[].slice.call(osWalk.querySelectorAll('.os-walk-icon svg'));
+      var osDots=[].slice.call(osWalk.querySelectorAll('.os-walk-dots i'));
+      var osLabel=osWalk.querySelector('.os-walk-label');
+      var osLabels=osItems.map(function(it){return it.querySelector('h3').textContent;});
+      var osWatch=new IntersectionObserver(function(en){
+        en.forEach(function(x){
+          if(!x.isIntersecting) return;
+          var i=osItems.indexOf(x.target); if(i<0) return;
+          osItems.forEach(function(it,j){it.classList.toggle('active',j===i)});
+          osIcons.forEach(function(ic,j){ic.classList.toggle('active',j===i)});
+          osDots.forEach(function(d,j){d.classList.toggle('active',j===i)});
+          if(osLabel) osLabel.textContent=osLabels[i];
+        });
+      },{rootMargin:'-45% 0px -45% 0px'});
+      osItems.forEach(function(it){osWatch.observe(it)});
+    }
 
     // statband vivo: sparklines que se trazan + count-up de cifras al entrar en viewport
     var sb=document.querySelector('.statband');
