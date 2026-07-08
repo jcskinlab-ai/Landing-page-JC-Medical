@@ -189,6 +189,9 @@
           '<button class="btn-ghost" onclick="window._copyLink(\'' + esc(d.id) + '\')" title="Copiar link de reserva">Link reserva</button>' +
           '<button class="btn-ghost" style="border-color:rgba(127,176,198,.5);color:var(--accent)" onclick="window._changeEmail(\'' + esc(d.id) + '\',\'' + esc(c.ownerUid || '') + '\',\'' + esc(c.ownerEmail || '') + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\')" title="Cambiar correo de ingreso">Correo</button>' +
           (!isOwn
+            ? '<button class="btn-ghost" style="border-color:var(--warn);color:var(--warn)" onclick="window._resetData(\'' + esc(d.id) + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\')" title="Borra la agenda/pacientes/caja/config pero conserva el correo y contraseña de acceso">Reiniciar datos</button>'
+            : '') +
+          (!isOwn
             ? '<button class="btn-ghost" style="border-color:var(--danger);color:#E0607A" onclick="window._deleteClinic(\'' + esc(d.id) + '\',\'' + esc((c.name || d.id).replace(/'/g, '')) + '\',\'' + esc(c.ownerUid || '') + '\',\'' + esc(c.ownerEmail || '') + '\')" title="Eliminar clínica">Eliminar</button>'
             : '') +
           '</div></div>';
@@ -241,6 +244,35 @@
         });
     };
     document.getElementById('del-confirm').onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('del-go').click(); };
+  };
+
+  // ── Reiniciar datos de una clínica (conserva la cuenta de acceso) ──
+  window._resetData = function (id, name) {
+    showModal(
+      '<h2>↺ Reiniciar datos</h2>' +
+      '<p class="sub">Esto <b>borra permanentemente</b> la agenda, pacientes, caja, configuración y todo lo demás guardado por <b>' + esc(name) + '</b>. <span style="color:var(--warn);font-weight:600">El correo y la contraseña de acceso NO se tocan</span> — puedes volver a entrar y empezar de cero con la misma cuenta. <span style="color:#E0607A;font-weight:600">No se puede deshacer.</span></p>' +
+      '<input id="rs-confirm" placeholder="Escribe REINICIAR para confirmar" autocomplete="off" style="margin-bottom:4px">' +
+      '<div class="modal-err" id="rs-err"></div>' +
+      '<div class="row-btns">' +
+        '<button class="btn-ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn-ghost" style="border-color:var(--warn);color:var(--warn);font-weight:600" id="rs-go">Reiniciar datos</button>' +
+      '</div>'
+    );
+    document.getElementById('rs-confirm').focus();
+    document.getElementById('rs-go').onclick = function () {
+      var val = (document.getElementById('rs-confirm').value || '').trim().toUpperCase();
+      var err = document.getElementById('rs-err');
+      if (val !== 'REINICIAR') { err.textContent = 'Escribe exactamente REINICIAR en mayúsculas.'; return; }
+      var btn = document.getElementById('rs-go');
+      btn.textContent = 'Reiniciando…'; btn.disabled = true; err.textContent = '';
+      superOp({ action: 'resetClinicData', clinicId: id, clinicName: name })
+        .then(function (r) { closeModal(); dash(); })
+        .catch(function (e) {
+          err.textContent = e.message || 'No se pudo reiniciar.';
+          btn.textContent = 'Reiniciar datos'; btn.disabled = false;
+        });
+    };
+    document.getElementById('rs-confirm').onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('rs-go').click(); };
   };
 
   // ── Cambiar correo de ingreso ──

@@ -142,6 +142,22 @@ export default async function handler(req, res) {
     }
 
     // ════════════════════════════════════
+    // Reiniciar datos de una clínica (mantiene la cuenta de acceso)
+    // Borra TODA la data operativa (tenants/{clinicId}: kv, bookings, public,
+    // reviews, appusers, collabs…) pero NO toca clinics/{id}, users/{uid} ni la
+    // cuenta de Firebase Auth — el mismo correo/contraseña sigue sirviendo para
+    // entrar, y el panel arranca vacío (onboarding incluido, porque onboarded_v1
+    // vive dentro de kv y se borra con el resto).
+    // ════════════════════════════════════
+    if (action === "resetClinicData") {
+      if (!clinicId) return res.status(400).json({ error: "clinicId requerido" });
+
+      await purgeDoc(db, db.collection("tenants").doc(clinicId));
+
+      return res.json({ ok: true, message: `Datos de "${clinicName || clinicId}" reiniciados. La cuenta de acceso sigue funcionando igual.` });
+    }
+
+    // ════════════════════════════════════
     // Cambiar correo de ingreso
     // ════════════════════════════════════
     if (action === "changeEmail") {

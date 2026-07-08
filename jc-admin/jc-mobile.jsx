@@ -86,16 +86,17 @@ const STATUS_STEPS = [
   { key: "anulada",     label: "Cancelar" }
 ];
 // Colores de estado tonificados para leer sobre la foto OSCURA del panel móvil (los del escritorio
-// —#1A50A3, #B8860B— quedaban muy apagados sobre el fondo).
+// —#1A50A3, #B8860B— quedaban muy apagados sobre el fondo). Mismo mapeo de colores que el portal
+// (pedido): Agendado=azul, Confirmado=verde, Atendido=dorado, No asistió=rojo.
 function apptStateM(a, T) {
   // Color de la BARRA lateral y el punto (tokens del MD: verde/amarillo/rojo/azul).
   if (a.status === "anulada")        return { label: "Cancelada",   color: T.textFaint };
   if (a.status === "no_asistio")     return { label: "No asistió",  color: "#FF6B7D" };
-  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#6EA8E8" };
+  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#F5B93D" };
   if (a.status === "confirmada")     return { label: "Confirmada",  color: "#46D27A" };
   if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#F5B93D" };
-  // "Agendado" (pendiente de confirmar) = amarillo, coherente con la cápsula-resumen y el mockup.
-  return { label: "Agendado", color: "#F5B93D" };
+  // "Agendado" (pendiente de confirmar) = azul, como en el portal.
+  return { label: "Agendado", color: "#6EA8E8" };
 }
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
 function localISO(d) {
@@ -104,6 +105,13 @@ function localISO(d) {
 function todayISO() { return localISO(new Date()); }
 function offToISO(off) { const d = new Date(); d.setDate(d.getDate()+off); return localISO(d); }
 function isoToDayOff(iso) { const d = new Date(iso+"T00:00:00"), t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
+// Mes calendario ACTUAL (real, no el que se esté navegando en la agenda) — pedido: al buscar por
+// procedimiento, solo sirve para planear stock del mes en curso; un match de mes pasado o futuro
+// ensucia esa lectura. Los matches por nombre/RUT (buscar una cita puntual) no usan esto.
+function inCurrentMonth(iso) {
+  const now = new Date(), d = new Date(iso+"T00:00:00");
+  return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+}
 // Etiqueta de día relativa (Hoy/Mañana/Ayer) o "Jue 9 Jul" para el resto — compartida por el
 // buscador de Agenda y los divisores de día de "Próximas citas" en Inicio.
 function dayLabelM(iso) {
@@ -327,7 +335,7 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
             <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:2 }}>{a.time} · {a.proc||"—"} · {durLabel}</div>
             {matched && <button onClick={()=>onOpenFicha(matched.id)} style={{ marginTop:4, background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:11.5, color:T.accent, textDecoration:"underline" }}>Ver ficha del paciente →</button>}
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ flexShrink:0, width:30, height:30, borderRadius:"50%", border:"none", background:T.dark?"rgba(255,255,255,.1)":"rgba(0,0,0,.06)", color:T.textMute, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <button onClick={onClose} aria-label="Cerrar" style={{ flexShrink:0, width:44, height:44, borderRadius:"50%", border:"none", background:T.dark?"rgba(255,255,255,.1)":"rgba(0,0,0,.06)", color:T.textMute, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -347,7 +355,7 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
           </div>
         ) : (
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontFamily:T.sans, fontSize:9.5, letterSpacing:".14em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Estado de la cita</div>
+            <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Estado de la cita</div>
             {!confirmCancel ? (
               <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
                 {STATUS_STEPS.map(s => {
@@ -393,7 +401,7 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
         {/* Editar detalles */}
         {edit ? (
           <div style={{ display:"flex", flexDirection:"column", gap:8, ...glassChip(T), borderRadius:10, padding:"12px 13px", marginBottom:10 }}>
-            <div style={{ fontFamily:T.sans, fontSize:9.5, letterSpacing:".12em", textTransform:"uppercase", color:T.accent }}>Editar cita</div>
+            <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".1em", textTransform:"uppercase", color:T.accent }}>Editar cita</div>
             <label style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>Fecha
               <input type="date" value={ef.fecha} onChange={e=>setEf(f=>({...f,fecha:e.target.value}))} style={{ ...inp, marginTop:3 }} /></label>
             <div style={{ display:"flex", gap:8 }}>
@@ -455,7 +463,8 @@ function occupancyForOff(appts, off) {
     return cap ? Math.round(occupied.size / cap * 100) : 0;
   } catch (e) { return 0; }
 }
-// Cápsula-resumen del día (referencia): • verde confirmadas · • amarillo pendientes · • rojo no asistió.
+// Cápsula-resumen del día: • verde confirmadas · • azul pendientes (agendadas) · • rojo no asistió
+// — mismos colores que el resto del panel y el portal.
 function DaySummary({ T, c, p, na, prefix, bars }) {
   const dot = (color, txt) => (
     <span style={{ display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap" }}>
@@ -471,7 +480,7 @@ function DaySummary({ T, c, p, na, prefix, bars }) {
     <div style={{ ...glassChip(T), borderRadius: bars?14:12, padding: bars?"11px 10px":"9px 12px", display:"flex", alignItems:"center", justifyContent: bars?"space-around":"center", gap:8, flexWrap:"wrap" }}>
       {dot("#46D27A", (prefix?prefix+" ":"") + c + " confirmada" + (c===1?"":"s"))}
       {sep}
-      {dot("#E8B84D", p + " pendiente" + (p===1?"":"s"))}
+      {dot("#6EA8E8", p + " pendiente" + (p===1?"":"s"))}
       {sep}
       {dot("#FF6B7D", na + " no asistió")}
     </div>
@@ -482,12 +491,14 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const yestISO = offToISO(-1);
   const active = appts.filter(a => a.status !== "anulada");
   // Buscador (pedido): mismo buscador que ya existe en Agenda — busca en TODAS las citas activas
-  // (pasadas y futuras) por nombre/apellido, RUT o PROCEDIMIENTO (pedido: para ver de un vistazo
-  // cuántas citas de un procedimiento hay agendadas, p.ej. "sculptra" → control de stock).
+  // (pasadas y futuras) por nombre/apellido o RUT. El match por PROCEDIMIENTO en cambio se acota al
+  // MES ACTUAL (pedido): sirve para planear stock del mes en curso, así que un "sculptra" de otro
+  // mes solo ensuciaría el conteo — buscar un paciente por nombre sigue funcionando sin esa acotación.
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
   const searchMatches = !ql ? [] : active
-    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql) || (a.proc||"").toLowerCase().includes(ql));
+    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql)
+      || ((a.proc||"").toLowerCase().includes(ql) && inCurrentMonth(a.fecha||offToISO(a.day||0))));
   // El conteo total (searchMatches.length) se muestra siempre, aunque la lista renderizada se
   // recorte — sin esto, buscar un procedimiento frecuente no serviría para saber "cuántos hay".
   const searchResults = searchMatches
@@ -534,9 +545,13 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // pero tarjeta más compacta (~75% del padding actual) para que el bloque en conjunto ocupe menos.
   const kpi = (label, val, sub, subColor) => (
     <div style={{ flex:1, minWidth:0, ...glassPanel(T,14), padding:"6px 8px 6px", display:"flex", flexDirection:"column", gap:1 }}>
-      <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:".03em", textTransform:"uppercase", color:T.textMute, lineHeight:1.2 }}>{label}</div>
+      {/* Mínimo legible 11px (nada más chico, salvo eyebrows cortos): antes 7.5-8px, ilegible en
+          exteriores/con poca luz — el trade-off es que la fila de 4 KPI puede crecer un poco de alto. */}
+      <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".02em", textTransform:"uppercase", color:T.textMute, lineHeight:1.25 }}>{label}</div>
       <div style={{ fontFamily:FRAUNCES, fontSize:21, fontWeight:500, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>{val}</div>
-      {sub && <div style={{ fontFamily:T.sans, fontSize:7.5, color:subColor||T.textMute, lineHeight:1.1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>}
+      {/* Se deja envolver a 2 líneas en vez de truncar con "…": a 10px "igual que ayer" ya no entra
+          en una sola línea en la tarjeta más angosta, y cortarlo lo volvía ilegible. */}
+      {sub && <div style={{ fontFamily:T.sans, fontSize:10, color:subColor||T.textMute, lineHeight:1.2 }}>{sub}</div>}
     </div>
   );
   // Avatar de la clínica: foto guardada (jcm_admin_photo) o iniciales, como en la referencia.
@@ -552,12 +567,13 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // Pila flotante de accesos rápidos reducida a ~75% (pedido): se conserva el TAMAÑO de los íconos
   // (svg + círculo de 28px), solo se reduce lo demás — alto, paddings, separaciones y la etiqueta.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, minHeight:42, minWidth:0, cursor:"pointer", borderRadius:11,
-      background: primary ? T.accentSoft : "rgba(255,255,255,.035)", border:"1px solid "+(primary?"rgba(120,145,166,.4)":"rgba(255,255,255,.08)"), padding:"5px 3px" }}>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, minHeight:46, minWidth:0, cursor:"pointer", borderRadius:11,
+      background: primary ? T.accentSoft : "rgba(255,255,255,.035)", border:"1px solid "+(primary?"rgba(120,145,166,.4)":"rgba(255,255,255,.08)"), padding:"6px 3px" }}>
       {primary
         ? <div style={{ width:28, height:28, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 4px 10px -4px "+T.accent }}>{icon}</div>
         : <div style={{ height:28, display:"flex", alignItems:"center", justifyContent:"center", color:"#A9BAC7" }}>{icon}</div>}
-      <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:500, lineHeight:1.05, textAlign:"center", color:T.text }}>{label}</span>
+      {/* Mínimo legible 11px: antes 9px en la etiqueta de un acceso rápido de uso frecuente. */}
+      <span style={{ fontFamily:T.sans, fontSize:10.5, fontWeight:500, lineHeight:1.1, textAlign:"center", color:T.text }}>{label}</span>
     </button>
   );
 
@@ -567,7 +583,8 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
     <div style={{ display:"flex", alignItems:"center", gap:10, ...glassChip(T), borderRadius:13, padding:"0 14px" }}>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
       <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, RUT o procedimiento…" style={{ flex:1, background:"transparent", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:13.5, padding:"11px 0" }} />
-      {q && <button onClick={()=>setQ("")} aria-label="Limpiar búsqueda" style={{ flexShrink:0, background:"none", border:"none", color:T.textMute, cursor:"pointer", padding:4, display:"flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>}
+      {/* Objetivo táctil mínimo 44px: antes el hit area real era ~23px (icono 15px + 4px de padding). */}
+      {q && <button onClick={()=>setQ("")} aria-label="Limpiar búsqueda" style={{ flexShrink:0, width:44, height:44, margin:"0 -12px 0 -6px", background:"none", border:"none", color:T.textMute, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>}
     </div>
   );
   const searchResultsBody = (
@@ -765,7 +782,7 @@ function HorariosTab({ T, appts }) {
                 borderColor:isOcc?"#B8860B55":isAvail?"#1F8A5B55":(T.dark?"rgba(255,255,255,.12)":T.lineSoft),
                 color:isOcc?"#B8860B":isAvail?"#1F8A5B":T.textFaint }}>
               {slot}
-              {isOcc&&<div style={{ fontFamily:T.sans, fontSize:8, marginTop:1, opacity:.7 }}>cita</div>}
+              {isOcc&&<div style={{ fontFamily:T.sans, fontSize:11, marginTop:1, opacity:.7 }}>cita</div>}
             </button>
           );
         })}
@@ -819,13 +836,14 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
   // Buscador de pacientes (pedido): evita scrollear día por día para encontrar una cita. Busca en
-  // TODAS las citas (pasadas y futuras, pedido) por nombre/apellido (mismo campo), RUT o
-  // PROCEDIMIENTO (pedido: para ver cuántas citas de un procedimiento hay agendadas, p.ej.
-  // "sculptra" → control de stock) — todos ya vienen guardados directo en la cita.
+  // TODAS las citas (pasadas y futuras, pedido) por nombre/apellido (mismo campo) o RUT. El match
+  // por PROCEDIMIENTO en cambio se acota al MES ACTUAL (pedido): sirve para planear stock del mes
+  // en curso, un "sculptra" de otro mes solo ensuciaría el conteo.
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
   const searchMatches = !ql ? [] : appts
-    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql) || (a.proc||"").toLowerCase().includes(ql));
+    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql)
+      || ((a.proc||"").toLowerCase().includes(ql) && inCurrentMonth(a.fecha||offToISO(a.day||0))));
   // El conteo total (searchMatches.length) se muestra siempre, aunque la lista renderizada se
   // recorte — sin esto, buscar un procedimiento frecuente no serviría para saber "cuántos hay".
   const searchResults = searchMatches
@@ -918,7 +936,10 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         <span aria-hidden="true" title={st.label} style={{ width:8, height:8, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 2.5px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
         <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</span>
-        <span style={{ flexShrink:0, marginRight:10, fontFamily:T.sans, fontSize:9, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:5, padding:"2px 6px" }}>{abbrevProcM(a.proc)}</span>
+        {/* Se deja en 10px (no 11) a propósito: este badge vive en el bloque de la línea de tiempo,
+            que puede medir solo 15px de alto en una cita de 15 min — a 11px se recortaría. Coincide
+            con el mismo badge en Inicio/búsqueda (10px), donde sí hay espacio de sobra. */}
+        <span style={{ flexShrink:0, marginRight:10, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:5, padding:"2px 6px" }}>{abbrevProcM(a.proc)}</span>
       </button>
     );
   }
@@ -949,7 +970,8 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       <div style={{ display:"flex", alignItems:"center", gap:10, ...glassChip(T), borderRadius:13, padding:"0 14px" }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
         <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, RUT o procedimiento…" style={{ flex:1, background:"transparent", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:13.5, padding:"11px 0" }} />
-        {q && <button onClick={()=>setQ("")} aria-label="Limpiar búsqueda" style={{ flexShrink:0, background:"none", border:"none", color:T.textMute, cursor:"pointer", padding:4, display:"flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>}
+        {/* Objetivo táctil mínimo 44px: antes el hit area real era ~23px (icono 15px + 4px de padding). */}
+      {q && <button onClick={()=>setQ("")} aria-label="Limpiar búsqueda" style={{ flexShrink:0, width:44, height:44, margin:"0 -12px 0 -6px", background:"none", border:"none", color:T.textMute, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>}
       </div>
     </div>
   );
@@ -1005,9 +1027,9 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         {searchBar}
         {ql ? searchResultsBody : (<>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
-            <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>‹</button>
+            <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:44, height:44, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>‹</button>
             <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text }}>{MESES_LARGOS[monthCur.m]} {monthCur.y}</div>
-            <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:36, height:36, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer" }}>›</button>
+            <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:44, height:44, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>›</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0 10px 4px", flexShrink:0 }}>
             {WD.map((w,i)=><div key={i} style={{ textAlign:"center", fontFamily:T.sans, fontSize:10, letterSpacing:".08em", color:T.textMute }}>{w}</div>)}
@@ -1050,7 +1072,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
                 <button key={d.iso} ref={el=>{ dayBtnRefs.current[d.iso]=el; }} onClick={()=>setSelDay(d.iso)}
                   style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1, padding:"6px 8px 5px", borderRadius:12, minWidth:38, cursor:"pointer",
                     background: isSel ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(150,170,185,.55)" : "transparent") }}>
-                  <span style={{ fontFamily:T.sans, fontSize:9.5, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
+                  <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
                   <span style={{ fontFamily:T.sans, fontSize:17, fontWeight: d.isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
                   <div style={{ width:4, height:4, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
                 </button>
@@ -1175,7 +1197,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
               <div style={{ width:26, height:26, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12, fontWeight:700,
                 background: step===i+1 ? T.accent : (step>i+1 ? T.accent+"33" : (T.dark?"rgba(255,255,255,.08)":"rgba(0,0,0,.06)")),
                 color: step===i+1 ? T.onAccent : (step>i+1 ? T.accent : T.textFaint) }}>{step>i+1 ? "✓" : i+1}</div>
-              <span style={{ fontFamily:T.sans, fontSize:9, color: step>=i+1 ? T.text : T.textFaint, whiteSpace:"nowrap" }}>{s}</span>
+              <span style={{ fontFamily:T.sans, fontSize:11, color: step>=i+1 ? T.text : T.textFaint, whiteSpace:"nowrap" }}>{s}</span>
             </div>
             {i<STEPS.length-1 && <div style={{ flex:1, height:1, background: step>i+1 ? T.accent : (T.dark?"rgba(255,255,255,.14)":T.line), marginBottom:16 }} />}
           </React.Fragment>
@@ -1297,6 +1319,14 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
   const ql = q.trim().toLowerCase();
   const list = (ql ? patients.filter(p => (p.name||"").toLowerCase().includes(ql) || (p.rut||"").toLowerCase().includes(ql) || (p.phone||"").includes(ql)) : patients)
     .slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  // Paginado (pedido): antes se pintaban TODOS los pacientes de una sola vez en el DOM — con una
+  // clínica de cientos de pacientes eso vuelve la lista lenta al scrollear (el mismo problema que
+  // la skill marca como "ScrollView en vez de FlatList", aquí sin librería de virtualización).
+  // Se muestra una primera tanda y "Mostrar más" carga el resto de a poco.
+  const PAGE = 60;
+  const [visibleCount, setVisibleCount] = useState(PAGE);
+  useEffect(() => { setVisibleCount(PAGE); }, [ql]);
+  const visible = list.slice(0, visibleCount);
   const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), background:T.dark?"rgba(255,255,255,.06)":"#fff", color:T.text, outline:"none", boxSizing:"border-box" };
 
   function saveNuevo() {
@@ -1330,10 +1360,10 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
             línea fina (como Contactos de iOS), no una tarjeta individual por paciente. */}
         <div style={{ ...glassPanel(T,18), display:"flex", flexDirection:"column", overflow:"hidden" }}>
           {list.length===0 && <div style={{ textAlign:"center", padding:"30px 0", fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Sin pacientes{ql?" que coincidan":""}.</div>}
-          {list.map((p,i) => {
+          {visible.map((p,i) => {
             const nextA = appts.filter(a=>(a.patId===p.id || a.name===p.name) && a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=todayISO()).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""))[0];
             return (
-              <button key={p.id} onClick={()=>onOpenFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: i===list.length-1?"none":"1px solid rgba(255,255,255,.08)", padding:"11px 14px", cursor:"pointer" }}>
+              <button key={p.id} onClick={()=>onOpenFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: i===visible.length-1?"none":"1px solid rgba(255,255,255,.08)", padding:"11px 14px", cursor:"pointer" }}>
                 <div style={{ width:36, height:36, borderRadius:"50%", flexShrink:0, background:"rgba(120,145,166,.16)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12.5, fontWeight:600 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
@@ -1345,6 +1375,11 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
             );
           })}
         </div>
+        {list.length > visibleCount && (
+          <button onClick={()=>setVisibleCount(c=>c+PAGE)} style={{ ...glassChip(T), borderRadius:12, padding:"12px", color:T.text, fontFamily:T.sans, fontSize:13, fontWeight:600, cursor:"pointer" }}>
+            Mostrar más ({list.length-visibleCount} restantes)
+          </button>
+        )}
       </div>
     </OverlayShell>
   );
@@ -1461,7 +1496,8 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 }
 
 /* ═══════════ Overlay: Reportes (solo datos reales de citas — este bundle no tiene acceso a caja) ═══════════ */
-function ReportesOverlay({ T, appts, onBack }) {
+function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
+  const [expanded, setExpanded] = useState(null); // nombre del procedimiento abierto, o null
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
   // BUG corregido: faltaba el límite superior de la semana — sin "weekEnd" el filtro contaba TODAS
@@ -1478,16 +1514,21 @@ function ReportesOverlay({ T, appts, onBack }) {
   // Desglose agendados vs realizados por procedimiento (pedido): antes solo se veía el total del
   // mes, que en la práctica se leía como "lo ya hecho" — para prever stock hace falta saber cuántos
   // de cada procedimiento quedan AGENDADOS (aún no atendidos) además de los ya realizados. Las
-  // "no_asistio" no consumen insumo, así que no cuentan en ninguna de las dos columnas.
+  // "no_asistio" no consumen insumo, así que no cuentan en ninguna de las dos columnas. Se guarda
+  // la lista completa de citas (no solo el conteo) para poder mostrar DE QUIÉN es cada una al tocar
+  // la fila (pedido: "no sé de qué paciente es").
   const porProc = {};
   monthAppts.forEach(a => {
     if (a.status==="anulada" || a.status==="no_asistio") return;
     const k = a.proc||"Sin especificar";
-    if (!porProc[k]) porProc[k] = { pend:0, real:0 };
-    if (a.status==="atendida" || a.attended) porProc[k].real++; else porProc[k].pend++;
+    (porProc[k] || (porProc[k] = [])).push(a);
   });
   const topProc = Object.keys(porProc)
-    .map(k => ({ name:k, pend:porProc[k].pend, real:porProc[k].real, n:porProc[k].pend+porProc[k].real }))
+    .map(k => {
+      const list = porProc[k].slice().sort((a,b)=> (a.fecha||"").localeCompare(b.fecha||"") || minsM(a.time)-minsM(b.time));
+      const real = list.filter(a=>a.status==="atendida"||a.attended).length;
+      return { name:k, list, real, pend:list.length-real, n:list.length };
+    })
     .sort((a,b)=>b.n-a.n).slice(0,5);
   const maxProc = topProc[0] ? topProc[0].n : 1;
 
@@ -1523,25 +1564,47 @@ function ReportesOverlay({ T, appts, onBack }) {
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 2px" }}>Procedimientos del mes</div>
           <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, padding:"0 0 10px", lineHeight:1.5 }}>Incluye lo agendado para lo que resta del mes, no solo lo ya atendido — para anticipar stock.</div>
           {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, padding:"6px 0 12px" }}>Sin datos este mes.</div>}
-          {topProc.map((t,i) => (
-            <div key={t.name} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", borderBottom: i===topProc.length-1?"none":"1px solid rgba(255,255,255,.06)" }}>
-              {/* Ranking: número de posición (antes un icono de barras idéntico en todas las filas, que no aportaba). */}
-              <div style={{ width:30, height:30, borderRadius:9, flexShrink:0, background:"rgba(120,145,166,.14)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:13, fontWeight:700 }}>{i+1}</div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
-                  <span style={{ fontFamily:T.sans, fontSize:16, fontWeight:700, color:T.text, marginLeft:8, flexShrink:0 }}>{t.n}</span>
+          {topProc.map((t,i) => {
+            const open = expanded === t.name;
+            return (
+            <div key={t.name} style={{ borderBottom: i===topProc.length-1 && !open?"none":"1px solid rgba(255,255,255,.06)" }}>
+              {/* Fila clickeable (pedido): tocarla despliega DE QUIÉN es cada cita — antes solo se
+                  veía el número, sin forma de saber a qué paciente corresponde. */}
+              <button onClick={()=>setExpanded(open?null:t.name)} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", width:"100%", background:"none", border:"none", cursor:"pointer", textAlign:"left" }}>
+                {/* Ranking: número de posición (antes un icono de barras idéntico en todas las filas, que no aportaba). */}
+                <div style={{ width:30, height:30, borderRadius:9, flexShrink:0, background:"rgba(120,145,166,.14)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:13, fontWeight:700 }}>{i+1}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
+                    <span style={{ fontFamily:T.sans, fontSize:16, fontWeight:700, color:T.text, marginLeft:8, flexShrink:0 }}>{t.n}</span>
+                  </div>
+                  {/* Barra apilada: azul = agendado, dorado = realizado — mismos colores que el resto
+                      del panel y el portal, así un mismo total distingue de un vistazo qué falta. */}
+                  <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8, display:"flex" }}>
+                    <div style={{ height:"100%", width:Math.round(t.pend/maxProc*100)+"%", background:"#6EA8E8" }} />
+                    <div style={{ height:"100%", width:Math.round(t.real/maxProc*100)+"%", background:"linear-gradient(90deg,#D9A63C,#F5B93D)" }} />
+                  </div>
+                  <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:5 }}>{t.pend} agendados · {t.real} realizados</div>
                 </div>
-                {/* Barra apilada (pedido): un mismo total puede ser todo lo ya hecho o todo lo que
-                    falta por hacer — sin el desglose visual eso no se distingue de un vistazo. */}
-                <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8, display:"flex" }}>
-                  <div style={{ height:"100%", width:Math.round(t.real/maxProc*100)+"%", background:"#7891A6" }} />
-                  <div style={{ height:"100%", width:Math.round(t.pend/maxProc*100)+"%", background:"linear-gradient(90deg,#B8860B,#D9A63C)" }} />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2.2" style={{ flexShrink:0, transform:open?"rotate(180deg)":"none", transition:"transform .15s" }}><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              {open && (
+                <div style={{ display:"flex", flexDirection:"column", gap:6, padding:"0 0 12px 43px" }}>
+                  {t.list.map(a => {
+                    const st = apptStateM(a, T);
+                    return (
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:9, padding:"8px 11px" }}>
+                        <span aria-hidden="true" title={st.label} style={{ width:8, height:8, borderRadius:"50%", background:st.color, flexShrink:0 }} />
+                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:62 }}>{dayLabelM(a.fecha||offToISO(a.day||0))}</span>
+                        <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name||"Paciente"}</span>
+                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, color:st.color, fontWeight:600 }}>{st.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:5 }}>{t.pend} agendados · {t.real} realizados</div>
-              </div>
+              )}
             </div>
-          ))}
+          );})}
         </div>
       </div>
     </OverlayShell>
@@ -1586,7 +1649,9 @@ function OverlayShell({ T, title, onBack, children }) {
       <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", height:"100%" }}>
         {/* Header overlay (referencia): botón atrás en círculo glass + título grande a la izquierda, sin barra. */}
         <div style={{ padding:"calc(14px + env(safe-area-inset-top,0px)) 18px 10px", display:"flex", alignItems:"center", gap:14, flexShrink:0 }}>
-          <button onClick={onBack} aria-label="Volver" style={{ width:38, height:38, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          {/* Objetivo táctil mínimo 44px (Fitts' Law / WCAG 2.2) — el ícono visual queda igual, solo
+              crece el área de toque invisible. */}
+          <button onClick={onBack} aria-label="Volver" style={{ width:44, height:44, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <span style={{ fontFamily:T.sans, fontSize:26, fontWeight:700, color:T.text, letterSpacing:"-.01em" }}>{title}</span>
@@ -1651,6 +1716,18 @@ function MobileShell({ T, D, onLogout }) {
     setTitle();
     window.addEventListener("jcsaas:data", setTitle);
     return () => window.removeEventListener("jcsaas:data", setTitle);
+  }, []);
+
+  // Aviso de sin conexión (pedido): la sincronización con la nube pasa en silencio en segundo plano
+  // — sin este aviso, si el celular pierde señal, la clínica sigue viendo datos guardados sin saber
+  // que podrían estar desactualizados (una cita nueva de otro dispositivo no llegaría, por ejemplo).
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+  useEffect(() => {
+    function goOnline() { setOnline(true); }
+    function goOffline() { setOnline(false); }
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
   }, []);
 
   function saveAppts(updated) { window.DB&&window.DB.set("appointments", updated); setAppts(updated); }
@@ -1721,12 +1798,17 @@ function MobileShell({ T, D, onLogout }) {
   const clinName = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   // Fecha del día para el subtítulo del header (reemplaza a "Panel móvil").
   const fechaHeader = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
-  const hamburger = <button onClick={()=>setDrawer(true)} aria-label="Menú" style={{ width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginLeft:-6 }}>
+  {/* Objetivo táctil mínimo 44px en toda esta fila: el ícono visual no cambia de tamaño, el margen
+      negativo compensa el padding invisible extra para que la fila no se vea más ancha. */}
+  const hamburger = <button onClick={()=>setDrawer(true)} aria-label="Menú" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginLeft:-9 }}>
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
   </button>;
-  const bell = <button onClick={()=>setNotifOpen(true)} aria-label="Pendientes" style={{ position:"relative", width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginRight:-4 }}>
+  const bell = <button onClick={()=>setNotifOpen(true)} aria-label="Pendientes" style={{ position:"relative", width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginRight:-7 }}>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-    {bellCount>0 && <span style={{ position:"absolute", top:4, right:6, minWidth:16, height:16, padding:"0 4px", borderRadius:999, background:T.accent, color:"#fff", fontFamily:T.sans, fontSize:9, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", border:"1.5px solid rgba(255,255,255,.35)" }}>{bellCount}</span>}
+    {/* Excepción documentada al mínimo de 11px: badge numérico de 1-2 dígitos sobre un ícono
+        (mismo patrón que el badge de notificaciones de iOS/Android) — agrandarlo a 11px no cabría
+        en un círculo de este tamaño sin verse desproporcionado. */}
+    {bellCount>0 && <span style={{ position:"absolute", top:8, right:8, minWidth:18, height:18, padding:"0 4px", borderRadius:999, background:T.accent, color:"#fff", fontFamily:T.sans, fontSize:10, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", border:"1.5px solid rgba(255,255,255,.35)" }}>{bellCount}</span>}
   </button>;
   const headerTitle = (txt) => <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color:T.text }}>{txt}</span>;
   const renderHeader = () => {
@@ -1741,15 +1823,15 @@ function MobileShell({ T, D, onLogout }) {
         </div>
       </div>{bell}</>;
     if (tab==="nueva") return <>
-      <button onClick={()=>setTab("citas")} aria-label="Volver" style={{ width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginLeft:-6 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button onClick={()=>setTab("citas")} aria-label="Volver" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginLeft:-9 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg></button>
       <span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.sans, fontSize:20, fontWeight:600, color:T.text }}>Nueva cita</span>
-      <button onClick={()=>setTab("citas")} aria-label="Cerrar" style={{ width:38, height:38, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-6 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <button onClick={()=>setTab("citas")} aria-label="Cerrar" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-9 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </>;
     // agenda / horarios / mas: hamburguesa + título centrado + acción a la derecha (filtro en Agenda)
     const titleMap = { horarios:"Horarios", agenda:"Agenda", mas:"Más" };
     const rightAction = tab==="agenda"
-      ? <button onClick={()=>setAgShowAnuladas(v=>!v)} aria-label="Filtro" style={{ width:38, height:38, borderRadius:"50%", border:"none", background:agShowAnuladas?T.accentSoft:"none", color:agShowAnuladas?T.accent:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-4 }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
-      : <div style={{ width:34 }} />;
+      ? <button onClick={()=>setAgShowAnuladas(v=>!v)} aria-label="Filtro" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:agShowAnuladas?T.accentSoft:"none", color:agShowAnuladas?T.accent:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-7 }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
+      : <div style={{ width:44 }} />;
     return <>{hamburger}<span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.sans, fontSize:20, fontWeight:600, color:T.text }}>{titleMap[tab]}</span>{rightAction}</>;
   };
   // Barra inferior EXACTA de la referencia: Citas · Agenda · Pacientes · Reportes · Más.
@@ -1777,6 +1859,15 @@ function MobileShell({ T, D, onLogout }) {
             ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, ...glassChip(T), borderRadius:18, padding:"8px 12px" }}>{renderHeader()}</div>
             : <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"6px 4px 6px", minHeight:42 }}>{renderHeader()}</div>}
         </div>
+
+        {/* Aviso de sin conexión (pedido): visible y persistente mientras dure — no un toast que
+            desaparece solo, porque el riesgo (datos desactualizados) sigue mientras siga offline. */}
+        {!online && (
+          <div style={{ flexShrink:0, margin:"0 14px 6px", padding:"8px 12px", borderRadius:12, background:"rgba(184,134,11,.22)", border:"1px solid rgba(184,134,11,.4)", display:"flex", alignItems:"center", gap:8 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E8B84D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5"/></svg>
+            <span style={{ fontFamily:T.sans, fontSize:11.5, color:"#F0D9A8", lineHeight:1.35 }}>Sin conexión · mostrando datos guardados en este equipo</span>
+          </div>
+        )}
 
         {/* Content */}
         {/* Pedido: en Agenda y en Inicio la pantalla queda fija (KPI/accesos/encabezados no se mueven)
@@ -1811,7 +1902,7 @@ function MobileShell({ T, D, onLogout }) {
 
       {/* Overlays de navegación tipo iOS push */}
       {overlay==="pacientes" && <PacientesOverlay T={T} patients={patients} appts={appts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} />}
-      {overlay==="reportes" && <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} />}
+      {overlay==="reportes" && <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} />}
       {overlay && overlay.type==="ficha" && <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={appts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} />}
 
       {/* Panel de PENDIENTES (campana): consentimientos por firmar + pagos por confirmar (datos reales). */}
@@ -1841,7 +1932,7 @@ function MobileShell({ T, D, onLogout }) {
                   <div style={{ fontFamily:T.serif, fontSize:18, fontWeight:600, color:T.text }}>Pendientes</div>
                   <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, marginTop:1 }}>{total===0 ? "Todo al día" : total+" por resolver"}</div>
                 </div>
-                <button onClick={closeN} aria-label="Cerrar" style={{ width:34, height:34, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                <button onClick={closeN} aria-label="Cerrar" style={{ width:44, height:44, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
               </div>
               <div className="jc-scroll" style={{ flex:1, overflowY:"auto", padding:"6px 8px 14px", display:"flex", flexDirection:"column", gap:1 }}>
                 {total===0 && <div style={{ padding:"40px 16px", textAlign:"center", fontFamily:T.sans, fontSize:13, color:T.textMute }}>Sin pendientes · todo en orden ✓</div>}

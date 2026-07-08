@@ -1188,7 +1188,7 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
       if (!origPro || !origPro.pin) { setErr("El profesional que realizó esta sesión no tiene clave configurada. Defínela en Equipo."); return; }
       if (pin !== origPro.pin) { setErr("Clave incorrecta. Solo " + (origPro.name) + " puede confirmar cambios en su sesión."); return; }
     }
-    onSave({ ...f, temp: f.temp.trim() ? f.temp.trim() + " °C" : "", cobro: parseInt(("" + (f.cobro || "")).replace(/\D/g, ""), 10) || 0 });
+    onSave({ ...f, proc: f.proc.trim(), temp: f.temp.trim() ? f.temp.trim() + " °C" : "", cobro: parseInt(("" + (f.cobro || "")).replace(/\D/g, ""), 10) || 0 });
   }
   const setPro = id => { const p = team.find(t => t.id === id); setF({ ...f, proId: id, proName: p ? p.name : f.proName }); };
   const sel = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
@@ -1240,7 +1240,10 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
                     <option value="__other__">Otro (especificar)…</option>
                   </select>
                 </label>
-                {isOther && <div style={{ marginTop: 8 }}><AdField T={T} value={f.proc.trim()} onChange={v => setF({ ...f, proc: v })} placeholder="Nombre del procedimiento" /></div>}
+                {/* Sin .trim() en el value: es un input controlado, y recortar en cada render borraba
+                    el espacio recién tecleado antes de que el usuario pudiera escribir la siguiente
+                    palabra (ej. "Botox 3" nunca pasaba de "Botox"). El trim real ocurre al guardar. */}
+                {isOther && <div style={{ marginTop: 8 }}><AdField T={T} value={f.proc} onChange={v => setF({ ...f, proc: v })} placeholder="Nombre del procedimiento" /></div>}
                 {!svcs.length && <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>Crea tus tratamientos en la sección <b>Servicios</b> para elegirlos aquí, o usa "Evaluación / control" para sesiones sin producto.</p>}
               </div>
             );
