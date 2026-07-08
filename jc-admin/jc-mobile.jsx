@@ -104,6 +104,13 @@ function localISO(d) {
 function todayISO() { return localISO(new Date()); }
 function offToISO(off) { const d = new Date(); d.setDate(d.getDate()+off); return localISO(d); }
 function isoToDayOff(iso) { const d = new Date(iso+"T00:00:00"), t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
+// Mes calendario ACTUAL (real, no el que se esté navegando en la agenda) — pedido: al buscar por
+// procedimiento, solo sirve para planear stock del mes en curso; un match de mes pasado o futuro
+// ensucia esa lectura. Los matches por nombre/RUT (buscar una cita puntual) no usan esto.
+function inCurrentMonth(iso) {
+  const now = new Date(), d = new Date(iso+"T00:00:00");
+  return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+}
 // Etiqueta de día relativa (Hoy/Mañana/Ayer) o "Jue 9 Jul" para el resto — compartida por el
 // buscador de Agenda y los divisores de día de "Próximas citas" en Inicio.
 function dayLabelM(iso) {
@@ -482,12 +489,14 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const yestISO = offToISO(-1);
   const active = appts.filter(a => a.status !== "anulada");
   // Buscador (pedido): mismo buscador que ya existe en Agenda — busca en TODAS las citas activas
-  // (pasadas y futuras) por nombre/apellido, RUT o PROCEDIMIENTO (pedido: para ver de un vistazo
-  // cuántas citas de un procedimiento hay agendadas, p.ej. "sculptra" → control de stock).
+  // (pasadas y futuras) por nombre/apellido o RUT. El match por PROCEDIMIENTO en cambio se acota al
+  // MES ACTUAL (pedido): sirve para planear stock del mes en curso, así que un "sculptra" de otro
+  // mes solo ensuciaría el conteo — buscar un paciente por nombre sigue funcionando sin esa acotación.
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
   const searchMatches = !ql ? [] : active
-    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql) || (a.proc||"").toLowerCase().includes(ql));
+    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql)
+      || ((a.proc||"").toLowerCase().includes(ql) && inCurrentMonth(a.fecha||offToISO(a.day||0))));
   // El conteo total (searchMatches.length) se muestra siempre, aunque la lista renderizada se
   // recorte — sin esto, buscar un procedimiento frecuente no serviría para saber "cuántos hay".
   const searchResults = searchMatches
@@ -819,13 +828,14 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
   // Buscador de pacientes (pedido): evita scrollear día por día para encontrar una cita. Busca en
-  // TODAS las citas (pasadas y futuras, pedido) por nombre/apellido (mismo campo), RUT o
-  // PROCEDIMIENTO (pedido: para ver cuántas citas de un procedimiento hay agendadas, p.ej.
-  // "sculptra" → control de stock) — todos ya vienen guardados directo en la cita.
+  // TODAS las citas (pasadas y futuras, pedido) por nombre/apellido (mismo campo) o RUT. El match
+  // por PROCEDIMIENTO en cambio se acota al MES ACTUAL (pedido): sirve para planear stock del mes
+  // en curso, un "sculptra" de otro mes solo ensuciaría el conteo.
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
   const searchMatches = !ql ? [] : appts
-    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql) || (a.proc||"").toLowerCase().includes(ql));
+    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql)
+      || ((a.proc||"").toLowerCase().includes(ql) && inCurrentMonth(a.fecha||offToISO(a.day||0))));
   // El conteo total (searchMatches.length) se muestra siempre, aunque la lista renderizada se
   // recorte — sin esto, buscar un procedimiento frecuente no serviría para saber "cuántos hay".
   const searchResults = searchMatches

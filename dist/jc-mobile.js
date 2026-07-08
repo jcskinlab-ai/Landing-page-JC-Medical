@@ -115,6 +115,10 @@ function isoToDayOff(iso) {
   t.setHours(0, 0, 0, 0);
   return Math.round((d - t) / 864e5);
 }
+function inCurrentMonth(iso) {
+  const now = /* @__PURE__ */ new Date(), d = /* @__PURE__ */ new Date(iso + "T00:00:00");
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
 function dayLabelM(iso) {
   const off = isoToDayOff(iso);
   if (off === 0) return "Hoy";
@@ -429,7 +433,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const active = appts.filter((a) => a.status !== "anulada");
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
-  const searchMatches = !ql ? [] : active.filter((a) => (a.name || "").toLowerCase().includes(ql) || (a.rut || "").toLowerCase().includes(ql) || (a.proc || "").toLowerCase().includes(ql));
+  const searchMatches = !ql ? [] : active.filter((a) => (a.name || "").toLowerCase().includes(ql) || (a.rut || "").toLowerCase().includes(ql) || (a.proc || "").toLowerCase().includes(ql) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
   const searchResults = searchMatches.map((a) => ({ a, off: isoToDayOff(a.fecha || offToISO(a.day || 0)) })).sort((x, y) => {
     const dx = Math.abs(x.off), dy = Math.abs(y.off);
     return dx !== dy ? dx - dy : y.off - x.off;
@@ -649,7 +653,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const [selDay, setSelDay] = useState(today);
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
-  const searchMatches = !ql ? [] : appts.filter((a) => (a.name || "").toLowerCase().includes(ql) || (a.rut || "").toLowerCase().includes(ql) || (a.proc || "").toLowerCase().includes(ql));
+  const searchMatches = !ql ? [] : appts.filter((a) => (a.name || "").toLowerCase().includes(ql) || (a.rut || "").toLowerCase().includes(ql) || (a.proc || "").toLowerCase().includes(ql) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
   const searchResults = searchMatches.map((a) => ({ a, off: isoToDayOff(a.fecha || offToISO(a.day || 0)) })).sort((x, y) => {
     const dx = Math.abs(x.off), dy = Math.abs(y.off);
     return dx !== dy ? dx - dy : y.off - x.off;
