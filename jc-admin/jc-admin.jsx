@@ -4867,7 +4867,7 @@ function WelcomeTour({ T, go, onClose }) {
           {kind === "intro" && (
             <div style={{ textAlign: "center", paddingTop: 6 }}>
               <div style={titleS}>¡Bienvenido a Medique!</div>
-              <div style={{ ...subS, textAlign: "center", maxWidth: 360, margin: "0 auto" }}>Vamos a dejar tu clínica lista en unos pasos. Completa lo básico aquí mismo — toma un par de minutos y puedes saltar lo que quieras.</div>
+              <div style={{ ...subS, textAlign: "center", maxWidth: 360, margin: "0 auto" }}>Vamos a dejar tu clínica lista en unos pasos. Toma un par de minutos — pero no es obligatorio ahora: puedes saltarlo y completarlo cuando quieras desde Configuración.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 18, textAlign: "left" }}>
                 {[["Datos de tu clínica", "Nombre, dirección y WhatsApp"], ["RUT de la clínica", "Para tus documentos"], ["Profesionales", "Quién atiende"], ["Servicios", "Tus procedimientos y precios"], ["Inventario", "Tus insumos"]].map((c, idx) => (
                   <div key={idx} style={{ display: "flex", alignItems: "center", gap: 11, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "10px 13px" }}>
@@ -4952,9 +4952,11 @@ function WelcomeTour({ T, go, onClose }) {
           {kind === "listo" ? (
             <button onClick={onClose} style={{ flex: 1, fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.primaryText || "#fff", background: T.primaryBg || T.accent, border: "none", borderRadius: 9, padding: "13px", cursor: "pointer" }}>Empezar a usar Medique</button>
           ) : (<>
-            {step > 0
-              ? <button onClick={back} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 9, padding: "11px 16px", cursor: "pointer" }}>Anterior</button>
-              : <button onClick={onClose} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "none", padding: "11px 6px", cursor: "pointer" }}>Saltar</button>}
+            {step > 0 && <button onClick={back} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "1px solid " + T.line, borderRadius: 9, padding: "11px 16px", cursor: "pointer" }}>Anterior</button>}
+            {/* Salida persistente en TODOS los pasos (antes solo el paso 0 tenía "Saltar" visible; dentro
+                del wizard la única salida era la X chica → se sentía obligatorio). Ahora se puede dejar
+                para después desde cualquier paso, sin perder lo ya guardado. */}
+            <button onClick={onClose} style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, background: "transparent", border: "none", padding: "11px 6px", cursor: "pointer" }}>{step > 0 ? "Terminar después" : "Saltar por ahora"}</button>
             <div style={{ flex: 1 }} />
             <button onClick={next} style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.primaryText || "#fff", background: T.primaryBg || T.accent, border: "none", borderRadius: 9, padding: "12px 22px", cursor: "pointer" }}>{kind === "intro" ? "Comenzar" : "Guardar y seguir"}</button>
           </>)}
