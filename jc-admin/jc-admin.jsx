@@ -3080,11 +3080,9 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         }
         return (
           <div style={{ margin: "0 0 12px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: T.sans, fontSize: 9, letterSpacing: ".26em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>
-              <span style={{ display: "inline-block", width: 22, height: 1, background: T.gold || T.accent }} />
-              Agenda de la clínica
-            </div>
-            <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(19px, 2vw, 23px)", letterSpacing: "-.01em", color: T.text, margin: "5px 0 0", lineHeight: 1.05, textShadow: heroShadow }}>Reservas y Citas</h1>
+            {/* Eyebrow "Agenda de la clínica" quitado (distill): decía lo mismo que el h1 "Reservas y
+                Citas" justo debajo — kicker redundante, no aporta contexto nuevo. */}
+            <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(19px, 2vw, 23px)", letterSpacing: "-.01em", color: T.text, margin: 0, lineHeight: 1.05, textShadow: heroShadow }}>Reservas y Citas</h1>
             <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 4, textShadow: heroShadow }}>{n === 0 ? "No hay citas para hoy." : n + " cita" + (n === 1 ? "" : "s") + " hoy."} Gestiona horarios, confirma asistencias y agenda nuevas atenciones.</div>
           </div>
         );

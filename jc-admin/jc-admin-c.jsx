@@ -2159,11 +2159,13 @@ function ReportesView({ T, patients, appts }) {
           <div style={{ fontFamily: T.serif, fontSize: 26, color: T.text, marginTop: 6 }}>{D.fmt(cashMonth)}</div>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 }}>
+      {/* Grilla de 3 (antes 4): se quitó la tarjeta "Ingresos hoy" — repetía EXACTO el mismo valor
+          (cashToday2) que la tarjeta ancha "Ingresos hoy · en vivo" de arriba. Distill: un dato, una
+          representación. Quedan los tres que no se repiten en ningún otro lado de la vista. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 14 }}>
         <AdStat T={T} n={D.fmt(ticketProm)} l="Ticket promedio" />
         <AdStat T={T} n={(patients || []).length} l="Pacientes" />
         <AdStat T={T} n={noShow + "%"} l="No-show rate" />
-        <AdStat T={T} n={D.fmt(cashToday2)} l="Ingresos hoy" />
       </div>
       <div style={repCard}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
@@ -3492,11 +3494,10 @@ function SecHead({ T, title, sub }) {
   // Un halo suave (oscuro en dark / claro en light) garantiza contraste en cualquier zona de la montaña
   // sin agregar una caja opaca. Al vivir en SecHead, cubre de una a las ~30 vistas del panel.
   const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)";
+  // Eyebrow "Medique" quitado (pase impeccable/distill): repetía la marca —que ya vive en el logo del
+  // sidebar— idéntica sobre las ~36 vistas que usan SecHead, puro scaffolding sin información. El h1
+  // ya identifica la página; el título serif solo se lee más limpio y sin ruido de kicker.
   if (lux) return <div style={{ marginBottom: DS.sp[6] }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-      <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || T.accent }} />
-      <span style={{ fontFamily: T.sans, fontSize: DS.ft.eyebrow, fontWeight: 500, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent, textShadow: heroShadow }}>Medique</span>
-    </div>
     <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: DS.ft.display, letterSpacing: "-.01em", color: T.text, lineHeight: 1.05, textShadow: heroShadow }}>{title}</h1>
     {sub && <div style={{ ...DS.text(T, "sub"), marginTop: 8, textShadow: heroShadow }}>{sub}</div>}
   </div>;
