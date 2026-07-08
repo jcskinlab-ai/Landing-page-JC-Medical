@@ -1301,6 +1301,9 @@ function AdminApp() {
   });
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
   const [openPatientTab, setOpenPatientTab] = useState(_initRoute.pid ? _initRoute.sub : null);
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdQ, setCmdQ] = useState("");
+  const [cmdIdx, setCmdIdx] = useState(0);
   const [openApptId, setOpenApptId] = useState(null);
   const [appts, setAppts] = useState(() => {
     var saved = window.DB && window.DB.get("appointments");
@@ -1568,6 +1571,18 @@ function AdminApp() {
     setNavOpen(false);
     resetNavGroups();
   }
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setCmdQ("");
+        setCmdIdx(0);
+        setCmdOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   useEffect(() => {
     try {
       var role = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole ? window.JCSAAS.currentRole() : "owner";
@@ -1977,7 +1992,43 @@ function AdminApp() {
     setNotifOpen(false);
     setOpenPatient(id);
     setSection("pacientes");
-  } }), showTour && /* @__PURE__ */ React.createElement(WelcomeTour, { T, go: (k) => nav(k), onClose: closeTour })));
+  } }), showTour && /* @__PURE__ */ React.createElement(WelcomeTour, { T, go: (k) => nav(k), onClose: closeTour }), cmdOpen && (() => {
+    const q = cmdQ.trim().toLowerCase();
+    const norm = (s) => ("" + (s || "")).toLowerCase();
+    const navMatches = adminNavItems().filter((n) => !q || norm(n.l).includes(q)).map((n) => ({ type: "nav", key: n.k, label: n.l }));
+    const patMatches = !q ? [] : patients.filter((p) => norm(p.name).includes(q) || norm(p.rut).includes(q) || norm(p.phone).includes(q)).slice(0, 6).map((p) => ({ type: "patient", id: p.id, label: p.name || "Sin nombre", sub: [p.rut, p.age ? p.age + " a\xF1os" : ""].filter(Boolean).join(" \xB7 ") }));
+    const results = navMatches.concat(patMatches);
+    const idx = results.length ? Math.min(cmdIdx, results.length - 1) : 0;
+    const run = (c) => {
+      if (!c) return;
+      if (c.type === "nav") nav(c.key);
+      else if (c.type === "patient") {
+        setOpenPatient(c.id);
+        setSection("pacientes");
+      }
+      setCmdOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setCmdOpen(false);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCmdIdx((i) => Math.min((results.length ? Math.min(i, results.length - 1) : 0) + 1, Math.max(0, results.length - 1)));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCmdIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        run(results[idx]);
+      }
+    };
+    return /* @__PURE__ */ React.createElement("div", { onMouseDown: () => setCmdOpen(false), style: { position: "fixed", inset: 0, zIndex: 120, background: "rgba(6,8,12,.5)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "12vh", animation: "jcFade .12s ease" } }, /* @__PURE__ */ React.createElement("div", { role: "dialog", "aria-label": "Buscar y navegar", onMouseDown: (e) => e.stopPropagation(), style: { width: "min(560px, 92vw)", background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 30px 80px -20px rgba(0,0,0,.6)", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 11, padding: "14px 16px", borderBottom: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "7" }), /* @__PURE__ */ React.createElement("path", { d: "M21 21l-4-4" })), /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: cmdQ, onChange: (e) => {
+      setCmdQ(e.target.value);
+      setCmdIdx(0);
+    }, onKeyDown: onKey, "data-nocap": "", placeholder: "Ir a una secci\xF3n o buscar un paciente\u2026", style: { flex: 1, background: "transparent", border: "none", outline: "none", color: T.text, fontFamily: T.sans, fontSize: 15 } }), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, border: "1px solid " + T.line, borderRadius: 5, padding: "2px 6px" } }, "Esc")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { maxHeight: "48vh", overflowY: "auto", padding: 6 } }, results.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "22px 14px", textAlign: "center", fontFamily: T.sans, fontSize: 13, color: T.textMute } }, "Sin coincidencias", q ? " para \u201C" + cmdQ.trim() + "\u201D" : "", "."), results.map((c, i) => /* @__PURE__ */ React.createElement("button", { key: c.type + (c.key || c.id), onMouseEnter: () => setCmdIdx(i), onClick: () => run(c), style: { display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 9, border: "none", cursor: "pointer", background: i === idx ? T.accentSoft || T.accent + "1c" : "transparent" } }, /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, width: 26, display: "flex", alignItems: "center", justifyContent: "center", color: c.type === "patient" ? T.textMute : T.accent } }, c.type === "patient" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "8", r: "4" }), /* @__PURE__ */ React.createElement("path", { d: "M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" })) : nIcon(c.key, i === idx ? T.accent : T.textMute)), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 13.5, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.label), c.sub && /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1 } }, c.sub)), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textFaint } }, c.type === "patient" ? "Paciente" : "Secci\xF3n"))))));
+  })()));
 }
 function notifReadList() {
   try {

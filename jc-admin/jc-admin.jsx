@@ -1553,6 +1553,12 @@ function AdminApp() {
   const [openPatient, setOpenPatient] = useState(_initRoute.pid);
   // Deep-link a una pestaña de la ficha: /pacientes/<id>/<tab> → abre esa pestaña al recargar.
   const [openPatientTab, setOpenPatientTab] = useState(_initRoute.pid ? _initRoute.sub : null);
+  // Command palette (⌘K / Ctrl+K): salto rápido por teclado a cualquier sección o paciente. Es el
+  // acelerador de power-user que pedía la crítica impeccable (heurístico "flexibilidad y eficiencia",
+  // el más bajo). Aditivo: no reemplaza la nav existente, solo agrega un camino rápido.
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdQ, setCmdQ] = useState("");
+  const [cmdIdx, setCmdIdx] = useState(0);
   const [openApptId, setOpenApptId] = useState(null); // deep-link desde Contralor IA a una cita puntual
   const [appts, setAppts] = useState(() => {
     // Citas por clínica desde la BD (Firebase). Las reservas web ya entran aquí vía importWebBookings.
@@ -1769,6 +1775,19 @@ function AdminApp() {
     }).catch(function (err) { return { ok: false, reason: (err && (err.code || err.message)) || "error" }; });
   }
   function nav(k) { setSection(k); setOpenPatient(null); setNavOpen(false); resetNavGroups(); }
+
+  // Atajo global del command palette: ⌘K (Mac) / Ctrl+K (Win/Linux) lo abre desde cualquier lado;
+  // Esc lo cierra (el propio input maneja Esc/flechas/Enter cuando está abierto). No pisa el atajo
+  // si el foco ya está en un input de texto y el usuario NO usó el modificador.
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault(); setCmdQ(""); setCmdIdx(0); setCmdOpen(v => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Multiusuario: si un PROFESIONAL llega (por URL/atrás) a una sección que sus permisos no incluyen,
   // se le redirige al Dashboard. Solo aplica a role 'professional'; al dueño no lo afecta.
@@ -2156,6 +2175,54 @@ function AdminApp() {
         {darCita && <NewCitaModal T={T} patients={patients} addPatient={addPatient} appts={appts} time={darCita.time} day={darCita.day} prefill={darCita} onClose={() => setDarCita(null)} onSave={(a) => { addAppt(a); setDarCita(null); }} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} addAppt={addAppt} />}
         {notifOpen && <NotifPopup T={T} patients={patients} appts={appts} onClose={() => setNotifOpen(false)} onChanged={() => setNotifVer(v => v + 1)} go={(k) => { setNotifOpen(false); nav(k); }} openP={(id) => { setNotifOpen(false); setOpenPatient(id); setSection("pacientes"); }} />}
         {showTour && <WelcomeTour T={T} go={(k) => nav(k)} onClose={closeTour} />}
+        {cmdOpen && (() => {
+          const q = cmdQ.trim().toLowerCase();
+          const norm = s => ("" + (s || "")).toLowerCase();
+          const navMatches = adminNavItems()
+            .filter(n => !q || norm(n.l).includes(q))
+            .map(n => ({ type: "nav", key: n.k, label: n.l }));
+          const patMatches = !q ? [] : patients
+            .filter(p => norm(p.name).includes(q) || norm(p.rut).includes(q) || norm(p.phone).includes(q))
+            .slice(0, 6)
+            .map(p => ({ type: "patient", id: p.id, label: p.name || "Sin nombre", sub: [p.rut, p.age ? p.age + " años" : ""].filter(Boolean).join(" · ") }));
+          const results = navMatches.concat(patMatches);
+          const idx = results.length ? Math.min(cmdIdx, results.length - 1) : 0;
+          const run = (c) => { if (!c) return; if (c.type === "nav") nav(c.key); else if (c.type === "patient") { setOpenPatient(c.id); setSection("pacientes"); } setCmdOpen(false); };
+          const onKey = (e) => {
+            if (e.key === "Escape") { setCmdOpen(false); return; }
+            if (e.key === "ArrowDown") { e.preventDefault(); setCmdIdx(i => Math.min((results.length ? Math.min(i, results.length - 1) : 0) + 1, Math.max(0, results.length - 1))); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); setCmdIdx(i => Math.max(i - 1, 0)); }
+            else if (e.key === "Enter") { e.preventDefault(); run(results[idx]); }
+          };
+          return (
+            <div onMouseDown={() => setCmdOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(6,8,12,.5)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "12vh", animation: "jcFade .12s ease" }}>
+              <div role="dialog" aria-label="Buscar y navegar" onMouseDown={e => e.stopPropagation()} style={{ width: "min(560px, 92vw)", background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 30px 80px -20px rgba(0,0,0,.6)", overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "14px 16px", borderBottom: "1px solid " + T.line }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
+                  <input autoFocus value={cmdQ} onChange={e => { setCmdQ(e.target.value); setCmdIdx(0); }} onKeyDown={onKey} data-nocap="" placeholder="Ir a una sección o buscar un paciente…" style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: T.text, fontFamily: T.sans, fontSize: 15 }} />
+                  <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, border: "1px solid " + T.line, borderRadius: 5, padding: "2px 6px" }}>Esc</span>
+                </div>
+                <div className="jc-scroll" style={{ maxHeight: "48vh", overflowY: "auto", padding: 6 }}>
+                  {results.length === 0 && <div style={{ padding: "22px 14px", textAlign: "center", fontFamily: T.sans, fontSize: 13, color: T.textMute }}>Sin coincidencias{q ? " para “" + cmdQ.trim() + "”" : ""}.</div>}
+                  {results.map((c, i) => (
+                    <button key={c.type + (c.key || c.id)} onMouseEnter={() => setCmdIdx(i)} onClick={() => run(c)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 9, border: "none", cursor: "pointer", background: i === idx ? (T.accentSoft || T.accent + "1c") : "transparent" }}>
+                      <span style={{ flexShrink: 0, width: 26, display: "flex", alignItems: "center", justifyContent: "center", color: c.type === "patient" ? T.textMute : T.accent }}>
+                        {c.type === "patient"
+                          ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
+                          : nIcon(c.key, i === idx ? T.accent : T.textMute)}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontFamily: T.sans, fontSize: 13.5, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.label}</span>
+                        {c.sub && <span style={{ display: "block", fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 1 }}>{c.sub}</span>}
+                      </span>
+                      <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textFaint }}>{c.type === "patient" ? "Paciente" : "Sección"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

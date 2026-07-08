@@ -126,6 +126,9 @@ if (typeof window !== "undefined") { window.jcmDocHTML = jcmDocHTML; window.jcmS
 // Oscurecidos lo mínimo posible (mismo tono, más profundo) para que el texto blanco de las
 // iniciales cumpla WCAG AA (4.5:1) en los 10 — el detector de impeccable marcó 9/10 bajo el
 // mínimo (solo #5C7488 pasaba de por sí; el resto rondaba 3.3-4.4:1).
+// ⚠️ VALORES BLOQUEADOS: cada uno pasa AA con poco margen (4.54–4.87:1 vs blanco). NO aclararlos
+// (ni cambiar el texto de las iniciales de blanco) sin recalcular el contraste, o se rompe AA
+// en silencio. Si quieres tonos más vivos, sube la SATURACIÓN, no la luminosidad.
 var JCM_AVATAR_COLORS = ["#5C7488", "#5E7D6B", "#7C6D9E", "#A06757", "#67768C", "#87734D", "#577B8D", "#996680", "#567C6F", "#896C8C"];
 function jcmAvatarColor(name) { var s = "" + (name || "?"), h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return JCM_AVATAR_COLORS[h % JCM_AVATAR_COLORS.length]; }
 if (typeof window !== "undefined") { window.jcmAvatarColor = jcmAvatarColor; }
