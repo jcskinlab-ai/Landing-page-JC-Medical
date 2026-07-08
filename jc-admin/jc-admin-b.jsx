@@ -506,7 +506,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       {/* campañas de re-cita */}
       <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasDue.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasDue.length ? "rgba(31,138,91,.35)" : T.line) }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={recitasDue.length ? "#1F8A5B" : T.textMute} strokeWidth="1.6"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
-        <span style={{ flex: 1, textAlign: "left", fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>Campañas de re-cita por WhatsApp{recitasDue.length ? " · " + recitasDue.length + " para contactar hoy" : ""}</span>
+        <span style={{ flex: 1, textAlign: "left", fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>Campañas de re-cita por WhatsApp{recitasDue.length ? " · " + recitasDue.length + " para contactar hoy" : ""}</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.6" style={{ transform: openCamp ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
       </button>
       {openCamp && (
@@ -514,7 +514,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
           {/* Solo pacientes que YA cumplieron su plazo de re-aplicación (toxina 3 m · Sculptra 2 m).
               No se muestran proyecciones de fechas futuras: la campaña se activa cuando llega el momento. */}
           {recitasDue.length === 0 && (
-            <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, padding: "12px 13px", background: T.surface, border: "1px dashed " + T.line, borderRadius: 9, lineHeight: 1.5 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, padding: "12px 13px", background: T.surface, border: "1px dashed " + T.line, borderRadius: 9, lineHeight: 1.5 }}>
               Ningún paciente cumple hoy su plazo de re-aplicación. Cuando un paciente alcance su ventana
               (toxina a los 3 meses · Sculptra a los 2 meses desde su última sesión), aparecerá aquí listo para contactar.
             </div>
@@ -522,7 +522,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
           {recitasDue.sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 9, background: "rgba(31,138,91,.06)", border: "1px solid rgba(31,138,91,.4)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{p.name}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>{p.name}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{r.motivo} · cumplió su plazo el {fmtD(r.due)}</div>
               </div>
               <AdTag T={T} tone="ok">Contactar</AdTag>
@@ -570,7 +570,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
                 {p.phone && <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap" }}>{icoPhone}{p.phone}</span>}
                 {p.email && <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: T.sans, fontSize: 12, color: T.textMute, minWidth: 0 }}>{icoMail}<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span></span>}
-                {!p.phone && !p.email && <span style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, fontStyle: "italic" }}>Sin contacto</span>}
+                {!p.phone && !p.email && <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, fontStyle: "italic" }}>Sin contacto</span>}
               </div>
               <div style={{ width: 158, flexShrink: 0, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {procChip}

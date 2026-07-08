@@ -1147,8 +1147,6 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     </div>
   );
 
-  const _h = new Date().getHours();
-  const _greet = _h < 13 ? "Buenos días" : _h < 20 ? "Buenas tardes" : "Buenas noches";
   const _fechaLarga = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div style={lux ? { maxWidth: 1180, margin: "0 auto" } : undefined}>
@@ -1156,17 +1154,17 @@ function DashboardView({ T, D, A, appts, patients, go }) {
           sobre la foto everest mantenga contraste en cualquier zona (clara/oscura) de la montaña. */}
       {lux ? (() => { const heroShadow = T.dark ? "0 1px 14px rgba(0,0,0,.55)" : "0 1px 14px rgba(255,255,255,.7)"; return (
         <div style={{ margin: "6px 0 26px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: navyAccent, textShadow: heroShadow }}>
-            <span style={{ display: "inline-block", width: 26, height: 1, background: T.gold || navyAccent }} />
-            {_greet}{clinicDisplayName() ? ", " + clinicDisplayName() : ""}
-          </div>
-          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(26px, 3vw, 34px)", letterSpacing: "-.01em", color: T.text, marginTop: 10, lineHeight: 1.05, textTransform: "capitalize", textShadow: heroShadow }}>{_fechaLarga}</h1>
+          {/* Saludo eliminado (pedido): el eyebrow "Buenas noches, <nombre>" se quitó; la fecha queda
+              como título del Dashboard, sin kicker. */}
+          <h1 style={{ fontFamily: T.serif, fontWeight: 400, fontSize: "clamp(26px, 3vw, 34px)", letterSpacing: "-.01em", color: T.text, marginTop: 0, lineHeight: 1.05, textTransform: "capitalize", textShadow: heroShadow }}>{_fechaLarga}</h1>
           <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 8, textShadow: heroShadow }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
         </div>
       ); })()
       : (
       <div style={{ marginBottom: 18 }}>
-        <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, lineHeight: 1.1 }}>{_greet}{clinicDisplayName() ? ", " + clinicDisplayName().split(" ")[0] : ""}.</h1>
+        {/* Saludo eliminado (pedido): antes el título era "Buenas noches, <nombre>." — ahora la fecha,
+            consistente con el tema lux. */}
+        <h1 style={{ fontFamily: T.serif, fontWeight: 300, fontSize: 28, letterSpacing: "-.02em", color: T.text, lineHeight: 1.1, textTransform: "capitalize" }}>{_fechaLarga}</h1>
         <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 5 }}>{hoy.length === 0 ? "No tienes citas para hoy." : "Tienes " + hoy.length + " cita" + (hoy.length === 1 ? "" : "s") + " hoy."} {ingresosHoy > 0 && "· " + fmt(ingresosHoy) + " en caja hoy."}</div>
       </div>
       )}
