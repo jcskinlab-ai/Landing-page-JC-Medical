@@ -481,6 +481,20 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const today = todayISO();
   const yestISO = offToISO(-1);
   const active = appts.filter(a => a.status !== "anulada");
+  // Buscador (pedido): mismo buscador que ya existe en Agenda — busca en TODAS las citas activas
+  // (pasadas y futuras) por nombre/apellido, RUT o PROCEDIMIENTO (pedido: para ver de un vistazo
+  // cuántas citas de un procedimiento hay agendadas, p.ej. "sculptra" → control de stock).
+  const [q, setQ] = useState("");
+  const ql = q.trim().toLowerCase();
+  const searchMatches = !ql ? [] : active
+    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql) || (a.proc||"").toLowerCase().includes(ql));
+  // El conteo total (searchMatches.length) se muestra siempre, aunque la lista renderizada se
+  // recorte — sin esto, buscar un procedimiento frecuente no serviría para saber "cuántos hay".
+  const searchResults = searchMatches
+    .map(a => ({ a, off: isoToDayOff(a.fecha||offToISO(a.day||0)) }))
+    .sort((x,y) => { const dx=Math.abs(x.off), dy=Math.abs(y.off); return dx!==dy ? dx-dy : y.off-x.off; })
+    .slice(0, 40)
+    .map(x => x.a);
   const todayAppts = active.filter(a => (a.fecha||offToISO(a.day||0)) === today).sort((a,b)=>minsM(a.time)-minsM(b.time));
   const yestCount = active.filter(a => (a.fecha||offToISO(a.day||0)) === yestISO).length;
   const confirmadas = todayAppts.filter(a => a.status==="confirmada" || a.status==="atendida" || a.attended).length;
@@ -547,11 +561,45 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
     </button>
   );
 
+  // Barra de búsqueda (pedido: misma que ya existe en Agenda) — mismo chip glass + ícono lupa,
+  // vive fija bajo los accesos rápidos. Mientras se busca, reemplaza la lista de "Próximas citas".
+  const searchBar = (
+    <div style={{ display:"flex", alignItems:"center", gap:10, ...glassChip(T), borderRadius:13, padding:"0 14px" }}>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, RUT o procedimiento…" style={{ flex:1, background:"transparent", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:13.5, padding:"11px 0" }} />
+      {q && <button onClick={()=>setQ("")} aria-label="Limpiar búsqueda" style={{ flexShrink:0, background:"none", border:"none", color:T.textMute, cursor:"pointer", padding:4, display:"flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>}
+    </div>
+  );
+  const searchResultsBody = (
+    <div style={{ flex:1, minHeight:0, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom:14 }}>
+      {searchMatches.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Sin resultados para "{q.trim()}".</div>}
+      {searchMatches.length>0 && (
+        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+          {/* Conteo total (pedido): buscar un procedimiento sirve para saber CUÁNTOS hay agendados,
+              no solo para navegar a uno — por eso el total va siempre visible, aunque la lista
+              renderizada se recorte a 40 filas por rendimiento. */}
+          <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, padding:"0 2px 2px" }}>{searchMatches.length} {searchMatches.length===1?"resultado":"resultados"} para "{q.trim()}"</div>
+          {searchResults.map(a => {
+            const st = apptStateM(a, T);
+            return (
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px" }}>
+                <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:78 }}>{dayLabelM(a.fecha||offToISO(a.day||0))} {a.time}</span>
+                <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
+                <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     // Pedido: los KPI y los accesos rápidos quedan FIJOS — solo la lista de "Próximas citas"
     // scrollea. Por eso el contenedor ocupa todo el alto y su bloque superior no se desplaza.
     <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"12px 16px 0" }}>
-      {/* Bloque FIJO: KPI + resumen del día + pila de accesos rápidos. */}
+      {/* Bloque FIJO: KPI + resumen del día + pila de accesos rápidos + buscador. */}
       <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:12 }}>
         <div style={{ display:"flex", gap:7 }}>
           {kpi("Citas hoy", todayAppts.length, vsAyer(delta))}
@@ -568,10 +616,14 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
           {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
         </div>
+
+        {searchBar}
       </div>
 
-      {/* Próximas citas: el título queda fijo, solo la LISTA scrollea. */}
+      {/* Próximas citas: el título queda fijo, solo la LISTA scrollea. Mientras se busca (pedido),
+          esta sección entera se reemplaza por los resultados de la búsqueda. */}
       <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", marginTop:12 }}>
+        {ql ? searchResultsBody : (<>
         <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
           <span style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text }}>Próximas citas</span>
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -617,6 +669,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           </div>
           )}
         </div>
+        </>)}
       </div>
     </div>
   );
@@ -766,16 +819,20 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
   // Buscador de pacientes (pedido): evita scrollear día por día para encontrar una cita. Busca en
-  // TODAS las citas (pasadas y futuras, pedido) por nombre/apellido (mismo campo) o RUT — ambos ya
-  // vienen guardados directo en la cita (appt.name/appt.rut), sin necesitar la lista de pacientes.
+  // TODAS las citas (pasadas y futuras, pedido) por nombre/apellido (mismo campo), RUT o
+  // PROCEDIMIENTO (pedido: para ver cuántas citas de un procedimiento hay agendadas, p.ej.
+  // "sculptra" → control de stock) — todos ya vienen guardados directo en la cita.
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
-  const searchResults = !ql ? [] : appts
-    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql))
+  const searchMatches = !ql ? [] : appts
+    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql) || (a.proc||"").toLowerCase().includes(ql));
+  // El conteo total (searchMatches.length) se muestra siempre, aunque la lista renderizada se
+  // recorte — sin esto, buscar un procedimiento frecuente no serviría para saber "cuántos hay".
+  const searchResults = searchMatches
     // Más relevante primero: la cita más cercana a hoy (antes o después), no solo cronológica.
     .map(a => ({ a, off: isoToDayOff(a.fecha||offToISO(a.day||0)) }))
     .sort((x,y) => { const dx=Math.abs(x.off), dy=Math.abs(y.off); return dx!==dy ? dx-dy : y.off-x.off; })
-    .slice(0, 10)
+    .slice(0, 40)
     .map(x => x.a);
   // Tira de días CONTINUA (pedido): scrolleable de forma directa (scroll nativo), no paginada
   // semana por semana. Hacia atrás solo llega hasta el día 1 del mes actual (pedido) — hacia
@@ -891,7 +948,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     <div style={{ padding:"0 14px 8px", flexShrink:0 }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, ...glassChip(T), borderRadius:13, padding:"0 14px" }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-        <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, apellido o RUT…" style={{ flex:1, background:"transparent", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:13.5, padding:"11px 0" }} />
+        <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, RUT o procedimiento…" style={{ flex:1, background:"transparent", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:13.5, padding:"11px 0" }} />
         {q && <button onClick={()=>setQ("")} aria-label="Limpiar búsqueda" style={{ flexShrink:0, background:"none", border:"none", color:T.textMute, cursor:"pointer", padding:4, display:"flex" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>}
       </div>
     </div>
@@ -902,9 +959,12 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   // depende de que la fecha esté dentro del rango visible de la tira de días).
   const searchResultsBody = (
     <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", padding:"0 14px 16px" }}>
-      {searchResults.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Sin resultados para "{q.trim()}".</div>}
-      {searchResults.length>0 && (
+      {searchMatches.length===0 && <div style={{ ...glassPanel(T,14), padding:"22px 16px", textAlign:"center", fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Sin resultados para "{q.trim()}".</div>}
+      {searchMatches.length>0 && (
         <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+          {/* Conteo total (pedido): buscar un procedimiento sirve para saber CUÁNTOS hay agendados
+              (incluye anuladas, tachadas abajo, para no inflar el número con las que sí cuentan). */}
+          <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, padding:"0 2px 2px" }}>{searchMatches.length} {searchMatches.length===1?"resultado":"resultados"} para "{q.trim()}"</div>
           {searchResults.map(a => {
             const st = apptStateM(a, T);
             const isAnulada = a.status === "anulada";
@@ -1302,6 +1362,10 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
   const today = todayISO();
   const proximas = mine.filter(a=>a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=today).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   const pasadas = mine.filter(a=>(a.fecha||offToISO(a.day||0))<today || a.status==="atendida").sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  // Procedimientos registrados en el portal (pedido): el panel móvil no los registra, pero sí debe
+  // mostrarlos — es el mismo campo patient.history que usa la ficha clínica del portal, así queda
+  // el mismo registro visible en ambos lados sin duplicar la captura.
+  const sesiones = (p.history || []).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), background:T.dark?"rgba(255,255,255,.06)":"#fff", color:T.text, outline:"none", boxSizing:"border-box" };
 
   function save() { updatePatient(p.id, { phone:f.phone.trim(), email:f.email.trim(), notas:f.notas.trim() }); setEdit(false); }
@@ -1374,6 +1438,23 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
             ))}
           </div>
         </div>
+
+        {/* Procedimientos del portal (pedido): solo lectura — el panel móvil no registra sesiones
+            clínicas, pero muestra las que ya se cargaron desde el portal para tener el mismo registro
+            visible en ambas partes. */}
+        <div>
+          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Procedimientos del portal ({sesiones.length})</div>
+          {sesiones.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin procedimientos registrados en el portal.</div>}
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {sesiones.slice(0,20).map((h,i) => (
+              <div key={i} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px" }}>
+                <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{h.date||"—"} · {h.proc||"—"}{h.units ? " · "+h.units : ""}</div>
+                {h.resumen && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>{h.resumen}</div>}
+                {h.proName && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, fontStyle:"italic", marginTop:3 }}>Realizado por {h.proName}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </OverlayShell>
   );
@@ -1394,9 +1475,20 @@ function ReportesOverlay({ T, appts, onBack }) {
   const monthAppts = appts.filter(inMonth);
   const countBy = (list, pred) => list.filter(pred).length;
   const noShowRate = weekAppts.length ? Math.round(countBy(weekAppts, a=>a.status==="no_asistio") / weekAppts.filter(a=>a.status!=="anulada").length * 100) || 0 : 0;
+  // Desglose agendados vs realizados por procedimiento (pedido): antes solo se veía el total del
+  // mes, que en la práctica se leía como "lo ya hecho" — para prever stock hace falta saber cuántos
+  // de cada procedimiento quedan AGENDADOS (aún no atendidos) además de los ya realizados. Las
+  // "no_asistio" no consumen insumo, así que no cuentan en ninguna de las dos columnas.
   const porProc = {};
-  monthAppts.forEach(a => { if (a.status==="anulada") return; const k = a.proc||"Sin especificar"; porProc[k] = (porProc[k]||0)+1; });
-  const topProc = Object.keys(porProc).map(k=>({name:k,n:porProc[k]})).sort((a,b)=>b.n-a.n).slice(0,5);
+  monthAppts.forEach(a => {
+    if (a.status==="anulada" || a.status==="no_asistio") return;
+    const k = a.proc||"Sin especificar";
+    if (!porProc[k]) porProc[k] = { pend:0, real:0 };
+    if (a.status==="atendida" || a.attended) porProc[k].real++; else porProc[k].pend++;
+  });
+  const topProc = Object.keys(porProc)
+    .map(k => ({ name:k, pend:porProc[k].pend, real:porProc[k].real, n:porProc[k].pend+porProc[k].real }))
+    .sort((a,b)=>b.n-a.n).slice(0,5);
   const maxProc = topProc[0] ? topProc[0].n : 1;
 
   // Fila con ícono en círculo de color + valor coloreado (referencia).
@@ -1428,7 +1520,8 @@ function ReportesOverlay({ T, appts, onBack }) {
           {row(RIC.pct,   noShowRate>15?"#FF6B7D":"#46D27A", "Tasa de inasistencia", noShowRate+"%", noShowRate>15?"#FF6B7D":"#46D27A", true)}
         </div>
         <div style={{ ...glassPanel(T,20), padding:"6px 16px 10px" }}>
-          <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 8px" }}>Procedimientos del mes</div>
+          <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 2px" }}>Procedimientos del mes</div>
+          <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, padding:"0 0 10px", lineHeight:1.5 }}>Incluye lo agendado para lo que resta del mes, no solo lo ya atendido — para anticipar stock.</div>
           {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, padding:"6px 0 12px" }}>Sin datos este mes.</div>}
           {topProc.map((t,i) => (
             <div key={t.name} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", borderBottom: i===topProc.length-1?"none":"1px solid rgba(255,255,255,.06)" }}>
@@ -1439,7 +1532,13 @@ function ReportesOverlay({ T, appts, onBack }) {
                   <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
                   <span style={{ fontFamily:T.sans, fontSize:16, fontWeight:700, color:T.text, marginLeft:8, flexShrink:0 }}>{t.n}</span>
                 </div>
-                <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8 }}><div style={{ height:"100%", width:Math.max(6,Math.round(t.n/maxProc*100))+"%", background:"linear-gradient(90deg,#7891A6,#A9BAC7)", borderRadius:999 }} /></div>
+                {/* Barra apilada (pedido): un mismo total puede ser todo lo ya hecho o todo lo que
+                    falta por hacer — sin el desglose visual eso no se distingue de un vistazo. */}
+                <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8, display:"flex" }}>
+                  <div style={{ height:"100%", width:Math.round(t.real/maxProc*100)+"%", background:"#7891A6" }} />
+                  <div style={{ height:"100%", width:Math.round(t.pend/maxProc*100)+"%", background:"linear-gradient(90deg,#B8860B,#D9A63C)" }} />
+                </div>
+                <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:5 }}>{t.pend} agendados · {t.real} realizados</div>
               </div>
             </div>
           ))}
