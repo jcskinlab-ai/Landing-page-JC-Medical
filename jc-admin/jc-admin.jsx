@@ -2967,15 +2967,20 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   }
   // Apila citas solapadas en la vista lista
   const listStacked = (() => {
+    // MIN_BLK: alto mínimo de un bloque de cita. El contenido son DOS filas
+    // (hora+duración y nombre+procedimiento) que necesitan ~46 px; con menos,
+    // el overflow:hidden recortaba el nombre en las citas de 15 min (21 px).
+    // Se fija un piso legible y se apila hacia abajo si dos citas se pisan
+    // (mismo criterio que un calendario: la caja nunca queda más baja que su texto).
+    const MIN_BLK = 48;
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
     let cur = -1;
     return sorted.map(a => {
       const dur = parseInt(a.dur) || 60;
-      const fullH = Math.max(20, dur * HPX / 60);
+      const h = Math.max(MIN_BLK, dur * HPX / 60);
       const nat = (mins(a.time) - OPEN) * HPX / 60;
       const pushed = cur >= 0 && nat < cur;
       const top = pushed ? cur + 2 : nat;
-      const h = pushed ? Math.max(20, Math.min(fullH, 30)) : fullH;
       cur = top + h;
       return { ...a, _top: top, _h: h };
     });

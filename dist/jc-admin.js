@@ -2578,15 +2578,15 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     }
   }
   const listStacked = (() => {
+    const MIN_BLK = 48;
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
     let cur = -1;
     return sorted.map((a) => {
       const dur = parseInt(a.dur) || 60;
-      const fullH = Math.max(20, dur * HPX / 60);
+      const h = Math.max(MIN_BLK, dur * HPX / 60);
       const nat = (mins(a.time) - OPEN) * HPX / 60;
       const pushed = cur >= 0 && nat < cur;
       const top = pushed ? cur + 2 : nat;
-      const h = pushed ? Math.max(20, Math.min(fullH, 30)) : fullH;
       cur = top + h;
       return { ...a, _top: top, _h: h };
     });
