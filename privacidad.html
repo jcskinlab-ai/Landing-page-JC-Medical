@@ -166,12 +166,12 @@
 
   <section id="cookies">
     <h2><span class="n">06</span>Cookies y tecnologías similares</h2>
-    <p>La plataforma utiliza:</p>
+    <p>Distinguimos dos categorías:</p>
     <ul>
-      <li><strong>Almacenamiento local (localStorage)</strong> técnico, necesario para que la aplicación funcione (sesión, preferencias, datos en uso). No es publicitario.</li>
-      <li><strong>Google Analytics</strong>, para entender el uso de forma agregada. Puedes desactivar estas cookies en tu navegador.</li>
-      <li><strong>Google reCAPTCHA</strong>, para distinguir usuarios reales de bots; puede instalar cookies propias sujetas a las políticas de Google.</li>
+      <li><strong>Esenciales (siempre activas):</strong> almacenamiento local (localStorage) necesario para que la aplicación funcione (sesión, preferencias, datos en uso) y <strong>Google reCAPTCHA / App Check</strong>, que usamos para distinguir usuarios reales de bots y prevenir fraude en formularios públicos (ej. reservas). No requieren tu autorización porque son necesarias para el funcionamiento y la seguridad del servicio.</li>
+      <li><strong>No esenciales (requieren tu autorización):</strong> <strong>Google Analytics</strong>, para entender el uso del sitio de forma agregada. Solo se activa si eliges "Aceptar todas" en el aviso de cookies al ingresar al sitio.</li>
     </ul>
+    <p>Puedes cambiar tu elección cuando quieras: <button type="button" onclick="window.MedConsent && window.MedConsent.openPreferences()" style="font:inherit;font-size:14px;color:var(--accent-deep);text-decoration:underline;background:none;border:none;cursor:pointer;padding:0">Preferencias de cookies</button>.</p>
   </section>
 
   <section id="seguridad">
@@ -213,10 +213,10 @@
   </section>
 
   <section id="contacto">
-    <h2><span class="n">12</span>Contacto y reclamos</h2>
-    <p>Para ejercer derechos o realizar consultas sobre privacidad:</p>
-    <p><strong>SKINLAB.TALCA SpA</strong> — RUT 78.373.211-4<br>Talca, Región del Maule, Chile<br>Correo: <a class="inl" href="mailto:jc.skinlab@gmail.com">jc.skinlab@gmail.com</a></p>
-    <p>Si consideras que tus derechos no fueron debidamente atendidos, puedes recurrir a la autoridad de protección de datos competente en Chile.</p>
+    <h2><span class="n">12</span>Contacto, encargado de protección de datos y reclamos</h2>
+    <p>Para ejercer derechos, realizar consultas sobre privacidad o reportar un incidente de seguridad, dirígete al <strong>Encargado de Protección de Datos</strong> de SKINLAB.TALCA SpA:</p>
+    <p><strong>SKINLAB.TALCA SpA</strong> — RUT 78.373.211-4<br>Talca, Región del Maule, Chile<br>Encargado de Protección de Datos: <strong>Juan Claudio Parra</strong><br>Correo: <a class="inl" href="mailto:jc.skinlab@gmail.com">jc.skinlab@gmail.com</a></p>
+    <p>Si consideras que tus derechos no fueron debidamente atendidos, puedes recurrir a la Agencia de Protección de Datos Personales u otra autoridad de protección de datos competente en Chile.</p>
   </section>
 
   <div class="foot">
@@ -228,5 +228,6 @@
     </div>
   </div>
 </div>
+<script src="/cookie-consent.js?v=1"></script>
 </body>
 </html>
