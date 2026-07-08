@@ -86,16 +86,17 @@ const STATUS_STEPS = [
   { key: "anulada",     label: "Cancelar" }
 ];
 // Colores de estado tonificados para leer sobre la foto OSCURA del panel móvil (los del escritorio
-// —#1A50A3, #B8860B— quedaban muy apagados sobre el fondo).
+// —#1A50A3, #B8860B— quedaban muy apagados sobre el fondo). Mismo mapeo de colores que el portal
+// (pedido): Agendado=azul, Confirmado=verde, Atendido=dorado, No asistió=rojo.
 function apptStateM(a, T) {
   // Color de la BARRA lateral y el punto (tokens del MD: verde/amarillo/rojo/azul).
   if (a.status === "anulada")        return { label: "Cancelada",   color: T.textFaint };
   if (a.status === "no_asistio")     return { label: "No asistió",  color: "#FF6B7D" };
-  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#6EA8E8" };
+  if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#F5B93D" };
   if (a.status === "confirmada")     return { label: "Confirmada",  color: "#46D27A" };
   if (a.status === "pendiente_pago") return { label: "⏳ Transferencia", color: "#F5B93D" };
-  // "Agendado" (pendiente de confirmar) = amarillo, coherente con la cápsula-resumen y el mockup.
-  return { label: "Agendado", color: "#F5B93D" };
+  // "Agendado" (pendiente de confirmar) = azul, como en el portal.
+  return { label: "Agendado", color: "#6EA8E8" };
 }
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
 function localISO(d) {
@@ -462,7 +463,8 @@ function occupancyForOff(appts, off) {
     return cap ? Math.round(occupied.size / cap * 100) : 0;
   } catch (e) { return 0; }
 }
-// Cápsula-resumen del día (referencia): • verde confirmadas · • amarillo pendientes · • rojo no asistió.
+// Cápsula-resumen del día: • verde confirmadas · • azul pendientes (agendadas) · • rojo no asistió
+// — mismos colores que el resto del panel y el portal.
 function DaySummary({ T, c, p, na, prefix, bars }) {
   const dot = (color, txt) => (
     <span style={{ display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap" }}>
@@ -478,7 +480,7 @@ function DaySummary({ T, c, p, na, prefix, bars }) {
     <div style={{ ...glassChip(T), borderRadius: bars?14:12, padding: bars?"11px 10px":"9px 12px", display:"flex", alignItems:"center", justifyContent: bars?"space-around":"center", gap:8, flexWrap:"wrap" }}>
       {dot("#46D27A", (prefix?prefix+" ":"") + c + " confirmada" + (c===1?"":"s"))}
       {sep}
-      {dot("#E8B84D", p + " pendiente" + (p===1?"":"s"))}
+      {dot("#6EA8E8", p + " pendiente" + (p===1?"":"s"))}
       {sep}
       {dot("#FF6B7D", na + " no asistió")}
     </div>
@@ -1471,7 +1473,8 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 }
 
 /* ═══════════ Overlay: Reportes (solo datos reales de citas — este bundle no tiene acceso a caja) ═══════════ */
-function ReportesOverlay({ T, appts, onBack }) {
+function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
+  const [expanded, setExpanded] = useState(null); // nombre del procedimiento abierto, o null
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
   // BUG corregido: faltaba el límite superior de la semana — sin "weekEnd" el filtro contaba TODAS
@@ -1488,16 +1491,21 @@ function ReportesOverlay({ T, appts, onBack }) {
   // Desglose agendados vs realizados por procedimiento (pedido): antes solo se veía el total del
   // mes, que en la práctica se leía como "lo ya hecho" — para prever stock hace falta saber cuántos
   // de cada procedimiento quedan AGENDADOS (aún no atendidos) además de los ya realizados. Las
-  // "no_asistio" no consumen insumo, así que no cuentan en ninguna de las dos columnas.
+  // "no_asistio" no consumen insumo, así que no cuentan en ninguna de las dos columnas. Se guarda
+  // la lista completa de citas (no solo el conteo) para poder mostrar DE QUIÉN es cada una al tocar
+  // la fila (pedido: "no sé de qué paciente es").
   const porProc = {};
   monthAppts.forEach(a => {
     if (a.status==="anulada" || a.status==="no_asistio") return;
     const k = a.proc||"Sin especificar";
-    if (!porProc[k]) porProc[k] = { pend:0, real:0 };
-    if (a.status==="atendida" || a.attended) porProc[k].real++; else porProc[k].pend++;
+    (porProc[k] || (porProc[k] = [])).push(a);
   });
   const topProc = Object.keys(porProc)
-    .map(k => ({ name:k, pend:porProc[k].pend, real:porProc[k].real, n:porProc[k].pend+porProc[k].real }))
+    .map(k => {
+      const list = porProc[k].slice().sort((a,b)=> (a.fecha||"").localeCompare(b.fecha||"") || minsM(a.time)-minsM(b.time));
+      const real = list.filter(a=>a.status==="atendida"||a.attended).length;
+      return { name:k, list, real, pend:list.length-real, n:list.length };
+    })
     .sort((a,b)=>b.n-a.n).slice(0,5);
   const maxProc = topProc[0] ? topProc[0].n : 1;
 
@@ -1533,25 +1541,47 @@ function ReportesOverlay({ T, appts, onBack }) {
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 2px" }}>Procedimientos del mes</div>
           <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, padding:"0 0 10px", lineHeight:1.5 }}>Incluye lo agendado para lo que resta del mes, no solo lo ya atendido — para anticipar stock.</div>
           {topProc.length===0 && <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, padding:"6px 0 12px" }}>Sin datos este mes.</div>}
-          {topProc.map((t,i) => (
-            <div key={t.name} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", borderBottom: i===topProc.length-1?"none":"1px solid rgba(255,255,255,.06)" }}>
-              {/* Ranking: número de posición (antes un icono de barras idéntico en todas las filas, que no aportaba). */}
-              <div style={{ width:30, height:30, borderRadius:9, flexShrink:0, background:"rgba(120,145,166,.14)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:13, fontWeight:700 }}>{i+1}</div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
-                  <span style={{ fontFamily:T.sans, fontSize:16, fontWeight:700, color:T.text, marginLeft:8, flexShrink:0 }}>{t.n}</span>
+          {topProc.map((t,i) => {
+            const open = expanded === t.name;
+            return (
+            <div key={t.name} style={{ borderBottom: i===topProc.length-1 && !open?"none":"1px solid rgba(255,255,255,.06)" }}>
+              {/* Fila clickeable (pedido): tocarla despliega DE QUIÉN es cada cita — antes solo se
+                  veía el número, sin forma de saber a qué paciente corresponde. */}
+              <button onClick={()=>setExpanded(open?null:t.name)} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", width:"100%", background:"none", border:"none", cursor:"pointer", textAlign:"left" }}>
+                {/* Ranking: número de posición (antes un icono de barras idéntico en todas las filas, que no aportaba). */}
+                <div style={{ width:30, height:30, borderRadius:9, flexShrink:0, background:"rgba(120,145,166,.14)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:13, fontWeight:700 }}>{i+1}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
+                    <span style={{ fontFamily:T.sans, fontSize:16, fontWeight:700, color:T.text, marginLeft:8, flexShrink:0 }}>{t.n}</span>
+                  </div>
+                  {/* Barra apilada: azul = agendado, dorado = realizado — mismos colores que el resto
+                      del panel y el portal, así un mismo total distingue de un vistazo qué falta. */}
+                  <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8, display:"flex" }}>
+                    <div style={{ height:"100%", width:Math.round(t.pend/maxProc*100)+"%", background:"#6EA8E8" }} />
+                    <div style={{ height:"100%", width:Math.round(t.real/maxProc*100)+"%", background:"linear-gradient(90deg,#D9A63C,#F5B93D)" }} />
+                  </div>
+                  <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:5 }}>{t.pend} agendados · {t.real} realizados</div>
                 </div>
-                {/* Barra apilada (pedido): un mismo total puede ser todo lo ya hecho o todo lo que
-                    falta por hacer — sin el desglose visual eso no se distingue de un vistazo. */}
-                <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8, display:"flex" }}>
-                  <div style={{ height:"100%", width:Math.round(t.real/maxProc*100)+"%", background:"#7891A6" }} />
-                  <div style={{ height:"100%", width:Math.round(t.pend/maxProc*100)+"%", background:"linear-gradient(90deg,#B8860B,#D9A63C)" }} />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2.2" style={{ flexShrink:0, transform:open?"rotate(180deg)":"none", transition:"transform .15s" }}><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              {open && (
+                <div style={{ display:"flex", flexDirection:"column", gap:6, padding:"0 0 12px 43px" }}>
+                  {t.list.map(a => {
+                    const st = apptStateM(a, T);
+                    return (
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:9, padding:"8px 11px" }}>
+                        <span aria-hidden="true" title={st.label} style={{ width:8, height:8, borderRadius:"50%", background:st.color, flexShrink:0 }} />
+                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:62 }}>{dayLabelM(a.fecha||offToISO(a.day||0))}</span>
+                        <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name||"Paciente"}</span>
+                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, color:st.color, fontWeight:600 }}>{st.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:5 }}>{t.pend} agendados · {t.real} realizados</div>
-              </div>
+              )}
             </div>
-          ))}
+          );})}
         </div>
       </div>
     </OverlayShell>
@@ -1821,7 +1851,7 @@ function MobileShell({ T, D, onLogout }) {
 
       {/* Overlays de navegación tipo iOS push */}
       {overlay==="pacientes" && <PacientesOverlay T={T} patients={patients} appts={appts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} />}
-      {overlay==="reportes" && <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} />}
+      {overlay==="reportes" && <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} />}
       {overlay && overlay.type==="ficha" && <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={appts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} />}
 
       {/* Panel de PENDIENTES (campana): consentimientos por firmar + pagos por confirmar (datos reales). */}
