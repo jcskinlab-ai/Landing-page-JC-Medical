@@ -177,7 +177,7 @@ function App() {
     else if (name === "antes") { transDirRef.current = 1; setSub({ type: "antes", proc: payload || null }); }
     else { transDirRef.current = 0; if (name !== tab) prevTab.current = tab; setTab(name); setSub(null); }
   }
-  function openBooking(proc) { setBooking({ proc: proc }); }
+  function openBooking(proc) { if (window.fbq) fbq('trackCustom', 'AgendarClick'); setBooking({ proc: proc }); }
   function smoothTop() {
     const el = scrollRef.current; if (!el) return;
     const start = el.scrollTop, t0 = performance.now(), dur = 420;

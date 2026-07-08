@@ -501,12 +501,12 @@ function BookingDone({ T, D, cart, day, time, form, pay, onClose, secondOff }) {
         <Summ T={T} k="Estado" v={pay === "transfer" ? "Por confirmar · con abono" : pay === "clinica" ? "Por confirmar · paga en clínica" : "Por confirmar"} />
       </div>
       <div style={{ marginTop: 22, width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 10 }}>
-        <a href={waUrl} target="_blank" rel="noopener" onClick={() => setSent(true)}
+        <a href={waUrl} target="_blank" rel="noopener" onClick={() => { if (window.fbq) fbq('track', 'Schedule'); setSent(true); }}
           style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: "#1F8A5B", color: "#fff", fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".08em", textTransform: "uppercase", borderRadius: 4, padding: "15px 18px", textDecoration: "none" }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z" /></svg>
           {pay === "transfer" ? "Enviar comprobante por WhatsApp" : "Confirmar por WhatsApp"}
         </a>
-        <a href={mailUrl} onClick={() => setSent(true)}
+        <a href={mailUrl} onClick={() => { if (window.fbq) fbq('track', 'Schedule'); setSent(true); }}
           style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: "none", color: T.text, border: "1px solid " + T.chipBorder, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".08em", textTransform: "uppercase", borderRadius: 4, padding: "14px 18px", textDecoration: "none" }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m2 6 10 7L22 6" /></svg>
           Enviar por correo

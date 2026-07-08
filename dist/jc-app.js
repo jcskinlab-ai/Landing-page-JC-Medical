@@ -142,6 +142,7 @@ function App() {
     }
   }
   function openBooking(proc) {
+    if (window.fbq) fbq("trackCustom", "AgendarClick");
     setBooking({ proc });
   }
   function smoothTop() {
