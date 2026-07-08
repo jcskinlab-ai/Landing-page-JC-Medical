@@ -1588,23 +1588,17 @@
   // ===== UI 2026: nav dinámico, scroll-spy, count-ups y video =====
   (function(){
     // nav que se encoge/solidifica + visibilidad de hero/precios, todo en un solo handler rAF de scroll
+    // (el video del hero NUNCA se pausa por JS: autoplay nativo, siempre visible)
     var nav=document.querySelector('.nav');
-    var heroVid=document.querySelector('.hero-video');
     var heroEl=document.querySelector('.hero');
     var preciosSec=document.getElementById('precios');
-    var rmq=window.matchMedia('(prefers-reduced-motion:reduce)');
     var heroVisible=true, navTick=false;
-    function syncVideo(){
-      if(!heroVid) return;
-      if(rmq.matches||!heroVisible){heroVid.pause();}
-      else{var p=heroVid.play();if(p&&p.catch)p.catch(function(){});}
-    }
     function inView(el,pad){var r=el.getBoundingClientRect();return r.bottom>-pad&&r.top<innerHeight+pad;}
     function updNav(){
       if(nav) nav.classList.toggle('scrolled',(window.scrollY||0)>24);
       if(heroEl){
         var vis=inView(heroEl,80);
-        if(vis!==heroVisible){heroVisible=vis;heroEl.classList.toggle('in',vis);syncVideo();}
+        if(vis!==heroVisible){heroVisible=vis;heroEl.classList.toggle('in',vis);}
       }
       if(preciosSec) preciosSec.classList.toggle('in',inView(preciosSec,80));
     }
@@ -1614,8 +1608,12 @@
     window.addEventListener('resize',queueUpd,{passive:true});
     if(heroEl) heroEl.classList.add('in');
     updNav();
-    syncVideo();
-    if(rmq.addEventListener) rmq.addEventListener('change',syncVideo);
+    // red de seguridad: si el navegador dejó el video pausado (restauración de scroll, bloqueo de autoplay), reintenta
+    var hv=document.querySelector('.hero-video');
+    function kickVideo(){if(hv&&hv.paused){var p=hv.play();if(p&&p.catch)p.catch(function(){});}}
+    kickVideo();
+    window.addEventListener('pointerdown',kickVideo,{once:true,passive:true});
+    document.addEventListener('visibilitychange',function(){if(!document.hidden)kickVideo();});
 
     // scroll-spy: link activo del nav según la sección visible
     var secToHref={modulos:'#modulos',agenda:'#agenda',fichas:'#agenda',marketing:'#agenda',precios:'#precios',faq:'#faq'};
