@@ -52,9 +52,18 @@ function clinicMapsLinkM() {
   let cid = ""; try { cid = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || ""; } catch(e) {}
   return cid ? ("https://www.medique.cl/ir?c="+encodeURIComponent(cid)) : ("https://www.medique.cl/ir?to="+encodeURIComponent(addr));
 }
+// ¿Es un "control" (evaluación post-procedimiento)? Misma lógica que el portal de escritorio
+// (esControlPostProc en jc-admin.jsx): la cita es una evaluación Y el paciente ya tiene al menos
+// una sesión de un procedimiento real (no otra evaluación) en su historial de ficha.
+function esControlPostProcM(proc, pat) {
+  if (!/evaluaci/i.test(proc || "")) return false;
+  const hist = (pat && Array.isArray(pat.history)) ? pat.history : [];
+  return hist.some(h => h && h.proc && !/evaluaci/i.test(h.proc));
+}
 // Mensaje de confirmación al CREAR una cita nueva — mismo texto que el portal: fecha, hora,
 // tratamiento, profesional, dirección y "cómo llegar" con el link inteligente de mapa.
-function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir) {
+// esControl (opcional): si es true, agrega la política de reagendamiento pagado del control post-procedimiento.
+function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir, esControl) {
   const d = new Date(iso+"T12:00:00");
   const wd = WDS[d.getDay()], dd = d.getDate(), mm = MESES[d.getMonth()];
   const maps = clinicMapsLinkM();
@@ -62,7 +71,10 @@ function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir) {
     "🗓️ Fecha: "+wd+" "+dd+" "+mm, "⏰ Hora: "+time+" hrs", "💉 Tratamiento: "+proc, "👨‍⚕️ Profesional: "+(prof||"")];
   if (clinDir) L.push("📍 Dirección: "+clinDir);
   if (maps) L.push("", "🏥 Cómo llegar: "+maps);
-  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.", "", "¡Nos vemos pronto!");
+  L.push("", esControl
+    ? "Recuerda llegar 5 min antes. Si necesitas reagendar este control, avísanos con 24 h de anticipación. El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000."
+    : "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.");
+  L.push("", "¡Nos vemos pronto!");
   return L.join("\n");
 }
 // Mensaje del botón "Confirmar asistencia" — mismo texto que el portal: pide responder SÍ/NO,
@@ -1200,7 +1212,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
         const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || "la clínica"; } catch(e) { return "la clínica"; } })();
         const clinDir = (() => { try { const d = window.DB && window.DB.cfg && window.DB.cfg().clinic_addr; return (d && (""+d).trim()) || ""; } catch(e) { return ""; } })();
         const clinPro = (() => { try { const p = window.DB && window.DB.cfg && window.DB.cfg().professional; return (p && (""+p).trim()) || (((window.JCDATA||{}).contact||{}).pro || ""); } catch(e) { return ""; } })();
-        const msg = jcmCitaConfirmMsgM(finalName, fecha, time, proc, clinPro, clinNombre, clinDir);
+        const msg = jcmCitaConfirmMsgM(finalName, fecha, time, proc, clinPro, clinNombre, clinDir, esControlPostProcM(proc, selectedPatient));
         setTimeout(()=>window.open("https://wa.me/56"+waP.replace(/^(56|0)/,"")+"?text="+encodeURIComponent(msg), "_blank", "noopener"), 300);
       }
     }

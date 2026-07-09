@@ -340,15 +340,30 @@ function clinicMapsLink() {
   var cid = ""; try { cid = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || ""; } catch (e) {}
   return cid ? ("https://www.medique.cl/ir?c=" + encodeURIComponent(cid)) : ("https://www.medique.cl/ir?to=" + encodeURIComponent(a));
 }
+// ¿Es un "control" (evaluación post-procedimiento)? Se detecta automáticamente: la cita es una
+// evaluación (proc contiene "evaluaci...") Y el paciente ya tiene al menos una sesión de un
+// procedimiento real (no otra evaluación) en su historial de ficha. Una evaluación de un paciente
+// que nunca se ha tratado antes NO cuenta como control — es una evaluación normal, sin política
+// de reagendamiento pagado.
+function esControlPostProc(proc, pat) {
+  if (!/evaluaci/i.test(proc || "")) return false;
+  var hist = (pat && Array.isArray(pat.history)) ? pat.history : [];
+  return hist.some(function (h) { return h && h.proc && !/evaluaci/i.test(h.proc); });
+}
+window.esControlPostProc = esControlPostProc;
 // Mensaje único de confirmación de cita por WhatsApp: incluye dirección y "Cómo llegar" con
 // el link inteligente de mapa. Devuelve el texto SIN codificar (el llamador hace encodeURIComponent).
-function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
+// esControl (opcional): si es true, agrega la política de reagendamiento pagado del control post-procedimiento.
+function jcmCitaConfirmMsg(name, wk, time, proc, prof, esControl) {
   var addr = clinicAddr(), maps = clinicMapsLink();
   var L = ["Hola " + name + " 👋", "", "Tu cita en " + clinicDisplayName() + " quedó confirmada:", "",
            "🗓️ Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm, "⏰ Hora: " + time + " hrs", "💉 Tratamiento: " + proc, "👨‍⚕️ Profesional: " + prof];
   if (addr) L.push("📍 Dirección: " + addr);
   if (maps) L.push("", "🏥 Cómo llegar: " + maps);
-  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.", "", "¡Nos vemos pronto!");
+  L.push("", esControl
+    ? "Recuerda llegar 5 min antes. Si necesitas reagendar este control, avísanos con 24 h de anticipación. El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000."
+    : "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.");
+  L.push("", "¡Nos vemos pronto!");
   return L.join("\n");
 }
 // Recordatorio manual para pedir al paciente que confirme su asistencia (P4). Texto sin codificar.
@@ -4335,7 +4350,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         const waP = (finalPhone || "").replace(/[^0-9]/g, "");
         if (waP.length >= 8) {
           const wk2 = dayInfo(pick.dayOff);
-          const msg2 = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk2, pick.time, proc, prof));
+          const msg2 = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk2, pick.time, proc, prof, esControlPostProc(proc, pat)));
           setTimeout(() => window.open("https://api.whatsapp.com/send?phone=" + waP + "&text=" + msg2, "_blank", "noopener"), 400);
         }
       }
@@ -4350,7 +4365,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
     const wk = dayInfo(pick.dayOff);
     const apptFecha = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff).toISOString().slice(0, 10);
     const waPhone = (finalPhone || "").replace(/[^0-9]/g, "");
-    const waMsg = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk, pick.time, proc, prof));
+    const waMsg = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk, pick.time, proc, prof, esControlPostProc(proc, pat)));
     const waUrl = "https://api.whatsapp.com/send?phone=" + waPhone + "&text=" + waMsg;
     const daySlots = D ? (D.availability(new Date(apptFecha + "T00:00:00").getDay()).slots || []) : [];
     // Generar y descargar un evento .ics para el calendario nativo, con recordatorio 24 h antes

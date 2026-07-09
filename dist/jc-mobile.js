@@ -47,7 +47,12 @@ function clinicMapsLinkM() {
   }
   return cid ? "https://www.medique.cl/ir?c=" + encodeURIComponent(cid) : "https://www.medique.cl/ir?to=" + encodeURIComponent(addr);
 }
-function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir) {
+function esControlPostProcM(proc, pat) {
+  if (!/evaluaci/i.test(proc || "")) return false;
+  const hist = pat && Array.isArray(pat.history) ? pat.history : [];
+  return hist.some((h) => h && h.proc && !/evaluaci/i.test(h.proc));
+}
+function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir, esControl) {
   const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
   const wd = WDS[d.getDay()], dd = d.getDate(), mm = MESES[d.getMonth()];
   const maps = clinicMapsLinkM();
@@ -63,7 +68,8 @@ function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir) {
   ];
   if (clinDir) L.push("\u{1F4CD} Direcci\xF3n: " + clinDir);
   if (maps) L.push("", "\u{1F3E5} C\xF3mo llegar: " + maps);
-  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.", "", "\xA1Nos vemos pronto!");
+  L.push("", esControl ? "Recuerda llegar 5 min antes. Si necesitas reagendar este control, av\xEDsanos con 24 h de anticipaci\xF3n. El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.");
+  L.push("", "\xA1Nos vemos pronto!");
   return L.join("\n");
 }
 function jcmConfirmAsistMsgM(a, clinNombre) {
@@ -963,7 +969,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
             return "";
           }
         })();
-        const msg = jcmCitaConfirmMsgM(finalName, fecha, time, proc, clinPro, clinNombre, clinDir);
+        const msg = jcmCitaConfirmMsgM(finalName, fecha, time, proc, clinPro, clinNombre, clinDir, esControlPostProcM(proc, selectedPatient));
         setTimeout(() => window.open("https://wa.me/56" + waP.replace(/^(56|0)/, "") + "?text=" + encodeURIComponent(msg), "_blank", "noopener"), 300);
       }
     }

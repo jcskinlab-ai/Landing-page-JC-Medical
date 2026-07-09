@@ -381,7 +381,15 @@ function clinicMapsLink() {
   }
   return cid ? "https://www.medique.cl/ir?c=" + encodeURIComponent(cid) : "https://www.medique.cl/ir?to=" + encodeURIComponent(a);
 }
-function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
+function esControlPostProc(proc, pat) {
+  if (!/evaluaci/i.test(proc || "")) return false;
+  var hist = pat && Array.isArray(pat.history) ? pat.history : [];
+  return hist.some(function(h) {
+    return h && h.proc && !/evaluaci/i.test(h.proc);
+  });
+}
+window.esControlPostProc = esControlPostProc;
+function jcmCitaConfirmMsg(name, wk, time, proc, prof, esControl) {
   var addr = clinicAddr(), maps = clinicMapsLink();
   var L = [
     "Hola " + name + " \u{1F44B}",
@@ -395,7 +403,8 @@ function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
   ];
   if (addr) L.push("\u{1F4CD} Direcci\xF3n: " + addr);
   if (maps) L.push("", "\u{1F3E5} C\xF3mo llegar: " + maps);
-  L.push("", "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.", "", "\xA1Nos vemos pronto!");
+  L.push("", esControl ? "Recuerda llegar 5 min antes. Si necesitas reagendar este control, av\xEDsanos con 24 h de anticipaci\xF3n. El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.");
+  L.push("", "\xA1Nos vemos pronto!");
   return L.join("\n");
 }
 function jcmRecordatorioMsg(a) {
@@ -3594,7 +3603,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         const waP = (finalPhone || "").replace(/[^0-9]/g, "");
         if (waP.length >= 8) {
           const wk2 = dayInfo(pick.dayOff);
-          const msg2 = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk2, pick.time, proc, prof));
+          const msg2 = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk2, pick.time, proc, prof, esControlPostProc(proc, pat)));
           setTimeout(() => window.open("https://api.whatsapp.com/send?phone=" + waP + "&text=" + msg2, "_blank", "noopener"), 400);
         }
       }
@@ -3659,7 +3668,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
     const wk = dayInfo(pick.dayOff);
     const apptFecha = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff).toISOString().slice(0, 10);
     const waPhone = (finalPhone || "").replace(/[^0-9]/g, "");
-    const waMsg = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk, pick.time, proc, prof));
+    const waMsg = encodeURIComponent(jcmCitaConfirmMsg(finalName, wk, pick.time, proc, prof, esControlPostProc(proc, pat)));
     const waUrl = "https://api.whatsapp.com/send?phone=" + waPhone + "&text=" + waMsg;
     const daySlots = D ? D.availability((/* @__PURE__ */ new Date(apptFecha + "T00:00:00")).getDay()).slots || [] : [];
     return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Cita agendada", onClose, wide: true, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cerrar"), savedPatId && onOpenPatient && /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: () => {
