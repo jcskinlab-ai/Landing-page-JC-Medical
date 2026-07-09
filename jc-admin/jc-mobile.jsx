@@ -2151,8 +2151,8 @@ function MobileSaasGate() {
     <h1 style={title}>Confirmar citas</h1>
     <p style={subtitle}>Accede al panel de tu clínica.</p>
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
-      <input placeholder="Correo de tu clínica" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} style={inp} />
-      <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={inp} />
+      <input placeholder="Correo de tu clínica" inputMode="email" autoComplete="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} style={inp} />
+      <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} autoComplete="current-password" style={inp} />
       {err && <div style={{ fontFamily:T.sans, fontSize:12, color:"#E0607A", textAlign:"center" }}>{err}</div>}
       <button onClick={doLogin} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>{busy?"…":"Entrar"}</button>
       <div style={{ textAlign:"center" }}><button onClick={()=>{ setView("recover"); setErr(""); }} style={linkSober}>¿Olvidaste tu contraseña?</button></div>
