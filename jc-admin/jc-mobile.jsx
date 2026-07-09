@@ -45,7 +45,12 @@ function clinicMapsLinkM() {
   try { const m = window.DB && window.DB.cfg && window.DB.cfg().clinic_maps; if (m && (""+m).trim()) return (""+m).trim(); } catch(e) {}
   let addr = "";
   try { const d = window.DB && window.DB.cfg && window.DB.cfg().clinic_addr; addr = (d && (""+d).trim()) || ""; } catch(e) {}
-  return addr ? ("https://www.medique.cl/ir?to="+encodeURIComponent(addr)) : "";
+  if (!addr) return "";
+  // Link CORTO (pedido, igual que en el portal): con clínica identificada, ir.html resuelve la
+  // dirección desde el perfil público en Firestore por id — mucho más corto que la dirección
+  // completa codificada en la URL.
+  let cid = ""; try { cid = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId()) || ""; } catch(e) {}
+  return cid ? ("https://www.medique.cl/ir?c="+encodeURIComponent(cid)) : ("https://www.medique.cl/ir?to="+encodeURIComponent(addr));
 }
 // Mensaje de confirmación al CREAR una cita nueva — mismo texto que el portal: fecha, hora,
 // tratamiento, profesional, dirección y "cómo llegar" con el link inteligente de mapa.

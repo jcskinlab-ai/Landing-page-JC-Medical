@@ -27,18 +27,39 @@
   <script>
     (function () {
       var qs = new URLSearchParams(location.search);
+      var clinicId = qs.get("c") || "";
       var to = qs.get("to") || qs.get("q") || qs.get("query") || "";
-      var enc = encodeURIComponent(to);
-      var ua = navigator.userAgent || navigator.vendor || "";
-      var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      // iPhone/iPad → Apple Maps (app nativa). Android/PC → Google Maps (abre la app en Android).
-      var target = isIOS
-        ? ("https://maps.apple.com/?q=" + enc)
-        : ("https://www.google.com/maps/search/?api=1&query=" + enc);
-      var go = document.getElementById("go");
-      go.href = target;
-      document.getElementById("addr").textContent = to;
-      if (to) { try { location.replace(target); } catch (e) { location.href = target; } }
+
+      function go(addr) {
+        var enc = encodeURIComponent(addr);
+        var ua = navigator.userAgent || navigator.vendor || "";
+        var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        // iPhone/iPad → Apple Maps (app nativa). Android/PC → Google Maps (abre la app en Android).
+        var target = isIOS
+          ? ("https://maps.apple.com/?q=" + enc)
+          : ("https://www.google.com/maps/search/?api=1&query=" + enc);
+        var btn = document.getElementById("go");
+        btn.href = target;
+        document.getElementById("addr").textContent = addr;
+        if (addr) { try { location.replace(target); } catch (e) { location.href = target; } }
+      }
+
+      // Link corto (nuevo, pedido): ?c=<clinicId> — resuelve la dirección desde el perfil PÚBLICO
+      // de la clínica en Firestore (el mismo doc que ya usa la reserva pública, sin login). Mucho
+      // más corto en WhatsApp que ?to=<dirección completa codificada>.
+      if (clinicId) {
+        var projectId = "medique-8dbf6", apiKey = "AIzaSyCIG19u0_T6rldljMq_St-WJ-XX8JkAsM4";
+        var url = "https://firestore.googleapis.com/v1/projects/" + projectId + "/databases/(default)/documents/tenants/"
+          + encodeURIComponent(clinicId) + "/public/profile?key=" + apiKey;
+        fetch(url).then(function (r) { return r.json(); }).then(function (doc) {
+          var addr = (doc && doc.fields && doc.fields.addr && doc.fields.addr.stringValue) || to;
+          go(addr);
+        }).catch(function () { go(to); }); // si falla la consulta, cae al ?to= si vino como respaldo
+        return;
+      }
+
+      // Link antiguo (compatibilidad con mensajes ya enviados): ?to=/?q=/?query= con la dirección.
+      go(to);
     })();
   </script>
 </body>

@@ -373,7 +373,13 @@ function clinicMapsLink() {
   } catch (e) {
   }
   var a = clinicAddr();
-  return a ? "https://www.medique.cl/ir?to=" + encodeURIComponent(a) : "";
+  if (!a) return "";
+  var cid = "";
+  try {
+    cid = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentClinicId && window.JCSAAS.currentClinicId() || "";
+  } catch (e) {
+  }
+  return cid ? "https://www.medique.cl/ir?c=" + encodeURIComponent(cid) : "https://www.medique.cl/ir?to=" + encodeURIComponent(a);
 }
 function jcmCitaConfirmMsg(name, wk, time, proc, prof) {
   var addr = clinicAddr(), maps = clinicMapsLink();
