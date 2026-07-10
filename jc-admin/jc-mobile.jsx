@@ -198,16 +198,50 @@ const JOST = "'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, 
 // (navyAccent). En el mockup nuevo se usa en TODOS los títulos grandes, números (KPIs, hora de
 // citas, días de calendario) y nombres de paciente — no solo los 3 puntos puntuales de antes.
 const FRAUNCES = "'Fraunces', Georgia, serif";
-function photoTheme(T) {
-  return Object.assign({}, T, {
-    dark: true,                              // fuerza la rama "glass oscuro" en glassPanel/glassChip
-    text: ON_PHOTO.text, textMute: ON_PHOTO.mute, textFaint: ON_PHOTO.faint,
-    line: "rgba(255,255,255,.16)", lineSoft: "rgba(255,255,255,.09)",
-    serif: FRAUNCES, sans: JOST,             // serif = Fraunces (títulos/números/nombres), sans = Jost (cuerpo)
-    // Acento SLATE apagado (navyAccent del portal — el mismo que reemplazó al celeste/turquesa
-    // "saturado" en jc-admin.jsx): #7891A6 en oscuro. Reemplaza al azul vivo anterior.
-    accent: "#7891A6", accentSoft: "rgba(120,145,166,.16)", onAccent: "#FFFFFF"
-  });
+/* ═══ Sistema de tema claro/oscuro del panel móvil (rediseño v2 "Medique") ═══
+   Dos paletas completas + un builder que arma el objeto T según el modo. Reemplaza al antiguo
+   photoTheme() que forzaba oscuro-sobre-foto. El modo se persiste en localStorage y se eleva a los
+   entry points (MobileAdmin/MobileSaasGate) para que TODO el árbol reciba el T correcto. */
+const MOBILE_THEME_KEY = "jcm_mobile_theme";
+function readMobileMode() { try { return localStorage.getItem(MOBILE_THEME_KEY) === "light" ? "light" : "dark"; } catch (e) { return "dark"; } }
+function writeMobileMode(m) { try { localStorage.setItem(MOBILE_THEME_KEY, m); } catch (e) {} }
+
+// Constantes compartidas (idénticas en ambos temas) — colores de estado/acción del portal.
+const THEME_SHARED = {
+  gold: "#D8B36A", goldText: "#241C0E", red: "#CC5B54", redText: "#FFFFFF",
+  mutedPill: "#5B6570", onAccent: "#10181F", green: "#4CAF78",
+  serif: FRAUNCES, sans: JOST,
+};
+const THEME_DARK = {
+  dark: true, bg: "#05080F",
+  bgRadial: "radial-gradient(130% 90% at 50% -12%, #16304F 0%, #0B1524 55%, #05080F 100%)",
+  heroBg: "linear-gradient(180deg, rgba(9,13,22,.55) 0%, rgba(9,13,22,.92) 100%), radial-gradient(90% 55% at 78% 6%, rgba(120,145,166,.22), transparent 55%), radial-gradient(150% 120% at 50% -18%, #1c3552 0%, #0e1c2f 42%, #05080f 82%)",
+  text: "#F2F5F8", text2: "rgba(242,245,248,.62)", text3: "rgba(242,245,248,.4)",
+  accent: "#7891A6", accentStrong: "#9DB2C3", accentSoft: "rgba(120,145,166,.16)", accentBorder: "rgba(120,145,166,.55)",
+  glassFill: "rgba(21,29,44,.62)", glassHl: "rgba(255,255,255,.07)", glassBorder: "rgba(255,255,255,.1)",
+  glassShadow: "0 24px 55px -22px rgba(3,6,12,.72)",
+  flatFill: "rgba(255,255,255,.045)", flatBorder: "rgba(255,255,255,.08)", divider: "rgba(255,255,255,.1)",
+  inputFill: "rgba(255,255,255,.055)", inputBorder: "rgba(255,255,255,.09)", navFill: "rgba(18,25,38,.6)",
+};
+const THEME_LIGHT = {
+  dark: false, bg: "#D2D9DE",
+  bgRadial: "radial-gradient(130% 90% at 50% -12%, #EEF2F5 0%, #E1E6EA 55%, #D2D9DE 100%)",
+  heroBg: "linear-gradient(180deg, rgba(255,255,255,.35) 0%, rgba(222,229,234,.88) 100%), radial-gradient(90% 55% at 78% 6%, rgba(92,116,136,.16), transparent 55%), radial-gradient(150% 120% at 50% -18%, #EEF2F5 0%, #E1E6EA 45%, #C9D1D7 85%)",
+  text: "#1B2430", text2: "rgba(27,36,48,.62)", text3: "rgba(27,36,48,.42)",
+  accent: "#5C7488", accentStrong: "#3F5163", accentSoft: "rgba(92,116,136,.14)", accentBorder: "rgba(92,116,136,.5)",
+  glassFill: "rgba(255,255,255,.68)", glassHl: "rgba(255,255,255,.7)", glassBorder: "rgba(20,30,45,.1)",
+  glassShadow: "0 18px 40px -20px rgba(20,30,45,.25)",
+  flatFill: "rgba(20,30,45,.035)", flatBorder: "rgba(20,30,45,.08)", divider: "rgba(20,30,45,.1)",
+  inputFill: "rgba(20,30,45,.045)", inputBorder: "rgba(20,30,45,.09)", navFill: "rgba(255,255,255,.6)",
+};
+// Arma el objeto de tema T; mapea también los tokens LEGACY que ya usa el código (textMute/textFaint/
+// line/lineSoft) a los nuevos, para no tener que tocar cada referencia antigua.
+function buildMobileTheme(mode) {
+  const base = mode === "light" ? THEME_LIGHT : THEME_DARK;
+  const t = Object.assign({}, THEME_SHARED, base);
+  t.textMute = t.text2; t.textFaint = t.text3;
+  t.line = t.glassBorder; t.lineSoft = t.divider;
+  return t;
 }
 // Glass NAVY del prototipo aprobado ("Claude Design", 10-jul-2026) — reemplaza al tinte blanco
 // plano que se replicó del portal de escritorio. El mockup nuevo usa un tinte navy oscuro marcado
@@ -217,33 +251,25 @@ function photoTheme(T) {
 // para que siga siendo perceptible sobre el tinte navy (antes calibrado para el tinte blanco).
 function glassPanel(T, radius) {
   return {
-    background: "rgba(21,29,44,.62)",
+    background: T.glassFill,
     backdropFilter: "blur(28px) saturate(1.3)", WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-    border: "1px solid rgba(255,255,255,.1)", borderRadius: radius==null?20:radius,
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,.09), 0 32px 72px -44px rgba(0,0,0,.85)"
+    border: "1px solid " + T.glassBorder, borderTop: "1px solid " + T.glassHl,
+    borderRadius: radius==null?20:radius,
+    boxShadow: T.glassShadow
   };
 }
 function glassChip(T) {
   return {
-    background: "rgba(21,29,44,.5)",
+    background: T.glassFill,
     backdropFilter: "blur(28px) saturate(1.3)", WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-    border: "1px solid rgba(255,255,255,.1)"
+    border: "1px solid " + T.glassBorder, borderTop: "1px solid " + T.glassHl,
+    boxShadow: T.glassShadow
   };
 }
-// Capas de fondo del panel: MISMO fondo en TODAS las pantallas. REDISEÑO iOS 26 (rama
-// movil-diseno-portal): la foto va NÍTIDA — sin blur previo — igual que el portal de escritorio.
-// Esta es la clave del Liquid Glass real: si la foto ya viene desenfocada, el backdrop-filter de
-// cada tarjeta no tiene nada que refractar y el glass se ve "pintado"/forzado (lo que reportó el
-// usuario). Con la foto nítida, cada panel desenfoca SOLO su propia región — el material se ve
-// vivo al hacer scroll, como en iOS. El velo replica el del portal (rgba(9,11,15,.80→.90)).
-const MOBILE_BG_OVERLAY = "linear-gradient(180deg, rgba(9,11,15,.72), rgba(9,11,15,.80) 55%, rgba(9,11,15,.88))";
-function PhotoBgLayers() {
-  return (
-    <>
-      <div style={{ position:"absolute", inset:0, backgroundImage:"url('/assets/everest-mobile.jpg?v=11')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }} />
-      <div style={{ position:"absolute", inset:0, backgroundImage:MOBILE_BG_OVERLAY }} />
-    </>
-  );
+// Fondo del panel: gradiente del TEMA en TODAS las pantallas (la foto Everest ya solo vive en el
+// login). hero=true usa el gradiente hero (Inicio); si no, el radial base (overlays, menú, raíz).
+function PhotoBgLayers({ T, hero }) {
+  return <div style={{ position:"absolute", inset:0, background: hero ? T.heroBg : T.bgRadial }} />;
 }
 // Fondo de la pantalla de LOGIN: foto del Everest (evapp, pedido del usuario 10-jul) NÍTIDA para
 // que se vea la montaña + velo navy en degradado (más suave arriba, donde está el cielo, y más
@@ -377,12 +403,12 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
   }
 
   const card = { ...glassPanel(T, 22), width:"100%", maxWidth:480, maxHeight:"88dvh", overflowY:"auto", padding:"10px 18px calc(22px + env(safe-area-inset-bottom,0px))", boxSizing:"border-box" };
-  const inp = { width:"100%", boxSizing:"border-box", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), background:T.dark?"rgba(0,0,0,.25)":"#fff", color:T.text, outline:"none" };
+  const inp = { width:"100%", boxSizing:"border-box", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" };
 
   return (
     <div onMouseDown={e=>{ if (e.target===e.currentTarget) onClose(); }} style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center", background:"rgba(0,0,0,.55)" }}>
       <div onClick={e=>e.stopPropagation()} style={card}>
-        <div style={{ width:36, height:4, borderRadius:2, background:T.dark?"rgba(255,255,255,.25)":"rgba(0,0,0,.18)", margin:"6px auto 14px" }} />
+        <div style={{ width:36, height:4, borderRadius:2, background:T.textFaint, margin:"6px auto 14px" }} />
         <div style={{ display:"flex", alignItems:"flex-start", gap:12, marginBottom:14 }}>
           <div style={{ width:44, height:44, borderRadius:"50%", background:st.color+"26", color:st.color, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:15, fontWeight:700, flexShrink:0 }}>
             {(a.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}
@@ -392,7 +418,7 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
             <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:2 }}>{a.time} · {a.proc||"—"} · {durLabel}</div>
             {matched && <button onClick={()=>onOpenFicha(matched.id)} style={{ marginTop:4, background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:11.5, color:T.accent, textDecoration:"underline" }}>Ver ficha del paciente →</button>}
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ flexShrink:0, width:44, height:44, borderRadius:"50%", border:"none", background:T.dark?"rgba(255,255,255,.1)":"rgba(0,0,0,.06)", color:T.textMute, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <button onClick={onClose} aria-label="Cerrar" style={{ flexShrink:0, width:44, height:44, borderRadius:"50%", border:"none", background:T.flatFill, color:T.textMute, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -422,8 +448,8 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
                     <button key={s.key} onClick={()=>setStatus(s.key)}
                       style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:on?700:500, padding:"12px 8px", borderRadius:9, cursor:"pointer",
                         gridColumn: isCancelBtn ? "1 / -1" : undefined,
-                        border:"1px solid "+(isCancelBtn ? "#C0285A55" : (on ? T.accent : (T.dark?"rgba(255,255,255,.14)":T.line))),
-                        background: isCancelBtn ? "transparent" : (on ? T.accent : (T.dark?"rgba(255,255,255,.05)":"rgba(255,255,255,.6)")),
+                        border:"1px solid "+(isCancelBtn ? "#C0285A55" : (on ? T.accent : T.inputBorder)),
+                        background: isCancelBtn ? "transparent" : (on ? T.accent : T.flatFill),
                         color: isCancelBtn ? "#C0285A" : (on ? T.onAccent : T.text) }}>
                       {s.label}
                     </button>
@@ -531,7 +557,7 @@ function DaySummary({ T, c, p, na, prefix, bars }) {
   );
   // Separador entre los tres estados: barra vertical en Agenda (referencia), "·" en Home.
   const sep = bars
-    ? <span style={{ width:1, height:14, background:"rgba(255,255,255,.14)" }} />
+    ? <span style={{ width:1, height:14, background:T.divider }} />
     : <span style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint }}>·</span>;
   return (
     <div style={{ ...glassChip(T), borderRadius: bars?14:12, padding: bars?"11px 10px":"9px 12px", display:"flex", alignItems:"center", justifyContent: bars?"space-around":"center", gap:8, flexWrap:"wrap" }}>
@@ -661,7 +687,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
     // Composición del prototipo: saludo + KPI + resumen + accesos rápidos + buscador quedan FIJOS;
     // solo la lista de "Próximas citas" scrollea. El header propio de la pestaña Inicio es esta
     // tarjeta de saludo (el prototipo no tiene barra superior separada en Inicio).
-    <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"calc(14px + env(safe-area-inset-top,0px)) 16px 0" }}>
+    <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"calc(14px + env(safe-area-inset-top,0px)) 16px 0", background:T.heroBg }}>
       {/* Bloque FIJO: saludo + KPI + resumen del día + accesos rápidos + buscador. */}
       <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:12 }}>
         {/* Tarjeta de saludo (prototipo): avatar + "Hola, {nombre}" + fecha larga + campana. */}
@@ -675,9 +701,9 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
             <div style={{ fontFamily:T.serif, fontWeight:600, fontSize:19, color:T.text, lineHeight:1.25, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{primerNombre ? "Hola, "+primerNombre : "Hola"}</div>
             <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, lineHeight:1.4, marginTop:3 }}>{fechaLarga}</div>
           </div>
-          <button onClick={openNotif} aria-label="Notificaciones" style={{ position:"relative", width:38, height:38, borderRadius:"50%", background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
+          <button onClick={openNotif} aria-label="Notificaciones" style={{ position:"relative", width:38, height:38, borderRadius:"50%", background:T.flatFill, border:"1px solid "+T.flatBorder, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-            {bellCount>0 && <span style={{ position:"absolute", top:6, right:7, width:8, height:8, borderRadius:"50%", background:T.accent, border:"1.5px solid rgba(21,29,44,.9)" }} />}
+            {bellCount>0 && <span style={{ position:"absolute", top:6, right:7, width:8, height:8, borderRadius:"50%", background:T.accent, border:"1.5px solid "+T.glassFill }} />}
           </button>
         </div>
 
@@ -712,7 +738,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
         <div style={{ flex:1, minHeight:0, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom:14 }}>
           {upcoming.length===0 && (
             <div style={{ ...glassPanel(T,14), padding:"26px 18px", textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:11 }}>
-              <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", display:"flex", alignItems:"center", justifyContent:"center", color:T.textMute }}>
+              <div style={{ width:40, height:40, borderRadius:"50%", background:T.flatFill, border:"1px solid "+T.flatBorder, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMute }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
               </div>
               <div style={{ fontFamily:T.sans, fontSize:13, color:T.textMute, lineHeight:1.5 }}>No tienes próximas citas.<br/>Agenda la primera para empezar el día.</div>
@@ -734,13 +760,13 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
                   {g.items.map(a => {
                     const st = apptStateM(a, T);
                     return (
-                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.045)", border:"1px solid rgba(255,255,255,.08)", borderRadius:14, padding:"12px 14px" }}>
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:T.flatFill, border:"1px solid "+T.flatBorder, borderRadius:14, padding:"12px 14px" }}>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:13.5, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
                           <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:2 }}>{a.proc||"—"}</div>
                           <span style={{ display:"inline-block", marginTop:7, fontFamily:T.sans, fontWeight:600, fontSize:9.5, letterSpacing:".06em", textTransform:"uppercase", padding:"3px 8px", borderRadius:100, background:"color-mix(in srgb, "+st.color+" 18%, transparent)", color:st.color }}>{st.label}</span>
                         </div>
-                        <div style={{ width:1, alignSelf:"stretch", background:"rgba(255,255,255,.1)" }} />
+                        <div style={{ width:1, alignSelf:"stretch", background:T.divider }} />
                         <div style={{ textAlign:"right", flexShrink:0 }}>
                           <div style={{ fontFamily:T.serif, fontWeight:600, fontSize:15, color:st.color }}>{a.time}</div>
                           <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:1 }}>{apptEndM(a)}</div>
@@ -833,8 +859,8 @@ function HorariosTab({ T, appts }) {
             return (
               <button key={d.iso} ref={el=>{ dayBtnRefs.current[d.iso]=el; }} onClick={()=>setSelDay(d.iso)}
                 style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"7px 9px 5px", borderRadius:12, minWidth:42, cursor:"pointer",
-                  background: isSel ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(150,170,185,.55)" : "transparent") }}>
-                <span style={{ fontFamily:T.sans, fontSize:10.5, fontWeight:500, color:isSel?"#A9BAC7":T.textMute }}>{d.isToday?"Hoy":d.wd}</span>
+                  background: isSel ? T.accentSoft : "transparent", border:"1px solid "+(isSel ? T.accentBorder : "transparent") }}>
+                <span style={{ fontFamily:T.sans, fontSize:10.5, fontWeight:500, color:isSel?T.accentStrong:T.textMute }}>{d.isToday?"Hoy":d.wd}</span>
                 <span style={{ fontFamily:T.sans, fontSize:18, fontWeight:600, color:T.text }}>{d.dd}</span>
                 <div style={{ width:5, height:5, borderRadius:"50%", background:isSel?T.accent:"transparent" }} />
               </button>
@@ -866,8 +892,8 @@ function HorariosTab({ T, appts }) {
               style={{ padding:"11px 4px", borderRadius:9, border:"1px solid",
                 fontFamily:T.sans, fontSize:12.5, fontWeight:500,
                 cursor:isOcc?"default":"pointer",
-                background:isOcc?"#B8860B22":isAvail?"#1F8A5B1e":(T.dark?"rgba(255,255,255,.05)":"rgba(255,255,255,.6)"),
-                borderColor:isOcc?"#B8860B55":isAvail?"#1F8A5B55":(T.dark?"rgba(255,255,255,.12)":T.lineSoft),
+                background:isOcc?"#B8860B22":isAvail?"#1F8A5B1e":T.flatFill,
+                borderColor:isOcc?"#B8860B55":isAvail?"#1F8A5B55":T.flatBorder,
                 color:isOcc?"#B8860B":isAvail?"#1F8A5B":T.textFaint }}>
               {slot}
               {isOcc&&<div style={{ fontFamily:T.sans, fontSize:11, marginTop:1, opacity:.7 }}>cita</div>}
@@ -1042,14 +1068,14 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   // Segmentado Día/Mes (el filtro de canceladas ahora vive en el icono del header, como la referencia).
   // Pedido: más chico, para dejar más protagonismo a la tira de días y las citas.
   const toggleRow = (
-    <div style={{ display:"flex", gap:5, padding:"8px 14px 6px", flexShrink:0, ...glassChip(T), border:"none", background:"transparent" }}>
+    <div style={{ display:"flex", gap:5, padding:"8px 14px 6px", flexShrink:0 }}>
       <div style={{ display:"flex", flex:1, gap:3, padding:3, borderRadius:11, ...glassChip(T) }}>
         {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
           // Pedido: al tocar "Día" siempre vuelve al día de HOY automáticamente (no se queda en
           // el último día que se haya elegido).
           <button key={k} onClick={()=>{ setView(k); if (k==="dia") setSelDay(today); }} style={{ flex:1, fontFamily:T.sans, fontSize:12, fontWeight:view===k?600:500, padding:"6px", borderRadius:8, cursor:"pointer",
             ...(view===k
-              ? { background:"linear-gradient(180deg, rgba(88,142,246,.28), rgba(48,104,214,.22))", color:"#fff", border:"1px solid rgba(150,170,185,.45)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(40,90,200,.6)" }
+              ? { background:T.accentSoft, color:T.accentStrong, border:"1px solid "+T.accentBorder }
               : { background:"transparent", color:T.textMute, border:"1px solid transparent" }) }}>{l}</button>
         ))}
       </div>
@@ -1104,10 +1130,8 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const fab = (
     <button onClick={()=>goTab("nueva")} title="Nueva cita" aria-label="Nueva cita"
       style={{ position:"absolute", right:16, bottom:16+"px", width:56, height:56, borderRadius:"50%",
-        background:"linear-gradient(180deg, rgba(120,145,166,.42), rgba(120,145,166,.24) 45%, rgba(120,145,166,.3) 100%)",
-        border:"1px solid rgba(160,180,195,.5)", color:"#EAF2FF", cursor:"pointer",
-        backdropFilter:"blur(28px) saturate(1.6)", WebkitBackdropFilter:"blur(28px) saturate(1.6)",
-        boxShadow:"0 12px 28px -10px rgba(10,25,55,.6), inset 0 1px 0 rgba(255,255,255,.4)",
+        background:T.accent, border:"none", color:T.onAccent, cursor:"pointer",
+        boxShadow:"0 12px 28px -10px rgba(10,25,55,.5)",
         display:"flex", alignItems:"center", justifyContent:"center", zIndex:6 }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
@@ -1136,7 +1160,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
                 return (
                   <button key={c.iso} onClick={()=>{ setSelDay(c.iso); setView("dia"); }} style={{ aspectRatio:"1/1", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, borderRadius:10, cursor:"pointer",
                     background: isToday ? T.accent+"22" : (n?glassChip(T).background:"transparent"),
-                    border:"1px solid "+(isToday?T.accent:(n?(T.dark?"rgba(255,255,255,.12)":T.line):"transparent")),
+                    border:"1px solid "+(isToday?T.accent:(n?T.flatBorder:"transparent")),
                     opacity: c.inMonth?1:.32 }}>
                     <span style={{ fontFamily:T.serif, fontSize:14, fontWeight:600, color:isToday?T.accent:T.text }}>{c.dd}</span>
                     {n>0 && <span style={{ display:"flex", gap:2 }}>{Array.from({length:Math.min(n,3)}).map((_,i)=><span key={i} style={{ width:5, height:5, borderRadius:"50%", background:T.accent }} />)}</span>}
@@ -1165,8 +1189,8 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
               return (
                 <button key={d.iso} ref={el=>{ dayBtnRefs.current[d.iso]=el; }} onClick={()=>setSelDay(d.iso)}
                   style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1, padding:"6px 8px 5px", borderRadius:12, minWidth:38, cursor:"pointer",
-                    background: isSel ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(150,170,185,.55)" : "transparent") }}>
-                  <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
+                    background: isSel ? T.accentSoft : "transparent", border:"1px solid "+(isSel ? T.accentBorder : "transparent") }}>
+                  <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? T.accentStrong : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
                   <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color: T.text, lineHeight:1.15 }}>{d.dd}</span>
                   <div style={{ width:4, height:4, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
                 </button>
@@ -1180,7 +1204,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             {CAL_HOURS.map(h => (
               <div key={h} style={{ position:"absolute", left:-48, right:0, top: (h - CAL_START) * CAL_PX_HOUR, display:"flex", alignItems:"flex-start", zIndex:1 }}>
                 <span style={{ fontFamily:T.sans, fontSize:10, color:T.textFaint, width:42, textAlign:"right", paddingRight:8, lineHeight:1, transform:"translateY(-5px)", flexShrink:0 }}>{h<10?"0"+h:""+h}:00</span>
-                <div style={{ flex:1, borderTop:"1px solid "+(T.dark?"rgba(255,255,255,.1)":T.lineSoft), marginTop:0 }} />
+                <div style={{ flex:1, borderTop:"1px solid "+T.divider, marginTop:0 }} />
               </div>
             ))}
             <div style={{ position:"relative", minHeight: (CAL_END - CAL_START) * CAL_PX_HOUR + 40 }}>
@@ -1278,7 +1302,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     setTimeout(()=>{ setSaved(false); onDone(); }, 900);
   }
 
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"15px 15px", minHeight:54, borderRadius:14, border:"1px solid rgba(255,255,255,.22)", background:"linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)), rgba(21,29,44,.62)", backdropFilter:"blur(28px) saturate(1.3)", WebkitBackdropFilter:"blur(28px) saturate(1.3)", color:T.text, outline:"none", boxSizing:"border-box" };
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"15px 15px", minHeight:54, borderRadius:14, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
   const lbl = { display:"block", fontFamily:T.sans, fontSize:13, fontWeight:500, color:T.text, marginBottom:8 };
   const STEPS = ["Paciente","Detalles","Confirmar"];
 
@@ -1290,11 +1314,11 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           <React.Fragment key={s}>
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
               <div style={{ width:26, height:26, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12, fontWeight:700,
-                background: step===i+1 ? T.accent : (step>i+1 ? T.accent+"33" : (T.dark?"rgba(255,255,255,.08)":"rgba(0,0,0,.06)")),
+                background: step===i+1 ? T.accent : (step>i+1 ? T.accent+"33" : T.flatFill),
                 color: step===i+1 ? T.onAccent : (step>i+1 ? T.accent : T.textFaint) }}>{step>i+1 ? "✓" : i+1}</div>
               <span style={{ fontFamily:T.sans, fontSize:11, color: step>=i+1 ? T.text : T.textFaint, whiteSpace:"nowrap" }}>{s}</span>
             </div>
-            {i<STEPS.length-1 && <div style={{ flex:1, height:1, background: step>i+1 ? T.accent : (T.dark?"rgba(255,255,255,.14)":T.line), marginBottom:16 }} />}
+            {i<STEPS.length-1 && <div style={{ flex:1, height:1, background: step>i+1 ? T.accent : T.divider, marginBottom:16 }} />}
           </React.Fragment>
         ))}
       </div>
@@ -1304,7 +1328,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           <div style={{ display:"flex", gap:8 }}>
             {[["existente","Paciente existente"],["nuevo","Paciente nuevo"]].map(([k,l])=>(
               <button key={k} onClick={()=>setTipo(k)} style={{ flex:1, fontFamily:T.sans, fontSize:12, fontWeight:tipo===k?700:500, padding:"11px 6px", borderRadius:9, cursor:"pointer",
-                border:"1px solid "+(tipo===k?T.accent:(T.dark?"rgba(255,255,255,.14)":T.line)), background:tipo===k?T.accent+"1e":"transparent", color:tipo===k?T.accent:T.textMute }}>{l}</button>
+                border:"1px solid "+(tipo===k?T.accent:T.inputBorder), background:tipo===k?T.accent+"1e":"transparent", color:tipo===k?T.accent:T.textMute }}>{l}</button>
             ))}
           </div>
           {tipo==="existente" ? (
@@ -1324,7 +1348,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
                 <div style={{ marginTop:9, display:"flex", flexDirection:"column", gap:6 }}>
                   {results.map(p => (
                     <button key={p.id} onClick={()=>{ setPid(p.id); setQ(p.name); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", ...glassChip(T), borderRadius:9, padding:"10px 12px", cursor:"pointer" }}>
-                      <div style={{ width:30, height:30, borderRadius:"50%", background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.3)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:11, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                      <div style={{ width:30, height:30, borderRadius:"50%", background:T.accentSoft, border:"1px solid "+T.accentBorder, color:T.accentStrong, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:11, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                       <div style={{ minWidth:0 }}>
                         <div style={{ fontFamily:T.sans, fontSize:13, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
                         <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{[p.rut, p.phone].filter(Boolean).join(" · ")}</div>
@@ -1380,7 +1404,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
             <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ej. Control, seguimiento, evaluación…" rows={2} style={{...inp, resize:"none"}} />
           </div>
           <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>setStep(1)} style={{ flex:1, background:"transparent", border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), color:T.textMute, fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"15px", cursor:"pointer" }}>Atrás</button>
+            <button onClick={()=>setStep(1)} style={{ flex:1, background:"transparent", border:"1px solid "+T.inputBorder, color:T.textMute, fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"15px", cursor:"pointer" }}>Atrás</button>
             <button onClick={()=>step2Ok && setStep(3)} disabled={!step2Ok} style={{ flex:2, background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, border:"none", borderRadius:12, padding:"16px", cursor:step2Ok?"pointer":"not-allowed", opacity:step2Ok?1:.5 }}>Continuar</button>
           </div>
         </div>
@@ -1391,7 +1415,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           <div style={{ ...glassPanel(T,12), padding:"14px 16px", display:"flex", flexDirection:"column", gap:7 }}>
             <div style={{ fontFamily:T.serif, fontSize:17, color:T.text }}>{finalName}</div>
             <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{[finalRut, finalPhone].filter(Boolean).join(" · ")}</div>
-            <div style={{ height:1, background:T.dark?"rgba(255,255,255,.12)":T.lineSoft, margin:"3px 0" }} />
+            <div style={{ height:1, background:T.divider, margin:"3px 0" }} />
             <div style={{ fontFamily:T.sans, fontSize:13, color:T.text }}>{proc}</div>
             <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{fecha} · {time} hrs · {dur}</div>
             {comment && <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, fontStyle:"italic" }}>{comment}</div>}
@@ -1401,7 +1425,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
             <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>Notificar al paciente por WhatsApp</span>
           </label>
           <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>setStep(2)} style={{ flex:1, background:"transparent", border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), color:T.textMute, fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"15px", cursor:"pointer" }}>Atrás</button>
+            <button onClick={()=>setStep(2)} style={{ flex:1, background:"transparent", border:"1px solid "+T.inputBorder, color:T.textMute, fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"15px", cursor:"pointer" }}>Atrás</button>
             <button onClick={confirm} disabled={saved} style={{ flex:2, background:saved?"#1F8A5B":T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, border:"none", borderRadius:12, padding:"16px", cursor:"pointer", transition:"background .3s" }}>{saved?"✓ Cita guardada":"Confirmar cita"}</button>
           </div>
         </div>
@@ -1434,7 +1458,7 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
   const [visibleCount, setVisibleCount] = useState(PAGE);
   useEffect(() => { setVisibleCount(PAGE); }, [ql]);
   const visible = list.slice(0, visibleCount);
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), background:T.dark?"rgba(255,255,255,.06)":"#fff", color:T.text, outline:"none", boxSizing:"border-box" };
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
 
   function saveNuevo() {
     if (!f.name.trim()) return;
@@ -1470,13 +1494,13 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
           {visible.map((p,i) => {
             const nextA = appts.filter(a=>(a.patId===p.id || a.name===p.name) && a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=todayISO()).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""))[0];
             return (
-              <button key={p.id} onClick={()=>openFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: i===visible.length-1?"none":"1px solid rgba(255,255,255,.08)", padding:"11px 14px", cursor:"pointer" }}>
-                <div style={{ width:36, height:36, borderRadius:"50%", flexShrink:0, background:"rgba(120,145,166,.16)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12.5, fontWeight:600 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+              <button key={p.id} onClick={()=>openFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: i===visible.length-1?"none":"1px solid "+T.divider, padding:"11px 14px", cursor:"pointer" }}>
+                <div style={{ width:36, height:36, borderRadius:"50%", flexShrink:0, background:T.accentSoft, color:T.accentStrong, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12.5, fontWeight:600 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontFamily:T.serif, fontSize:15.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
                   <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{[p.rut,p.phone].filter(Boolean).join(" · ")}</div>
                 </div>
-                {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11.5, color:"#A9BAC7" }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:(()=>{ const d=new Date((nextA.fecha||"")+"T00:00:00"); return isNaN(d.getTime())?nextA.fecha:d.getDate()+" "+MESES[d.getMonth()].toLowerCase(); })()}</span>}
+                {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11.5, color:T.accentStrong }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:(()=>{ const d=new Date((nextA.fecha||"")+"T00:00:00"); return isNaN(d.getTime())?nextA.fecha:d.getDate()+" "+MESES[d.getMonth()].toLowerCase(); })()}</span>}
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round" style={{ flexShrink:0 }}><path d="M9 18l6-6-6-6"/></svg>
               </button>
             );
@@ -1508,7 +1532,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
   // mostrarlos — es el mismo campo patient.history que usa la ficha clínica del portal, así queda
   // el mismo registro visible en ambos lados sin duplicar la captura.
   const sesiones = (p.history || []).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+(T.dark?"rgba(255,255,255,.16)":T.line), background:T.dark?"rgba(255,255,255,.06)":"#fff", color:T.text, outline:"none", boxSizing:"border-box" };
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
 
   function save() { updatePatient(p.id, { phone:f.phone.trim(), email:f.email.trim(), notas:f.notas.trim() }); setEdit(false); }
 
@@ -1516,7 +1540,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
     <OverlayShell T={T} title="Ficha del paciente" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:14 }}>
         <div style={{ display:"flex", alignItems:"center", gap:13 }}>
-          <div style={{ width:56, height:56, borderRadius:"50%", background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.3)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:19, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+          <div style={{ width:56, height:56, borderRadius:"50%", background:T.accentSoft, border:"1px solid "+T.accentBorder, color:T.accentStrong, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:19, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
           <div style={{ minWidth:0 }}>
             <div style={{ fontFamily:T.serif, fontSize:19, color:T.text }}>{p.name}</div>
             <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{[p.rut, p.age?p.age+" años":""].filter(Boolean).join(" · ")}</div>
@@ -1650,7 +1674,7 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     pct:  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 15l8-6"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/></svg>
   };
   const row = (icon, iconColor, label, val, valColor, last) => (
-    <div style={{ display:"flex", alignItems:"center", gap:13, padding:"12px 0", borderBottom: last ? "none" : "1px solid rgba(255,255,255,.07)" }}>
+    <div style={{ display:"flex", alignItems:"center", gap:13, padding:"12px 0", borderBottom: last ? "none" : "1px solid "+T.divider }}>
       <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:iconColor+"22", color:iconColor, display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
       <span style={{ flex:1, fontFamily:T.sans, fontSize:15, color:T.text }}>{label}</span>
       <span style={{ fontFamily:T.sans, fontSize:17, fontWeight:700, color:valColor||T.text }}>{val}</span>
@@ -1666,7 +1690,7 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 6px" }}>Esta semana</div>
           {row(RIC.cal,   "#7FA8E8", "Citas totales", weekAppts.filter(a=>a.status!=="anulada").length)}
           {row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, a=>a.status==="confirmada"||a.status==="atendida"), "#46D27A")}
-          {row(RIC.user,  "#A9BAC7", "Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), "#A9BAC7")}
+          {row(RIC.user,  T.accentStrong, "Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), T.accentStrong)}
           {row(RIC.user,  "#FF6B7D", "No asistió", countBy(weekAppts, a=>a.status==="no_asistio"), "#FF6B7D")}
           {row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, a=>a.status==="anulada"))}
           {row(RIC.pct,   noShowRate>15?"#FF6B7D":"#46D27A", "Tasa de inasistencia", noShowRate+"%", noShowRate>15?"#FF6B7D":"#46D27A", true)}
@@ -1678,12 +1702,12 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
           {topProc.map((t,i) => {
             const open = expanded === t.name;
             return (
-            <div key={t.name} style={{ borderBottom: i===topProc.length-1 && !open?"none":"1px solid rgba(255,255,255,.06)" }}>
+            <div key={t.name} style={{ borderBottom: i===topProc.length-1 && !open?"none":"1px solid "+T.divider }}>
               {/* Fila clickeable (pedido): tocarla despliega DE QUIÉN es cada cita — antes solo se
                   veía el número, sin forma de saber a qué paciente corresponde. */}
               <button onClick={()=>setExpanded(open?null:t.name)} style={{ display:"flex", alignItems:"center", gap:13, padding:"11px 0", width:"100%", background:"none", border:"none", cursor:"pointer", textAlign:"left" }}>
                 {/* Ranking: número de posición (antes un icono de barras idéntico en todas las filas, que no aportaba). */}
-                <div style={{ width:30, height:30, borderRadius:9, flexShrink:0, background:"rgba(120,145,166,.14)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:13, fontWeight:700 }}>{i+1}</div>
+                <div style={{ width:30, height:30, borderRadius:9, flexShrink:0, background:T.accentSoft, color:T.accentStrong, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:13, fontWeight:700 }}>{i+1}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                     <span style={{ fontFamily:T.sans, fontSize:15, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
@@ -1691,7 +1715,7 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
                   </div>
                   {/* Barra apilada: azul = agendado, dorado = realizado — mismos colores que el resto
                       del panel y el portal, así un mismo total distingue de un vistazo qué falta. */}
-                  <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,.09)", overflow:"hidden", marginTop:8, display:"flex" }}>
+                  <div style={{ height:5, borderRadius:999, background:T.divider, overflow:"hidden", marginTop:8, display:"flex" }}>
                     <div style={{ height:"100%", width:Math.round(t.pend/maxProc*100)+"%", background:"#6EA8E8" }} />
                     <div style={{ height:"100%", width:Math.round(t.real/maxProc*100)+"%", background:"linear-gradient(90deg,#D9A63C,#F5B93D)" }} />
                   </div>
@@ -1754,7 +1778,7 @@ function TplCard({ T, tplKey, label, defaultTpl, sample, open, onToggle }) {
   const [text, setText] = useState(stored || defaultTpl);
   const [isCustom, setIsCustom] = useState(!!stored);
   const [savedFlag, setSavedFlag] = useState(false);
-  const inp = { width:"100%", fontFamily:"ui-monospace, monospace", fontSize:12.5, padding:"11px 13px", borderRadius:9, border:"1px solid rgba(255,255,255,.16)", background:"rgba(0,0,0,.22)", color:T.text, outline:"none", boxSizing:"border-box", lineHeight:1.6 };
+  const inp = { width:"100%", fontFamily:"ui-monospace, monospace", fontSize:12.5, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box", lineHeight:1.6 };
 
   function save() {
     try { window.DB.set("config", Object.assign({}, window.DB.cfg(), { [tplKey]: text.trim() })); } catch(e) {}
@@ -1784,7 +1808,7 @@ function TplCard({ T, tplKey, label, defaultTpl, sample, open, onToggle }) {
           <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
             {tokens.map(tk => (
               <button key={tk.k} title={tk.d} onClick={()=>setText(v=>v + (v && !/\s$/.test(v) ? " " : "") + "{"+tk.k+"}")}
-                style={{ fontFamily:"ui-monospace, monospace", fontSize:11, color:T.accent, background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.14)", borderRadius:7, padding:"4px 8px", cursor:"pointer" }}>
+                style={{ fontFamily:"ui-monospace, monospace", fontSize:11, color:T.accent, background:T.flatFill, border:"1px solid "+T.flatBorder, borderRadius:7, padding:"4px 8px", cursor:"pointer" }}>
                 {"{"+tk.k+"}"}
               </button>
             ))}
@@ -1794,10 +1818,10 @@ function TplCard({ T, tplKey, label, defaultTpl, sample, open, onToggle }) {
           </div>
           <div>
             <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:6 }}>Vista previa</div>
-            <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text, background:"rgba(0,0,0,.22)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"11px 13px", whiteSpace:"pre-wrap", lineHeight:1.6 }}>{preview}</div>
+            <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text, background:T.inputFill, border:"1px solid "+T.flatBorder, borderRadius:10, padding:"11px 13px", whiteSpace:"pre-wrap", lineHeight:1.6 }}>{preview}</div>
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <button onClick={restore} style={{ flex:1, height:38, borderRadius:8, border:"1px solid rgba(255,255,255,.18)", background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Restaurar predeterminado</button>
+            <button onClick={restore} style={{ flex:1, height:38, borderRadius:8, border:"1px solid "+T.inputBorder, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Restaurar predeterminado</button>
             <button onClick={save} style={{ flex:1, height:38, borderRadius:8, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer" }}>{savedFlag?"Guardado ✓":"Guardar"}</button>
           </div>
         </div>
@@ -1809,13 +1833,13 @@ function TplCard({ T, tplKey, label, defaultTpl, sample, open, onToggle }) {
 /* ═══════════ Menú (pestaña "mas") — composición del prototipo tabIsMenu ═══════════
    Perfil + tarjeta-lista de accesos + Cerrar sesión aparte. Conserva TODOS los onClick reales
    (overlays, notificaciones, citas anuladas, plantillas, actualizar datos, salir). */
-function MasTab({ T, openOverlay, onLogout, openNotif, goAnuladas }) {
+function MasTab({ T, mode, toggleMode, openOverlay, onLogout, openNotif, goAnuladas }) {
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const ini = (clinNombre||"JC").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
   const avatarSrc = (() => { try { return localStorage.getItem("jcm_admin_photo") || ""; } catch(e) { return ""; } })();
   // Fila de la tarjeta-lista: ícono accent + label + chevron, separadas por divisor (salvo la última).
   const row = (icon, label, onClick, last) => (
-    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: last?"none":"1px solid rgba(255,255,255,.1)", padding:"15px 16px", cursor:"pointer" }}>
+    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: last?"none":"1px solid "+T.divider, padding:"15px 16px", cursor:"pointer" }}>
       <div style={{ color:T.accent, display:"flex", flexShrink:0 }}>{icon}</div>
       <span style={{ flex:1, fontFamily:T.sans, fontSize:14, color:T.text }}>{label}</span>
       <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke={T.textFaint} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1848,6 +1872,15 @@ function MasTab({ T, openOverlay, onLogout, openNotif, goAnuladas }) {
         {row(<svg id="jcm-mob-rfab-icon2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>, "Actualizar datos", ()=>{ const b = document.getElementById("jcm-mob-rfab-icon2"); if(b){ b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{b.style.transition="";b.style.transform="";},600);} window.dispatchEvent(new CustomEvent("jcsaas:data")); }, true)}
       </div>
 
+      {/* Modo claro/oscuro — fila con switch (prototipo). Alterna el tema y lo persiste. */}
+      <div style={{ ...glassPanel(T,18), display:"flex", alignItems:"center", gap:12, padding:"13px 16px", marginBottom:14 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2.2M12 18.8V21M4.2 12H2.4M21.6 12h-1.8M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>
+        <span style={{ flex:1, fontFamily:T.sans, fontSize:14, color:T.text }}>Modo claro</span>
+        <button onClick={toggleMode} aria-label="Cambiar tema" style={{ width:44, height:26, borderRadius:100, background: mode==="light" ? T.accent : T.flatBorder, position:"relative", cursor:"pointer", border:"none", flexShrink:0, transition:"background .2s" }}>
+          <span style={{ position:"absolute", top:2, left: mode==="light" ? 20 : 2, width:22, height:22, borderRadius:"50%", background:"#fff", boxShadow:"0 1px 3px rgba(0,0,0,.3)", transition:"left .2s" }} />
+        </button>
+      </div>
+
       {/* Cerrar sesión — tarjeta aparte, en rojo */}
       <button onClick={onLogout} style={{ ...glassPanel(T,18), display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", padding:"15px 16px", cursor:"pointer" }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B7D" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h12"/></svg>
@@ -1862,8 +1895,8 @@ function OverlayShell({ T, title, onBack, children }) {
   // Mismo fondo (foto desenfocada + velo) que Inicio/Agenda — antes era un navy azulado radial
   // propio de los overlays, que se veía distinto al resto de la app (pedido: unificar).
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:200, overflow:"hidden", backgroundColor:"#070B12", display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
-      <PhotoBgLayers />
+    <div style={{ position:"fixed", inset:0, zIndex:200, overflow:"hidden", backgroundColor:T.bg, display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
+      <PhotoBgLayers T={T} />
       <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", height:"100%" }}>
         {/* Header overlay (referencia): botón atrás en círculo glass + título grande a la izquierda, sin barra. */}
         <div style={{ padding:"calc(14px + env(safe-area-inset-top,0px)) 18px 10px", display:"flex", alignItems:"center", gap:14, flexShrink:0 }}>
@@ -1881,7 +1914,7 @@ function OverlayShell({ T, title, onBack, children }) {
 }
 
 /* ─── Shell principal ─── */
-function MobileShell({ T, D, onLogout }) {
+function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   const [tab, setTab] = useState("citas");
   const [overlay, setOverlay] = useState(null); // null | "pacientes" | "reportes" | {type:"ficha", id}
   const [apptSheet, setApptSheet] = useState(null); // appt abierta en la hoja de acciones
@@ -2067,8 +2100,8 @@ function MobileShell({ T, D, onLogout }) {
   // y el contenido real va en una capa separada ENCIMA — así el blur nunca toca el texto/los
   // controles, solo la imagen. El MISMO fondo se reutiliza en overlays y menú lateral.
   return (
-    <div onTouchStart={onRootTouchStart} onTouchEnd={onRootTouchEnd} style={{ height:"100dvh", overflow:"hidden", position:"relative", backgroundColor:"#070B12", maxWidth:480, margin:"0 auto" }}>
-      <PhotoBgLayers />
+    <div onTouchStart={onRootTouchStart} onTouchEnd={onRootTouchEnd} style={{ height:"100dvh", overflow:"hidden", position:"relative", backgroundColor:T.bg, maxWidth:480, margin:"0 auto" }}>
+      <PhotoBgLayers T={T} />
       <div style={{ position:"relative", zIndex:1, height:"100%", display:"flex", flexDirection:"column" }}>
         {/* Header dinámico por pestaña (referencia): hamburguesa + título/marca + acción a la derecha */}
         {/* Header = TARJETA FLOTANTE redondeada (referencia), no barra recta full-width. Gutter lateral +
@@ -2100,13 +2133,13 @@ function MobileShell({ T, D, onLogout }) {
           {tab==="horarios" && <HorariosTab T={T} appts={appts} />}
           {tab==="nueva"    && <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} />}
           {tab==="agenda"   && <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} />}
-          {tab==="mas"      && <MasTab      T={T} openOverlay={setOverlay} onLogout={onLogout} openNotif={()=>setNotifOpen(true)} goAnuladas={()=>{ setOverlay(null); setAgShowAnuladas(true); setTab("agenda"); }} />}
+          {tab==="mas"      && <MasTab      T={T} mode={mode} toggleMode={toggleMode} openOverlay={setOverlay} onLogout={onLogout} openNotif={()=>setNotifOpen(true)} goAnuladas={()=>{ setOverlay(null); setAgShowAnuladas(true); setTab("agenda"); }} />}
         </div>
 
         {/* Tab bar (prototipo): barra glass navy full-width con blur(28px). Cada ítem = caja redondeada
             ~38x32 (activo = relleno accent + ícono onAccent; inactivo = transparente + ícono textFaint),
             label Jost 10 debajo (activo en accent) y un puntito de 4px (activo = accent). */}
-        <div style={{ flexShrink:0, position:"relative", zIndex:5, display:"flex", alignItems:"center", justifyContent:"space-around", padding:"10px 12px calc(16px + env(safe-area-inset-bottom,0px))", background:"rgba(18,25,38,.72)", backdropFilter:"blur(28px) saturate(1.3)", WebkitBackdropFilter:"blur(28px) saturate(1.3)", borderTop:"1px solid rgba(255,255,255,.1)" }}>
+        <div style={{ flexShrink:0, position:"relative", zIndex:5, display:"flex", alignItems:"center", justifyContent:"space-around", padding:"10px 12px calc(16px + env(safe-area-inset-bottom,0px))", background:T.navFill, backdropFilter:"blur(28px) saturate(1.3)", WebkitBackdropFilter:"blur(28px) saturate(1.3)", borderTop:"1px solid "+T.glassBorder }}>
           {tabs.map(({lbl,icon,on,act})=>(
             <button key={lbl} onClick={act}
               style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, cursor:"pointer", width:64, background:"none", border:"none", padding:0 }}>
@@ -2147,7 +2180,7 @@ function MobileShell({ T, D, onLogout }) {
         return (
           <div onMouseDown={e=>{ if(e.target===e.currentTarget) closeN(); }} style={{ position:"fixed", inset:0, zIndex:410, background:"rgba(0,0,0,.55)", display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
             <div onClick={e=>e.stopPropagation()} style={{ ...glassPanel(T,24), borderBottomLeftRadius:0, borderBottomRightRadius:0, maxHeight:"78dvh", display:"flex", flexDirection:"column", paddingBottom:"env(safe-area-inset-bottom,10px)", animation:"jcFade .2s ease" }}>
-              <div style={{ padding:"14px 16px 11px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:"1px solid rgba(255,255,255,.1)" }}>
+              <div style={{ padding:"14px 16px 11px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:"1px solid "+T.divider }}>
                 <div>
                   <div style={{ fontFamily:T.serif, fontSize:18, fontWeight:600, color:T.text }}>Pendientes</div>
                   <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, marginTop:1 }}>{total===0 ? "Todo al día" : total+" por resolver"}</div>
@@ -2187,8 +2220,8 @@ function MobileShell({ T, D, onLogout }) {
           <div onMouseDown={e=>{ if(e.target===e.currentTarget) setDrawer(false); }} style={{ position:"fixed", inset:0, zIndex:400, background:"rgba(0,0,0,.5)", display:"flex" }}>
             {/* Mismo fondo (foto desenfocada + velo) que el resto del panel — antes era un navy azulado
                 radial distinto (pedido: unificar el color con la pantalla principal). */}
-            <div onClick={e=>e.stopPropagation()} style={{ position:"relative", overflow:"hidden", width:"78%", maxWidth:320, height:"100%", backgroundColor:"#070B12", display:"flex", flexDirection:"column", boxShadow:"8px 0 40px -10px rgba(0,0,0,.6)", animation:"jcDrawerIn .22s ease" }}>
-              <PhotoBgLayers />
+            <div onClick={e=>e.stopPropagation()} style={{ position:"relative", overflow:"hidden", width:"78%", maxWidth:320, height:"100%", backgroundColor:T.bg, display:"flex", flexDirection:"column", boxShadow:"8px 0 40px -10px rgba(0,0,0,.6)", animation:"jcDrawerIn .22s ease" }}>
+              <PhotoBgLayers T={T} />
               <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", height:"100%" }}>
               <div style={{ ...glassChip(T), border:"none", padding:"calc(16px + env(safe-area-inset-top,0px)) 16px 16px", display:"flex", alignItems:"center", gap:11 }}>
                 <img src="/assets/medique-logo.png" alt="Medique" style={{ width:34, height:34, flexShrink:0 }} />
@@ -2205,7 +2238,7 @@ function MobileShell({ T, D, onLogout }) {
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOv("pacientes"))}
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOv("reportes"))}
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOv("plantillas"))}
-                <div style={{ height:1, background:"rgba(255,255,255,.1)", margin:"8px 12px" }} />
+                <div style={{ height:1, background:T.divider, margin:"8px 12px" }} />
                 {navItem(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>, "Actualizar datos", ()=>{ window.dispatchEvent(new CustomEvent("jcsaas:data")); setDrawer(false); })}
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>, "Cerrar sesión", ()=>{ setDrawer(false); onLogout(); }, true)}
               </div>
@@ -2220,27 +2253,21 @@ function MobileShell({ T, D, onLogout }) {
 
 /* ─── Entry point (modo local) ─── */
 function MobileAdmin() {
-  const TK = window.JCTHEME;
-  const T = photoTheme(jcmMobileTheme((TK && (TK.marfil || TK.cielo || TK.editorial)) || {
-    bg:"#F5F2EC", surface:"#fff", text:"#1A1A14", textMute:"#5C5A50", textFaint:"#8A8674",
-    line:"rgba(20,20,15,.12)", lineSoft:"rgba(20,20,15,.08)", accent:"#54707F", onAccent:"#fff",
-    sans:"'Jost',sans-serif", serif:"'Marcellus',serif", navBg:"rgba(245,242,236,.96)"
-  }));
+  const [mode, setMode] = useState(readMobileMode);
+  const T = buildMobileTheme(mode);
+  const toggleMode = () => setMode(m => { const n = m === "dark" ? "light" : "dark"; writeMobileMode(n); return n; });
   const D = window.JCDATA;
   const authed0 = !!(window.jcmAdminHasPass&&window.jcmAdminHasPass()&&window.jcmAdminHasSession&&window.jcmAdminHasSession());
   const [authed, setAuthed] = useState(authed0);
   if (!authed) return <LoginScreen T={T} onAuth={()=>setAuthed(true)} />;
-  return <MobileShell T={T} D={D} onLogout={()=>{ try { window.jcmAdminEndSession && window.jcmAdminEndSession(); } catch(e){} setAuthed(false); }} />;
+  return <MobileShell T={T} D={D} mode={mode} toggleMode={toggleMode} onLogout={()=>{ try { window.jcmAdminEndSession && window.jcmAdminEndSession(); } catch(e){} setAuthed(false); }} />;
 }
 
 /* ─── Entry point SaaS (multi-clínica): carga data cacheada inmediatamente ─── */
 function MobileSaasGate() {
-  const TK = window.JCTHEME;
-  const T = photoTheme(jcmMobileTheme((TK && (TK.marfil || TK.cielo || TK.editorial)) || {
-    bg:"#F5F2EC", surface:"#fff", text:"#1A1A14", textMute:"#5C5A50", textFaint:"#8A8674",
-    line:"rgba(20,20,15,.12)", lineSoft:"rgba(20,20,15,.08)", accent:"#54707F", onAccent:"#fff",
-    sans:"'Jost',sans-serif", serif:"'Marcellus',serif", navBg:"rgba(245,242,236,.96)"
-  }));
+  const [mode, setMode] = useState(readMobileMode);
+  const T = buildMobileTheme(mode);
+  const toggleMode = () => setMode(m => { const n = m === "dark" ? "light" : "dark"; writeMobileMode(n); return n; });
   const D = window.JCDATA;
 
   const hasCachedSession = !!(
@@ -2291,7 +2318,7 @@ function MobileSaasGate() {
     setBusy(false);
   }
 
-  if (phase === "app") return <MobileShell T={T} D={D} onLogout={() => window.JCSAAS.logout()} />;
+  if (phase === "app") return <MobileShell T={T} D={D} mode={mode} toggleMode={toggleMode} onLogout={() => window.JCSAAS.logout()} />;
 
   // Aspecto IDÉNTICO al login del portal de escritorio (SaasGate, jc-admin.jsx): sin logo, eyebrow
   // en el color de acento, serif fina centrada, inputs opacos con radio 6 (no glass translúcido).
