@@ -389,6 +389,10 @@ function esControlPostProc(proc, pat) {
   });
 }
 window.esControlPostProc = esControlPostProc;
+function jcmFirstName(name) {
+  return ("" + (name || "")).trim().split(/\s+/)[0] || "";
+}
+window.jcmFirstName = jcmFirstName;
 function jcmCitaConfirmMsg(name, wk, time, proc, prof, esControl) {
   var addr = clinicAddr(), maps = clinicMapsLink();
   var tpl = "";
@@ -398,7 +402,7 @@ function jcmCitaConfirmMsg(name, wk, time, proc, prof, esControl) {
   }
   tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_CONFIRM;
   var politica = esControl ? " El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "";
-  return window.fillMsgTpl(tpl, { nombre: name, clinica: clinicDisplayName(), fecha: wk.wd + " " + wk.dd + " " + wk.mm, hora: time, tratamiento: proc, profesional: prof, direccion: addr, mapa: maps, politica });
+  return window.fillMsgTpl(tpl, { nombre: name, primernombre: jcmFirstName(name), clinica: clinicDisplayName(), fecha: wk.wd + " " + wk.dd + " " + wk.mm, hora: time, tratamiento: proc, profesional: prof, direccion: addr, mapa: maps, politica });
 }
 function jcmRecordatorioMsg(a) {
   var addr = clinicAddr(), maps = clinicMapsLink();
@@ -421,7 +425,7 @@ function jcmConfirmAsistMsg(a) {
   } catch (e) {
   }
   tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_ASIST;
-  return window.fillMsgTpl(tpl, { nombre: a.name || "", clinica: clinicDisplayName(), fecha, hora: a.time || "", tratamiento: a.proc || "", mapa: maps });
+  return window.fillMsgTpl(tpl, { nombre: a.name || "", primernombre: jcmFirstName(a.name), clinica: clinicDisplayName(), fecha, hora: a.time || "", tratamiento: a.proc || "", mapa: maps });
 }
 window.clinicName = clinicName;
 window.clinicAddr = clinicAddr;

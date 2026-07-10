@@ -88,11 +88,12 @@ const DB = {
 // guardado en DB.cfg().msg_tpl_confirm / msg_tpl_asist. Si no hay uno guardado se usa este texto
 // por defecto — MISMO texto para portal de escritorio y panel móvil (una sola fuente de verdad).
 const DEFAULT_TPL_CONFIRM = "Hola {nombre} 👋\n\nTu cita en {clinica} quedó confirmada:\n\n🗓️ Fecha: {fecha}\n⏰ Hora: {hora} hrs\n💉 Tratamiento: {tratamiento}\n👨‍⚕️ Profesional: {profesional}\n📍 Dirección: {direccion}\n\n🏥 Cómo llegar: {mapa}\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.{politica}\n\n¡Nos vemos pronto!";
-const DEFAULT_TPL_ASIST = "Hola {nombre},\n\nTe escribimos de {clinica} para confirmar tu asistencia a tu cita el {fecha} a las {hora} hrs ({tratamiento}).\n\n¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar\n\nCómo llegar: {mapa}\n\n¡Te esperamos!";
+const DEFAULT_TPL_ASIST = "Hola {primernombre}!\n\nTe escribimos de {clinica} para confirmar tu asistencia a tu cita el {fecha} a las {hora} hrs ({tratamiento}).\n\n¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar\n\nCómo llegar: {mapa}\n\n¡Te esperamos!";
 // Tokens disponibles por plantilla, para mostrarlos en el editor (panel móvil).
 const TPL_TOKENS = {
   msg_tpl_confirm: [
-    { k: "nombre",       d: "Nombre del paciente" },
+    { k: "nombre",       d: "Nombre completo del paciente" },
+    { k: "primernombre", d: "Solo el primer nombre (más personal)" },
     { k: "clinica",      d: "Nombre de la clínica" },
     { k: "fecha",        d: "Fecha (Sáb 11 Jul)" },
     { k: "hora",         d: "Hora (13:45)" },
@@ -103,7 +104,8 @@ const TPL_TOKENS = {
     { k: "politica",     d: "Política de reagendamiento pagado (se agrega sola solo en controles — no hace falta escribirla)" }
   ],
   msg_tpl_asist: [
-    { k: "nombre",  d: "Nombre del paciente" },
+    { k: "nombre",       d: "Nombre completo del paciente" },
+    { k: "primernombre", d: "Solo el primer nombre (más personal)" },
     { k: "clinica", d: "Nombre de la clínica" },
     { k: "fecha",   d: "Fecha (sábado 11 de julio)" },
     { k: "hora",    d: "Hora (13:45)" },
