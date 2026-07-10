@@ -705,11 +705,11 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
   );
 
   return (
-    // Composición del prototipo: saludo + KPI + resumen + accesos rápidos + buscador quedan FIJOS;
-    // solo la lista de "Próximas citas" scrollea. El header propio de la pestaña Inicio es esta
-    // tarjeta de saludo (el prototipo no tiene barra superior separada en Inicio).
+    // Composición del prototipo: saludo + accesos rápidos + buscador quedan FIJOS; solo la lista
+    // de "Próximas citas" scrollea. El header propio de la pestaña Inicio es esta tarjeta de
+    // saludo (el prototipo no tiene barra superior separada en Inicio).
     <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"calc(14px + env(safe-area-inset-top,0px)) 16px 0", background:T.heroBg }}>
-      {/* Bloque FIJO: saludo + KPI + resumen del día + accesos rápidos + buscador. */}
+      {/* Bloque FIJO: saludo + accesos rápidos + buscador. */}
       <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:12 }}>
         {/* Tarjeta de saludo (prototipo): avatar + "Hola, {nombre}" + fecha larga + campana. */}
         <div style={{ ...glassPanel(T,20), display:"flex", alignItems:"center", gap:12, padding:"14px 16px", minHeight:70 }}>
@@ -751,7 +751,13 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
           <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color:T.text }}>Próximas citas</span>
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
-        <div style={{ flex:1, minHeight:0, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom:14 }}>
+        {/* Pedido del usuario (10-jul): con pocas citas, dejar la lista pegada arriba dejaba un
+            hueco vacío grande y parejo abajo (feo/"roto"). Cuando la lista es corta (cabe sin
+            scroll) se CENTRA verticalmente en el espacio disponible en vez de anclarla arriba —
+            reparte el espacio libre arriba y abajo en vez de amontonarlo todo abajo. Con muchas
+            citas (no cabe) se mantiene el anclaje arriba + scroll de siempre (sin riesgo de que
+            el centrado corte el principio de la lista). */}
+        <div style={{ flex:1, minHeight:0, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom:14, display:"flex", flexDirection:"column", justifyContent: upcoming.length<=4 ? "center" : "flex-start" }}>
           {upcoming.length===0 && (
             <div style={{ ...glassPanel(T,14), padding:"26px 18px", textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:11 }}>
               <div style={{ width:40, height:40, borderRadius:"50%", background:T.flatFill, border:"1px solid "+T.flatBorder, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMute }}>
@@ -794,6 +800,19 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
               </div>
             ))}
           </div>
+          )}
+          {/* Pedido del usuario (10-jul): con pocas citas próximas, la lista corta dejaba un
+              hueco vacío grande antes de la barra inferior y se sentía "roto". No hay contenido
+              real con qué llenarlo (no se inventan citas) — en vez de eso, se cierra la lista con
+              una nota sobria (mismo patrón que Calendar/Fantastical) para que el espacio restante
+              se lea como "estás al día", no como una pantalla incompleta. Solo aparece cuando la
+              lista mostrada es exhaustiva (no truncada por el tope de 8) — si hay más citas de las
+              que caben, no correspondería decir "eso es todo". */}
+          {upcoming.length>0 && upcoming.length<8 && (
+            <div style={{ textAlign:"center", padding:"20px 0 4px", display:"flex", flexDirection:"column", alignItems:"center", gap:7, opacity:.7 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.3l2.4 2.4 4.6-5.2"/></svg>
+              <div style={{ fontFamily:T.sans, fontSize:12, color:T.textFaint }}>Estás al día — sin más citas próximas.</div>
+            </div>
           )}
         </div>
         </>)}
@@ -2061,7 +2080,10 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     if (notifOpen) { setNotifOpen(false); return; }
     if (apptSheet) { setApptSheet(null); return; }
     if (overlay) { setOverlay(null); return; }
+    // En Inicio (sin nada abierto): el gesto de borde ABRE el menú lateral (pedido) — no hay que
+    // tocar el ícono de abajo. En otras pestañas, el gesto vuelve a Inicio.
     if (tab !== "citas") { setTab("citas"); return; }
+    setDrawer(true);
   }
 
   useEffect(() => {
