@@ -165,6 +165,16 @@ function dayLabelM(iso) {
   const d = new Date(iso+"T00:00:00");
   return WDS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()];
 }
+// Hora de término de una cita = inicio + duración (o el campo end si viene). Solo para PRESENTACIÓN
+// (línea "hora fin" bajo la hora en las tarjetas del prototipo); no toca datos ni horarios.
+function apptEndM(a) {
+  if (a && a.end) return a.end;
+  if (!a || !a.time) return "";
+  const start = minsM(a.time);
+  const dur = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+  const e = start + dur, h = Math.floor(e/60), m = e%60;
+  return (h<10?"0":"")+h+":"+(m<10?"0":"")+m;
+}
 function procList() { try { return window.JCDATA.catalog.reduce((a,s) => { s.groups.forEach(g => g.items.forEach(it => a.push(it.n))); return a; }, []); } catch(e) { return []; } }
 function durOf(a) { const d = a.dur || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc)+" min" : "30 min"); return (""+d).replace(/\s*minutos?\b/i, " min").trim(); }
 
@@ -533,7 +543,7 @@ function DaySummary({ T, c, p, na, prefix, bars }) {
     </div>
   );
 }
-function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
+function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif, bellCount }) {
   const today = todayISO();
   const yestISO = offToISO(-1);
   const active = appts.filter(a => a.status !== "anulada");
@@ -588,42 +598,28 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const fechaLarga = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
 
-  // KPIs — REDISEÑO iOS 26: UNA sola franja glass con divisores finos entre métricas (mismo motivo
-  // "stat strip" del Dashboard del portal), en vez de 4 tarjetas glass sueltas. Menos cajas anidadas
-  // = el material se lee premium; glass-sobre-glass multiplicado era parte del look "forzado".
-  const kpi = (label, val, sub, subColor, first) => (
-    <div style={{ flex:1, minWidth:0, padding: first ? "1px 0 1px 1px" : "1px 0 1px 9px", borderLeft: first ? "none" : "1px solid rgba(255,255,255,.09)", display:"flex", flexDirection:"column", gap:1 }}>
-      {/* Mínimo legible 11px (nada más chico, salvo eyebrows cortos): antes 7.5-8px, ilegible en
-          exteriores/con poca luz — el trade-off es que la fila de 4 KPI puede crecer un poco de alto. */}
-      <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".02em", textTransform:"uppercase", color:T.textMute, lineHeight:1.25 }}>{label}</div>
-      <div style={{ fontFamily:FRAUNCES, fontSize:21, fontWeight:500, color:T.text, lineHeight:1.1, letterSpacing:"-.01em" }}>{val}</div>
-      {/* Se deja envolver a 2 líneas en vez de truncar con "…": a 10px "igual que ayer" ya no entra
-          en una sola línea en la tarjeta más angosta, y cortarlo lo volvía ilegible. */}
-      {sub && <div style={{ fontFamily:T.sans, fontSize:10, color:subColor||T.textMute, lineHeight:1.2 }}>{sub}</div>}
-    </div>
-  );
-  // Avatar de la clínica: foto guardada (jcm_admin_photo) o iniciales, como en la referencia.
+  // Saludo (prototipo): primer nombre de la clínica/profesional + avatar (foto guardada o iniciales).
+  const primerNombre = (clinNombre||"").trim().split(/\s+/)[0] || "";
   const avatarSrc = (() => { try { return localStorage.getItem("jcm_admin_photo") || ""; } catch(e) { return ""; } })();
   const ini = (clinNombre||"JC").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
 
-  // Accesos rápidos (referencia): 4 tiles con ícono arriba-izquierda + etiqueta debajo. El primero
-  // ("Nueva cita") va relleno de acento; el resto en glass.
-  // Accesos rápidos (referencia): 4 tiles glass con ícono centrado arriba y etiqueta debajo.
-  // "Nueva cita" destaca con su círculo de acento relleno; los demás lo llevan tenue.
-  // Inner tiles (referencia): superficie sutil dentro de UN contenedor glass exterior, no 4 tarjetas
-  // pesadas sueltas. "Nueva cita" lleva el círculo azul; los demás, ícono de línea claro.
-  // Pila flotante de accesos rápidos reducida a ~75% (pedido): se conserva el TAMAÑO de los íconos
-  // (svg + círculo de 28px), solo se reduce lo demás — alto, paddings, separaciones y la etiqueta.
-  // REDISEÑO iOS 26: tiles internos como RELLENO suave sin borde (glass-fill del portal), dentro
-  // del único contenedor glass exterior — sin caja-con-borde dentro de caja-con-borde.
-  const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, minHeight:46, minWidth:0, cursor:"pointer", borderRadius:12,
-      background: primary ? T.accentSoft : "rgba(255,255,255,.05)", border:"none", padding:"7px 3px" }}>
+  // KPI (composición del prototipo): 3 tarjetas glass — valor Fraunces 21 + label + subtítulo.
+  const kpiCard = (label, val, sub, onClick) => (
+    <button onClick={onClick} style={{ ...glassPanel(T,16), display:"flex", flexDirection:"column", alignItems:"flex-start", gap:0, padding:"12px 10px", textAlign:"left", cursor:"pointer" }}>
+      <div style={{ fontFamily:T.serif, fontWeight:600, fontSize:21, color:T.text, lineHeight:1.1 }}>{val}</div>
+      <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginTop:5, lineHeight:1.25 }}>{label}</div>
+      {sub && <div style={{ fontFamily:T.sans, fontSize:10, color:T.textFaint, marginTop:2, lineHeight:1.2 }}>{sub}</div>}
+    </button>
+  );
+
+  // Mosaico de acceso rápido (composición del prototipo): ícono centrado arriba + label debajo.
+  // "Nueva cita" destaca con el círculo de acento relleno; los demás llevan el ícono en stroke accent.
+  const tile = (icon, label, onClick, primary) => (
+    <button onClick={onClick} style={{ ...glassPanel(T,16), display:"flex", flexDirection:"column", alignItems:"center", gap:7, padding:"12px 4px", cursor:"pointer", minWidth:0 }}>
       {primary
-        ? <div style={{ width:28, height:28, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 4px 10px -4px "+T.accent }}>{icon}</div>
-        : <div style={{ height:28, display:"flex", alignItems:"center", justifyContent:"center", color:"#A9BAC7" }}>{icon}</div>}
-      {/* Mínimo legible 11px: antes 9px en la etiqueta de un acceso rápido de uso frecuente. */}
-      <span style={{ fontFamily:T.sans, fontSize:10.5, fontWeight:500, lineHeight:1.1, textAlign:"center", color:T.text }}>{label}</span>
+        ? <div style={{ width:34, height:34, borderRadius:"50%", background:T.accent, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:"0 6px 14px -6px "+T.accent }}>{icon}</div>
+        : <div style={{ width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center", color:T.accent, flexShrink:0 }}>{icon}</div>}
+      <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:500, color:T.text, textAlign:"center", lineHeight:1.15 }}>{label}</span>
     </button>
   );
 
@@ -662,25 +658,44 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   );
 
   return (
-    // Pedido: los KPI y los accesos rápidos quedan FIJOS — solo la lista de "Próximas citas"
-    // scrollea. Por eso el contenedor ocupa todo el alto y su bloque superior no se desplaza.
-    <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"12px 16px 0" }}>
-      {/* Bloque FIJO: KPI + resumen del día + pila de accesos rápidos + buscador. */}
+    // Composición del prototipo: saludo + KPI + resumen + accesos rápidos + buscador quedan FIJOS;
+    // solo la lista de "Próximas citas" scrollea. El header propio de la pestaña Inicio es esta
+    // tarjeta de saludo (el prototipo no tiene barra superior separada en Inicio).
+    <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"calc(14px + env(safe-area-inset-top,0px)) 16px 0" }}>
+      {/* Bloque FIJO: saludo + KPI + resumen del día + accesos rápidos + buscador. */}
       <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:12 }}>
-        <div style={{ ...glassPanel(T,18), display:"flex", gap:0, padding:"10px 12px" }}>
-          {kpi("Citas hoy", todayAppts.length, vsAyer(delta), null, true)}
-          {kpi("Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
-          {kpi("Pendientes", pendientes, pct(pendientes)+"% del total")}
-          {kpi("Ocupación", ocup+"%", vsAyer(ocupDelta, " pts"))}
+        {/* Tarjeta de saludo (prototipo): avatar + "Hola, {nombre}" + fecha larga + campana. */}
+        <div style={{ ...glassPanel(T,20), display:"flex", alignItems:"center", gap:12, padding:"14px 16px", minHeight:70 }}>
+          {avatarSrc
+            ? <img src={avatarSrc} alt="" style={{ width:42, height:42, borderRadius:"50%", objectFit:"cover", flexShrink:0, border:"1px solid "+T.accent }} />
+            : <div style={{ width:42, height:42, borderRadius:"50%", background:T.accentSoft, border:"1px solid "+T.accent, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontFamily:T.serif, fontWeight:600, fontSize:15, color:T.accent }}>{ini}</span>
+              </div>}
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontFamily:T.serif, fontWeight:600, fontSize:19, color:T.text, lineHeight:1.25, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{primerNombre ? "Hola, "+primerNombre : "Hola"}</div>
+            <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, lineHeight:1.4, marginTop:3 }}>{fechaLarga}</div>
+          </div>
+          <button onClick={openNotif} aria-label="Notificaciones" style={{ position:"relative", width:38, height:38, borderRadius:"50%", background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            {bellCount>0 && <span style={{ position:"absolute", top:6, right:7, width:8, height:8, borderRadius:"50%", background:T.accent, border:"1.5px solid rgba(21,29,44,.9)" }} />}
+          </button>
+        </div>
+
+        {/* KPIs: 3 tarjetas glass (Citas hoy → Agenda · Confirmadas → Agenda · Ocupación → Reportes). */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:9 }}>
+          {kpiCard("Citas hoy", todayAppts.length, vsAyer(delta), ()=>goTab("agenda"))}
+          {kpiCard("Confirmadas", confirmadas, pct(confirmadas)+"% del total", ()=>goTab("agenda"))}
+          {kpiCard("Ocupación", ocup+"%", vsAyer(ocupDelta, " pts"), ()=>openOverlay("reportes"))}
         </div>
 
         {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
 
-        <div style={{ ...glassPanel(T,18), display:"flex", gap:7, padding:7 }}>
-          {action(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
-          {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
-          {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
-          {action(<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+        {/* Accesos rápidos: 4 mosaicos (único acceso a Bloquear horario y a Reportes/Pacientes con nav de 3 pestañas). */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:9 }}>
+          {tile(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>goTab("nueva"), true)}
+          {tile(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
+          {tile(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Bloquear horario", ()=>goTab("horarios"))}
+          {tile(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
         </div>
 
         {searchBar}
@@ -690,8 +705,8 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           esta sección entera se reemplaza por los resultados de la búsqueda. */}
       <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", marginTop:12 }}>
         {ql ? searchResultsBody : (<>
-        <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
-          <span style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text }}>Próximas citas</span>
+        <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+          <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color:T.text }}>Próximas citas</span>
           <button onClick={()=>goTab("agenda")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.accent, display:"flex", alignItems:"center", gap:3 }}>Ver agenda <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
         <div style={{ flex:1, minHeight:0, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom:14 }}>
@@ -707,24 +722,29 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
               </button>
             </div>
           )}
-          {/* Tarjeta plana (pedido): hora | nombre ... abreviación del procedimiento al borde derecho,
-              todo alineado en la línea media de la tarjeta. Punto de color al inicio = estado.
-              Agrupadas por día (pedido): cada grupo lleva la MISMA barra de sección (eyebrow uppercase
-              tracked, color accent) que ya usan Reportes ("Esta semana") y el drawer de pendientes —
-              ningún motivo visual nuevo, solo el existente aplicado a estos divisores. */}
+          {/* Tarjeta del prototipo: IZQ nombre + procedimiento + píldora de estado (apptStateM);
+              divisor vertical; DER hora en Fraunces con color del estado + hora fin. Agrupadas por
+              día con el eyebrow accent uppercase. onClick abre la ApptSheet (misma función). */}
           {upcoming.length>0 && (
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
             {upcomingByDay.map(g => (
               <div key={g.fecha}>
-                <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"0 0 6px" }}>{dayLabelM(g.fecha)}</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"0 0 8px" }}>{dayLabelM(g.fecha)}</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                   {g.items.map(a => {
                     const st = apptStateM(a, T);
                     return (
-                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:12, overflow:"hidden", padding:"10px 12px", ...apptCardTintM(st.color) }}>
-                        <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
-                        <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
-                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.045)", border:"1px solid rgba(255,255,255,.08)", borderRadius:14, padding:"12px 14px" }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:13.5, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
+                          <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:2 }}>{a.proc||"—"}</div>
+                          <span style={{ display:"inline-block", marginTop:7, fontFamily:T.sans, fontWeight:600, fontSize:9.5, letterSpacing:".06em", textTransform:"uppercase", padding:"3px 8px", borderRadius:100, background:"color-mix(in srgb, "+st.color+" 18%, transparent)", color:st.color }}>{st.label}</span>
+                        </div>
+                        <div style={{ width:1, alignSelf:"stretch", background:"rgba(255,255,255,.1)" }} />
+                        <div style={{ textAlign:"right", flexShrink:0 }}>
+                          <div style={{ fontFamily:T.serif, fontWeight:600, fontSize:15, color:st.color }}>{a.time}</div>
+                          <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:1 }}>{apptEndM(a)}</div>
+                        </div>
                       </button>
                     );
                   })}
@@ -1009,7 +1029,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       }}>
         {/* PRUEBA (rama movil-diseno-portal): mismo lenguaje que el portal — tinte de la tarjeta +
             badge de procedimiento ya bastan para leer el estado, sin punto lateral aparte. */}
-        <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
+        <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:st.color }}>{a.time}</span>
         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</span>
         {/* Se deja en 10px (no 11) a propósito: este badge vive en el bloque de la línea de tiempo,
             que puede medir solo 15px de alto en una cita de 15 min — a 11px se recortaría. Coincide
@@ -1786,31 +1806,53 @@ function TplCard({ T, tplKey, label, defaultTpl, sample, open, onToggle }) {
   );
 }
 
-/* ═══════════ Overlay: Más (Pacientes/Reportes/Configuración/Salir) ═══════════ */
-function MasTab({ T, openOverlay, onLogout }) {
-  const item = (icon, label, onClick, danger) => (
-    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:15, width:"100%", textAlign:"left", ...glassPanel(T,18), padding:"18px 16px", cursor:"pointer",
-      ...(danger ? { background:"linear-gradient(180deg, rgba(255,90,110,.10), rgba(255,70,90,.04) 60%), rgba(40,20,26,.42)" } : {}) }}>
-      <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:(danger?"rgba(255,90,110,.16)":"rgba(120,145,166,.16)"), border:"1px solid "+(danger?"rgba(255,120,140,.3)":"rgba(130,150,170,.28)"), color:danger?"#FF6B7D":"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
-      <span style={{ fontFamily:T.sans, fontSize:18, fontWeight:600, color:danger?"#FF6B7D":T.text, flex:1 }}>{label}</span>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={danger?"rgba(255,107,125,.7)":T.textFaint} strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+/* ═══════════ Menú (pestaña "mas") — composición del prototipo tabIsMenu ═══════════
+   Perfil + tarjeta-lista de accesos + Cerrar sesión aparte. Conserva TODOS los onClick reales
+   (overlays, notificaciones, citas anuladas, plantillas, actualizar datos, salir). */
+function MasTab({ T, openOverlay, onLogout, openNotif, goAnuladas }) {
+  const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
+  const ini = (clinNombre||"JC").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+  const avatarSrc = (() => { try { return localStorage.getItem("jcm_admin_photo") || ""; } catch(e) { return ""; } })();
+  // Fila de la tarjeta-lista: ícono accent + label + chevron, separadas por divisor (salvo la última).
+  const row = (icon, label, onClick, last) => (
+    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: last?"none":"1px solid rgba(255,255,255,.1)", padding:"15px 16px", cursor:"pointer" }}>
+      <div style={{ color:T.accent, display:"flex", flexShrink:0 }}>{icon}</div>
+      <span style={{ flex:1, fontFamily:T.sans, fontSize:14, color:T.text }}>{label}</span>
+      <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke={T.textFaint} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
     </button>
   );
   return (
-    <div style={{ padding:"14px 16px 90px", display:"flex", flexDirection:"column", gap:12 }}>
-      {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
-      {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
-      {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOverlay("plantillas"))}
-      <button onClick={()=>{ const b = document.getElementById("jcm-mob-rfab-icon2"); if(b){ b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{b.style.transition="";b.style.transform="";},600);} window.dispatchEvent(new CustomEvent("jcsaas:data")); }}
-        style={{ display:"flex", alignItems:"center", gap:15, width:"100%", textAlign:"left", ...glassPanel(T,18), padding:"18px 16px", cursor:"pointer" }}>
-        <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.28)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <svg id="jcm-mob-rfab-icon2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+    <div style={{ padding:"calc(16px + env(safe-area-inset-top,0px)) 18px 120px" }}>
+      <div style={{ fontFamily:T.serif, fontWeight:600, fontSize:27, color:T.text, marginBottom:16 }}>Menú</div>
+
+      {/* Tarjeta de perfil */}
+      <div style={{ ...glassPanel(T,18), display:"flex", alignItems:"center", gap:12, padding:"14px 16px", marginBottom:18 }}>
+        {avatarSrc
+          ? <img src={avatarSrc} alt="" style={{ width:44, height:44, borderRadius:"50%", objectFit:"cover", flexShrink:0, border:"1px solid "+T.accent }} />
+          : <div style={{ width:44, height:44, borderRadius:"50%", background:T.accentSoft, border:"1px solid "+T.accent, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <span style={{ fontFamily:T.serif, fontWeight:600, fontSize:15, color:T.accent }}>{ini}</span>
+            </div>}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:14.5, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinNombre || "Medique"}</div>
+          <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, marginTop:1 }}>Panel de la clínica</div>
         </div>
-        <span style={{ fontFamily:T.sans, fontSize:18, fontWeight:600, color:T.text, flex:1 }}>Actualizar datos</span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      {/* Tarjeta-lista de accesos */}
+      <div style={{ ...glassPanel(T,18), overflow:"hidden", marginBottom:14 }}>
+        {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
+        {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+        {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>, "Notificaciones", openNotif)}
+        {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9a8 8 0 1 1 1.3 6.5"/><path d="M4 4v5h5"/></svg>, "Citas anuladas", goAnuladas)}
+        {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOverlay("plantillas"))}
+        {row(<svg id="jcm-mob-rfab-icon2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>, "Actualizar datos", ()=>{ const b = document.getElementById("jcm-mob-rfab-icon2"); if(b){ b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{b.style.transition="";b.style.transform="";},600);} window.dispatchEvent(new CustomEvent("jcsaas:data")); }, true)}
+      </div>
+
+      {/* Cerrar sesión — tarjeta aparte, en rojo */}
+      <button onClick={onLogout} style={{ ...glassPanel(T,18), display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", padding:"15px 16px", cursor:"pointer" }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B7D" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h12"/></svg>
+        <span style={{ fontFamily:T.sans, fontSize:14, color:"#FF6B7D" }}>Cerrar sesión</span>
       </button>
-      <div style={{ height:1, background:T.dark?"rgba(255,255,255,.1)":T.lineSoft, margin:"8px 4px" }} />
-      {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>, "Cerrar sesión", onLogout, true)}
     </div>
   );
 }
@@ -2012,14 +2054,13 @@ function MobileShell({ T, D, onLogout }) {
       : <div style={{ width:44 }} />;
     return <>{hamburger}<span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.serif, fontSize:20, fontWeight:600, color:T.text }}>{titleMap[tab]}</span>{rightAction}</>;
   };
-  // Barra inferior EXACTA de la referencia: Citas · Agenda · Pacientes · Reportes · Más.
-  // Pacientes y Reportes abren sus overlays; Nueva cita y Horarios se acceden desde accesos rápidos.
+  // Barra inferior del prototipo: 3 pestañas — Inicio · Agenda · Menú. Pacientes y Reportes ya no
+  // viven en el nav (accesibles como mosaicos en Inicio y como filas en el Menú). Cada act conserva
+  // su comportamiento original (limpiar overlay + cambiar de tab).
   const tabs = [
-    { lbl:"Citas",     on: tab==="citas" && !overlay,     act:()=>{ setOverlay(null); setTab("citas"); },  icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
-    { lbl:"Agenda",    on: tab==="agenda" && !overlay,    act:()=>{ setOverlay(null); setTab("agenda"); }, icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg> },
-    { lbl:"Pacientes", on: overlay==="pacientes",          act:()=>setOverlay("pacientes"),               icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-    { lbl:"Reportes",  on: overlay==="reportes",           act:()=>setOverlay("reportes"),                icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg> },
-    { lbl:"Más",       on: tab==="mas" && !overlay,        act:()=>{ setOverlay(null); setTab("mas"); },    icon:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg> },
+    { lbl:"Inicio", on: tab==="citas"  && !overlay, act:()=>{ setOverlay(null); setTab("citas"); },  icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9"/></svg> },
+    { lbl:"Agenda", on: tab==="agenda" && !overlay, act:()=>{ setOverlay(null); setTab("agenda"); }, icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17"/><path d="M8 3v4M16 3v4"/></svg> },
+    { lbl:"Menú",   on: tab==="mas"    && !overlay, act:()=>{ setOverlay(null); setTab("mas"); },    icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg> },
   ];
 
   // Fondo con BLUR real (pedido): la foto vive en su propia capa aparte y detrás (PhotoBgLayers),
@@ -2032,11 +2073,14 @@ function MobileShell({ T, D, onLogout }) {
         {/* Header dinámico por pestaña (referencia): hamburguesa + título/marca + acción a la derecha */}
         {/* Header = TARJETA FLOTANTE redondeada (referencia), no barra recta full-width. Gutter lateral +
             safe-area arriba; la tarjeta glass va redondeada con borde completo. */}
-        <div style={{ position:"sticky", top:0, zIndex:10, padding:"calc(8px + env(safe-area-inset-top,0px)) 14px 4px" }}>
-          {tab==="citas"
-            ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, ...glassChip(T), borderRadius:18, padding:"8px 12px" }}>{renderHeader()}</div>
-            : <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"6px 4px 6px", minHeight:42 }}>{renderHeader()}</div>}
-        </div>
+        {/* Inicio y Menú NO llevan barra superior (el prototipo no la tiene): cada uno arma su propio
+            encabezado dentro de su tarjeta (saludo en Inicio, título "Menú" en el Menú) con padding
+            de safe-area propio. El resto de pestañas (nueva/agenda/horarios) sí usan el header. */}
+        {tab!=="citas" && tab!=="mas" && (
+          <div style={{ position:"sticky", top:0, zIndex:10, padding:"calc(8px + env(safe-area-inset-top,0px)) 14px 4px" }}>
+            <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"6px 4px 6px", minHeight:42 }}>{renderHeader()}</div>
+          </div>
+        )}
 
         {/* Aviso de sin conexión (pedido): visible y persistente mientras dure — no un toast que
             desaparece solo, porque el riesgo (datos desactualizados) sigue mientras siga offline. */}
@@ -2052,29 +2096,25 @@ function MobileShell({ T, D, onLogout }) {
             — solo scrollea la lista interna (próximas citas / horario). Por eso este contenedor
             exterior NO tiene scroll propio para esas pestañas; cada una maneja su scroll interno. */}
         <div style={{ flex:1, minHeight:0, overflowY: (tab==="agenda"||tab==="citas") ? "hidden" : "auto" }}>
-          {tab==="citas"    && <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} />}
+          {tab==="citas"    && <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} openNotif={()=>setNotifOpen(true)} bellCount={bellCount} />}
           {tab==="horarios" && <HorariosTab T={T} appts={appts} />}
           {tab==="nueva"    && <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} />}
           {tab==="agenda"   && <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} />}
-          {tab==="mas"      && <MasTab      T={T} openOverlay={setOverlay} onLogout={onLogout} />}
+          {tab==="mas"      && <MasTab      T={T} openOverlay={setOverlay} onLogout={onLogout} openNotif={()=>setNotifOpen(true)} goAnuladas={()=>{ setOverlay(null); setAgShowAnuladas(true); setTab("agenda"); }} />}
         </div>
 
-        {/* Tab bar — REDISEÑO iOS 26: cápsula flotante con margen a los bordes; el activo lleva una
-            pastilla glass suave (relleno blanco translúcido, no un cuadro azul sólido con glow ni
-            puntito indicador — la pastilla YA indica el activo, doble indicador era ruido). */}
-        <div style={{ position:"sticky", bottom:0, padding:"0 14px calc(12px + env(safe-area-inset-bottom,0px))", pointerEvents:"none" }}>
-          <div style={{ display:"flex", gap:3, ...glassPanel(T,30), padding:6, pointerEvents:"auto" }}>
-            {tabs.map(({lbl,icon,on,act})=>(
-              <button key={lbl} onClick={act}
-                style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"8px 2px 7px", borderRadius:24, border:"none", cursor:"pointer",
-                  background: on ? "rgba(255,255,255,.13)" : "transparent",
-                  boxShadow: on ? "inset 0 1px 0 rgba(255,255,255,.16)" : "none",
-                  transition:"background .18s ease" }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"center", color: on ? "#FFFFFF" : T.textFaint }}>{icon}</div>
-                <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:on?600:500, color: on ? "#FFFFFF" : T.textFaint }}>{lbl}</span>
-              </button>
-            ))}
-          </div>
+        {/* Tab bar (prototipo): barra glass navy full-width con blur(28px). Cada ítem = caja redondeada
+            ~38x32 (activo = relleno accent + ícono onAccent; inactivo = transparente + ícono textFaint),
+            label Jost 10 debajo (activo en accent) y un puntito de 4px (activo = accent). */}
+        <div style={{ flexShrink:0, position:"relative", zIndex:5, display:"flex", alignItems:"center", justifyContent:"space-around", padding:"10px 12px calc(16px + env(safe-area-inset-bottom,0px))", background:"rgba(18,25,38,.72)", backdropFilter:"blur(28px) saturate(1.3)", WebkitBackdropFilter:"blur(28px) saturate(1.3)", borderTop:"1px solid rgba(255,255,255,.1)" }}>
+          {tabs.map(({lbl,icon,on,act})=>(
+            <button key={lbl} onClick={act}
+              style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, cursor:"pointer", width:64, background:"none", border:"none", padding:0 }}>
+              <div style={{ width:38, height:32, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textFaint, transition:"background .18s ease" }}>{icon}</div>
+              <span style={{ fontFamily:T.sans, fontWeight:500, fontSize:10, color: on ? T.accent : T.textFaint }}>{lbl}</span>
+              <div style={{ width:4, height:4, borderRadius:"50%", background: on ? T.accent : "transparent" }} />
+            </button>
+          ))}
         </div>
       </div>
 
