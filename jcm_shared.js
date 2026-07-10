@@ -72,12 +72,53 @@ const DB = {
       clinic_addr: '',
       clinic_hours:'',
       yt_api_key:  '',  // YouTube Data API v3 — para estadísticas reales de videos
-      firebase_config: ''  // Config web de Firebase (JSON) — activa la base de datos compartida en la nube
+      firebase_config: '',  // Config web de Firebase (JSON) — activa la base de datos compartida en la nube
+      // Plantillas de mensajes de WhatsApp propias de la clínica (editables en el panel móvil,
+      // Reportes → Plantillas de mensajes). Vacías = se usa el texto predeterminado (ver más abajo).
+      msg_tpl_confirm: '',
+      msg_tpl_asist: ''
     };
     // Combina con lo guardado para que claves nuevas siempre tengan default.
     return Object.assign(def, this.get('config') || {});
   }
 };
+
+// ── PLANTILLAS DE MENSAJES DE WHATSAPP (editables por clínica) ─────────────────────────────
+// Cada clínica puede escribir su propio texto (panel móvil, Reportes → Plantillas de mensajes),
+// guardado en DB.cfg().msg_tpl_confirm / msg_tpl_asist. Si no hay uno guardado se usa este texto
+// por defecto — MISMO texto para portal de escritorio y panel móvil (una sola fuente de verdad).
+const DEFAULT_TPL_CONFIRM = "Hola {nombre} 👋\n\nTu cita en {clinica} quedó confirmada:\n\n🗓️ Fecha: {fecha}\n⏰ Hora: {hora} hrs\n💉 Tratamiento: {tratamiento}\n👨‍⚕️ Profesional: {profesional}\n📍 Dirección: {direccion}\n\n🏥 Cómo llegar: {mapa}\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.{politica}\n\n¡Nos vemos pronto!";
+const DEFAULT_TPL_ASIST = "Hola {nombre},\n\nTe escribimos de {clinica} para confirmar tu asistencia a tu cita el {fecha} a las {hora} hrs ({tratamiento}).\n\n¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar\n\nCómo llegar: {mapa}\n\n¡Te esperamos!";
+// Tokens disponibles por plantilla, para mostrarlos en el editor (panel móvil).
+const TPL_TOKENS = {
+  msg_tpl_confirm: [
+    { k: "nombre",       d: "Nombre del paciente" },
+    { k: "clinica",      d: "Nombre de la clínica" },
+    { k: "fecha",        d: "Fecha (Sáb 11 Jul)" },
+    { k: "hora",         d: "Hora (13:45)" },
+    { k: "tratamiento",  d: "Tratamiento" },
+    { k: "profesional",  d: "Profesional" },
+    { k: "direccion",    d: "Dirección de la clínica" },
+    { k: "mapa",         d: "Link “Cómo llegar”" },
+    { k: "politica",     d: "Política de reagendamiento pagado (se agrega sola solo en controles — no hace falta escribirla)" }
+  ],
+  msg_tpl_asist: [
+    { k: "nombre",  d: "Nombre del paciente" },
+    { k: "clinica", d: "Nombre de la clínica" },
+    { k: "fecha",   d: "Fecha (sábado 11 de julio)" },
+    { k: "hora",    d: "Hora (13:45)" },
+    { k: "tratamiento", d: "Tratamiento" },
+    { k: "mapa",    d: "Link “Cómo llegar”" }
+  ]
+};
+// Rellena una plantilla: reemplaza cada {token} por su valor (string vacío si no viene).
+function fillMsgTpl(tpl, vars) {
+  return String(tpl == null ? "" : tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? vars[k] : ""));
+}
+window.DEFAULT_TPL_CONFIRM = DEFAULT_TPL_CONFIRM;
+window.DEFAULT_TPL_ASIST = DEFAULT_TPL_ASIST;
+window.TPL_TOKENS = TPL_TOKENS;
+window.fillMsgTpl = fillMsgTpl;
 
 // ── SEGURIDAD ──────────────────────────────────────────────────────────────
 const _JCM_SALT = 'jcm_medical_talca_2026_v2';

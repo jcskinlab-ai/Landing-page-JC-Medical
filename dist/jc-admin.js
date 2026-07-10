@@ -391,21 +391,14 @@ function esControlPostProc(proc, pat) {
 window.esControlPostProc = esControlPostProc;
 function jcmCitaConfirmMsg(name, wk, time, proc, prof, esControl) {
   var addr = clinicAddr(), maps = clinicMapsLink();
-  var L = [
-    "Hola " + name + " \u{1F44B}",
-    "",
-    "Tu cita en " + clinicDisplayName() + " qued\xF3 confirmada:",
-    "",
-    "\u{1F5D3}\uFE0F Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm,
-    "\u23F0 Hora: " + time + " hrs",
-    "\u{1F489} Tratamiento: " + proc,
-    "\u{1F468}\u200D\u2695\uFE0F Profesional: " + prof
-  ];
-  if (addr) L.push("\u{1F4CD} Direcci\xF3n: " + addr);
-  if (maps) L.push("", "\u{1F3E5} C\xF3mo llegar: " + maps);
-  L.push("", esControl ? "Recuerda llegar 5 min antes. Si necesitas reagendar este control, av\xEDsanos con 24 h de anticipaci\xF3n. El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.");
-  L.push("", "\xA1Nos vemos pronto!");
-  return L.join("\n");
+  var tpl = "";
+  try {
+    tpl = window.DB && DB.cfg().msg_tpl_confirm;
+  } catch (e) {
+  }
+  tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_CONFIRM;
+  var politica = esControl ? " El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "";
+  return window.fillMsgTpl(tpl, { nombre: name, clinica: clinicDisplayName(), fecha: wk.wd + " " + wk.dd + " " + wk.mm, hora: time, tratamiento: proc, profesional: prof, direccion: addr, mapa: maps, politica });
 }
 function jcmRecordatorioMsg(a) {
   var addr = clinicAddr(), maps = clinicMapsLink();
@@ -422,17 +415,13 @@ function jcmConfirmAsistMsg(a) {
     if (a.fecha) fecha = (/* @__PURE__ */ new Date(a.fecha + "T00:00:00")).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   } catch (e) {
   }
-  var cuando = (fecha ? "el " + fecha : "") + (a.time ? (fecha ? " a las " : "a las ") + a.time + " hrs" : "");
-  var L = [
-    "Hola " + (a.name || "") + ",",
-    "",
-    "Te escribimos de " + clinicDisplayName() + " para confirmar tu asistencia a tu cita" + (cuando ? " " + cuando : "") + (a.proc ? " (" + a.proc + ")" : "") + ".",
-    "",
-    "\xBFNos confirmas? Responde *S\xCD* para confirmar o *NO* si necesitas reagendar"
-  ];
-  if (maps) L.push("", "C\xF3mo llegar: " + maps);
-  L.push("", "\xA1Te esperamos!");
-  return L.join("\n");
+  var tpl = "";
+  try {
+    tpl = window.DB && DB.cfg().msg_tpl_asist;
+  } catch (e) {
+  }
+  tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_ASIST;
+  return window.fillMsgTpl(tpl, { nombre: a.name || "", clinica: clinicDisplayName(), fecha, hora: a.time || "", tratamiento: a.proc || "", mapa: maps });
 }
 window.clinicName = clinicName;
 window.clinicAddr = clinicAddr;

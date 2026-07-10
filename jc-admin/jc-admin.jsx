@@ -354,17 +354,14 @@ window.esControlPostProc = esControlPostProc;
 // Mensaje único de confirmación de cita por WhatsApp: incluye dirección y "Cómo llegar" con
 // el link inteligente de mapa. Devuelve el texto SIN codificar (el llamador hace encodeURIComponent).
 // esControl (opcional): si es true, agrega la política de reagendamiento pagado del control post-procedimiento.
+// Usa la plantilla propia de la clínica (DB.cfg().msg_tpl_confirm, editable en el panel móvil,
+// Reportes → Plantillas de mensajes) si existe; si no, el texto predeterminado (jcm_shared.js).
 function jcmCitaConfirmMsg(name, wk, time, proc, prof, esControl) {
   var addr = clinicAddr(), maps = clinicMapsLink();
-  var L = ["Hola " + name + " 👋", "", "Tu cita en " + clinicDisplayName() + " quedó confirmada:", "",
-           "🗓️ Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm, "⏰ Hora: " + time + " hrs", "💉 Tratamiento: " + proc, "👨‍⚕️ Profesional: " + prof];
-  if (addr) L.push("📍 Dirección: " + addr);
-  if (maps) L.push("", "🏥 Cómo llegar: " + maps);
-  L.push("", esControl
-    ? "Recuerda llegar 5 min antes. Si necesitas reagendar este control, avísanos con 24 h de anticipación. El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000."
-    : "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.");
-  L.push("", "¡Nos vemos pronto!");
-  return L.join("\n");
+  var tpl = ""; try { tpl = window.DB && DB.cfg().msg_tpl_confirm; } catch (e) {}
+  tpl = (tpl && ("" + tpl).trim()) || window.DEFAULT_TPL_CONFIRM;
+  var politica = esControl ? " El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "";
+  return window.fillMsgTpl(tpl, { nombre: name, clinica: clinicDisplayName(), fecha: wk.wd + " " + wk.dd + " " + wk.mm, hora: time, tratamiento: proc, profesional: prof, direccion: addr, mapa: maps, politica: politica });
 }
 // Recordatorio manual para pedir al paciente que confirme su asistencia (P4). Texto sin codificar.
 function jcmRecordatorioMsg(a) {
@@ -377,17 +374,15 @@ function jcmRecordatorioMsg(a) {
 }
 // Botón manual "Confirmar asistencia" (P4): se envía por WhatsApp ~1 día antes a quien NO tiene
 // correo, pidiendo que confirme su asistencia (responde SÍ/NO). Incluye fecha, hora y "cómo llegar".
+// Usa la plantilla propia de la clínica (DB.cfg().msg_tpl_asist) si existe; si no, el texto
+// predeterminado (jcm_shared.js).
 function jcmConfirmAsistMsg(a) {
   var maps = clinicMapsLink();
   var fecha = "";
   try { if (a.fecha) fecha = new Date(a.fecha + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }); } catch (e) {}
-  var cuando = (fecha ? "el " + fecha : "") + (a.time ? ((fecha ? " a las " : "a las ") + a.time + " hrs") : "");
-  var L = ["Hola " + (a.name || "") + ",", "",
-    "Te escribimos de " + clinicDisplayName() + " para confirmar tu asistencia a tu cita" + (cuando ? " " + cuando : "") + (a.proc ? " (" + a.proc + ")" : "") + ".", "",
-    "¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar"];
-  if (maps) L.push("", "Cómo llegar: " + maps);
-  L.push("", "¡Te esperamos!");
-  return L.join("\n");
+  var tpl = ""; try { tpl = window.DB && DB.cfg().msg_tpl_asist; } catch (e) {}
+  tpl = (tpl && ("" + tpl).trim()) || window.DEFAULT_TPL_ASIST;
+  return window.fillMsgTpl(tpl, { nombre: a.name || "", clinica: clinicDisplayName(), fecha: fecha, hora: a.time || "", tratamiento: a.proc || "", mapa: maps });
 }
 window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro; window.clinicMapsLink = clinicMapsLink; window.jcmCitaConfirmMsg = jcmCitaConfirmMsg; window.jcmRecordatorioMsg = jcmRecordatorioMsg; window.jcmConfirmAsistMsg = jcmConfirmAsistMsg;
 // Registro de actividad real del sistema (P25): guarda cada acción importante en DB.audit_log

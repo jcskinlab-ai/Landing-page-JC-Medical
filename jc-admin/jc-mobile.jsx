@@ -60,36 +60,28 @@ function esControlPostProcM(proc, pat) {
   const hist = (pat && Array.isArray(pat.history)) ? pat.history : [];
   return hist.some(h => h && h.proc && !/evaluaci/i.test(h.proc));
 }
-// Mensaje de confirmación al CREAR una cita nueva — mismo texto que el portal: fecha, hora,
-// tratamiento, profesional, dirección y "cómo llegar" con el link inteligente de mapa.
+// Mensaje de confirmación al CREAR una cita nueva — usa la plantilla propia de la clínica
+// (DB.cfg().msg_tpl_confirm, editable en Reportes → Plantillas de mensajes) si existe; si no,
+// el texto predeterminado (jcm_shared.js — la MISMA plantilla que usa el portal de escritorio).
 // esControl (opcional): si es true, agrega la política de reagendamiento pagado del control post-procedimiento.
 function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir, esControl) {
   const d = new Date(iso+"T12:00:00");
   const wd = WDS[d.getDay()], dd = d.getDate(), mm = MESES[d.getMonth()];
   const maps = clinicMapsLinkM();
-  const L = ["Hola "+name+" 👋", "", "Tu cita en "+clinNombre+" quedó confirmada:", "",
-    "🗓️ Fecha: "+wd+" "+dd+" "+mm, "⏰ Hora: "+time+" hrs", "💉 Tratamiento: "+proc, "👨‍⚕️ Profesional: "+(prof||"")];
-  if (clinDir) L.push("📍 Dirección: "+clinDir);
-  if (maps) L.push("", "🏥 Cómo llegar: "+maps);
-  L.push("", esControl
-    ? "Recuerda llegar 5 min antes. Si necesitas reagendar este control, avísanos con 24 h de anticipación. El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000."
-    : "Recuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.");
-  L.push("", "¡Nos vemos pronto!");
-  return L.join("\n");
+  let tpl = ""; try { tpl = window.DB && window.DB.cfg && window.DB.cfg().msg_tpl_confirm; } catch(e) {}
+  tpl = (tpl && (""+tpl).trim()) || window.DEFAULT_TPL_CONFIRM;
+  const politica = esControl ? " El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "";
+  return window.fillMsgTpl(tpl, { nombre:name, clinica:clinNombre, fecha: wd+" "+dd+" "+mm, hora:time, tratamiento:proc, profesional:prof||"", direccion:clinDir||"", mapa:maps||"", politica });
 }
-// Mensaje del botón "Confirmar asistencia" — mismo texto que el portal: pide responder SÍ/NO,
-// con fecha/hora en español y el link de "cómo llegar".
+// Mensaje del botón "Confirmar asistencia" — usa la plantilla propia de la clínica
+// (DB.cfg().msg_tpl_asist) si existe; si no, el texto predeterminado (jcm_shared.js).
 function jcmConfirmAsistMsgM(a, clinNombre) {
   const maps = clinicMapsLinkM();
   let fecha = "";
   try { if (a.fecha) fecha = new Date(a.fecha+"T00:00:00").toLocaleDateString("es-CL", { weekday:"long", day:"numeric", month:"long" }); } catch(e) {}
-  const cuando = (fecha?"el "+fecha:"") + (a.time ? ((fecha?" a las ":"a las ")+a.time+" hrs") : "");
-  const L = ["Hola "+(a.name||"")+",", "",
-    "Te escribimos de "+clinNombre+" para confirmar tu asistencia a tu cita"+(cuando?" "+cuando:"")+(a.proc?" ("+a.proc+")":"")+".", "",
-    "¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar"];
-  if (maps) L.push("", "Cómo llegar: "+maps);
-  L.push("", "¡Te esperamos!");
-  return L.join("\n");
+  let tpl = ""; try { tpl = window.DB && window.DB.cfg && window.DB.cfg().msg_tpl_asist; } catch(e) {}
+  tpl = (tpl && (""+tpl).trim()) || window.DEFAULT_TPL_ASIST;
+  return window.fillMsgTpl(tpl, { nombre:a.name||"", clinica:clinNombre, fecha:fecha||"", hora:a.time||"", tratamiento:a.proc||"", mapa:maps||"" });
 }
 
 function minsM(t) { if (!t) return 0; const [h,m] = t.split(":"); return parseInt(h)*60+parseInt(m||0); }
@@ -1156,10 +1148,11 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [phone, setPhone] = useState(PHONE_PFX);
   function onPhone(v) { const digits = v.startsWith(PHONE_PFX) ? v.slice(PHONE_PFX.length).replace(/\D/g, "") : v.replace(/\D/g, "").replace(/^569?/, ""); setPhone(PHONE_PFX + digits.slice(0, 8)); }
   const phoneOk = phone.replace(/\D/g, "").length >= 11;
-  // RUT OBLIGATORIO para paciente nuevo (pedido): se formatea al escribir y se valida con módulo 11
-  // (mismos helpers que el portal, jcm_shared.js). Se autoriza sin RUT solo si el helper no cargó.
+  // RUT obligatorio para paciente nuevo (pedido), salvo que sea extranjero/sin RUT (pedido): se
+  // formatea al escribir y se valida con módulo 11 (mismos helpers que el portal, jcm_shared.js).
   function onRut(v) { setRut(window.jcmFmtRut ? window.jcmFmtRut(v) : v); }
   const rutOk = window.jcmValidRut ? window.jcmValidRut(rut) : (rut||"").replace(/[^0-9kK]/g,"").length >= 2;
+  const [sinRut, setSinRut] = useState(false);
   const [email, setEmail] = useState("");
   // Paso 2 — detalles
   const procs = procList();
@@ -1183,7 +1176,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const finalRut = tipo==="existente" ? (selectedPatient?selectedPatient.rut:"") : rut;
   const finalEmail = tipo==="existente" ? (selectedPatient?selectedPatient.email:"") : email;
 
-  const step1Ok = tipo==="existente" ? !!selectedPatient : (name.trim() && rutOk && phoneOk);
+  const step1Ok = tipo==="existente" ? !!selectedPatient : (name.trim() && (sinRut || rutOk) && phoneOk);
   const step2Ok = !!proc && !!fecha && !!time;
 
   const slotsMap = (window.DB && window.DB.get('horarios_dates')) || {};
@@ -1198,7 +1191,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   function confirm() {
     let patId = pid;
     if (tipo === "nuevo") {
-      const np = addPatient({ name: name.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
+      const np = addPatient({ name: name.trim(), rut: sinRut ? "" : rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
       patId = np.id;
     }
     // Pedido del usuario: crear la cita NO debe dejarla "Confirmada" — solo "Agendado" (pendiente).
@@ -1282,8 +1275,12 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               <div><label style={lbl}>Nombre completo</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido" style={inp} /></div>
-              <div><label style={lbl}>RUT</label><input value={rut} onChange={e=>onRut(e.target.value)} inputMode="numeric" placeholder="12.345.678-9" style={{...inp, borderColor: (rutOk || !rut) ? undefined : "#C0285A88"}} /></div>
-              {rut && !rutOk && <div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3" }}>Revisa el RUT: el dígito verificador no coincide.</div>}
+              <div><label style={lbl}>RUT</label><input value={rut} onChange={e=>onRut(e.target.value)} disabled={sinRut} inputMode="numeric" placeholder={sinRut?"Sin RUT":"12.345.678-9"} style={{...inp, opacity:sinRut?.5:1, borderColor: (sinRut || rutOk || !rut) ? undefined : "#C0285A88"}} /></div>
+              {!sinRut && rut && !rutOk && <div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3" }}>Revisa el RUT: el dígito verificador no coincide.</div>}
+              <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", marginTop:-4 }}>
+                <input type="checkbox" checked={sinRut} onChange={e=>{ setSinRut(e.target.checked); if (e.target.checked) setRut(""); }} />
+                <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Paciente extranjero / sin RUT</span>
+              </label>
               <div><label style={lbl}>Teléfono</label><input type="tel" inputMode="numeric" value={phone} onChange={e=>onPhone(e.target.value)} style={{...inp, borderColor: phoneOk?undefined:"#C0285A88"}} /></div>
               <div><label style={lbl}>Correo (opcional)</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="correo@ejemplo.com" style={inp} /></div>
               {!phoneOk && phone.length>PHONE_PFX.length && <div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3" }}>Ingresa los 8 dígitos del teléfono.</div>}
@@ -1534,6 +1531,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 
 /* ═══════════ Overlay: Reportes (solo datos reales de citas — este bundle no tiene acceso a caja) ═══════════ */
 function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
+  const [view, setView] = useState("stats"); // "stats" | "plantillas"
   const [expanded, setExpanded] = useState(null); // nombre del procedimiento abierto, o null
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
@@ -1585,9 +1583,27 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     </div>
   );
 
+  if (view === "plantillas") {
+    return (
+      <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setView("stats")}>
+        <MessageTemplatesView T={T} />
+      </OverlayShell>
+    );
+  }
+
   return (
     <OverlayShell T={T} title="Reportes" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:16 }}>
+        <button onClick={()=>setView("plantillas")} style={{ display:"flex", alignItems:"center", gap:13, width:"100%", textAlign:"left", ...glassPanel(T,16), padding:"15px 16px", cursor:"pointer" }}>
+          <div style={{ width:40, height:40, borderRadius:12, flexShrink:0, background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.28)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text }}>Plantillas de mensajes</div>
+            <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, marginTop:2 }}>Edita el texto de WhatsApp de tu clínica</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
         <div style={{ ...glassPanel(T,20), padding:"6px 16px 8px" }}>
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 6px" }}>Esta semana</div>
           {row(RIC.cal,   "#7FA8E8", "Citas totales", weekAppts.filter(a=>a.status!=="anulada").length)}
@@ -1645,6 +1661,91 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
         </div>
       </div>
     </OverlayShell>
+  );
+}
+
+/* ═══════════ Plantillas de mensajes de WhatsApp (por clínica) ═══════════
+   Cada clínica tiene su propio texto para "Confirmación de cita" y "Confirmar asistencia",
+   guardado en DB.cfg().msg_tpl_confirm / msg_tpl_asist (sincronizado con el portal de
+   escritorio, que usa las mismas claves — ver jcmCitaConfirmMsg/jcmConfirmAsistMsg en
+   jc-admin.jsx). Si no se personaliza, se usa el texto predeterminado de jcm_shared.js. */
+function MessageTemplatesView({ T }) {
+  const cfg = (window.DB && window.DB.cfg && window.DB.cfg()) || {};
+  const clinNombre = (cfg.clinic_name && (""+cfg.clinic_name).trim()) || "tu clínica";
+  const TPLS = [
+    { key:"msg_tpl_confirm", label:"Confirmación de cita", def: window.DEFAULT_TPL_CONFIRM,
+      sample: { nombre:"María Pérez", clinica:clinNombre, fecha:"Sáb 11 Jul", hora:"13:45", tratamiento:"Rinomodelación", profesional:(cfg.professional&&(""+cfg.professional).trim())||"Profesional a cargo", direccion:(cfg.clinic_addr&&(""+cfg.clinic_addr).trim())||"Dirección de tu clínica", mapa:"https://www.medique.cl/ir?c=…", politica:"" } },
+    { key:"msg_tpl_asist", label:"Confirmar asistencia", def: window.DEFAULT_TPL_ASIST,
+      sample: { nombre:"María Pérez", clinica:clinNombre, fecha:"sábado 11 de julio", hora:"13:45", tratamiento:"Rinomodelación", mapa:"https://www.medique.cl/ir?c=…" } },
+  ];
+  const [open, setOpen] = useState(null);
+  return (
+    <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, lineHeight:1.6, padding:"0 2px" }}>
+        Personaliza el texto que reciben tus pacientes por WhatsApp. Se aplica también a los mensajes enviados desde el portal de escritorio.
+      </div>
+      {TPLS.map(t => (
+        <TplCard key={t.key} T={T} tplKey={t.key} label={t.label} defaultTpl={t.def} sample={t.sample}
+                 open={open===t.key} onToggle={()=>setOpen(open===t.key?null:t.key)} />
+      ))}
+    </div>
+  );
+}
+
+function TplCard({ T, tplKey, label, defaultTpl, sample, open, onToggle }) {
+  const stored = (() => { try { const v = window.DB && window.DB.cfg && window.DB.cfg()[tplKey]; return (v && (""+v).trim()) || ""; } catch(e) { return ""; } })();
+  const [text, setText] = useState(stored || defaultTpl);
+  const [isCustom, setIsCustom] = useState(!!stored);
+  const [savedFlag, setSavedFlag] = useState(false);
+  const inp = { width:"100%", fontFamily:"ui-monospace, monospace", fontSize:12.5, padding:"11px 13px", borderRadius:9, border:"1px solid rgba(255,255,255,.16)", background:"rgba(0,0,0,.22)", color:T.text, outline:"none", boxSizing:"border-box", lineHeight:1.6 };
+
+  function save() {
+    try { window.DB.set("config", Object.assign({}, window.DB.cfg(), { [tplKey]: text.trim() })); } catch(e) {}
+    setIsCustom(!!text.trim());
+    setSavedFlag(true); setTimeout(()=>setSavedFlag(false), 1800);
+  }
+  function restore() {
+    setText(defaultTpl);
+    try { window.DB.set("config", Object.assign({}, window.DB.cfg(), { [tplKey]: "" })); } catch(e) {}
+    setIsCustom(false);
+    setSavedFlag(true); setTimeout(()=>setSavedFlag(false), 1800);
+  }
+
+  const tokens = (window.TPL_TOKENS && window.TPL_TOKENS[tplKey]) || [];
+  const preview = window.fillMsgTpl ? window.fillMsgTpl(text, sample) : text;
+
+  return (
+    <div style={{ ...glassPanel(T,16), padding:"4px 16px 14px" }}>
+      <button onClick={onToggle} style={{ display:"flex", alignItems:"center", width:"100%", background:"none", border:"none", cursor:"pointer", padding:"14px 0", textAlign:"left" }}>
+        <span style={{ flex:1, fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text }}>{label}</span>
+        {isCustom && <span style={{ fontFamily:T.sans, fontSize:10, color:T.accent, border:"1px solid "+T.accent, borderRadius:999, padding:"2px 8px", marginRight:8, flexShrink:0 }}>Personalizada</span>}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2.2" style={{ flexShrink:0, transform:open?"rotate(180deg)":"none", transition:"transform .15s" }}><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      {open && (
+        <div style={{ display:"flex", flexDirection:"column", gap:10, paddingBottom:4 }}>
+          <textarea value={text} onChange={e=>setText(e.target.value)} rows={9} style={{...inp, resize:"vertical"}} />
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+            {tokens.map(tk => (
+              <button key={tk.k} title={tk.d} onClick={()=>setText(v=>v + (v && !/\s$/.test(v) ? " " : "") + "{"+tk.k+"}")}
+                style={{ fontFamily:"ui-monospace, monospace", fontSize:11, color:T.accent, background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.14)", borderRadius:7, padding:"4px 8px", cursor:"pointer" }}>
+                {"{"+tk.k+"}"}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, lineHeight:1.6 }}>
+            {tokens.map(tk => tk.k+": "+tk.d).join(" · ")}
+          </div>
+          <div>
+            <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:6 }}>Vista previa</div>
+            <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text, background:"rgba(0,0,0,.22)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"11px 13px", whiteSpace:"pre-wrap", lineHeight:1.6 }}>{preview}</div>
+          </div>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <button onClick={restore} style={{ flex:1, height:38, borderRadius:8, border:"1px solid rgba(255,255,255,.18)", background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Restaurar predeterminado</button>
+            <button onClick={save} style={{ flex:1, height:38, borderRadius:8, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer" }}>{savedFlag?"Guardado ✓":"Guardar"}</button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

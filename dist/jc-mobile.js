@@ -56,21 +56,14 @@ function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir, es
   const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
   const wd = WDS[d.getDay()], dd = d.getDate(), mm = MESES[d.getMonth()];
   const maps = clinicMapsLinkM();
-  const L = [
-    "Hola " + name + " \u{1F44B}",
-    "",
-    "Tu cita en " + clinNombre + " qued\xF3 confirmada:",
-    "",
-    "\u{1F5D3}\uFE0F Fecha: " + wd + " " + dd + " " + mm,
-    "\u23F0 Hora: " + time + " hrs",
-    "\u{1F489} Tratamiento: " + proc,
-    "\u{1F468}\u200D\u2695\uFE0F Profesional: " + (prof || "")
-  ];
-  if (clinDir) L.push("\u{1F4CD} Direcci\xF3n: " + clinDir);
-  if (maps) L.push("", "\u{1F3E5} C\xF3mo llegar: " + maps);
-  L.push("", esControl ? "Recuerda llegar 5 min antes. Si necesitas reagendar este control, av\xEDsanos con 24 h de anticipaci\xF3n. El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "Recuerda llegar 5 min antes. Si necesitas reagendar, av\xEDsanos con 24 h de anticipaci\xF3n.");
-  L.push("", "\xA1Nos vemos pronto!");
-  return L.join("\n");
+  let tpl = "";
+  try {
+    tpl = window.DB && window.DB.cfg && window.DB.cfg().msg_tpl_confirm;
+  } catch (e) {
+  }
+  tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_CONFIRM;
+  const politica = esControl ? " El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "";
+  return window.fillMsgTpl(tpl, { nombre: name, clinica: clinNombre, fecha: wd + " " + dd + " " + mm, hora: time, tratamiento: proc, profesional: prof || "", direccion: clinDir || "", mapa: maps || "", politica });
 }
 function jcmConfirmAsistMsgM(a, clinNombre) {
   const maps = clinicMapsLinkM();
@@ -79,17 +72,13 @@ function jcmConfirmAsistMsgM(a, clinNombre) {
     if (a.fecha) fecha = (/* @__PURE__ */ new Date(a.fecha + "T00:00:00")).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   } catch (e) {
   }
-  const cuando = (fecha ? "el " + fecha : "") + (a.time ? (fecha ? " a las " : "a las ") + a.time + " hrs" : "");
-  const L = [
-    "Hola " + (a.name || "") + ",",
-    "",
-    "Te escribimos de " + clinNombre + " para confirmar tu asistencia a tu cita" + (cuando ? " " + cuando : "") + (a.proc ? " (" + a.proc + ")" : "") + ".",
-    "",
-    "\xBFNos confirmas? Responde *S\xCD* para confirmar o *NO* si necesitas reagendar"
-  ];
-  if (maps) L.push("", "C\xF3mo llegar: " + maps);
-  L.push("", "\xA1Te esperamos!");
-  return L.join("\n");
+  let tpl = "";
+  try {
+    tpl = window.DB && window.DB.cfg && window.DB.cfg().msg_tpl_asist;
+  } catch (e) {
+  }
+  tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_ASIST;
+  return window.fillMsgTpl(tpl, { nombre: a.name || "", clinica: clinNombre, fecha: fecha || "", hora: a.time || "", tratamiento: a.proc || "", mapa: maps || "" });
 }
 function minsM(t) {
   if (!t) return 0;
@@ -900,6 +889,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     setRut(window.jcmFmtRut ? window.jcmFmtRut(v) : v);
   }
   const rutOk = window.jcmValidRut ? window.jcmValidRut(rut) : (rut || "").replace(/[^0-9kK]/g, "").length >= 2;
+  const [sinRut, setSinRut] = useState(false);
   const [email, setEmail] = useState("");
   const procs = procList();
   const [fecha, setFecha] = useState(todayISO());
@@ -919,7 +909,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const finalPhone = tipo === "existente" ? selectedPatient ? selectedPatient.phone : "" : phone;
   const finalRut = tipo === "existente" ? selectedPatient ? selectedPatient.rut : "" : rut;
   const finalEmail = tipo === "existente" ? selectedPatient ? selectedPatient.email : "" : email;
-  const step1Ok = tipo === "existente" ? !!selectedPatient : name.trim() && rutOk && phoneOk;
+  const step1Ok = tipo === "existente" ? !!selectedPatient : name.trim() && (sinRut || rutOk) && phoneOk;
   const step2Ok = !!proc && !!fecha && !!time;
   const slotsMap = window.DB && window.DB.get("horarios_dates") || {};
   const weeklyDef = (() => {
@@ -938,7 +928,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   function confirm() {
     let patId = pid;
     if (tipo === "nuevo") {
-      const np = addPatient({ name: name.trim(), rut: rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
+      const np = addPatient({ name: name.trim(), rut: sinRut ? "" : rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
       patId = np.id;
     }
     addAppt({ id: Date.now().toString(36), patId, name: finalName.trim(), rut: (finalRut || "").trim(), phone: (finalPhone || "").trim(), email: (finalEmail || "").trim(), proc, dur, time, fecha, day: isoToDayOff(fecha), status: "pendiente", source: "movil", comentario: comment.trim() || void 0, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
@@ -1014,7 +1004,10 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   }, style: { background: "none", border: "none", color: T.textFaint, cursor: "pointer" } }, "\u2715")), !selectedPatient && results.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9, display: "flex", flexDirection: "column", gap: 6 } }, results.map((p) => /* @__PURE__ */ React.createElement("button", { key: p.id, onClick: () => {
     setPid(p.id);
     setQ(p.name);
-  }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", ...glassChip(T), borderRadius: 9, padding: "10px 12px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(120,145,166,.16)", border: "1px solid rgba(130,150,170,.3)", color: "#A9BAC7", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 11, fontWeight: 700, flexShrink: 0 } }, (p.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, [p.rut, p.phone].filter(Boolean).join(" \xB7 ")))))), !selectedPatient && ql.length >= 2 && results.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9, fontFamily: T.sans, fontSize: 12, color: T.textMute } }, 'Sin resultados. Prueba con "Paciente nuevo".')) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Nombre completo"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Nombre y apellido", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => onRut(e.target.value), inputMode: "numeric", placeholder: "12.345.678-9", style: { ...inp, borderColor: rutOk || !rut ? void 0 : "#C0285A88" } })), rut && !rutOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#FF8FA3" } }, "Revisa el RUT: el d\xEDgito verificador no coincide."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", inputMode: "numeric", value: phone, onChange: (e) => onPhone(e.target.value), style: { ...inp, borderColor: phoneOk ? void 0 : "#C0285A88" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp })), !phoneOk && phone.length > PHONE_PFX.length && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#FF8FA3" } }, "Ingresa los 8 d\xEDgitos del tel\xE9fono.")), /* @__PURE__ */ React.createElement("button", { onClick: () => step1Ok && setStep(2), disabled: !step1Ok, style: { background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 15, fontWeight: 600, border: "none", borderRadius: 12, padding: "16px", cursor: step1Ok ? "pointer" : "not-allowed", opacity: step1Ok ? 1 : 0.5 } }, "Continuar")), step === 2 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: { ...inp, appearance: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("input", { type: "date", value: fecha, onChange: (e) => setFecha(e.target.value), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("select", { value: time, onChange: (e) => setTime(e.target.value), style: { ...inp, appearance: "none" } }, (() => {
+  }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", ...glassChip(T), borderRadius: 9, padding: "10px 12px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(120,145,166,.16)", border: "1px solid rgba(130,150,170,.3)", color: "#A9BAC7", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 11, fontWeight: 700, flexShrink: 0 } }, (p.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, [p.rut, p.phone].filter(Boolean).join(" \xB7 ")))))), !selectedPatient && ql.length >= 2 && results.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9, fontFamily: T.sans, fontSize: 12, color: T.textMute } }, 'Sin resultados. Prueba con "Paciente nuevo".')) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Nombre completo"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Nombre y apellido", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => onRut(e.target.value), disabled: sinRut, inputMode: "numeric", placeholder: sinRut ? "Sin RUT" : "12.345.678-9", style: { ...inp, opacity: sinRut ? 0.5 : 1, borderColor: sinRut || rutOk || !rut ? void 0 : "#C0285A88" } })), !sinRut && rut && !rutOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#FF8FA3" } }, "Revisa el RUT: el d\xEDgito verificador no coincide."), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", marginTop: -4 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: sinRut, onChange: (e) => {
+    setSinRut(e.target.checked);
+    if (e.target.checked) setRut("");
+  } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Paciente extranjero / sin RUT")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", inputMode: "numeric", value: phone, onChange: (e) => onPhone(e.target.value), style: { ...inp, borderColor: phoneOk ? void 0 : "#C0285A88" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp })), !phoneOk && phone.length > PHONE_PFX.length && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#FF8FA3" } }, "Ingresa los 8 d\xEDgitos del tel\xE9fono.")), /* @__PURE__ */ React.createElement("button", { onClick: () => step1Ok && setStep(2), disabled: !step1Ok, style: { background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 15, fontWeight: 600, border: "none", borderRadius: 12, padding: "16px", cursor: step1Ok ? "pointer" : "not-allowed", opacity: step1Ok ? 1 : 0.5 } }, "Continuar")), step === 2 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: { ...inp, appearance: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("input", { type: "date", value: fecha, onChange: (e) => setFecha(e.target.value), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("select", { value: time, onChange: (e) => setTime(e.target.value), style: { ...inp, appearance: "none" } }, (() => {
     const base = freeSlots.length ? freeSlots : HALF_HOURS;
     const opts = base.indexOf(time) >= 0 ? base : [time, ...base];
     return opts.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s, " hrs"));
@@ -1082,6 +1075,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
   ), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Pr\xF3ximas citas (", proximas.length, ")"), proximas.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin pr\xF3ximas citas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, proximas.map((a) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, a.fecha, " \xB7 ", a.time, " hrs"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, a.proc || "\u2014"))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Historial (", pasadas.length, ")"), pasadas.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin atenciones registradas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, pasadas.slice(0, 20).map((a) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px", opacity: a.status === "anulada" ? 0.55 : 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, a.fecha, " \xB7 ", a.proc || "\u2014"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, apptStateM(a, T).label))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Procedimientos del portal (", sesiones.length, ")"), sesiones.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin procedimientos registrados en el portal."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, sesiones.slice(0, 20).map((h, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, h.date || "\u2014", " \xB7 ", h.proc || "\u2014", h.units ? " \xB7 " + h.units : ""), h.resumen && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3, lineHeight: 1.4 } }, h.resumen), h.proName && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, fontStyle: "italic", marginTop: 3 } }, "Realizado por ", h.proName)))))));
 }
 function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
+  const [view, setView] = useState("stats");
   const [expanded, setExpanded] = useState(null);
   const now = /* @__PURE__ */ new Date();
   const weekStart = new Date(now);
@@ -1125,13 +1119,93 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     pct: /* @__PURE__ */ React.createElement("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "9" }), /* @__PURE__ */ React.createElement("path", { d: "M8 15l8-6" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "9", r: "1" }), /* @__PURE__ */ React.createElement("circle", { cx: "15", cy: "15", r: "1" }))
   };
   const row = (icon, iconColor, label, val, valColor, last) => /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 13, padding: "12px 0", borderBottom: last ? "none" : "1px solid rgba(255,255,255,.07)" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: iconColor + "22", color: iconColor, display: "flex", alignItems: "center", justifyContent: "center" } }, icon), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 15, color: T.text } }, label), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 17, fontWeight: 700, color: valColor || T.text } }, val));
-  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Reportes", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 20), padding: "6px 16px 8px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, fontWeight: 600, padding: "14px 0 6px" } }, "Esta semana"), row(RIC.cal, "#7FA8E8", "Citas totales", weekAppts.filter((a) => a.status !== "anulada").length), row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, (a) => a.status === "confirmada" || a.status === "atendida"), "#46D27A"), row(RIC.user, "#A9BAC7", "Atendidas", countBy(weekAppts, (a) => a.status === "atendida" || a.attended), "#A9BAC7"), row(RIC.user, "#FF6B7D", "No asisti\xF3", countBy(weekAppts, (a) => a.status === "no_asistio"), "#FF6B7D"), row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, (a) => a.status === "anulada")), row(RIC.pct, noShowRate > 15 ? "#FF6B7D" : "#46D27A", "Tasa de inasistencia", noShowRate + "%", noShowRate > 15 ? "#FF6B7D" : "#46D27A", true)), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 20), padding: "6px 16px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, fontWeight: 600, padding: "14px 0 2px" } }, "Procedimientos del mes"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, padding: "0 0 10px", lineHeight: 1.5 } }, "Incluye lo agendado para lo que resta del mes, no solo lo ya atendido \u2014 para anticipar stock."), topProc.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "6px 0 12px" } }, "Sin datos este mes."), topProc.map((t, i) => {
+  if (view === "plantillas") {
+    return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Plantillas de mensajes", onBack: () => setView("stats") }, /* @__PURE__ */ React.createElement(MessageTemplatesView, { T }));
+  }
+  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Reportes", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setView("plantillas"), style: { display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", ...glassPanel(T, 16), padding: "15px 16px", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: "rgba(120,145,166,.16)", border: "1px solid rgba(130,150,170,.28)", color: "#A9BAC7", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "18", height: "18", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 15, fontWeight: 600, color: T.text } }, "Plantillas de mensajes"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2 } }, "Edita el texto de WhatsApp de tu cl\xEDnica")), /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" }))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 20), padding: "6px 16px 8px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, fontWeight: 600, padding: "14px 0 6px" } }, "Esta semana"), row(RIC.cal, "#7FA8E8", "Citas totales", weekAppts.filter((a) => a.status !== "anulada").length), row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, (a) => a.status === "confirmada" || a.status === "atendida"), "#46D27A"), row(RIC.user, "#A9BAC7", "Atendidas", countBy(weekAppts, (a) => a.status === "atendida" || a.attended), "#A9BAC7"), row(RIC.user, "#FF6B7D", "No asisti\xF3", countBy(weekAppts, (a) => a.status === "no_asistio"), "#FF6B7D"), row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, (a) => a.status === "anulada")), row(RIC.pct, noShowRate > 15 ? "#FF6B7D" : "#46D27A", "Tasa de inasistencia", noShowRate + "%", noShowRate > 15 ? "#FF6B7D" : "#46D27A", true)), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 20), padding: "6px 16px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, fontWeight: 600, padding: "14px 0 2px" } }, "Procedimientos del mes"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, padding: "0 0 10px", lineHeight: 1.5 } }, "Incluye lo agendado para lo que resta del mes, no solo lo ya atendido \u2014 para anticipar stock."), topProc.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "6px 0 12px" } }, "Sin datos este mes."), topProc.map((t, i) => {
     const open = expanded === t.name;
     return /* @__PURE__ */ React.createElement("div", { key: t.name, style: { borderBottom: i === topProc.length - 1 && !open ? "none" : "1px solid rgba(255,255,255,.06)" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setExpanded(open ? null : t.name), style: { display: "flex", alignItems: "center", gap: 13, padding: "11px 0", width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: "rgba(120,145,166,.14)", color: "#A9BAC7", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 13, fontWeight: 700 } }, i + 1), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 15, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, t.name), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 16, fontWeight: 700, color: T.text, marginLeft: 8, flexShrink: 0 } }, t.n)), /* @__PURE__ */ React.createElement("div", { style: { height: 5, borderRadius: 999, background: "rgba(255,255,255,.09)", overflow: "hidden", marginTop: 8, display: "flex" } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: Math.round(t.pend / maxProc * 100) + "%", background: "#6EA8E8" } }), /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: Math.round(t.real / maxProc * 100) + "%", background: "linear-gradient(90deg,#D9A63C,#F5B93D)" } })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 5 } }, t.pend, " agendados \xB7 ", t.real, " realizados")), /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2.2", style: { flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), open && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, padding: "0 0 12px 43px" } }, t.list.map((a) => {
       const st = apptStateM(a, T);
       return /* @__PURE__ */ React.createElement("button", { key: a.id, onClick: () => onOpenAppt(a), style: { display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", cursor: "pointer", background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 9, padding: "8px 11px" } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", title: st.label, style: { width: 8, height: 8, borderRadius: "50%", background: st.color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.textMute, minWidth: 62 } }, dayLabelM(a.fecha || offToISO(a.day || 0))), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name || "Paciente"), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 10, color: st.color, fontWeight: 600 } }, st.label));
     })));
   }))));
+}
+function MessageTemplatesView({ T }) {
+  const cfg = window.DB && window.DB.cfg && window.DB.cfg() || {};
+  const clinNombre = cfg.clinic_name && ("" + cfg.clinic_name).trim() || "tu cl\xEDnica";
+  const TPLS = [
+    {
+      key: "msg_tpl_confirm",
+      label: "Confirmaci\xF3n de cita",
+      def: window.DEFAULT_TPL_CONFIRM,
+      sample: { nombre: "Mar\xEDa P\xE9rez", clinica: clinNombre, fecha: "S\xE1b 11 Jul", hora: "13:45", tratamiento: "Rinomodelaci\xF3n", profesional: cfg.professional && ("" + cfg.professional).trim() || "Profesional a cargo", direccion: cfg.clinic_addr && ("" + cfg.clinic_addr).trim() || "Direcci\xF3n de tu cl\xEDnica", mapa: "https://www.medique.cl/ir?c=\u2026", politica: "" }
+    },
+    {
+      key: "msg_tpl_asist",
+      label: "Confirmar asistencia",
+      def: window.DEFAULT_TPL_ASIST,
+      sample: { nombre: "Mar\xEDa P\xE9rez", clinica: clinNombre, fecha: "s\xE1bado 11 de julio", hora: "13:45", tratamiento: "Rinomodelaci\xF3n", mapa: "https://www.medique.cl/ir?c=\u2026" }
+    }
+  ];
+  const [open, setOpen] = useState(null);
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.6, padding: "0 2px" } }, "Personaliza el texto que reciben tus pacientes por WhatsApp. Se aplica tambi\xE9n a los mensajes enviados desde el portal de escritorio."), TPLS.map((t) => /* @__PURE__ */ React.createElement(
+    TplCard,
+    {
+      key: t.key,
+      T,
+      tplKey: t.key,
+      label: t.label,
+      defaultTpl: t.def,
+      sample: t.sample,
+      open: open === t.key,
+      onToggle: () => setOpen(open === t.key ? null : t.key)
+    }
+  )));
+}
+function TplCard({ T, tplKey, label, defaultTpl, sample, open, onToggle }) {
+  const stored = (() => {
+    try {
+      const v = window.DB && window.DB.cfg && window.DB.cfg()[tplKey];
+      return v && ("" + v).trim() || "";
+    } catch (e) {
+      return "";
+    }
+  })();
+  const [text, setText] = useState(stored || defaultTpl);
+  const [isCustom, setIsCustom] = useState(!!stored);
+  const [savedFlag, setSavedFlag] = useState(false);
+  const inp = { width: "100%", fontFamily: "ui-monospace, monospace", fontSize: 12.5, padding: "11px 13px", borderRadius: 9, border: "1px solid rgba(255,255,255,.16)", background: "rgba(0,0,0,.22)", color: T.text, outline: "none", boxSizing: "border-box", lineHeight: 1.6 };
+  function save() {
+    try {
+      window.DB.set("config", Object.assign({}, window.DB.cfg(), { [tplKey]: text.trim() }));
+    } catch (e) {
+    }
+    setIsCustom(!!text.trim());
+    setSavedFlag(true);
+    setTimeout(() => setSavedFlag(false), 1800);
+  }
+  function restore() {
+    setText(defaultTpl);
+    try {
+      window.DB.set("config", Object.assign({}, window.DB.cfg(), { [tplKey]: "" }));
+    } catch (e) {
+    }
+    setIsCustom(false);
+    setSavedFlag(true);
+    setTimeout(() => setSavedFlag(false), 1800);
+  }
+  const tokens = window.TPL_TOKENS && window.TPL_TOKENS[tplKey] || [];
+  const preview = window.fillMsgTpl ? window.fillMsgTpl(text, sample) : text;
+  return /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 16), padding: "4px 16px 14px" } }, /* @__PURE__ */ React.createElement("button", { onClick: onToggle, style: { display: "flex", alignItems: "center", width: "100%", background: "none", border: "none", cursor: "pointer", padding: "14px 0", textAlign: "left" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 15, fontWeight: 600, color: T.text } }, label), isCustom && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.accent, border: "1px solid " + T.accent, borderRadius: 999, padding: "2px 8px", marginRight: 8, flexShrink: 0 } }, "Personalizada"), /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2.2", style: { flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), open && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, paddingBottom: 4 } }, /* @__PURE__ */ React.createElement("textarea", { value: text, onChange: (e) => setText(e.target.value), rows: 9, style: { ...inp, resize: "vertical" } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, tokens.map((tk) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: tk.k,
+      title: tk.d,
+      onClick: () => setText((v) => v + (v && !/\s$/.test(v) ? " " : "") + "{" + tk.k + "}"),
+      style: { fontFamily: "ui-monospace, monospace", fontSize: 11, color: T.accent, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 7, padding: "4px 8px", cursor: "pointer" }
+    },
+    "{" + tk.k + "}"
+  ))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, lineHeight: 1.6 } }, tokens.map((tk) => tk.k + ": " + tk.d).join(" \xB7 ")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Vista previa"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text, background: "rgba(0,0,0,.22)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 10, padding: "11px 13px", whiteSpace: "pre-wrap", lineHeight: 1.6 } }, preview)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: restore, style: { flex: 1, height: 38, borderRadius: 8, border: "1px solid rgba(255,255,255,.18)", background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12, cursor: "pointer" } }, "Restaurar predeterminado"), /* @__PURE__ */ React.createElement("button", { onClick: save, style: { flex: 1, height: 38, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, savedFlag ? "Guardado \u2713" : "Guardar"))));
 }
 function MasTab({ T, openOverlay, onLogout }) {
   const item = (icon, label, onClick, danger) => /* @__PURE__ */ React.createElement("button", { onClick, style: {
