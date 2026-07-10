@@ -132,10 +132,13 @@ function apptStateM(a, T) {
 // color. Reemplaza el punto lateral: el tinte + el badge de procedimiento ya bastan para leer el
 // estado de un vistazo (misma razón que documenta jc-admin.jsx).
 function apptCardTintM(color) {
+  // PRUEBA: mismo tinte PLANO (sin degradado) que usa el portal en sus tarjetas de cita "v2 lux"
+  // (jc-admin.jsx: accentColor+"1e" fondo, glassBlur.small, accentColor+"2a" borde) — antes tenía
+  // un degradado propio del móvil que se veía forzado, igual que glassPanel/glassChip.
   return {
-    background: "linear-gradient(180deg, "+color+"2e, "+color+"14)",
-    backdropFilter: "blur(18px) saturate(1.5)", WebkitBackdropFilter: "blur(18px) saturate(1.5)",
-    border: "1px solid "+color+"3d"
+    background: color + "1e",
+    backdropFilter: "blur(12px) saturate(1.25)", WebkitBackdropFilter: "blur(12px) saturate(1.25)",
+    border: "1px solid " + color + "2a"
   };
 }
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
@@ -197,23 +200,25 @@ function photoTheme(T) {
     accent: "#7891A6", accentSoft: "rgba(120,145,166,.16)", onAccent: "#FFFFFF"
   });
 }
-// Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
-// transparente detrás de cada tarjeta sin perder legibilidad.
-// "Liquid Glass" (iOS 26, validado en maqueta): brillo superior que se disuelve hacia la base
-// translúcida — simula el refractado/especular del material real (no solo un tinte plano+blur).
+// PRUEBA (rama movil-diseno-portal): glass OFICIAL del portal, no una versión propia del móvil.
+// Antes esto tenía un degradado "brillo superior" (gradient de blanco) que el usuario marcó como
+// forzado/artificial. La receta real del portal (jc-proto/jc-theme.js, DS._glass — el mismo glass
+// del Dashboard/Agenda "lux") es mucho más sobria: tinte PLANO (sin degradado), blur más moderado,
+// y un inset-highlight casi imperceptible en vez de un brillo marcado. Se replica tal cual (rama
+// oscura, la única que usa el móvil).
 function glassPanel(T, radius) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03) 45%, rgba(255,255,255,.045) 100%)",
-    backdropFilter: "blur(28px) saturate(1.5)", WebkitBackdropFilter: "blur(28px) saturate(1.5)",
-    border: "1px solid rgba(255,255,255,.1)", borderRadius: radius==null?20:radius,
-    boxShadow: "0 18px 42px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.14)"
+    background: "rgba(255,255,255,.045)",
+    backdropFilter: "blur(24px) saturate(1.4)", WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+    border: "1px solid rgba(255,255,255,.09)", borderRadius: radius==null?20:radius,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)"
   };
 }
 function glassChip(T) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.025) 45%, rgba(255,255,255,.04) 100%)",
-    backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)",
-    border: "1px solid rgba(255,255,255,.1)"
+    background: "rgba(255,255,255,.04)",
+    backdropFilter: "blur(12px) saturate(1.25)", WebkitBackdropFilter: "blur(12px) saturate(1.25)",
+    border: "1px solid rgba(255,255,255,.14)"
   };
 }
 // Capas de fondo del panel (foto desenfocada + velo oscuro): MISMO fondo en TODAS las pantallas

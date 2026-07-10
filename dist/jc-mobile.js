@@ -121,10 +121,10 @@ function apptStateM(a, T) {
 }
 function apptCardTintM(color) {
   return {
-    background: "linear-gradient(180deg, " + color + "2e, " + color + "14)",
-    backdropFilter: "blur(18px) saturate(1.5)",
-    WebkitBackdropFilter: "blur(18px) saturate(1.5)",
-    border: "1px solid " + color + "3d"
+    background: color + "1e",
+    backdropFilter: "blur(12px) saturate(1.25)",
+    WebkitBackdropFilter: "blur(12px) saturate(1.25)",
+    border: "1px solid " + color + "2a"
   };
 }
 function localISO(d) {
@@ -193,20 +193,20 @@ function photoTheme(T) {
 }
 function glassPanel(T, radius) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03) 45%, rgba(255,255,255,.045) 100%)",
-    backdropFilter: "blur(28px) saturate(1.5)",
-    WebkitBackdropFilter: "blur(28px) saturate(1.5)",
-    border: "1px solid rgba(255,255,255,.1)",
+    background: "rgba(255,255,255,.045)",
+    backdropFilter: "blur(24px) saturate(1.4)",
+    WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+    border: "1px solid rgba(255,255,255,.09)",
     borderRadius: radius == null ? 20 : radius,
-    boxShadow: "0 18px 42px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.14)"
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)"
   };
 }
 function glassChip(T) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.025) 45%, rgba(255,255,255,.04) 100%)",
-    backdropFilter: "blur(16px) saturate(1.4)",
-    WebkitBackdropFilter: "blur(16px) saturate(1.4)",
-    border: "1px solid rgba(255,255,255,.1)"
+    background: "rgba(255,255,255,.04)",
+    backdropFilter: "blur(12px) saturate(1.25)",
+    WebkitBackdropFilter: "blur(12px) saturate(1.25)",
+    border: "1px solid rgba(255,255,255,.14)"
   };
 }
 const MOBILE_BG_OVERLAY = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
