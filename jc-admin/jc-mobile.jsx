@@ -180,45 +180,44 @@ function durOf(a) { const d = a.dur || (window.JCDATA&&window.JCDATA.procMin ? w
    sin importar el tema día/noche del resto del sistema. photoTheme() lo aplica una sola vez en los
    entry points y TODA la app hereda el mismo lenguaje. */
 const ON_PHOTO = { text: "#F5F7FB", mute: "rgba(235,242,252,.72)", faint: "rgba(235,242,252,.5)" };
-// Fuente del panel móvil = SF Pro (la del sistema en iPhone). En el iPhone del usuario -apple-system
-// renderiza SF Pro real → match exacto con la referencia. Se usa TANTO en serif como en sans para
-// que TODO el panel sea SF Pro (la referencia no usa serif en ningún lado), diferenciando por peso.
-const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', system-ui, Roboto, sans-serif";
-// Prueba de diseño (rama aparte, restaurable): acento de marca Fraunces — la MISMA serif real del
-// portal de escritorio (navyAccent) — usado SOLO en 3 lugares puntuales: el título "Medique" del
-// header, las cifras de los KPI y la hora de las citas (Home + Agenda). Todo lo demás sigue en SF
-// Pro real, sin tocar la regla previa de "todo el panel es SF Pro".
+// Fuente sans del panel móvil = Jost (la del prototipo aprobado "Claude Design", 10-jul-2026).
+// Reemplaza a SF Pro: el mockup nuevo usa Jost en todo el cuerpo/labels/botones y Fraunces en
+// títulos/números/nombres (ver FRAUNCES más abajo). Cargada en JC_Mobile.html junto a Fraunces.
+const JOST = "'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif";
+// Fraunces — serif de marca del prototipo aprobado, la MISMA serif real del portal de escritorio
+// (navyAccent). En el mockup nuevo se usa en TODOS los títulos grandes, números (KPIs, hora de
+// citas, días de calendario) y nombres de paciente — no solo los 3 puntos puntuales de antes.
 const FRAUNCES = "'Fraunces', Georgia, serif";
 function photoTheme(T) {
   return Object.assign({}, T, {
     dark: true,                              // fuerza la rama "glass oscuro" en glassPanel/glassChip
     text: ON_PHOTO.text, textMute: ON_PHOTO.mute, textFaint: ON_PHOTO.faint,
     line: "rgba(255,255,255,.16)", lineSoft: "rgba(255,255,255,.09)",
-    serif: SF, sans: SF,                     // toda la tipografía del móvil en SF Pro (como el mockup)
+    serif: FRAUNCES, sans: JOST,             // serif = Fraunces (títulos/números/nombres), sans = Jost (cuerpo)
     // Acento SLATE apagado (navyAccent del portal — el mismo que reemplazó al celeste/turquesa
     // "saturado" en jc-admin.jsx): #7891A6 en oscuro. Reemplaza al azul vivo anterior.
     accent: "#7891A6", accentSoft: "rgba(120,145,166,.16)", onAccent: "#FFFFFF"
   });
 }
-// PRUEBA (rama movil-diseno-portal): glass OFICIAL del portal, no una versión propia del móvil.
-// Antes esto tenía un degradado "brillo superior" (gradient de blanco) que el usuario marcó como
-// forzado/artificial. La receta real del portal (jc-proto/jc-theme.js, DS._glass — el mismo glass
-// del Dashboard/Agenda "lux") es mucho más sobria: tinte PLANO (sin degradado), blur más moderado,
-// y un inset-highlight casi imperceptible en vez de un brillo marcado. Se replica tal cual (rama
-// oscura, la única que usa el móvil).
+// Glass NAVY del prototipo aprobado ("Claude Design", 10-jul-2026) — reemplaza al tinte blanco
+// plano que se replicó del portal de escritorio. El mockup nuevo usa un tinte navy oscuro marcado
+// (rgba(21,29,44,…)) con blur(28px) saturate(1.3), no un frost casi transparente. glassPanel es
+// para superficies grandes (tarjetas, overlays); glassChip usa el mismo tinte algo más sutil para
+// superficies chicas (pills, botones circulares). El inset-highlight se sube un poco de opacidad
+// para que siga siendo perceptible sobre el tinte navy (antes calibrado para el tinte blanco).
 function glassPanel(T, radius) {
   return {
-    background: "rgba(255,255,255,.045)",
-    backdropFilter: "blur(24px) saturate(1.4)", WebkitBackdropFilter: "blur(24px) saturate(1.4)",
-    border: "1px solid rgba(255,255,255,.09)", borderRadius: radius==null?20:radius,
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)"
+    background: "rgba(21,29,44,.62)",
+    backdropFilter: "blur(28px) saturate(1.3)", WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+    border: "1px solid rgba(255,255,255,.1)", borderRadius: radius==null?20:radius,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,.09), 0 32px 72px -44px rgba(0,0,0,.85)"
   };
 }
 function glassChip(T) {
   return {
-    background: "rgba(255,255,255,.04)",
-    backdropFilter: "blur(12px) saturate(1.25)", WebkitBackdropFilter: "blur(12px) saturate(1.25)",
-    border: "1px solid rgba(255,255,255,.14)"
+    background: "rgba(21,29,44,.5)",
+    backdropFilter: "blur(28px) saturate(1.3)", WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+    border: "1px solid rgba(255,255,255,.1)"
   };
 }
 // Capas de fondo del panel: MISMO fondo en TODAS las pantallas. REDISEÑO iOS 26 (rama
@@ -1119,7 +1118,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
                     background: isToday ? T.accent+"22" : (n?glassChip(T).background:"transparent"),
                     border:"1px solid "+(isToday?T.accent:(n?(T.dark?"rgba(255,255,255,.12)":T.line):"transparent")),
                     opacity: c.inMonth?1:.32 }}>
-                    <span style={{ fontFamily:T.sans, fontSize:14, fontWeight:isToday?700:500, color:isToday?T.accent:T.text }}>{c.dd}</span>
+                    <span style={{ fontFamily:T.serif, fontSize:14, fontWeight:600, color:isToday?T.accent:T.text }}>{c.dd}</span>
                     {n>0 && <span style={{ display:"flex", gap:2 }}>{Array.from({length:Math.min(n,3)}).map((_,i)=><span key={i} style={{ width:5, height:5, borderRadius:"50%", background:T.accent }} />)}</span>}
                   </button>
                 );
@@ -1148,7 +1147,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
                   style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1, padding:"6px 8px 5px", borderRadius:12, minWidth:38, cursor:"pointer",
                     background: isSel ? "rgba(120,145,166,.12)" : "transparent", border:"1px solid "+(isSel ? "rgba(150,170,185,.55)" : "transparent") }}>
                   <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? "#A9BAC7" : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
-                  <span style={{ fontFamily:T.sans, fontSize:17, fontWeight: d.isToday ? "700" : "400", color: T.text, lineHeight:1.15 }}>{d.dd}</span>
+                  <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color: T.text, lineHeight:1.15 }}>{d.dd}</span>
                   <div style={{ width:4, height:4, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
                 </button>
               );
@@ -1454,7 +1453,7 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
               <button key={p.id} onClick={()=>openFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: i===visible.length-1?"none":"1px solid rgba(255,255,255,.08)", padding:"11px 14px", cursor:"pointer" }}>
                 <div style={{ width:36, height:36, borderRadius:"50%", flexShrink:0, background:"rgba(120,145,166,.16)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12.5, fontWeight:600 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
+                  <div style={{ fontFamily:T.serif, fontSize:15.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
                   <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{[p.rut,p.phone].filter(Boolean).join(" · ")}</div>
                 </div>
                 {nextA && <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11.5, color:"#A9BAC7" }}>{nextA.fecha===todayISO()?"Hoy "+nextA.time:(()=>{ const d=new Date((nextA.fecha||"")+"T00:00:00"); return isNaN(d.getTime())?nextA.fecha:d.getDate()+" "+MESES[d.getMonth()].toLowerCase(); })()}</span>}
@@ -1831,7 +1830,7 @@ function OverlayShell({ T, title, onBack, children }) {
           <button onClick={onBack} aria-label="Volver" style={{ width:44, height:44, borderRadius:"50%", ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <span style={{ fontFamily:T.sans, fontSize:26, fontWeight:700, color:T.text, letterSpacing:"-.01em" }}>{title}</span>
+          <span style={{ fontFamily:T.serif, fontSize:27, fontWeight:600, color:T.text, letterSpacing:"-.01em" }}>{title}</span>
         </div>
         <div style={{ flex:1, overflowY:"auto" }}>{children}</div>
       </div>
