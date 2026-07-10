@@ -32,6 +32,25 @@ const HALF_HOURS = (() => {
   for (let h = 8; h < 20; h++) { s.push((h<10?"0":"")+h+":00"); s.push((h<10?"0":"")+h+":30"); }
   return s;
 })();
+const QUARTER_HOURS = (() => {
+  const s = [];
+  for (let h = 8; h < 20; h++) { ["00","15","30","45"].forEach(m => s.push((h<10?"0":"")+h+":"+m)); }
+  return s;
+})();
+// ¿Es la clínica BASE (JC Medical, dueña de la plataforma)? Mismo criterio que scopeClinicData()
+// en jc-admin.jsx (window.JCM_BASE) — se duplica aquí porque ese archivo no carga en el móvil, así
+// que window.JCM_BASE nunca queda seteado en este bundle.
+function clinicSeededM() {
+  try {
+    if (!(window.JCSAAS && window.JCSAAS.enabled)) return true; // modo local (sin SaaS) → clínica base
+    const clinic = (window.JCSAAS.currentClinic && window.JCSAAS.currentClinic()) || {};
+    return clinic.isBase === true || ((clinic.ownerEmail||"").toLowerCase() === "jc.skinlab@gmail.com");
+  } catch (e) { return false; }
+}
+// Intervalo de la agenda: cada 15 min para JC Medical (pedido — "en mi clínica agendo cada 15
+// minutos"), cada 30 min para el resto de las clínicas del SaaS. Mismo criterio que adminSlots()
+// en jc-admin.jsx (portal de escritorio), para que ambos coincidan.
+function slotsM() { return clinicSeededM() ? QUARTER_HOURS : HALF_HOURS; }
 const WDS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const MESES_LARGOS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -415,7 +434,7 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
               <input type="date" value={ef.fecha} onChange={e=>setEf(f=>({...f,fecha:e.target.value}))} style={{ ...inp, marginTop:3 }} /></label>
             <div style={{ display:"flex", gap:8 }}>
               <label style={{ flex:1, fontFamily:T.sans, fontSize:11, color:T.textMute }}>Hora
-                <select value={ef.time} onChange={e=>setEf(f=>({...f,time:e.target.value}))} style={{ ...inp, marginTop:3 }}>{HALF_HOURS.map(h=><option key={h} value={h}>{h}</option>)}{HALF_HOURS.indexOf(ef.time)<0 && <option value={ef.time}>{ef.time}</option>}</select></label>
+                <select value={ef.time} onChange={e=>setEf(f=>({...f,time:e.target.value}))} style={{ ...inp, marginTop:3 }}>{slotsM().map(h=><option key={h} value={h}>{h}</option>)}{slotsM().indexOf(ef.time)<0 && <option value={ef.time}>{ef.time}</option>}</select></label>
               <label style={{ flex:1, fontFamily:T.sans, fontSize:11, color:T.textMute }}>Duración
                 <select value={ef.dur} onChange={e=>setEf(f=>({...f,dur:e.target.value}))} style={{ ...inp, marginTop:3 }}>{["15","30","45","60","90","120"].map(d=><option key={d} value={d}>{d} min</option>)}</select></label>
             </div>
@@ -456,9 +475,9 @@ function occupancyForOff(appts, off) {
   try {
     const iso = offToISO(off);
     const wd = new Date(iso + "T12:00:00").getDay();
-    let weekly = HALF_HOURS.slice();
+    let weekly = slotsM().slice();
     const h = window.DB && window.DB.get("horarios_v1");
-    if (h && h[wd]) { weekly = h[wd].open === false ? [] : (h[wd].slots || HALF_HOURS.slice()); }
+    if (h && h[wd]) { weekly = h[wd].open === false ? [] : (h[wd].slots || slotsM().slice()); }
     const map = (window.DB && window.DB.get("horarios_dates")) || {};
     const avail = map[iso] != null ? map[iso] : weekly;
     const occupied = new Set();
@@ -466,7 +485,7 @@ function occupancyForOff(appts, off) {
       if (!a.time) return;
       const start = minsM(a.time);
       const dur = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
-      HALF_HOURS.forEach(s => { const m = minsM(s); if (m >= start && m < start + dur) occupied.add(s); });
+      slotsM().forEach(s => { const m = minsM(s); if (m >= start && m < start + dur) occupied.add(s); });
     });
     const cap = new Set([...avail, ...occupied]).size;
     return cap ? Math.round(occupied.size / cap * 100) : 0;
@@ -730,8 +749,8 @@ function HorariosTab({ T, appts }) {
     return () => window.removeEventListener('jcsaas:data', reload);
   }, []);
   const weeklySlots = (() => {
-    try { var h = window.DB && window.DB.get('horarios_v1'); var wd = new Date(selDay + 'T12:00:00').getDay(); if (h && h[wd] && h[wd].open !== false) return h[wd].slots || HALF_HOURS.slice(); if (h && h[wd] && h[wd].open === false) return []; } catch(e) {}
-    return HALF_HOURS.slice();
+    try { var h = window.DB && window.DB.get('horarios_v1'); var wd = new Date(selDay + 'T12:00:00').getDay(); if (h && h[wd] && h[wd].open !== false) return h[wd].slots || slotsM().slice(); if (h && h[wd] && h[wd].open === false) return []; } catch(e) {}
+    return slotsM().slice();
   })();
   const avail = slotsMap[selDay]!=null ? slotsMap[selDay] : weeklySlots;
   const occupied = new Set();
@@ -741,7 +760,7 @@ function HorariosTab({ T, appts }) {
       if (!a.time) return;
       const startMin = minsM(a.time);
       const durMin = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
-      HALF_HOURS.forEach(slot => {
+      slotsM().forEach(slot => {
         const slotMin = minsM(slot);
         if (slotMin >= startMin && slotMin < startMin + durMin) occupied.add(slot);
       });
@@ -763,7 +782,7 @@ function HorariosTab({ T, appts }) {
   function openAll()  { const m=(window.DB && window.DB.get('horarios_dates')) || {}; delete m[selDay]; saveMap(m); }
 
   const availCount = avail.filter(s=>!occupied.has(s)).length;
-  const blockedCount = HALF_HOURS.filter(s=>!avail.includes(s)&&!occupied.has(s)).length;
+  const blockedCount = slotsM().filter(s=>!avail.includes(s)&&!occupied.has(s)).length;
 
   return (
     <div style={{ padding:"6px 12px 90px" }}>
@@ -799,7 +818,7 @@ function HorariosTab({ T, appts }) {
         ))}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7 }}>
-        {HALF_HOURS.map(slot=>{
+        {slotsM().map(slot=>{
           const isOcc = occupied.has(slot);
           const isAvail = avail.includes(slot);
           return (
@@ -1181,8 +1200,8 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
 
   const slotsMap = (window.DB && window.DB.get('horarios_dates')) || {};
   const weeklyDef = (() => {
-    try { var h = window.DB && window.DB.get('horarios_v1'); var wd = new Date(fecha + 'T12:00:00').getDay(); if (h && h[wd] && h[wd].open !== false) return h[wd].slots || HALF_HOURS.slice(); if (h && h[wd] && h[wd].open === false) return []; } catch(e) {}
-    return HALF_HOURS.slice();
+    try { var h = window.DB && window.DB.get('horarios_v1'); var wd = new Date(fecha + 'T12:00:00').getDay(); if (h && h[wd] && h[wd].open !== false) return h[wd].slots || slotsM().slice(); if (h && h[wd] && h[wd].open === false) return []; } catch(e) {}
+    return slotsM().slice();
   })();
   const avail = slotsMap[fecha]!=null ? slotsMap[fecha] : weeklyDef;
   const occupied = new Set(appts.filter(a=>a.fecha===fecha && a.status!=="anulada").map(a=>a.time));
@@ -1302,7 +1321,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           <div>
             <label style={lbl}>Hora</label>
             <select value={time} onChange={e=>setTime(e.target.value)} style={{...inp,appearance:"none"}}>
-              {(() => { const base = freeSlots.length ? freeSlots : HALF_HOURS; const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
+              {(() => { const base = freeSlots.length ? freeSlots : slotsM(); const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
             </select>
             {freeSlots.length===0&&<div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3", marginTop:5 }}>No hay horas marcadas como disponibles para este día.</div>}
           </div>
@@ -1907,7 +1926,7 @@ function MobileShell({ T, D, onLogout }) {
     if (a && a.fecha && a.time) {
       try {
         const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : HALF_HOURS.slice();
+        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : slotsM().slice();
         map[a.fecha] = cur.filter(s=>s!==a.time);
         if (window.DB) window.DB.set('horarios_dates', map);
       } catch(e) {}
@@ -1920,7 +1939,7 @@ function MobileShell({ T, D, onLogout }) {
     if (appt.fecha && appt.time) {
       try {
         const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : HALF_HOURS.slice();
+        const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : slotsM().slice();
         map[appt.fecha] = cur.filter(s=>s!==appt.time);
         if (window.DB) window.DB.set('horarios_dates', map);
       } catch(e) {}
