@@ -126,6 +126,18 @@ function apptStateM(a, T) {
   // "Agendado" (pendiente de confirmar) = azul, como en el portal.
   return { label: "Agendado", color: "#6EA8E8" };
 }
+// PRUEBA (rama movil-diseno-portal): tarjeta de cita "tintada" por estado — mismo lenguaje que el
+// portal de escritorio (jc-admin.jsx, vista semanal "v2 Medilink barra"), que tiñe TODA la tarjeta
+// con el color del estado (glass esmerilado, deja ver la foto detrás) en vez de solo un punto de
+// color. Reemplaza el punto lateral: el tinte + el badge de procedimiento ya bastan para leer el
+// estado de un vistazo (misma razón que documenta jc-admin.jsx).
+function apptCardTintM(color) {
+  return {
+    background: "linear-gradient(180deg, "+color+"2e, "+color+"14)",
+    backdropFilter: "blur(18px) saturate(1.5)", WebkitBackdropFilter: "blur(18px) saturate(1.5)",
+    border: "1px solid "+color+"3d"
+  };
+}
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
 function localISO(d) {
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
@@ -627,8 +639,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           {searchResults.map(a => {
             const st = apptStateM(a, T);
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px" }}>
-                <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:12, overflow:"hidden", padding:"10px 12px", ...apptCardTintM(st.color) }}>
                 <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:78 }}>{dayLabelM(a.fecha||offToISO(a.day||0))} {a.time}</span>
                 <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
                 <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
@@ -700,8 +711,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
                   {g.items.map(a => {
                     const st = apptStateM(a, T);
                     return (
-                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px" }}>
-                        <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:12, overflow:"hidden", padding:"10px 12px", ...apptCardTintM(st.color) }}>
                         <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
                         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
                         <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
@@ -976,12 +986,11 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       <button key={a.id} onClick={()=>onOpenAppt(a)} style={{
         position:"absolute", top: topPx, left: 0, right: 0, height: heightPx,
         display:"flex", alignItems:"center", gap:8, textAlign:"left", cursor:"pointer",
-        background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10,
-        padding:"0 0 0 12px", overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
+        borderRadius:10, padding:"0 0 0 12px", overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1,
+        ...apptCardTintM(st.color)
       }}>
-        {/* Plana (pedido): mismo diseño que la página principal — hora | nombre … abreviación del
-            procedimiento al borde derecho, punto de color al inicio = estado (antes barra lateral 3px). */}
-        <span aria-hidden="true" title={st.label} style={{ width:8, height:8, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 2.5px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+        {/* PRUEBA (rama movil-diseno-portal): mismo lenguaje que el portal — tinte de la tarjeta +
+            badge de procedimiento ya bastan para leer el estado, sin punto lateral aparte. */}
         <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</span>
         {/* Se deja en 10px (no 11) a propósito: este badge vive en el bloque de la línea de tiempo,
@@ -1039,8 +1048,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             const st = apptStateM(a, T);
             const isAnulada = a.status === "anulada";
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px", opacity:isAnulada?.6:1 }}>
-                <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:12, overflow:"hidden", padding:"10px 12px", opacity:isAnulada?.6:1, ...apptCardTintM(st.color) }}>
                 <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:78 }}>{dayLabelM(a.fecha||offToISO(a.day||0))} {a.time}</span>
                 <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{a.name}</span>
                 <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
@@ -1665,8 +1673,7 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
                   {t.list.map(a => {
                     const st = apptStateM(a, T);
                     return (
-                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:9, padding:"8px 11px" }}>
-                        <span aria-hidden="true" title={st.label} style={{ width:8, height:8, borderRadius:"50%", background:st.color, flexShrink:0 }} />
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:9, padding:"8px 11px", ...apptCardTintM(st.color) }}>
                         <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:62 }}>{dayLabelM(a.fecha||offToISO(a.day||0))}</span>
                         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name||"Paciente"}</span>
                         <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, color:st.color, fontWeight:600 }}>{st.label}</span>
