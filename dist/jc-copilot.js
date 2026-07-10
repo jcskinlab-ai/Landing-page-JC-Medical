@@ -148,7 +148,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (found) return found;
     if (/botox|toxina/.test(t)) return "Botox 3 zonas";
     if (/rino/.test(t)) return "Rinomodelaci\xF3n";
-    if (/sculptra|bioestim|col[áa]geno/.test(t)) return "Bioestimulaci\xF3n de col\xE1geno facial";
+    if (/sculptra|bioestim|col[áa]geno/.test(t)) return "Sculptra de col\xE1geno facial";
     if (/relleno|hialur[óo]nico|labio|p[óo]mulo|ment[óo]n/.test(t)) return "Realce de p\xF3mulos";
     if (/eval/.test(t)) return "Evaluaci\xF3n general";
     return null;
@@ -269,7 +269,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     });
     if (!usingAppts) out += "\nIngresos del mes: " + D.fmt(total) + ".";
     const top = rows[0].k, low = rows[rows.length - 1].k;
-    out += "\n\nRecomendaciones:\n\u2022 Potencia en campa\xF1as tu m\xE1s vendido (" + top + "): es tu mejor gancho de conversi\xF3n.\n\u2022 Crea una promo/educaci\xF3n para reactivar el de menor rotaci\xF3n (" + low + ").\n\u2022 Programa re-citas de toxina (3 m) y bioestimulaci\xF3n (2\xAA dosis) desde Pacientes \u2192 Campa\xF1as de re-cita.";
+    out += "\n\nRecomendaciones:\n\u2022 Potencia en campa\xF1as tu m\xE1s vendido (" + top + "): es tu mejor gancho de conversi\xF3n.\n\u2022 Crea una promo/educaci\xF3n para reactivar el de menor rotaci\xF3n (" + low + ").\n\u2022 Programa re-citas de toxina (3 m) y sculptra (2\xAA dosis) desde Pacientes \u2192 Campa\xF1as de re-cita.";
     return out;
   }
   useEffect(() => {

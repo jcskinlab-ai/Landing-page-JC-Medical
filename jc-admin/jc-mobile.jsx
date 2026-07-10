@@ -1389,8 +1389,16 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
   const [nuevo, setNuevo] = useState(false);
   const [f, setF] = useState({ name:"", rut:"", phone:"+56 9 ", email:"" });
   const ql = q.trim().toLowerCase();
+  // Orden por más reciente (pedido), igual que el portal de escritorio (PacientesView, jc-admin-b.jsx):
+  // por última vez que se abrió la ficha (pat_opened, misma clave — así abrir un paciente en el
+  // portal también lo sube en el móvil), no alfabético. Antes ordenaba solo por nombre.
+  const opened = (() => { try { return (window.DB && window.DB.get("pat_opened")) || {}; } catch (e) { return {}; } })();
   const list = (ql ? patients.filter(p => (p.name||"").toLowerCase().includes(ql) || (p.rut||"").toLowerCase().includes(ql) || (p.phone||"").includes(ql)) : patients)
-    .slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+    .slice().sort((a,b)=>(opened[b.id]||0)-(opened[a.id]||0));
+  function openFicha(id) {
+    try { const m = (window.DB && window.DB.get("pat_opened")) || {}; m[id] = Date.now(); window.DB && window.DB.set("pat_opened", m); } catch (e) {}
+    onOpenFicha(id);
+  }
   // Paginado (pedido): antes se pintaban TODOS los pacientes de una sola vez en el DOM — con una
   // clínica de cientos de pacientes eso vuelve la lista lenta al scrollear (el mismo problema que
   // la skill marca como "ScrollView en vez de FlatList", aquí sin librería de virtualización).
@@ -1405,7 +1413,7 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
     if (!f.name.trim()) return;
     const np = addPatient({ name:f.name.trim(), rut:f.rut.trim(), phone:f.phone.trim(), email:f.email.trim(), age:0 });
     setNuevo(false); setF({ name:"", rut:"", phone:"+56 9 ", email:"" });
-    onOpenFicha(np.id);
+    openFicha(np.id);
   }
 
   return (
@@ -1435,7 +1443,7 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
           {visible.map((p,i) => {
             const nextA = appts.filter(a=>(a.patId===p.id || a.name===p.name) && a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=todayISO()).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""))[0];
             return (
-              <button key={p.id} onClick={()=>onOpenFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: i===visible.length-1?"none":"1px solid rgba(255,255,255,.08)", padding:"11px 14px", cursor:"pointer" }}>
+              <button key={p.id} onClick={()=>openFicha(p.id)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", textAlign:"left", background:"none", border:"none", borderBottom: i===visible.length-1?"none":"1px solid rgba(255,255,255,.08)", padding:"11px 14px", cursor:"pointer" }}>
                 <div style={{ width:36, height:36, borderRadius:"50%", flexShrink:0, background:"rgba(120,145,166,.16)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12.5, fontWeight:600 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>

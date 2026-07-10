@@ -22,7 +22,7 @@ const CADMIN = {
   ],
   campaigns: [
     { id: "c1", name: "Botox · invierno", net: "Meta Ads", reach: 18420, leads: 42, spend: 120000, active: true },
-    { id: "c2", name: "Bioestimulación 20%", net: "Meta Ads", reach: 9650, leads: 23, spend: 80000, active: true },
+    { id: "c2", name: "Sculptra 20%", net: "Meta Ads", reach: 9650, leads: 23, spend: 80000, active: true },
     { id: "c3", name: "Rinomodelación", net: "Instagram", reach: 12100, leads: 17, spend: 60000, active: false }
   ],
   integrations: [
@@ -96,11 +96,10 @@ function navBtn(T) { return { width: 30, height: 30, borderRadius: 6, border: "1
 /* ─────────── SERVICIOS ─────────── */
 const SVC_CAT_LABEL = {
   "Toxina botulínica": "Toxina botulínica",
-  "Bioestimulación de colágeno con Sculptra": "Bioestimulación de colágeno",
   "Armonización facial": "Ácido hialurónico",
   "Mesoterapia · vitaminas faciales": "Mesoterapia",
   "Quemadores de grasa": "Lipolíticos inyectables",
-  "Bioestimulación": "Bioestimulación de manos",
+  "Sculptra": "Sculptra de manos",
   "Packs de temporada · por tiempo limitado": "Packs de temporada",
 };
 const SVC_ZONE = {
@@ -113,22 +112,22 @@ const SVC_ZONE = {
   "Mentón empedrado": "Músculo mentoniano",
   "Rejuvenecimiento de cuello - Nefertiti": "Platisma y borde mandibular inferior",
   "Código de barras, tratamiento de arrugas": "Labio superior peribucal",
-  "Bioestimulación de colágeno facial": "Tercio medio, tercio inferior y óvalo facial",
-  "Bioestimulación de surcos nasogenianos y marionetas": "Surco nasogeniano y comisuras labiales",
-  "Bioestimulación de cuello": "Cara anterior y lateral del cuello",
+  "Sculptra de colágeno facial": "Tercio medio, tercio inferior y óvalo facial",
+  "Sculptra de surcos nasogenianos y marionetas": "Surco nasogeniano y comisuras labiales",
+  "Sculptra de cuello": "Cara anterior y lateral del cuello",
   "Rinomodelación": "Dorso nasal, punta y columela",
   "Proyección de mentón": "Mentón y arco mandibular anterior",
   "Definición de arco mandibular": "Borde mandibular lateral y ángulo mandibular",
   "Realce de pómulos": "Arco malar y surco nasogeniano",
   "Código de barras con ácido hialurónico": "Labio superior y filtrum",
   "Quemadores de grasa localizada": "Papada, brazos, abdomen, flancos, muslos y glúteos",
-  "Bioestimulación de manos": "Dorso de las manos",
+  "Sculptra de manos": "Dorso de las manos",
   "NCTF 135 · revitalización facial": "Cara completa",
   "Vitaminas · iluminador": "Cara completa y escote",
   "Vitaminas · antiacné": "Zona T y mejillas",
 };
 /* Categorías disponibles al crear un servicio nuevo (editable: cualquiera puede tipear la suya). */
-const SVC_CATS = ["Toxina botulínica", "Ácido hialurónico", "Bioestimulación de colágeno", "Mesoterapia", "Lipolíticos inyectables", "Corporal", "Evaluación", "Otro"];
+const SVC_CATS = ["Toxina botulínica", "Ácido hialurónico", "Sculptra de colágeno", "Mesoterapia", "Lipolíticos inyectables", "Corporal", "Evaluación", "Otro"];
 /* Servicios propios de la clínica (persisten en DB, por clínica). */
 function customServices() { try { const v = window.DB && DB.get("services_custom"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 function saveCustomServices(v) { try { if (window.DB) DB.set("services_custom", v); } catch (e) {} }
@@ -2192,7 +2191,7 @@ function ReportesView({ T, patients, appts }) {
 /* ─────────── INDICACIONES POST TRATAMIENTO · plantillas ─────────── */
 const IND_TPL_SEED = [
   { id: "tpl_tox", name: "Neuromodulación con Toxina botulínica", body: "• No tocar ni masajear la zona tratada por 6 horas.\n• Mantente en posición vertical las primeras 4 horas (no agacharte ni acostarte).\n• Gesticula suavemente la zona tratada durante la primera hora.\n• Evita ejercicio intenso, sauna, sol directo y alcohol por 24 h.\n• No realices masajes faciales ni otros tratamientos en la zona por 2 semanas.\n• El efecto se evidencia entre el día 4 y 14. Control a los 21 días." },
-  { id: "tpl_bio", name: "Bioestimulación de colágeno", body: "• Realiza masajes en la zona 5 minutos, 5 veces al día, por 5 días (regla del 5).\n• Aplica frío local las primeras 24 h si hay inflamación.\n• Evita sol directo, sauna y ejercicio intenso por 48 h.\n• Puede haber leve inflamación o pequeños hematomas que ceden en pocos días.\n• Los resultados son progresivos durante las semanas siguientes.\n• Asiste a tus sesiones de control según el plan indicado." },
+  { id: "tpl_bio", name: "Sculptra de colágeno", body: "• Realiza masajes en la zona 5 minutos, 5 veces al día, por 5 días (regla del 5).\n• Aplica frío local las primeras 24 h si hay inflamación.\n• Evita sol directo, sauna y ejercicio intenso por 48 h.\n• Puede haber leve inflamación o pequeños hematomas que ceden en pocos días.\n• Los resultados son progresivos durante las semanas siguientes.\n• Asiste a tus sesiones de control según el plan indicado." },
   { id: "tpl_arm", name: "Armonización facial", body: "• Aplica frío local 10 min cada 2 h durante las primeras 24 h.\n• No manipules ni masajees la zona salvo indicación.\n• Evita ejercicio intenso, sauna, calor y alcohol por 24–48 h.\n• Duerme boca arriba las primeras noches.\n• Pueden aparecer inflamación o hematomas leves que ceden en días.\n• Ante dolor intenso, palidez o cambio de color de la piel, contáctanos de inmediato." }
 ];
 function getIndTemplates() {
@@ -2303,7 +2302,7 @@ function FirmasMedicasEditor({ T }) {
 }
 
 // Diagnósticos sugeridos (desplegable en Receta / Indicaciones).
-const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"];
+const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Sculptra de colágeno", "Armonización facial"];
 function IndTemplatesEditor({ T }) {
   // Cada plantilla tiene dueño (owner = correo del profesional que la creó). El profesional
   // edita SOLO las suyas desde su cuenta; el admin/dueño VE todas pero solo edita las suyas
@@ -4464,7 +4463,7 @@ const INV_SEED = [
 const PROC_SEED = [
   { id: "pr1", name: "Botox 3 zonas", cobro: 150000, method: "Transferencia", uses: [["i1", 0.5], ["i4", 3], ["i7", 1], ["i8", 1]] },
   { id: "pr2", name: "Rinomodelación", cobro: 170000, method: "Transferencia", uses: [["i2", 1], ["i6", 1], ["i4", 2], ["i8", 4]] },
-  { id: "pr3", name: "Bioestimulación (Sculptra)", cobro: 450000, method: "Transferencia", uses: [["i3", 2], ["i4", 2], ["i8", 5]] }
+  { id: "pr3", name: "Sculptra", cobro: 450000, method: "Transferencia", uses: [["i3", 2], ["i4", 2], ["i8", 5]] }
 ];
 /* ─────────── Caja: helpers compartidos (persisten en DB) ─────────── */
 function cashAll() { try { return (window.DB && DB.get("cash_moves")) || []; } catch (e) { return []; } }

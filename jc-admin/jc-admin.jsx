@@ -4907,7 +4907,7 @@ function WelcomeTour({ T, go, onClose }) {
   const [svcs, setSvcs] = useState(() => { try { return DB.get("services_custom") || []; } catch (e) { return []; } });
   const [inv, setInv] = useState(() => { try { return DB.get("inv_items") || []; } catch (e) { return []; } });
   const [tN, setTN] = useState(""), [tR, setTR] = useState("");
-  const SVC_CATS = ["Toxina botulínica", "Ácido hialurónico", "Bioestimulación de colágeno", "Mesoterapia", "Lipolíticos inyectables"];
+  const SVC_CATS = ["Toxina botulínica", "Ácido hialurónico", "Sculptra de colágeno", "Mesoterapia", "Lipolíticos inyectables"];
   const [sN, setSN] = useState(""), [sP, setSP] = useState(""), [sD, setSD] = useState("30"), [sC, setSC] = useState(SVC_CATS[0]), [sCustom, setSCustom] = useState("");
   const [iN, setIN] = useState(""), [iS, setIS] = useState(""), [iU, setIU] = useState("unidades"), [iP, setIP] = useState("");
   const uid = pre => (window.jcmUid ? window.jcmUid(pre) : pre + Date.now());

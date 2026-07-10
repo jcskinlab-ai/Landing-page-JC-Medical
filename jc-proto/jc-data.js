@@ -53,10 +53,10 @@
         { n: "Rejuvenecimiento de cuello · Nefertiti", t: "Cuello", d: "~6 meses", price: 250000, x: "Rejuvenece y estiliza el cuello y define la línea mandibular." },
         { n: "Código de barras, tratamiento de arrugas", t: "Labio superior", d: "3–6 meses", price: 100000, x: "Atenúa las líneas verticales sobre el labio superior." }
       ]},
-      { cat: "Bioestimulación de colágeno con Sculptra", items: [
-        { n: "Bioestimulación de colágeno facial", t: "Full face", d: "~24 meses", price: 450000, opts: [["1 sesión — full face", 450000], ["Pack 3 sesiones", 1200000]], x: "Recupera volumen y contorno, mejora firmeza e hidratación de forma progresiva." },
-        { n: "Bioestimulación de surcos nasogenianos y marionetas", t: "Localizado", d: "~24 meses", price: 450000, opts: [["1 sesión", 450000], ["Pack 3 sesiones", 1200000]], x: "Devuelve firmeza al tercio inferior estimulando colágeno propio." },
-        { n: "Bioestimulación de cuello", t: "Cuello", d: "~24 meses", price: 500000, opts: [["1 sesión", 500000], ["Pack 3 sesiones", 1450000]], x: "Mejora firmeza, textura y calidad de la piel del cuello." }
+      { cat: "Sculptra de colágeno", items: [
+        { n: "Sculptra de colágeno facial", t: "Full face", d: "~24 meses", price: 450000, opts: [["1 sesión — full face", 450000], ["Pack 3 sesiones", 1200000]], x: "Recupera volumen y contorno, mejora firmeza e hidratación de forma progresiva." },
+        { n: "Sculptra de surcos nasogenianos y marionetas", t: "Localizado", d: "~24 meses", price: 450000, opts: [["1 sesión", 450000], ["Pack 3 sesiones", 1200000]], x: "Devuelve firmeza al tercio inferior estimulando colágeno propio." },
+        { n: "Sculptra de cuello", t: "Cuello", d: "~24 meses", price: 500000, opts: [["1 sesión", 500000], ["Pack 3 sesiones", 1450000]], x: "Mejora firmeza, textura y calidad de la piel del cuello." }
       ]},
       { cat: "Armonización facial", items: [
         { n: "Rinomodelación", t: "Juvéderm · Ácido hialurónico", d: "10–12 meses", price: 200000, x: "Equilibra el perfil sin cirugía: define el dorso o eleva la punta de la nariz. Utilizamos Juvéderm, marca premium de ácido hialurónico, una de las mejores del mercado." },
@@ -77,14 +77,14 @@
       { cat: "Toxina botulínica", items: [
         { n: "Hiperhidrosis axilar y palmar", t: "Sudoración", d: "3–6 meses", price: 250000, x: "Controla la sudoración excesiva en axilas y palmas, con resultados duraderos." }
       ]},
-      { cat: "Bioestimulación", items: [
-        { n: "Bioestimulación de manos", t: "Corporal", d: "~24 meses", price: 450000, opts: [["1 sesión", 450000], ["Pack 3 sesiones", 1200000]], x: "Rejuvenece el dorso de las manos devolviendo densidad y firmeza." }
+      { cat: "Sculptra", items: [
+        { n: "Sculptra de manos", t: "Corporal", d: "~24 meses", price: 450000, opts: [["1 sesión", 450000], ["Pack 3 sesiones", 1200000]], x: "Rejuvenece el dorso de las manos devolviendo densidad y firmeza." }
       ]}
     ]},
     { sec: "Promociones", groups: [
       { cat: "Packs de temporada · por tiempo limitado", items: [
         { n: "Botox Tercio Superior · 2 personas", t: "4 zonas cada una", d: "Ahorra $40.000", price: 300000, promo: true, save: 40000, x: "Trae a alguien y ahorren juntas: toxina botulínica en 4 zonas del tercio superior para dos personas. Expresión natural y descansada. Valor total $300.000 (en vez de $340.000)." },
-        { n: "Sculptra · 2 sesiones para compartir", t: "Para ti y alguien más", d: "Ahorra $100.000", price: 800000, promo: true, save: 100000, x: "Dos sesiones de bioestimulación de colágeno con Sculptra para ti y quien tú elijas. Firmeza y calidad de piel progresiva. Valor total $800.000 (en vez de $900.000)." }
+        { n: "Sculptra · 2 sesiones para compartir", t: "Para ti y alguien más", d: "Ahorra $100.000", price: 800000, promo: true, save: 100000, x: "Dos sesiones de sculptra de colágeno para ti y quien tú elijas. Firmeza y calidad de piel progresiva. Valor total $800.000 (en vez de $900.000)." }
       ]}
     ]}
   ];

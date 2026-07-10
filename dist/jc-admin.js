@@ -4019,7 +4019,7 @@ function WelcomeTour({ T, go, onClose }) {
     }
   });
   const [tN, setTN] = useState(""), [tR, setTR] = useState("");
-  const SVC_CATS = ["Toxina botul\xEDnica", "\xC1cido hialur\xF3nico", "Bioestimulaci\xF3n de col\xE1geno", "Mesoterapia", "Lipol\xEDticos inyectables"];
+  const SVC_CATS = ["Toxina botul\xEDnica", "\xC1cido hialur\xF3nico", "Sculptra de col\xE1geno", "Mesoterapia", "Lipol\xEDticos inyectables"];
   const [sN, setSN] = useState(""), [sP, setSP] = useState(""), [sD, setSD] = useState("30"), [sC, setSC] = useState(SVC_CATS[0]), [sCustom, setSCustom] = useState("");
   const [iN, setIN] = useState(""), [iS, setIS] = useState(""), [iU, setIU] = useState("unidades"), [iP, setIP] = useState("");
   const uid = (pre) => window.jcmUid ? window.jcmUid(pre) : pre + Date.now();

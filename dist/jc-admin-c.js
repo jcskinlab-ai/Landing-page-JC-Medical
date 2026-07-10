@@ -19,7 +19,7 @@ const CADMIN = {
   ],
   campaigns: [
     { id: "c1", name: "Botox \xB7 invierno", net: "Meta Ads", reach: 18420, leads: 42, spend: 12e4, active: true },
-    { id: "c2", name: "Bioestimulaci\xF3n 20%", net: "Meta Ads", reach: 9650, leads: 23, spend: 8e4, active: true },
+    { id: "c2", name: "Sculptra 20%", net: "Meta Ads", reach: 9650, leads: 23, spend: 8e4, active: true },
     { id: "c3", name: "Rinomodelaci\xF3n", net: "Instagram", reach: 12100, leads: 17, spend: 6e4, active: false }
   ],
   integrations: [
@@ -84,11 +84,10 @@ function navBtn(T) {
 }
 const SVC_CAT_LABEL = {
   "Toxina botul\xEDnica": "Toxina botul\xEDnica",
-  "Bioestimulaci\xF3n de col\xE1geno con Sculptra": "Bioestimulaci\xF3n de col\xE1geno",
   "Armonizaci\xF3n facial": "\xC1cido hialur\xF3nico",
   "Mesoterapia \xB7 vitaminas faciales": "Mesoterapia",
   "Quemadores de grasa": "Lipol\xEDticos inyectables",
-  "Bioestimulaci\xF3n": "Bioestimulaci\xF3n de manos",
+  "Sculptra": "Sculptra de manos",
   "Packs de temporada \xB7 por tiempo limitado": "Packs de temporada"
 };
 const SVC_ZONE = {
@@ -101,21 +100,21 @@ const SVC_ZONE = {
   "Ment\xF3n empedrado": "M\xFAsculo mentoniano",
   "Rejuvenecimiento de cuello - Nefertiti": "Platisma y borde mandibular inferior",
   "C\xF3digo de barras, tratamiento de arrugas": "Labio superior peribucal",
-  "Bioestimulaci\xF3n de col\xE1geno facial": "Tercio medio, tercio inferior y \xF3valo facial",
-  "Bioestimulaci\xF3n de surcos nasogenianos y marionetas": "Surco nasogeniano y comisuras labiales",
-  "Bioestimulaci\xF3n de cuello": "Cara anterior y lateral del cuello",
+  "Sculptra de col\xE1geno facial": "Tercio medio, tercio inferior y \xF3valo facial",
+  "Sculptra de surcos nasogenianos y marionetas": "Surco nasogeniano y comisuras labiales",
+  "Sculptra de cuello": "Cara anterior y lateral del cuello",
   "Rinomodelaci\xF3n": "Dorso nasal, punta y columela",
   "Proyecci\xF3n de ment\xF3n": "Ment\xF3n y arco mandibular anterior",
   "Definici\xF3n de arco mandibular": "Borde mandibular lateral y \xE1ngulo mandibular",
   "Realce de p\xF3mulos": "Arco malar y surco nasogeniano",
   "C\xF3digo de barras con \xE1cido hialur\xF3nico": "Labio superior y filtrum",
   "Quemadores de grasa localizada": "Papada, brazos, abdomen, flancos, muslos y gl\xFAteos",
-  "Bioestimulaci\xF3n de manos": "Dorso de las manos",
+  "Sculptra de manos": "Dorso de las manos",
   "NCTF 135 \xB7 revitalizaci\xF3n facial": "Cara completa",
   "Vitaminas \xB7 iluminador": "Cara completa y escote",
   "Vitaminas \xB7 antiacn\xE9": "Zona T y mejillas"
 };
-const SVC_CATS = ["Toxina botul\xEDnica", "\xC1cido hialur\xF3nico", "Bioestimulaci\xF3n de col\xE1geno", "Mesoterapia", "Lipol\xEDticos inyectables", "Corporal", "Evaluaci\xF3n", "Otro"];
+const SVC_CATS = ["Toxina botul\xEDnica", "\xC1cido hialur\xF3nico", "Sculptra de col\xE1geno", "Mesoterapia", "Lipol\xEDticos inyectables", "Corporal", "Evaluaci\xF3n", "Otro"];
 function customServices() {
   try {
     const v = window.DB && DB.get("services_custom");
@@ -1963,7 +1962,7 @@ function ReportesView({ T, patients, appts }) {
 }
 const IND_TPL_SEED = [
   { id: "tpl_tox", name: "Neuromodulaci\xF3n con Toxina botul\xEDnica", body: "\u2022 No tocar ni masajear la zona tratada por 6 horas.\n\u2022 Mantente en posici\xF3n vertical las primeras 4 horas (no agacharte ni acostarte).\n\u2022 Gesticula suavemente la zona tratada durante la primera hora.\n\u2022 Evita ejercicio intenso, sauna, sol directo y alcohol por 24 h.\n\u2022 No realices masajes faciales ni otros tratamientos en la zona por 2 semanas.\n\u2022 El efecto se evidencia entre el d\xEDa 4 y 14. Control a los 21 d\xEDas." },
-  { id: "tpl_bio", name: "Bioestimulaci\xF3n de col\xE1geno", body: "\u2022 Realiza masajes en la zona 5 minutos, 5 veces al d\xEDa, por 5 d\xEDas (regla del 5).\n\u2022 Aplica fr\xEDo local las primeras 24 h si hay inflamaci\xF3n.\n\u2022 Evita sol directo, sauna y ejercicio intenso por 48 h.\n\u2022 Puede haber leve inflamaci\xF3n o peque\xF1os hematomas que ceden en pocos d\xEDas.\n\u2022 Los resultados son progresivos durante las semanas siguientes.\n\u2022 Asiste a tus sesiones de control seg\xFAn el plan indicado." },
+  { id: "tpl_bio", name: "Sculptra de col\xE1geno", body: "\u2022 Realiza masajes en la zona 5 minutos, 5 veces al d\xEDa, por 5 d\xEDas (regla del 5).\n\u2022 Aplica fr\xEDo local las primeras 24 h si hay inflamaci\xF3n.\n\u2022 Evita sol directo, sauna y ejercicio intenso por 48 h.\n\u2022 Puede haber leve inflamaci\xF3n o peque\xF1os hematomas que ceden en pocos d\xEDas.\n\u2022 Los resultados son progresivos durante las semanas siguientes.\n\u2022 Asiste a tus sesiones de control seg\xFAn el plan indicado." },
   { id: "tpl_arm", name: "Armonizaci\xF3n facial", body: "\u2022 Aplica fr\xEDo local 10 min cada 2 h durante las primeras 24 h.\n\u2022 No manipules ni masajees la zona salvo indicaci\xF3n.\n\u2022 Evita ejercicio intenso, sauna, calor y alcohol por 24\u201348 h.\n\u2022 Duerme boca arriba las primeras noches.\n\u2022 Pueden aparecer inflamaci\xF3n o hematomas leves que ceden en d\xEDas.\n\u2022 Ante dolor intenso, palidez o cambio de color de la piel, cont\xE1ctanos de inmediato." }
 ];
 function getIndTemplates() {
@@ -2065,7 +2064,7 @@ function FirmasMedicasEditor({ T }) {
     saved && /* @__PURE__ */ React.createElement("span", { style: { color: "#4caf73", fontWeight: 600, marginLeft: 4 } }, "\u2713 guardada")
   ));
 }
-const DIAG_OPTS = ["Neuromodulaci\xF3n con Toxina botul\xEDnica", "Bioestimulaci\xF3n de col\xE1geno", "Armonizaci\xF3n facial"];
+const DIAG_OPTS = ["Neuromodulaci\xF3n con Toxina botul\xEDnica", "Sculptra de col\xE1geno", "Armonizaci\xF3n facial"];
 function IndTemplatesEditor({ T }) {
   const SA = window.JCSAAS;
   const me = SA && SA.userEmail && SA.userEmail() || "";
@@ -3552,7 +3551,7 @@ const INV_SEED = [
 const PROC_SEED = [
   { id: "pr1", name: "Botox 3 zonas", cobro: 15e4, method: "Transferencia", uses: [["i1", 0.5], ["i4", 3], ["i7", 1], ["i8", 1]] },
   { id: "pr2", name: "Rinomodelaci\xF3n", cobro: 17e4, method: "Transferencia", uses: [["i2", 1], ["i6", 1], ["i4", 2], ["i8", 4]] },
-  { id: "pr3", name: "Bioestimulaci\xF3n (Sculptra)", cobro: 45e4, method: "Transferencia", uses: [["i3", 2], ["i4", 2], ["i8", 5]] }
+  { id: "pr3", name: "Sculptra", cobro: 45e4, method: "Transferencia", uses: [["i3", 2], ["i4", 2], ["i8", 5]] }
 ];
 function cashAll() {
   try {

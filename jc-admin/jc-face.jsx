@@ -12,7 +12,7 @@ function sketchfabUrl(id) { return "https://sketchfab.com/models/" + id + "/embe
 const PUNCION_PRODUCTS = [
   { id: "botox", label: "Toxina botulínica", unit: "U", color: "#8B9EB0" },
   { id: "ah", label: "Rinomodelación", unit: "ml", color: "#6FB3B8" },
-  { id: "sculptra", label: "Bioestimulación de colágeno", unit: "vial", color: "#C0285A" }
+  { id: "sculptra", label: "Sculptra de colágeno", unit: "vial", color: "#C0285A" }
 ];
 function prodOf(id) { return PUNCION_PRODUCTS.find(p => p.id === id) || PUNCION_PRODUCTS[0]; }
 const ANAT_IMG = { front: "/assets/anat-front.jpg", sideL: "/assets/anat-side-left.png", sideR: "/assets/anat-side-right.jpg" };
@@ -232,7 +232,7 @@ function aureoCompute(lm, W, H, opts) {
 
   // Recomendaciones (educativas — el profesional decide)
   const recs = [];
-  if (t3 > 37) recs.push("Tercio inferior dominante: evaluar proyección de mentón y equilibrio con bioestimulación / relleno.");
+  if (t3 > 37) recs.push("Tercio inferior dominante: evaluar proyección de mentón y equilibrio con sculptra / relleno.");
   if (t3 < 29) recs.push("Tercio inferior corto: valorar proyección de mentón.");
   if (fifths[2] > 24) recs.push("Quinto central amplio: distancia intercantal mayor a un ojo.");
   if (fifths[2] < 16) recs.push("Quinto central estrecho: ojos juntos respecto a la regla de los quintos.");
@@ -490,14 +490,14 @@ function PuncionTool({ T, value, onChange, patient, updatePatient, readOnly, loc
         <div>
           {product.id !== "botox" ? (
             <div>
-              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{product.id === "ah" ? "Fotos antes / después · Rinomodelación" : "Fotos del paciente · Bioestimulación"}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>{product.id === "ah" ? "Fotos antes / después · Rinomodelación" : "Fotos del paciente · Sculptra"}</div>
               {(() => {
                 const allImgs = (window.DB && patient && window.DB.get("pimg_" + patient.id)) || (patient && patient.images) || [];
                 const kws = product.id === "ah" ? ["rino", "hialu", "armoniz", "relleno"] : ["bio", "sculptra", "colág", "estimul"];
                 const imgs = allImgs.length > 0 ? allImgs.filter(im => !im.proc || kws.some(k => (im.proc || "").toLowerCase().includes(k))) : [];
                 if (imgs.length === 0) return (
                   <div style={{ padding: "22px 14px", textAlign: "center", border: "1px dashed " + T.line, borderRadius: 8, color: T.textFaint, fontFamily: T.sans, fontSize: 12, lineHeight: 1.6 }}>
-                    Sin fotos de {product.id === "ah" ? "rinomodelación" : "bioestimulación"}.<br />Añádelas en la pestaña <b>Imágenes</b>.
+                    Sin fotos de {product.id === "ah" ? "rinomodelación" : "sculptra"}.<br />Añádelas en la pestaña <b>Imágenes</b>.
                   </div>
                 );
                 return <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 8 }}>
@@ -860,12 +860,12 @@ function RickettsTool({ T, patient, updatePatient }) {
     const prot = report.su > 4 || report.sl > 4;      // labios por delante de la línea
     const retr = report.su < -4 || report.sl < -4;    // labios muy por detrás
     if (prot) {
-      rickRecs.push("Labios por delante de la línea E: valorar proyección de mentón con bioestimulación o relleno para equilibrar el perfil.");
+      rickRecs.push("Labios por delante de la línea E: valorar proyección de mentón con sculptra o relleno para equilibrar el perfil.");
       rickRecs.push("La rinomodelación de la punta nasal puede armonizar la relación nariz–labios–mentón.");
     }
     if (retr) {
       rickRecs.push("Labios retruidos respecto a la línea E: el relleno labial puede aportar proyección y mejorar el equilibrio del perfil.");
-      rickRecs.push("Evaluar la proyección del mentón (bioestimulación o relleno) según el caso.");
+      rickRecs.push("Evaluar la proyección del mentón (sculptra o relleno) según el caso.");
     }
     if (!prot && !retr) rickRecs.push("Perfil labial dentro de rangos armónicos según la línea E. Mantención y prevención.");
   }

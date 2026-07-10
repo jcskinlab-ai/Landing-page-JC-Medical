@@ -119,7 +119,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (found) return found;
     if (/botox|toxina/.test(t)) return "Botox 3 zonas";
     if (/rino/.test(t)) return "Rinomodelación";
-    if (/sculptra|bioestim|col[áa]geno/.test(t)) return "Bioestimulación de colágeno facial";
+    if (/sculptra|bioestim|col[áa]geno/.test(t)) return "Sculptra de colágeno facial";
     if (/relleno|hialur[óo]nico|labio|p[óo]mulo|ment[óo]n/.test(t)) return "Realce de pómulos";
     if (/eval/.test(t)) return "Evaluación general";
     return null;
@@ -195,7 +195,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     rows.slice(0, 5).forEach((r, i) => { out += (i + 1) + ". " + r.k + " — " + r.n + (r.n === 1 ? " atención" : " atenciones") + (r.amt ? " · " + D.fmt(r.amt) : "") + "\n"; });
     if (!usingAppts) out += "\nIngresos del mes: " + D.fmt(total) + ".";
     const top = rows[0].k, low = rows[rows.length - 1].k;
-    out += "\n\nRecomendaciones:\n• Potencia en campañas tu más vendido (" + top + "): es tu mejor gancho de conversión.\n• Crea una promo/educación para reactivar el de menor rotación (" + low + ").\n• Programa re-citas de toxina (3 m) y bioestimulación (2ª dosis) desde Pacientes → Campañas de re-cita.";
+    out += "\n\nRecomendaciones:\n• Potencia en campañas tu más vendido (" + top + "): es tu mejor gancho de conversión.\n• Crea una promo/educación para reactivar el de menor rotación (" + low + ").\n• Programa re-citas de toxina (3 m) y sculptra (2ª dosis) desde Pacientes → Campañas de re-cita.";
     return out;
   }
 

@@ -11,7 +11,7 @@
       tags: ["Rinomodelación"], lastVisit: "2026-06-02", notes: "Dorso nasal. 1 jeringa AH alta reticulación.",
       history: [{ date: "2026-06-02", proc: "Rinomodelación", units: "1 jeringa", note: "Dorso y punta. Resultado inmediato." }], consent: true },
     { id: "p3", name: "Antonia Vera", rut: "15.330.781-9", age: 45, phone: "+56 9 9013 4456", email: "antonia.vera@gmail.com",
-      tags: ["Sculptra"], lastVisit: "2026-05-15", notes: "Plan 3 sesiones de bioestimulación. Sesión 2 realizada.",
+      tags: ["Sculptra"], lastVisit: "2026-05-15", notes: "Plan 3 sesiones de sculptra. Sesión 2 realizada.",
       history: [
         { date: "2026-05-15", proc: "Sculptra · sesión 2", units: "2 viales", note: "Tercio medio y óvalo" },
         { date: "2026-03-20", proc: "Sculptra · sesión 1", units: "2 viales", note: "Sin eventos adversos" }
@@ -56,7 +56,7 @@
   var CONSENTS = [
     { id: "c-botox", title: "Toxina botulínica", kind: "toxina", proc: "Toxina botulínica", cat: "Toxina" },
     { id: "c-ah", title: "Relleno de Ácido Hialurónico", kind: "estandar", proc: "Relleno de Ácido Hialurónico", proc4: "relleno de ácido hialurónico", vascular: true, cat: "Relleno" },
-    { id: "c-sculptra", title: "Bioestimulación con Sculptra", kind: "estandar", proc: "Bioestimulación de colágeno con Sculptra", proc4: "Sculptra", vascular: false, cat: "Bioestimulación" },
+    { id: "c-sculptra", title: "Sculptra", kind: "estandar", proc: "Sculptra de colágeno", proc4: "Sculptra", vascular: false, cat: "Sculptra" },
     { id: "c-bruxismo", title: "Bruxismo", kind: "custom", proc: "Toxina Botulínica — Bruxismo", cat: "Toxina", paragraphs: [
       { n: "1.-", t: "Por el presente documento, autorizo a EU {EU} a realizar el procedimiento de tratamiento del bruxismo y/o apretamiento dental mediante la aplicación de Toxina Botulínica tipo A en el músculo masetero y/o temporal, con el objetivo de reducir la hiperactividad muscular involuntaria. El procedimiento me ha sido totalmente explicado, entendiendo su naturaleza y consecuencias." },
       { n: "2.-", t: "He entendido que los efectos son variables y reversibles, con una duración aproximada de 4 a 6 meses, comenzando a evidenciarse entre los 7 y 14 días posteriores a la aplicación." },

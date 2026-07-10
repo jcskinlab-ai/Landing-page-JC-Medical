@@ -2826,7 +2826,7 @@ function RecetaTab({ T, patient, updatePatient }) {
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, marginBottom: 18 }}>
         <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Diagnóstico (opcional)</span>
           {(() => {
-            const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Bioestimulación de colágeno", "Armonización facial"];
+            const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Sculptra de colágeno", "Armonización facial"];
             const isOther = diag && !DIAG_OPTS.includes(diag);
             return (
               <div>
