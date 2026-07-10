@@ -1454,18 +1454,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     };
   }, []);
   useEffect(() => {
-    function setTitle() {
-      let nombre = "Medique";
-      try {
-        const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name;
-        if (n && ("" + n).trim()) nombre = ("" + n).trim();
-      } catch (e) {
-      }
-      document.title = nombre + " \xB7 Panel M\xF3vil";
-    }
-    setTitle();
-    window.addEventListener("jcsaas:data", setTitle);
-    return () => window.removeEventListener("jcsaas:data", setTitle);
+    document.title = "Medique \xB7 Panel M\xF3vil";
   }, []);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   useEffect(() => {

@@ -2101,14 +2101,10 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   }, []);
 
   useEffect(() => {
-    function setTitle() {
-      let nombre = "Medique";
-      try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; if (n && ("" + n).trim()) nombre = ("" + n).trim(); } catch (e) {}
-      document.title = nombre + " · Panel Móvil";
-    }
-    setTitle();
-    window.addEventListener("jcsaas:data", setTitle);
-    return () => window.removeEventListener("jcsaas:data", setTitle);
+    // Pedido del usuario: la pestaña/título debe llevar la MARCA del producto (Medique), no el
+    // nombre de la clínica — igual que el panel de escritorio (JC_Admin.html: "Medique · Panel
+    // Clínico"). Título fijo, ya no derivado de clinic_name.
+    document.title = "Medique · Panel Móvil";
   }, []);
 
   // Aviso de sin conexión (pedido): la sincronización con la nube pasa en silencio en segundo plano
