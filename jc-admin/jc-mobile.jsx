@@ -126,6 +126,21 @@ function apptStateM(a, T) {
   // "Agendado" (pendiente de confirmar) = azul, como en el portal.
   return { label: "Agendado", color: "#6EA8E8" };
 }
+// PRUEBA (rama movil-diseno-portal): tarjeta de cita "tintada" por estado — mismo lenguaje que el
+// portal de escritorio (jc-admin.jsx, vista semanal "v2 Medilink barra"), que tiñe TODA la tarjeta
+// con el color del estado (glass esmerilado, deja ver la foto detrás) en vez de solo un punto de
+// color. Reemplaza el punto lateral: el tinte + el badge de procedimiento ya bastan para leer el
+// estado de un vistazo (misma razón que documenta jc-admin.jsx).
+function apptCardTintM(color) {
+  // PRUEBA: mismo tinte PLANO (sin degradado) que usa el portal en sus tarjetas de cita "v2 lux"
+  // (jc-admin.jsx: accentColor+"1e" fondo, glassBlur.small, accentColor+"2a" borde) — antes tenía
+  // un degradado propio del móvil que se veía forzado, igual que glassPanel/glassChip.
+  return {
+    background: color + "1e",
+    backdropFilter: "blur(12px) saturate(1.25)", WebkitBackdropFilter: "blur(12px) saturate(1.25)",
+    border: "1px solid " + color + "2a"
+  };
+}
 // Usa hora local del dispositivo, NO UTC (evita el desfase de zona horaria)
 function localISO(d) {
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
@@ -185,33 +200,38 @@ function photoTheme(T) {
     accent: "#7891A6", accentSoft: "rgba(120,145,166,.16)", onAccent: "#FFFFFF"
   });
 }
-// Glass "liquid" (foto 3/4 de referencia): muy translúcido + blur alto, para que la foto se
-// transparente detrás de cada tarjeta sin perder legibilidad.
-// "Liquid Glass" (iOS 26, validado en maqueta): brillo superior que se disuelve hacia la base
-// translúcida — simula el refractado/especular del material real (no solo un tinte plano+blur).
+// PRUEBA (rama movil-diseno-portal): glass OFICIAL del portal, no una versión propia del móvil.
+// Antes esto tenía un degradado "brillo superior" (gradient de blanco) que el usuario marcó como
+// forzado/artificial. La receta real del portal (jc-proto/jc-theme.js, DS._glass — el mismo glass
+// del Dashboard/Agenda "lux") es mucho más sobria: tinte PLANO (sin degradado), blur más moderado,
+// y un inset-highlight casi imperceptible en vez de un brillo marcado. Se replica tal cual (rama
+// oscura, la única que usa el móvil).
 function glassPanel(T, radius) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03) 45%, rgba(255,255,255,.045) 100%)",
-    backdropFilter: "blur(28px) saturate(1.5)", WebkitBackdropFilter: "blur(28px) saturate(1.5)",
-    border: "1px solid rgba(255,255,255,.1)", borderRadius: radius==null?20:radius,
-    boxShadow: "0 18px 42px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.14)"
+    background: "rgba(255,255,255,.045)",
+    backdropFilter: "blur(24px) saturate(1.4)", WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+    border: "1px solid rgba(255,255,255,.09)", borderRadius: radius==null?20:radius,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 32px 72px -44px rgba(0,0,0,.85)"
   };
 }
 function glassChip(T) {
   return {
-    background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.025) 45%, rgba(255,255,255,.04) 100%)",
-    backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)",
-    border: "1px solid rgba(255,255,255,.1)"
+    background: "rgba(255,255,255,.04)",
+    backdropFilter: "blur(12px) saturate(1.25)", WebkitBackdropFilter: "blur(12px) saturate(1.25)",
+    border: "1px solid rgba(255,255,255,.14)"
   };
 }
-// Capas de fondo del panel (foto desenfocada + velo oscuro): MISMO fondo en TODAS las pantallas
-// (Inicio, Agenda, Pacientes, Reportes, menú lateral) para que no haya un navy azulado distinto en
-// unas y la foto en otras. Se usa como primeras dos capas dentro de un contenedor position:relative.
-const MOBILE_BG_OVERLAY = "linear-gradient(180deg, rgba(9,13,22,.6), rgba(8,12,20,.68) 50%, rgba(6,10,17,.8))";
+// Capas de fondo del panel: MISMO fondo en TODAS las pantallas. REDISEÑO iOS 26 (rama
+// movil-diseno-portal): la foto va NÍTIDA — sin blur previo — igual que el portal de escritorio.
+// Esta es la clave del Liquid Glass real: si la foto ya viene desenfocada, el backdrop-filter de
+// cada tarjeta no tiene nada que refractar y el glass se ve "pintado"/forzado (lo que reportó el
+// usuario). Con la foto nítida, cada panel desenfoca SOLO su propia región — el material se ve
+// vivo al hacer scroll, como en iOS. El velo replica el del portal (rgba(9,11,15,.80→.90)).
+const MOBILE_BG_OVERLAY = "linear-gradient(180deg, rgba(9,11,15,.72), rgba(9,11,15,.80) 55%, rgba(9,11,15,.88))";
 function PhotoBgLayers() {
   return (
     <>
-      <div style={{ position:"absolute", inset:-24, backgroundImage:"url('/assets/everest-mobile.jpg?v=11')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat", filter:"blur(22px)", transform:"scale(1.08)" }} />
+      <div style={{ position:"absolute", inset:0, backgroundImage:"url('/assets/everest-mobile.jpg?v=11')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }} />
       <div style={{ position:"absolute", inset:0, backgroundImage:MOBILE_BG_OVERLAY }} />
     </>
   );
@@ -569,10 +589,11 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   const clinNombre = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
   const fechaLarga = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
 
-  // KPIs — dashboard horizontal (pedido): cifra grande (tamaño de la versión anterior, más legible)
-  // pero tarjeta más compacta (~75% del padding actual) para que el bloque en conjunto ocupe menos.
-  const kpi = (label, val, sub, subColor) => (
-    <div style={{ flex:1, minWidth:0, ...glassPanel(T,14), padding:"6px 8px 6px", display:"flex", flexDirection:"column", gap:1 }}>
+  // KPIs — REDISEÑO iOS 26: UNA sola franja glass con divisores finos entre métricas (mismo motivo
+  // "stat strip" del Dashboard del portal), en vez de 4 tarjetas glass sueltas. Menos cajas anidadas
+  // = el material se lee premium; glass-sobre-glass multiplicado era parte del look "forzado".
+  const kpi = (label, val, sub, subColor, first) => (
+    <div style={{ flex:1, minWidth:0, padding: first ? "1px 0 1px 1px" : "1px 0 1px 9px", borderLeft: first ? "none" : "1px solid rgba(255,255,255,.09)", display:"flex", flexDirection:"column", gap:1 }}>
       {/* Mínimo legible 11px (nada más chico, salvo eyebrows cortos): antes 7.5-8px, ilegible en
           exteriores/con poca luz — el trade-off es que la fila de 4 KPI puede crecer un poco de alto. */}
       <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".02em", textTransform:"uppercase", color:T.textMute, lineHeight:1.25 }}>{label}</div>
@@ -594,9 +615,11 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
   // pesadas sueltas. "Nueva cita" lleva el círculo azul; los demás, ícono de línea claro.
   // Pila flotante de accesos rápidos reducida a ~75% (pedido): se conserva el TAMAÑO de los íconos
   // (svg + círculo de 28px), solo se reduce lo demás — alto, paddings, separaciones y la etiqueta.
+  // REDISEÑO iOS 26: tiles internos como RELLENO suave sin borde (glass-fill del portal), dentro
+  // del único contenedor glass exterior — sin caja-con-borde dentro de caja-con-borde.
   const action = (icon, label, onClick, primary) => (
-    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, minHeight:46, minWidth:0, cursor:"pointer", borderRadius:11,
-      background: primary ? T.accentSoft : "rgba(255,255,255,.035)", border:"1px solid "+(primary?"rgba(120,145,166,.4)":"rgba(255,255,255,.08)"), padding:"6px 3px" }}>
+    <button onClick={onClick} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, minHeight:46, minWidth:0, cursor:"pointer", borderRadius:12,
+      background: primary ? T.accentSoft : "rgba(255,255,255,.05)", border:"none", padding:"7px 3px" }}>
       {primary
         ? <div style={{ width:28, height:28, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:T.accent, color:"#fff", boxShadow:"0 4px 10px -4px "+T.accent }}>{icon}</div>
         : <div style={{ height:28, display:"flex", alignItems:"center", justifyContent:"center", color:"#A9BAC7" }}>{icon}</div>}
@@ -627,8 +650,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
           {searchResults.map(a => {
             const st = apptStateM(a, T);
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px" }}>
-                <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:12, overflow:"hidden", padding:"10px 12px", ...apptCardTintM(st.color) }}>
                 <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:78 }}>{dayLabelM(a.fecha||offToISO(a.day||0))} {a.time}</span>
                 <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
                 <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
@@ -646,8 +668,8 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
     <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"12px 16px 0" }}>
       {/* Bloque FIJO: KPI + resumen del día + pila de accesos rápidos + buscador. */}
       <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:12 }}>
-        <div style={{ display:"flex", gap:7 }}>
-          {kpi("Citas hoy", todayAppts.length, vsAyer(delta))}
+        <div style={{ ...glassPanel(T,18), display:"flex", gap:0, padding:"10px 12px" }}>
+          {kpi("Citas hoy", todayAppts.length, vsAyer(delta), null, true)}
           {kpi("Confirmadas", confirmadas, pct(confirmadas)+"% del total")}
           {kpi("Pendientes", pendientes, pct(pendientes)+"% del total")}
           {kpi("Ocupación", ocup+"%", vsAyer(ocupDelta, " pts"))}
@@ -700,8 +722,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay }) {
                   {g.items.map(a => {
                     const st = apptStateM(a, T);
                     return (
-                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px" }}>
-                        <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:12, overflow:"hidden", padding:"10px 12px", ...apptCardTintM(st.color) }}>
                         <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:13, fontWeight:500, color:T.text }}>{a.time}</span>
                         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</span>
                         <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
@@ -976,12 +997,11 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       <button key={a.id} onClick={()=>onOpenAppt(a)} style={{
         position:"absolute", top: topPx, left: 0, right: 0, height: heightPx,
         display:"flex", alignItems:"center", gap:8, textAlign:"left", cursor:"pointer",
-        background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10,
-        padding:"0 0 0 12px", overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1
+        borderRadius:10, padding:"0 0 0 12px", overflow:"hidden", boxSizing:"border-box", opacity:isAnulada?.55:1,
+        ...apptCardTintM(st.color)
       }}>
-        {/* Plana (pedido): mismo diseño que la página principal — hora | nombre … abreviación del
-            procedimiento al borde derecho, punto de color al inicio = estado (antes barra lateral 3px). */}
-        <span aria-hidden="true" title={st.label} style={{ width:8, height:8, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 2.5px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+        {/* PRUEBA (rama movil-diseno-portal): mismo lenguaje que el portal — tinte de la tarjeta +
+            badge de procedimiento ya bastan para leer el estado, sin punto lateral aparte. */}
         <span style={{ flexShrink:0, fontFamily:FRAUNCES, fontSize:11.5, fontWeight:500, color:T.text }}>{a.time}</span>
         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{abbrevNameM(a.name)}</span>
         {/* Se deja en 10px (no 11) a propósito: este badge vive en el bloque de la línea de tiempo,
@@ -1039,8 +1059,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             const st = apptStateM(a, T);
             const isAnulada = a.status === "anulada";
             return (
-              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, overflow:"hidden", padding:"10px 12px", opacity:isAnulada?.6:1 }}>
-                <span aria-hidden="true" title={st.label} style={{ width:9, height:9, borderRadius:"50%", background:st.color, flexShrink:0, boxShadow:"0 0 0 3px color-mix(in srgb, "+st.color+" 24%, transparent)" }} />
+              <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:12, overflow:"hidden", padding:"10px 12px", opacity:isAnulada?.6:1, ...apptCardTintM(st.color) }}>
                 <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:78 }}>{dayLabelM(a.fecha||offToISO(a.day||0))} {a.time}</span>
                 <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{a.name}</span>
                 <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, fontWeight:700, color:st.color, background:"color-mix(in srgb, "+st.color+" 20%, transparent)", borderRadius:6, padding:"3px 7px" }}>{abbrevProcM(a.proc)}</span>
@@ -1076,7 +1095,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         {ql ? searchResultsBody : (<>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
             <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:44, height:44, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>‹</button>
-            <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text }}>{MESES_LARGOS[monthCur.m]} {monthCur.y}</div>
+            <div style={{ fontFamily:T.sans, fontSize:19, fontWeight:600, color:T.text }}><span style={{ fontFamily:FRAUNCES, fontStyle:"italic", color:T.accent }}>{MESES_LARGOS[monthCur.m]}</span> {monthCur.y}</div>
             <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:44, height:44, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>›</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0 10px 4px", flexShrink:0 }}>
@@ -1550,7 +1569,6 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 
 /* ═══════════ Overlay: Reportes (solo datos reales de citas — este bundle no tiene acceso a caja) ═══════════ */
 function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
-  const [view, setView] = useState("stats"); // "stats" | "plantillas"
   const [expanded, setExpanded] = useState(null); // nombre del procedimiento abierto, o null
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
@@ -1602,27 +1620,11 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     </div>
   );
 
-  if (view === "plantillas") {
-    return (
-      <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setView("stats")}>
-        <MessageTemplatesView T={T} />
-      </OverlayShell>
-    );
-  }
-
+  // Las plantillas de mensajes YA NO viven aquí (pedido: "no es un reporte") — ahora son su propio
+  // overlay ("plantillas"), accesible desde Más y el menú lateral.
   return (
     <OverlayShell T={T} title="Reportes" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:16 }}>
-        <button onClick={()=>setView("plantillas")} style={{ display:"flex", alignItems:"center", gap:13, width:"100%", textAlign:"left", ...glassPanel(T,16), padding:"15px 16px", cursor:"pointer" }}>
-          <div style={{ width:40, height:40, borderRadius:12, flexShrink:0, background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.28)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:T.sans, fontSize:15, fontWeight:600, color:T.text }}>Plantillas de mensajes</div>
-            <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, marginTop:2 }}>Edita el texto de WhatsApp de tu clínica</div>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
         <div style={{ ...glassPanel(T,20), padding:"6px 16px 8px" }}>
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 6px" }}>Esta semana</div>
           {row(RIC.cal,   "#7FA8E8", "Citas totales", weekAppts.filter(a=>a.status!=="anulada").length)}
@@ -1665,8 +1667,7 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
                   {t.list.map(a => {
                     const st = apptStateM(a, T);
                     return (
-                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", cursor:"pointer", background:"rgba(255,255,255,.035)", border:"1px solid rgba(255,255,255,.08)", borderRadius:9, padding:"8px 11px" }}>
-                        <span aria-hidden="true" title={st.label} style={{ width:8, height:8, borderRadius:"50%", background:st.color, flexShrink:0 }} />
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:9, padding:"8px 11px", ...apptCardTintM(st.color) }}>
                         <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:62 }}>{dayLabelM(a.fecha||offToISO(a.day||0))}</span>
                         <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name||"Paciente"}</span>
                         <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, color:st.color, fontWeight:600 }}>{st.label}</span>
@@ -1782,6 +1783,7 @@ function MasTab({ T, openOverlay, onLogout }) {
     <div style={{ padding:"14px 16px 90px", display:"flex", flexDirection:"column", gap:12 }}>
       {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
       {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+      {item(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOverlay("plantillas"))}
       <button onClick={()=>{ const b = document.getElementById("jcm-mob-rfab-icon2"); if(b){ b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{b.style.transition="";b.style.transform="";},600);} window.dispatchEvent(new CustomEvent("jcsaas:data")); }}
         style={{ display:"flex", alignItems:"center", gap:15, width:"100%", textAlign:"left", ...glassPanel(T,18), padding:"18px 16px", cursor:"pointer" }}>
         <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:"rgba(120,145,166,.16)", border:"1px solid rgba(130,150,170,.28)", color:"#A9BAC7", display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -1953,8 +1955,10 @@ function MobileShell({ T, D, onLogout }) {
   const pendConsent = consentPendingM(patients, appts);   // consentimientos por firmar (como el portal)
   const bellCount = pendPago.length + pendConsent.length;
   const clinName = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
-  // Fecha del día para el subtítulo del header (reemplaza a "Panel móvil").
-  const fechaHeader = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
+  // Fecha del día para el subtítulo del header (reemplaza a "Panel móvil"). El mes va en serif
+  // itálica + color de acento (PRUEBA rama movil-diseno-portal: mismo tratamiento que el rango de
+  // fechas de la Agenda del portal — jc-admin.jsx, "6 de Julio – 12 de Julio").
+  const fechaHeaderParts = (() => { const d = new Date(); const dow = DOW_FULL[d.getDay()]; return { pre: dow.charAt(0).toUpperCase()+dow.slice(1)+", "+d.getDate()+" de ", mes: MESES_LARGOS[d.getMonth()].toLowerCase() }; })();
   {/* Objetivo táctil mínimo 44px en toda esta fila: el ícono visual no cambia de tamaño, el margen
       negativo compensa el padding invisible extra para que la fila no se vea más ancha. */}
   const hamburger = <button onClick={()=>setDrawer(true)} aria-label="Menú" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginLeft:-9 }}>
@@ -1976,7 +1980,7 @@ function MobileShell({ T, D, onLogout }) {
         {/* Pedido: nombre de la clínica + fecha en UNA sola línea horizontal, alineada con la campana. */}
         <div style={{ display:"flex", alignItems:"baseline", gap:5, minWidth:0 }}>
           <span style={{ fontFamily:FRAUNCES, fontSize:13.5, fontWeight:500, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName || "Medique"}</span>
-          <span style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {fechaHeader}</span>
+          <span style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {fechaHeaderParts.pre}<span style={{ fontFamily:FRAUNCES, fontStyle:"italic", color:T.accent }}>{fechaHeaderParts.mes}</span></span>
         </div>
       </div>{bell}</>;
     if (tab==="nueva") return <>
@@ -2038,19 +2042,19 @@ function MobileShell({ T, D, onLogout }) {
           {tab==="mas"      && <MasTab      T={T} openOverlay={setOverlay} onLogout={onLogout} />}
         </div>
 
-        {/* Tab bar — isla flotante redondeada (referencia): pastilla azul con glow en el activo */}
-        <div style={{ position:"sticky", bottom:0, padding:"0 12px calc(10px + env(safe-area-inset-bottom,0px))", pointerEvents:"none" }}>
-          <div style={{ display:"flex", gap:2, ...glassPanel(T,26), padding:"7px 6px", pointerEvents:"auto", boxShadow:"0 18px 44px -14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.16)" }}>
+        {/* Tab bar — REDISEÑO iOS 26: cápsula flotante con margen a los bordes; el activo lleva una
+            pastilla glass suave (relleno blanco translúcido, no un cuadro azul sólido con glow ni
+            puntito indicador — la pastilla YA indica el activo, doble indicador era ruido). */}
+        <div style={{ position:"sticky", bottom:0, padding:"0 14px calc(12px + env(safe-area-inset-bottom,0px))", pointerEvents:"none" }}>
+          <div style={{ display:"flex", gap:3, ...glassPanel(T,30), padding:6, pointerEvents:"auto" }}>
             {tabs.map(({lbl,icon,on,act})=>(
               <button key={lbl} onClick={act}
-                style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"6px 2px", background:"transparent", border:"none", cursor:"pointer" }}>
-                {/* Activo (referencia): el ícono va dentro de un cuadro azul relleno; etiqueta en azul. */}
-                <div style={{ width:38, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
-                  background: on ? T.accent : "transparent", color: on ? "#fff" : T.textFaint,
-                  boxShadow: on ? "0 6px 14px -6px "+T.accent : "none" }}>{icon}</div>
-                <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:on?600:500, color: on ? "#CFE0FF" : T.textFaint }}>{lbl}</span>
-                {/* Puntito indicador del activo (referencia) */}
-                <div style={{ width:5, height:5, borderRadius:"50%", background: on ? T.accent : "transparent", marginTop:1 }} />
+                style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"8px 2px 7px", borderRadius:24, border:"none", cursor:"pointer",
+                  background: on ? "rgba(255,255,255,.13)" : "transparent",
+                  boxShadow: on ? "inset 0 1px 0 rgba(255,255,255,.16)" : "none",
+                  transition:"background .18s ease" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"center", color: on ? "#FFFFFF" : T.textFaint }}>{icon}</div>
+                <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:on?600:500, color: on ? "#FFFFFF" : T.textFaint }}>{lbl}</span>
               </button>
             ))}
           </div>
@@ -2060,6 +2064,8 @@ function MobileShell({ T, D, onLogout }) {
       {/* Overlays de navegación tipo iOS push */}
       {overlay==="pacientes" && <PacientesOverlay T={T} patients={patients} appts={appts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} />}
       {overlay==="reportes" && <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} />}
+      {/* Plantillas de mensajes: opción PROPIA (pedido: no es un reporte) — vive en Más y el menú lateral. */}
+      {overlay==="plantillas" && <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setOverlay(null)}><MessageTemplatesView T={T} /></OverlayShell>}
       {overlay && overlay.type==="ficha" && <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={appts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} />}
 
       {/* Panel de PENDIENTES (campana): consentimientos por firmar + pagos por confirmar (datos reales). */}
@@ -2141,6 +2147,7 @@ function MobileShell({ T, D, onLogout }) {
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Horarios", ()=>go("horarios"))}
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOv("pacientes"))}
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOv("reportes"))}
+                {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOv("plantillas"))}
                 <div style={{ height:1, background:"rgba(255,255,255,.1)", margin:"8px 12px" }} />
                 {navItem(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>, "Actualizar datos", ()=>{ window.dispatchEvent(new CustomEvent("jcsaas:data")); setDrawer(false); })}
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>, "Cerrar sesión", ()=>{ setDrawer(false); onLogout(); }, true)}
