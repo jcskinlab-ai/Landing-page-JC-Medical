@@ -720,14 +720,9 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
           </button>
         </div>
 
-        {/* KPIs: 3 tarjetas glass (Citas hoy → Agenda · Confirmadas → Agenda · Ocupación → Reportes). */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:9 }}>
-          {kpiCard("Citas hoy", todayAppts.length, vsAyer(delta), ()=>goTab("agenda"))}
-          {kpiCard("Confirmadas", confirmadas, pct(confirmadas)+"% del total", ()=>goTab("agenda"))}
-          {kpiCard("Ocupación", ocup+"%", vsAyer(ocupDelta, " pts"), ()=>openOverlay("reportes"))}
-        </div>
-
-        {todayAppts.length>0 && <DaySummary T={T} c={cToday} p={pToday} na={naToday} prefix="Hoy:" />}
+        {/* Pedido del usuario (10-jul): fuera los KPIs y la cápsula-resumen "Hoy: confirmadas/…"
+            de Inicio — esa métrica vive solo en Reportes. Inicio deja saludo + accesos + buscador
+            para dar protagonismo a "Próximas citas". */}
 
         {/* Accesos rápidos: 4 mosaicos (único acceso a Bloquear horario y a Reportes/Pacientes con nav de 3 pestañas). */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:9 }}>
