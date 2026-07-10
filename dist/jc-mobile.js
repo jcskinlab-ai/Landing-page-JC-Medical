@@ -681,6 +681,9 @@ function abbrevNameM(name) {
   const s1 = words[words.length - 2], s2 = words[words.length - 1];
   return given + " " + s1 + " " + s2[0].toUpperCase() + ".";
 }
+function normalizeProcM(proc) {
+  return (proc || "").replace(/bioestimulaci[oó]n/i, "Sculptra");
+}
 function abbrevProcM(proc) {
   const p = (proc || "").toLowerCase();
   if (p.includes("botox") && p.includes("3 zona")) return "B3Z";
@@ -1143,7 +1146,7 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
   const porProc = {};
   monthAppts.forEach((a) => {
     if (a.status === "anulada" || a.status === "no_asistio") return;
-    const k = a.proc || "Sin especificar";
+    const k = normalizeProcM(a.proc) || "Sin especificar";
     (porProc[k] || (porProc[k] = [])).push(a);
   });
   const topProc = Object.keys(porProc).map((k) => {

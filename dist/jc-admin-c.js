@@ -1,3 +1,6 @@
+function normalizeProcC(proc) {
+  return (proc || "").replace(/bioestimulaci[oó]n/i, "Sculptra");
+}
 const CADMIN = {
   team: [
     { id: "t1", name: "Juan Claudio Parra", role: "Enfermero \xB7 Medicina est\xE9tica", email: "jc.skinlab@gmail.com", phone: "+56 9 9788 0877", color: "#6A8296", active: true, access: true, pin: "1234", perms: { Agenda: true, Pacientes: true, Inventario: true, Servicios: true, Reportes: true, Marketing: true, Configuraci\u00F3n: true } },
@@ -1924,7 +1927,7 @@ function ReportesView({ T, patients, appts }) {
   const growth = serie[0] > 0 ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
   const procCount = {};
   (appts || []).forEach((a) => {
-    const k = (a.proc || "").trim();
+    const k = normalizeProcC(a.proc).trim();
     if (k) procCount[k] = (procCount[k] || 0) + 1;
   });
   const totalCitas = Object.values(procCount).reduce((a, b) => a + b, 0);

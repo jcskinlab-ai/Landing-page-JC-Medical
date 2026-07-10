@@ -886,6 +886,12 @@ function abbrevNameM(name) {
   const s1 = words[words.length - 2], s2 = words[words.length - 1];
   return given + " " + s1 + " " + s2[0].toUpperCase() + ".";
 }
+// Normaliza nombres de procedimiento "viejos" al nombre actual del catálogo — hoy solo
+// Bioestimulación → Sculptra — para que citas antiguas y nuevas del mismo procedimiento se
+// agrupen y cuenten juntas (Reportes → Procedimientos del mes) en vez de aparecer por separado.
+function normalizeProcM(proc) {
+  return (proc || "").replace(/bioestimulaci[oó]n/i, "Sculptra");
+}
 // Procedimiento abreviado: códigos fijos para los más frecuentes (pedido original del usuario);
 // cualquier otro procedimiento cae a la inicial (no el nombre completo) — esta abreviación se
 // usa SIEMPRE en tarjetas de una sola línea (Home/Agenda), donde el nombre completo desbordaría.
@@ -1602,7 +1608,9 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
   const porProc = {};
   monthAppts.forEach(a => {
     if (a.status==="anulada" || a.status==="no_asistio") return;
-    const k = a.proc||"Sin especificar";
+    // normalizeProcM une citas antiguas ("Bioestimulación...") con las nuevas ("Sculptra...") del
+    // mismo procedimiento en una sola fila, en vez de contarlas por separado.
+    const k = normalizeProcM(a.proc)||"Sin especificar";
     (porProc[k] || (porProc[k] = [])).push(a);
   });
   const topProc = Object.keys(porProc)

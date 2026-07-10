@@ -246,7 +246,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     const at = moves.filter((m) => m.kind === "atencion" && (m.ts || "").slice(0, 7) === month);
     const by = {};
     at.forEach((m) => {
-      const k = m.concept || "Otro";
+      const k = (window.normalizeProcC ? window.normalizeProcC(m.concept) : m.concept) || "Otro";
       by[k] = by[k] || { n: 0, amt: 0 };
       by[k].n++;
       by[k].amt += m.amount || 0;
@@ -255,7 +255,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     if (!Object.keys(by).length) {
       usingAppts = true;
       appts.forEach((a) => {
-        const k = a.proc || "Otro";
+        const k = (window.normalizeProcC ? window.normalizeProcC(a.proc) : a.proc) || "Otro";
         by[k] = by[k] || { n: 0, amt: 0 };
         by[k].n++;
       });

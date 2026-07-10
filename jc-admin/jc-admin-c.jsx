@@ -1,5 +1,12 @@
 /* ═══════════ JC · PANEL · MÓDULOS AMPLIADOS ═══════════ */
 
+// Normaliza nombres de procedimiento "viejos" al nombre actual del catálogo — hoy solo
+// Bioestimulación → Sculptra — para que citas antiguas y nuevas del mismo procedimiento se
+// agrupen y cuenten juntas en reportes en vez de aparecer como filas separadas.
+function normalizeProcC(proc) {
+  return (proc || "").replace(/bioestimulaci[oó]n/i, "Sculptra");
+}
+
 /* datos extra (inline para no tocar el data file) */
 const CADMIN = {
   team: [
@@ -2075,9 +2082,11 @@ function ReportesView({ T, patients, appts }) {
   const serie = rev.map(r => r.v);
   const totalAnual = serie.reduce((a, b) => a + b, 0);
   const growth = serie[0] > 0 ? Math.round((serie[serie.length - 1] / serie[0] - 1) * 100) : 0;
-  // Servicios más populares: por número de citas registradas por procedimiento.
+  // Servicios más populares: por número de citas registradas por procedimiento. normalizeProcC une
+  // citas antiguas ("Bioestimulación...") con las nuevas ("Sculptra...") del mismo procedimiento en
+  // una sola fila, en vez de contarlas por separado.
   const procCount = {};
-  (appts || []).forEach(a => { const k = (a.proc || "").trim(); if (k) procCount[k] = (procCount[k] || 0) + 1; });
+  (appts || []).forEach(a => { const k = normalizeProcC(a.proc).trim(); if (k) procCount[k] = (procCount[k] || 0) + 1; });
   const totalCitas = Object.values(procCount).reduce((a, b) => a + b, 0);
   const pop = Object.entries(procCount).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => [n, totalCitas ? c / totalCitas : 0]);
   // Ticket promedio real (ingresos / nº de ingresos).

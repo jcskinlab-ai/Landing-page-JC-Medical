@@ -184,10 +184,10 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     const month = new Date().toISOString().slice(0, 7);
     const at = moves.filter(m => m.kind === "atencion" && (m.ts || "").slice(0, 7) === month);
     const by = {};
-    at.forEach(m => { const k = m.concept || "Otro"; by[k] = by[k] || { n: 0, amt: 0 }; by[k].n++; by[k].amt += m.amount || 0; });
+    at.forEach(m => { const k = (window.normalizeProcC ? window.normalizeProcC(m.concept) : m.concept) || "Otro"; by[k] = by[k] || { n: 0, amt: 0 }; by[k].n++; by[k].amt += m.amount || 0; });
     // si no hay caja del mes, usar demanda por citas (proc)
     let usingAppts = false;
-    if (!Object.keys(by).length) { usingAppts = true; appts.forEach(a => { const k = a.proc || "Otro"; by[k] = by[k] || { n: 0, amt: 0 }; by[k].n++; }); }
+    if (!Object.keys(by).length) { usingAppts = true; appts.forEach(a => { const k = (window.normalizeProcC ? window.normalizeProcC(a.proc) : a.proc) || "Otro"; by[k] = by[k] || { n: 0, amt: 0 }; by[k].n++; }); }
     const rows = Object.keys(by).map(k => ({ k, ...by[k] })).sort((a, b) => (b.amt - a.amt) || (b.n - a.n));
     if (!rows.length) return "Aún no tengo datos de ventas ni citas este mes para auditar. Registra atenciones en Caja y vuelve a pedírmelo.";
     const total = rows.reduce((s, r) => s + r.amt, 0);
