@@ -1258,7 +1258,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     setTimeout(()=>{ setSaved(false); onDone(); }, 900);
   }
 
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"15px 15px", minHeight:54, borderRadius:14, border:"1px solid rgba(255,255,255,.22)", background:"linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03)), rgba(16,41,78,.42)", backdropFilter:"blur(24px) saturate(1.5)", WebkitBackdropFilter:"blur(24px) saturate(1.5)", color:T.text, outline:"none", boxSizing:"border-box" };
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"15px 15px", minHeight:54, borderRadius:14, border:"1px solid rgba(255,255,255,.22)", background:"linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)), rgba(21,29,44,.62)", backdropFilter:"blur(28px) saturate(1.3)", WebkitBackdropFilter:"blur(28px) saturate(1.3)", color:T.text, outline:"none", boxSizing:"border-box" };
   const lbl = { display:"block", fontFamily:T.sans, fontSize:13, fontWeight:500, color:T.text, marginBottom:8 };
   const STEPS = ["Paciente","Detalles","Confirmar"];
 
@@ -2002,7 +2002,7 @@ function MobileShell({ T, D, onLogout }) {
       </div>{bell}</>;
     if (tab==="nueva") return <>
       <button onClick={()=>setTab("citas")} aria-label="Volver" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginLeft:-9 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.sans, fontSize:20, fontWeight:600, color:T.text }}>Nueva cita</span>
+      <span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.serif, fontSize:20, fontWeight:600, color:T.text }}>Nueva cita</span>
       <button onClick={()=>setTab("citas")} aria-label="Cerrar" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-9 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </>;
     // agenda / horarios / mas: hamburguesa + título centrado + acción a la derecha (filtro en Agenda)
@@ -2010,7 +2010,7 @@ function MobileShell({ T, D, onLogout }) {
     const rightAction = tab==="agenda"
       ? <button onClick={()=>setAgShowAnuladas(v=>!v)} aria-label="Filtro" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:agShowAnuladas?T.accentSoft:"none", color:agShowAnuladas?T.accent:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-7 }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
       : <div style={{ width:44 }} />;
-    return <>{hamburger}<span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.sans, fontSize:20, fontWeight:600, color:T.text }}>{titleMap[tab]}</span>{rightAction}</>;
+    return <>{hamburger}<span style={{ position:"absolute", left:0, right:0, textAlign:"center", pointerEvents:"none", fontFamily:T.serif, fontSize:20, fontWeight:600, color:T.text }}>{titleMap[tab]}</span>{rightAction}</>;
   };
   // Barra inferior EXACTA de la referencia: Citas · Agenda · Pacientes · Reportes · Más.
   // Pacientes y Reportes abren sus overlays; Nueva cita y Horarios se acceden desde accesos rápidos.
