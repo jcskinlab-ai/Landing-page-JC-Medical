@@ -179,6 +179,14 @@ function apptEndM(a) {
 }
 function procList() { try { return window.JCDATA.catalog.reduce((a,s) => { s.groups.forEach(g => g.items.forEach(it => a.push(it.n))); return a; }, []); } catch(e) { return []; } }
 function durOf(a) { const d = a.dur || (window.JCDATA&&window.JCDATA.procMin ? window.JCDATA.procMin(a.proc)+" min" : "30 min"); return (""+d).replace(/\s*minutos?\b/i, " min").trim(); }
+// Hora de término de una cita (HH:MM) = inicio + duración real. Para la columna derecha de la
+// tarjeta de cita en la lista de Agenda/Inicio (prototipo: hora inicio grande + hora fin chica).
+function endTimeM(a) {
+  const start = minsM(a.time);
+  const dur = parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+  const e = start + dur, hh = Math.floor(e/60)%24, mm = ((e%60)+60)%60;
+  return (hh<10?"0":"")+hh+":"+(mm<10?"0":"")+mm;
+}
 
 /* ─── Semana (lunes a domingo) que CONTIENE la fecha dada ───
    Reemplaza los antiguos "7 días fijos desde hoy": aquella lista nunca incluía un día elegido
@@ -1007,6 +1015,9 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     return arr;
   }, [today]);
   const [view, setView] = useState("dia");
+  // Vista del día (prototipo): "list" = lista de tarjetas de cita (por defecto, como la foto del
+  // usuario) · "cal" = horarios en calendario (línea de tiempo). Toggle "Ver horarios disponibles".
+  const [dayMode, setDayMode] = useState("list");
   const [monthCur, setMonthCur] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const dayRef = useMemo(() => React.createRef(), []);
   // Centra automáticamente el día seleccionado en la tira (al entrar y al elegir uno desde Mes).
@@ -1203,19 +1214,65 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
           <div style={{ display:"flex", padding:"8px 10px 4px", minWidth:"max-content", gap:2 }}>
             {stripDays.map(d => {
               const isSel = d.iso === selDay;
+              const hasApts = (apptCountByDate[d.iso]||0) > 0;
               return (
                 <button key={d.iso} ref={el=>{ dayBtnRefs.current[d.iso]=el; }} onClick={()=>setSelDay(d.iso)}
-                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1, padding:"6px 8px 5px", borderRadius:12, minWidth:38, cursor:"pointer",
-                    background: isSel ? T.accentSoft : "transparent", border:"1px solid "+(isSel ? T.accentBorder : "transparent") }}>
-                  <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:500, color: isSel ? T.accentStrong : T.textMute }}>{d.isToday ? "Hoy" : d.wd}</span>
-                  <span style={{ fontFamily:T.serif, fontSize:17, fontWeight:600, color: T.text, lineHeight:1.15 }}>{d.dd}</span>
-                  <div style={{ width:4, height:4, borderRadius:"50%", background: isSel ? T.accent : "transparent" }} />
+                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"8px 8px 6px", borderRadius:14, minWidth:44, cursor:"pointer",
+                    background:"transparent", border:"1.4px solid "+(isSel ? T.accent : "transparent") }}>
+                  <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:500, color: T.textFaint }}>{d.wd}</span>
+                  <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color: isSel ? T.accent : (d.isToday ? T.text : T.textMute), lineHeight:1.15 }}>{d.dd}</span>
+                  <div style={{ width:5, height:5, borderRadius:"50%", background: isSel ? T.accent : (hasApts ? T.textFaint : "transparent") }} />
                 </button>
               );
             })}
           </div>
         </div>
-        {!showAnuladas && selActive.length>0 && <div style={{ padding:"12px 16px 8px", flexShrink:0 }}><DaySummary T={T} c={cSel} p={pSel} na={naSel} bars /></div>}
+        {/* Toggle "Ver horarios disponibles" ↔ "Ver lista de citas" (prototipo): la lista de tarjetas
+            es la vista por defecto; al tocar, se ve la agenda en calendario (línea de tiempo por horas). */}
+        <div onClick={()=>setDayMode(m=>m==="list"?"cal":"list")} style={{ margin:"10px 16px 12px", flexShrink:0, background:T.flatFill, border:"1px solid "+T.flatBorder, borderRadius:16, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            <span style={{ fontFamily:T.sans, fontWeight:500, fontSize:13, color:T.text }}>{dayMode==="list"?"Ver horarios disponibles":"Ver lista de citas"}</span>
+          </div>
+          <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke={T.textFaint} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+
+        {dayMode==="list" ? (
+          <div className="no-sb" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", padding:"0 16px 8px", display:"flex", flexDirection:"column", gap:10 }}>
+            <div style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:500, color:T.text }}>{(() => { const d=new Date(selDay+"T12:00:00"); return selDay===today ? "Hoy · "+DOW_FULL[d.getDay()] : DOW_FULL[d.getDay()]+" "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); })()}</div>
+            {dayAppts.map(a => {
+              const st = apptStateM(a, T);
+              const isAnulada = a.status === "anulada";
+              return (
+                <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:T.flatFill, border:"1px solid "+T.flatBorder, borderRadius:14, padding:"12px 14px", opacity:isAnulada?.6:1 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"inline-block", fontFamily:T.sans, fontWeight:700, fontSize:9.5, letterSpacing:".06em", textTransform:"uppercase", padding:"3px 8px", borderRadius:100, color:st.color, background:"color-mix(in srgb, "+st.color+" 18%, transparent)", marginBottom:7 }}>{st.label}</div>
+                    <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:13.5, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:isAnulada?"line-through":"none" }}>{a.name}</div>
+                    <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.proc||"—"}</div>
+                  </div>
+                  <div style={{ width:1, alignSelf:"stretch", background:T.divider }} />
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <div style={{ fontFamily:FRAUNCES, fontWeight:600, fontSize:15, color:st.color }}>{a.time}</div>
+                    <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:1 }}>{endTimeM(a)}</div>
+                  </div>
+                </button>
+              );
+            })}
+            {dayAppts.length === 0 && (
+              <div style={{ textAlign:"center", padding:"34px 0", display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                <div style={{ fontFamily:T.serif, fontSize:18, color:T.textMute }}>{showAnuladas?"Sin citas canceladas este día":"Sin citas este día"}</div>
+                {!showAnuladas && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Toca + para agendar una cita.</div>}
+              </div>
+            )}
+            {!showAnuladas && anuladasCount>0 && (
+              <div onClick={()=>setShowAnuladas(true)} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"12px 0 4px", cursor:"pointer" }}>
+                <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Ver citas anuladas</span>
+                <span style={{ fontFamily:T.sans, fontSize:12, color:T.textFaint }}>({anuladasCount})</span>
+              </div>
+            )}
+            <div style={{ height:88, flexShrink:0 }} />
+          </div>
+        ) : (
         <div ref={dayRef} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
           <div style={{ position:"relative", marginLeft:48, paddingRight:12 }}>
             {CAL_HOURS.map(h => (
@@ -1235,6 +1292,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             )}
           </div>
         </div>
+        )}
       </>)}
       {fab}
     </div>
@@ -1249,6 +1307,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
 function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [tipo, setTipo] = useState("existente"); // existente | nuevo
   const [pid, setPid] = useState("");
+  const [pq, setPq] = useState(""); // buscador de paciente existente (por nombre/RUT)
   const [name, setName] = useState("");
   const [rut, setRut] = useState("");
   const PHONE_PFX = "+56 9 ";
@@ -1343,10 +1402,47 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       {tipo==="existente" ? (
         <div>
           <div style={lbl}>Paciente</div>
-          <select value={pid} onChange={e=>setPid(e.target.value)} style={inp}>
-            <option value="">Selecciona un paciente…</option>
-            {patientOptions.map(p=><option key={p.id} value={p.id}>{p.name}{p.rut?" · "+p.rut:""}</option>)}
-          </select>
+          {selectedPatient ? (
+            // Paciente elegido: tarjeta con datos + botón para cambiar (limpia la selección).
+            <div style={{ display:"flex", alignItems:"center", gap:10, background:T.flatFill, border:"1px solid "+T.accentBorder, borderRadius:12, padding:"11px 13px" }}>
+              <div style={{ width:34, height:34, borderRadius:"50%", background:T.accentSoft, border:"1px solid "+T.accentBorder, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontFamily:T.serif, fontWeight:600, fontSize:12, color:T.accentStrong }}>{(selectedPatient.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</span>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:T.sans, fontWeight:600, fontSize:13.5, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{selectedPatient.name}</div>
+                <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>{[selectedPatient.rut, selectedPatient.phone].filter(Boolean).join(" · ")}</div>
+              </div>
+              <button onClick={()=>{ setPid(""); setPq(""); }} aria-label="Cambiar paciente" style={{ flexShrink:0, background:"none", border:"none", color:T.textMute, cursor:"pointer", fontFamily:T.sans, fontSize:12 }}>Cambiar</button>
+            </div>
+          ) : (<>
+            {/* Buscador por nombre/RUT (pedido: elegir entre tantos pacientes con un select es lento). */}
+            <div style={{ display:"flex", alignItems:"center", gap:10, background:T.inputFill, border:"1px solid "+T.inputBorder, borderRadius:12, padding:"0 12px" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" strokeLinecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M20 20l-5-5"/></svg>
+              <input value={pq} onChange={e=>setPq(e.target.value)} placeholder="Buscar por nombre o RUT…" autoFocus style={{ flex:1, background:"none", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:14, padding:"11px 0", minWidth:0 }} />
+            </div>
+            {(() => {
+              const q = pq.trim().toLowerCase();
+              const res = q.length>=1
+                ? patientOptions.filter(p => (p.name||"").toLowerCase().includes(q) || (p.rut||"").toLowerCase().includes(q)).slice(0,8)
+                : patientOptions.slice(0,8);
+              if (!res.length) return <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, padding:"9px 2px 0" }}>Sin coincidencias. Prueba con "Paciente nuevo".</div>;
+              return (
+                <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:6, maxHeight:214, overflowY:"auto" }} className="no-sb">
+                  {res.map(p => (
+                    <button key={p.id} onClick={()=>{ setPid(p.id); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:T.flatFill, border:"1px solid "+T.flatBorder, borderRadius:11, padding:"10px 12px" }}>
+                      <div style={{ width:30, height:30, borderRadius:"50%", background:T.accentSoft, border:"1px solid "+T.accentBorder, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <span style={{ fontFamily:T.serif, fontWeight:600, fontSize:11, color:T.accentStrong }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</span>
+                      </div>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontFamily:T.sans, fontSize:13, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
+                        {p.rut && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{p.rut}</div>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </>)}
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
@@ -1392,7 +1488,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <span style={lbl}>Duración</span>
         <select value={dur} onChange={e=>setDur(e.target.value)} style={{ ...inp, width:"auto" }}>
-          {["15 minutos","30 minutos","45 minutos","60 minutos","90 minutos"].map(d=><option key={d}>{d}</option>)}
+          {["15 minutos","30 minutos","45 minutos","60 minutos","75 minutos","90 minutos","120 minutos"].map(d=><option key={d}>{d}</option>)}
         </select>
       </div>
 
