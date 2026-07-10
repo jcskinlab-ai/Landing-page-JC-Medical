@@ -663,9 +663,14 @@ function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
   const [err, setErr] = useState("");
   const team = (((window.CADMIN || {}).team) || []).filter(t => t.active !== false);
   const pro = team.find(t => t.id === sesion.proId) || team.find(t => t.name === sesion.proName);
+  // Movimiento de Caja vinculado a esta sesión (solo sesiones creadas después de este cambio tienen
+  // sessionId — las antiguas no se pueden vincular con certeza, así que no se ofrece nada para ellas).
+  const cashMatch = (() => { try { return (window.cashAll ? window.cashAll() : []).find(m => m.sessionId === sesion.id) || null; } catch (e) { return null; } })();
+  const [alsoCash, setAlsoCash] = useState(true);
   function go() {
     if (pro && pro.pin) { if (pin !== pro.pin) { setErr("Clave incorrecta. Solo " + (pro.name || "el profesional") + " puede eliminar su sesión."); return; } }
     else if (pin.length < 1) { setErr("Ingresa una clave para confirmar."); return; }
+    if (cashMatch && alsoCash && window.cashDelete) { try { window.cashDelete(cashMatch.id); } catch (e) {} }
     onConfirm();
   }
   return (
@@ -673,6 +678,14 @@ function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
       <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 }}>
         Vas a eliminar la sesión <b style={{ color: T.text }}>{sesion.proc || "—"}</b>{sesion.date ? " del " + sesion.date : ""}. {sesion.proName ? ("Confirma con la clave de " + sesion.proName + ".") : "Confirma con la clave del profesional."}
       </div>
+      {cashMatch && (
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 12, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, cursor: "pointer" }}>
+          <input type="checkbox" checked={alsoCash} onChange={e => setAlsoCash(e.target.checked)} style={{ marginTop: 2 }} />
+          <span style={{ fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.45 }}>
+            Esta sesión generó un ingreso de <b>{window.JCDATA ? window.JCDATA.fmt(cashMatch.amount) : "$" + cashMatch.amount}</b> en Caja. También eliminarlo (si lo desmarcas, el movimiento se queda en Caja sin sesión asociada).
+          </span>
+        </label>
+      )}
       <input type="password" value={pin} autoFocus onChange={e => { setPin(e.target.value.replace(/\D/g, "").slice(0, 6)); setErr(""); }} onKeyDown={e => { if (e.key === "Enter") go(); }} inputMode="numeric" placeholder="Clave del profesional"
         style={{ width: "100%", padding: "12px 13px", borderRadius: 6, border: "1px solid " + (err ? "#C0285A" : T.line), background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 15, letterSpacing: ".3em", textAlign: "center", outline: "none" }} />
       {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: 8 }}>{err}</div>}
@@ -998,16 +1011,19 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
           {newEntry && <NewEntryModal T={T} patient={patient} updatePatient={updatePatient} startView={viewMode} entry={editIdx != null ? (patient.history || [])[editIdx] : null} onClose={() => { setNewEntry(false); setEditIdx(null); setViewMode(false); }} onSave={e => {
             const hist = (patient.history || []).slice();
             const editing = editIdx != null;
-            if (editing) hist[editIdx] = { ...hist[editIdx], ...e }; else hist.unshift({ id: (window.jcmUid ? window.jcmUid("s") : "s" + Date.now()), ...e });
+            const newSessionId = window.jcmUid ? window.jcmUid("s") : "s" + Date.now();
+            if (editing) hist[editIdx] = { ...hist[editIdx], ...e }; else hist.unshift({ id: newSessionId, ...e });
             const patch = { history: hist };
             if (!editing && patient.campaign) patch.campaign = { ...patient.campaign, meta_estado: "compro" };
             updatePatient(patient.id, patch); setNewEntry(false); setEditIdx(null); setViewMode(false);
             // Al registrar una sesión NUEVA con cobro, se suma automáticamente a Caja (ingreso por atención),
-            // de modo que el procedimiento de la ficha aparece en Caja, Reportes y el Dashboard.
+            // de modo que el procedimiento de la ficha aparece en Caja, Reportes y el Dashboard. Se guarda
+            // sessionId en el movimiento para poder ofrecer eliminarlo si la sesión se borra después — antes
+            // el borrado de una sesión dejaba el cobro huérfano en Caja, sin ninguna sesión asociada.
             if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
               // Descuenta el costo de insumos del procedimiento (config de inventario) para el líquido.
               const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
-              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name, prof: e.proName || "" }); } catch (e3) {}
+              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: newSessionId }); } catch (e3) {}
             }
             try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : ((e.cobro || 0) > 0 ? "Sesión registrada · " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesión registrada."), "ok"); } catch (e2) {}
           }} />}

@@ -653,6 +653,14 @@ function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
   const [err, setErr] = useState("");
   const team = ((window.CADMIN || {}).team || []).filter((t) => t.active !== false);
   const pro = team.find((t) => t.id === sesion.proId) || team.find((t) => t.name === sesion.proName);
+  const cashMatch = (() => {
+    try {
+      return (window.cashAll ? window.cashAll() : []).find((m) => m.sessionId === sesion.id) || null;
+    } catch (e) {
+      return null;
+    }
+  })();
+  const [alsoCash, setAlsoCash] = useState(true);
   function go() {
     if (pro && pro.pin) {
       if (pin !== pro.pin) {
@@ -663,9 +671,15 @@ function SesionDeleteModal({ T, sesion, onClose, onConfirm }) {
       setErr("Ingresa una clave para confirmar.");
       return;
     }
+    if (cashMatch && alsoCash && window.cashDelete) {
+      try {
+        window.cashDelete(cashMatch.id);
+      } catch (e) {
+      }
+    }
     onConfirm();
   }
-  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Eliminar sesi\xF3n", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cancelar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: go }, "Eliminar")) }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 } }, "Vas a eliminar la sesi\xF3n ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, sesion.proc || "\u2014"), sesion.date ? " del " + sesion.date : "", ". ", sesion.proName ? "Confirma con la clave de " + sesion.proName + "." : "Confirma con la clave del profesional."), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Eliminar sesi\xF3n", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cancelar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: go }, "Eliminar")) }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, marginBottom: 12 } }, "Vas a eliminar la sesi\xF3n ", /* @__PURE__ */ React.createElement("b", { style: { color: T.text } }, sesion.proc || "\u2014"), sesion.date ? " del " + sesion.date : "", ". ", sesion.proName ? "Confirma con la clave de " + sesion.proName + "." : "Confirma con la clave del profesional."), cashMatch && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 12, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: alsoCash, onChange: (e) => setAlsoCash(e.target.checked), style: { marginTop: 2 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.text, lineHeight: 1.45 } }, "Esta sesi\xF3n gener\xF3 un ingreso de ", /* @__PURE__ */ React.createElement("b", null, window.JCDATA ? window.JCDATA.fmt(cashMatch.amount) : "$" + cashMatch.amount), " en Caja. Tambi\xE9n eliminarlo (si lo desmarcas, el movimiento se queda en Caja sin sesi\xF3n asociada).")), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "password",
@@ -905,8 +919,9 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   }, onSave: (e) => {
     const hist = (patient.history || []).slice();
     const editing = editIdx != null;
+    const newSessionId = window.jcmUid ? window.jcmUid("s") : "s" + Date.now();
     if (editing) hist[editIdx] = { ...hist[editIdx], ...e };
-    else hist.unshift({ id: window.jcmUid ? window.jcmUid("s") : "s" + Date.now(), ...e });
+    else hist.unshift({ id: newSessionId, ...e });
     const patch = { history: hist };
     if (!editing && patient.campaign) patch.campaign = { ...patient.campaign, meta_estado: "compro" };
     updatePatient(patient.id, patch);
@@ -916,7 +931,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
       const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
       try {
-        window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atenci\xF3n").trim() + " \xB7 " + (patient.name || ""), patient: patient.name, prof: e.proName || "" });
+        window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atenci\xF3n").trim() + " \xB7 " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: newSessionId });
       } catch (e3) {
       }
     }
