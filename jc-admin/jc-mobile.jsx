@@ -165,6 +165,8 @@ function dayLabelM(iso) {
   const d = new Date(iso+"T00:00:00");
   return WDS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()];
 }
+// Desplaza una fecha ISO ±N días (para los steppers ‹ › del prototipo, en la hoja de cita y Nueva cita).
+function shiftDateM(iso, delta) { const d = new Date((iso||todayISO())+"T12:00:00"); d.setDate(d.getDate()+delta); return localISO(d); }
 // Hora de término de una cita = inicio + duración (o el campo end si viene). Solo para PRESENTACIÓN
 // (línea "hora fin" bajo la hora en las tarjetas del prototipo); no toca datos ni horarios.
 function apptEndM(a) {
@@ -402,110 +404,121 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
     onClose();
   }
 
-  const card = { ...glassPanel(T, 22), width:"100%", maxWidth:480, maxHeight:"88dvh", overflowY:"auto", padding:"10px 18px calc(22px + env(safe-area-inset-bottom,0px))", boxSizing:"border-box" };
-  const inp = { width:"100%", boxSizing:"border-box", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" };
+  // Bottom-sheet del prototipo v2 (líneas ~717-799): hoja que sube desde abajo sobre T.bgRadial,
+  // radio 24 24 0 0, handle arriba. Toda la lógica real se conserva; solo cambia la composición.
+  const sheet = { width:"100%", maxWidth:480, maxHeight:"84dvh", overflowY:"auto", background:T.bgRadial, borderRadius:"24px 24px 0 0", padding:"10px 20px calc(28px + env(safe-area-inset-bottom,0px))", boxSizing:"border-box", boxShadow:"0 -20px 50px rgba(0,0,0,.4)", borderTop:"1px solid "+T.glassBorder };
+  const inp = { width:"100%", boxSizing:"border-box", fontFamily:T.sans, fontSize:13, padding:"8px 10px", borderRadius:8, border:"1px solid "+T.glassBorder, background:T.glassFill, color:T.text, outline:"none" };
+  const initials = (a.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+  // Stepper circular ‹ / › (prototipo) para desplazar la fecha en el editor.
+  const stepBtn = (dir, onClick) => (
+    <button onClick={onClick} style={{ width:26, height:26, borderRadius:"50%", background:T.glassFill, border:"1px solid "+T.glassBorder, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d={dir<0?"M15 5l-7 7 7 7":"M9 5l7 7-7 7"}/></svg>
+    </button>
+  );
 
   return (
-    <div onMouseDown={e=>{ if (e.target===e.currentTarget) onClose(); }} style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center", background:"rgba(0,0,0,.55)" }}>
-      <div onClick={e=>e.stopPropagation()} style={card}>
-        <div style={{ width:36, height:4, borderRadius:2, background:T.textFaint, margin:"6px auto 14px" }} />
-        <div style={{ display:"flex", alignItems:"flex-start", gap:12, marginBottom:14 }}>
-          <div style={{ width:44, height:44, borderRadius:"50%", background:st.color+"26", color:st.color, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:15, fontWeight:700, flexShrink:0 }}>
-            {(a.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+    <div onMouseDown={e=>{ if (e.target===e.currentTarget) onClose(); }} style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center", background:"rgba(2,4,8,.6)" }}>
+      <div onClick={e=>e.stopPropagation()} className="no-sb" style={sheet}>
+        <div style={{ width:36, height:5, borderRadius:100, background:T.divider, margin:"0 auto 16px" }} />
+        <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+          <div style={{ width:44, height:44, borderRadius:"50%", background:T.accentSoft, border:"1px solid "+T.accentBorder, color:T.accentStrong, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.serif, fontSize:14, fontWeight:600, flexShrink:0 }}>
+            {initials}
           </div>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text, lineHeight:1.15 }}>{a.name}</div>
-            <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:2 }}>{a.time} · {a.proc||"—"} · {durLabel}</div>
-            {matched && <button onClick={()=>onOpenFicha(matched.id)} style={{ marginTop:4, background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:11.5, color:T.accent, textDecoration:"underline" }}>Ver ficha del paciente →</button>}
+            <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text, lineHeight:1.2 }}>{a.name}</div>
+            <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, marginTop:2 }}>{a.time} · {a.proc||"—"} · {durLabel}</div>
+            {matched && <button onClick={()=>onOpenFicha(matched.id)} style={{ marginTop:6, background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:T.sans, fontSize:12, color:T.accentStrong }}>Ver ficha del paciente →</button>}
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ flexShrink:0, width:44, height:44, borderRadius:"50%", border:"none", background:T.flatFill, color:T.textMute, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <button onClick={onClose} aria-label="Cerrar" style={{ flexShrink:0, width:32, height:32, borderRadius:"50%", border:"1px solid "+T.flatBorder, background:T.flatFill, color:T.textMute, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
           </button>
         </div>
 
         {isPend && (
           <button onClick={()=>{ confirmPago(a.id); onClose(); }}
-            style={{ width:"100%", background:"#1F8A5B", color:"#fff", fontFamily:T.sans, fontSize:12.5, letterSpacing:".08em", textTransform:"uppercase", border:"none", borderRadius:10, padding:"14px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:12 }}>
+            style={{ width:"100%", background:"#1F8A5B", color:"#fff", fontFamily:T.sans, fontSize:12.5, letterSpacing:".08em", textTransform:"uppercase", border:"none", borderRadius:12, padding:"14px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginTop:16 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M20 6 9 17l-5-5"/></svg>
             Confirmar transferencia
           </button>
         )}
 
         {isAnulada ? (
-          <div style={{ marginBottom:14 }}>
+          <div style={{ marginTop:20 }}>
             <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginBottom:10, lineHeight:1.5 }}>Esta cita está cancelada. Restaurarla la vuelve a dejar agendada y ocupa el horario nuevamente.</div>
-            <button onClick={()=>{ restoreAppt(a.id); onClose(); }} style={{ width:"100%", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12.5, fontWeight:600, border:"none", borderRadius:10, padding:"14px", cursor:"pointer" }}>Restaurar cita</button>
+            <button onClick={()=>{ restoreAppt(a.id); onClose(); }} style={{ width:"100%", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:14, fontWeight:600, border:"none", borderRadius:14, padding:"14px", cursor:"pointer" }}>Restaurar cita</button>
           </div>
         ) : (
-          <div style={{ marginBottom:14 }}>
-            <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Estado de la cita</div>
+          <div>
+            <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:10.5, letterSpacing:".1em", textTransform:"uppercase", color:T.textFaint, margin:"20px 0 10px" }}>Estado de la cita</div>
+            {/* Grilla 2col de los 4 estados; "Cancelar" va en su propia fila roja (prototipo). El
+                color OFICIAL del estado activo (apptStateM) marca el botón seleccionado. */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9 }}>
+              {STATUS_STEPS.filter(s=>s.key!=="anulada").map(s => {
+                const on = (s.key==="pendiente" ? (a.status==="pendiente"||!a.status) : a.status===s.key) || (s.key==="atendida" && a.attended);
+                const stColor = apptStateM(s.key==="atendida"?{attended:true}:{status:s.key}, T).color;
+                return (
+                  <button key={s.key} onClick={()=>setStatus(s.key)}
+                    style={{ textAlign:"center", padding:"13px 8px", borderRadius:14, cursor:"pointer",
+                      background: on ? stColor+"26" : T.flatFill,
+                      border:"1.4px solid "+(on ? stColor : T.flatBorder),
+                      fontFamily:T.sans, fontWeight:600, fontSize:13, color: on ? stColor : T.text }}>
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
             {!confirmCancel ? (
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
-                {STATUS_STEPS.map(s => {
-                  const on = (s.key==="pendiente" ? (a.status==="pendiente"||!a.status) : a.status===s.key) || (s.key==="atendida" && a.attended);
-                  const isCancelBtn = s.key === "anulada";
-                  return (
-                    <button key={s.key} onClick={()=>setStatus(s.key)}
-                      style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:on?700:500, padding:"12px 8px", borderRadius:9, cursor:"pointer",
-                        gridColumn: isCancelBtn ? "1 / -1" : undefined,
-                        border:"1px solid "+(isCancelBtn ? "#C0285A55" : (on ? T.accent : T.inputBorder)),
-                        background: isCancelBtn ? "transparent" : (on ? T.accent : T.flatFill),
-                        color: isCancelBtn ? "#C0285A" : (on ? T.onAccent : T.text) }}>
-                      {s.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <button onClick={()=>setConfirmCancel(true)} style={{ display:"block", width:"100%", marginTop:9, textAlign:"center", padding:"13px 8px", borderRadius:14, border:"1.4px solid "+T.red, background:"transparent", cursor:"pointer", fontFamily:T.sans, fontWeight:600, fontSize:13, color:T.red }}>Cancelar</button>
             ) : (
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={()=>setConfirmCancel(false)} style={{ flex:1, padding:"13px", borderRadius:9, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12.5, cursor:"pointer" }}>Volver</button>
-                <button onClick={()=>{ cancelAppt(a.id); onClose(); }} style={{ flex:1, padding:"13px", borderRadius:9, border:"none", background:"#C0285A", color:"#fff", fontFamily:T.sans, fontSize:12.5, fontWeight:600, cursor:"pointer" }}>Sí, cancelar cita</button>
+              <div style={{ display:"flex", gap:9, marginTop:9 }}>
+                <button onClick={()=>setConfirmCancel(false)} style={{ flex:1, padding:"13px", borderRadius:14, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:13, cursor:"pointer" }}>Volver</button>
+                <button onClick={()=>{ cancelAppt(a.id); onClose(); }} style={{ flex:1, padding:"13px", borderRadius:14, border:"none", background:T.red, color:"#fff", fontFamily:T.sans, fontSize:13, fontWeight:600, cursor:"pointer" }}>Sí, cancelar</button>
               </div>
             )}
           </div>
         )}
 
-        {/* Comentario */}
-        {editCom ? (
-          <div style={{ display:"flex", flexDirection:"column", gap:7, marginBottom:12 }}>
-            <textarea value={comTxt} onChange={e=>setComTxt(e.target.value)} placeholder="Ej. Evaluación de botox, control rinomodelación…" rows={2} autoFocus style={{ ...inp, resize:"none" }} />
-            <div style={{ display:"flex", gap:6 }}>
-              <button onClick={()=>setEditCom(false)} style={{ flex:1, height:36, borderRadius:8, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Cancelar</button>
-              <button onClick={()=>{ updateAppt(a.id,{comentario:comTxt.trim()}); setEditCom(false); }} style={{ flex:2, height:36, borderRadius:8, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer" }}>Guardar</button>
-            </div>
-          </div>
-        ) : (
-          <button onClick={()=>setEditCom(true)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", ...glassChip(T), borderRadius:9, padding:"10px 12px", cursor:"pointer", textAlign:"left", marginBottom:10 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <span style={{ fontFamily:T.sans, fontSize:12, color:a.comentario?T.text:T.textMute, flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.comentario || "Agregar comentario"}</span>
-          </button>
+        {/* Agregar comentario (togglea textarea; guarda el comentario real al perder el foco). */}
+        <button onClick={()=>{ setComTxt(a.comentario||""); setEditCom(v=>!v); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", marginTop:14, padding:"13px 14px", borderRadius:14, background:T.flatFill, border:"1px solid "+T.flatBorder, cursor:"pointer", textAlign:"left" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H8l-4 4V4Z"/></svg>
+          <span style={{ fontFamily:T.sans, fontSize:13.5, color:a.comentario?T.text:T.text, flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{editCom ? "Agregar comentario" : (a.comentario || "Agregar comentario")}</span>
+        </button>
+        {editCom && (
+          <textarea value={comTxt} onChange={e=>setComTxt(e.target.value)} onBlur={()=>updateAppt(a.id,{comentario:comTxt.trim()||undefined})} placeholder="Escribe una nota interna…" autoFocus rows={2}
+            style={{ width:"100%", boxSizing:"border-box", marginTop:8, minHeight:64, borderRadius:12, background:T.flatFill, border:"1px solid "+T.flatBorder, color:T.text, fontFamily:T.sans, fontSize:13, padding:"10px 12px", resize:"none", outline:"none" }} />
         )}
 
-        {/* Editar detalles */}
-        {edit ? (
-          <div style={{ display:"flex", flexDirection:"column", gap:8, ...glassChip(T), borderRadius:10, padding:"12px 13px", marginBottom:10 }}>
-            <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".1em", textTransform:"uppercase", color:T.accent }}>Editar cita</div>
-            <label style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>Fecha
-              <input type="date" value={ef.fecha} onChange={e=>setEf(f=>({...f,fecha:e.target.value}))} style={{ ...inp, marginTop:3 }} /></label>
-            <div style={{ display:"flex", gap:8 }}>
-              <label style={{ flex:1, fontFamily:T.sans, fontSize:11, color:T.textMute }}>Hora
-                <select value={ef.time} onChange={e=>setEf(f=>({...f,time:e.target.value}))} style={{ ...inp, marginTop:3 }}>{slotsM().map(h=><option key={h} value={h}>{h}</option>)}{slotsM().indexOf(ef.time)<0 && <option value={ef.time}>{ef.time}</option>}</select></label>
-              <label style={{ flex:1, fontFamily:T.sans, fontSize:11, color:T.textMute }}>Duración
-                <select value={ef.dur} onChange={e=>setEf(f=>({...f,dur:e.target.value}))} style={{ ...inp, marginTop:3 }}>{["15","30","45","60","90","120"].map(d=><option key={d} value={d}>{d} min</option>)}</select></label>
+        {/* Editar fecha, hora, duración o procedimiento (togglea el editor real con steppers ‹ ›). */}
+        <button onClick={()=>{ if(!edit) setEf({ fecha:a.fecha||todayISO(), time:a.time||"10:00", dur:(parseInt(a.dur)||30)+"", proc:a.proc||"" }); setEdit(v=>!v); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", marginTop:9, padding:"13px 14px", borderRadius:14, background:T.flatFill, border:"1px solid "+T.flatBorder, cursor:"pointer", textAlign:"left" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20l4-1 10-10-3-3L5 16l-1 4Z"/></svg>
+          <span style={{ fontFamily:T.sans, fontSize:13.5, color:T.text, flex:1 }}>Editar fecha, hora, duración o procedimiento</span>
+        </button>
+        {edit && (
+          <div style={{ marginTop:8, padding:14, borderRadius:14, background:T.flatFill, border:"1px solid "+T.flatBorder, display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Fecha</span>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                {stepBtn(-1, ()=>setEf(f=>({...f, fecha:shiftDateM(f.fecha,-1)})))}
+                <span style={{ fontFamily:T.sans, fontWeight:500, fontSize:12.5, color:T.text, minWidth:88, textAlign:"center" }}>{dayLabelM(ef.fecha)}</span>
+                {stepBtn(1, ()=>setEf(f=>({...f, fecha:shiftDateM(f.fecha,1)})))}
+              </div>
             </div>
-            <label style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>Procedimiento
-              {procOpts.length ? <select value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} style={{ ...inp, marginTop:3 }}>{[ef.proc, ...procOpts.filter(p=>p!==ef.proc)].filter(Boolean).map(p=><option key={p} value={p}>{p}</option>)}</select>
-                : <input value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} placeholder="Procedimiento" style={{ ...inp, marginTop:3 }} />}</label>
-            <div style={{ display:"flex", gap:6, marginTop:2 }}>
-              <button onClick={()=>setEdit(false)} style={{ flex:1, height:38, borderRadius:8, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Cancelar</button>
-              <button onClick={()=>{ updateAppt(a.id,{ fecha:ef.fecha, day:isoToDayOff(ef.fecha), time:ef.time, dur:ef.dur+" minutos", proc:ef.proc }); setEdit(false); }} style={{ flex:2, height:38, borderRadius:8, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer" }}>Guardar cambios</button>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Hora</span>
+              <input type="time" value={ef.time} onChange={e=>setEf(f=>({...f,time:e.target.value}))} style={{ ...inp, width:"auto" }} />
             </div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Duración</span>
+              <select value={ef.dur} onChange={e=>setEf(f=>({...f,dur:e.target.value}))} style={{ ...inp, width:"auto" }}>{["15","30","45","60","90","120"].map(d=><option key={d} value={d}>{d} min</option>)}</select>
+            </div>
+            <div>
+              <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, display:"block", marginBottom:6 }}>Procedimiento</span>
+              {procOpts.length
+                ? <select value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} style={inp}>{[ef.proc, ...procOpts.filter(p=>p!==ef.proc)].filter(Boolean).map(p=><option key={p} value={p}>{p}</option>)}</select>
+                : <input value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} placeholder="Procedimiento" style={inp} />}
+            </div>
+            <button onClick={()=>{ updateAppt(a.id,{ fecha:ef.fecha, day:isoToDayOff(ef.fecha), time:ef.time, dur:ef.dur+" minutos", proc:ef.proc }); setEdit(false); }} style={{ height:44, borderRadius:12, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:14, fontWeight:600, cursor:"pointer" }}>Guardar cambios</button>
           </div>
-        ) : (
-          <button onClick={()=>{ setEf({ fecha:a.fecha||todayISO(), time:a.time||"10:00", dur:(parseInt(a.dur)||30)+"", proc:a.proc||"" }); setEdit(true); }} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", ...glassChip(T), borderRadius:9, padding:"10px 12px", cursor:"pointer", textAlign:"left", color:T.text, fontFamily:T.sans, fontSize:12.5, marginBottom:10 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-            Editar fecha, hora, duración o procedimiento
-          </button>
         )}
 
         {waPhone && (
@@ -513,9 +526,9 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
           // (jcmConfirmAsistMsg): pide responder SÍ/NO, con fecha/hora en español y cómo llegar.
           <a href={"https://wa.me/56"+waPhone.replace(/^(56|0)/,"")+"?text="+encodeURIComponent(jcmConfirmAsistMsgM(a, clinNombre))}
             target="_blank" rel="noopener"
-            style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"#1F8A5B22", border:"1px solid #1F8A5B55", borderRadius:9, padding:"12px", textDecoration:"none", color:"#1F8A5B", fontFamily:T.sans, fontSize:12.5, fontWeight:500 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="#1F8A5B"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z"/></svg>
-            Confirmar asistencia
+            style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginTop:16, padding:"14px 8px", borderRadius:14, background:T.green+"24", border:"1.4px solid "+T.green+"80", textDecoration:"none", color:T.green, fontFamily:T.sans, fontSize:13.5, fontWeight:600 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.green} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.55L4 20l1.05-4.5A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 10.5c.3 2.5 2.5 4.7 5 5"/></svg>
+            Confirmar asistencia por WhatsApp
           </a>
         )}
       </div>
@@ -850,10 +863,15 @@ function HorariosTab({ T, appts }) {
   const availCount = avail.filter(s=>!occupied.has(s)).length;
   const blockedCount = slotsM().filter(s=>!avail.includes(s)&&!occupied.has(s)).length;
 
+  // Etiqueta de fecha del día seleccionado (prototipo): "Miércoles 10 de julio".
+  const dateLabel = (() => { try { return new Date(selDay+"T12:00:00").toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"}); } catch(e) { return selDay; } })();
+
   return (
-    <div style={{ padding:"6px 12px 90px" }}>
-      <div style={{ overflowX:"auto" }}>
-        <div style={{ display:"flex", gap:5, padding:"6px 2px 12px", minWidth:"max-content" }}>
+    <div style={{ padding:"6px 16px 90px" }}>
+      {/* Fecha del día seleccionado (el título "Bloquear horarios" vive en el header de la pestaña). */}
+      <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, textTransform:"capitalize", padding:"0 2px 8px" }}>{dateLabel}</div>
+      <div className="no-sb" style={{ overflowX:"auto" }}>
+        <div style={{ display:"flex", gap:5, padding:"2px 2px 12px", minWidth:"max-content" }}>
           {stripDays.map(d=>{
             const isSel = d.iso===selDay;
             return (
@@ -861,42 +879,46 @@ function HorariosTab({ T, appts }) {
                 style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"7px 9px 5px", borderRadius:12, minWidth:42, cursor:"pointer",
                   background: isSel ? T.accentSoft : "transparent", border:"1px solid "+(isSel ? T.accentBorder : "transparent") }}>
                 <span style={{ fontFamily:T.sans, fontSize:10.5, fontWeight:500, color:isSel?T.accentStrong:T.textMute }}>{d.isToday?"Hoy":d.wd}</span>
-                <span style={{ fontFamily:T.sans, fontSize:18, fontWeight:600, color:T.text }}>{d.dd}</span>
+                <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color:T.text }}>{d.dd}</span>
                 <div style={{ width:5, height:5, borderRadius:"50%", background:isSel?T.accent:"transparent" }} />
               </button>
             );
           })}
         </div>
       </div>
-      <div style={{ ...glassPanel(T,14), padding:"12px 14px", display:"flex", alignItems:"center", gap:10, marginBottom:10, flexWrap:"wrap" }}>
-        <div style={{ flex:1, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:160 }}>
-          <span style={{ color:"#1F8A5B", fontWeight:600 }}>{availCount}</span> disponibles · <span style={{ color:T.textFaint }}>{blockedCount}</span> bloqueadas · <span style={{ color:"#B8860B", fontWeight:600 }}>{occupied.size}</span> con cita
+      {/* Tarjeta glass: línea-resumen + botones "Abrir todo" (borde accent) / "Bloquear todo" (borde rojo). */}
+      <div style={{ ...glassPanel(T,16), padding:"14px 16px", marginBottom:14 }}>
+        <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, marginBottom:12 }}>
+          <span style={{ color:T.green, fontWeight:600 }}>{availCount}</span> disponibles · <span style={{ color:T.textFaint }}>{blockedCount}</span> bloqueadas · <span style={{ color:T.gold, fontWeight:600 }}>{occupied.size}</span> con cita
         </div>
-        <button onClick={openAll}  style={{ background:"#1F8A5B18", border:"1px solid #1F8A5B44", color:"#1F8A5B", borderRadius:8, padding:"8px 12px", fontFamily:T.sans, fontSize:10.5, cursor:"pointer" }}>Abrir todo</button>
-        <button onClick={blockAll} style={{ background:"#C0285A18", border:"1px solid #C0285A44", color:"#C0285A", borderRadius:8, padding:"8px 12px", fontFamily:T.sans, fontSize:10.5, cursor:"pointer" }}>Bloquear todo</button>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={openAll} style={{ flex:1, textAlign:"center", padding:9, borderRadius:100, border:"1.4px solid "+T.accent, background:"transparent", color:T.accentStrong, fontFamily:T.sans, fontWeight:600, fontSize:12, cursor:"pointer" }}>Abrir todo</button>
+          <button onClick={blockAll} style={{ flex:1, textAlign:"center", padding:9, borderRadius:100, border:"1.4px solid "+T.red, background:"transparent", color:T.red, fontFamily:T.sans, fontWeight:600, fontSize:12, cursor:"pointer" }}>Bloquear todo</button>
+        </div>
       </div>
-      <div style={{ display:"flex", gap:14, padding:"2px 2px 10px" }}>
-        {[["#1F8A5B","Disponible"],["#C0285A","Bloqueado"],["#B8860B","Con cita"]].map(([c,l])=>(
-          <div key={l} style={{ display:"flex", alignItems:"center", gap:5 }}>
-            <div style={{ width:9, height:9, borderRadius:3, background:c }} />
-            <span style={{ fontFamily:T.sans, fontSize:10, color:T.textMute }}>{l}</span>
+      {/* Leyenda 3 puntos (prototipo): Disponible=verde, Bloqueado=rojo, Con cita=dorado. */}
+      <div style={{ display:"flex", gap:16, padding:"0 2px 14px" }}>
+        {[[T.green,"Disponible"],[T.red,"Bloqueado"],[T.gold,"Con cita"]].map(([c,l])=>(
+          <div key={l} style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background:c }} />
+            <span style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>{l}</span>
           </div>
         ))}
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7 }}>
+      {/* Grilla de 4 columnas: cada slot verde(disponible)/rojo(bloqueado)/dorado(con cita). Tocar
+          alterna disponible↔bloqueado salvo los que tienen cita (se cablea a la lógica real toggle). */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8 }}>
         {slotsM().map(slot=>{
           const isOcc = occupied.has(slot);
           const isAvail = avail.includes(slot);
+          const color = isOcc ? T.gold : isAvail ? T.green : T.red;
           return (
             <button key={slot} onClick={()=>toggle(slot)} disabled={isOcc}
-              style={{ padding:"11px 4px", borderRadius:9, border:"1px solid",
-                fontFamily:T.sans, fontSize:12.5, fontWeight:500,
-                cursor:isOcc?"default":"pointer",
-                background:isOcc?"#B8860B22":isAvail?"#1F8A5B1e":T.flatFill,
-                borderColor:isOcc?"#B8860B55":isAvail?"#1F8A5B55":T.flatBorder,
-                color:isOcc?"#B8860B":isAvail?"#1F8A5B":T.textFaint }}>
+              style={{ textAlign:"center", padding:"10px 4px", borderRadius:12, border:"1.4px solid "+color,
+                fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:isOcc?"default":"pointer",
+                background:color+"1e", color:color }}>
               {slot}
-              {isOcc&&<div style={{ fontFamily:T.sans, fontSize:11, marginTop:1, opacity:.7 }}>cita</div>}
+              {isOcc&&<div style={{ fontFamily:T.sans, fontSize:9, marginTop:2, color:color }}>cita</div>}
             </button>
           );
         })}
@@ -1224,12 +1246,13 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   );
 }
 
-/* ═══════════ Nueva cita — asistente de 3 pasos (Paciente → Detalles → Confirmar) ═══════════ */
+/* ═══════════ Nueva cita — formulario overlay de una sola vista (prototipo v2) ═══════════ */
+// Nueva cita — formulario overlay de UNA sola vista (prototipo v2, líneas ~638-687), conservando la
+// capacidad real de crear un PACIENTE NUEVO (toggle segmentado existente/nuevo con RUT validado). El
+// guardado usa la lógica real: addAppt (status pendiente), addPatient si es nuevo, y el flujo real de
+// WhatsApp de confirmación (jcmCitaConfirmMsgM). Reemplaza al antiguo asistente de 3 pasos.
 function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
-  const [step, setStep] = useState(1);
-  // Paso 1 — paciente
   const [tipo, setTipo] = useState("existente"); // existente | nuevo
-  const [q, setQ] = useState("");
   const [pid, setPid] = useState("");
   const [name, setName] = useState("");
   const [rut, setRut] = useState("");
@@ -1243,30 +1266,29 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const rutOk = window.jcmValidRut ? window.jcmValidRut(rut) : (rut||"").replace(/[^0-9kK]/g,"").length >= 2;
   const [sinRut, setSinRut] = useState(false);
   const [email, setEmail] = useState("");
-  // Paso 2 — detalles
+  // Detalles de la cita
   const procs = procList();
   const [fecha, setFecha] = useState(todayISO());
   const [time,  setTime]  = useState("10:00");
   const [proc,    setProc]    = useState(procs[0]||"Evaluación general");
   const [dur,     setDur]     = useState("30 minutos");
   const [comment, setComment] = useState("");
-  // Paso 3
   const [notifyWa, setNotifyWa] = useState(true);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => { if (window.JCDATA && window.JCDATA.procMin) setDur(window.JCDATA.procMin(proc) + " minutos"); }, [proc]);
 
+  // Opciones del select "Paciente existente" (prototipo): pacientes ordenados por nombre.
+  const patientOptions = patients.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   const selectedPatient = patients.find(p=>p.id===pid) || null;
-  const ql = q.trim().toLowerCase();
-  const results = ql.length>=2 ? patients.filter(p => (p.name||"").toLowerCase().includes(ql) || (p.rut||"").toLowerCase().includes(ql) || (p.phone||"").includes(ql)).slice(0,6) : [];
 
   const finalName = tipo==="existente" ? (selectedPatient?selectedPatient.name:"") : name;
   const finalPhone = tipo==="existente" ? (selectedPatient?selectedPatient.phone:"") : phone;
   const finalRut = tipo==="existente" ? (selectedPatient?selectedPatient.rut:"") : rut;
   const finalEmail = tipo==="existente" ? (selectedPatient?selectedPatient.email:"") : email;
 
-  const step1Ok = tipo==="existente" ? !!selectedPatient : (name.trim() && (sinRut || rutOk) && phoneOk);
-  const step2Ok = !!proc && !!fecha && !!time;
+  const patientOk = tipo==="existente" ? !!selectedPatient : (name.trim() && (sinRut || rutOk) && phoneOk);
+  const canSave = patientOk && !!proc && !!fecha && !!time;
 
   const slotsMap = (window.DB && window.DB.get('horarios_dates')) || {};
   const weeklyDef = (() => {
@@ -1278,6 +1300,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const freeSlots = avail.filter(s=>!occupied.has(s));
 
   function confirm() {
+    if (!canSave || saved) return;
     let patId = pid;
     if (tipo === "nuevo") {
       const np = addPatient({ name: name.trim(), rut: sinRut ? "" : rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
@@ -1302,134 +1325,92 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     setTimeout(()=>{ setSaved(false); onDone(); }, 900);
   }
 
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:15, padding:"15px 15px", minHeight:54, borderRadius:14, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
-  const lbl = { display:"block", fontFamily:T.sans, fontSize:13, fontWeight:500, color:T.text, marginBottom:8 };
-  const STEPS = ["Paciente","Detalles","Confirmar"];
+  const inp = { width:"100%", boxSizing:"border-box", fontFamily:T.sans, fontSize:14, padding:"11px 12px", borderRadius:12, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" };
+  const lbl = { fontFamily:T.sans, fontSize:11.5, color:T.textMute, marginBottom:6 };
+  // Stepper circular ‹ / › (prototipo) para la fecha.
+  const stepBtn = (dir, onClick) => (
+    <button onClick={onClick} style={{ width:28, height:28, borderRadius:"50%", background:T.glassFill, border:"1px solid "+T.glassBorder, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d={dir<0?"M15 5l-7 7 7 7":"M9 5l7 7-7 7"}/></svg>
+    </button>
+  );
 
   return (
-    <div style={{ padding:"14px 16px 90px", display:"flex", flexDirection:"column", gap:16 }}>
-      {/* El título "Nueva cita" ya vive en el header de la pestaña; no se duplica aquí. */}
-      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-        {STEPS.map((s,i) => (
-          <React.Fragment key={s}>
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
-              <div style={{ width:26, height:26, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:12, fontWeight:700,
-                background: step===i+1 ? T.accent : (step>i+1 ? T.accent+"33" : T.flatFill),
-                color: step===i+1 ? T.onAccent : (step>i+1 ? T.accent : T.textFaint) }}>{step>i+1 ? "✓" : i+1}</div>
-              <span style={{ fontFamily:T.sans, fontSize:11, color: step>=i+1 ? T.text : T.textFaint, whiteSpace:"nowrap" }}>{s}</span>
-            </div>
-            {i<STEPS.length-1 && <div style={{ flex:1, height:1, background: step>i+1 ? T.accent : T.divider, marginBottom:16 }} />}
-          </React.Fragment>
+    // El título "Nueva cita" ya vive en el header de la pestaña; aquí va el formulario del prototipo.
+    <div style={{ padding:"14px 16px 90px", display:"flex", flexDirection:"column", gap:14 }}>
+      {/* Toggle segmentado existente / nuevo (conserva la creación de paciente nuevo con RUT). */}
+      <div style={{ display:"flex", gap:8 }}>
+        {[["existente","Paciente existente"],["nuevo","Paciente nuevo"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setTipo(k)} style={{ flex:1, fontFamily:T.sans, fontSize:12, fontWeight:tipo===k?700:500, padding:"11px 6px", borderRadius:10, cursor:"pointer",
+            border:"1px solid "+(tipo===k?T.accent:T.inputBorder), background:tipo===k?T.accentSoft:"transparent", color:tipo===k?T.accentStrong:T.textMute }}>{l}</button>
         ))}
       </div>
 
-      {step===1 && (
-        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <div style={{ display:"flex", gap:8 }}>
-            {[["existente","Paciente existente"],["nuevo","Paciente nuevo"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setTipo(k)} style={{ flex:1, fontFamily:T.sans, fontSize:12, fontWeight:tipo===k?700:500, padding:"11px 6px", borderRadius:9, cursor:"pointer",
-                border:"1px solid "+(tipo===k?T.accent:T.inputBorder), background:tipo===k?T.accent+"1e":"transparent", color:tipo===k?T.accent:T.textMute }}>{l}</button>
-            ))}
-          </div>
-          {tipo==="existente" ? (
-            <div>
-              <label style={lbl}>Buscar paciente</label>
-              <input value={q} onChange={e=>{ setQ(e.target.value); setPid(""); }} placeholder="Nombre, RUT o teléfono…" style={inp} />
-              {selectedPatient && (
-                <div style={{ marginTop:9, ...glassPanel(T,10), padding:"11px 13px", display:"flex", alignItems:"center", gap:10 }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontFamily:T.sans, fontSize:13.5, fontWeight:600, color:T.text }}>{selectedPatient.name}</div>
-                    <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>{[selectedPatient.rut, selectedPatient.phone].filter(Boolean).join(" · ")}</div>
-                  </div>
-                  <button onClick={()=>{ setPid(""); setQ(""); }} style={{ background:"none", border:"none", color:T.textFaint, cursor:"pointer" }}>✕</button>
-                </div>
-              )}
-              {!selectedPatient && results.length>0 && (
-                <div style={{ marginTop:9, display:"flex", flexDirection:"column", gap:6 }}>
-                  {results.map(p => (
-                    <button key={p.id} onClick={()=>{ setPid(p.id); setQ(p.name); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", ...glassChip(T), borderRadius:9, padding:"10px 12px", cursor:"pointer" }}>
-                      <div style={{ width:30, height:30, borderRadius:"50%", background:T.accentSoft, border:"1px solid "+T.accentBorder, color:T.accentStrong, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:11, fontWeight:700, flexShrink:0 }}>{(p.name||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
-                      <div style={{ minWidth:0 }}>
-                        <div style={{ fontFamily:T.sans, fontSize:13, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
-                        <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{[p.rut, p.phone].filter(Boolean).join(" · ")}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {!selectedPatient && ql.length>=2 && results.length===0 && (
-                <div style={{ marginTop:9, fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin resultados. Prueba con "Paciente nuevo".</div>
-              )}
-            </div>
-          ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-              <div><label style={lbl}>Nombre completo</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido" style={inp} /></div>
-              <div><label style={lbl}>RUT</label><input value={rut} onChange={e=>onRut(e.target.value)} disabled={sinRut} inputMode="numeric" placeholder={sinRut?"Sin RUT":"12.345.678-9"} style={{...inp, opacity:sinRut?.5:1, borderColor: (sinRut || rutOk || !rut) ? undefined : "#C0285A88"}} /></div>
-              {!sinRut && rut && !rutOk && <div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3" }}>Revisa el RUT: el dígito verificador no coincide.</div>}
-              <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", marginTop:-4 }}>
-                <input type="checkbox" checked={sinRut} onChange={e=>{ setSinRut(e.target.checked); if (e.target.checked) setRut(""); }} />
-                <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Paciente extranjero / sin RUT</span>
-              </label>
-              <div><label style={lbl}>Teléfono</label><input type="tel" inputMode="numeric" value={phone} onChange={e=>onPhone(e.target.value)} style={{...inp, borderColor: phoneOk?undefined:"#C0285A88"}} /></div>
-              <div><label style={lbl}>Correo (opcional)</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="correo@ejemplo.com" style={inp} /></div>
-              {!phoneOk && phone.length>PHONE_PFX.length && <div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3" }}>Ingresa los 8 dígitos del teléfono.</div>}
-            </div>
-          )}
-          <button onClick={()=>step1Ok && setStep(2)} disabled={!step1Ok} style={{ background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, border:"none", borderRadius:12, padding:"16px", cursor:step1Ok?"pointer":"not-allowed", opacity:step1Ok?1:.5 }}>Continuar</button>
+      {tipo==="existente" ? (
+        <div>
+          <div style={lbl}>Paciente</div>
+          <select value={pid} onChange={e=>setPid(e.target.value)} style={inp}>
+            <option value="">Selecciona un paciente…</option>
+            {patientOptions.map(p=><option key={p.id} value={p.id}>{p.name}{p.rut?" · "+p.rut:""}</option>)}
+          </select>
         </div>
-      )}
-
-      {step===2 && (
+      ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <div><label style={lbl}>Procedimiento</label>
-            <select value={proc} onChange={e=>setProc(e.target.value)} style={{...inp,appearance:"none"}}>
-              <option>Evaluación general</option>
-              {procs.map(p=><option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-          <div><label style={lbl}>Fecha</label><input type="date" value={fecha} onChange={e=>setFecha(e.target.value)} style={inp} /></div>
-          <div>
-            <label style={lbl}>Hora</label>
-            <select value={time} onChange={e=>setTime(e.target.value)} style={{...inp,appearance:"none"}}>
-              {(() => { const base = freeSlots.length ? freeSlots : slotsM(); const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
-            </select>
-            {freeSlots.length===0&&<div style={{ fontFamily:T.sans, fontSize:11, color:"#FF8FA3", marginTop:5 }}>No hay horas marcadas como disponibles para este día.</div>}
-          </div>
-          <div><label style={lbl}>Duración</label>
-            <select value={dur} onChange={e=>setDur(e.target.value)} style={{...inp,appearance:"none"}}>
-              {["15 minutos","30 minutos","45 minutos","60 minutos","90 minutos"].map(d=><option key={d}>{d}</option>)}
-            </select>
-          </div>
-          <div><label style={lbl}>Comentario (opcional)</label>
-            <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ej. Control, seguimiento, evaluación…" rows={2} style={{...inp, resize:"none"}} />
-          </div>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>setStep(1)} style={{ flex:1, background:"transparent", border:"1px solid "+T.inputBorder, color:T.textMute, fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"15px", cursor:"pointer" }}>Atrás</button>
-            <button onClick={()=>step2Ok && setStep(3)} disabled={!step2Ok} style={{ flex:2, background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, border:"none", borderRadius:12, padding:"16px", cursor:step2Ok?"pointer":"not-allowed", opacity:step2Ok?1:.5 }}>Continuar</button>
-          </div>
-        </div>
-      )}
-
-      {step===3 && (
-        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <div style={{ ...glassPanel(T,12), padding:"14px 16px", display:"flex", flexDirection:"column", gap:7 }}>
-            <div style={{ fontFamily:T.serif, fontSize:17, color:T.text }}>{finalName}</div>
-            <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{[finalRut, finalPhone].filter(Boolean).join(" · ")}</div>
-            <div style={{ height:1, background:T.divider, margin:"3px 0" }} />
-            <div style={{ fontFamily:T.sans, fontSize:13, color:T.text }}>{proc}</div>
-            <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>{fecha} · {time} hrs · {dur}</div>
-            {comment && <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, fontStyle:"italic" }}>{comment}</div>}
-          </div>
-          <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", ...glassChip(T), borderRadius:9, padding:"11px 13px" }}>
-            <input type="checkbox" checked={notifyWa} onChange={e=>setNotifyWa(e.target.checked)} />
-            <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>Notificar al paciente por WhatsApp</span>
+          <div><div style={lbl}>Nombre completo</div><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido" style={inp} /></div>
+          <div><div style={lbl}>RUT</div><input value={rut} onChange={e=>onRut(e.target.value)} disabled={sinRut} inputMode="numeric" placeholder={sinRut?"Sin RUT":"12.345.678-9"} style={{...inp, opacity:sinRut?.5:1, borderColor: (sinRut || rutOk || !rut) ? T.inputBorder : T.red}} /></div>
+          {!sinRut && rut && !rutOk && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-6 }}>Revisa el RUT: el dígito verificador no coincide.</div>}
+          <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", marginTop:-4 }}>
+            <input type="checkbox" checked={sinRut} onChange={e=>{ setSinRut(e.target.checked); if (e.target.checked) setRut(""); }} />
+            <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Paciente extranjero / sin RUT</span>
           </label>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>setStep(2)} style={{ flex:1, background:"transparent", border:"1px solid "+T.inputBorder, color:T.textMute, fontFamily:T.sans, fontSize:12, borderRadius:10, padding:"15px", cursor:"pointer" }}>Atrás</button>
-            <button onClick={confirm} disabled={saved} style={{ flex:2, background:saved?"#1F8A5B":T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, border:"none", borderRadius:12, padding:"16px", cursor:"pointer", transition:"background .3s" }}>{saved?"✓ Cita guardada":"Confirmar cita"}</button>
-          </div>
+          <div><div style={lbl}>Teléfono</div><input type="tel" inputMode="numeric" value={phone} onChange={e=>onPhone(e.target.value)} style={{...inp, borderColor: phoneOk?T.inputBorder:T.red}} /></div>
+          {!phoneOk && phone.length>PHONE_PFX.length && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-6 }}>Ingresa los 8 dígitos del teléfono.</div>}
+          <div><div style={lbl}>Correo (opcional)</div><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="correo@ejemplo.com" style={inp} /></div>
         </div>
       )}
+
+      <div>
+        <div style={lbl}>Procedimiento</div>
+        <select value={proc} onChange={e=>setProc(e.target.value)} style={inp}>
+          <option>Evaluación general</option>
+          {procs.map(p=><option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
+
+      {/* Fecha con steppers ‹ › (prototipo). */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <span style={lbl}>Fecha</span>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          {stepBtn(-1, ()=>setFecha(f=>shiftDateM(f,-1)))}
+          <span style={{ fontFamily:T.sans, fontWeight:500, fontSize:12.5, color:T.text, minWidth:100, textAlign:"center" }}>{dayLabelM(fecha)}</span>
+          {stepBtn(1, ()=>setFecha(f=>shiftDateM(f,1)))}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <span style={lbl}>Hora</span>
+        <select value={time} onChange={e=>setTime(e.target.value)} style={{ ...inp, width:"auto" }}>
+          {(() => { const base = freeSlots.length ? freeSlots : slotsM(); const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
+        </select>
+      </div>
+      {freeSlots.length===0 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>No hay horas marcadas como disponibles para este día.</div>}
+
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <span style={lbl}>Duración</span>
+        <select value={dur} onChange={e=>setDur(e.target.value)} style={{ ...inp, width:"auto" }}>
+          {["15 minutos","30 minutos","45 minutos","60 minutos","90 minutos"].map(d=><option key={d}>{d}</option>)}
+        </select>
+      </div>
+
+      <div><div style={lbl}>Comentario (opcional)</div>
+        <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ej. Control, seguimiento, evaluación…" rows={2} style={{...inp, resize:"none"}} />
+      </div>
+
+      <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", padding:"11px 13px", borderRadius:12, background:T.flatFill, border:"1px solid "+T.flatBorder }}>
+        <input type="checkbox" checked={notifyWa} onChange={e=>setNotifyWa(e.target.checked)} />
+        <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>Notificar al paciente por WhatsApp</span>
+      </label>
+
+      <button onClick={confirm} disabled={!canSave||saved} style={{ marginTop:4, height:50, borderRadius:14, border:"none", background:saved?T.green:T.accent, color:saved?"#fff":T.onAccent, fontFamily:T.sans, fontSize:15, fontWeight:600, cursor:(canSave&&!saved)?"pointer":"not-allowed", opacity:(canSave||saved)?1:.5, transition:"background .3s" }}>{saved?"✓ Cita guardada":"Guardar cita"}</button>
     </div>
   );
 }
@@ -1665,7 +1646,22 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     .sort((a,b)=>b.n-a.n).slice(0,5);
   const maxProc = topProc[0] ? topProc[0].n : 1;
 
-  // Fila con ícono en círculo de color + valor coloreado (referencia).
+  // Resumen del día (prototipo, líneas ~410-428): barras verticales por estado de las citas de HOY,
+  // con los colores OFICIALES de apptStateM (agendado azul · confirmada verde · atendida dorado ·
+  // no asistió rojo) y su conteo debajo. Excluye canceladas (no consumen agenda).
+  const todayIso = todayISO();
+  const todayA = appts.filter(a => (a.fecha||offToISO(a.day||0))===todayIso && a.status!=="anulada");
+  const dayBars = [
+    { label:"Agendadas",  color:"#6EA8E8", count: todayA.filter(a=>!(a.status==="confirmada"||a.status==="atendida"||a.attended||a.status==="no_asistio")).length },
+    { label:"Confirmadas",color:"#46D27A", count: todayA.filter(a=>a.status==="confirmada").length },
+    { label:"Atendidas",  color:"#F5B93D", count: todayA.filter(a=>a.status==="atendida"||a.attended).length },
+    { label:"No asistió", color:"#FF6B7D", count: todayA.filter(a=>a.status==="no_asistio").length },
+  ];
+  const dayMax = Math.max(1, ...dayBars.map(b=>b.count));
+  const todayLabelStr = (() => { const d=new Date(); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
+  const weekTotal = Math.max(1, weekAppts.filter(a=>a.status!=="anulada").length);
+
+  // Fila con ícono en círculo de color + valor coloreado + barra de progreso (prototipo reportRows).
   const RIC = {
     cal:  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
     check:<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>,
@@ -1673,11 +1669,18 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     xmark:<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>,
     pct:  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 15l8-6"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/></svg>
   };
-  const row = (icon, iconColor, label, val, valColor, last) => (
-    <div style={{ display:"flex", alignItems:"center", gap:13, padding:"12px 0", borderBottom: last ? "none" : "1px solid "+T.divider }}>
-      <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:iconColor+"22", color:iconColor, display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
-      <span style={{ flex:1, fontFamily:T.sans, fontSize:15, color:T.text }}>{label}</span>
-      <span style={{ fontFamily:T.sans, fontSize:17, fontWeight:700, color:valColor||T.text }}>{val}</span>
+  const row = (icon, iconColor, label, val, valColor, last, barPct) => (
+    <div style={{ padding:"12px 0", borderBottom: last ? "none" : "1px solid "+T.divider }}>
+      <div style={{ display:"flex", alignItems:"center", gap:13 }}>
+        <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:iconColor+"22", color:iconColor, display:"flex", alignItems:"center", justifyContent:"center" }}>{icon}</div>
+        <span style={{ flex:1, fontFamily:T.sans, fontSize:15, color:T.text }}>{label}</span>
+        <span style={{ fontFamily:T.sans, fontSize:17, fontWeight:700, color:valColor||T.text }}>{val}</span>
+      </div>
+      {barPct!=null && (
+        <div style={{ height:6, borderRadius:100, background:T.divider, overflow:"hidden", marginTop:9 }}>
+          <div style={{ height:"100%", borderRadius:100, width:Math.max(0,Math.min(100,barPct))+"%", background:iconColor }} />
+        </div>
+      )}
     </div>
   );
 
@@ -1686,14 +1689,33 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
   return (
     <OverlayShell T={T} title="Reportes" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:16 }}>
+        {/* Resumen del día (prototipo): barras verticales por estado + conteos. */}
+        <div style={{ ...glassPanel(T,16), padding:"14px 16px" }}>
+          <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:11.5, color:T.textMute, marginBottom:10, textTransform:"capitalize" }}>Resumen del día · {todayLabelStr}</div>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:16, height:44 }}>
+            {dayBars.map(b => (
+              <div key={b.label} style={{ display:"flex", flexDirection:"column", alignItems:"center", flex:1, height:"100%", justifyContent:"flex-end" }}>
+                <div style={{ width:16, borderRadius:"5px 5px 2px 2px", background:b.color, height:Math.round(b.count/dayMax*100)+"%", minHeight:4 }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:16, marginTop:8 }}>
+            {dayBars.map(b => (
+              <div key={b.label} style={{ flex:1, textAlign:"center" }}>
+                <div style={{ fontFamily:T.serif, fontWeight:600, fontSize:14, color:T.text }}>{b.count}</div>
+                <div style={{ fontFamily:T.sans, fontSize:9, color:T.textFaint, marginTop:1 }}>{b.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
         <div style={{ ...glassPanel(T,20), padding:"6px 16px 8px" }}>
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 6px" }}>Esta semana</div>
-          {row(RIC.cal,   "#7FA8E8", "Citas totales", weekAppts.filter(a=>a.status!=="anulada").length)}
-          {row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, a=>a.status==="confirmada"||a.status==="atendida"), "#46D27A")}
-          {row(RIC.user,  T.accentStrong, "Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), T.accentStrong)}
-          {row(RIC.user,  "#FF6B7D", "No asistió", countBy(weekAppts, a=>a.status==="no_asistio"), "#FF6B7D")}
-          {row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, a=>a.status==="anulada"))}
-          {row(RIC.pct,   noShowRate>15?"#FF6B7D":"#46D27A", "Tasa de inasistencia", noShowRate+"%", noShowRate>15?"#FF6B7D":"#46D27A", true)}
+          {row(RIC.cal,   "#7FA8E8", "Citas totales", weekAppts.filter(a=>a.status!=="anulada").length, null, false, 100)}
+          {row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, a=>a.status==="confirmada"||a.status==="atendida"), "#46D27A", false, countBy(weekAppts, a=>a.status==="confirmada"||a.status==="atendida")/weekTotal*100)}
+          {row(RIC.user,  T.accentStrong, "Atendidas", countBy(weekAppts, a=>a.status==="atendida"||a.attended), T.accentStrong, false, countBy(weekAppts, a=>a.status==="atendida"||a.attended)/weekTotal*100)}
+          {row(RIC.user,  "#FF6B7D", "No asistió", countBy(weekAppts, a=>a.status==="no_asistio"), "#FF6B7D", false, countBy(weekAppts, a=>a.status==="no_asistio")/weekTotal*100)}
+          {row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, a=>a.status==="anulada"), null, false, countBy(weekAppts, a=>a.status==="anulada")/weekTotal*100)}
+          {row(RIC.pct,   noShowRate>15?"#FF6B7D":"#46D27A", "Tasa de inasistencia", noShowRate+"%", noShowRate>15?"#FF6B7D":"#46D27A", true, noShowRate)}
         </div>
         <div style={{ ...glassPanel(T,20), padding:"6px 16px 10px" }}>
           <div style={{ fontFamily:T.sans, fontSize:11, letterSpacing:".12em", textTransform:"uppercase", color:T.accent, fontWeight:600, padding:"14px 0 2px" }}>Procedimientos del mes</div>
@@ -1715,28 +1737,31 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
                   </div>
                   {/* Barra apilada: azul = agendado, dorado = realizado — mismos colores que el resto
                       del panel y el portal, así un mismo total distingue de un vistazo qué falta. */}
-                  <div style={{ height:5, borderRadius:999, background:T.divider, overflow:"hidden", marginTop:8, display:"flex" }}>
-                    <div style={{ height:"100%", width:Math.round(t.pend/maxProc*100)+"%", background:"#6EA8E8" }} />
-                    <div style={{ height:"100%", width:Math.round(t.real/maxProc*100)+"%", background:"linear-gradient(90deg,#D9A63C,#F5B93D)" }} />
+                  <div style={{ height:6, borderRadius:100, background:T.divider, overflow:"hidden", marginTop:8, display:"flex" }}>
+                    <div style={{ height:"100%", width:Math.round(t.pend/maxProc*100)+"%", background:T.accent }} />
+                    <div style={{ height:"100%", width:Math.round(t.real/maxProc*100)+"%", background:T.gold }} />
                   </div>
-                  <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:5 }}>{t.pend} agendados · {t.real} realizados</div>
+                  <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:6 }}>{t.pend} agendados · {t.real} realizados</div>
                 </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2.2" style={{ flexShrink:0, transform:open?"rotate(180deg)":"none", transition:"transform .15s" }}><path d="M6 9l6 6 6-6"/></svg>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0, transform:open?"rotate(180deg)":"none", transition:"transform .15s" }}><path d="M6 9l6 6 6-6"/></svg>
               </button>
-              {open && (
-                <div style={{ display:"flex", flexDirection:"column", gap:6, padding:"0 0 12px 43px" }}>
-                  {t.list.map(a => {
-                    const st = apptStateM(a, T);
-                    return (
-                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", cursor:"pointer", borderRadius:9, padding:"8px 11px", ...apptCardTintM(st.color) }}>
-                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textMute, minWidth:62 }}>{dayLabelM(a.fecha||offToISO(a.day||0))}</span>
-                        <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name||"Paciente"}</span>
-                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:10, color:st.color, fontWeight:600 }}>{st.label}</span>
+              {open && (() => {
+                // Al expandir: los próximos AGENDADOS de este procedimiento (fecha + nombre + "Agendado"),
+                // como en el prototipo — para saber a quién corresponde cada cita pendiente (real).
+                const upcomingAg = t.list.filter(a => !(a.status==="atendida"||a.attended) && (a.fecha||offToISO(a.day||0))>=todayIso);
+                return (
+                  <div style={{ display:"flex", flexDirection:"column", gap:7, padding:"0 0 12px 43px" }}>
+                    {upcomingAg.length===0 && <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textFaint }}>Sin próximos agendados</div>}
+                    {upcomingAg.map(a => (
+                      <button key={a.id} onClick={()=>onOpenAppt(a)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", cursor:"pointer", background:"none", border:"none", padding:0 }}>
+                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, color:T.textFaint, width:56 }}>{dayLabelM(a.fecha||offToISO(a.day||0))}</span>
+                        <span style={{ flex:1, minWidth:0, fontFamily:T.sans, fontSize:12.5, fontWeight:500, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name||"Paciente"}</span>
+                        <span style={{ flexShrink:0, fontFamily:T.sans, fontSize:11, fontWeight:600, color:T.accentStrong }}>Agendado</span>
                       </button>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           );})}
         </div>
@@ -2081,7 +2106,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
       <button onClick={()=>setTab("citas")} aria-label="Cerrar" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-9 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </>;
     // agenda / horarios / mas: hamburguesa + título centrado + acción a la derecha (filtro en Agenda)
-    const titleMap = { horarios:"Horarios", agenda:"Agenda", mas:"Más" };
+    const titleMap = { horarios:"Bloquear horarios", agenda:"Agenda", mas:"Más" };
     const rightAction = tab==="agenda"
       ? <button onClick={()=>setAgShowAnuladas(v=>!v)} aria-label="Filtro" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:agShowAnuladas?T.accentSoft:"none", color:agShowAnuladas?T.accent:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginRight:-7 }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
       : <div style={{ width:44 }} />;
