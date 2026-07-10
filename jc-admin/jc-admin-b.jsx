@@ -440,6 +440,18 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const [nuevo, setNuevo] = useState(false);
   const [filt, setFilt] = useState("recientes"); // Recientes es el filtro por defecto al entrar (a pedido del usuario)
   const [openCamp, setOpenCamp] = useState(false);
+  // Seguimiento de "ya se envió el WhatsApp de re-cita" (pedido): la etiqueta "Contactar" pasa a
+  // "Enviado" al tocar el botón de WhatsApp. Clave = paciente + fecha de vencimiento de ESE ciclo
+  // (r.due), así que si el paciente completa la sesión y entra a un ciclo nuevo, la etiqueta vuelve
+  // sola a "Pendiente" (la clave cambia) en vez de quedar marcada "Enviado" para siempre.
+  const [recitaSent, setRecitaSent] = useState(() => { try { return (window.DB && DB.get("recita_sent")) || {}; } catch (e) { return {}; } });
+  function recitaSentKey(p, r) { return p.id + "_" + (r && r.due ? r.due.getTime() : 0); }
+  function markRecitaSent(p, r) {
+    const key = recitaSentKey(p, r);
+    const m = { ...recitaSent, [key]: Date.now() };
+    setRecitaSent(m);
+    try { window.DB && DB.set("recita_sent", m); } catch (e) {}
+  }
   // Mapa id→timestamp de la última vez que se abrió la ficha (para el filtro "Recientes").
   const opened = (() => { try { return (window.DB && DB.get("pat_opened")) || {}; } catch (e) { return {}; } })();
   function openPatient(id) {
@@ -519,16 +531,19 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
               (toxina a los 3 meses · Sculptra a los 2 meses desde su última sesión), aparecerá aquí listo para contactar.
             </div>
           )}
-          {recitasDue.sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => (
+          {recitasDue.sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => {
+            const sent = !!recitaSent[recitaSentKey(p, r)];
+            return (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 9, background: "rgba(31,138,91,.06)", border: "1px solid rgba(31,138,91,.4)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>{p.name}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{r.motivo} · cumplió su plazo el {fmtD(r.due)}</div>
               </div>
-              <AdTag T={T} tone="ok">Contactar</AdTag>
-              <a href={waLink(p, r)} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px" }}>WhatsApp</a>
+              <AdTag T={T} tone={sent ? "ok" : "warn"}>{sent ? "Enviado" : "Pendiente"}</AdTag>
+              <a href={waLink(p, r)} target="_blank" rel="noopener" onClick={() => markRecitaSent(p, r)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px" }}>WhatsApp</a>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {/* Encabezado de columnas (luxF): las etiquetas aparecen UNA vez arriba, no repetidas en cada
