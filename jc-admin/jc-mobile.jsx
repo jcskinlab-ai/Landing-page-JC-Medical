@@ -894,7 +894,9 @@ function abbrevProcM(proc) {
   if (p.includes("botox") && p.includes("3 zona")) return "B3Z";
   if (p.includes("botox") && (p.includes("full face") || p.includes("8 zona"))) return "BFF";
   if (p.includes("rinomodela")) return "R";
-  if (p.includes("sculptra")) return "S";
+  // "bioestim" cubre citas antiguas guardadas antes de renombrar el catálogo a Sculptra — mismo
+  // procedimiento, incluso si el texto guardado en esa cita sigue diciendo "Bioestimulación".
+  if (p.includes("sculptra") || p.includes("bioestim")) return "S";
   if (p.includes("evaluaci")) return "EV";
   if (p.includes("quemador")) return "Q";
   if (!proc) return "—";

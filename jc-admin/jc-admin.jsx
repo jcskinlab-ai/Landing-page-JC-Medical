@@ -4097,7 +4097,9 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                                 <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textFaint }}>– {horaFin}</span>
                               </div>}
                             </div>
-                            {a.proc && <span style={{ flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{a.proc[0].toUpperCase()}</span>}
+                            {/* "bioestim" cubre citas antiguas guardadas antes de renombrar el catálogo a Sculptra —
+                                mismo procedimiento, incluso si el texto guardado en esa cita sigue diciendo "Bioestimulación". */}
+                            {a.proc && <span style={{ flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{/bioestim/i.test(a.proc) ? "S" : a.proc[0].toUpperCase()}</span>}
                           </div>
                         ) : (
                           <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
