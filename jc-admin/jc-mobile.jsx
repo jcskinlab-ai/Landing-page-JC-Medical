@@ -83,6 +83,8 @@ function esControlPostProcM(proc, pat) {
 // (DB.cfg().msg_tpl_confirm, editable en Reportes → Plantillas de mensajes) si existe; si no,
 // el texto predeterminado (jcm_shared.js — la MISMA plantilla que usa el portal de escritorio).
 // esControl (opcional): si es true, agrega la política de reagendamiento pagado del control post-procedimiento.
+// Primer nombre (token {primernombre} de las plantillas): más personal que el nombre completo.
+function jcmFirstNameM(name) { return (""+(name||"")).trim().split(/\s+/)[0] || ""; }
 function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir, esControl) {
   const d = new Date(iso+"T12:00:00");
   const wd = WDS[d.getDay()], dd = d.getDate(), mm = MESES[d.getMonth()];
@@ -90,7 +92,7 @@ function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir, es
   let tpl = ""; try { tpl = window.DB && window.DB.cfg && window.DB.cfg().msg_tpl_confirm; } catch(e) {}
   tpl = (tpl && (""+tpl).trim()) || window.DEFAULT_TPL_CONFIRM;
   const politica = esControl ? " El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "";
-  return window.fillMsgTpl(tpl, { nombre:name, clinica:clinNombre, fecha: wd+" "+dd+" "+mm, hora:time, tratamiento:proc, profesional:prof||"", direccion:clinDir||"", mapa:maps||"", politica });
+  return window.fillMsgTpl(tpl, { nombre:name, primernombre:jcmFirstNameM(name), clinica:clinNombre, fecha: wd+" "+dd+" "+mm, hora:time, tratamiento:proc, profesional:prof||"", direccion:clinDir||"", mapa:maps||"", politica });
 }
 // Mensaje del botón "Confirmar asistencia" — usa la plantilla propia de la clínica
 // (DB.cfg().msg_tpl_asist) si existe; si no, el texto predeterminado (jcm_shared.js).
@@ -100,7 +102,7 @@ function jcmConfirmAsistMsgM(a, clinNombre) {
   try { if (a.fecha) fecha = new Date(a.fecha+"T00:00:00").toLocaleDateString("es-CL", { weekday:"long", day:"numeric", month:"long" }); } catch(e) {}
   let tpl = ""; try { tpl = window.DB && window.DB.cfg && window.DB.cfg().msg_tpl_asist; } catch(e) {}
   tpl = (tpl && (""+tpl).trim()) || window.DEFAULT_TPL_ASIST;
-  return window.fillMsgTpl(tpl, { nombre:a.name||"", clinica:clinNombre, fecha:fecha||"", hora:a.time||"", tratamiento:a.proc||"", mapa:maps||"" });
+  return window.fillMsgTpl(tpl, { nombre:a.name||"", primernombre:jcmFirstNameM(a.name), clinica:clinNombre, fecha:fecha||"", hora:a.time||"", tratamiento:a.proc||"", mapa:maps||"" });
 }
 
 function minsM(t) { if (!t) return 0; const [h,m] = t.split(":"); return parseInt(h)*60+parseInt(m||0); }
@@ -1890,9 +1892,11 @@ function MessageTemplatesView({ T }) {
   const clinNombre = (cfg.clinic_name && (""+cfg.clinic_name).trim()) || "tu clínica";
   const TPLS = [
     { key:"msg_tpl_confirm", label:"Confirmación de cita", def: window.DEFAULT_TPL_CONFIRM,
-      sample: { nombre:"María Pérez", clinica:clinNombre, fecha:"Sáb 11 Jul", hora:"13:45", tratamiento:"Rinomodelación", profesional:(cfg.professional&&(""+cfg.professional).trim())||"Profesional a cargo", direccion:(cfg.clinic_addr&&(""+cfg.clinic_addr).trim())||"Dirección de tu clínica", mapa:"https://www.medique.cl/ir?c=…", politica:"" } },
+      sample: { nombre:"María Pérez", primernombre:"María", clinica:clinNombre, fecha:"Sáb 11 Jul", hora:"13:45", tratamiento:"Rinomodelación", profesional:(cfg.professional&&(""+cfg.professional).trim())||"Profesional a cargo", direccion:(cfg.clinic_addr&&(""+cfg.clinic_addr).trim())||"Dirección de tu clínica", mapa:"https://www.medique.cl/ir?c=…", politica:"" } },
     { key:"msg_tpl_asist", label:"Confirmar asistencia", def: window.DEFAULT_TPL_ASIST,
-      sample: { nombre:"María Pérez", clinica:clinNombre, fecha:"sábado 11 de julio", hora:"13:45", tratamiento:"Rinomodelación", mapa:"https://www.medique.cl/ir?c=…" } },
+      sample: { nombre:"María Pérez", primernombre:"María", clinica:clinNombre, fecha:"sábado 11 de julio", hora:"13:45", tratamiento:"Rinomodelación", mapa:"https://www.medique.cl/ir?c=…" } },
+    { key:"msg_tpl_recita", label:"Campaña de re-cita", def: window.DEFAULT_TPL_RECITA,
+      sample: { primernombre:"María", clinica:clinNombre, mensaje:"Tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión 2 de 3)", precio_linea:" El valor actual es de $450.000 y, por ser parte de la clínica, te lo dejamos en $400.000." } },
   ];
   const [open, setOpen] = useState(null);
   return (

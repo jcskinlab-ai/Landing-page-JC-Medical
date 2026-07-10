@@ -407,7 +407,8 @@ function recitaFor(p) {
     msg = "te contactamos para ver si deseas renovar tu toxina botulínica para mantener tu resultado natural";
     refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
   } else if (pick === "sculptra") {
-    fam = "sculptra"; umbral = 2; precio = 280000;
+    fam = "sculptra"; umbral = 2;
+    precio = jcmProcPrice((lastScu && (lastScu.proc || lastScu.title)) || tag) || 450000; // valor actual del procedimiento
     const ses = hist.filter(h => scuRe.test(h.proc || h.title || "")).length || 1;
     if (ses >= 3) return null; // esquema de 3 sesiones completo
     motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a 2 meses)";
@@ -421,18 +422,29 @@ function recitaFor(p) {
   }
   if (!refTs) return null;
   const meses = (Date.now() - refTs) / (1000 * 60 * 60 * 24 * 30.44);
-  const desc = precio > 20000 ? precio - 20000 : precio; // precio preferente: valor actual − $20.000
+  // Precio preferente: usa el descuento configurado por la clínica (Configuración → Plantillas →
+  // "Descuento de re-cita", RecitaDescCard) si existe; si nunca se configuró, cae al comportamiento
+  // de siempre (−$20.000 fijo) para no cambiarle el mensaje a nadie que no haya tocado nada.
+  const descCfg = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const desc = descCfg.recita_desc_val
+    ? (descCfg.recita_desc_tipo === "pct"
+        ? Math.max(0, Math.round(precio * (1 - descCfg.recita_desc_val / 100) / 1000) * 1000)
+        : Math.max(0, precio - descCfg.recita_desc_val))
+    : (precio > 20000 ? precio - 20000 : precio);
   const due = new Date(refTs + umbral * 30.44 * 24 * 60 * 60 * 1000);
   return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
 // Lista de pacientes cuyo plazo de re-cita ya se cumplió (para notificaciones / pendientes).
 function recitaDue(patients) { return (patients || []).map(p => ({ p, r: recitaFor(p) })).filter(x => x.r && x.r.vence); }
 // Mensaje de WhatsApp que muestra el precio real y luego el precio preferente (en pesos, no en %).
+// Usa la plantilla propia de la clínica (DB.cfg().msg_tpl_recita, editable en el panel móvil,
+// Más → Plantillas de mensajes) si existe; si no, el texto predeterminado (jcm_shared.js).
 function recitaMsg(p, r) {
-  const first = (p.name || "").split(" ")[0] || "";
-  const base = "Hola " + first + ", te saludamos de " + ((window.clinicName && window.clinicName()) || "tu clínica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) + ".";
-  const precioTxt = r.precio ? " El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + "." : "";
-  return base + precioTxt + " ¿Te gustaría gestionar tu hora?";
+  let tpl = ""; try { tpl = window.DB && DB.cfg().msg_tpl_recita; } catch (e) {}
+  tpl = (tpl && ("" + tpl).trim()) || window.DEFAULT_TPL_RECITA;
+  const mensaje = r.msg.charAt(0).toUpperCase() + r.msg.slice(1);
+  const precio_linea = r.precio ? (" El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + ".") : "";
+  return window.fillMsgTpl(tpl, { primernombre: (window.jcmFirstName ? window.jcmFirstName(p.name) : (p.name || "").split(" ")[0] || ""), clinica: (window.clinicName && window.clinicName()) || "tu clínica", mensaje: mensaje, precio_linea: precio_linea });
 }
 function recitaWa(p, r) { return "https://wa.me/" + (p.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(recitaMsg(p, r)); }
 function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }) {
@@ -440,6 +452,18 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const [nuevo, setNuevo] = useState(false);
   const [filt, setFilt] = useState("recientes"); // Recientes es el filtro por defecto al entrar (a pedido del usuario)
   const [openCamp, setOpenCamp] = useState(false);
+  // Seguimiento de "ya se envió el WhatsApp de re-cita" (pedido): la etiqueta "Contactar" pasa a
+  // "Enviado" al tocar el botón de WhatsApp. Clave = paciente + fecha de vencimiento de ESE ciclo
+  // (r.due), así que si el paciente completa la sesión y entra a un ciclo nuevo, la etiqueta vuelve
+  // sola a "Pendiente" (la clave cambia) en vez de quedar marcada "Enviado" para siempre.
+  const [recitaSent, setRecitaSent] = useState(() => { try { return (window.DB && DB.get("recita_sent")) || {}; } catch (e) { return {}; } });
+  function recitaSentKey(p, r) { return p.id + "_" + (r && r.due ? r.due.getTime() : 0); }
+  function markRecitaSent(p, r) {
+    const key = recitaSentKey(p, r);
+    const m = { ...recitaSent, [key]: Date.now() };
+    setRecitaSent(m);
+    try { window.DB && DB.set("recita_sent", m); } catch (e) {}
+  }
   // Mapa id→timestamp de la última vez que se abrió la ficha (para el filtro "Recientes").
   const opened = (() => { try { return (window.DB && DB.get("pat_opened")) || {}; } catch (e) { return {}; } })();
   function openPatient(id) {
@@ -519,16 +543,19 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
               (toxina a los 3 meses · Sculptra a los 2 meses desde su última sesión), aparecerá aquí listo para contactar.
             </div>
           )}
-          {recitasDue.sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => (
+          {recitasDue.sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => {
+            const sent = !!recitaSent[recitaSentKey(p, r)];
+            return (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 9, background: "rgba(31,138,91,.06)", border: "1px solid rgba(31,138,91,.4)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>{p.name}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{r.motivo} · cumplió su plazo el {fmtD(r.due)}</div>
               </div>
-              <AdTag T={T} tone="ok">Contactar</AdTag>
-              <a href={waLink(p, r)} target="_blank" rel="noopener" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px" }}>WhatsApp</a>
+              <AdTag T={T} tone={sent ? "ok" : "warn"}>{sent ? "Enviado" : "Pendiente"}</AdTag>
+              <a href={waLink(p, r)} target="_blank" rel="noopener" onClick={() => markRecitaSent(p, r)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px" }}>WhatsApp</a>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {/* Encabezado de columnas (luxF): las etiquetas aparecen UNA vez arriba, no repetidas en cada

@@ -356,12 +356,15 @@ window.esControlPostProc = esControlPostProc;
 // esControl (opcional): si es true, agrega la política de reagendamiento pagado del control post-procedimiento.
 // Usa la plantilla propia de la clínica (DB.cfg().msg_tpl_confirm, editable en el panel móvil,
 // Reportes → Plantillas de mensajes) si existe; si no, el texto predeterminado (jcm_shared.js).
+// Primer nombre (token {primernombre} de las plantillas): más personal que el nombre completo.
+function jcmFirstName(name) { return ("" + (name || "")).trim().split(/\s+/)[0] || ""; }
+window.jcmFirstName = jcmFirstName;
 function jcmCitaConfirmMsg(name, wk, time, proc, prof, esControl) {
   var addr = clinicAddr(), maps = clinicMapsLink();
   var tpl = ""; try { tpl = window.DB && DB.cfg().msg_tpl_confirm; } catch (e) {}
   tpl = (tpl && ("" + tpl).trim()) || window.DEFAULT_TPL_CONFIRM;
   var politica = esControl ? " El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "";
-  return window.fillMsgTpl(tpl, { nombre: name, clinica: clinicDisplayName(), fecha: wk.wd + " " + wk.dd + " " + wk.mm, hora: time, tratamiento: proc, profesional: prof, direccion: addr, mapa: maps, politica: politica });
+  return window.fillMsgTpl(tpl, { nombre: name, primernombre: jcmFirstName(name), clinica: clinicDisplayName(), fecha: wk.wd + " " + wk.dd + " " + wk.mm, hora: time, tratamiento: proc, profesional: prof, direccion: addr, mapa: maps, politica: politica });
 }
 // Recordatorio manual para pedir al paciente que confirme su asistencia (P4). Texto sin codificar.
 function jcmRecordatorioMsg(a) {
@@ -382,7 +385,7 @@ function jcmConfirmAsistMsg(a) {
   try { if (a.fecha) fecha = new Date(a.fecha + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }); } catch (e) {}
   var tpl = ""; try { tpl = window.DB && DB.cfg().msg_tpl_asist; } catch (e) {}
   tpl = (tpl && ("" + tpl).trim()) || window.DEFAULT_TPL_ASIST;
-  return window.fillMsgTpl(tpl, { nombre: a.name || "", clinica: clinicDisplayName(), fecha: fecha, hora: a.time || "", tratamiento: a.proc || "", mapa: maps });
+  return window.fillMsgTpl(tpl, { nombre: a.name || "", primernombre: jcmFirstName(a.name), clinica: clinicDisplayName(), fecha: fecha, hora: a.time || "", tratamiento: a.proc || "", mapa: maps });
 }
 window.clinicName = clinicName; window.clinicAddr = clinicAddr; window.clinicPro = clinicPro; window.clinicMapsLink = clinicMapsLink; window.jcmCitaConfirmMsg = jcmCitaConfirmMsg; window.jcmRecordatorioMsg = jcmRecordatorioMsg; window.jcmConfirmAsistMsg = jcmConfirmAsistMsg;
 // Registro de actividad real del sistema (P25): guarda cada acción importante en DB.audit_log

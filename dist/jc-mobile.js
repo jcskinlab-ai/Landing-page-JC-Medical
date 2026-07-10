@@ -71,6 +71,9 @@ function esControlPostProcM(proc, pat) {
   const hist = pat && Array.isArray(pat.history) ? pat.history : [];
   return hist.some((h) => h && h.proc && !/evaluaci/i.test(h.proc));
 }
+function jcmFirstNameM(name) {
+  return ("" + (name || "")).trim().split(/\s+/)[0] || "";
+}
 function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir, esControl) {
   const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
   const wd = WDS[d.getDay()], dd = d.getDate(), mm = MESES[d.getMonth()];
@@ -82,7 +85,7 @@ function jcmCitaConfirmMsgM(name, iso, time, proc, prof, clinNombre, clinDir, es
   }
   tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_CONFIRM;
   const politica = esControl ? " El primer reagendamiento es gratuito; desde el segundo tiene un costo de $10.000." : "";
-  return window.fillMsgTpl(tpl, { nombre: name, clinica: clinNombre, fecha: wd + " " + dd + " " + mm, hora: time, tratamiento: proc, profesional: prof || "", direccion: clinDir || "", mapa: maps || "", politica });
+  return window.fillMsgTpl(tpl, { nombre: name, primernombre: jcmFirstNameM(name), clinica: clinNombre, fecha: wd + " " + dd + " " + mm, hora: time, tratamiento: proc, profesional: prof || "", direccion: clinDir || "", mapa: maps || "", politica });
 }
 function jcmConfirmAsistMsgM(a, clinNombre) {
   const maps = clinicMapsLinkM();
@@ -97,7 +100,7 @@ function jcmConfirmAsistMsgM(a, clinNombre) {
   } catch (e) {
   }
   tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_ASIST;
-  return window.fillMsgTpl(tpl, { nombre: a.name || "", clinica: clinNombre, fecha: fecha || "", hora: a.time || "", tratamiento: a.proc || "", mapa: maps || "" });
+  return window.fillMsgTpl(tpl, { nombre: a.name || "", primernombre: jcmFirstNameM(a.name), clinica: clinNombre, fecha: fecha || "", hora: a.time || "", tratamiento: a.proc || "", mapa: maps || "" });
 }
 function minsM(t) {
   if (!t) return 0;
@@ -1285,13 +1288,19 @@ function MessageTemplatesView({ T }) {
       key: "msg_tpl_confirm",
       label: "Confirmaci\xF3n de cita",
       def: window.DEFAULT_TPL_CONFIRM,
-      sample: { nombre: "Mar\xEDa P\xE9rez", clinica: clinNombre, fecha: "S\xE1b 11 Jul", hora: "13:45", tratamiento: "Rinomodelaci\xF3n", profesional: cfg.professional && ("" + cfg.professional).trim() || "Profesional a cargo", direccion: cfg.clinic_addr && ("" + cfg.clinic_addr).trim() || "Direcci\xF3n de tu cl\xEDnica", mapa: "https://www.medique.cl/ir?c=\u2026", politica: "" }
+      sample: { nombre: "Mar\xEDa P\xE9rez", primernombre: "Mar\xEDa", clinica: clinNombre, fecha: "S\xE1b 11 Jul", hora: "13:45", tratamiento: "Rinomodelaci\xF3n", profesional: cfg.professional && ("" + cfg.professional).trim() || "Profesional a cargo", direccion: cfg.clinic_addr && ("" + cfg.clinic_addr).trim() || "Direcci\xF3n de tu cl\xEDnica", mapa: "https://www.medique.cl/ir?c=\u2026", politica: "" }
     },
     {
       key: "msg_tpl_asist",
       label: "Confirmar asistencia",
       def: window.DEFAULT_TPL_ASIST,
-      sample: { nombre: "Mar\xEDa P\xE9rez", clinica: clinNombre, fecha: "s\xE1bado 11 de julio", hora: "13:45", tratamiento: "Rinomodelaci\xF3n", mapa: "https://www.medique.cl/ir?c=\u2026" }
+      sample: { nombre: "Mar\xEDa P\xE9rez", primernombre: "Mar\xEDa", clinica: clinNombre, fecha: "s\xE1bado 11 de julio", hora: "13:45", tratamiento: "Rinomodelaci\xF3n", mapa: "https://www.medique.cl/ir?c=\u2026" }
+    },
+    {
+      key: "msg_tpl_recita",
+      label: "Campa\xF1a de re-cita",
+      def: window.DEFAULT_TPL_RECITA,
+      sample: { primernombre: "Mar\xEDa", clinica: clinNombre, mensaje: "Tu siguiente sesi\xF3n de Sculptra potencia y prolonga tu col\xE1geno (vas en la sesi\xF3n 2 de 3)", precio_linea: " El valor actual es de $450.000 y, por ser parte de la cl\xEDnica, te lo dejamos en $400.000." }
     }
   ];
   const [open, setOpen] = useState(null);
