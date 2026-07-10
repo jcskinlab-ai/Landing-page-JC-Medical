@@ -64,5 +64,17 @@
 <script src="jcm_saas.js?v=28"></script>
 
 <script src="/dist/jc-mobile.js?v=72"></script>
+
+<script>
+  // Service Worker: abre la app agregada a la pantalla de inicio del iPhone al instante desde
+  // caché (sin pantalla de carga) y la actualiza sola en segundo plano. Restringido a
+  // movil.medique.cl (nunca portal.medique.cl, aunque comparta el mismo despliegue de Vercel) —
+  // localhost se permite para poder probarlo en el preview de desarrollo.
+  if ("serviceWorker" in navigator && (location.hostname === "movil.medique.cl" || location.hostname === "localhost")) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/service-worker-mobile.js").catch(function () {});
+    });
+  }
+</script>
 </body>
 </html>
