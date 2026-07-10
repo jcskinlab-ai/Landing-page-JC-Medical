@@ -1084,7 +1084,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         {ql ? searchResultsBody : (<>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
             <button onClick={()=>setMonthCur(c=>{ const m=c.m-1; return m<0?{y:c.y-1,m:11}:{y:c.y,m}; })} style={{ width:44, height:44, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>‹</button>
-            <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:600, color:T.text }}>{MESES_LARGOS[monthCur.m]} {monthCur.y}</div>
+            <div style={{ fontFamily:T.sans, fontSize:19, fontWeight:600, color:T.text }}><span style={{ fontFamily:FRAUNCES, fontStyle:"italic", color:T.accent }}>{MESES_LARGOS[monthCur.m]}</span> {monthCur.y}</div>
             <button onClick={()=>setMonthCur(c=>{ const m=c.m+1; return m>11?{y:c.y+1,m:0}:{y:c.y,m}; })} style={{ width:44, height:44, borderRadius:999, ...glassChip(T), color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>›</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0 10px 4px", flexShrink:0 }}>
@@ -1960,8 +1960,10 @@ function MobileShell({ T, D, onLogout }) {
   const pendConsent = consentPendingM(patients, appts);   // consentimientos por firmar (como el portal)
   const bellCount = pendPago.length + pendConsent.length;
   const clinName = (() => { try { const n = window.DB && window.DB.cfg && window.DB.cfg().clinic_name; return (n && (""+n).trim()) || ""; } catch(e) { return ""; } })();
-  // Fecha del día para el subtítulo del header (reemplaza a "Panel móvil").
-  const fechaHeader = (() => { const d = new Date(); const s = DOW_FULL[d.getDay()]+", "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); return s.charAt(0).toUpperCase()+s.slice(1); })();
+  // Fecha del día para el subtítulo del header (reemplaza a "Panel móvil"). El mes va en serif
+  // itálica + color de acento (PRUEBA rama movil-diseno-portal: mismo tratamiento que el rango de
+  // fechas de la Agenda del portal — jc-admin.jsx, "6 de Julio – 12 de Julio").
+  const fechaHeaderParts = (() => { const d = new Date(); const dow = DOW_FULL[d.getDay()]; return { pre: dow.charAt(0).toUpperCase()+dow.slice(1)+", "+d.getDate()+" de ", mes: MESES_LARGOS[d.getMonth()].toLowerCase() }; })();
   {/* Objetivo táctil mínimo 44px en toda esta fila: el ícono visual no cambia de tamaño, el margen
       negativo compensa el padding invisible extra para que la fila no se vea más ancha. */}
   const hamburger = <button onClick={()=>setDrawer(true)} aria-label="Menú" style={{ width:44, height:44, borderRadius:"50%", border:"none", background:"none", color:T.text, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginLeft:-9 }}>
@@ -1983,7 +1985,7 @@ function MobileShell({ T, D, onLogout }) {
         {/* Pedido: nombre de la clínica + fecha en UNA sola línea horizontal, alineada con la campana. */}
         <div style={{ display:"flex", alignItems:"baseline", gap:5, minWidth:0 }}>
           <span style={{ fontFamily:FRAUNCES, fontSize:13.5, fontWeight:500, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{clinName || "Medique"}</span>
-          <span style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {fechaHeader}</span>
+          <span style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>· {fechaHeaderParts.pre}<span style={{ fontFamily:FRAUNCES, fontStyle:"italic", color:T.accent }}>{fechaHeaderParts.mes}</span></span>
         </div>
       </div>{bell}</>;
     if (tab==="nueva") return <>
