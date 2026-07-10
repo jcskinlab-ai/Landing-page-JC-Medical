@@ -245,15 +245,15 @@ function PhotoBgLayers() {
     </>
   );
 }
-// Fondo de la pantalla de LOGIN: foto fija + velo casi negro, IDÉNTICO al login del portal de
-// escritorio (SaasGate, jc-admin.jsx) — antes era un velo azulado más claro, propio del móvil.
-// La foto va DESENFOCADA en su propia capa (no la nueva v3, que a diferencia de la anterior no
-// viene pre-desenfocada) para que el texto/los inputs no se pierdan contra el detalle de la montaña.
+// Fondo de la pantalla de LOGIN: foto del Everest (evapp, pedido del usuario 10-jul) NÍTIDA para
+// que se vea la montaña + velo navy en degradado (más suave arriba, donde está el cielo, y más
+// denso hacia el centro/abajo donde vive el formulario) para mantener el texto/los inputs legibles.
+// Esta foto vive SOLO en el login; el resto del panel usa su propio fondo (PhotoBgLayers).
 function LoginVideoBg({ children }) {
-  const overlay = "linear-gradient(rgba(9,11,15,.76), rgba(9,11,15,.90))";
+  const overlay = "linear-gradient(180deg, rgba(9,11,15,.42) 0%, rgba(9,11,15,.62) 45%, rgba(9,11,15,.82) 100%)";
   return (
     <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#070707" }}>
-      <div style={{ position:"absolute", inset:-24, backgroundImage:"url('/assets/everest-mobile.jpg?v=11')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat", filter:"blur(22px)", transform:"scale(1.08)" }} />
+      <div style={{ position:"absolute", inset:0, backgroundImage:"url('/assets/evapp-login.jpg?v=1')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }} />
       <div style={{ position:"absolute", inset:0, backgroundImage:overlay }} />
       <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:340, display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
     </div>
