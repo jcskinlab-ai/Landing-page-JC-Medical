@@ -1717,6 +1717,8 @@ function MessageTemplatesView({ T }) {
       sample: { nombre:"María Pérez", primernombre:"María", clinica:clinNombre, fecha:"Sáb 11 Jul", hora:"13:45", tratamiento:"Rinomodelación", profesional:(cfg.professional&&(""+cfg.professional).trim())||"Profesional a cargo", direccion:(cfg.clinic_addr&&(""+cfg.clinic_addr).trim())||"Dirección de tu clínica", mapa:"https://www.medique.cl/ir?c=…", politica:"" } },
     { key:"msg_tpl_asist", label:"Confirmar asistencia", def: window.DEFAULT_TPL_ASIST,
       sample: { nombre:"María Pérez", primernombre:"María", clinica:clinNombre, fecha:"sábado 11 de julio", hora:"13:45", tratamiento:"Rinomodelación", mapa:"https://www.medique.cl/ir?c=…" } },
+    { key:"msg_tpl_recita", label:"Campaña de re-cita", def: window.DEFAULT_TPL_RECITA,
+      sample: { primernombre:"María", clinica:clinNombre, mensaje:"Tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión 2 de 3)", precio_linea:" El valor actual es de $450.000 y, por ser parte de la clínica, te lo dejamos en $400.000." } },
   ];
   const [open, setOpen] = useState(null);
   return (

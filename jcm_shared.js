@@ -89,6 +89,12 @@ const DB = {
 // por defecto — MISMO texto para portal de escritorio y panel móvil (una sola fuente de verdad).
 const DEFAULT_TPL_CONFIRM = "Hola {nombre} 👋\n\nTu cita en {clinica} quedó confirmada:\n\n🗓️ Fecha: {fecha}\n⏰ Hora: {hora} hrs\n💉 Tratamiento: {tratamiento}\n👨‍⚕️ Profesional: {profesional}\n📍 Dirección: {direccion}\n\n🏥 Cómo llegar: {mapa}\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.{politica}\n\n¡Nos vemos pronto!";
 const DEFAULT_TPL_ASIST = "Hola {primernombre}!\n\nTe escribimos de {clinica} para confirmar tu asistencia a tu cita el {fecha} a las {hora} hrs ({tratamiento}).\n\n¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar\n\nCómo llegar: {mapa}\n\n¡Te esperamos!";
+// Campaña de re-cita (Pacientes → Campañas de re-cita por WhatsApp, portal de escritorio): invita a
+// renovar toxina/Sculptra/rinomodelación cuando se cumple el plazo. {precio_linea} es una sola
+// frase opcional ya armada (viene vacía si el procedimiento no tiene precio, ej. rinomodelación) —
+// no hace falta escribirla, se arma sola con el precio real y el descuento configurado en
+// Configuración → Plantillas → "Descuento de re-cita".
+const DEFAULT_TPL_RECITA = "Hola {primernombre}, te saludamos de {clinica}. {mensaje}.{precio_linea} ¿Te gustaría gestionar tu hora?";
 // Tokens disponibles por plantilla, para mostrarlos en el editor (panel móvil).
 const TPL_TOKENS = {
   msg_tpl_confirm: [
@@ -111,6 +117,12 @@ const TPL_TOKENS = {
     { k: "hora",    d: "Hora (13:45)" },
     { k: "tratamiento", d: "Tratamiento" },
     { k: "mapa",    d: "Link “Cómo llegar”" }
+  ],
+  msg_tpl_recita: [
+    { k: "primernombre", d: "Solo el primer nombre" },
+    { k: "clinica",      d: "Nombre de la clínica" },
+    { k: "mensaje",      d: "Frase del procedimiento (ej. \"Tu siguiente sesión de Sculptra…\") — se arma sola" },
+    { k: "precio_linea", d: "Frase con el precio y el descuento — se arma sola (vacía si el procedimiento no tiene precio, ej. rinomodelación)" }
   ]
 };
 // Rellena una plantilla: reemplaza cada {token} por su valor (string vacío si no viene).
@@ -119,6 +131,7 @@ function fillMsgTpl(tpl, vars) {
 }
 window.DEFAULT_TPL_CONFIRM = DEFAULT_TPL_CONFIRM;
 window.DEFAULT_TPL_ASIST = DEFAULT_TPL_ASIST;
+window.DEFAULT_TPL_RECITA = DEFAULT_TPL_RECITA;
 window.TPL_TOKENS = TPL_TOKENS;
 window.fillMsgTpl = fillMsgTpl;
 

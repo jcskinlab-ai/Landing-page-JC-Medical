@@ -407,7 +407,8 @@ function recitaFor(p) {
     msg = "te contactamos para ver si deseas renovar tu toxina botulínica para mantener tu resultado natural";
     refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
   } else if (pick === "sculptra") {
-    fam = "sculptra"; umbral = 2; precio = 280000;
+    fam = "sculptra"; umbral = 2;
+    precio = jcmProcPrice((lastScu && (lastScu.proc || lastScu.title)) || tag) || 450000; // valor actual del procedimiento
     const ses = hist.filter(h => scuRe.test(h.proc || h.title || "")).length || 1;
     if (ses >= 3) return null; // esquema de 3 sesiones completo
     motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a 2 meses)";
@@ -421,18 +422,29 @@ function recitaFor(p) {
   }
   if (!refTs) return null;
   const meses = (Date.now() - refTs) / (1000 * 60 * 60 * 24 * 30.44);
-  const desc = precio > 20000 ? precio - 20000 : precio; // precio preferente: valor actual − $20.000
+  // Precio preferente: usa el descuento configurado por la clínica (Configuración → Plantillas →
+  // "Descuento de re-cita", RecitaDescCard) si existe; si nunca se configuró, cae al comportamiento
+  // de siempre (−$20.000 fijo) para no cambiarle el mensaje a nadie que no haya tocado nada.
+  const descCfg = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const desc = descCfg.recita_desc_val
+    ? (descCfg.recita_desc_tipo === "pct"
+        ? Math.max(0, Math.round(precio * (1 - descCfg.recita_desc_val / 100) / 1000) * 1000)
+        : Math.max(0, precio - descCfg.recita_desc_val))
+    : (precio > 20000 ? precio - 20000 : precio);
   const due = new Date(refTs + umbral * 30.44 * 24 * 60 * 60 * 1000);
   return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
 // Lista de pacientes cuyo plazo de re-cita ya se cumplió (para notificaciones / pendientes).
 function recitaDue(patients) { return (patients || []).map(p => ({ p, r: recitaFor(p) })).filter(x => x.r && x.r.vence); }
 // Mensaje de WhatsApp que muestra el precio real y luego el precio preferente (en pesos, no en %).
+// Usa la plantilla propia de la clínica (DB.cfg().msg_tpl_recita, editable en el panel móvil,
+// Más → Plantillas de mensajes) si existe; si no, el texto predeterminado (jcm_shared.js).
 function recitaMsg(p, r) {
-  const first = (p.name || "").split(" ")[0] || "";
-  const base = "Hola " + first + ", te saludamos de " + ((window.clinicName && window.clinicName()) || "tu clínica") + ". " + (r.msg.charAt(0).toUpperCase() + r.msg.slice(1)) + ".";
-  const precioTxt = r.precio ? " El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + "." : "";
-  return base + precioTxt + " ¿Te gustaría gestionar tu hora?";
+  let tpl = ""; try { tpl = window.DB && DB.cfg().msg_tpl_recita; } catch (e) {}
+  tpl = (tpl && ("" + tpl).trim()) || window.DEFAULT_TPL_RECITA;
+  const mensaje = r.msg.charAt(0).toUpperCase() + r.msg.slice(1);
+  const precio_linea = r.precio ? (" El valor actual es de " + r.precioFmt + " y, por ser parte de la clínica, te lo dejamos en " + r.descFmt + ".") : "";
+  return window.fillMsgTpl(tpl, { primernombre: (window.jcmFirstName ? window.jcmFirstName(p.name) : (p.name || "").split(" ")[0] || ""), clinica: (window.clinicName && window.clinicName()) || "tu clínica", mensaje: mensaje, precio_linea: precio_linea });
 }
 function recitaWa(p, r) { return "https://wa.me/" + (p.phone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(recitaMsg(p, r)); }
 function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }) {
