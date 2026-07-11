@@ -2591,12 +2591,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     let cur = -1;
     return sorted.map((a) => {
       const dur = parseInt(a.dur) || 60;
-      const h = Math.max(MIN_BLK, dur * HPX / 60);
-      const nat = (mins(a.time) - OPEN) * HPX / 60;
-      const pushed = cur >= 0 && nat < cur;
-      const top = pushed ? cur + 2 : nat;
+      const compact = dur < 30;
+      const nat = dur * HPX / 60;
+      const h = compact ? Math.max(20, nat) : Math.max(MIN_BLK, nat);
+      const top0 = (mins(a.time) - OPEN) * HPX / 60;
+      const pushed = cur >= 0 && top0 < cur;
+      const top = pushed ? cur + 2 : top0;
       cur = top + h;
-      return { ...a, _top: top, _h: h };
+      return { ...a, _top: top, _h: h, _compact: compact };
     });
   })();
   const daySlotMin = adminSlotMins();
@@ -2856,10 +2858,13 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             if (dayHideT.current) clearTimeout(dayHideT.current);
             dayHideT.current = setTimeout(() => setHoverA(null), 160);
           },
-          style: { position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? luxF ? "1e" : "26" : luxF ? "14" : "1c"), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }
+          style: { position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? luxF ? "1e" : "26" : luxF ? "14" : "1c"), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: a._compact ? "0 11px" : "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }
         },
-        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" } }, a.time, " - ", endOf(a)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" } }, parseInt(a.dur) || 60, " min")), ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" } }, ini)),
-        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), a.proc && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.proc))
+        a._compact ? (
+          /* Citas cortas (<30 min): una sola fila — la caja queda delgada (alto real) y no
+             invade el slot siguiente ni tapa su botón "+". */
+          /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", flexShrink: 0 } }, a.time), ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 4px" } }, ini), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name))
+        ) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" } }, a.time, " - ", endOf(a)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" } }, parseInt(a.dur) || 60, " min")), ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" } }, ini)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), a.proc && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.proc)))
       );
     }), showNow && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 54, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 4, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" } }, "Ahora ", fmtTime(now)))))), (() => {
       const card = { ...dayGlass(16), padding: 15 };

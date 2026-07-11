@@ -2985,22 +2985,24 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   }
   // Apila citas solapadas en la vista lista
   const listStacked = (() => {
-    // MIN_BLK: alto mínimo de un bloque de cita. El contenido son DOS filas
-    // (hora+duración y nombre+procedimiento) que necesitan ~46 px; con menos,
-    // el overflow:hidden recortaba el nombre en las citas de 15 min (21 px).
-    // Se fija un piso legible y se apila hacia abajo si dos citas se pisan
-    // (mismo criterio que un calendario: la caja nunca queda más baja que su texto).
+    // MIN_BLK: alto mínimo de un bloque de cita de 30 min o más (layout de DOS filas:
+    // hora+duración y nombre+procedimiento, que necesitan ~46 px). Las citas cortas
+    // (< 30 min, ej. 15 min = 21 px reales) usan un layout compacto de UNA fila y NO
+    // se estiran a este piso — si no, la caja invade el siguiente slot de 15 min y
+    // tapa el botón "+" para agendar ahí (ver _compact más abajo).
     const MIN_BLK = 48;
     const sorted = [...list].sort((a, b) => mins(a.time) - mins(b.time));
     let cur = -1;
     return sorted.map(a => {
       const dur = parseInt(a.dur) || 60;
-      const h = Math.max(MIN_BLK, dur * HPX / 60);
-      const nat = (mins(a.time) - OPEN) * HPX / 60;
-      const pushed = cur >= 0 && nat < cur;
-      const top = pushed ? cur + 2 : nat;
+      const compact = dur < 30;
+      const nat = dur * HPX / 60;
+      const h = compact ? Math.max(20, nat) : Math.max(MIN_BLK, nat);
+      const top0 = (mins(a.time) - OPEN) * HPX / 60;
+      const pushed = cur >= 0 && top0 < cur;
+      const top = pushed ? cur + 2 : top0;
       cur = top + h;
-      return { ...a, _top: top, _h: h };
+      return { ...a, _top: top, _h: h, _compact: compact };
     });
   })();
   // Slots LIBRES de la vista diaria: un "+" clicable en cada tramo (15 o 30 min) NO cubierto por una
@@ -3303,21 +3305,34 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                       }, 200);
                     }}
                     onMouseLeave={() => { if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } if (dayHideT.current) clearTimeout(dayHideT.current); dayHideT.current = setTimeout(() => setHoverA(null), 160); }}
-                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
-                    {/* Fila superior: rango horario + duración (izq) · inicial del procedimiento (der) — igual que la referencia */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <span style={{ display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 }}>
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: a._compact ? "0 11px" : "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
+                    {a._compact ? (
+                      /* Citas cortas (<30 min): una sola fila — la caja queda delgada (alto real) y no
+                         invade el slot siguiente ni tapa su botón "+". */
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                         <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 }} />
-                        <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
-                        <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
-                      </span>
-                      {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
-                    </div>
-                    {/* Fila inferior: nombre del paciente + procedimiento */}
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-                      <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
-                      {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc}</span>}
-                    </div>
+                        <span style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", flexShrink: 0 }}>{a.time}</span>
+                        {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 4px" }}>{ini}</span>}
+                        <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Fila superior: rango horario + duración (izq) · inicial del procedimiento (der) — igual que la referencia */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span style={{ display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 }}>
+                            <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                            <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
+                            <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
+                          </span>
+                          {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
+                        </div>
+                        {/* Fila inferior: nombre del paciente + procedimiento */}
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+                          <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                          {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc}</span>}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ); })}
                 {showNow && (
