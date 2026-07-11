@@ -34,6 +34,12 @@
   @keyframes jcFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @keyframes jcPop{0%{transform:scale(.7);opacity:0}70%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
   @keyframes jcDrawerIn{from{transform:translateX(-100%)}to{transform:none}}
+  /* Audit P2: el panel no respetaba prefers-reduced-motion (PRODUCT.md lo exige explícitamente).
+     Interruptor global — reduce toda animación/transición a un cambio casi instantáneo (crossfade),
+     sin tener que tocar cada keyframe/transition individual del archivo. */
+  @media (prefers-reduced-motion: reduce) {
+    *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  }
   .jc-scroll::-webkit-scrollbar{width:0;height:0}
   .no-sb::-webkit-scrollbar{display:none;width:0;height:0}.no-sb{scrollbar-width:none}
   /* Placeholder legible sobre el glass oscuro del panel (el gris por defecto del navegador
@@ -72,7 +78,7 @@
 <script src="jcm_saas_config.js?v=7"></script>
 <script src="jcm_saas.js?v=28"></script>
 
-<script src="/dist/jc-mobile.js?v=90"></script>
+<script src="/dist/jc-mobile.js?v=93"></script>
 
 <script>
   // Service Worker: abre la app agregada a la pantalla de inicio del iPhone al instante desde
