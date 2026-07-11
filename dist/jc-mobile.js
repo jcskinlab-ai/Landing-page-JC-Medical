@@ -115,7 +115,7 @@ const STATUS_STEPS = [
   { key: "anulada", label: "Cancelar" }
 ];
 function apptStateM(a, T) {
-  if (a.status === "anulada") return { label: "Cancelada", color: T.textFaint };
+  if (a.status === "anulada") return { label: "Cancelada", color: T.mutedPill };
   if (a.status === "no_asistio") return { label: "No asisti\xF3", color: "#FF6B7D" };
   if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#F5B93D" };
   if (a.status === "confirmada") return { label: "Confirmada", color: "#46D27A" };
@@ -213,7 +213,7 @@ const THEME_SHARED = {
   goldText: "#241C0E",
   red: "#CC5B54",
   redText: "#FFFFFF",
-  mutedPill: "#5B6570",
+  mutedPill: "#A9B4BE",
   onAccent: "#10181F",
   green: "#4CAF78",
   serif: FRAUNCES,

@@ -120,7 +120,11 @@ const STATUS_STEPS = [
 // (pedido): Agendado=azul, Confirmado=verde, Atendido=dorado, No asistió=rojo.
 function apptStateM(a, T) {
   // Color de la BARRA lateral y el punto (tokens del MD: verde/amarillo/rojo/azul).
-  if (a.status === "anulada")        return { label: "Cancelada",   color: T.textFaint };
+  // Fix (revisión post-audit): usaba T.textFaint — un token de baja opacidad pensado para texto
+  // secundario, no para pintar una píldora — que además cambia de opacidad por tema. Sobre el
+  // fondo fijo #141B26 de la píldora, texto y fondo quedaban casi del mismo tono → invisible.
+  // T.mutedPill es un gris SÓLIDO (#5B6570, igual en ambos temas), como el resto de los estados.
+  if (a.status === "anulada")        return { label: "Cancelada",   color: T.mutedPill };
   if (a.status === "no_asistio")     return { label: "No asistió",  color: "#FF6B7D" };
   if (a.attended || a.status === "atendida") return { label: "Atendida", color: "#F5B93D" };
   if (a.status === "confirmada")     return { label: "Confirmada",  color: "#46D27A" };
@@ -221,7 +225,7 @@ function writeMobileMode(m) { try { localStorage.setItem(MOBILE_THEME_KEY, m); }
 // Constantes compartidas (idénticas en ambos temas) — colores de estado/acción del portal.
 const THEME_SHARED = {
   gold: "#D8B36A", goldText: "#241C0E", red: "#CC5B54", redText: "#FFFFFF",
-  mutedPill: "#5B6570", onAccent: "#10181F", green: "#4CAF78",
+  mutedPill: "#A9B4BE", onAccent: "#10181F", green: "#4CAF78",
   serif: FRAUNCES, sans: JOST,
 };
 const THEME_DARK = {
