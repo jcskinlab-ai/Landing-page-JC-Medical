@@ -25,6 +25,12 @@
   #root{height:100%;overflow:hidden}
   button{font-family:inherit}input,select,textarea{font-family:inherit}
   select{-webkit-appearance:none}
+  /* Pedido del usuario: que no se pueda seleccionar texto en la web (comportamiento de app nativa,
+     no de página). -webkit-touch-callout es lo que realmente apaga el menú de iOS "Copiar/Consultar"
+     al mantener presionado; user-select apaga el resaltado azul de selección. Se re-habilita en
+     inputs/textareas para no romper la edición normal (seleccionar/copiar lo que el usuario escribió). */
+  *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-select:text}
   @keyframes jcFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @keyframes jcPop{0%{transform:scale(.7);opacity:0}70%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
   @keyframes jcDrawerIn{from{transform:translateX(-100%)}to{transform:none}}
@@ -66,7 +72,7 @@
 <script src="jcm_saas_config.js?v=7"></script>
 <script src="jcm_saas.js?v=28"></script>
 
-<script src="/dist/jc-mobile.js?v=89"></script>
+<script src="/dist/jc-mobile.js?v=90"></script>
 
 <script>
   // Service Worker: abre la app agregada a la pantalla de inicio del iPhone al instante desde

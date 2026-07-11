@@ -1081,6 +1081,28 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     dayRef.current.scrollTop = targetPx;
   }, [selDay, showAnuladas]);
 
+  // Pedido del usuario: deslizar hacia la izq/der sobre la pantalla de Agenda (lista u horarios)
+  // avanza/retrocede el día automáticamente, sin tener que tocar un día puntual en la tira.
+  // Guardas: (1) toques que empiezan a ≤30px del borde izquierdo se ignoran — ese rango es del
+  // gesto global de "volver atrás" (onRootTouchStart/End en MobileShell), no debe disparar los dos
+  // a la vez; (2) exige que el gesto sea claramente horizontal (dx grande, dy chico) para no
+  // interferir con el scroll vertical normal de la lista.
+  const daySwipeRef = useRef(null);
+  function onDaySwipeStart(e) {
+    if (!e.touches || e.touches.length !== 1) { daySwipeRef.current = null; return; }
+    const t = e.touches[0];
+    if (t.clientX <= 30) { daySwipeRef.current = null; return; }
+    daySwipeRef.current = { x: t.clientX, y: t.clientY };
+  }
+  function onDaySwipeEnd(e) {
+    const start = daySwipeRef.current; daySwipeRef.current = null;
+    if (!start || !e.changedTouches || !e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x, dy = t.clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    setSelDay(d => shiftDateM(d, dx < 0 ? 1 : -1));
+  }
+
   // Tarjeta de cita en el timeline (fidelidad a la referencia): glass card con barra de color a
   // la izquierda + badge de estado a la derecha — igual lenguaje que las tarjetas de Home, no un
   // bloque plano con solo borde superior. Alto proporcional a la duración real (más correcto que
@@ -1117,7 +1139,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   // Segmentado Día/Mes (el filtro de canceladas ahora vive en el icono del header, como la referencia).
   // Pedido: más chico, para dejar más protagonismo a la tira de días y las citas.
   const toggleRow = (
-    <div style={{ display:"flex", gap:5, padding:"8px 14px 6px", flexShrink:0 }}>
+    <div style={{ display:"flex", gap:5, padding:"5px 14px 4px", flexShrink:0 }}>
       <div style={{ display:"flex", flex:1, gap:3, padding:3, borderRadius:11, ...glassChip(T) }}>
         {[["dia","Día"],["mes","Mes"]].map(([k,l])=>(
           // Pedido: al tocar "Día" siempre vuelve al día de HOY automáticamente (no se queda en
@@ -1136,7 +1158,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   // para no introducir un lenguaje visual nuevo. Vive siempre debajo del segmentado Día/Mes, en
   // ambas vistas — buscar no depende de qué vista esté abierta.
   const searchBar = (
-    <div style={{ padding:"0 14px 8px", flexShrink:0 }}>
+    <div style={{ padding:"0 14px 5px", flexShrink:0 }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, ...glassChip(T), borderRadius:13, padding:"0 14px" }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
         <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por nombre, RUT o procedimiento…" style={{ flex:1, background:"transparent", border:"none", outline:"none", color:T.text, fontFamily:T.sans, fontSize:13.5, padding:"11px 0" }} />
@@ -1232,13 +1254,13 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         {/* Tira de días continua (pedido): scroll horizontal nativo y directo, sin paginar por semana.
             Esta zona y los botones de arriba quedan FIJOS — solo la lista de citas más abajo scrollea. */}
         <div ref={stripRef} style={{ overflowX:"auto", flexShrink:0, WebkitOverflowScrolling:"touch" }}>
-          <div style={{ display:"flex", padding:"8px 10px 4px", minWidth:"max-content", gap:2 }}>
+          <div style={{ display:"flex", padding:"5px 10px 3px", minWidth:"max-content", gap:2 }}>
             {stripDays.map(d => {
               const isSel = d.iso === selDay;
               const hasApts = (apptCountByDate[d.iso]||0) > 0;
               return (
                 <button key={d.iso} ref={el=>{ dayBtnRefs.current[d.iso]=el; }} onClick={()=>setSelDay(d.iso)}
-                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"8px 8px 6px", borderRadius:14, minWidth:44, cursor:"pointer",
+                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"6px 8px 5px", borderRadius:14, minWidth:44, cursor:"pointer",
                     background:"transparent", border:"1.4px solid "+(isSel ? T.accent : "transparent") }}>
                   <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:500, color: T.textFaint }}>{d.wd}</span>
                   <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color: isSel ? T.accent : (d.isToday ? T.text : T.textMute), lineHeight:1.15 }}>{d.dd}</span>
@@ -1250,7 +1272,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         </div>
         {/* Toggle "Ver horarios disponibles" ↔ "Ver lista de citas" (prototipo): la lista de tarjetas
             es la vista por defecto; al tocar, se ve la agenda en calendario (línea de tiempo por horas). */}
-        <div onClick={()=>setDayMode(m=>m==="list"?"cal":"list")} style={{ margin:"10px 16px 12px", flexShrink:0, background:T.flatFill, border:"1px solid "+T.flatBorder, borderRadius:16, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }}>
+        <div onClick={()=>setDayMode(m=>m==="list"?"cal":"list")} style={{ margin:"6px 16px 6px", flexShrink:0, background:T.flatFill, border:"1px solid "+T.flatBorder, borderRadius:16, padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
             <span style={{ fontFamily:T.sans, fontWeight:500, fontSize:13, color:T.text }}>{dayMode==="list"?"Ver horarios disponibles":"Ver lista de citas"}</span>
@@ -1259,7 +1281,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
         </div>
 
         {dayMode==="list" ? (
-          <div className="no-sb" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", padding:"0 16px 8px", display:"flex", flexDirection:"column", gap:10 }}>
+          <div onTouchStart={onDaySwipeStart} onTouchEnd={onDaySwipeEnd} className="no-sb" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", padding:"0 16px 8px", display:"flex", flexDirection:"column", gap:10 }}>
             <div style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:500, color:T.text }}>{(() => { const d=new Date(selDay+"T12:00:00"); return selDay===today ? "Hoy · "+DOW_FULL[d.getDay()] : DOW_FULL[d.getDay()]+" "+d.getDate()+" de "+MESES_LARGOS[d.getMonth()].toLowerCase(); })()}</div>
             {dayAppts.map(a => {
               const st = apptStateM(a, T);
@@ -1294,7 +1316,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
             <div style={{ height:88, flexShrink:0 }} />
           </div>
         ) : (
-        <div ref={dayRef} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
+        <div ref={dayRef} onTouchStart={onDaySwipeStart} onTouchEnd={onDaySwipeEnd} style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
           <div style={{ position:"relative", marginLeft:48, paddingRight:12 }}>
             {CAL_HOURS.map(h => (
               <div key={h} style={{ position:"absolute", left:-48, right:0, top: (h - CAL_START) * CAL_PX_HOUR, display:"flex", alignItems:"flex-start", zIndex:1 }}>
@@ -2248,8 +2270,8 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
             encabezado dentro de su tarjeta (saludo en Inicio, título "Menú" en el Menú) con padding
             de safe-area propio. El resto de pestañas (nueva/agenda/horarios) sí usan el header. */}
         {tab!=="citas" && tab!=="mas" && (
-          <div style={{ position:"sticky", top:0, zIndex:10, padding:"calc(8px + env(safe-area-inset-top,0px)) 14px 4px" }}>
-            <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"6px 4px 6px", minHeight:42 }}>{renderHeader()}</div>
+          <div style={{ position:"sticky", top:0, zIndex:10, padding:"calc(6px + env(safe-area-inset-top,0px)) 14px 2px" }}>
+            <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, padding:"4px 4px", minHeight:36 }}>{renderHeader()}</div>
           </div>
         )}
 
