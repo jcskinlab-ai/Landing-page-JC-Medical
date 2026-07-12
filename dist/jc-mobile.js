@@ -1044,6 +1044,11 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [email, setEmail] = useState("");
   const procs = procList();
   const [fecha, setFecha] = useState(todayISO());
+  const [calOpen, setCalOpen] = useState(false);
+  const [calMonth, setCalMonth] = useState(() => /* @__PURE__ */ new Date(todayISO() + "T12:00:00"));
+  useEffect(() => {
+    setCalMonth(/* @__PURE__ */ new Date((fecha || todayISO()) + "T12:00:00"));
+  }, [fecha]);
   const [time, setTime] = useState("10:00");
   const [proc, setProc] = useState(procs[0] || "Evaluaci\xF3n general");
   const [dur, setDur] = useState("30 minutos");
@@ -1152,7 +1157,46 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     })())) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Nombre completo"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Nombre y apellido", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => onRut(e.target.value), disabled: sinRut, inputMode: "numeric", placeholder: sinRut ? "Sin RUT" : "12.345.678-9", style: { ...inp, opacity: sinRut ? 0.5 : 1, borderColor: sinRut || rutOk || !rut ? T.inputBorder : T.red } })), !sinRut && rut && !rutOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -6 } }, "Revisa el RUT: el d\xEDgito verificador no coincide."), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", marginTop: -4 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: sinRut, onChange: (e) => {
       setSinRut(e.target.checked);
       if (e.target.checked) setRut("");
-    } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Paciente extranjero / sin RUT")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", inputMode: "numeric", value: phone, onChange: (e) => onPhone(e.target.value), style: { ...inp, borderColor: phoneOk ? T.inputBorder : T.red } })), !phoneOk && phone.length > PHONE_PFX.length && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -6 } }, "Ingresa los 8 d\xEDgitos del tel\xE9fono."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: inp }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, stepBtn(-1, () => setFecha((f) => shiftDateM(f, -1))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 12.5, color: T.text, minWidth: 100, textAlign: "center" } }, dayLabelM(fecha)), stepBtn(1, () => setFecha((f) => shiftDateM(f, 1))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("select", { value: time, onChange: (e) => setTime(e.target.value), style: { ...inp, width: "auto" } }, (() => {
+    } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Paciente extranjero / sin RUT")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", inputMode: "numeric", value: phone, onChange: (e) => onPhone(e.target.value), style: { ...inp, borderColor: phoneOk ? T.inputBorder : T.red } })), !phoneOk && phone.length > PHONE_PFX.length && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -6 } }, "Ingresa los 8 d\xEDgitos del tel\xE9fono."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: inp }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, stepBtn(-1, () => setFecha((f) => shiftDateM(f, -1))), /* @__PURE__ */ React.createElement("button", { onClick: () => setCalOpen((o) => !o), "aria-label": "Abrir calendario", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minWidth: 100, height: 30, padding: "0 10px", borderRadius: 10, background: calOpen ? T.accentSoft : "none", border: "1px solid " + (calOpen ? T.accentBorder : "transparent"), cursor: "pointer" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 12.5, color: T.text } }, dayLabelM(fecha)), /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", style: { transform: calOpen ? "rotate(180deg)" : "none", transition: "transform .2s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), stepBtn(1, () => setFecha((f) => shiftDateM(f, 1))))), calOpen && (() => {
+      const y = calMonth.getFullYear(), m = calMonth.getMonth();
+      const startOff = (new Date(y, m, 1).getDay() + 6) % 7;
+      const nDays = new Date(y, m + 1, 0).getDate();
+      const cells = [];
+      for (let i = 0; i < startOff; i++) cells.push(null);
+      for (let d = 1; d <= nDays; d++) cells.push(d);
+      const navMonth = (delta) => setCalMonth(new Date(y, m + delta, 1));
+      return /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 16), padding: "12px 12px 10px", marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => navMonth(-1), "aria-label": "Mes anterior", style: { width: 30, height: 30, borderRadius: 9, background: T.glassFill, border: "1px solid " + T.glassBorder, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: T.text, strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M15 5l-7 7 7 7" }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 15, fontWeight: 600, color: T.text } }, MESES_LARGOS[m], " ", y), /* @__PURE__ */ React.createElement("button", { onClick: () => navMonth(1), "aria-label": "Mes siguiente", style: { width: 30, height: 30, borderRadius: 9, background: T.glassFill, border: "1px solid " + T.glassBorder, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: T.text, strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M9 5l7 7-7 7" })))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 } }, ["Lu", "Ma", "Mi", "Ju", "Vi", "S\xE1", "Do"].map((w) => /* @__PURE__ */ React.createElement("div", { key: w, style: { textAlign: "center", fontFamily: T.sans, fontSize: 10, color: T.textFaint, padding: "2px 0" } }, w))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 } }, cells.map((d, i) => {
+        if (d == null) return /* @__PURE__ */ React.createElement("div", { key: "e" + i });
+        const iso = localISO(new Date(y, m, d));
+        const isSel = iso === fecha, isToday = iso === todayISO();
+        return /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            key: iso,
+            onClick: () => {
+              setFecha(iso);
+              setCalOpen(false);
+            },
+            style: {
+              height: 38,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "50%",
+              border: "none",
+              cursor: "pointer",
+              background: isSel ? T.accent : "transparent",
+              color: isSel ? T.onAccent : T.text,
+              fontFamily: T.sans,
+              fontSize: 13.5,
+              fontWeight: isSel || isToday ? 600 : 400,
+              boxShadow: !isSel && isToday ? "inset 0 0 0 1px " + T.accentBorder : "none"
+            }
+          },
+          d
+        );
+      })));
+    })()), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("select", { value: time, onChange: (e) => setTime(e.target.value), style: { ...inp, width: "auto" } }, (() => {
       const base = freeSlots.length ? freeSlots : slotsM();
       const opts = base.indexOf(time) >= 0 ? base : [time, ...base];
       return opts.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s, " hrs"));
