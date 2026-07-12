@@ -1239,7 +1239,7 @@ function PortalAdminModal({ T, patient, onClose }) {
     <AdModal T={T} title="Portal del paciente" onClose={onClose} footer={<AdBtn T={T} full onClick={onClose}>Cerrar</AdBtn>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>
-          Da acceso al paciente para que vea <b>su propia ficha</b> (solo sus procedimientos) desde <b>portal.medique.cl</b>, entrando con su <b>RUT</b> y una <b>clave que él mismo crea</b>. El acceso lo autorizas tú aquí; el paciente recibe un enlace por WhatsApp para crear su clave.
+          Da acceso al paciente para que vea <b>su propia ficha</b> (solo sus procedimientos) desde <b>pacientes.medique.cl</b>, entrando con su <b>RUT</b> y una <b>clave que él mismo crea</b>. El acceso lo autorizas tú aquí; el paciente recibe un enlace por WhatsApp para crear su clave.
         </p>
 
         {!cloud && <div style={{ ...boxStyle, borderColor: "rgba(201,162,39,.4)", background: "rgba(201,162,39,.10)" }}>El portal del paciente requiere tu clínica en la nube (con sesión iniciada). En modo local no está disponible.</div>}

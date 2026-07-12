@@ -22,14 +22,14 @@
 //   FIREBASE_PROJECT_ID           = (default 'medique-8dbf6')
 //   WHATSAPP_TOKEN, WHATSAPP_PHONE_ID = (opcional) para enviar el link automático por WhatsApp;
 //                                   si faltan, el endpoint devuelve el link para que el admin lo copie
-//   PORTAL_BASE                   = (opcional) base del portal, default 'https://portal.medique.cl'
+//   PORTAL_BASE                   = (opcional) base del portal, default 'https://pacientes.medique.cl'
 
 import crypto from "node:crypto";
 
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "medique-8dbf6";
-const PORTAL_BASE = process.env.PORTAL_BASE || "https://portal.medique.cl";
+const PORTAL_BASE = process.env.PORTAL_BASE || "https://pacientes.medique.cl";
 const GRAPH = "https://graph.facebook.com/v21.0";
-const ALLOWED_ORIGINS = ["https://medique.cl", "https://www.medique.cl", "https://portal.medique.cl", "https://admin.medique.cl", "https://jcmedical.cl", "https://www.jcmedical.cl"];
+const ALLOWED_ORIGINS = ["https://pacientes.medique.cl", "https://medique.cl", "https://www.medique.cl", "https://portal.medique.cl", "https://admin.medique.cl", "https://jcmedical.cl", "https://www.jcmedical.cl"];
 
 // ── Firebase Admin SDK (lazy) ──
 let _svc = null;
@@ -213,7 +213,7 @@ export default async function handler(req, res) {
       // Token de activación (48 h) → link de un solo uso.
       const exp = Date.now() + 48 * 60 * 60 * 1000;
       const token = signToken(SECRET, { clinicId, rutKey: rk, patientId: pat.id, typ: "activate", exp });
-      const link = PORTAL_BASE + "/mi-ficha?activar=" + encodeURIComponent(token);
+      const link = PORTAL_BASE + "/?activar=" + encodeURIComponent(token);
       const clinicName = (cu.clinicName || "tu clínica");
       const msg = "Hola " + ((pat.name || "").split(" ")[0] || "") + ", activaste el acceso a tu ficha en " + clinicName +
         ". Crea tu clave aquí (el enlace vence en 48 h): " + link;
