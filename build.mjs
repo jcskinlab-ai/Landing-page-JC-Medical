@@ -30,6 +30,8 @@ const FILES = [
   ['jc-proto/jc-panel',    'dist/jc-panel'],
   ['jc-proto/jc-extra',    'dist/jc-extra'],
   ['jc-proto/jc-app',      'dist/jc-app'],
+  // Portal del paciente (autocontenido)
+  ['jc-proto/jc-portal',   'dist/jc-portal'],
 ];
 
 let ok = 0, fail = 0;

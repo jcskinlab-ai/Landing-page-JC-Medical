@@ -17,6 +17,7 @@
   "rewrites": [
     { "source": "/(.*)", "has": [{ "type": "host", "value": "movil.medique.cl" }], "destination": "/JC_Mobile" },
     { "source": "/movil", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Mobile" },
+    { "source": "/mi-ficha", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/mi-ficha" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Admin" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "admin.medique.cl" }], "destination": "/super" },
     { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "/medique-home" },

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi ficha · Medique</title>
+<meta name="description" content="Portal del paciente: accede a tu ficha y tus procedimientos con tu RUT y tu clave.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#54707F">
+<link rel="apple-touch-icon" href="/assets/icon-192.png">
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{min-height:100%}
+  body{font-family:'Jost',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F5F2EC;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit}
+  input,select{font-family:inherit}
+  /* Mayúscula inicial en campos de texto (excepto los marcados data-nocap: RUT, clave, respuestas). */
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Portal AUTOCONTENIDO: React + tema + la app. NO carga jcm_saas/jcm_cloud → el navegador del
+     paciente nunca toca Firestore; todo pasa por /api/portal (filtrado server-side). -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script>
+  window.useState = React.useState;
+  window.useEffect = React.useEffect;
+  window.useRef = React.useRef;
+  window.useMemo = React.useMemo;
+</script>
+<script src="/jc-proto/jc-theme.js?v=82"></script>
+<script src="/dist/jc-portal.js?v=1"></script>
+</body>
+</html>
