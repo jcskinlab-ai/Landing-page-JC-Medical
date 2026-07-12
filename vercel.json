@@ -18,6 +18,7 @@
     { "source": "/(.*)", "has": [{ "type": "host", "value": "movil.medique.cl" }], "destination": "/JC_Mobile" },
     { "source": "/movil", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Mobile" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Admin" },
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "pacientes.medique.cl" }], "destination": "/mi-ficha" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "admin.medique.cl" }], "destination": "/super" },
     { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "/medique-home" },
     { "source": "/app", "destination": "/JC_App" },

@@ -800,6 +800,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const [confirmDel, setConfirmDel] = useState(false);
   const [printPick, setPrintPick] = useState(null);
   const [delInput, setDelInput] = useState("");
+  const [portalMod, setPortalMod] = useState(false);
   const points = patient.points || [];
   const _newFeat = !window.jcmNewFeat || window.jcmNewFeat();
   const TABS = [["fichaclinica", "Ficha Cl\xEDnica"], ["mapa", "Mapa facial y antropometr\xEDa"], ["procedimientos", "Procedimientos"], ["imagenes", "Im\xE1genes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ..._newFeat ? [["presupuesto", "Presupuesto"]] : [], ["facturacion", "Atenciones"], ..._newFeat ? [["examenes", "Ex\xE1menes"]] : [], ["campana", "Campa\xF1a"], ["notas", "Notas"], ["ia", "IA"]];
@@ -892,7 +893,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     if (r && r.ok) window.jcmToast && window.jcmToast("Recordatorio enviado a " + email + ". Revisa la bandeja (y spam).", "ok");
     else if (r && r.configured === false) window.jcmError && window.jcmError("Correo no configurado en el servidor (falta RESEND_API_KEY).", r.error);
     else window.jcmError && window.jcmError("No se pudo enviar el recordatorio", r && r.error || r);
-  }, icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" }), /* @__PURE__ */ React.createElement("path", { d: "M13.7 21a2 2 0 0 1-3.4 0" })) }, "Recordatorio"), /* @__PURE__ */ React.createElement(FAct, { T, onClick: () => setEditD(true), icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" })) }, "Editar datos"), /* @__PURE__ */ React.createElement(FAct, { T, onClick: startPrintFicha, icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M6 9V2h12v7" }), /* @__PURE__ */ React.createElement("rect", { x: "6", y: "13", width: "12", height: "8" }), /* @__PURE__ */ React.createElement("path", { d: "M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" })) }, "Imprimir ficha"), /* @__PURE__ */ React.createElement(FAct, { T, primary: true, onClick: () => onAgendar && onAgendar(), icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" })) }, "Agendar cita"), removePatient && /* @__PURE__ */ React.createElement(FAct, { T, onClick: () => {
+  }, icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" }), /* @__PURE__ */ React.createElement("path", { d: "M13.7 21a2 2 0 0 1-3.4 0" })) }, "Recordatorio"), /* @__PURE__ */ React.createElement(FAct, { T, onClick: () => setEditD(true), icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" })) }, "Editar datos"), /* @__PURE__ */ React.createElement(FAct, { T, onClick: () => setPortalMod(true), icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "11", width: "18", height: "10", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M7 11V8a5 5 0 0 1 10 0v3" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "16", r: "1.4" })) }, "Portal paciente"), /* @__PURE__ */ React.createElement(FAct, { T, onClick: startPrintFicha, icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M6 9V2h12v7" }), /* @__PURE__ */ React.createElement("rect", { x: "6", y: "13", width: "12", height: "8" }), /* @__PURE__ */ React.createElement("path", { d: "M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" })) }, "Imprimir ficha"), /* @__PURE__ */ React.createElement(FAct, { T, primary: true, onClick: () => onAgendar && onAgendar(), icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "4", width: "18", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18M8 2v4M16 2v4" })) }, "Agendar cita"), removePatient && /* @__PURE__ */ React.createElement(FAct, { T, onClick: () => {
     setConfirmDel(true);
     setDelInput("");
   }, icon: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" })) }, "Eliminar"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: luxF ? 14 : 10, margin: luxF ? "22px 0 4px" : "16px 0 4px" } }, [["Edad", patient.age ? patient.age + " a\xF1os" : "\u2014", true], ["Tel\xE9fono", patient.phone || "\u2014", true], ["Email", patient.email || "\u2014", true], ["Estado", estado, false]].map(([l, v, editable], i) => /* @__PURE__ */ React.createElement(
@@ -993,7 +994,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   } })), tab === "notas" && /* @__PURE__ */ React.createElement(NotasTab, { T, patient, updatePatient })), editD && /* @__PURE__ */ React.createElement(EditDatosModal, { T, patient, onClose: () => setEditD(false), onSave: (d) => {
     updatePatient(patient.id, d);
     setEditD(false);
-  } }), printPick && /* @__PURE__ */ React.createElement(AdModal, { T, title: "Imprimir ficha", onClose: () => setPrintPick(null) }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.55, marginBottom: 14 } }, "Elige un consentimiento para anexarlo ", /* @__PURE__ */ React.createElement("b", null, "completo"), " (texto legal y firmas) al final de la ficha, o imprime solo la ficha."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, printPick.map((doc, i) => {
+  } }), portalMod && /* @__PURE__ */ React.createElement(PortalAdminModal, { T, patient, onClose: () => setPortalMod(false) }), printPick && /* @__PURE__ */ React.createElement(AdModal, { T, title: "Imprimir ficha", onClose: () => setPrintPick(null) }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.55, marginBottom: 14 } }, "Elige un consentimiento para anexarlo ", /* @__PURE__ */ React.createElement("b", null, "completo"), " (texto legal y firmas) al final de la ficha, o imprime solo la ficha."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, printPick.map((doc, i) => {
     const fecha = doc.fecha || (doc.ts ? new Date(doc.ts).toLocaleDateString("es-CL") : "");
     return /* @__PURE__ */ React.createElement(
       "button",
@@ -1064,6 +1065,88 @@ function EditDatosModal({ T, patient, onClose, onSave }) {
     if ((e.key === "Backspace" || e.key === "Delete") && e.target.selectionStart <= PREFIX.length) e.preventDefault();
   }
   return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Editar datos del paciente", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: phoneEmpty ? "" : f.phone.trim(), email: f.email.trim(), estado: f.estado }) }, "Guardar cambios") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: v }) }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "CI / RUT", value: f.rut, onChange: (v) => setF({ ...f, rut: window.jcmFmtRut ? window.jcmFmtRut(v) : v }) }), rutWarn && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C9A227", marginTop: 5 } }, "Revisa el d\xEDgito verificador.")), /* @__PURE__ */ React.createElement(AdField, { T, label: "Edad", value: f.age, onChange: (v) => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 3) }), inputMode: "numeric" })), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: lblS }, "Tel\xE9fono m\xF3vil"), /* @__PURE__ */ React.createElement("input", { value: f.phone, onChange: (e) => guardaPhone(e.target.value), onKeyDown: phoneKeyDown, inputMode: "tel", style: sel }), phoneWarn && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C9A227", marginTop: 5 } }, "Falta completar el tel\xE9fono (8 d\xEDgitos) o b\xF3rralo para dejarlo vac\xEDo.")), /* @__PURE__ */ React.createElement(AdField, { T, label: "Correo (opcional)", value: f.email, onChange: (v) => setF({ ...f, email: v }), inputMode: "email" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Estado"), /* @__PURE__ */ React.createElement("select", { value: f.estado, onChange: (e) => setF({ ...f, estado: e.target.value }), style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Activo"), /* @__PURE__ */ React.createElement("option", null, "Inactivo")))));
+}
+function PortalAdminModal({ T, patient, onClose }) {
+  const [state, setState] = useState({ loading: true, status: null, error: "" });
+  const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState("");
+  const [sent, setSent] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const cloud = !!(window.JCSAAS && window.JCSAAS.enabled);
+  const rut = (patient.rut || "").trim();
+  function loadStatus() {
+    if (!cloud) {
+      setState({ loading: false, status: null, error: "" });
+      return;
+    }
+    setState((s) => ({ ...s, loading: true, error: "" }));
+    window.mediquePortal("status", { patientId: patient.id }).then((r) => {
+      if (r && r.ok) setState({ loading: false, status: r.status, error: "" });
+      else setState({ loading: false, status: null, error: r && r.error || "No se pudo consultar el estado." });
+    });
+  }
+  useEffect(() => {
+    loadStatus();
+  }, []);
+  function activate() {
+    setBusy(true);
+    setLink("");
+    setSent(null);
+    window.mediquePortal("activate", { patientId: patient.id }).then((r) => {
+      setBusy(false);
+      if (r && r.ok) {
+        setLink(r.link || "");
+        setSent(!!r.sent);
+        setState((s) => ({ ...s, status: "pending" }));
+        try {
+          window.jcmToast && window.jcmToast(r.sent ? "Link de acceso enviado por WhatsApp a " + (r.phone || "el paciente") + "." : "Acceso activado. Copia el link y env\xEDalo al paciente.", "ok");
+        } catch (e) {
+        }
+      } else {
+        try {
+          (window.jcmError || window.jcmToast)(r && r.error || "No se pudo activar el portal.", "error");
+        } catch (e) {
+        }
+      }
+    });
+  }
+  function revoke() {
+    setBusy(true);
+    window.mediquePortal("revoke", { patientId: patient.id }).then((r) => {
+      setBusy(false);
+      if (r && r.ok) {
+        setState((s) => ({ ...s, status: "revoked" }));
+        setLink("");
+        setSent(null);
+        try {
+          window.jcmToast && window.jcmToast("Acceso al portal revocado.", "ok");
+        } catch (e) {
+        }
+      } else try {
+        (window.jcmError || window.jcmToast)(r && r.error || "No se pudo revocar.", "error");
+      } catch (e) {
+      }
+    });
+  }
+  function copyLink() {
+    try {
+      navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (e) {
+    }
+  }
+  const STATUS_META = {
+    inactive: { label: "Sin acceso", color: T.textMute, desc: "El paciente a\xFAn no tiene acceso a su ficha." },
+    pending: { label: "Pendiente", color: T.gold || "#C9A227", desc: "Acceso autorizado. Falta que el paciente cree su clave desde el link." },
+    active: { label: "Activo", color: "#1F8A5B", desc: "El paciente puede entrar con su RUT y su clave a ver su ficha." },
+    revoked: { label: "Revocado", color: "#C0285A", desc: "El acceso fue revocado. Puedes volver a activarlo." },
+    no_rut: { label: "Falta RUT", color: "#C0285A", desc: "Agrega el RUT del paciente en \u201CEditar datos\u201D antes de activar el portal." }
+  };
+  const st = state.status && STATUS_META[state.status] ? STATUS_META[state.status] : STATUS_META.inactive;
+  const canActivate = cloud && state.status !== "no_rut" && !!rut;
+  const boxStyle = { fontFamily: T.sans, fontSize: 12, color: T.text, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", lineHeight: 1.55 };
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Portal del paciente", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, full: true, onClick: onClose }, "Cerrar") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 } }, "Da acceso al paciente para que vea ", /* @__PURE__ */ React.createElement("b", null, "su propia ficha"), " (solo sus procedimientos) desde ", /* @__PURE__ */ React.createElement("b", null, "pacientes.medique.cl"), ", entrando con su ", /* @__PURE__ */ React.createElement("b", null, "RUT"), " y una ", /* @__PURE__ */ React.createElement("b", null, "clave que \xE9l mismo crea"), ". El acceso lo autorizas t\xFA aqu\xED; el paciente recibe un enlace por WhatsApp para crear su clave."), !cloud && /* @__PURE__ */ React.createElement("div", { style: { ...boxStyle, borderColor: "rgba(201,162,39,.4)", background: "rgba(201,162,39,.10)" } }, "El portal del paciente requiere tu cl\xEDnica en la nube (con sesi\xF3n iniciada). En modo local no est\xE1 disponible."), cloud && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, ...boxStyle } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: st.color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: st.color } }, state.loading ? "Consultando\u2026" : st.label)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 4 } }, state.loading ? "" : st.desc))), state.error && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#C0285A" } }, state.error), link && /* @__PURE__ */ React.createElement("div", { style: { ...boxStyle, borderColor: "rgba(31,138,91,.35)", background: "rgba(31,138,91,.07)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 6 } }, sent ? "Enviado por WhatsApp \xB7 respaldo" : "Env\xEDa este link al paciente"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.text, wordBreak: "break-all", marginBottom: 9 } }, link), /* @__PURE__ */ React.createElement(AdBtn, { T, small: true, onClick: copyLink }, copied ? "\u2713 Copiado" : "Copiar link")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, (state.status === "inactive" || state.status === "revoked" || !state.status) && /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, disabled: busy || !canActivate, onClick: activate }, busy ? "Activando\u2026" : "Activar acceso"), (state.status === "pending" || state.status === "active") && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(AdBtn, { T, disabled: busy, onClick: activate }, busy ? "Reenviando\u2026" : "Reenviar enlace"), /* @__PURE__ */ React.createElement(AdBtn, { T, danger: true, disabled: busy, onClick: revoke }, "Revocar acceso"))), !rut && state.status !== "no_rut" && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#C0285A" } }, "Agrega el RUT del paciente en \u201CEditar datos\u201D antes de activar el portal."))));
 }
 function NotasTab({ T, patient, updatePatient }) {
   const [val, setVal] = useState(patient.notes || "");
