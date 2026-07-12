@@ -134,14 +134,14 @@ async function pReadKv(db, clinicId, key) {
   if (!doc.exists) return null;
   try { const d = doc.data(); return d && d.v != null ? JSON.parse(d.v) : null; } catch (e) { return null; }
 }
-// Campos que el paciente puede ver de cada procedimiento (pedido del cliente): lote del producto,
-// vencimiento, temperatura y el resumen de la aplicación. NO se envían unidades/dosis, dilución,
-// recomendaciones internas, cobro, ni notas. proc/date solo como encabezado.
+// Campos que el paciente puede ver de cada procedimiento: profesional que lo realizó, lote del
+// producto, vencimiento, temperatura, el resumen de la aplicación y las recomendaciones del
+// profesional. NO se envían unidades/dosis, dilución, cobro ni notas internas.
 function pSafeHistory(history) {
   return (Array.isArray(history) ? history : []).map(h => ({
-    date: h.date || "", proc: h.proc || "",
+    date: h.date || "", proc: h.proc || "", proName: h.proName || "",
     lote: h.lote || "", venc: h.venc || "", temp: h.temp || "",
-    resumen: h.resumen || ""
+    resumen: h.resumen || "", recomendados: h.recomendados || ""
   })).filter(h => h.proc);
 }
 
@@ -214,9 +214,11 @@ async function portalPublic(req, res, action, body, db, SECRET) {
         .sort((x, y) => ((x.fecha || "") + (x.time || "")).localeCompare((y.fecha || "") + (y.time || "")));
       if (fut[0]) nextAppt = { fecha: fut[0].fecha, time: fut[0].time || "", proc: fut[0].proc || "" };
     } catch (e) {}
-    let clinicName = "";
-    try { const pub = await db.collection("tenants").doc(p.clinicId).collection("public").doc("profile").get(); if (pub.exists) clinicName = (pub.data().clinic_name || pub.data().name || ""); } catch (e) {}
-    return res.status(200).json({ ok: true, name: pat.name || "", clinicName, history: pSafeHistory(hist), nextAppt });
+    let clinicName = "", clinicWhats = "";
+    try { const pub = await db.collection("tenants").doc(p.clinicId).collection("public").doc("profile").get(); if (pub.exists) { clinicName = (pub.data().clinic_name || pub.data().name || ""); clinicWhats = String(pub.data().wa_number || pub.data().whatsapp || "").replace(/\D/g, ""); } } catch (e) {}
+    // El número de WhatsApp de la clínica vive en su config (privada); el servidor sí puede leerla.
+    try { const cfg = await pReadKv(db, p.clinicId, "config"); if (cfg) { if (!clinicName) clinicName = cfg.clinic_name || ""; if (!clinicWhats) clinicWhats = String(cfg.wa_number || cfg.whatsapp || "").replace(/\D/g, ""); } } catch (e) {}
+    return res.status(200).json({ ok: true, name: pat.name || "", clinicName, clinicWhats, history: pSafeHistory(hist), nextAppt });
   }
 
   if (action === "portal-recover-start") {

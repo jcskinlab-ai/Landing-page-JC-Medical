@@ -265,6 +265,14 @@ function FichaView({ T, S, sess, onLogout, onExpired }) {
               <div style={S.histMeta}>{[h.lote && ("Lote " + h.lote), h.venc && ("Vence " + h.venc), h.temp && ("Temp. " + h.temp)].filter(Boolean).join("  ·  ")}</div>
             )}
             {h.resumen && <div style={S.histText}>{h.resumen}</div>}
+            {h.recomendados && <div style={S.histRec}>Recomendación del profesional: {h.recomendados}</div>}
+            {h.proName && <div style={S.histPro}>Realizado por {h.proName}</div>}
+            {data.clinicWhats && (
+              <a href={"https://wa.me/" + data.clinicWhats + "?text=" + encodeURIComponent("Hola, soy " + (data.name || "") + ". Me gustaría agendar una cita de " + h.proc + ".")} target="_blank" rel="noopener" style={S.histWa}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
+                Agendar por WhatsApp
+              </a>
+            )}
           </div>
         ))}
       </div>
@@ -323,6 +331,7 @@ function portalStyles(T) {
     histText: { fontFamily: T.sans, fontSize: 12.5, color: T.text, marginTop: 6, lineHeight: 1.55 },
     histRec: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 5, lineHeight: 1.5 },
     histPro: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, fontStyle: "italic", marginTop: 6 },
+    histWa: { display: "inline-flex", alignItems: "center", gap: 6, marginTop: 11, padding: "8px 13px", borderRadius: 9, background: "rgba(37,211,102,.12)", border: "1px solid rgba(37,211,102,.42)", color: "#128a4b", fontFamily: T.sans, fontSize: 12, fontWeight: 600, textDecoration: "none" },
     footer: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 18, textAlign: "center", maxWidth: 420, lineHeight: 1.5 }
   };
 }
