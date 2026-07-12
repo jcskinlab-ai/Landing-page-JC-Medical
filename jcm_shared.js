@@ -459,6 +459,23 @@ function mediqueOtp(action, extra) {
 }
 if (typeof window !== 'undefined') window.mediqueOtp = mediqueOtp;
 
+// ── CLIENTE PORTAL DEL PACIENTE (/api/portal). Para las acciones del ADMIN (activate/revoke/status)
+// envía el ID token de Firebase; las acciones del paciente (login/register/me/…) las llama la propia
+// página del portal sin token de Firebase. → Promise { ok, ... } | { ok:false, error, configured? }
+function mediquePortal(action, extra) {
+  try {
+    var tokP = (typeof window !== 'undefined' && window.JCSAAS && window.JCSAAS.idToken) ? window.JCSAAS.idToken() : Promise.resolve(null);
+    return Promise.resolve(tokP).then(function (tok) {
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+      var body = Object.assign({ action: action }, extra || {});
+      return fetch('/api/portal', { method: 'POST', headers: headers, body: JSON.stringify(body) });
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida' }; }); })
+      .catch(function (e) { return { ok: false, error: (e && e.message) || 'sin conexión' }; });
+  } catch (e) { return Promise.resolve({ ok: false, error: 'sin conexión' }); }
+}
+if (typeof window !== 'undefined') window.mediquePortal = mediquePortal;
+
 // ── SESIÓN (8 h de TTL) ────────────────────────────────────────────────────
 const _SESS_KEY = 'jcm_session';
 const _SESS_TTL = 8 * 3600 * 1000;

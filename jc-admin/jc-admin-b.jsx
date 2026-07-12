@@ -777,6 +777,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const [confirmDel, setConfirmDel] = useState(false);
   const [printPick, setPrintPick] = useState(null); // lista de consentimientos a elegir antes de imprimir la ficha
   const [delInput, setDelInput] = useState("");
+  const [portalMod, setPortalMod] = useState(false); // modal de acceso al portal del paciente
   const points = patient.points || [];
   // Pestañas NUEVAS (presupuesto, esquema facial) solo para Los Medique hasta el push global.
   const _newFeat = !(window.jcmNewFeat) || window.jcmNewFeat();
@@ -916,6 +917,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             else window.jcmError && window.jcmError("No se pudo enviar el recordatorio", (r && r.error) || r);
           }} icon={<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>}>Recordatorio</FAct>
           <FAct T={T} onClick={() => setEditD(true)} icon={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></>}>Editar datos</FAct>
+          <FAct T={T} onClick={() => setPortalMod(true)} icon={<><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V8a5 5 0 0 1 10 0v3" /><circle cx="12" cy="16" r="1.4" /></>}>Portal paciente</FAct>
           <FAct T={T} onClick={startPrintFicha} icon={<><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></>}>Imprimir ficha</FAct>
           <FAct T={T} primary onClick={() => onAgendar && onAgendar()} icon={<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>}>Agendar cita</FAct>
           {removePatient && <FAct T={T} onClick={() => { setConfirmDel(true); setDelInput(""); }} icon={<><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></>}>Eliminar</FAct>}
@@ -1078,6 +1080,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       )}
       </div>
       {editD && <EditDatosModal T={T} patient={patient} onClose={() => setEditD(false)} onSave={(d) => { updatePatient(patient.id, d); setEditD(false); }} />}
+      {portalMod && <PortalAdminModal T={T} patient={patient} onClose={() => setPortalMod(false)} />}
       {printPick && (
         <AdModal T={T} title="Imprimir ficha" onClose={() => setPrintPick(null)}>
           <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.55, marginBottom: 14 }}>Elige un consentimiento para anexarlo <b>completo</b> (texto legal y firmas) al final de la ficha, o imprime solo la ficha.</div>
@@ -1169,6 +1172,116 @@ function EditDatosModal({ T, patient, onClose, onSave }) {
         <div><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Estado</span>
           <select value={f.estado} onChange={e => setF({ ...f, estado: e.target.value })} style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }}><option>Activo</option><option>Inactivo</option></select>
         </div>
+      </div>
+    </AdModal>
+  );
+}
+
+/* Modal del ADMIN: activar / revocar el acceso del paciente a su portal (ver su propia ficha).
+   El acceso lo autoriza la clínica; el paciente crea su clave desde un link enviado a su WhatsApp
+   (o que el admin copia si el envío automático no está configurado). Requiere modo nube (login). */
+function PortalAdminModal({ T, patient, onClose }) {
+  const [state, setState] = useState({ loading: true, status: null, error: "" });
+  const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState("");
+  const [sent, setSent] = useState(null);   // true=WhatsApp enviado · false=usar link · null=aún no
+  const [copied, setCopied] = useState(false);
+  const cloud = !!(window.JCSAAS && window.JCSAAS.enabled);
+  const rut = (patient.rut || "").trim();
+
+  function loadStatus() {
+    if (!cloud) { setState({ loading: false, status: null, error: "" }); return; }
+    setState(s => ({ ...s, loading: true, error: "" }));
+    window.mediquePortal("status", { patientId: patient.id }).then(r => {
+      if (r && r.ok) setState({ loading: false, status: r.status, error: "" });
+      else setState({ loading: false, status: null, error: (r && r.error) || "No se pudo consultar el estado." });
+    });
+  }
+  useEffect(() => { loadStatus(); }, []);
+
+  function activate() {
+    setBusy(true); setLink(""); setSent(null);
+    window.mediquePortal("activate", { patientId: patient.id }).then(r => {
+      setBusy(false);
+      if (r && r.ok) {
+        setLink(r.link || ""); setSent(!!r.sent); setState(s => ({ ...s, status: "pending" }));
+        try { window.jcmToast && window.jcmToast(r.sent ? ("Link de acceso enviado por WhatsApp a " + (r.phone || "el paciente") + ".") : "Acceso activado. Copia el link y envíalo al paciente.", "ok"); } catch (e) {}
+      } else {
+        try { (window.jcmError || window.jcmToast)((r && r.error) || "No se pudo activar el portal.", "error"); } catch (e) {}
+      }
+    });
+  }
+  function revoke() {
+    setBusy(true);
+    window.mediquePortal("revoke", { patientId: patient.id }).then(r => {
+      setBusy(false);
+      if (r && r.ok) { setState(s => ({ ...s, status: "revoked" })); setLink(""); setSent(null); try { window.jcmToast && window.jcmToast("Acceso al portal revocado.", "ok"); } catch (e) {} }
+      else try { (window.jcmError || window.jcmToast)((r && r.error) || "No se pudo revocar.", "error"); } catch (e) {}
+    });
+  }
+  function copyLink() {
+    try { navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (e) {}
+  }
+
+  const STATUS_META = {
+    inactive: { label: "Sin acceso", color: T.textMute, desc: "El paciente aún no tiene acceso a su ficha." },
+    pending: { label: "Pendiente", color: T.gold || "#C9A227", desc: "Acceso autorizado. Falta que el paciente cree su clave desde el link." },
+    active: { label: "Activo", color: "#1F8A5B", desc: "El paciente puede entrar con su RUT y su clave a ver su ficha." },
+    revoked: { label: "Revocado", color: "#C0285A", desc: "El acceso fue revocado. Puedes volver a activarlo." },
+    no_rut: { label: "Falta RUT", color: "#C0285A", desc: "Agrega el RUT del paciente en “Editar datos” antes de activar el portal." }
+  };
+  const st = state.status && STATUS_META[state.status] ? STATUS_META[state.status] : STATUS_META.inactive;
+  const canActivate = cloud && state.status !== "no_rut" && !!rut;
+
+  const boxStyle = { fontFamily: T.sans, fontSize: 12, color: T.text, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", lineHeight: 1.55 };
+
+  return (
+    <AdModal T={T} title="Portal del paciente" onClose={onClose} footer={<AdBtn T={T} full onClick={onClose}>Cerrar</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textMute, lineHeight: 1.55 }}>
+          Da acceso al paciente para que vea <b>su propia ficha</b> (solo sus procedimientos) desde <b>portal.medique.cl</b>, entrando con su <b>RUT</b> y una <b>clave que él mismo crea</b>. El acceso lo autorizas tú aquí; el paciente recibe un enlace por WhatsApp para crear su clave.
+        </p>
+
+        {!cloud && <div style={{ ...boxStyle, borderColor: "rgba(201,162,39,.4)", background: "rgba(201,162,39,.10)" }}>El portal del paciente requiere tu clínica en la nube (con sesión iniciada). En modo local no está disponible.</div>}
+
+        {cloud && (
+          <>
+            {/* Estado actual */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, ...boxStyle }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: st.color, flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600, color: st.color }}>{state.loading ? "Consultando…" : st.label}</span>
+                </div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 4 }}>{state.loading ? "" : st.desc}</div>
+              </div>
+            </div>
+            {state.error && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A" }}>{state.error}</div>}
+
+            {/* Link para copiar (cuando WhatsApp no está configurado o como respaldo) */}
+            {link && (
+              <div style={{ ...boxStyle, borderColor: "rgba(31,138,91,.35)", background: "rgba(31,138,91,.07)" }}>
+                <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: "#1F8A5B", marginBottom: 6 }}>{sent ? "Enviado por WhatsApp · respaldo" : "Envía este link al paciente"}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 11, color: T.text, wordBreak: "break-all", marginBottom: 9 }}>{link}</div>
+                <AdBtn T={T} small onClick={copyLink}>{copied ? "✓ Copiado" : "Copiar link"}</AdBtn>
+              </div>
+            )}
+
+            {/* Acciones */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {(state.status === "inactive" || state.status === "revoked" || !state.status) && (
+                <AdBtn T={T} primary disabled={busy || !canActivate} onClick={activate}>{busy ? "Activando…" : "Activar acceso"}</AdBtn>
+              )}
+              {(state.status === "pending" || state.status === "active") && (
+                <>
+                  <AdBtn T={T} disabled={busy} onClick={activate}>{busy ? "Reenviando…" : "Reenviar enlace"}</AdBtn>
+                  <AdBtn T={T} danger disabled={busy} onClick={revoke}>Revocar acceso</AdBtn>
+                </>
+              )}
+            </div>
+            {!rut && state.status !== "no_rut" && <div style={{ fontFamily: T.sans, fontSize: 11, color: "#C0285A" }}>Agrega el RUT del paciente en “Editar datos” antes de activar el portal.</div>}
+          </>
+        )}
       </div>
     </AdModal>
   );
