@@ -238,7 +238,14 @@
         // Dashboard editorial: las columnas asimétricas (1.5fr/1fr) colapsan a 1 col en pantallas angostas.
         "@media (max-width: 820px){.jc-dash-grid{grid-template-columns:1fr !important}}" +
         // Grip de arrastre de bloques del dashboard: oculto, aparece al pasar el cursor por el bloque.
-        ".jc-drag-grip{opacity:0;transition:opacity .18s}.jc-dash-block:hover .jc-drag-grip{opacity:.55}";
+        ".jc-drag-grip{opacity:0;transition:opacity .18s}.jc-dash-block:hover .jc-drag-grip{opacity:.55}" +
+        // Agenda · vista día en tablet/móvil: el timeline (460px) y el panel lateral (320px fijo) no
+        // caben lado a lado y el panel quedaba angosto y con su propio scroll interno de 72vh, apilado
+        // debajo del timeline — dos cajas con scroll propio dentro de una página que ya scrollea, muy
+        // desordenado. Bajo los 900px el panel pasa a ancho completo y alto automático (sin su propio
+        // scroll), para que las tarjetas (mini-calendario, información del día, acciones, próximas
+        // citas) fluyan naturalmente una debajo de otra.
+        "@media (max-width: 900px){.jc-day-timeline{height:60vh !important}.jc-day-sidebar{flex:1 1 100% !important;width:100% !important;max-width:100% !important;height:auto !important;overflow:visible !important}}";
       document.head.appendChild(st);
     }
   } catch (e) {}

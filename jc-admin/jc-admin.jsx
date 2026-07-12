@@ -3260,14 +3260,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       ) : view === "mes" ? (
         <MonthGrid T={T} appts={appts} monthDate={monthDate} setMonthDate={setMonthDate} viewToggle={viewToggleNode} icsBtn={icsBtnNode} nuevaBtn={nuevaBtnNode} onDay={(off) => { setDay(off); setView("dia"); }} />
       ) : (
-        <div style={{ display: "flex", gap: 16, alignItems: "stretch", flexWrap: "wrap" }}>
+        <div className="jc-day-cols" style={{ display: "flex", gap: 16, alignItems: "stretch", flexWrap: "wrap" }}>
           {/* ── Columna izquierda: timeline del día ── (misma altura que el panel lateral: cabecera
               fija + área con scroll propio que se reparte el resto — así ambas columnas terminan
               parejas y "Citas anuladas" queda pegado abajo, sin el hueco vacío de horas sin citas). */}
           {/* Sin tinte de fondo (igual que el contenedor de la grilla semanal): solo borde, para que la
               foto se vea al 100% detrás del timeline — antes el panel glass (aunque translúcido) le
               restaba nitidez a la montaña comparado con la vista semanal. */}
-          <div style={{ flex: "1 1 460px", minWidth: 0, height: "72vh", display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid " + T.line, borderRadius: luxF ? 16 : 12, boxShadow: luxF ? T.shadow : "none" }}>
+          <div className="jc-day-timeline" style={{ flex: "1 1 460px", minWidth: 0, height: "72vh", display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid " + T.line, borderRadius: luxF ? 16 : 12, boxShadow: luxF ? T.shadow : "none" }}>
             <div style={{ flexShrink: 0, textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.textMute }}>
               {(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview()) ? dayHeaderInfo : dayTitle}
             </div>
@@ -3351,7 +3351,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             const navMini = { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, cursor: "pointer" };
             const infoRow = (l, v) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontFamily: T.sans, fontSize: 13 }}><span style={{ color: T.textMute }}>{l}</span><span style={{ color: T.text, fontWeight: 600 }}>{v}</span></div>;
             return (
-              <div className="jc-scroll" style={{ flex: "0 0 320px", maxWidth: "100%", height: "72vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14, paddingRight: 2 }}>
+              <div className="jc-scroll jc-day-sidebar" style={{ flex: "0 0 320px", maxWidth: "100%", height: "72vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14, paddingRight: 2 }}>
                 {/* Mini-calendario */}
                 <div style={card}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -3762,22 +3762,22 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, icsBt
         const cellBlur = { backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" };
         const chipBg = T.dark ? "rgba(12,16,24,.55)" : "rgba(255,255,255,.62)";       // chip de cita translúcido (deja pasar la foto)
         return (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", border: gridLine, borderRadius: 12, overflow: "hidden", ...cellBlur }}>
-            {diasSemana.map((d, i) => <div key={d} style={{ background: veilHead, padding: "9px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: (isCurMonth && i === todayCol) ? T.accent : T.textMute, borderRight: i < 6 ? gridLine : "none", borderBottom: gridLine }}>{d}</div>)}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0,1fr))", border: gridLine, borderRadius: 12, overflow: "hidden", ...cellBlur }}>
+            {diasSemana.map((d, i) => <div key={d} style={{ background: veilHead, padding: "9px 6px", textAlign: "center", fontFamily: T.sans, fontSize: 10.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: (isCurMonth && i === todayCol) ? T.accent : T.textMute, borderRight: i < 6 ? gridLine : "none", borderBottom: gridLine, minWidth: 0 }}>{d}</div>)}
             {cells.map((d, i) => {
               const col = i % 7;
               const isLastRow = i >= cells.length - (cells.length % 7 === 0 ? 7 : cells.length % 7);
               const cellBorders = { borderRight: col < 6 ? gridLine : "none", borderBottom: isLastRow ? "none" : gridLine };
-              if (!d) return <div key={i} style={{ background: veil, minHeight: 100, ...cellBorders }} />;
+              if (!d) return <div key={i} style={{ background: veil, minHeight: 100, minWidth: 0, ...cellBorders }} />;
               const iso = toISO(d);
               const list = apptsByDay[iso] || [];
               const isToday = iso === toISO(today);
               const ordered = list.slice().sort((x, y) => (x.time || "").localeCompare(y.time || ""));
               return (
-                <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: isToday ? T.accent + "1e" : veil, minHeight: 100, padding: "7px 7px", border: "none", ...cellBorders, cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
-                  <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "33" : "transparent" }}>{d.getDate()}</span>
+                <button key={i} onClick={() => onDay(offOf(d))} style={{ textAlign: "left", background: isToday ? T.accent + "1e" : veil, minHeight: 100, minWidth: 0, padding: "7px 7px", border: "none", ...cellBorders, cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "33" : "transparent", flexShrink: 0 }}>{d.getDate()}</span>
                   {ordered.slice(0, 3).map((a, idx) => { const c = jcmApptState(a, T).color; return (
-                    <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", gap: 5, background: chipBg, ...cellBlur, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", gap: 5, background: chipBg, ...cellBlur, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
                       <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: c, flexShrink: 0 }} />
                       {a.time ? a.time + " " : ""}{a.name || "Cita"}
                     </span>
@@ -4510,7 +4510,11 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
             </div>
           );
         })()}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
+          <div>
+            <span style={lbl}>Hora</span>
+            <input type="time" step="900" value={pick.time} onChange={e => e.target.value && setPick({ ...pick, time: e.target.value })} style={selStyle} />
+          </div>
           <div>
             <span style={lbl}>Tratamiento</span>
             <select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}>
