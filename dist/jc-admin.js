@@ -1806,7 +1806,7 @@ function AdminApp() {
   else if (section === "pacientes") body = current ? /* @__PURE__ */ React.createElement(FichaMedica, { T, patient: current, updatePatient, removePatient: isProfessionalSession ? null : removePatient, onBack: () => {
     setOpenPatient(null);
     setOpenPatientTab(null);
-  }, onAgendar: () => nav("agenda"), initialTab: openPatientTab }) : /* @__PURE__ */ React.createElement(PacientesView, { T, patients, appts, onOpen: setOpenPatient, updatePatient, addPatient });
+  }, onAgendar: () => nav("agenda"), initialTab: openPatientTab, appts: isProfessionalSession ? myAppts : appts, updateAppt }) : /* @__PURE__ */ React.createElement(PacientesView, { T, patients, appts, onOpen: setOpenPatient, updatePatient, addPatient });
   else if (section === "salaespera") body = /* @__PURE__ */ React.createElement(SalaEsperaView, { T, appts, patients, updatePatient });
   else if (section === "automatizaciones") body = /* @__PURE__ */ React.createElement(AutomatizacionesView, { T });
   else if (section === "agenteia") body = /* @__PURE__ */ React.createElement(AgenteIAView, { T, patients, addAppt });

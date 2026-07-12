@@ -749,7 +749,7 @@ function jcmConsentPending(patients, appts) {
   });
 }
 if (typeof window !== "undefined") window.jcmConsentPending = jcmConsentPending;
-function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab }) {
+function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab, appts, updateAppt }) {
   const [tab, setTab] = useState(initialTab || "fichaclinica");
   // Deep-link de la pestaña de ficha en la URL: /pacientes/<id>/<tab> (se conserva al recargar).
   const goTab = k => { setTab(k); try { window.jcmSetPatientTab && window.jcmSetPatientTab(patient.id, k); } catch (e) {} };
@@ -1052,6 +1052,16 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
               const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
               try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: newSessionId }); } catch (e3) {}
             }
+            // Al registrar una sesión NUEVA, si el paciente tiene una cita agendada HOY (y todavía no
+            // está marcada como atendida/anulada), la pasa a "atendida" automáticamente — antes había
+            // que ir a la Agenda y marcarla a mano, y quedaba pendiente aunque ya se hubiera atendido.
+            if (!editing && updateAppt) {
+              try {
+                const d0 = new Date(); const isoHoy = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
+                const apptHoy = (appts || []).find(a => a.patId === patient.id && a.fecha === isoHoy && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida");
+                if (apptHoy) updateAppt(apptHoy.id, { status: "atendida", attended: true });
+              } catch (e5) {}
+            }
             try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : ((e.cobro || 0) > 0 ? "Sesión registrada · " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesión registrada."), "ok"); } catch (e2) {}
           }} />}
           {delSession && <SesionDeleteModal T={T} sesion={delSession.h} onClose={() => setDelSession(null)} onConfirm={() => {
@@ -1117,19 +1127,33 @@ function FAct({ T, children, icon, href, onClick, primary }) {
 }
 function EditDatosModal({ T, patient, onClose, onSave }) {
   const PREFIX = "+56 9 ";
-  const rawPhone = patient.phone || "";
-  const initPhone = rawPhone.startsWith(PREFIX) ? rawPhone : (rawPhone ? PREFIX + rawPhone : PREFIX);
+  // Normaliza por dígitos (no por texto exacto): teléfonos guardados sin el espacio final del
+  // prefijo, o solo con "+56 9" (sin número), no calzaban con el startsWith() de antes y el
+  // prefijo quedaba duplicado ("+56 9 +56 9"), lo que a su vez bloqueaba el guardado. Mismo
+  // criterio que ya usa el alta de paciente nuevo (onPhone).
+  const rawDigits = (patient.phone || "").replace(/\D/g, "");
+  let localDigits = rawDigits;
+  if (localDigits.indexOf("56") === 0) localDigits = localDigits.slice(2);
+  if (localDigits.charAt(0) === "9") localDigits = localDigits.slice(1);
+  localDigits = localDigits.slice(0, 8);
+  const initPhone = PREFIX + localDigits;
   const [f, setF] = useState({ name: patient.name || "", rut: patient.rut || "", age: patient.age ? "" + patient.age : "", phone: initPhone, email: patient.email || "", estado: patient.estado || "Activo" });
   const rutWarn = f.rut.trim() && !(window.jcmValidRut ? window.jcmValidRut(f.rut) : true);
   const emailOk = !f.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim());
   const phoneDigits = f.phone.replace(/\D/g, "");
-  const ok = f.name.trim().length > 2 && phoneDigits.length >= 11 && emailOk;
+  // El teléfono es obligatorio al CREAR un paciente, pero al EDITAR uno ya existente sin
+  // teléfono (fichas antiguas, pacientes importados) no debe bloquear guardar otros campos
+  // (ej. la edad) — antes exigía siempre los 8 dígitos y el botón quedaba deshabilitado sin
+  // ningún aviso visible.
+  const phoneEmpty = phoneDigits.length <= 3; // solo queda el prefijo "56 9"
+  const phoneWarn = !phoneEmpty && phoneDigits.length < 11;
+  const ok = f.name.trim().length > 2 && (phoneEmpty || phoneDigits.length >= 11) && emailOk;
   const sel = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
   const lblS = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
   function guardaPhone(v) { setF({ ...f, phone: v.startsWith(PREFIX) ? v : PREFIX }); }
   function phoneKeyDown(e) { if ((e.key === "Backspace" || e.key === "Delete") && e.target.selectionStart <= PREFIX.length) e.preventDefault(); }
   return (
-    <AdModal T={T} title="Editar datos del paciente" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: f.phone.trim(), email: f.email.trim(), estado: f.estado })}>Guardar cambios</AdBtn>}>
+    <AdModal T={T} title="Editar datos del paciente" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: phoneEmpty ? "" : f.phone.trim(), email: f.email.trim(), estado: f.estado })}>Guardar cambios</AdBtn>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -1139,6 +1163,7 @@ function EditDatosModal({ T, patient, onClose, onSave }) {
         <label style={{ display: "block" }}>
           <span style={lblS}>Teléfono móvil</span>
           <input value={f.phone} onChange={e => guardaPhone(e.target.value)} onKeyDown={phoneKeyDown} inputMode="tel" style={sel} />
+          {phoneWarn && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C9A227", marginTop: 5 }}>Falta completar el teléfono (8 dígitos) o bórralo para dejarlo vacío.</div>}
         </label>
         <AdField T={T} label="Correo (opcional)" value={f.email} onChange={v => setF({ ...f, email: v })} inputMode="email" />
         <div><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Estado</span>

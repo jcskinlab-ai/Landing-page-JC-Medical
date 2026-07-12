@@ -1943,7 +1943,7 @@ function AdminApp() {
   else if (section === "resumen") body = <Resumen T={T} D={D} A={A} appts={appts} patients={patients} go={nav} updateAppt={updateAppt} removeAppt={removeAppt} themeKey={themeKey} setThemeKey={setThemeKey} />;
   else if (section === "agenda") body = <Agenda T={T} appts={isProfessionalSession ? myAppts : appts} patients={patients} addAppt={addAppt} addPatient={addPatient} updateAppt={updateAppt} removeAppt={removeAppt} onSyncWeb={syncWebBookings} onOpenPatient={(id) => { setOpenPatient(id); setSection("pacientes"); }} initialApptId={openApptId} onConsumeApptId={() => setOpenApptId(null)} />;
   else if (section === "pacientes") body = current
-    ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={isProfessionalSession ? null : removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} />
+    ? <FichaMedica T={T} patient={current} updatePatient={updatePatient} removePatient={isProfessionalSession ? null : removePatient} onBack={() => { setOpenPatient(null); setOpenPatientTab(null); }} onAgendar={() => nav("agenda")} initialTab={openPatientTab} appts={isProfessionalSession ? myAppts : appts} updateAppt={updateAppt} />
     : <PacientesView T={T} patients={patients} appts={appts} onOpen={setOpenPatient} updatePatient={updatePatient} addPatient={addPatient} />;
   else if (section === "salaespera") body = <SalaEsperaView T={T} appts={appts} patients={patients} updatePatient={updatePatient} />;
   else if (section === "automatizaciones") body = <AutomatizacionesView T={T} />;

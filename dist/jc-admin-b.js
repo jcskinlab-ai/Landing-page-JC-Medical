@@ -762,7 +762,7 @@ function jcmConsentPending(patients, appts) {
   });
 }
 if (typeof window !== "undefined") window.jcmConsentPending = jcmConsentPending;
-function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab }) {
+function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgendar, initialTab, appts, updateAppt }) {
   const [tab, setTab] = useState(initialTab || "fichaclinica");
   const goTab = (k) => {
     setTab(k);
@@ -869,14 +869,14 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       window.jcmError && window.jcmError("El correo no est\xE1 disponible.");
       return;
     }
-    let appts = [];
+    let appts2 = [];
     try {
-      appts = window.DB && window.DB.get("appointments") || [];
+      appts2 = window.DB && window.DB.get("appointments") || [];
     } catch (e) {
     }
     const d0 = /* @__PURE__ */ new Date();
     const isoT = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
-    const next = appts.filter((a) => a.patId === patient.id && a.fecha && a.fecha >= isoT).sort((a, b) => ((a.fecha || "") + (a.time || "")).localeCompare((b.fecha || "") + (b.time || "")))[0];
+    const next = appts2.filter((a) => a.patId === patient.id && a.fecha && a.fecha >= isoT).sort((a, b) => ((a.fecha || "") + (a.time || "")).localeCompare((b.fecha || "") + (b.time || "")))[0];
     const clinic = (() => {
       try {
         return window.DB.cfg().clinic_name || "tu cl\xEDnica";
@@ -969,6 +969,15 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       } catch (e3) {
       }
     }
+    if (!editing && updateAppt) {
+      try {
+        const d0 = /* @__PURE__ */ new Date();
+        const isoHoy = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
+        const apptHoy = (appts || []).find((a) => a.patId === patient.id && a.fecha === isoHoy && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida");
+        if (apptHoy) updateAppt(apptHoy.id, { status: "atendida", attended: true });
+      } catch (e5) {
+      }
+    }
     try {
       window.jcmToast && window.jcmToast(editing ? "Sesi\xF3n actualizada." : (e.cobro || 0) > 0 ? "Sesi\xF3n registrada \xB7 " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesi\xF3n registrada.", "ok");
     } catch (e2) {
@@ -1033,13 +1042,19 @@ function FAct({ T, children, icon, href, onClick, primary }) {
 }
 function EditDatosModal({ T, patient, onClose, onSave }) {
   const PREFIX = "+56 9 ";
-  const rawPhone = patient.phone || "";
-  const initPhone = rawPhone.startsWith(PREFIX) ? rawPhone : rawPhone ? PREFIX + rawPhone : PREFIX;
+  const rawDigits = (patient.phone || "").replace(/\D/g, "");
+  let localDigits = rawDigits;
+  if (localDigits.indexOf("56") === 0) localDigits = localDigits.slice(2);
+  if (localDigits.charAt(0) === "9") localDigits = localDigits.slice(1);
+  localDigits = localDigits.slice(0, 8);
+  const initPhone = PREFIX + localDigits;
   const [f, setF] = useState({ name: patient.name || "", rut: patient.rut || "", age: patient.age ? "" + patient.age : "", phone: initPhone, email: patient.email || "", estado: patient.estado || "Activo" });
   const rutWarn = f.rut.trim() && !(window.jcmValidRut ? window.jcmValidRut(f.rut) : true);
   const emailOk = !f.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim());
   const phoneDigits = f.phone.replace(/\D/g, "");
-  const ok = f.name.trim().length > 2 && phoneDigits.length >= 11 && emailOk;
+  const phoneEmpty = phoneDigits.length <= 3;
+  const phoneWarn = !phoneEmpty && phoneDigits.length < 11;
+  const ok = f.name.trim().length > 2 && (phoneEmpty || phoneDigits.length >= 11) && emailOk;
   const sel = { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" };
   const lblS = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
   function guardaPhone(v) {
@@ -1048,7 +1063,7 @@ function EditDatosModal({ T, patient, onClose, onSave }) {
   function phoneKeyDown(e) {
     if ((e.key === "Backspace" || e.key === "Delete") && e.target.selectionStart <= PREFIX.length) e.preventDefault();
   }
-  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Editar datos del paciente", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: f.phone.trim(), email: f.email.trim(), estado: f.estado }) }, "Guardar cambios") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: v }) }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "CI / RUT", value: f.rut, onChange: (v) => setF({ ...f, rut: window.jcmFmtRut ? window.jcmFmtRut(v) : v }) }), rutWarn && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C9A227", marginTop: 5 } }, "Revisa el d\xEDgito verificador.")), /* @__PURE__ */ React.createElement(AdField, { T, label: "Edad", value: f.age, onChange: (v) => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 3) }), inputMode: "numeric" })), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: lblS }, "Tel\xE9fono m\xF3vil"), /* @__PURE__ */ React.createElement("input", { value: f.phone, onChange: (e) => guardaPhone(e.target.value), onKeyDown: phoneKeyDown, inputMode: "tel", style: sel })), /* @__PURE__ */ React.createElement(AdField, { T, label: "Correo (opcional)", value: f.email, onChange: (v) => setF({ ...f, email: v }), inputMode: "email" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Estado"), /* @__PURE__ */ React.createElement("select", { value: f.estado, onChange: (e) => setF({ ...f, estado: e.target.value }), style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Activo"), /* @__PURE__ */ React.createElement("option", null, "Inactivo")))));
+  return /* @__PURE__ */ React.createElement(AdModal, { T, title: "Editar datos del paciente", onClose, footer: /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: phoneEmpty ? "" : f.phone.trim(), email: f.email.trim(), estado: f.estado }) }, "Guardar cambios") }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: v }) }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "CI / RUT", value: f.rut, onChange: (v) => setF({ ...f, rut: window.jcmFmtRut ? window.jcmFmtRut(v) : v }) }), rutWarn && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C9A227", marginTop: 5 } }, "Revisa el d\xEDgito verificador.")), /* @__PURE__ */ React.createElement(AdField, { T, label: "Edad", value: f.age, onChange: (v) => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 3) }), inputMode: "numeric" })), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: lblS }, "Tel\xE9fono m\xF3vil"), /* @__PURE__ */ React.createElement("input", { value: f.phone, onChange: (e) => guardaPhone(e.target.value), onKeyDown: phoneKeyDown, inputMode: "tel", style: sel }), phoneWarn && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: "#C9A227", marginTop: 5 } }, "Falta completar el tel\xE9fono (8 d\xEDgitos) o b\xF3rralo para dejarlo vac\xEDo.")), /* @__PURE__ */ React.createElement(AdField, { T, label: "Correo (opcional)", value: f.email, onChange: (v) => setF({ ...f, email: v }), inputMode: "email" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Estado"), /* @__PURE__ */ React.createElement("select", { value: f.estado, onChange: (e) => setF({ ...f, estado: e.target.value }), style: { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }, /* @__PURE__ */ React.createElement("option", null, "Activo"), /* @__PURE__ */ React.createElement("option", null, "Inactivo")))));
 }
 function NotasTab({ T, patient, updatePatient }) {
   const [val, setVal] = useState(patient.notes || "");
