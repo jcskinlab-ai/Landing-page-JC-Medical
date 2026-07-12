@@ -197,6 +197,12 @@ async function portalPublic(req, res, action, body, db, SECRET) {
     const patients = (await pReadKv(db, p.clinicId, "patients")) || [];
     const pat = patients.find(x => x.id === p.patientId);
     if (!pat) return res.status(404).json({ ok: false, error: "Ficha no encontrada." });
+    // El historial NO vive dentro del array patients (índice liviano): se guarda aparte en
+    // phist_<id> (documento propio, para no topar el límite de 1MB). Lo leemos de ahí; si es una
+    // ficha en formato antiguo (historial inline), usamos pat.history como respaldo.
+    let hist = [];
+    try { const ph = await pReadKv(db, p.clinicId, "phist_" + p.patientId); if (Array.isArray(ph)) hist = ph; } catch (e) {}
+    if (!hist.length && Array.isArray(pat.history)) hist = pat.history;
     let nextAppt = null;
     try {
       const appts = (await pReadKv(db, p.clinicId, "appointments")) || [];
@@ -207,7 +213,7 @@ async function portalPublic(req, res, action, body, db, SECRET) {
     } catch (e) {}
     let clinicName = "";
     try { const pub = await db.collection("tenants").doc(p.clinicId).collection("public").doc("profile").get(); if (pub.exists) clinicName = (pub.data().clinic_name || pub.data().name || ""); } catch (e) {}
-    return res.status(200).json({ ok: true, name: pat.name || "", clinicName, history: pSafeHistory(pat.history), nextAppt });
+    return res.status(200).json({ ok: true, name: pat.name || "", clinicName, history: pSafeHistory(hist), nextAppt });
   }
 
   if (action === "portal-recover-start") {
