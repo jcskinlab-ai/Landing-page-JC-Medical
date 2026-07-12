@@ -300,6 +300,87 @@ function aureoCompute(lm, W, H, opts) {
   };
   return { metrics, harmony, recs, W, H, overlay, frontal };
 }
+function ptosisCompute(lm, W, H) {
+  const P = (i) => ({ x: lm[i].x * W, y: lm[i].y * H });
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const nasion = P(168), menton = P(152);
+  const adx = menton.x - nasion.x, ady = menton.y - nasion.y || 1;
+  const alen = Math.hypot(adx, ady) || 1;
+  const vx = adx / alen, vy = ady / alen;
+  const nrx = -vy, nry = vx;
+  const projV = (p) => (p.x - nasion.x) * vx + (p.y - nasion.y) * vy;
+  const sideOf = (p) => (p.x - nasion.x) * nrx + (p.y - nasion.y) * nry;
+  const innerA = P(133), innerB = P(362);
+  const intercanthal = dist(innerA, innerB) || 1;
+  function eyeSet(up, dn, out, inn, brow) {
+    const upP = P(up), dnP = P(dn), outP = P(out), innP = P(inn), browP = P(brow);
+    const center = mid(outP, innP);
+    const fissure = Math.abs(projV(dnP) - projV(upP)) / intercanthal;
+    const browH = Math.abs(projV(center) - projV(browP)) / intercanthal;
+    return { fissure, browH, center, up: upP, dn: dnP, brow: browP, inner: innP, outer: outP };
+  }
+  const sA = eyeSet(159, 145, 33, 133, 105);
+  const sB = eyeSet(386, 374, 263, 362, 334);
+  const left = sA.center.x <= sB.center.x ? sA : sB;
+  const right = sA.center.x <= sB.center.x ? sB : sA;
+  const symOf = (a, b) => 1 - Math.min(1, Math.abs(a - b) / ((a + b) / 2 || 1));
+  const fissureSym = symOf(left.fissure, right.fissure);
+  const browSym = symOf(left.browH, right.browH);
+  const symmetry = (fissureSym + browSym) / 2;
+  const dOutL = Math.abs(sideOf(left.outer)), dOutR = Math.abs(sideOf(right.outer));
+  const frontal = 1 - Math.min(1, Math.abs(dOutL - dOutR) / ((dOutL + dOutR) / 2 || 1));
+  const pctDiff = (a, b) => {
+    const hi = Math.max(a, b) || 1;
+    return Math.round(Math.abs(a - b) / hi * 100);
+  };
+  const pad = intercanthal * 0.18;
+  const spanOf = (s) => {
+    const a = Math.min(s.outer.x, s.inner.x) - pad, b = Math.max(s.outer.x, s.inner.x) + pad;
+    return { x1: a, x2: b };
+  };
+  const overlay = {
+    left: { browY: left.brow.y, upY: left.up.y, dnY: left.dn.y, x: left.center.x, ...spanOf(left) },
+    right: { browY: right.brow.y, upY: right.up.y, dnY: right.dn.y, x: right.center.x, ...spanOf(right) },
+    innerA,
+    innerB,
+    dots: [left.up, left.dn, left.brow, right.up, right.dn, right.brow, innerA, innerB]
+  };
+  return {
+    W,
+    H,
+    frontal,
+    symmetry,
+    fissureSym,
+    browSym,
+    left: { fissure: left.fissure, browH: left.browH },
+    right: { fissure: right.fissure, browH: right.browH },
+    browDiffPct: pctDiff(left.browH, right.browH),
+    fissureDiffPct: pctDiff(left.fissure, right.fissure),
+    // ¿qué lado tiene el párpado más cerrado / la ceja más baja?
+    lowerFissureSide: left.fissure < right.fissure ? "izquierdo" : "derecho",
+    lowerBrowSide: left.browH < right.browH ? "izquierdo" : "derecho",
+    overlay
+  };
+}
+function ptosisCompare(pre, post) {
+  const rel = (a, b) => a > 0 ? (b - a) / a : 0;
+  const out = { sides: {} };
+  ["left", "right"].forEach((side) => {
+    const fChange = rel(pre[side].fissure, post[side].fissure);
+    const bChange = rel(pre[side].browH, post[side].browH);
+    out.sides[side] = {
+      fissureChange: fChange,
+      browChange: bChange,
+      ptosisPalpebral: fChange <= -0.12,
+      // apertura −12% o más → señal de ptosis palpebral
+      ptosisCeja: bChange <= -0.12
+      // altura de ceja −12% o más → señal de ptosis de ceja
+    };
+  });
+  out.anyPtosis = out.sides.left.ptosisPalpebral || out.sides.right.ptosisPalpebral || out.sides.left.ptosisCeja || out.sides.right.ptosisCeja;
+  return out;
+}
 function FaceSVG({ view, stroke, faint }) {
   const SKIN = "#E7D2C6", M1 = "#BE7062", M2 = "#A4564B", TEND = "#ECE0D6", STRIA = "#8A453C";
   if (view === "front") {
@@ -668,6 +749,121 @@ function AureoTool({ T, patient, updatePatient }) {
     })(), o.dots.map((p, i) => /* @__PURE__ */ React.createElement("circle", { key: "d" + i, cx: p.x, cy: p.y, r, fill: "#fff", stroke: T.accent, strokeWidth: sw * 0.7 })));
   })(), busy && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(8,11,15,.55)", fontFamily: T.sans, fontSize: 11.5, color: "#cfeee0" } }, "Analizando rostro con IA\u2026")), res && canAdjust && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginBottom: 4 } }, "Ment\xF3n \xB7 ajuste del tercio inferior"), /* @__PURE__ */ React.createElement("input", { type: "range", min: "0", max: "30", step: "1", value: mentonAdj, onChange: (e) => applyAdjustments(trichAdj, +e.target.value), style: { width: "100%" } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2, lineHeight: 1.45 } }, "MediaPipe puede no detectar con precisi\xF3n el punto m\xE1s bajo del ment\xF3n. B\xE1jalo si el tercio inferior parece acortado.")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => fileRef.current.click(), style: ghostBtn(T) }, photo ? "Cambiar foto" : "Subir foto"), /* @__PURE__ */ React.createElement("button", { onClick: analyze, disabled: !photo || busy, style: { ...primBtn(T), opacity: !photo || busy ? 0.5 : 1, cursor: !photo || busy ? "default" : "pointer" } }, busy ? "Analizando\u2026" : res ? "Re-analizar" : "Analizar con IA")), err && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", lineHeight: 1.5 } }, err), res && res.frontal != null && res.frontal < 0.85 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontFamily: T.sans, fontSize: 11, color: T.gold || "#C9A227", lineHeight: 1.45, display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("span", null, "\u26A0"), /* @__PURE__ */ React.createElement("span", null, "La foto no parece totalmente de frente; para mayor exactitud usa una foto frontal con la mirada al frente.")), res && res.overlay && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 12, marginTop: 9, fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 13, height: 0, borderTop: "2px dashed " + T.accent } }), "Tercios"), /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 13, height: 0, borderTop: "2px dashed " + (T.gold || "#C9A227") } }), "Quintos"), /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 13, height: 0, borderTop: "2px solid #C0285A" } }), "L\xEDnea media"), /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 13, height: 0, borderTop: "2px solid #1F8A5B" } }), "Nasolabial \u2192 ment\xF3n"))), /* @__PURE__ */ React.createElement("div", null, !res && !busy && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, padding: "26px 14px", textAlign: "center", border: "1px dashed " + T.line, borderRadius: 10 } }, "Sube una foto frontal: el ", /* @__PURE__ */ React.createElement("b", null, "an\xE1lisis con IA se ejecuta autom\xE1ticamente"), " y muestra la armon\xEDa facial."), busy && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, padding: "26px 14px", textAlign: "center", border: "1px dashed " + T.line, borderRadius: 10 } }, "Cargando modelo de IA y midiendo proporciones\u2026"), res && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 44, fontWeight: 300, color: T.text, lineHeight: 1 } }, res.harmony), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute } }, "/ 100 armon\xEDa facial")), warn && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", background: "rgba(201,162,39,.12)", border: "1px solid rgba(201,162,39,.4)", borderRadius: 9, padding: "10px 12px", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, lineHeight: 1.2 } }, "\u26A0\uFE0F"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.text, lineHeight: 1.5 } }, "Calidad de foto: ", warn.join(" y "), ". El an\xE1lisis pierde precisi\xF3n \u2014 para resultados fiables usa una ", /* @__PURE__ */ React.createElement("b", null, "foto frontal, neutra y bien iluminada"), ".")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, res.metrics.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.key }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.text } }, m.label), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, m.value)), /* @__PURE__ */ React.createElement("div", { style: { height: 5, borderRadius: 3, background: T.line, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { width: Math.round(m.score * 100) + "%", height: "100%", background: scColor(m.score), borderRadius: 3 } })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 2 } }, m.note, " \xB7 ideal ", m.ideal)))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 7 } }, "Sugerencias"), res.recs.map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5, marginBottom: 5, display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.accent } }, "\xB7"), /* @__PURE__ */ React.createElement("span", null, r))), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 8, lineHeight: 1.5 } }, "An\xE1lisis orientativo. El criterio cl\xEDnico del profesional prevalece sobre cualquier proporci\xF3n."))))));
 }
+const PTO_LCOLOR = "#2E7FB0";
+const PTO_RCOLOR = "#C9A227";
+function ptosisSummary(res, cmp) {
+  if (!res) return "";
+  const lines = [];
+  const symPct = Math.round(res.symmetry * 100);
+  if (res.browDiffPct <= 5 && res.fissureDiffPct <= 5) {
+    lines.push("Cejas y apertura palpebral pr\xE1cticamente sim\xE9tricas (diferencias \u2264 5%).");
+  } else {
+    if (res.browDiffPct > 5) lines.push("Ceja " + res.lowerBrowSide + " m\xE1s baja (dif. " + res.browDiffPct + "% entre lados).");
+    if (res.fissureDiffPct > 5) lines.push("Apertura palpebral menor en el lado " + res.lowerFissureSide + " (dif. " + res.fissureDiffPct + "%).");
+  }
+  if (cmp) {
+    const sides = { left: "izquierdo", right: "derecho" };
+    let hallazgo = false;
+    ["left", "right"].forEach((k) => {
+      const s = cmp.sides[k];
+      if (s.ptosisPalpebral) {
+        lines.push("Apertura palpebral " + sides[k] + " " + Math.round(s.fissureChange * 100) + "% respecto al control previo \u2014 compatible con ptosis palpebral post-toxina. Reevaluar; considerar apraclonidina si procede.");
+        hallazgo = true;
+      }
+      if (s.ptosisCeja) {
+        lines.push("Ceja " + sides[k] + " descendi\xF3 " + Math.abs(Math.round(s.browChange * 100)) + "% respecto al control previo \u2014 posible ptosis de ceja (debilitamiento del frontal).");
+        hallazgo = true;
+      }
+    });
+    if (!hallazgo) lines.push("Sin ca\xEDdas significativas de apertura palpebral ni de altura de ceja respecto al control previo.");
+  }
+  return lines.join(" ");
+}
+function PtosisTool({ T, patient, updatePatient }) {
+  const saved = patient && patient.ptosis || null;
+  const [prePhoto, setPrePhoto] = useState(() => faceGetPhoto(patient && patient.id, "ptosis_pre") || saved && saved.prePhoto || null);
+  const [postPhoto, setPostPhoto] = useState(() => faceGetPhoto(patient && patient.id, "ptosis_post") || saved && saved.postPhoto || null);
+  const [preRes, setPreRes] = useState(saved && saved.pre || null);
+  const [postRes, setPostRes] = useState(saved && saved.post || null);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const [warn, setWarn] = useState({});
+  const preRef = useRef(null), postRef = useRef(null);
+  const cmp = preRes && postRes ? ptosisCompare(preRes, postRes) : null;
+  const summary = ptosisSummary(preRes || postRes, cmp);
+  function persist(nextPre, nextPost) {
+    if (!updatePatient || !patient) return;
+    const c = nextPre && nextPost ? ptosisCompare(nextPre, nextPost) : null;
+    updatePatient(patient.id, { ptosis: { pre: nextPre, post: nextPost, compare: c, ts: Date.now() } });
+  }
+  function onUpload(slot, e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    fileToDataURL(f, 1100, (u) => {
+      faceSetPhoto(patient && patient.id, slot === "pre" ? "ptosis_pre" : "ptosis_post", u);
+      if (slot === "pre") {
+        setPrePhoto(u);
+        setPreRes(null);
+      } else {
+        setPostPhoto(u);
+        setPostRes(null);
+      }
+      setErr("");
+      setWarn((w) => ({ ...w, [slot]: null }));
+    });
+    e.target.value = "";
+  }
+  async function analyze(slot, photo) {
+    if (!photo || busy) return;
+    setBusy(slot);
+    setErr("");
+    try {
+      const { lm, W, H } = await detectFaceMesh(photo);
+      const r = ptosisCompute(lm, W, H);
+      r.ts = Date.now();
+      const q = await photoQuality(photo);
+      const reasons = [];
+      if (r.frontal != null && r.frontal < 0.88) reasons.push("no est\xE1 totalmente de frente");
+      if (q && (q.bright < 55 || q.bright > 225)) reasons.push("iluminaci\xF3n muy oscura o quemada");
+      else if (q && q.contrast < 22) reasons.push("luz plana / poco contraste");
+      setWarn((w) => ({ ...w, [slot]: reasons.length ? reasons : null }));
+      let np = preRes, npo = postRes;
+      if (slot === "pre") {
+        np = r;
+        setPreRes(r);
+      } else {
+        npo = r;
+        setPostRes(r);
+      }
+      persist(np, npo);
+    } catch (e2) {
+      setErr(e2.message || "No se pudo analizar.");
+    }
+    setBusy("");
+  }
+  useEffect(() => {
+    if (prePhoto && !preRes && !busy) analyze("pre", prePhoto);
+  }, [prePhoto]);
+  useEffect(() => {
+    if (postPhoto && !postRes && !busy) analyze("post", postPhoto);
+  }, [postPhoto]);
+  const scColor = (s) => s >= 0.9 ? "#1F8A5B" : s >= 0.75 ? T.gold || "#C9A227" : "#C0285A";
+  function overlay(res) {
+    if (!res || !res.overlay) return null;
+    const o = res.overlay, sw = Math.max(res.W, res.H) / 380, r = Math.max(res.W, res.H) / 260, dash = sw * 3 + " " + sw * 2;
+    const sideLines = (s, color) => /* @__PURE__ */ React.createElement("g", { stroke: color, strokeWidth: sw, fill: "none" }, /* @__PURE__ */ React.createElement("line", { x1: s.x1, y1: s.browY, x2: s.x2, y2: s.browY, opacity: ".95" }), /* @__PURE__ */ React.createElement("line", { x1: s.x1, y1: s.upY, x2: s.x2, y2: s.upY, strokeDasharray: dash, opacity: ".9" }), /* @__PURE__ */ React.createElement("line", { x1: s.x1, y1: s.dnY, x2: s.x2, y2: s.dnY, strokeDasharray: dash, opacity: ".9" }));
+    return /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 " + res.W + " " + res.H, preserveAspectRatio: "xMidYMid meet", style: { position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" } }, sideLines(o.left, PTO_LCOLOR), sideLines(o.right, PTO_RCOLOR), /* @__PURE__ */ React.createElement("line", { x1: o.innerA.x, y1: o.innerA.y, x2: o.innerB.x, y2: o.innerB.y, stroke: "#C0285A", strokeWidth: sw, opacity: ".8" }), o.dots.map((p, i) => /* @__PURE__ */ React.createElement("circle", { key: i, cx: p.x, cy: p.y, r, fill: "#fff", stroke: T.accent, strokeWidth: sw * 0.6 })));
+  }
+  function slotCard(slot, label, photo, res, ref) {
+    const w = warn[slot];
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, label), /* @__PURE__ */ React.createElement("input", { ref, type: "file", accept: "image/*", onChange: (e) => onUpload(slot, e), style: { display: "none" } }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", border: "1px solid " + T.line, background: T.surface, display: "flex", alignItems: "center", justifyContent: "center" } }, photo ? /* @__PURE__ */ React.createElement("img", { src: photo, alt: label, style: { width: "100%", height: "100%", objectFit: "contain" } }) : /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", color: T.textFaint, fontFamily: T.sans, fontSize: 11.5, padding: 18 } }, "Sin foto"), res && photo && overlay(res), busy === slot && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(8,11,15,.55)", fontFamily: T.sans, fontSize: 11, color: "#cfeee0" } }, "Analizando\u2026")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, marginTop: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => ref.current.click(), style: ghostBtn(T) }, photo ? "Cambiar" : "Subir foto"), photo && /* @__PURE__ */ React.createElement("button", { onClick: () => analyze(slot, photo), disabled: !!busy, style: { ...ghostBtn(T), opacity: busy ? 0.5 : 1 } }, busy === slot ? "\u2026" : "Re-analizar")), w && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 7, fontFamily: T.sans, fontSize: 10.5, color: T.gold || "#C9A227", lineHeight: 1.45 } }, "\u26A0 Foto: ", w.join(" y "), ". El an\xE1lisis pierde precisi\xF3n."), res && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9, display: "flex", flexDirection: "column", gap: 6 } }, [["Simetr\xEDa de cejas", res.browSym, res.browDiffPct + "% dif."], ["Simetr\xEDa palpebral", res.fissureSym, res.fissureDiffPct + "% dif."]].map(([l, s, v]) => /* @__PURE__ */ React.createElement("div", { key: l }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, l), /* @__PURE__ */ React.createElement("span", null, v)), /* @__PURE__ */ React.createElement("div", { style: { height: 4, borderRadius: 3, background: T.line, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { width: Math.round(s * 100) + "%", height: "100%", background: scColor(s) } }))))));
+  }
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.55 } }, "Eval\xFAa ", /* @__PURE__ */ React.createElement("b", null, "simetr\xEDa de cejas y apertura de p\xE1rpados"), " y el ", /* @__PURE__ */ React.createElement("b", null, "riesgo/existencia de ptosis"), " tras toxina botul\xEDnica. Sube una foto ", /* @__PURE__ */ React.createElement("b", null, "frontal"), ", con mirada al frente y buena luz para un screening de simetr\xEDa, o ", /* @__PURE__ */ React.createElement("b", null, "dos fotos"), " (antes del procedimiento y control posterior) para comparar cada lado. La IA detecta 468 puntos faciales ", /* @__PURE__ */ React.createElement("b", null, "en este dispositivo"), " (la imagen no sale de aqu\xED)."), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 4, alignItems: "start" } }, slotCard("pre", "Antes / basal", prePhoto, preRes, preRef), slotCard("post", "Despu\xE9s / control", postPhoto, postRes, postRef)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 12, margin: "10px 0 4px", fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 13, height: 0, borderTop: "2px solid " + PTO_LCOLOR } }), "Lado izquierdo (foto)"), /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 13, height: 0, borderTop: "2px solid " + PTO_RCOLOR } }), "Lado derecho (foto)"), /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 13, height: 0, borderTop: "2px solid #C0285A" } }), "L\xEDnea intercantal"), /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5 } }, "\u2014 ceja \xB7 \u2508 p\xE1rpados")), err && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", lineHeight: 1.5 } }, err), (preRes || postRes) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, padding: "14px 16px", borderRadius: 12, border: "1px solid " + T.line, background: cmp && cmp.anyPtosis ? "rgba(192,40,90,.06)" : T.surface } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: cmp && cmp.anyPtosis ? "#C0285A" : T.accent } }, "Resumen del caso"), cmp && cmp.anyPtosis && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, fontWeight: 700, color: "#C0285A", background: "rgba(192,40,90,.12)", borderRadius: 999, padding: "2px 9px" } }, "Se\xF1al de ptosis")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text, lineHeight: 1.6 } }, summary), cmp && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 14, marginTop: 11, paddingTop: 11, borderTop: "1px solid " + T.lineSoft } }, [["Izquierdo", "left"], ["Derecho", "right"]].map(([l, k]) => {
+    const s = cmp.sides[k], fc = Math.round(s.fissureChange * 100), bc = Math.round(s.browChange * 100);
+    const col = (c) => c <= -12 ? "#C0285A" : c >= 12 ? "#1F8A5B" : T.textMute;
+    return /* @__PURE__ */ React.createElement("div", { key: k, style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: T.text, marginBottom: 2 } }, "Lado ", l, " (post vs previo)"), /* @__PURE__ */ React.createElement("div", null, "Apertura palpebral: ", /* @__PURE__ */ React.createElement("b", { style: { color: col(fc) } }, fc > 0 ? "+" : "", fc, "%")), /* @__PURE__ */ React.createElement("div", null, "Altura de ceja: ", /* @__PURE__ */ React.createElement("b", { style: { color: col(bc) } }, bc > 0 ? "+" : "", bc, "%")));
+  })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 10, lineHeight: 1.5 } }, "Los lados se indican ", /* @__PURE__ */ React.createElement("b", null, "seg\xFAn la foto"), " (el lado derecho de la imagen corresponde al lado izquierdo del paciente, y viceversa, en una foto no reflejada). An\xE1lisis orientativo (screening): no sustituye la evaluaci\xF3n cl\xEDnica, el criterio del profesional prevalece. Para el antes/despu\xE9s, usa fotos con el mismo encuadre, distancia y mirada neutra.")));
+}
 const RICK_STEPS = [["nariz", "punta de la nariz"], ["lsup", "labio superior"], ["linf", "labio inferior"], ["menton", "ment\xF3n (pogonion)"]];
 function RickettsTool({ T, patient, updatePatient }) {
   const saved = patient && patient.ricketts || null;
@@ -824,7 +1020,7 @@ function MarquardtTool({ T, patient, updatePatient }) {
 }
 function FaceMap({ T, value, onChange, patient, updatePatient, readOnly }) {
   const [tool, setTool] = useState("punzar");
-  const TOOLS = [["punzar", "Punci\xF3n"], ["aureo", "Proporci\xF3n \xE1urea \xB7 IA"], ["ricketts", "Plano de Ricketts"], ["marquardt", "M\xE1scara de Marquardt"]];
+  const TOOLS = [["punzar", "Punci\xF3n"], ["aureo", "Proporci\xF3n \xE1urea \xB7 IA"], ["ptosis", "Cejas y p\xE1rpados \xB7 IA"], ["ricketts", "Plano de Ricketts"], ["marquardt", "M\xE1scara de Marquardt"]];
   return /* @__PURE__ */ React.createElement("div", null, readOnly && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })), "Solo visualizaci\xF3n \xB7 edita en cada sesi\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } }, TOOLS.map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setTool(k), style: {
     fontFamily: T.sans,
     fontSize: 11.5,
@@ -835,7 +1031,7 @@ function FaceMap({ T, value, onChange, patient, updatePatient, readOnly }) {
     background: tool === k ? T.text : T.surface,
     color: tool === k ? T.bg : T.textMute,
     border: "1px solid " + (tool === k ? T.text : T.line)
-  } }, l))), tool === "punzar" && /* @__PURE__ */ React.createElement(PuncionTool, { T, value, onChange, patient, updatePatient, readOnly }), tool === "aureo" && /* @__PURE__ */ React.createElement(AureoTool, { T, patient, updatePatient }), tool === "ricketts" && /* @__PURE__ */ React.createElement(RickettsTool, { T, patient, updatePatient }), tool === "marquardt" && /* @__PURE__ */ React.createElement(MarquardtTool, { T, patient, updatePatient }));
+  } }, l))), tool === "punzar" && /* @__PURE__ */ React.createElement(PuncionTool, { T, value, onChange, patient, updatePatient, readOnly }), tool === "aureo" && /* @__PURE__ */ React.createElement(AureoTool, { T, patient, updatePatient }), tool === "ptosis" && /* @__PURE__ */ React.createElement(PtosisTool, { T, patient, updatePatient }), tool === "ricketts" && /* @__PURE__ */ React.createElement(RickettsTool, { T, patient, updatePatient }), tool === "marquardt" && /* @__PURE__ */ React.createElement(MarquardtTool, { T, patient, updatePatient }));
 }
 function ViewTab({ T, active, children, onClick }) {
   return /* @__PURE__ */ React.createElement("button", { onClick, style: { flex: 1, fontFamily: T.sans, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px", borderRadius: 6, cursor: "pointer", background: active ? T.surface2 : T.surface, color: active ? T.text : T.textMute, border: "1px solid " + (active ? T.accent : T.line) } }, children);
@@ -846,4 +1042,4 @@ function ghostBtn(T) {
 function primBtn(T) {
   return { fontFamily: T.sans, fontSize: 11, letterSpacing: ".04em", padding: "8px 15px", borderRadius: 7, background: T.text, color: T.bg, border: "1px solid " + T.text };
 }
-Object.assign(window, { FaceMap, FaceSVG, ViewTab, PuncionTool, AureoTool, RickettsTool, MarquardtTool, MarquardtMask, aureoCompute, detectFaceMesh });
+Object.assign(window, { FaceMap, FaceSVG, ViewTab, PuncionTool, AureoTool, PtosisTool, RickettsTool, MarquardtTool, MarquardtMask, aureoCompute, ptosisCompute, ptosisCompare, detectFaceMesh });

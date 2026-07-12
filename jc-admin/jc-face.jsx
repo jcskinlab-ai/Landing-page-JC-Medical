@@ -254,6 +254,109 @@ function aureoCompute(lm, W, H, opts) {
   return { metrics, harmony, recs, W, H, overlay, frontal };
 }
 
+/* ── Simetría periocular / ptosis: altura de cejas y apertura palpebral desde 468 landmarks ──
+   Mide, para cada lado, la altura de la ceja y la apertura palpebral (distancia entre párpado
+   superior e inferior). Todo se proyecta sobre el eje facial real (nasion→mentón) para ser
+   INVARIANTE a la inclinación de la cabeza, y se normaliza por la distancia intercantal (entre
+   los cantos internos de ambos ojos), que es estable por persona → hace comparables fotos a
+   distinta escala/encuadre (clave para el antes/después). Los lados se etiquetan por la POSICIÓN
+   EN LA FOTO (izquierda/derecha de la imagen, que es lo que el profesional ve en el overlay),
+   evitando la ambigüedad del espejo de las selfies. */
+function ptosisCompute(lm, W, H) {
+  const P = i => ({ x: lm[i].x * W, y: lm[i].y * H });
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  // Eje facial (línea media) nasion→mentón, igual que aureoCompute → invariante a inclinación.
+  const nasion = P(168), menton = P(152);
+  const adx = menton.x - nasion.x, ady = (menton.y - nasion.y) || 1;
+  const alen = Math.hypot(adx, ady) || 1;
+  const vx = adx / alen, vy = ady / alen;               // unitario a lo largo del eje vertical facial
+  const nrx = -vy, nry = vx;                            // normal (horizontal facial)
+  const projV = p => (p.x - nasion.x) * vx + (p.y - nasion.y) * vy;   // altura sobre el eje (crece hacia abajo)
+  const sideOf = p => (p.x - nasion.x) * nrx + (p.y - nasion.y) * nry; // desviación con signo del eje medio
+
+  // Cantos internos (para la distancia intercantal, unidad de normalización).
+  const innerA = P(133), innerB = P(362);
+  const intercanthal = dist(innerA, innerB) || 1;
+
+  // Grupos de landmarks por ojo (superior/inferior del párpado, cantos, punto de ceja).
+  // Ojo grupo "33": párpado sup 159, inf 145, canto externo 33, interno 133, ceja 105.
+  // Ojo grupo "263": párpado sup 386, inf 374, canto externo 263, interno 362, ceja 334.
+  function eyeSet(up, dn, out, inn, brow) {
+    const upP = P(up), dnP = P(dn), outP = P(out), innP = P(inn), browP = P(brow);
+    const center = mid(outP, innP);
+    // Apertura palpebral: separación vertical (sobre el eje facial) entre párpado sup e inf.
+    const fissure = Math.abs(projV(dnP) - projV(upP)) / intercanthal;
+    // Altura de ceja: cuánto se eleva la ceja por encima del centro del ojo (eje facial).
+    const browH = Math.abs(projV(center) - projV(browP)) / intercanthal;
+    return { fissure, browH, center, up: upP, dn: dnP, brow: browP, inner: innP, outer: outP };
+  }
+  const sA = eyeSet(159, 145, 33, 133, 105);
+  const sB = eyeSet(386, 374, 263, 362, 334);
+
+  // Asignar por posición en la foto: menor x = lado IZQUIERDO de la imagen.
+  const left = sA.center.x <= sB.center.x ? sA : sB;
+  const right = sA.center.x <= sB.center.x ? sB : sA;
+
+  // Simetría (0..1): 1 = idéntico entre lados.
+  const symOf = (a, b) => 1 - Math.min(1, Math.abs(a - b) / (((a + b) / 2) || 1));
+  const fissureSym = symOf(left.fissure, right.fissure);
+  const browSym = symOf(left.browH, right.browH);
+  const symmetry = (fissureSym + browSym) / 2;
+
+  // Frontalidad (¿la foto es realmente de frente?) — compara la desviación de ambos cantos externos.
+  const dOutL = Math.abs(sideOf(left.outer)), dOutR = Math.abs(sideOf(right.outer));
+  const frontal = 1 - Math.min(1, Math.abs(dOutL - dOutR) / (((dOutL + dOutR) / 2) || 1));
+
+  // % de diferencia entre lados (para el texto del resumen), lado mayor como referencia.
+  const pctDiff = (a, b) => { const hi = Math.max(a, b) || 1; return Math.round(Math.abs(a - b) / hi * 100); };
+
+  // Coordenadas para el overlay (en px de la imagen natural). x1/x2 = extensión horizontal de las
+  // líneas de referencia sobre ese ojo (de canto a canto, con un pequeño margen), para no cruzar caras.
+  const pad = intercanthal * 0.18;
+  const spanOf = s => { const a = Math.min(s.outer.x, s.inner.x) - pad, b = Math.max(s.outer.x, s.inner.x) + pad; return { x1: a, x2: b }; };
+  const overlay = {
+    left: { browY: left.brow.y, upY: left.up.y, dnY: left.dn.y, x: left.center.x, ...spanOf(left) },
+    right: { browY: right.brow.y, upY: right.up.y, dnY: right.dn.y, x: right.center.x, ...spanOf(right) },
+    innerA, innerB,
+    dots: [left.up, left.dn, left.brow, right.up, right.dn, right.brow, innerA, innerB]
+  };
+
+  return {
+    W, H, frontal, symmetry, fissureSym, browSym,
+    left: { fissure: left.fissure, browH: left.browH },
+    right: { fissure: right.fissure, browH: right.browH },
+    browDiffPct: pctDiff(left.browH, right.browH),
+    fissureDiffPct: pctDiff(left.fissure, right.fissure),
+    // ¿qué lado tiene el párpado más cerrado / la ceja más baja?
+    lowerFissureSide: left.fissure < right.fissure ? "izquierdo" : "derecho",
+    lowerBrowSide: left.browH < right.browH ? "izquierdo" : "derecho",
+    overlay
+  };
+}
+
+/* Compara un control POSTERIOR contra la línea base PREVIA, lado por lado. Como ambas métricas
+   están normalizadas por la distancia intercantal (estable por persona), el cambio relativo es
+   comparable aunque las fotos estén a distinta escala. Una caída de la apertura palpebral marca
+   posible ptosis palpebral post-toxina; una caída de la altura de ceja, ptosis de ceja. */
+function ptosisCompare(pre, post) {
+  const rel = (a, b) => (a > 0 ? (b - a) / a : 0);   // cambio relativo post vs pre (negativo = disminuyó)
+  const out = { sides: {} };
+  ["left", "right"].forEach(side => {
+    const fChange = rel(pre[side].fissure, post[side].fissure);
+    const bChange = rel(pre[side].browH, post[side].browH);
+    out.sides[side] = {
+      fissureChange: fChange, browChange: bChange,
+      ptosisPalpebral: fChange <= -0.12,   // apertura −12% o más → señal de ptosis palpebral
+      ptosisCeja: bChange <= -0.12          // altura de ceja −12% o más → señal de ptosis de ceja
+    };
+  });
+  out.anyPtosis = out.sides.left.ptosisPalpebral || out.sides.right.ptosisPalpebral
+    || out.sides.left.ptosisCeja || out.sides.right.ptosisCeja;
+  return out;
+}
+
 /* ════════ MODELO ANATÓMICO SVG (écorché) ════════ */
 function FaceSVG({ view, stroke, faint }) {
   const SKIN = "#E7D2C6", M1 = "#BE7062", M2 = "#A4564B", TEND = "#ECE0D6", STRIA = "#8A453C";
@@ -821,6 +924,199 @@ function AureoTool({ T, patient, updatePatient }) {
   );
 }
 
+/* ════════ HERRAMIENTA · SIMETRÍA PERIOCULAR / PTOSIS (cejas y párpados) ════════
+   Sube una foto (screening de simetría izq/der) o dos fotos (antes/después) para detectar
+   ptosis palpebral o de ceja tras toxina botulínica. La IA (MediaPipe, en este dispositivo)
+   mide la altura de las cejas y la apertura de los párpados, traza las líneas de referencia,
+   y genera un breve resumen. Colores del overlay: lado IZQUIERDO de la foto = azul; DERECHO = oro. */
+const PTO_LCOLOR = "#2E7FB0";   // lado izquierdo de la foto
+const PTO_RCOLOR = "#C9A227";   // lado derecho de la foto
+
+// Resumen textual del caso a partir de un análisis (1 foto) y, si existe, la comparación (2 fotos).
+function ptosisSummary(res, cmp) {
+  if (!res) return "";
+  const lines = [];
+  const symPct = Math.round(res.symmetry * 100);
+  // Simetría basal (siempre que haya al menos una foto analizada).
+  if (res.browDiffPct <= 5 && res.fissureDiffPct <= 5) {
+    lines.push("Cejas y apertura palpebral prácticamente simétricas (diferencias ≤ 5%).");
+  } else {
+    if (res.browDiffPct > 5) lines.push("Ceja " + res.lowerBrowSide + " más baja (dif. " + res.browDiffPct + "% entre lados).");
+    if (res.fissureDiffPct > 5) lines.push("Apertura palpebral menor en el lado " + res.lowerFissureSide + " (dif. " + res.fissureDiffPct + "%).");
+  }
+  // Comparación antes/después (si hay control posterior).
+  if (cmp) {
+    const sides = { left: "izquierdo", right: "derecho" };
+    let hallazgo = false;
+    ["left", "right"].forEach(k => {
+      const s = cmp.sides[k];
+      if (s.ptosisPalpebral) { lines.push("Apertura palpebral " + sides[k] + " " + Math.round(s.fissureChange * 100) + "% respecto al control previo — compatible con ptosis palpebral post-toxina. Reevaluar; considerar apraclonidina si procede."); hallazgo = true; }
+      if (s.ptosisCeja) { lines.push("Ceja " + sides[k] + " descendió " + Math.abs(Math.round(s.browChange * 100)) + "% respecto al control previo — posible ptosis de ceja (debilitamiento del frontal)."); hallazgo = true; }
+    });
+    if (!hallazgo) lines.push("Sin caídas significativas de apertura palpebral ni de altura de ceja respecto al control previo.");
+  }
+  return lines.join(" ");
+}
+
+function PtosisTool({ T, patient, updatePatient }) {
+  const saved = (patient && patient.ptosis) || null;
+  const [prePhoto, setPrePhoto] = useState(() => faceGetPhoto(patient && patient.id, "ptosis_pre") || (saved && saved.prePhoto) || null);
+  const [postPhoto, setPostPhoto] = useState(() => faceGetPhoto(patient && patient.id, "ptosis_post") || (saved && saved.postPhoto) || null);
+  const [preRes, setPreRes] = useState((saved && saved.pre) || null);
+  const [postRes, setPostRes] = useState((saved && saved.post) || null);
+  const [busy, setBusy] = useState("");   // "pre" | "post" | ""
+  const [err, setErr] = useState("");
+  const [warn, setWarn] = useState({});   // { pre:[...], post:[...] }
+  const preRef = useRef(null), postRef = useRef(null);
+
+  const cmp = (preRes && postRes) ? ptosisCompare(preRes, postRes) : null;
+  const summary = ptosisSummary(preRes || postRes, cmp);
+
+  function persist(nextPre, nextPost) {
+    if (!updatePatient || !patient) return;
+    const c = (nextPre && nextPost) ? ptosisCompare(nextPre, nextPost) : null;
+    updatePatient(patient.id, { ptosis: { pre: nextPre, post: nextPost, compare: c, ts: Date.now() } });
+  }
+
+  function onUpload(slot, e) {
+    const f = e.target.files[0]; if (!f) return;
+    fileToDataURL(f, 1100, u => {
+      faceSetPhoto(patient && patient.id, slot === "pre" ? "ptosis_pre" : "ptosis_post", u);
+      if (slot === "pre") { setPrePhoto(u); setPreRes(null); } else { setPostPhoto(u); setPostRes(null); }
+      setErr(""); setWarn(w => ({ ...w, [slot]: null }));
+    });
+    e.target.value = "";
+  }
+
+  async function analyze(slot, photo) {
+    if (!photo || busy) return;
+    setBusy(slot); setErr("");
+    try {
+      const { lm, W, H } = await detectFaceMesh(photo);
+      const r = ptosisCompute(lm, W, H); r.ts = Date.now();
+      const q = await photoQuality(photo);
+      const reasons = [];
+      if (r.frontal != null && r.frontal < 0.88) reasons.push("no está totalmente de frente");
+      if (q && (q.bright < 55 || q.bright > 225)) reasons.push("iluminación muy oscura o quemada");
+      else if (q && q.contrast < 22) reasons.push("luz plana / poco contraste");
+      setWarn(w => ({ ...w, [slot]: reasons.length ? reasons : null }));
+      let np = preRes, npo = postRes;
+      if (slot === "pre") { np = r; setPreRes(r); } else { npo = r; setPostRes(r); }
+      persist(np, npo);
+    } catch (e2) { setErr(e2.message || "No se pudo analizar."); }
+    setBusy("");
+  }
+
+  // Análisis automático al cargar/cambiar cada foto.
+  useEffect(() => { if (prePhoto && !preRes && !busy) analyze("pre", prePhoto); }, [prePhoto]);
+  useEffect(() => { if (postPhoto && !postRes && !busy) analyze("post", postPhoto); }, [postPhoto]);
+
+  const scColor = s => s >= 0.9 ? "#1F8A5B" : s >= 0.75 ? (T.gold || "#C9A227") : "#C0285A";
+
+  // Overlay SVG de un análisis sobre su foto.
+  function overlay(res) {
+    if (!res || !res.overlay) return null;
+    const o = res.overlay, sw = Math.max(res.W, res.H) / 380, r = Math.max(res.W, res.H) / 260, dash = (sw * 3) + " " + (sw * 2);
+    const sideLines = (s, color) => (
+      <g stroke={color} strokeWidth={sw} fill="none">
+        {/* ceja — línea sólida */}
+        <line x1={s.x1} y1={s.browY} x2={s.x2} y2={s.browY} opacity=".95" />
+        {/* párpado superior e inferior — líneas punteadas (apertura palpebral) */}
+        <line x1={s.x1} y1={s.upY} x2={s.x2} y2={s.upY} strokeDasharray={dash} opacity=".9" />
+        <line x1={s.x1} y1={s.dnY} x2={s.x2} y2={s.dnY} strokeDasharray={dash} opacity=".9" />
+      </g>
+    );
+    return (
+      <svg viewBox={"0 0 " + res.W + " " + res.H} preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        {sideLines(o.left, PTO_LCOLOR)}
+        {sideLines(o.right, PTO_RCOLOR)}
+        {/* línea intercantal (unidad de referencia) */}
+        <line x1={o.innerA.x} y1={o.innerA.y} x2={o.innerB.x} y2={o.innerB.y} stroke="#C0285A" strokeWidth={sw} opacity=".8" />
+        {o.dots.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={r} fill="#fff" stroke={T.accent} strokeWidth={sw * 0.6} />)}
+      </svg>
+    );
+  }
+
+  // Tarjeta de una foto (upload + overlay + mini-métricas de simetría).
+  function slotCard(slot, label, photo, res, ref) {
+    const w = warn[slot];
+    return (
+      <div>
+        <div style={{ fontFamily: T.sans, fontSize: 10.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>{label}</div>
+        <input ref={ref} type="file" accept="image/*" onChange={e => onUpload(slot, e)} style={{ display: "none" }} />
+        <div style={{ position: "relative", aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", border: "1px solid " + T.line, background: T.surface, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {photo
+            ? <img src={photo} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            : <div style={{ textAlign: "center", color: T.textFaint, fontFamily: T.sans, fontSize: 11.5, padding: 18 }}>Sin foto</div>}
+          {res && photo && overlay(res)}
+          {busy === slot && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(8,11,15,.55)", fontFamily: T.sans, fontSize: 11, color: "#cfeee0" }}>Analizando…</div>}
+        </div>
+        <div style={{ display: "flex", gap: 7, marginTop: 8 }}>
+          <button onClick={() => ref.current.click()} style={ghostBtn(T)}>{photo ? "Cambiar" : "Subir foto"}</button>
+          {photo && <button onClick={() => analyze(slot, photo)} disabled={!!busy} style={{ ...ghostBtn(T), opacity: busy ? 0.5 : 1 }}>{busy === slot ? "…" : "Re-analizar"}</button>}
+        </div>
+        {w && <div style={{ marginTop: 7, fontFamily: T.sans, fontSize: 10.5, color: T.gold || "#C9A227", lineHeight: 1.45 }}>⚠ Foto: {w.join(" y ")}. El análisis pierde precisión.</div>}
+        {res && (
+          <div style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 6 }}>
+            {[["Simetría de cejas", res.browSym, res.browDiffPct + "% dif."], ["Simetría palpebral", res.fissureSym, res.fissureDiffPct + "% dif."]].map(([l, s, v]) => (
+              <div key={l}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginBottom: 2 }}><span>{l}</span><span>{v}</span></div>
+                <div style={{ height: 4, borderRadius: 3, background: T.line, overflow: "hidden" }}><div style={{ width: Math.round(s * 100) + "%", height: "100%", background: scColor(s) }} /></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.55 }}>
+        Evalúa <b>simetría de cejas y apertura de párpados</b> y el <b>riesgo/existencia de ptosis</b> tras toxina botulínica. Sube una foto <b>frontal</b>, con mirada al frente y buena luz para un screening de simetría, o <b>dos fotos</b> (antes del procedimiento y control posterior) para comparar cada lado. La IA detecta 468 puntos faciales <b>en este dispositivo</b> (la imagen no sale de aquí).
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 4, alignItems: "start" }}>
+        {slotCard("pre", "Antes / basal", prePhoto, preRes, preRef)}
+        {slotCard("post", "Después / control", postPhoto, postRes, postRef)}
+      </div>
+      {/* leyenda de colores */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, margin: "10px 0 4px", fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 13, height: 0, borderTop: "2px solid " + PTO_LCOLOR }} />Lado izquierdo (foto)</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 13, height: 0, borderTop: "2px solid " + PTO_RCOLOR }} />Lado derecho (foto)</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 13, height: 0, borderTop: "2px solid #C0285A" }} />Línea intercantal</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>— ceja · ┈ párpados</span>
+      </div>
+      {err && <div style={{ marginTop: 8, fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", lineHeight: 1.5 }}>{err}</div>}
+      {/* Resumen del caso */}
+      {(preRes || postRes) && (
+        <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, border: "1px solid " + T.line, background: cmp && cmp.anyPtosis ? "rgba(192,40,90,.06)" : T.surface }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: cmp && cmp.anyPtosis ? "#C0285A" : T.accent }}>Resumen del caso</div>
+            {cmp && cmp.anyPtosis && <span style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 700, color: "#C0285A", background: "rgba(192,40,90,.12)", borderRadius: 999, padding: "2px 9px" }}>Señal de ptosis</span>}
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, lineHeight: 1.6 }}>{summary}</div>
+          {cmp && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 11, paddingTop: 11, borderTop: "1px solid " + T.lineSoft }}>
+              {[["Izquierdo", "left"], ["Derecho", "right"]].map(([l, k]) => {
+                const s = cmp.sides[k], fc = Math.round(s.fissureChange * 100), bc = Math.round(s.browChange * 100);
+                const col = c => c <= -12 ? "#C0285A" : c >= 12 ? "#1F8A5B" : T.textMute;
+                return (
+                  <div key={k} style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>
+                    <div style={{ fontWeight: 600, color: T.text, marginBottom: 2 }}>Lado {l} (post vs previo)</div>
+                    <div>Apertura palpebral: <b style={{ color: col(fc) }}>{fc > 0 ? "+" : ""}{fc}%</b></div>
+                    <div>Altura de ceja: <b style={{ color: col(bc) }}>{bc > 0 ? "+" : ""}{bc}%</b></div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 10, lineHeight: 1.5 }}>Los lados se indican <b>según la foto</b> (el lado derecho de la imagen corresponde al lado izquierdo del paciente, y viceversa, en una foto no reflejada). Análisis orientativo (screening): no sustituye la evaluación clínica, el criterio del profesional prevalece. Para el antes/después, usa fotos con el mismo encuadre, distancia y mirada neutra.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ════════ HERRAMIENTA 3 · PLANO DE RICKETTS (línea E) ════════ */
 const RICK_STEPS = [["nariz", "punta de la nariz"], ["lsup", "labio superior"], ["linf", "labio inferior"], ["menton", "mentón (pogonion)"]];
 function RickettsTool({ T, patient, updatePatient }) {
@@ -1057,7 +1353,7 @@ function MarquardtTool({ T, patient, updatePatient }) {
 /* ════════ CONTENEDOR · MAPEO FACIAL ════════ */
 function FaceMap({ T, value, onChange, patient, updatePatient, readOnly }) {
   const [tool, setTool] = useState("punzar");
-  const TOOLS = [["punzar", "Punción"], ["aureo", "Proporción áurea · IA"], ["ricketts", "Plano de Ricketts"], ["marquardt", "Máscara de Marquardt"]];
+  const TOOLS = [["punzar", "Punción"], ["aureo", "Proporción áurea · IA"], ["ptosis", "Cejas y párpados · IA"], ["ricketts", "Plano de Ricketts"], ["marquardt", "Máscara de Marquardt"]];
   return (
     <div>
       {readOnly && (
@@ -1076,6 +1372,7 @@ function FaceMap({ T, value, onChange, patient, updatePatient, readOnly }) {
       </div>
       {tool === "punzar" && <PuncionTool T={T} value={value} onChange={onChange} patient={patient} updatePatient={updatePatient} readOnly={readOnly} />}
       {tool === "aureo" && <AureoTool T={T} patient={patient} updatePatient={updatePatient} />}
+      {tool === "ptosis" && <PtosisTool T={T} patient={patient} updatePatient={updatePatient} />}
       {tool === "ricketts" && <RickettsTool T={T} patient={patient} updatePatient={updatePatient} />}
       {tool === "marquardt" && <MarquardtTool T={T} patient={patient} updatePatient={updatePatient} />}
     </div>
@@ -1088,4 +1385,4 @@ function ViewTab({ T, active, children, onClick }) {
 function ghostBtn(T) { return { fontFamily: T.sans, fontSize: 11, letterSpacing: ".04em", padding: "8px 13px", borderRadius: 7, cursor: "pointer", background: T.surface, color: T.textMute, border: "1px solid " + T.line }; }
 function primBtn(T) { return { fontFamily: T.sans, fontSize: 11, letterSpacing: ".04em", padding: "8px 15px", borderRadius: 7, background: T.text, color: T.bg, border: "1px solid " + T.text }; }
 
-Object.assign(window, { FaceMap, FaceSVG, ViewTab, PuncionTool, AureoTool, RickettsTool, MarquardtTool, MarquardtMask, aureoCompute, detectFaceMesh });
+Object.assign(window, { FaceMap, FaceSVG, ViewTab, PuncionTool, AureoTool, PtosisTool, RickettsTool, MarquardtTool, MarquardtMask, aureoCompute, ptosisCompute, ptosisCompare, detectFaceMesh });
