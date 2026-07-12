@@ -134,11 +134,14 @@ async function pReadKv(db, clinicId, key) {
   if (!doc.exists) return null;
   try { const d = doc.data(); return d && d.v != null ? JSON.parse(d.v) : null; } catch (e) { return null; }
 }
-// Campos SEGUROS del historial que el paciente puede ver (nunca cobro, notas internas, lote…).
+// Campos que el paciente puede ver de cada procedimiento (pedido del cliente): lote del producto,
+// vencimiento, temperatura y el resumen de la aplicación. NO se envían unidades/dosis, dilución,
+// recomendaciones internas, cobro, ni notas. proc/date solo como encabezado.
 function pSafeHistory(history) {
   return (Array.isArray(history) ? history : []).map(h => ({
-    date: h.date || "", proc: h.proc || "", proName: h.proName || "",
-    resumen: h.resumen || "", recomendados: h.recomendados || "", units: h.units || ""
+    date: h.date || "", proc: h.proc || "",
+    lote: h.lote || "", venc: h.venc || "", temp: h.temp || "",
+    resumen: h.resumen || ""
   })).filter(h => h.proc);
 }
 

@@ -261,10 +261,10 @@ function FichaView({ T, S, sess, onLogout, onExpired }) {
               <span style={S.histProc}>{h.proc}</span>
               {h.date && <span style={S.histDate}>{h.date}</span>}
             </div>
-            {h.units && <div style={S.histMeta}>{h.units}</div>}
+            {(h.lote || h.venc || h.temp) && (
+              <div style={S.histMeta}>{[h.lote && ("Lote " + h.lote), h.venc && ("Vence " + h.venc), h.temp && ("Temp. " + h.temp)].filter(Boolean).join("  ·  ")}</div>
+            )}
             {h.resumen && <div style={S.histText}>{h.resumen}</div>}
-            {h.recomendados && <div style={S.histRec}>Recomendado: {h.recomendados}</div>}
-            {h.proName && <div style={S.histPro}>Realizado por {h.proName}</div>}
           </div>
         ))}
       </div>
