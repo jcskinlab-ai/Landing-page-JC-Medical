@@ -10,10 +10,10 @@ const SEC_QUESTIONS = [
   "\xBFCu\xE1l fue tu primer trabajo?"
 ];
 function portalApi(action, body) {
-  return fetch("/api/portal", {
+  return fetch("/api/team-access", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(Object.assign({ action }, body || {}))
+    body: JSON.stringify(Object.assign({ action: "portal-" + action }, body || {}))
   }).then(function(r) {
     return r.json().catch(function() {
       return { ok: false, error: "Respuesta inv\xE1lida del servidor." };

@@ -1,7 +1,7 @@
 /* ═══════════════ MEDIQUE · PORTAL DEL PACIENTE ═══════════════
    SPA autocontenida: el paciente entra con su RUT + una clave que él mismo crea y ve SOLO su
    propia ficha (procedimientos registrados). NO carga jcm_saas/jcm_cloud → el navegador del
-   paciente nunca toca Firestore: todo pasa por /api/portal, que filtra server-side.
+   paciente nunca toca Firestore: todo pasa por /api/team-access (acciones portal-*), server-side.
    Vistas: activación (desde el link de un solo uso), login, recuperación (3 preguntas), ficha. */
 
 const SESS_KEY = "jcm_portal_sess";
@@ -16,11 +16,13 @@ const SEC_QUESTIONS = [
   "¿Cuál fue tu primer trabajo?"
 ];
 
+// El endpoint del portal vive fusionado en /api/team-access (acciones "portal-*") para no exceder
+// el límite de funciones de Vercel. El navegador del paciente solo llama estas acciones públicas.
 function portalApi(action, body) {
-  return fetch("/api/portal", {
+  return fetch("/api/team-access", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(Object.assign({ action: action }, body || {}))
+    body: JSON.stringify(Object.assign({ action: "portal-" + action }, body || {}))
   }).then(function (r) { return r.json().catch(function () { return { ok: false, error: "Respuesta inválida del servidor." }; }); })
     .catch(function (e) { return { ok: false, error: (e && e.message) || "Sin conexión." }; });
 }
