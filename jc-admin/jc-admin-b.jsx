@@ -1465,10 +1465,26 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
           {/* Nota: NO usar el wrapper TaF aquí — está definido dentro del render y React lo
               desmonta en cada keystroke perdiendo el foco. Se renderiza directamente. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label style={{ display: "block" }}><span style={lblS}>Procedimientos recomendados</span>
+            <label style={{ display: "block" }}><span style={lblS}>Procedimiento recomendado</span>
               {ro
                 ? <div style={roDiv}>{f.recomendados || <span style={{ color: T.textFaint }}>—</span>}</div>
-                : <textarea value={f.recomendados} onChange={e => setF({ ...f, recomendados: e.target.value })} rows={3} placeholder="Lo sugerido para próximas sesiones…" style={ta(3)} />}
+                : (() => {
+                    // Desplegable con los servicios del catálogo (no texto libre): así el procedimiento
+                    // recomendado queda como un nombre limpio y el portal del paciente puede armar el
+                    // "Agendar por WhatsApp" con ESE procedimiento. Se conserva cualquier texto antiguo.
+                    const svcs = (window.clinicServiceList ? window.clinicServiceList() : []);
+                    const byCat = {}; svcs.forEach(s => { (byCat[s.cat] = byCat[s.cat] || []).push(s); });
+                    const cats = Object.keys(byCat);
+                    const known = !f.recomendados || f.recomendados === "Evaluación" || svcs.some(s => s.name === f.recomendados);
+                    return (
+                      <select value={f.recomendados} onChange={e => setF({ ...f, recomendados: e.target.value })} style={sel}>
+                        <option value="">Sin recomendación</option>
+                        <option value="Evaluación">Evaluación / control</option>
+                        {!known && <option value={f.recomendados}>{f.recomendados}</option>}
+                        {cats.map(c => <optgroup key={c} label={c}>{byCat[c].map((s, i) => <option key={c + i} value={s.name}>{s.name}</option>)}</optgroup>)}
+                      </select>
+                    );
+                  })()}
             </label>
             <label style={{ display: "block" }}><span style={lblS}>Procedimientos realizados</span>
               {ro

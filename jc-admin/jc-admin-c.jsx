@@ -3269,8 +3269,11 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
     if (recField === k) { try { dictRef.current && dictRef.current.stop(); } catch (e) {} setRecField(null); return; }
     try { dictRef.current && dictRef.current.stop(); } catch (e) {}
     const r = new SRDICT(); r.lang = "es-CL"; r.continuous = true; r.interimResults = true;
-    const base = (f[k] || "") ? (f[k] + " ") : "";
-    r.onresult = e => { let s = ""; for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript; setVal(k, base + s); };
+    // `base` acumula el texto YA finalizado (crece a medida que se dicta); a cada evento solo se
+    // vuelve a leer lo provisional (interim). Antes se reconstruía todo desde e.resultIndex, así que
+    // al pausar y seguir, el índice avanzaba y se perdía lo dictado antes (se borraba y empezaba de 0).
+    let base = (f[k] || "") ? (f[k] + " ") : "";
+    r.onresult = e => { let interim = ""; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) base += e.results[i][0].transcript; else interim += e.results[i][0].transcript; } setVal(k, base + interim); };
     r.onend = () => setRecField(null);
     r.onerror = ev => { setRecField(null); const c = ev && ev.error; const m = (c === "not-allowed" || c === "service-not-allowed") ? "Permite el micrófono para dictar (no funciona en modo incógnito)." : c === "no-speech" ? "No se detectó voz. Intenta de nuevo." : "No se pudo iniciar el dictado."; window.jcmToast && window.jcmToast(m, "info"); };
     dictRef.current = r; try { r.start(); setRecField(k); } catch (e) { window.jcmToast && window.jcmToast("No se pudo iniciar el dictado.", "info"); }
@@ -5897,8 +5900,10 @@ function NotasClinicasView({ T, patients, updatePatient }) {
     if (!SR) { window.jcmToast && window.jcmToast("Tu navegador no permite dictado por voz. Usa Chrome/Edge o escribe la nota.", "info"); return; }
     if (rec) { try { recRef.current && recRef.current.stop(); } catch (e) {} setRec(false); return; }
     const r = new SR(); r.lang = "es-CL"; r.continuous = true; r.interimResults = true;
+    // `base` acumula lo YA finalizado; a cada evento solo se relee lo provisional (interim). Antes se
+    // reconstruía todo desde e.resultIndex → al pausar y seguir se perdía lo dictado (empezaba de 0).
     let base = txt ? txt + " " : "";
-    r.onresult = e => { let s = ""; for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript; setTxt(base + s); };
+    r.onresult = e => { let interim = ""; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) base += e.results[i][0].transcript; else interim += e.results[i][0].transcript; } setTxt(base + interim); };
     r.onend = () => setRec(false);
     r.onerror = ev => { setRec(false); const c = ev && ev.error; const m = c === "not-allowed" || c === "service-not-allowed" ? "Permite el micrófono para dictar (no funciona en modo incógnito)." : c === "no-speech" ? "No se detectó voz. Intenta de nuevo." : "No se pudo iniciar el dictado."; window.jcmToast && window.jcmToast(m, "info"); };
     recRef.current = r; try { r.start(); setRec(true); } catch (e) { window.jcmToast && window.jcmToast("No se pudo iniciar el dictado por voz.", "info"); }

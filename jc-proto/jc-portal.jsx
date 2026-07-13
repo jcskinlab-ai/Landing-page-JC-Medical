@@ -267,10 +267,10 @@ function FichaView({ T, S, sess, onLogout, onExpired }) {
             {h.resumen && <div style={S.histText}>{h.resumen}</div>}
             {h.recomendados && <div style={S.histRec}>Recomendación del profesional: {h.recomendados}</div>}
             {h.proName && <div style={S.histPro}>Realizado por {h.proName}</div>}
-            {data.clinicWhats && (
-              <a href={"https://wa.me/" + data.clinicWhats + "?text=" + encodeURIComponent("Hola, soy " + (data.name || "") + ". Me gustaría agendar una cita de " + h.proc + ".")} target="_blank" rel="noopener" style={S.histWa}>
+            {data.clinicWhats && (h.recomendados || h.proc) && (
+              <a href={"https://wa.me/" + data.clinicWhats + "?text=" + encodeURIComponent("Hola, soy " + (data.name || "") + ". Me gustaría agendar una cita de " + (h.recomendados || h.proc) + ".")} target="_blank" rel="noopener" style={S.histWa}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
-                Agendar por WhatsApp
+                Agendar {h.recomendados ? h.recomendados : "por WhatsApp"}
               </a>
             )}
           </div>

@@ -2779,11 +2779,14 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
     r.lang = "es-CL";
     r.continuous = true;
     r.interimResults = true;
-    const base = f[k] || "" ? f[k] + " " : "";
+    let base = f[k] || "" ? f[k] + " " : "";
     r.onresult = (e) => {
-      let s = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript;
-      setVal(k, base + s);
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) base += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      setVal(k, base + interim);
     };
     r.onend = () => setRecField(null);
     r.onerror = (ev) => {
@@ -4849,9 +4852,12 @@ function NotasClinicasView({ T, patients, updatePatient }) {
     r.interimResults = true;
     let base = txt ? txt + " " : "";
     r.onresult = (e) => {
-      let s = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript;
-      setTxt(base + s);
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) base += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      setTxt(base + interim);
     };
     r.onend = () => setRec(false);
     r.onerror = (ev) => {
