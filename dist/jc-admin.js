@@ -823,7 +823,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     let compras = cash.filter((m) => m.kind === "atencion" && inMonth(m.ts) && esProc(m.concept)).length;
     let allAppts = [];
     try {
-      allAppts = window.DB && DB.get("appts") || appts || [];
+      allAppts = window.DB && DB.get("appointments") || appts || [];
     } catch (e) {
       allAppts = appts || [];
     }
@@ -1322,6 +1322,9 @@ function AdminApp() {
         name: b.name,
         phone: b.phone,
         proc: (b.items || []).map((i) => ((i.qty || 1) > 1 ? i.qty + "\xD7 " : "") + i.name).join(" + ") || "Reserva online",
+        // ALTO-09: copiar la fecha ISO real de la reserva. Antes se perdía (solo iba en `when`) y con
+        // day:0 la cita caía SIEMPRE en "hoy". La agenda ubica por a.fecha; day queda como respaldo.
+        fecha: b.fecha || "",
         time: b.time || "\u2014",
         when: b.day || "Por coordinar",
         status: "pendiente",
@@ -1597,8 +1600,8 @@ function AdminApp() {
       var items = adminNavItems();
       var ok = items.some(function(n) {
         return n.k === section;
-      }) || section === "pacientes";
-      if (!ok) setSection(items[0] && items[0].k || "pacientes");
+      });
+      if (!ok) setSection(items[0] && items[0].k || "dashboard");
     } catch (e) {
     }
   }, [section, openPatient]);
@@ -4551,6 +4554,45 @@ function SaasGate() {
   );
 }
 Object.assign(window, { AdminGate, SaasGate });
+class JCErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error, info) {
+    try {
+      console.error("[JCM] Error de render:", error, info);
+    } catch (e) {
+    }
+  }
+  render() {
+    if (this.state.failed) return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "-apple-system,'Segoe UI',Arial,sans-serif", textAlign: "center", background: "#0E131B" } }, /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 420 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 40, marginBottom: 12 } }, "\u26A0"), /* @__PURE__ */ React.createElement("h2", { style: { fontSize: 18, margin: "0 0 8px", color: "#fff" } }, "Algo se interrumpi\xF3"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 13, color: "#aab", lineHeight: 1.6, margin: "0 0 18px" } }, "La vista tuvo un problema al cargar. Tus datos guardados est\xE1n a salvo. Recarga la p\xE1gina para continuar."), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+      try {
+        window.location.reload();
+      } catch (e) {
+      }
+    }, style: { fontFamily: "inherit", fontSize: 12, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", padding: "12px 22px", borderRadius: 6, border: "none", cursor: "pointer", background: "#C9A227", color: "#111" } }, "Recargar")));
+    return this.props.children;
+  }
+}
+try {
+  window.addEventListener("error", function(e) {
+    try {
+      console.error("[JCM] error global:", e && (e.error || e.message));
+    } catch (_) {
+    }
+  });
+  window.addEventListener("unhandledrejection", function(e) {
+    try {
+      console.error("[JCM] promesa sin manejar:", e && e.reason);
+    } catch (_) {
+    }
+  });
+} catch (e) {
+}
 ReactDOM.createRoot(document.getElementById("root")).render(
-  window.JCSAAS && window.JCSAAS.enabled ? /* @__PURE__ */ React.createElement(SaasGate, null) : /* @__PURE__ */ React.createElement(AdminGate, null)
+  /* @__PURE__ */ React.createElement(JCErrorBoundary, null, window.JCSAAS && window.JCSAAS.enabled ? /* @__PURE__ */ React.createElement(SaasGate, null) : /* @__PURE__ */ React.createElement(AdminGate, null))
 );

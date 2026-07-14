@@ -48,12 +48,16 @@ const DB = {
   set(k, v) {
     try { localStorage.setItem(this._k(k), JSON.stringify(v)); return v; }
     catch(e) {
-      // No fallar en silencio: un intake/ficha que no se guarda es un dato perdido.
+      // C-06: NO fallar en silencio. Antes se avisaba UNA sola vez (_storageWarned) → tras el primer
+      // fallo todo guardado siguiente era 100% mudo y el "✓ Guardado" salía igual, con el dato perdido
+      // (cuota llena / navegación privada). Ahora se avisa en CADA fallo (con un throttle corto para
+      // no spamear el alert) para que el usuario SIEMPRE sepa que ese dato NO quedó guardado.
       try { console.error('[JCM] No se pudo guardar "' + k + '" en este dispositivo:', e); } catch(_) {}
       try {
-        if (!this._storageWarned && typeof window !== 'undefined' && window.alert) {
-          this._storageWarned = true;
-          window.alert('No se pudo guardar la información en este dispositivo (almacenamiento lleno o navegación privada). Anota los datos y reintenta o usa otro navegador.');
+        var _t = Date.now();
+        if (typeof window !== 'undefined' && window.alert && (_t - (this._lastStorageWarn || 0) > 4000)) {
+          this._lastStorageWarn = _t;
+          window.alert('⚠ No se pudo guardar "' + k + '" en este dispositivo (almacenamiento lleno o navegación privada). El dato NO quedó guardado: anótalo y reintenta, o usa otro navegador.');
         }
       } catch(_) {}
       return null;

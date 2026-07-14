@@ -111,6 +111,29 @@
   var syncErrors = {};  // k -> { code, at } del último error de subida (para el diagnóstico)
   var lastSyncOk = 0;   // timestamp del último push confirmado
 
+  // BLINDAJE (guard 1 MiB): Firestore RECHAZA cualquier documento > ~1 MiB. Como cada sección se
+  // guarda como un blob único, la agenda/pacientes/caja crecen hasta toparlo y ahí el guardado en la
+  // nube empieza a fallar. Antes eso quedaba oculto tras un toast tranquilizador (pérdida silenciosa).
+  // Con esto avisamos ANTES, nombrando la sección, para archivar/pedir soporte a tiempo.
+  var BIG_KEY_NAMES = {
+    appointments: 'la agenda', patients: 'los pacientes', cash: 'la caja', cash_moves: 'la caja',
+    inventory: 'el inventario', inv_items: 'el inventario', wa_conversations: 'las conversaciones',
+    crm_leads: 'los contactos de marketing', lab_orders: 'las órdenes de laboratorio', users: 'los usuarios de la app'
+  };
+  var _bigWarned = {};
+  function warnBigKey(k, bytes, critical) {
+    var now = Date.now();
+    if (now - (_bigWarned[k] || 0) < 3600000) return; // 1 aviso por sección por hora (sin spam)
+    _bigWarned[k] = now;
+    var name = BIG_KEY_NAMES[k] || ('"' + k + '"');
+    var mb = (bytes / 1048576).toFixed(2);
+    var msg = critical
+      ? ('⚠ ' + name + ' llegó al límite de tamaño de la nube (' + mb + ' MB). Los cambios nuevos podrían NO guardarse en la nube. Contacta a soporte para archivar datos antiguos.')
+      : ('Aviso: ' + name + ' está creciendo (' + mb + ' MB). Conviene archivar datos antiguos antes de llegar al límite. Avísale a soporte.');
+    try { if (window.jcmToast) window.jcmToast(msg, critical ? 'error' : 'info'); else if (critical && window.alert) window.alert(msg); } catch (e) {}
+    try { console.warn('[JCM] tamaño kv/' + k + ' = ' + mb + ' MB (' + bytes + ' bytes)'); } catch (e) {}
+  }
+
   function pushKey(k, v, attempt) {
     if (!db || !state.clinicId) return;
     attempt = attempt || 0;
@@ -121,7 +144,16 @@
       try {
         var snapshot = pendingPush[k]; // valor que estamos intentando subir
         var ref = db.collection('tenants').doc(state.clinicId).collection('kv').doc(k);
-        var op = v == null ? ref.delete() : ref.set({ v: JSON.stringify(v), _ts: Date.now() });
+        var payloadStr = v == null ? null : JSON.stringify(v);
+        // Guard 1 MiB: medimos el tamaño real y avisamos antes del límite de la nube.
+        if (payloadStr != null) {
+          try {
+            var bytes = (typeof TextEncoder !== 'undefined') ? new TextEncoder().encode(payloadStr).length : payloadStr.length;
+            if (bytes > 950000) warnBigKey(k, bytes, true);        // ~1 MiB: el guardado en nube va a fallar
+            else if (bytes > 780000) warnBigKey(k, bytes, false);  // ~75%: avisar con tiempo
+          } catch (e) {}
+        }
+        var op = payloadStr == null ? ref.delete() : ref.set({ v: payloadStr, _ts: Date.now() });
         op.then(function () {
           // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
           if (pendingPush[k] === snapshot) { delete pendingPush[k]; setDirty(k, false); }

@@ -1630,7 +1630,7 @@ function ConsentView({ T, patients, updatePatient }) {
       {signing && <SignConsentModal T={T} data={signing} onClose={() => setSigning(null)}
         onSign={(r) => {
           const p = signing.patient;
-          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
           try {
             var _nts = nuevo.ts || Date.now();
             window.DB.set("pcons_" + p.id + "_" + _nts, nuevo);
@@ -1688,6 +1688,16 @@ function jcmConsentLegalBody(doc) {
   }
   return body;
 }
+// C-05: captura del médico responsable EN EL MOMENTO de firmar, para CONGELARLO dentro del
+// consentimiento (pcons_). Así editar/reordenar/borrar la lista medic_sigs en Configuración NO
+// altera retroactivamente el médico atribuido en consentimientos ya firmados (falseaba la autoría).
+function _snapMedicoResp() {
+  try {
+    var ms = window.DB.get("medic_sigs");
+    if (ms && ms.length && ms[0]) { var m = ms[0]; return { name: m.name || "", rut: m.rut || "", registro: m.registro || "", sig: m.sig || "" }; }
+  } catch (_) {}
+  return null;
+}
 // Consentimiento como HTML embebible (estilos inline, sin CSS externo) para anexarlo a la ficha.
 // Resuelve las firmas (recorte async). Los "subidos" imagen se incrustan; el PDF va como nota.
 function jcmConsentInnerHTML(doc, patient) {
@@ -1697,8 +1707,10 @@ function jcmConsentInnerHTML(doc, patient) {
     return Promise.resolve("<p style='font-size:12px;color:#444;line-height:1.6'>Consentimiento adjunto como archivo PDF (<b>" + esc(doc.title || "documento") + "</b>). Imprímelo por separado desde la pestaña Consentimientos.</p>");
   }
   const body = jcmConsentLegalBody(doc);
-  var medicoSig = null;
-  try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {}
+  // C-05: usa el médico CONGELADO en el consentimiento (doc.medico); medic_sigs[0] solo como
+  // respaldo para consentimientos antiguos firmados antes de congelarlo.
+  var medicoSig = (doc && doc.medico) || null;
+  if (!medicoSig) { try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {} }
   return Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
     const sp = crops[0], spr = crops[1];
     const numCols = medicoSig ? 3 : 2;
@@ -1984,8 +1996,10 @@ function ConsentTab({ T, patient, updatePatient }) {
     // En iOS, la pestaña debe abrirse DENTRO del gesto del usuario; se rellena al recortar las firmas.
     const winIOS = openOnly ? window.open("", "_blank") : null;
     if (winIOS) { try { winIOS.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento…</body>"); } catch (e) {} }
-    var medicoSig = null;
-    try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {}
+    // C-05: usa el médico CONGELADO en el consentimiento (doc.medico); medic_sigs[0] solo como
+    // respaldo para consentimientos antiguos firmados antes de congelarlo.
+    var medicoSig = (doc && doc.medico) || null;
+    if (!medicoSig) { try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {} }
     Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
       const sp = crops[0], spr = crops[1];
       const numCols = medicoSig ? 3 : 2;
@@ -2136,7 +2150,7 @@ function ConsentTab({ T, patient, updatePatient }) {
       )}
 
       {signing && <SignConsentModal T={T} data={{ patient: patient, template: tpl0 || A.consents[0] }} onClose={() => setSigning(false)} onSign={(r) => {
-        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
         const lista = patConsents(patient).slice();
         lista.unshift(nuevo);
         commitConsents(lista); // guarda el consentimiento en su propia clave (sube a la nube)

@@ -4285,7 +4285,7 @@ function CopilotConfigView({ T }) {
 function AgenteIAView({ T, patients, addAppt }) {
   const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
   const [convs, setConvs] = useState(() => { try { const s = DB.get("wa_conversations"); if (s) return s; } catch (e) {} return seeded ? WA_SEED : []; });
-  const [appts, setAppts] = useState(() => { try { return DB.get("appts") || []; } catch (e) { return []; } });
+  const [appts, setAppts] = useState(() => { try { return DB.get("appointments") || []; } catch (e) { return []; } });
   const [sel, setSel] = useState(convs[0] ? convs[0].id : null);
   const [draft, setDraft] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
@@ -5010,9 +5010,19 @@ function optimizePatientsBlock() {
         const own = DB.get(key);
         let target = Array.isArray(own) ? own.slice() : [];
         (legacy || []).forEach(d => { if (d && !target.some(t => t && t.ts === d.ts)) target.push(d); });
-        if (target.length) DB.set(key, target);
-        np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
-        movedCons++; changed = true;
+        if (target.length) {
+          DB.set(key, target);
+          // C-07: SOLO se quitan las firmas inline del índice si el guardado en pcons_<id> quedó
+          // CONFIRMADO (igual que el bloque de imágenes). Antes se borraban SIEMPRE: si el DB.set
+          // fallaba en silencio (cuota; las firmas base64 pesan), el consentimiento firmado se
+          // perdía para siempre. saved.length >= target.length cubre tanto el write nuevo como el
+          // caso en que ya estaba persistido.
+          const saved = DB.get(key);
+          if (Array.isArray(saved) && saved.length >= target.length) {
+            np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+            movedCons++; changed = true;
+          }
+        }
       } catch (e) {}
     }
     // 3) Reconcilia el flag: si el paciente tiene consentimientos en su bloque propio, marca consent:true.

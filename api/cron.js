@@ -52,9 +52,15 @@ async function sendEmail(from, to, replyTo, subject, text) {
 }
 
 export default async function handler(req, res) {
-  // Protección: si hay CRON_SECRET, Vercel lo manda como Authorization. Bloquea llamadas externas.
+  // M-CRON: CRON_SECRET OBLIGATORIO. Antes, si la env var no estaba seteada el endpoint quedaba
+  // PÚBLICO → cualquiera disparaba el recorrido de TODAS las clínicas y quemaba cuota de Resend.
+  // Ahora: sin la env var → 503 (no configurado), no corre. Con la env var → exige que el request
+  // la traiga (Authorization: Bearer <secret>, que es como Vercel Cron lo manda vía vercel.json, o
+  // ?key=<secret>) y responde 401 si no coincide.
   const secret = process.env.CRON_SECRET;
-  if (secret && (req.headers["authorization"] || "") !== ("Bearer " + secret)) return res.status(401).json({ ok: false, error: "no autorizado" });
+  if (!secret) return res.status(503).json({ ok: false, configured: false, error: "CRON_SECRET no configurado." });
+  const authOk = (req.headers["authorization"] || "") === ("Bearer " + secret) || ((req.query && req.query.key) || "") === secret;
+  if (!authOk) return res.status(401).json({ ok: false, error: "no autorizado" });
 
   const sa = getSA();
   if (!sa) return res.status(503).json({ ok: false, configured: false, error: "Falta FIREBASE_SERVICE_ACCOUNT." });

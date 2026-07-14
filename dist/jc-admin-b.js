@@ -1401,7 +1401,7 @@ function ConsentView({ T, patients, updatePatient }) {
       onClose: () => setSigning(null),
       onSign: (r) => {
         const p = signing.patient;
-        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
         try {
           var _nts = nuevo.ts || Date.now();
           window.DB.set("pcons_" + p.id + "_" + _nts, nuevo);
@@ -1467,6 +1467,17 @@ function jcmConsentLegalBody(doc) {
   }
   return body;
 }
+function _snapMedicoResp() {
+  try {
+    var ms = window.DB.get("medic_sigs");
+    if (ms && ms.length && ms[0]) {
+      var m = ms[0];
+      return { name: m.name || "", rut: m.rut || "", registro: m.registro || "", sig: m.sig || "" };
+    }
+  } catch (_) {
+  }
+  return null;
+}
 function jcmConsentInnerHTML(doc, patient) {
   const esc = (s) => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   if (doc && doc.kind === "upload") {
@@ -1474,11 +1485,13 @@ function jcmConsentInnerHTML(doc, patient) {
     return Promise.resolve("<p style='font-size:12px;color:#444;line-height:1.6'>Consentimiento adjunto como archivo PDF (<b>" + esc(doc.title || "documento") + "</b>). Impr\xEDmelo por separado desde la pesta\xF1a Consentimientos.</p>");
   }
   const body = jcmConsentLegalBody(doc);
-  var medicoSig = null;
-  try {
-    var msList = window.DB.get("medic_sigs");
-    if (msList && msList.length) medicoSig = msList[0];
-  } catch (_) {
+  var medicoSig = doc && doc.medico || null;
+  if (!medicoSig) {
+    try {
+      var msList = window.DB.get("medic_sigs");
+      if (msList && msList.length) medicoSig = msList[0];
+    } catch (_) {
+    }
   }
   return Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function(crops) {
     const sp = crops[0], spr = crops[1];
@@ -1753,11 +1766,13 @@ function ConsentTab({ T, patient, updatePatient }) {
       } catch (e) {
       }
     }
-    var medicoSig = null;
-    try {
-      var msList = window.DB.get("medic_sigs");
-      if (msList && msList.length) medicoSig = msList[0];
-    } catch (_) {
+    var medicoSig = doc && doc.medico || null;
+    if (!medicoSig) {
+      try {
+        var msList = window.DB.get("medic_sigs");
+        if (msList && msList.length) medicoSig = msList[0];
+      } catch (_) {
+      }
     }
     Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function(crops) {
       const sp = crops[0], spr = crops[1];
@@ -1859,7 +1874,7 @@ function ConsentTab({ T, patient, updatePatient }) {
     const h = medSigModal ? 90 : 120;
     return /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: cols, gap: 16, marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma paciente"), openDoc.sigPac && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPac, alt: "firma paciente", style: { width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma profesional \xB7 ", openDoc.prof), openDoc.sigPro && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPro, alt: "firma profesional", style: { width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), medSigModal && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "M\xE9dico responsable \xB7 ", medSigModal.name, medSigModal.rut ? " \xB7 RUT " + medSigModal.rut : "", medSigModal.registro ? " \xB7 Reg. " + medSigModal.registro : ""), medSigModal.sig && /* @__PURE__ */ React.createElement("img", { src: medSigModal.sig, alt: "firma m\xE9dico", style: { width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })));
   })())), signing && /* @__PURE__ */ React.createElement(SignConsentModal, { T, data: { patient, template: tpl0 || A.consents[0] }, onClose: () => setSigning(false), onSign: (r) => {
-    const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+    const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
     const lista = patConsents(patient).slice();
     lista.unshift(nuevo);
     commitConsents(lista);

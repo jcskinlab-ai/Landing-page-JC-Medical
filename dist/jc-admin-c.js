@@ -3435,7 +3435,7 @@ function AgenteIAView({ T, patients, addAppt }) {
   });
   const [appts, setAppts] = useState(() => {
     try {
-      return DB.get("appts") || [];
+      return DB.get("appointments") || [];
     } catch (e) {
       return [];
     }
@@ -4084,10 +4084,15 @@ function optimizePatientsBlock() {
         (legacy || []).forEach((d) => {
           if (d && !target.some((t) => t && t.ts === d.ts)) target.push(d);
         });
-        if (target.length) DB2.set(key, target);
-        np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
-        movedCons++;
-        changed = true;
+        if (target.length) {
+          DB2.set(key, target);
+          const saved = DB2.get(key);
+          if (Array.isArray(saved) && saved.length >= target.length) {
+            np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+            movedCons++;
+            changed = true;
+          }
+        }
       } catch (e) {
       }
     }

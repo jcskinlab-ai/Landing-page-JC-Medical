@@ -748,7 +748,7 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     // Vendidos: sesiones cobradas ESTE MES en procedimientos (movimiento de caja "atencion" con pago),
     // excluyendo evaluaciones.
     let compras = cash.filter(m => m.kind === "atencion" && inMonth(m.ts) && esProc(m.concept)).length;
-    let allAppts = []; try { allAppts = (window.DB && DB.get("appts")) || appts || []; } catch (e) { allAppts = appts || []; }
+    let allAppts = []; try { allAppts = (window.DB && DB.get("appointments")) || appts || []; } catch (e) { allAppts = appts || []; }
     // Reservaron: citas de ESTE MES (por su fecha real), procedimientos (no evaluaciones) y no anuladas.
     const apptMes = allAppts.filter(a => (a.fecha || "").slice(0, 7) === mes && a.status !== "anulada" && a.status !== "cancelada" && esProc(a.proc));
     let reservas = apptMes.length;
@@ -1586,6 +1586,9 @@ function AdminApp() {
       online.forEach(b => base.push({
         id: b.id, name: b.name, phone: b.phone,
         proc: (b.items || []).map(i => ((i.qty || 1) > 1 ? i.qty + "× " : "") + i.name).join(" + ") || "Reserva online",
+        // ALTO-09: copiar la fecha ISO real de la reserva. Antes se perdía (solo iba en `when`) y con
+        // day:0 la cita caía SIEMPRE en "hoy". La agenda ubica por a.fecha; day queda como respaldo.
+        fecha: b.fecha || "",
         time: b.time || "—", when: b.day || "Por coordinar",
         status: "pendiente", paid: !!b.pay, day: 0, online: true
       }));
@@ -1813,8 +1816,11 @@ function AdminApp() {
       if (role !== 'professional') return;
       if (openPatient) return;
       var items = adminNavItems();
-      var ok = items.some(function (n) { return n.k === section; }) || section === 'pacientes';
-      if (!ok) setSection((items[0] && items[0].k) || 'pacientes');
+      // ALTO-03: se quitó el escape "|| section === 'pacientes'" que dejaba entrar a Pacientes SIEMPRE,
+      // aun sin el permiso (bastaba escribir la URL). Ahora Pacientes se gatea por permiso como el
+      // resto (PERM_NAV.Pacientes). El enforcement server-side real va con C-04 (permisos en la nube).
+      var ok = items.some(function (n) { return n.k === section; });
+      if (!ok) setSection((items[0] && items[0].k) || 'dashboard');
     } catch (e) {}
   }, [section, openPatient]);
 
@@ -5467,6 +5473,38 @@ function SaasGate() {
 }
 
 Object.assign(window, { AdminGate, SaasGate });
+
+// ALTO-08: ErrorBoundary global. Sin esto, si CUALQUIER componente lanza en render (un .map sobre
+// algo que no es array, JSON corrupto de la clínica, etc.), React 18 desmonta TODO el árbol →
+// pantalla en blanco sin recuperación salvo recargar. Aquí lo atrapamos y mostramos un aviso con
+// botón de recargar (los datos ya guardados no se pierden).
+class JCErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error, info) { try { console.error("[JCM] Error de render:", error, info); } catch (e) {} }
+  render() {
+    if (this.state.failed) return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "-apple-system,'Segoe UI',Arial,sans-serif", textAlign: "center", background: "#0E131B" }}>
+        <div style={{ maxWidth: 420 }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚠</div>
+          <h2 style={{ fontSize: 18, margin: "0 0 8px", color: "#fff" }}>Algo se interrumpió</h2>
+          <p style={{ fontSize: 13, color: "#aab", lineHeight: 1.6, margin: "0 0 18px" }}>La vista tuvo un problema al cargar. Tus datos guardados están a salvo. Recarga la página para continuar.</p>
+          <button onClick={() => { try { window.location.reload(); } catch (e) {} }} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", padding: "12px 22px", borderRadius: 6, border: "none", cursor: "pointer", background: "#C9A227", color: "#111" }}>Recargar</button>
+        </div>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+// ALTO-08: red de captura global para errores async / event handlers / promesas rechazadas
+// (que el ErrorBoundary NO atrapa), para que dejen rastro en consola en vez de pasar mudos.
+try {
+  window.addEventListener("error", function (e) { try { console.error("[JCM] error global:", e && (e.error || e.message)); } catch (_) {} });
+  window.addEventListener("unhandledrejection", function (e) { try { console.error("[JCM] promesa sin manejar:", e && e.reason); } catch (_) {} });
+} catch (e) {}
+
 ReactDOM.createRoot(document.getElementById("root")).render(
-  (window.JCSAAS && window.JCSAAS.enabled) ? <SaasGate /> : <AdminGate />
+  <JCErrorBoundary>
+    {(window.JCSAAS && window.JCSAAS.enabled) ? <SaasGate /> : <AdminGate />}
+  </JCErrorBoundary>
 );

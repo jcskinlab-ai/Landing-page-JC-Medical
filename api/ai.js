@@ -12,6 +12,15 @@ import crypto from "node:crypto";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+// ALTO-07: fetch con timeout (AbortController). Sin esto, si Groq se cuelga la función corre hasta
+// el límite de Vercel y el usuario queda con "Pensando…" / spinner infinito. Aborta y responde error.
+async function fetchWithTimeout(url, opts, ms) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || 25000);
+  try { return await fetch(url, Object.assign({}, opts, { signal: ctl.signal })); }
+  finally { clearTimeout(t); }
+}
+
 // ── Rate limiting en memoria (se reinicia en cold starts, es suficiente para limitar abusos) ──
 // Mapa: uid → { min: { ts, count }, day: { ts, count } }
 const _rl = new Map();
@@ -125,7 +134,7 @@ export default async function handler(req, res) {
       '{"items":[{"name":"Botox 100 UI","qty":15,"priceUnit":140000,"cat":"Insumo clínico"}]}'
     ].join("\n");
     try {
-      const r = await fetch(GROQ_URL, {
+      const r = await fetchWithTimeout(GROQ_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
         body: JSON.stringify({
@@ -137,7 +146,7 @@ export default async function handler(req, res) {
           temperature: 0.1,
           max_tokens: 1500
         })
-      });
+      }, 30000);
       if (!r.ok) {
         const txt = await r.text().catch(() => "");
         console.error("Groq vision error", r.status, txt);
@@ -203,7 +212,7 @@ export default async function handler(req, res) {
   );
 
   try {
-    const r = await fetch(GROQ_URL, {
+    const r = await fetchWithTimeout(GROQ_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
       body: JSON.stringify({
@@ -212,7 +221,7 @@ export default async function handler(req, res) {
         temperature: 0.6,
         max_tokens: Math.min(1000, parseInt(body.max_tokens, 10) || 400)
       })
-    });
+    }, 25000);
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
       console.error("Groq error", r.status, txt);
