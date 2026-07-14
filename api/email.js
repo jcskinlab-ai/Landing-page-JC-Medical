@@ -66,6 +66,50 @@ async function verifyFirebaseToken(token, projectId) {
 function isEmail(s) { return typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim()); }
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+// ── Solicitud de demo PÚBLICA (landing medique.cl), fusionada aquí para no exceder 12 funciones
+//    serverless en el plan Hobby de Vercel (mismo criterio que team-access con el portal). Sin login:
+//    honeypot + rate-limit por IP; envía el lead por correo a medique.cl@gmail.com (reply-to = correo
+//    del interesado). Así ninguna solicitud de demo se pierde aunque la persona no siga por WhatsApp. ──
+const _leadRl = new Map();
+function leadTooMany(ip) {
+  const now = Date.now();
+  let r = _leadRl.get(ip) || { min: { ts: now, n: 0 }, day: { ts: now, n: 0 } };
+  if (now - r.min.ts > 60000) r.min = { ts: now, n: 0 };
+  if (now - r.day.ts > 86400000) r.day = { ts: now, n: 0 };
+  r.min.n++; r.day.n++;
+  _leadRl.set(ip, r);
+  if (_leadRl.size > 5000) { for (const [k, v] of _leadRl) if (now - v.day.ts > 90000000) _leadRl.delete(k); }
+  return r.min.n > 4 || r.day.n > 20; // tope: 4/min y 20/día por IP
+}
+function clip(s, n) { return String(s == null ? '' : s).trim().slice(0, n); }
+async function handleLead(req, res) {
+  const body = req.body || {};
+  if (body.website || body.hp) return res.status(200).json({ ok: true }); // honeypot: bot → no-op silencioso
+  const ip = (req.headers['x-forwarded-for'] || 'ip').toString().split(',')[0].trim();
+  if (leadTooMany(ip)) return res.status(429).json({ ok: false, error: "Demasiadas solicitudes seguidas. Intenta más tarde." });
+  const nombre = clip(body.nombre, 120), clinica = clip(body.clinica, 120), email = clip(body.email, 160);
+  const fono = clip(body.fono, 40), plan = clip(body.plan, 40), msg = clip(body.msg, 2000);
+  if (!nombre || !clinica || !fono || !isEmail(email)) return res.status(400).json({ ok: false, error: "Datos incompletos o correo inválido." });
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return res.status(503).json({ ok: false, configured: false, error: "Correo no configurado (falta RESEND_API_KEY)." });
+  const to = process.env.LEADS_TO || 'medique.cl@gmail.com';
+  const from = process.env.MAIL_FROM || process.env.OTP_FROM || 'Medique <noreply@medique.cl>';
+  const rows = [["Nombre", nombre], ["Clínica", clinica], ["Email", email], ["Teléfono / WhatsApp", fono], ["Plan de interés", plan || "—"], ["Mensaje", msg || "—"]];
+  const inner = rows.map(([k, v]) => `<tr><td style="padding:6px 0;color:#8a92a0;width:150px;vertical-align:top">${esc(k)}</td><td style="padding:6px 0;color:#222"><b>${esc(v)}</b></td></tr>`).join("");
+  const html = brandHtml(`<div style="font-size:16px;margin-bottom:10px"><b>Nueva solicitud de demo</b></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${inner}</table>`, "Medique");
+  const text = rows.map(([k, v]) => k + ": " + v).join("\n");
+  try {
+    const r = await fetch(RESEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({ from, to: [to], subject: "Nueva demo · " + clinica + " (" + nombre + ")", html, text, reply_to: email })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { console.error("[lead] Resend", r.status, data); return res.status(502).json({ ok: false, error: "No se pudo registrar la solicitud." }); }
+    return res.status(200).json({ ok: true });
+  } catch (e) { console.error("[lead] error", e && e.message); return res.status(502).json({ ok: false, error: "No se pudo contactar el servicio de correo." }); }
+}
+
 // Envuelve el texto/cuerpo en una plantilla HTML simple con la marca Medique.
 function brandHtml(bodyHtml, clinicName) {
   const name = esc(clinicName || 'Medique');
@@ -89,6 +133,10 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-jcm-key, Authorization");
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Método no permitido" });
+
+  // PÚBLICO: solicitud de demo desde la landing (sin login). Se atiende ANTES de la verificación del
+  // token de Firebase; el resto del endpoint (correo del panel) sigue exigiendo sesión.
+  if (req.body && req.body.action === "lead") return handleLead(req, res);
 
   // Solo usuarios autenticados (panel con sesión Firebase).
   const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'medique-8dbf6';
