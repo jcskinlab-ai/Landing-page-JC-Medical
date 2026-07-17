@@ -901,22 +901,26 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
           <div style={{ display: "flex", gap: 6, padding: 5, borderRadius: 10, background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line }}>
           <FAct T={T} href={wa} icon={<><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></>}>WhatsApp</FAct>
           <FAct T={T} href={"mailto:" + (patient.email || "")} icon={<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>}>Correo</FAct>
-          <FAct T={T} onClick={async () => {
-            const email = (patient.email || "").trim();
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { window.jcmToast && window.jcmToast("Este paciente no tiene un correo válido en su ficha.", "error"); return; }
-            if (!window.mediqueEmail) { window.jcmError && window.jcmError("El correo no está disponible."); return; }
+          <FAct T={T} onClick={() => {
+            // Notifica la PRÓXIMA cita del paciente por WhatsApp usando el mismo mensaje canónico
+            // de confirmación (dirección + "Cómo llegar" + profesional, plantilla editable de la clínica).
+            const ph = (patient.phone || "").replace(/\D/g, "");
+            if (ph.length < 8) { window.jcmToast && window.jcmToast("Este paciente no tiene un teléfono válido en su ficha.", "error"); return; }
             let appts = []; try { appts = (window.DB && window.DB.get("appointments")) || []; } catch (e) {}
             const d0 = new Date(); const isoT = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
             const next = appts.filter(a => a.patId === patient.id && a.fecha && a.fecha >= isoT).sort((a, b) => ((a.fecha || "") + (a.time || "")).localeCompare((b.fecha || "") + (b.time || "")))[0];
-            const clinic = (() => { try { return window.DB.cfg().clinic_name || "tu clínica"; } catch (e) { return "tu clínica"; } })();
-            const nombre = ((patient.name || "").split(" ")[0]) || "";
-            const cuando = next ? ("el " + new Date(next.fecha + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }) + (next.time ? " a las " + next.time : "") + (next.proc ? " (" + next.proc + ")" : "")) : "tu próxima cita";
-            const text = "Hola " + nombre + ",\n\nTe recordamos " + cuando + " en " + clinic + ".\n\nSi necesitas reprogramar, respóndenos este correo.\n\n— " + clinic;
-            window.jcmToast && window.jcmToast("Enviando recordatorio…", "info");
-            const r = await window.mediqueEmail({ to: email, subject: "Recordatorio de tu cita · " + clinic, text: text, replyTo: window.clinicReplyTo && window.clinicReplyTo() });
-            if (r && r.ok) window.jcmToast && window.jcmToast("Recordatorio enviado a " + email + ". Revisa la bandeja (y spam).", "ok");
-            else if (r && r.configured === false) window.jcmError && window.jcmError("Correo no configurado en el servidor (falta RESEND_API_KEY).", r.error);
-            else window.jcmError && window.jcmError("No se pudo enviar el recordatorio", (r && r.error) || r);
+            if (!next) { window.jcmToast && window.jcmToast("Este paciente no tiene una próxima cita agendada.", "info"); return; }
+            const dt = new Date(next.fecha + "T00:00:00");
+            const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+            const mmN = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const wk = { wd: wdN[dt.getDay()], dd: dt.getDate(), mm: mmN[dt.getMonth()] };
+            const proc = ((next.proc || "").trim()) || "Evaluación general";
+            const prof = ((next.prof || "").trim()) || (window.clinicPro && window.clinicPro()) || "";
+            const esCtrl = window.esControlPostProc ? window.esControlPostProc(proc, patient) : false;
+            const msg = window.jcmCitaConfirmMsg
+              ? window.jcmCitaConfirmMsg(patient.name || "", wk, next.time || "", proc, prof, esCtrl)
+              : ("Hola " + (patient.name || "") + " 👋\n\nTu cita en " + ((window.clinicName && window.clinicName()) || "la clínica") + " quedó agendada:\n\n🗓️ Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm + "\n⏰ Hora: " + (next.time || "") + " hrs\n💉 Tratamiento: " + proc + "\n👨‍⚕️ Profesional: " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.\n\n¡Nos vemos pronto!");
+            window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(msg), "_blank", "noopener");
           }} icon={<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>}>Recordatorio</FAct>
           </div>
           <FAct T={T} onClick={() => setEditD(true)} icon={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></>}>Editar datos</FAct>
