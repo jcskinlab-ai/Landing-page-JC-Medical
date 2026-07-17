@@ -1075,7 +1075,7 @@ function PtosisTool({ T, patient, updatePatient }) {
       <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.55 }}>
         Evalúa <b>simetría de cejas y apertura de párpados</b> y el <b>riesgo/existencia de ptosis</b> tras toxina botulínica. Sube una foto <b>frontal</b>, con mirada al frente y buena luz para un screening de simetría, o <b>dos fotos</b> (antes del procedimiento y control posterior) para comparar cada lado. La IA detecta 468 puntos faciales <b>en este dispositivo</b> (la imagen no sale de aquí).
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 4, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 4, alignItems: "start", maxWidth: 640 }}>
         {slotCard("pre", "Antes / basal", prePhoto, preRes, preRef)}
         {slotCard("post", "Después / control", postPhoto, postRes, postRef)}
       </div>
