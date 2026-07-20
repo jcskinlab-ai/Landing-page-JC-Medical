@@ -697,6 +697,9 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
   const [showAllEsp, setShowAllEsp] = useState(false);
   const [showAllTrat, setShowAllTrat] = useState(false);
   const [tipoOtro, setTipoOtro] = useState(() => !!(member && member.tipoProf && TIPO_PROF_OPTS.indexOf(member.tipoProf) < 0));
+  const _rolesDental = (window.JCM_ROLES_DENTAL || []).concat(["Otro"]);
+  const _dentalTeam = !!(window.isDental && window.isDental());
+  const [rolOtro, setRolOtro] = useState(() => !!(member && member.role && _rolesDental.indexOf(member.role) < 0));
   const [accPass, setAccPass] = useState("");
   const [accBusy, setAccBusy] = useState(false);
   const [accMsg, setAccMsg] = useState("");
@@ -789,7 +792,15 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
     }
     return out;
   }
-  return /* @__PURE__ */ React.createElement(AdModal, { T, wide: true, title: member ? "Editar profesional" : "Nuevo profesional", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center" } }, onDelete && /* @__PURE__ */ React.createElement("button", { onClick: onDelete, title: "Eliminar profesional", style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 44, borderRadius: 8, border: "1px solid #C0285A55", background: "transparent", color: "#C0285A", fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" })), "Eliminar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" }) }, "Guardar profesional")) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(ProfSec, { T, n: "1", title: "Informaci\xF3n b\xE1sica" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: v }), placeholder: "Ej: Dra. Mar\xEDa P\xE9rez" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "T\xEDtulo / cargo", value: f.role, onChange: (v) => setF({ ...f, role: v }), placeholder: "Ej: M\xE9dico est\xE9tico" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Tipo de profesional"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("select", { value: tipoOtro ? "Otro" : f.tipoProf || "", onChange: (e) => {
+  return /* @__PURE__ */ React.createElement(AdModal, { T, wide: true, title: member ? "Editar profesional" : "Nuevo profesional", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center" } }, onDelete && /* @__PURE__ */ React.createElement("button", { onClick: onDelete, title: "Eliminar profesional", style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 44, borderRadius: 8, border: "1px solid #C0285A55", background: "transparent", color: "#C0285A", fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" })), "Eliminar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" }) }, "Guardar profesional")) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(ProfSec, { T, n: "1", title: "Informaci\xF3n b\xE1sica" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: v }), placeholder: "Ej: Dra. Mar\xEDa P\xE9rez" }), _dentalTeam ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "T\xEDtulo / cargo"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("select", { value: rolOtro ? "Otro" : f.role || "", onChange: (e) => {
+    const v = e.target.value;
+    if (v === "Otro") {
+      setRolOtro(true);
+    } else {
+      setRolOtro(false);
+      setF({ ...f, role: v });
+    }
+  }, style: { flex: 1, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Elegir\u2026"), _rolesDental.map((o) => /* @__PURE__ */ React.createElement("option", { key: o, value: o }, o))), rolOtro && /* @__PURE__ */ React.createElement("input", { value: f.role || "", onChange: (e) => setF({ ...f, role: e.target.value }), placeholder: "Especifica el cargo", style: { flex: 1, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }))) : /* @__PURE__ */ React.createElement(AdField, { T, label: "T\xEDtulo / cargo", value: f.role, onChange: (v) => setF({ ...f, role: v }), placeholder: "Ej: M\xE9dico est\xE9tico" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Tipo de profesional"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("select", { value: tipoOtro ? "Otro" : f.tipoProf || "", onChange: (e) => {
     const v = e.target.value;
     if (v === "Otro") {
       setTipoOtro(true);
@@ -2288,7 +2299,16 @@ function ClinicDataCard({ T }) {
     wa_number: cfg0.wa_number || "",
     // '' (clínica antigua que nunca eligió) se muestra como estética, que es lo que de hecho ha
     // estado usando. Así el selector nunca aparece en blanco ni sugiere que falta configurar algo.
-    vertical: cfg0.vertical || "estetica"
+    vertical: cfg0.vertical || "estetica",
+    // Un sillón por línea. Se normaliza con el mismo lector que usa la agenda (jcmSillonList),
+    // así lo que se ve aquí es exactamente lo que la agenda va a agrupar.
+    sillones: function() {
+      try {
+        return (window.jcmSillonList && window.jcmSillonList(cfg0.sillones) || []).join("\n");
+      } catch (e) {
+        return "";
+      }
+    }()
   });
   const emailReplyOk = !f.clinic_email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.clinic_email.trim());
   const [saved, setSaved] = useState(false);
@@ -2310,6 +2330,11 @@ function ClinicDataCard({ T }) {
       const patch = { clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") };
       if (isAdmin) patch.clinic_name = f.clinic_name.trim();
       if (isAdmin) patch.vertical = f.vertical;
+      if (isAdmin && f.vertical === "dental") {
+        patch.sillones = String(f.sillones || "").split("\n").map(function(s) {
+          return s.trim();
+        }).filter(Boolean);
+      }
       DB.set("config", Object.assign({}, DB.cfg(), patch));
       try {
         window.dispatchEvent(new Event("jcm:config"));
@@ -2339,7 +2364,10 @@ function ClinicDataCard({ T }) {
   }, placeholder: "Ej: contacto@tuclinica.cl" }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: emailReplyOk ? T.textMute : "#e06a6a", lineHeight: 1.5, marginTop: 5 } }, emailReplyOk ? "Cuando un paciente responda un recordatorio, su respuesta llegar\xE1 a este correo. Si lo dejas vac\xEDo, se usa el correo con que iniciaste sesi\xF3n." : "Correo no v\xE1lido.")), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "WhatsApp"), /* @__PURE__ */ React.createElement("input", { value: waDisplay, onChange: (e) => onWa(e.target.value), inputMode: "numeric", placeholder: "+569 1234 5678", style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } })), isAdmin && /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Especialidad / vertical"), /* @__PURE__ */ React.createElement("select", { value: f.vertical, onChange: (e) => {
     setF({ ...f, vertical: e.target.value });
     setSaved(false);
-  }, style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("option", { value: "estetica" }, "Medicina est\xE9tica"), /* @__PURE__ */ React.createElement("option", { value: "dental" }, "Odontolog\xEDa")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 } }, f.vertical === "dental" ? "La ficha muestra el odontograma, la agenda se organiza por sill\xF3n y el presupuesto trabaja con plano de tratamiento y cuotas." : "La ficha muestra el mapa facial y la antropometr\xEDa. Cambia a Odontolog\xEDa para activar odontograma, agenda por sill\xF3n y presupuesto dental.", " ", "Puedes cambiarla cuando quieras: no se borra ni se modifica ning\xFAn dato de tus pacientes."))));
+  }, style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("option", { value: "estetica" }, "Medicina est\xE9tica"), /* @__PURE__ */ React.createElement("option", { value: "dental" }, "Odontolog\xEDa")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 } }, f.vertical === "dental" ? "La ficha muestra el odontograma, la agenda se organiza por sill\xF3n y el presupuesto trabaja con plano de tratamiento y cuotas." : "La ficha muestra el mapa facial y la antropometr\xEDa. Cambia a Odontolog\xEDa para activar odontograma, agenda por sill\xF3n y presupuesto dental.", " ", "Puedes cambiarla cuando quieras: no se borra ni se modifica ning\xFAn dato de tus pacientes.")), isAdmin && f.vertical === "dental" && /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Sillones"), /* @__PURE__ */ React.createElement("textarea", { value: f.sillones, onChange: (e) => {
+    setF({ ...f, sillones: e.target.value });
+    setSaved(false);
+  }, rows: 3, placeholder: "Sill\xF3n 1\nSill\xF3n 2", style: { width: "100%", padding: "12px 13px", borderRadius: luxF ? DS.r.ctl : 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 } }, "Uno por l\xEDnea. La agenda del d\xEDa agrupa las citas por sill\xF3n. Las citas que no tengan sill\xF3n asignado aparecen en \u201CSin asignar\u201D \u2014 nunca se ocultan."))));
 }
 function AdminPinCard({ T }) {
   const [pin, setPin] = useState(() => {

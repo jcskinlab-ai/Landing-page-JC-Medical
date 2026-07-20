@@ -697,6 +697,12 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
   const [showAllEsp, setShowAllEsp] = useState(false);
   const [showAllTrat, setShowAllTrat] = useState(false);
   const [tipoOtro, setTipoOtro] = useState(() => !!(member && member.tipoProf && TIPO_PROF_OPTS.indexOf(member.tipoProf) < 0));
+  // Vertical dental: el cargo se elige de un catálogo (Dentista/Asistente/Ortodoncista/Endodoncista)
+  // para que la agenda pueda agrupar por rol. Se conserva "Otro" con texto libre porque un
+  // consultorio real tiene cargos que no están en la lista (higienista, recepción).
+  const _rolesDental = (window.JCM_ROLES_DENTAL || []).concat(["Otro"]);
+  const _dentalTeam = !!(window.isDental && window.isDental());
+  const [rolOtro, setRolOtro] = useState(() => !!(member && member.role && _rolesDental.indexOf(member.role) < 0));
   // Acceso de login del profesional (multiusuario por clínica).
   const [accPass, setAccPass] = useState("");
   const [accBusy, setAccBusy] = useState(false);
@@ -757,7 +763,18 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
         <ProfSec T={T} n="1" title="Información básica">
           <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
             <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Dra. María Pérez" />
-            <AdField T={T} label="Título / cargo" value={f.role} onChange={v => setF({ ...f, role: v })} placeholder="Ej: Médico estético" />
+            {_dentalTeam
+              ? <div>
+                  <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Título / cargo</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <select value={rolOtro ? "Otro" : (f.role || "")} onChange={e => { const v = e.target.value; if (v === "Otro") { setRolOtro(true); } else { setRolOtro(false); setF({ ...f, role: v }); } }} style={{ flex: 1, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", cursor: "pointer" }}>
+                      <option value="">Elegir…</option>
+                      {_rolesDental.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    {rolOtro && <input value={f.role || ""} onChange={e => setF({ ...f, role: e.target.value })} placeholder="Especifica el cargo" style={{ flex: 1, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />}
+                  </div>
+                </div>
+              : <AdField T={T} label="Título / cargo" value={f.role} onChange={v => setF({ ...f, role: v })} placeholder="Ej: Médico estético" />}
             <div>
               <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Tipo de profesional</span>
               <div style={{ display: "flex", gap: 8 }}>
@@ -2653,7 +2670,12 @@ function ClinicDataCard({ T }) {
     wa_number: cfg0.wa_number || "",
     // '' (clínica antigua que nunca eligió) se muestra como estética, que es lo que de hecho ha
     // estado usando. Así el selector nunca aparece en blanco ni sugiere que falta configurar algo.
-    vertical: cfg0.vertical || "estetica"
+    vertical: cfg0.vertical || "estetica",
+    // Un sillón por línea. Se normaliza con el mismo lector que usa la agenda (jcmSillonList),
+    // así lo que se ve aquí es exactamente lo que la agenda va a agrupar.
+    sillones: (function () {
+      try { return ((window.jcmSillonList && window.jcmSillonList(cfg0.sillones)) || []).join("\n"); } catch (e) { return ""; }
+    })()
   });
   const emailReplyOk = !f.clinic_email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.clinic_email.trim());
   const [saved, setSaved] = useState(false);
@@ -2672,6 +2694,10 @@ function ClinicDataCard({ T }) {
       const patch = { clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") };
       if (isAdmin) patch.clinic_name = f.clinic_name.trim(); // el nombre solo lo guarda el admin
       if (isAdmin) patch.vertical = f.vertical;              // la especialidad también: define los módulos del panel
+      if (isAdmin && f.vertical === "dental") {
+        // Solo se guarda en dental: una clínica estética nunca escribe esta clave.
+        patch.sillones = String(f.sillones || "").split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+      }
       DB.set("config", Object.assign({}, DB.cfg(), patch));
       try { window.dispatchEvent(new Event("jcm:config")); } catch (e2) {} // refresca el nombre/avatar del header
       setSaved(true); setTimeout(() => setSaved(false), 1800);
@@ -2724,6 +2750,13 @@ function ClinicDataCard({ T }) {
               ? "La ficha muestra el odontograma, la agenda se organiza por sillón y el presupuesto trabaja con plano de tratamiento y cuotas."
               : "La ficha muestra el mapa facial y la antropometría. Cambia a Odontología para activar odontograma, agenda por sillón y presupuesto dental."}
             {" "}Puedes cambiarla cuando quieras: no se borra ni se modifica ningún dato de tus pacientes.
+          </div>
+        </label>}
+        {isAdmin && f.vertical === "dental" && <label style={{ display: "block" }}>
+          <span style={luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Sillones</span>
+          <textarea value={f.sillones} onChange={e => { setF({ ...f, sillones: e.target.value }); setSaved(false); }} rows={3} placeholder={"Sillón 1\nSillón 2"} style={{ width: "100%", padding: "12px 13px", borderRadius: luxF ? DS.r.ctl : 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 }} />
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 }}>
+            Uno por línea. La agenda del día agrupa las citas por sillón. Las citas que no tengan sillón asignado aparecen en “Sin asignar” — nunca se ocultan.
           </div>
         </label>}
       </div>

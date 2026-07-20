@@ -27,6 +27,7 @@ const FILES = [
   // Admin panel
   ['jc-admin/jc-sign',     'dist/jc-sign'],
   ['jc-admin/jc-face',     'dist/jc-face'],
+  ['jc-admin/jc-dental',   'dist/jc-dental'],
   ['jc-admin/jc-admin-b',  'dist/jc-admin-b'],
   ['jc-admin/jc-admin-c',  'dist/jc-admin-c'],
   ['jc-admin/jc-copilot',  'dist/jc-copilot'],

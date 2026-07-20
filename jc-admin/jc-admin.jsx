@@ -2730,6 +2730,90 @@ function AdStat({ T, n, l, accent }) {
   </div>;
 }
 
+/* ─────────── FASE C · AGENDA DENTAL (helpers puros) ───────────
+   Todo lo de abajo es ADITIVO y queda gateado por jcmDentalOn() en cada punto de uso.
+   Si la clínica no es dental, ninguna de estas funciones altera el render histórico.
+   Se escriben como funciones puras de nivel superior a propósito: son la única lógica
+   testeable fuera de React (no hay framework de tests en el repo). */
+
+// Gate único. Defensivo: si jcm_shared no cargó todavía, se responde `false` — degradar a la
+// vertical histórica (estética) siempre es seguro; adivinar 'dental' no lo es.
+function jcmDentalOn() { try { return !!(window.isDental && window.isDental()); } catch (e) { return false; } }
+function jcmCfgSillones() { try { return (window.DB && DB.cfg().sillones) || []; } catch (e) { return []; } }
+// Nomenclatura por vertical (jcm_shared). Defensivo: si aún no cargó, se cae al término histórico.
+function jcmT() { try { return (window.jcmTerms && window.jcmTerms()) || {}; } catch (e) { return {}; } }
+
+const JCM_SILLON_NONE = "Sin asignar";
+const JCM_SILLONES_DEFAULT = ["Sillón 1", "Sillón 2", "Sillón 3"];
+
+// Lista de sillones configurable (DB.cfg().sillones). Acepta array de strings o de objetos {name}.
+// Si viene vacía / basura, cae a un default sensato para que el selector nunca quede sin opciones.
+function jcmSillonList(raw) {
+  const out = [], seen = {};
+  (Array.isArray(raw) ? raw : []).forEach(function (s) {
+    const n = String((s && s.name != null) ? s.name : (s == null ? "" : s)).trim();
+    if (!n || seen[n]) return;
+    seen[n] = 1; out.push(n);
+  });
+  return out.length ? out : JCM_SILLONES_DEFAULT.slice();
+}
+
+// Sillón de una cita. OJO: `camilla` se viene ESCRIBIENDO desde siempre pero nunca se había
+// LEÍDO, así que el histórico está lleno de citas sin el campo, con "" o con valores que ya no
+// están en la lista configurada. Todas esas caen en "Sin asignar" — nunca se ocultan.
+function jcmSillonOf(appt) {
+  const v = String(((appt || {}).camilla) || "").trim();
+  return v || JCM_SILLON_NONE;
+}
+
+// Agrupa citas por sillón. Devuelve SIEMPRE los sillones configurados (aunque queden vacíos),
+// más cualquier sillón histórico que aparezca en las citas y no esté configurado, y "Sin asignar"
+// al final solo si hay citas ahí. Ninguna cita se pierde por el camino.
+function jcmGroupBySillon(list, sillones) {
+  const order = jcmSillonList(sillones), groups = {}, extra = [];
+  order.forEach(function (n) { groups[n] = []; });
+  (list || []).forEach(function (a) {
+    const k = jcmSillonOf(a);
+    if (!groups[k]) { groups[k] = []; if (k !== JCM_SILLON_NONE) extra.push(k); }
+    groups[k].push(a);
+  });
+  const keys = order.concat(extra.sort());
+  if (groups[JCM_SILLON_NONE] && groups[JCM_SILLON_NONE].length) keys.push(JCM_SILLON_NONE);
+  return keys.map(function (k) { return { sillon: k, appts: groups[k] || [] }; });
+}
+
+// Tipo de atención dental → appt.tipoDental.
+const JCM_TIPOS_DENTAL = ["Consulta", "Urgencia", "Ortodoncia", "Endodoncia", "Cirugía", "Control", "Limpieza"];
+// Duraciones por defecto por tipo. Los tipos que no están aquí (Consulta, Ortodoncia, Control)
+// conservan el default actual del modal — devolver null significa "no toques la duración".
+const JCM_TIPO_DUR = { "Urgencia": "20 minutos", "Limpieza": "30 minutos", "Endodoncia": "60 minutos", "Cirugía": "90 minutos" };
+function jcmTipoDentalDur(tipo) { return JCM_TIPO_DUR[String(tipo == null ? "" : tipo).trim()] || null; }
+
+// Color por tipo. Se resuelve SOLO con tokens semánticos de JCDS (ok/danger/warn/info) y con
+// T.accent — nunca con un hex de marca. JCDS expone 4 colores semánticos y los tipos son 7, así
+// que los tipos se agrupan por familia clínica (rutina / seguimiento / alta acuidad) y se
+// distinguen entre sí por la etiqueta de texto del chip. Si mañana JCDS suma tokens, esto es
+// un cambio de una línea en el mapa de abajo.
+const JCM_TIPO_TONE = { "Consulta": "info", "Control": "info", "Limpieza": "ok", "Urgencia": "danger", "Cirugía": "danger", "Endodoncia": "warn", "Ortodoncia": "accent" };
+function jcmTipoDentalTone(tipo) { return JCM_TIPO_TONE[String(tipo == null ? "" : tipo).trim()] || null; }
+function jcmTipoDentalColor(tipo, DS, T) {
+  const tone = jcmTipoDentalTone(tipo);
+  if (!tone) return null;
+  if (tone === "accent") return (T && T.accent) || "#54707F";
+  return (DS && DS[tone]) || null;
+}
+
+// Roles de equipo en dental. El EDITOR de equipo vive en jc-admin-c.jsx (fuera de alcance):
+// aquí solo se expone el catálogo y el lector defensivo del campo `role` que ese editor ya guarda.
+const JCM_ROLES_DENTAL = ["Dentista", "Asistente", "Ortodoncista", "Endodoncista"];
+function jcmRolOf(member) { return String(((member || {}).role || (member || {}).cargo) || "").trim(); }
+
+try {
+  window.jcmSillonList = jcmSillonList; window.jcmSillonOf = jcmSillonOf; window.jcmGroupBySillon = jcmGroupBySillon;
+  window.jcmTipoDentalDur = jcmTipoDentalDur; window.jcmTipoDentalColor = jcmTipoDentalColor; window.jcmTipoDentalTone = jcmTipoDentalTone;
+  window.JCM_TIPOS_DENTAL = JCM_TIPOS_DENTAL; window.JCM_ROLES_DENTAL = JCM_ROLES_DENTAL; window.JCM_SILLON_NONE = JCM_SILLON_NONE;
+} catch (e) {}
+
 /* ─────────── AGENDA (tiempo real) ─────────── */
 // HPX = px por hora en la vista DIARIA (rediseño estilo agenda + panel lateral). 84 → 15 min = 21 px:
 // suficiente para el bloque de una línea (nombre · servicio … hora) y para el "+" del hueco libre,
@@ -2993,6 +3077,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const [cancelArmD, setCancelArmD] = useState(null); // id de cita "armada": pide 2º click para cancelar (vista día)
   const [fichaConfirm, setFichaConfirm] = useState(null); // { appt, patient|null }
   const [selProf, setSelProf] = useState(""); // profesional filtrado en la vista diaria (vacío = el primero)
+  const dentalOn = jcmDentalOn();            // FASE C · gate de la vertical dental (constante en runtime)
+  const [selSillon, setSelSillon] = useState(""); // FASE C · sillón filtrado en la vista diaria ("" = todos)
   const [dayProfOpen, setDayProfOpen] = useState(false);
   const [quickPop, setQuickPop] = useState(null); // { type: "bloquear"|"recordatorio", x, y } · tarjeta de Acciones rápidas, junto al cursor
   const [now, setNow] = useState(new Date());
@@ -3008,7 +3094,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
   const dayFirstProf = dayTeam[0] ? dayTeam[0].name : "";
   const curProf = selProf || dayFirstProf;
   const dayProfMatch = a => !dayMultiProf || ((a.prof || "").trim() ? (a.prof || "").trim() === curProf : curProf === dayFirstProf);
-  const list = appts.filter(a => apptDayOff(a) === day && a.status !== "anulada" && dayProfMatch(a));
+  // Citas del día. En dental se puede además acotar a un sillón; en estética `daySillonMatch` es
+  // siempre true, así que el filtro histórico queda intacto.
+  const daySillonMatch = a => !dentalOn || !selSillon || jcmSillonOf(a) === selSillon;
+  const listAllSillones = appts.filter(a => apptDayOff(a) === day && a.status !== "anulada" && dayProfMatch(a));
+  const list = listAllSillones.filter(daySillonMatch);
+  // Agrupación por sillón del día (solo dental). Se calcula sobre listAllSillones para que los
+  // contadores de los chips NO cambien al filtrar, y para que "Sin asignar" sea siempre visible.
+  const daySillonGroups = dentalOn ? jcmGroupBySillon(listAllSillones, jcmCfgSillones()) : [];
   // Citas anuladas agrupadas por fecha de cita (no por fecha de anulación).
   const anuladas = appts.filter(a => a.status === "anulada").sort((a, b) => (b.anuladaAt || 0) - (a.anuladaAt || 0));
   const anuladasByDay = anuladas.reduce((acc, a) => { const k = a.fecha || "sin-fecha"; (acc[k] = acc[k] || []).push(a); return acc; }, {});
@@ -3314,6 +3407,28 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
             <div style={{ flexShrink: 0, textAlign: "center", padding: "11px 16px", borderBottom: "1px solid " + T.lineSoft, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.textMute }}>
               {(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview()) ? dayHeaderInfo : dayTitle}
             </div>
+            {/* FASE C (solo dental) · Filtro por sillón. Los contadores se calculan sobre TODAS las
+                citas del día, así que "Sin asignar" (citas antiguas sin `camilla`) siempre está a la
+                vista con su número real y nunca queda escondida detrás de un filtro. */}
+            {dentalOn && daySillonGroups.length > 0 && (
+              <div className="jc-scroll" style={{ flexShrink: 0, display: "flex", gap: 6, alignItems: "center", overflowX: "auto", padding: "8px 12px", borderBottom: "1px solid " + T.lineSoft }}>
+                <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.textFaint, marginRight: 2 }}>{jcmT().boxes || "Sillones"}</span>
+                {[{ sillon: "", appts: listAllSillones }].concat(daySillonGroups).map(g => {
+                  const on = selSillon === g.sillon;
+                  const lblTxt = g.sillon || "Todos";
+                  return (
+                    <button key={lblTxt} onClick={() => setSelSillon(g.sillon)} title={lblTxt + " · " + g.appts.length + " cita" + (g.appts.length === 1 ? "" : "s")}
+                      style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: DS ? DS.r.pill : 999, cursor: "pointer",
+                        fontFamily: T.sans, fontSize: 11, fontWeight: on ? 600 : 500,
+                        background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMute,
+                        border: "1px solid " + (on ? T.accent : T.line) }}>
+                      {lblTxt}
+                      <span style={{ fontSize: 9.5, fontWeight: 600, opacity: .75 }}>{g.appts.length}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div ref={dayScrollRef} className="jc-scroll" style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "12px 0 10px" }}>
               <div onClick={clickTimeline} style={{ position: "relative", height: hours.length * HPX, cursor: "copy" }}>
                 {/* Líneas y etiquetas cada 15 min (hora en punto marcada) */}
@@ -3335,7 +3450,13 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                   </button>
                 ))}
                 {/* Bloques de cita — una línea: nombre · servicio [inicial] … rango + duración */}
-                {listStacked.map(a => { const col = jcmApptState(a, T).color; const ini = procInitial(a.proc); return (
+                {listStacked.map(a => { const col = jcmApptState(a, T).color; const ini = procInitial(a.proc);
+                  // FASE C (solo dental) · color por tipo de atención. NO reemplaza el color de
+                  // ESTADO (pendiente / confirmada / atendida / no asistió…), que es la señal que la
+                  // agenda lleva usando siempre: el tipo se pinta como franja izquierda + chip, así
+                  // conviven las dos lecturas. En estética `tCol` es null y el bloque queda idéntico.
+                  const tCol = dentalOn ? jcmTipoDentalColor(a.tipoDental, DS, T) : null;
+                  return (
                   <div key={a.id} data-appt onClick={e => { e.stopPropagation(); if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } setHoverA(null); setEdit(a); setEditOnly(null); }}
                     onMouseEnter={e => {
                       if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
@@ -3348,7 +3469,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                       }, 200);
                     }}
                     onMouseLeave={() => { if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } if (dayHideT.current) clearTimeout(dayHideT.current); dayHideT.current = setTimeout(() => setHoverA(null), 160); }}
-                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: a._compact ? "0 11px" : "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)" }}>
+                    style={{ position: "absolute", left: 60, right: 8, top: a._top, height: a._h, background: col + (T.dark ? (luxF ? "1e" : "26") : (luxF ? "14" : "1c")), ...daySmallBlur, border: "1px solid " + col + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: a._compact ? "0 11px" : "5px 11px", overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, zIndex: 2, boxShadow: "0 2px 10px -6px rgba(0,0,0,.5)", ...(tCol ? { borderLeft: "4px solid " + tCol } : {}) }}>
                     {a._compact ? (
                       /* Citas cortas (<30 min): una sola fila — la caja queda delgada (alto real) y no
                          invade el slot siguiente ni tapa su botón "+". */
@@ -3356,6 +3477,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                         <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 }} />
                         <span style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", flexShrink: 0 }}>{a.time}</span>
                         {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 4px" }}>{ini}</span>}
+                        {/* Cita corta (<30 min): no cabe la etiqueta del tipo, solo un punto del color. */}
+                        {tCol && <span aria-hidden="true" title={"Tipo: " + a.tipoDental} style={{ flexShrink: 0, width: 6, height: 6, borderRadius: 2, background: tCol }} />}
                         <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                       </div>
                     ) : (
@@ -3367,12 +3490,22 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                             <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
                             <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
                           </span>
-                          {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
+                          {/* En estética se renderiza EXACTAMENTE el chip histórico (rama `else`);
+                              el envoltorio flex solo existe cuando hay tipo dental que mostrar. */}
+                          {tCol ? (
+                            <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                              <span title={"Tipo: " + a.tipoDental} style={{ fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: tCol, background: tCol + "22", border: "1px solid " + tCol + "44", borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap" }}>{a.tipoDental}</span>
+                              {ini && <span style={{ fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>}
+                            </span>
+                          ) : (ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" }}>{ini}</span>)}
                         </div>
                         {/* Fila inferior: nombre del paciente + procedimiento */}
                         <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
                           <span style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                           {a.proc && <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.proc}</span>}
+                          {/* FASE C (solo dental): sillón asignado, o "Sin asignar" en las citas
+                              históricas que nunca tuvieron `camilla`. */}
+                          {dentalOn && <span style={{ marginLeft: "auto", flexShrink: 0, fontFamily: T.sans, fontSize: 10, color: T.textFaint, whiteSpace: "nowrap" }}>{jcmSillonOf(a)}</span>}
                         </div>
                       </>
                     )}
@@ -3428,6 +3561,26 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                     <div style={{ textAlign: "right", fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 5 }}>{dayOccupPct}% ocupado</div>
                   </div>
                 </div>
+                {/* FASE C (solo dental) · Ocupación por sillón. Se lista SIEMPRE el sillón completo
+                    configurado (aunque tenga 0 citas) y "Sin asignar" cuando hay citas antiguas sin
+                    `camilla`, para que ninguna cita quede fuera del recuento. */}
+                {dentalOn && daySillonGroups.length > 0 && (
+                  <div style={card}>
+                    <div style={secT}>{jcmT().boxes || "Sillones"}</div>
+                    {daySillonGroups.map(g => {
+                      const gm = g.appts.reduce((s, a) => s + (parseInt(a.dur) || 60), 0);
+                      const on = selSillon === g.sillon;
+                      return (
+                        <button key={g.sillon} onClick={() => setSelSillon(on ? "" : g.sillon)} title={on ? "Quitar filtro" : "Ver solo " + g.sillon}
+                          style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "7px 8px", marginBottom: 2, borderRadius: 8, cursor: "pointer",
+                            background: on ? (T.chipBg || "transparent") : "transparent", border: "1px solid " + (on ? T.line : "transparent"), fontFamily: T.sans, fontSize: 13, textAlign: "left" }}>
+                          <span style={{ color: g.sillon === JCM_SILLON_NONE ? T.textFaint : T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.sillon}</span>
+                          <span style={{ flexShrink: 0, color: T.text, fontWeight: 600 }}>{g.appts.length} · {fmtDur(gm)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {/* Acciones rápidas: "Bloquear horario" y "Agendar recordatorio" abren una tarjeta
                     junto al cursor (no fija a la derecha de la pantalla) para elegir hora / paciente. */}
                 <div style={card}>
@@ -4337,8 +4490,26 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [proc, setProc] = useState(pf.proc || "Evaluación general");
   const [prof, setProf] = useState(team[0] ? team[0].name : clinicDisplayName());
   const [recurso, setRecurso] = useState("No especificado");
-  const [camilla, setCamilla] = useState("Box 1");
+  // FASE C · vertical dental. Se resuelve una sola vez por montaje: la vertical no cambia en caliente.
+  const dentalOn = jcmDentalOn();
+  const sillonOpts = dentalOn ? jcmSillonList(jcmCfgSillones()) : null;
+  // `camilla` es el MISMO campo de siempre (en dental se rotula "Sillón"); no se inventa uno nuevo.
+  const [camilla, setCamilla] = useState(() => dentalOn ? (sillonOpts[0] || "Box 1") : "Box 1");
+  const [tipoDental, setTipoDental] = useState(dentalOn ? JCM_TIPOS_DENTAL[0] : "");
   const [dur, setDur] = useState("30 minutos");
+  // Si el usuario tocó la duración a mano, el tipo de atención ya NO la pisa.
+  const durTouched = useRef(false);
+  function pickTipoDental(v) {
+    setTipoDental(v);
+    if (durTouched.current) return;
+    const d = jcmTipoDentalDur(v);
+    if (d) setDur(d);
+  }
+  // Opciones de duración: en estética son EXACTAMENTE las históricas (15/30/45/60); en dental se
+  // suman 20 y 90 porque son las duraciones por defecto de Urgencia y Cirugía.
+  const DUR_OPTS = dentalOn
+    ? ["15 minutos", "20 minutos", "30 minutos", "45 minutos", "60 minutos", "90 minutos"]
+    : ["15 minutos", "30 minutos", "45 minutos", "60 minutos"];
   // Sucursal (Área 2) y notas de la cita (Área 9).
   let sucursalesList = []; try { sucursalesList = ((window.DB && window.DB.get("sucursales")) || []).map(s => s.name).filter(Boolean); } catch (e) {}
   const [sucursal, setSucursal] = useState(pf.sucursal || (sucursalesList[0] || ""));
@@ -4376,6 +4547,9 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const finalEmail = pat ? pat.email : email;
   const selStyle = selS(T), lbl = lblS(T);
 
+  // En estética esto es `{}` y el objeto de la cita queda idéntico al histórico, campo por campo.
+  const dentalFields = dentalOn ? { tipoDental } : {};
+
   function confirm() {
     try {
       const apptFecha = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff).toISOString().slice(0, 10);
@@ -4393,10 +4567,10 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       if (repetir > 0 && typeof addAppt === "function") {
         for (var _i = 1; _i <= repetir; _i++) {
           var _rf = new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff + 7 * _i).toISOString().slice(0, 10);
-          addAppt({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff + 7 * _i, fecha: _rf, status: "pendiente", paid: false });
+          addAppt({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, ...dentalFields, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff + 7 * _i, fecha: _rf, status: "pendiente", paid: false });
         }
       }
-      onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
+      onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, ...dentalFields, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
       // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente
       try {
         const dt = new Date(apptFecha + "T00:00:00");
@@ -4668,11 +4842,20 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           <div><span style={lbl}>Especialidad</span><select value={esp} onChange={e => { setEsp(e.target.value); }} style={selStyle}><option>Todas</option>{especialidades.map(s => <option key={s}>{s}</option>)}</select></div>
           <div><span style={lbl}>Procedimiento</span><select value={proc} onChange={e => setProc(e.target.value)} style={selStyle}><option value="Evaluación general">Evaluación general</option>{procOptionsByCat(procsByEsp)}</select></div>
-          <div><span style={lbl}>Profesional</span><select value={prof} onChange={e => setProf(e.target.value)} style={selStyle}>{team.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
+          {/* En dental se rotula "Odontólogo" y se muestra el rol del integrante (Dentista, Asistente,
+              Ortodoncista, Endodoncista) que se edita en Clínica › Equipo. El VALOR guardado sigue
+              siendo el nombre, igual que siempre — el rol es solo ayuda visual para elegir. */}
+          <div><span style={lbl}>{dentalOn ? (jcmT().profesional || "Profesional") : "Profesional"}</span><select value={prof} onChange={e => setProf(e.target.value)} style={selStyle}>{team.map(t => { const r = dentalOn ? jcmRolOf(t) : ""; return <option key={t.id} value={t.name}>{r ? t.name + " · " + r : t.name}</option>; })}</select></div>
           {sucursalesList.length > 0 && <div><span style={lbl}>Sucursal</span><select value={sucursal} onChange={e => setSucursal(e.target.value)} style={selStyle}>{sucursalesList.map(s => <option key={s} value={s}>{s}</option>)}</select></div>}
           <div><span style={lbl}>Recurso</span><select value={recurso} onChange={e => setRecurso(e.target.value)} style={selStyle}><option>No especificado</option><option>Sala de procedimientos</option><option>Sala de evaluación</option></select></div>
-          <div><span style={lbl}>Box / Camilla</span><select value={camilla} onChange={e => setCamilla(e.target.value)} style={selStyle}><option>Box 1</option><option>Box 2</option><option>Camilla 1</option></select></div>
-          <div><span style={lbl}>Duración</span><select value={dur} onChange={e => setDur(e.target.value)} style={selStyle}><option>15 minutos</option><option>30 minutos</option><option>45 minutos</option><option>60 minutos</option></select></div>
+          {/* FASE C · Tipo de atención (solo dental): prellena la duración salvo que ya la hayan tocado. */}
+          {dentalOn && <div><span style={lbl}>Tipo</span><select value={tipoDental} onChange={e => pickTipoDental(e.target.value)} style={selStyle}>{JCM_TIPOS_DENTAL.map(t => <option key={t} value={t}>{t}</option>)}</select></div>}
+          {/* Mismo campo `camilla` de siempre. En dental cambia el rótulo (Sillón) y las opciones
+              salen de DB.cfg().sillones; en estética son las tres históricas, sin tocar. */}
+          {dentalOn
+            ? <div><span style={lbl}>{jcmT().box || "Sillón"}</span><select value={camilla} onChange={e => setCamilla(e.target.value)} style={selStyle}>{sillonOpts.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+            : <div><span style={lbl}>Box / Camilla</span><select value={camilla} onChange={e => setCamilla(e.target.value)} style={selStyle}><option>Box 1</option><option>Box 2</option><option>Camilla 1</option></select></div>}
+          <div><span style={lbl}>Duración</span><select value={dur} onChange={e => { durTouched.current = true; setDur(e.target.value); }} style={selStyle}>{DUR_OPTS.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
         </div>
         <div style={{ overflowX: "auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(80px,1fr))", gap: 6, minWidth: 620 }}>

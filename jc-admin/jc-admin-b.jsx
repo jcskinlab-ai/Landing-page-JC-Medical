@@ -789,7 +789,12 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const points = patient.points || [];
   // Pestañas NUEVAS (presupuesto, esquema facial) solo para Los Medique hasta el push global.
   const _newFeat = !(window.jcmNewFeat) || window.jcmNewFeat();
-  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["campana", "Campaña"], ["notas", "Notas"], ["ia", "IA"]];
+  // Vertical dental: el mapa facial NO tiene uso en odontología, así que esa pestaña se REEMPLAZA
+  // por el odontograma (no se suma). En estética `_dental` es false y jcmTerms() devuelve
+  // exactamente las etiquetas de siempre, así que este array queda idéntico al histórico.
+  const _dental = !!(window.isDental && window.isDental());
+  const _terms = (window.jcmTerms && window.jcmTerms()) || {};
+  const TABS = [["fichaclinica", _terms.ficha || "Ficha Clínica"], (_dental ? ["odontograma", "Odontograma"] : ["mapa", "Mapa facial y antropometría"]), ["procedimientos", _terms.procedimientos || "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["campana", "Campaña"], ["notas", "Notas"], ["ia", "IA"]];
   const estado = patient.estado || "Activo";
   const activo = estado === "Activo";
   const wa = "https://wa.me/" + (patient.phone || "").replace(/\D/g, "");
@@ -983,6 +988,10 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
           <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} readOnly={true} />
         </div>
       )}
+      {/* El odontograma SÍ es editable aquí, a diferencia del mapa facial (readOnly, se edita por
+          sesión): el estado de una pieza es una propiedad acumulativa de la boca del paciente, no
+          la foto de una sesión. Una pieza extraída sigue extraída en la sesión siguiente. */}
+      {tab === "odontograma" && <Odontograma T={T} patient={patient} updatePatient={updatePatient} readOnly={false} />}
       {tab === "fichaclinica" && (
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: luxF ? 12 : 10, marginBottom: luxF ? 20 : 16 }}>
