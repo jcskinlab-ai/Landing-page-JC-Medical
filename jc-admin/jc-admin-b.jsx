@@ -400,23 +400,27 @@ function recitaFor(p) {
     : (toxRe.test(tag) ? "toxina" : scuRe.test(tag) ? "sculptra" : ahRe.test(tag) ? "rino" : null);
   if (!pick) return null;
   let umbral, motivo, msg, precio, fam, refTs;
+  // Plazos de re-cita configurables por la clínica (Configuración → Plantillas → "Plazos de re-cita").
+  // Si no se configuran, caen a los valores por defecto (toxina 3 · Sculptra 2 · rino 10 meses).
+  const _rc = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const _rcMeses = (k, def) => { const n = parseFloat(_rc[k]); return (isFinite(n) && n > 0) ? n : def; };
   if (pick === "toxina") {
-    fam = "toxina"; umbral = 3;
+    fam = "toxina"; umbral = _rcMeses("recita_meses_toxina", 3);
     precio = jcmProcPrice((lastTox && (lastTox.proc || lastTox.title)) || tag) || 150000; // valor actual del procedimiento
-    motivo = "Toxina · refuerzo a 3 meses";
+    motivo = "Toxina · refuerzo a " + umbral + " meses";
     msg = "te contactamos para ver si deseas renovar tu toxina botulínica para mantener tu resultado natural";
     refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
   } else if (pick === "sculptra") {
-    fam = "sculptra"; umbral = 2;
+    fam = "sculptra"; umbral = _rcMeses("recita_meses_sculptra", 2);
     precio = jcmProcPrice((lastScu && (lastScu.proc || lastScu.title)) || tag) || 450000; // valor actual del procedimiento
     const ses = hist.filter(h => scuRe.test(h.proc || h.title || "")).length || 1;
     if (ses >= 3) return null; // esquema de 3 sesiones completo
-    motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a 2 meses)";
+    motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a " + umbral + " meses)";
     msg = "tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión " + (ses + 1) + " de 3)";
     refTs = lastScu ? _recitaTs(lastScu.date || lastScu.fecha) : _recitaTs(p.lastVisit);
   } else {
-    fam = "rino"; umbral = 10; precio = 0; // sin precio definido → el WhatsApp no muestra valor
-    motivo = "Rinomodelación · mantención a 10 meses";
+    fam = "rino"; umbral = _rcMeses("recita_meses_rino", 10); precio = 0; // sin precio definido → el WhatsApp no muestra valor
+    motivo = "Rinomodelación · mantención a " + umbral + " meses";
     msg = "ya es buen momento para evaluar y renovar tu rinomodelación y mantener tu resultado";
     refTs = lastAh ? _recitaTs(lastAh.date || lastAh.fecha) : _recitaTs(p.lastVisit);
   }

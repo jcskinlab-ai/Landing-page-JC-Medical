@@ -2506,6 +2506,7 @@ function ConfigView({ T }) {
       {cfgTab === "plantillas" && <>
         <IndTemplatesEditor T={T} />
         <FirmasMedicasEditor T={T} />
+        <RecitaPlazoCard T={T} />
         <RecitaDescCard T={T} />
       </>}
     </div>
@@ -2544,6 +2545,47 @@ function NotificacionesCard({ T }) {
         <ToggleRow T={T} label="Recordatorio el día del tratamiento · 08:30 (WhatsApp)" def={true} badge="Requiere Meta" />
         <ToggleRow T={T} label="Resumen diario con Gemini" def={false} />
       </div>}
+    </div>
+  );
+}
+// Plazos de re-cita: a los cuántos meses desde la última sesión un paciente aparece en la campaña.
+// Se guardan en config (recita_meses_toxina/sculptra/rino) y los lee recitaFor(); vacío = valor por defecto.
+function RecitaPlazoCard({ T }) {
+  const DB = _db();
+  const cfg0 = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const [tox, setTox] = useState(cfg0.recita_meses_toxina != null ? String(cfg0.recita_meses_toxina) : "");
+  const [scu, setScu] = useState(cfg0.recita_meses_sculptra != null ? String(cfg0.recita_meses_sculptra) : "");
+  const [rin, setRin] = useState(cfg0.recita_meses_rino != null ? String(cfg0.recita_meses_rino) : "");
+  const [saved, setSaved] = useState(false);
+  function save() {
+    const clean = v => { const n = parseFloat(v); return (isFinite(n) && n > 0) ? n : null; };
+    const patch = { recita_meses_toxina: clean(tox), recita_meses_sculptra: clean(scu), recita_meses_rino: clean(rin) };
+    try { DB.set("config", Object.assign({}, DB.cfg(), patch)); setSaved(true); setTimeout(() => setSaved(false), 1800); window.jcmToast && window.jcmToast("Plazos de re-cita guardados.", "ok"); } catch (e) {}
+  }
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const inp = luxF ? { ...DS.ctl(T), width: "100%" } : { fontFamily: T.sans, fontSize: 13, padding: "9px 34px 9px 11px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, outline: "none", width: "100%", boxSizing: "border-box" };
+  const row = (label, val, set, def) => (
+    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 9 }}>
+      <div style={{ flex: 1, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{label}</div>
+      <div style={{ position: "relative", width: 140, flexShrink: 0 }}>
+        <input value={val} onChange={e => set(e.target.value.replace(/[^\d.]/g, ""))} placeholder={"Ej. " + def} style={inp} />
+        <span style={{ position: "absolute", right: 11, top: "50%", transform: "translateY(-50%)", fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, pointerEvents: "none" }}>meses</span>
+      </div>
+    </div>
+  );
+  return (
+    <div style={luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 14 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "18px 18px", marginBottom: 14 }}>
+      <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Campaña re-cita · Plazos de recontacto
+      </div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Define a los cuántos meses desde la última sesión un paciente aparece listo para recontactar en la campaña de re-cita. Si dejas un campo vacío, se usa el valor por defecto.</div>
+      {row("💉 Toxina botulínica", tox, setTox, 3)}
+      {row("🧬 Sculptra / bioestimulador", scu, setScu, 2)}
+      {row("👃 Rinomodelación / relleno", rin, setRin, 10)}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+        <button onClick={save} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{saved ? "✓ Guardado" : "Guardar"}</button>
+      </div>
     </div>
   );
 }
