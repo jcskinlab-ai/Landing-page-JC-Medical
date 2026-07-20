@@ -400,23 +400,28 @@ function recitaFor(p) {
     : (toxRe.test(tag) ? "toxina" : scuRe.test(tag) ? "sculptra" : ahRe.test(tag) ? "rino" : null);
   if (!pick) return null;
   let umbral, motivo, msg, precio, fam, refTs;
+  // Plazos de re-cita configurables por la clínica (Configuración → Plantillas → "Plazos de re-cita").
+  // Si no se configuran, caen a los valores por defecto (toxina 3 · Sculptra 2 · rino 10 meses).
+  const _rc = (() => { try { return (window.DB && DB.cfg()) || {}; } catch (e) { return {}; } })();
+  const _rcMeses = (k, def) => { const n = parseFloat(_rc[k]); return (isFinite(n) && n > 0) ? n : def; };
   if (pick === "toxina") {
-    fam = "toxina"; umbral = 3;
+    fam = "toxina"; umbral = _rcMeses("recita_meses_toxina", 3);
     precio = jcmProcPrice((lastTox && (lastTox.proc || lastTox.title)) || tag) || 150000; // valor actual del procedimiento
-    motivo = "Toxina · refuerzo a 3 meses";
+    motivo = "Toxina · refuerzo a " + umbral + " meses";
     msg = "te contactamos para ver si deseas renovar tu toxina botulínica para mantener tu resultado natural";
     refTs = lastTox ? _recitaTs(lastTox.date || lastTox.fecha) : _recitaTs(p.lastVisit);
   } else if (pick === "sculptra") {
-    fam = "sculptra"; umbral = 2;
+    fam = "sculptra"; umbral = _rcMeses("recita_meses_sculptra", 2);
     precio = jcmProcPrice((lastScu && (lastScu.proc || lastScu.title)) || tag) || 450000; // valor actual del procedimiento
+    const topeScu = _rcMeses("recita_sesiones_sculptra", 3); // tope de sesiones configurable (por defecto 3)
     const ses = hist.filter(h => scuRe.test(h.proc || h.title || "")).length || 1;
-    if (ses >= 3) return null; // esquema de 3 sesiones completo
-    motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a 2 meses)";
+    if (ses >= topeScu) return null; // esquema completo
+    motivo = "Sculptra · sesión " + (ses + 1) + " de " + topeScu + " (a " + umbral + " meses)";
     msg = "tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión " + (ses + 1) + " de 3)";
     refTs = lastScu ? _recitaTs(lastScu.date || lastScu.fecha) : _recitaTs(p.lastVisit);
   } else {
-    fam = "rino"; umbral = 10; precio = 0; // sin precio definido → el WhatsApp no muestra valor
-    motivo = "Rinomodelación · mantención a 10 meses";
+    fam = "rino"; umbral = _rcMeses("recita_meses_rino", 10); precio = 0; // sin precio definido → el WhatsApp no muestra valor
+    motivo = "Rinomodelación · mantención a " + umbral + " meses";
     msg = "ya es buen momento para evaluar y renovar tu rinomodelación y mantener tu resultado";
     refTs = lastAh ? _recitaTs(lastAh.date || lastAh.fecha) : _recitaTs(p.lastVisit);
   }
@@ -503,6 +508,9 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const fmtVisto = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) + ", " + new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "Sin abrir";
   const recitas = patients.map(p => ({ p, r: recitaFor(p) })).filter(x => x.r);
   const recitasDue = recitas.filter(x => x.r.vence);
+  // "Para contactar hoy" = vencidos que AÚN no se han enviado. Al tocar WhatsApp se marca como
+  // enviado (recitaSent) y el contador del encabezado baja en vivo; la fila sigue visible como "Enviado".
+  const recitasPend = recitasDue.filter(({ p, r }) => !recitaSent[recitaSentKey(p, r)]);
   const waLink = (p, r) => recitaWa(p, r);
   const fmtD = d => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
@@ -528,9 +536,9 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
         {chip("recientes", "Recientes", setFilt, filt)}{chip("calendario", "Calendario", setFilt, filt)}{chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
       </div>
       {/* campañas de re-cita */}
-      <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasDue.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasDue.length ? "rgba(31,138,91,.35)" : T.line) }}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={recitasDue.length ? "#1F8A5B" : T.textMute} strokeWidth="1.6"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
-        <span style={{ flex: 1, textAlign: "left", fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>Campañas de re-cita por WhatsApp{recitasDue.length ? " · " + recitasDue.length + " para contactar hoy" : ""}</span>
+      <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasPend.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasPend.length ? "rgba(31,138,91,.35)" : T.line) }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={recitasPend.length ? "#1F8A5B" : T.textMute} strokeWidth="1.6"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
+        <span style={{ flex: 1, textAlign: "left", fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>Campañas de re-cita por WhatsApp{recitasPend.length ? " · " + recitasPend.length + " para contactar hoy" : (recitasDue.length ? " · todos contactados hoy" : "")}</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.6" style={{ transform: openCamp ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
       </button>
       {openCamp && (
@@ -896,31 +904,41 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: T.sans, fontSize: 11.5, color: activo ? "#1F8A5B" : T.textMute }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: activo ? "#1F8A5B" : T.textFaint }} />{estado}</span>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {/* Medios de contacto agrupados: WhatsApp · Correo · Recordatorio */}
+          <div style={{ display: "flex", gap: 6, padding: 5, borderRadius: 10, background: T.accentSoft || "rgba(84,112,127,.10)", border: "1px solid " + T.line }}>
           <FAct T={T} href={wa} icon={<><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></>}>WhatsApp</FAct>
           <FAct T={T} href={"mailto:" + (patient.email || "")} icon={<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>}>Correo</FAct>
-          <FAct T={T} onClick={async () => {
-            const email = (patient.email || "").trim();
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { window.jcmToast && window.jcmToast("Este paciente no tiene un correo válido en su ficha.", "error"); return; }
-            if (!window.mediqueEmail) { window.jcmError && window.jcmError("El correo no está disponible."); return; }
+          <FAct T={T} onClick={() => {
+            // Notifica la PRÓXIMA cita del paciente por WhatsApp usando el mismo mensaje canónico
+            // de confirmación (dirección + "Cómo llegar" + profesional, plantilla editable de la clínica).
+            const ph = (patient.phone || "").replace(/\D/g, "");
+            if (ph.length < 8) { window.jcmToast && window.jcmToast("Este paciente no tiene un teléfono válido en su ficha.", "error"); return; }
             let appts = []; try { appts = (window.DB && window.DB.get("appointments")) || []; } catch (e) {}
             const d0 = new Date(); const isoT = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
             const next = appts.filter(a => a.patId === patient.id && a.fecha && a.fecha >= isoT).sort((a, b) => ((a.fecha || "") + (a.time || "")).localeCompare((b.fecha || "") + (b.time || "")))[0];
-            const clinic = (() => { try { return window.DB.cfg().clinic_name || "tu clínica"; } catch (e) { return "tu clínica"; } })();
-            const nombre = ((patient.name || "").split(" ")[0]) || "";
-            const cuando = next ? ("el " + new Date(next.fecha + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }) + (next.time ? " a las " + next.time : "") + (next.proc ? " (" + next.proc + ")" : "")) : "tu próxima cita";
-            const text = "Hola " + nombre + ",\n\nTe recordamos " + cuando + " en " + clinic + ".\n\nSi necesitas reprogramar, respóndenos este correo.\n\n— " + clinic;
-            window.jcmToast && window.jcmToast("Enviando recordatorio…", "info");
-            const r = await window.mediqueEmail({ to: email, subject: "Recordatorio de tu cita · " + clinic, text: text, replyTo: window.clinicReplyTo && window.clinicReplyTo() });
-            if (r && r.ok) window.jcmToast && window.jcmToast("Recordatorio enviado a " + email + ". Revisa la bandeja (y spam).", "ok");
-            else if (r && r.configured === false) window.jcmError && window.jcmError("Correo no configurado en el servidor (falta RESEND_API_KEY).", r.error);
-            else window.jcmError && window.jcmError("No se pudo enviar el recordatorio", (r && r.error) || r);
+            if (!next) { window.jcmToast && window.jcmToast("Este paciente no tiene una próxima cita agendada.", "info"); return; }
+            const dt = new Date(next.fecha + "T00:00:00");
+            const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+            const mmN = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const wk = { wd: wdN[dt.getDay()], dd: dt.getDate(), mm: mmN[dt.getMonth()] };
+            const proc = ((next.proc || "").trim()) || "Evaluación general";
+            const prof = ((next.prof || "").trim()) || (window.clinicPro && window.clinicPro()) || "";
+            const esCtrl = window.esControlPostProc ? window.esControlPostProc(proc, patient) : false;
+            const msg = window.jcmCitaConfirmMsg
+              ? window.jcmCitaConfirmMsg(patient.name || "", wk, next.time || "", proc, prof, esCtrl)
+              : ("Hola " + (patient.name || "") + " 👋\n\nTu cita en " + ((window.clinicName && window.clinicName()) || "la clínica") + " quedó agendada:\n\n🗓️ Fecha: " + wk.wd + " " + wk.dd + " " + wk.mm + "\n⏰ Hora: " + (next.time || "") + " hrs\n💉 Tratamiento: " + proc + "\n👨‍⚕️ Profesional: " + prof + "\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.\n\n¡Nos vemos pronto!");
+            window.open("https://wa.me/" + ph + "?text=" + encodeURIComponent(msg), "_blank", "noopener");
           }} icon={<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>}>Recordatorio</FAct>
+          </div>
           <FAct T={T} onClick={() => setEditD(true)} icon={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></>}>Editar datos</FAct>
           <FAct T={T} onClick={() => setPortalMod(true)} icon={<><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V8a5 5 0 0 1 10 0v3" /><circle cx="12" cy="16" r="1.4" /></>}>Portal paciente</FAct>
           <FAct T={T} onClick={startPrintFicha} icon={<><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></>}>Imprimir ficha</FAct>
-          <FAct T={T} primary onClick={() => onAgendar && onAgendar()} icon={<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>}>Agendar cita</FAct>
+          <FAct T={T} onClick={() => goTab("procedimientos")} icon={<><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l3.5 2" /></>}>Historial</FAct>
           {removePatient && <FAct T={T} onClick={() => { setConfirmDel(true); setDelInput(""); }} icon={<><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></>}>Eliminar</FAct>}
+          <div style={{ marginLeft: "auto" }}>
+            <FAct T={T} primary onClick={() => onAgendar && onAgendar()} icon={<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>}>Agendar cita</FAct>
+          </div>
         </div>
       </div>
 

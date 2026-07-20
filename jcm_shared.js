@@ -91,7 +91,7 @@ const DB = {
 // Cada clínica puede escribir su propio texto (panel móvil, Reportes → Plantillas de mensajes),
 // guardado en DB.cfg().msg_tpl_confirm / msg_tpl_asist. Si no hay uno guardado se usa este texto
 // por defecto — MISMO texto para portal de escritorio y panel móvil (una sola fuente de verdad).
-const DEFAULT_TPL_CONFIRM = "Hola {nombre} 👋\n\nTu cita en {clinica} quedó confirmada:\n\n🗓️ Fecha: {fecha}\n⏰ Hora: {hora} hrs\n💉 Tratamiento: {tratamiento}\n👨‍⚕️ Profesional: {profesional}\n📍 Dirección: {direccion}\n\n🏥 Cómo llegar: {mapa}\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.{politica}\n\n¡Nos vemos pronto!";
+const DEFAULT_TPL_CONFIRM = "Hola {primernombre} 👋\n\nTu cita en {clinica} quedó confirmada:\n\n🗓️ Fecha: {fecha}\n⏰ Hora: {hora} hrs\n💉 Tratamiento: {tratamiento}\n👨‍⚕️ Profesional: {profesional}\n📍 Dirección: {direccion}\n\n🏥 Cómo llegar: {mapa}\n\nRecuerda llegar 5 min antes. Si necesitas reagendar, avísanos con 24 h de anticipación.{politica}\n\n¡Nos vemos pronto!";
 const DEFAULT_TPL_ASIST = "Hola {primernombre}!\n\nTe escribimos de {clinica} para confirmar tu asistencia a tu cita el {fecha} a las {hora} hrs ({tratamiento}).\n\n¿Nos confirmas? Responde *SÍ* para confirmar o *NO* si necesitas reagendar\n\nCómo llegar: {mapa}\n\n¡Te esperamos!";
 // Campaña de re-cita (Pacientes → Campañas de re-cita por WhatsApp, portal de escritorio): invita a
 // renovar toxina/Sculptra/rinomodelación cuando se cumple el plazo. {precio_linea} es una sola
