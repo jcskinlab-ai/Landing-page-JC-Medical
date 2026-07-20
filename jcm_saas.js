@@ -431,8 +431,16 @@
         } catch (e) {}
         return;
       }
+      // Regla: NUNCA borrar algo que no tenga copia en la nube. Las claves NO_SYNC (admin_pass,
+      // saas_ns, etc.) viven solo en este dispositivo, así que borrarlas sería una pérdida
+      // irrecuperable — y además no son datos clínicos, que es lo que este borrado protege.
       var kill = [];
-      Object.keys(localStorage).forEach(function (full) { if (full.indexOf(pre) === 0) kill.push(full); });
+      Object.keys(localStorage).forEach(function (full) {
+        if (full.indexOf(pre) !== 0) return;
+        var k = full.slice(pre.length);
+        if (NO_SYNC[k]) return;
+        kill.push(full);
+      });
       kill.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
     } catch (e) { /* nunca bloquear el logout por esto */ }
   }
