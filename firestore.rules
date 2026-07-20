@@ -82,9 +82,21 @@ service cloud.firestore {
     // Datos de cada clínica (agenda, pacientes, caja, inventario, etc.), aislados.
     // La clínica debe tener plan activo o trial vigente (validado aquí, no solo en el cliente).
     match /tenants/{clinicId}/kv/{key} {
-      allow read, write: if signedIn()
+      allow read, create, update: if signedIn()
                          && myClinic() == clinicId
                          && (isSuper() || clinicActive(clinicId));
+      // SEG · Los consentimientos firmados (pcons_*) NO se pueden borrar: son evidencia
+      // médico-legal y hasta ahora `write` incluía delete, así que cualquier usuario de la clínica
+      // podía suprimirlos sin dejar rastro. Verificado que ningún código borra estas claves (solo
+      // las escribe: migración en jc-admin-b.jsx y optimizePatientsBlock en jc-admin-c.jsx), así
+      // que esto no rompe ninguna función. El borrado de cara al usuario debe marcar el
+      // consentimiento como anulado, no destruirlo.
+      // LÍMITE: esto impide el borrado, no la alteración del contenido por update. La
+      // inmutabilidad real necesita hash + versionado, y va con C-04 (permisos en el servidor).
+      allow delete: if signedIn()
+                    && myClinic() == clinicId
+                    && (isSuper() || clinicActive(clinicId))
+                    && !key.matches('^pcons_.*');
     }
 
     // Perfil público de la clínica (marca, dirección, horarios, precios) para la

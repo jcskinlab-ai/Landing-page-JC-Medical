@@ -5,11 +5,22 @@
  * Requiere: npx (incluido con Node.js)
  */
 import { execSync } from 'child_process';
-import { mkdirSync } from 'fs';
+import { mkdirSync, existsSync } from 'fs';
 
 mkdirSync('dist', { recursive: true });
 
-const ESBUILD = './node_modules/.bin/esbuild';
+// En Windows, execSync usa cmd.exe: './node_modules/.bin/esbuild' (script sh) NO se resuelve y
+// TODAS las compilaciones fallaban... mientras el script seguía imprimiendo "dist/ listo". Es una
+// trampa seria: se cree haber compilado y se despliega el dist viejo. Se elige el binario según
+// plataforma y se cita la ruta por si hay espacios (C:\Users\Nombre Apellido\...).
+const ESBUILD_BIN = process.platform === 'win32'
+  ? 'node_modules\\.bin\\esbuild.cmd'
+  : './node_modules/.bin/esbuild';
+if (!existsSync(ESBUILD_BIN)) {
+  console.error(`✗ No se encontró esbuild en ${ESBUILD_BIN}. Corre "npm install" primero.`);
+  process.exit(1);
+}
+const ESBUILD = `"${ESBUILD_BIN}"`;
 const FLAGS = '--bundle=false --jsx=transform --jsx-factory=React.createElement --jsx-fragment=React.Fragment --target=es2019 --log-level=warning';
 
 const FILES = [
@@ -45,5 +56,10 @@ for (const [src, out] of FILES) {
     fail++;
   }
 }
-console.log(`\n${ok} compilados${fail ? ', ' + fail + ' errores' : ''} — dist/ listo.`);
-if (fail > 0) process.exit(1);
+// No decir "dist/ listo" si no se compiló nada o hubo errores: ese mensaje optimista fue el que
+// ocultó que en Windows el build llevaba tiempo compilando 0 archivos.
+if (fail > 0 || ok === 0) {
+  console.error(`\n✗ BUILD FALLIDO — ${ok} compilados, ${fail} errores. dist/ NO se actualizó (o quedó a medias).`);
+  process.exit(1);
+}
+console.log(`\n${ok} compilados — dist/ listo.`);

@@ -64,6 +64,9 @@ async function verifyFirebaseToken(token) {
   const now = Math.floor(Date.now() / 1000);
   if (!p.exp || p.exp <= now) throw new Error("token expirado");
   if (p.aud !== PROJECT_ID)   throw new Error("aud inválido");
+  // SEG · Faltaba validar el emisor. El resto de endpoints (p.ej. api/email.js) sí lo comprueban;
+  // aquí no, y este es el endpoint con MÁS privilegio del SaaS (deleteClinic / resetClinicData).
+  if (p.iss !== "https://securetoken.google.com/" + PROJECT_ID) throw new Error("iss inválido");
   return p;
 }
 
@@ -113,7 +116,18 @@ export default async function handler(req, res) {
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     if (!token) return res.status(401).json({ error: "Sin token de autenticación" });
     const payload = await verifyFirebaseToken(token);
-    if ((payload.email || "").toLowerCase() !== SUPER_EMAIL.toLowerCase()) {
+    // SEG · Autorización por claim `superAdmin` (lo correcto) o, de forma transitoria, por correo.
+    // La rama por correo ahora EXIGE email_verified: sin eso, un proveedor federado que aporte esa
+    // dirección sin verificarla se saltaría el control. Setear el claim y borrar la rama:
+    //   auth.setCustomUserClaims(uid, { superAdmin: true })
+    // No se exige email_verified: la cuenta actual es email/clave y podría no estar verificada,
+    // y bloquearla dejaría al dueño sin panel. Se exige en cambio que el inicio de sesión haya
+    // sido con contraseña, que es el flujo real: así un proveedor federado que aportara esa misma
+    // dirección (el vector del hallazgo) no sirve para entrar aquí.
+    const isSuperClaim = payload.superAdmin === true;
+    const isSuperEmail = (payload.email || "").toLowerCase() === SUPER_EMAIL.toLowerCase()
+                         && ((payload.firebase && payload.firebase.sign_in_provider) === "password");
+    if (!isSuperClaim && !isSuperEmail) {
       return res.status(403).json({ error: "Solo el super-admin puede ejecutar estas operaciones" });
     }
 
