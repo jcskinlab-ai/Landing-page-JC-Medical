@@ -2650,7 +2650,10 @@ function ClinicDataCard({ T }) {
     clinic_maps: cfg0.clinic_maps || "",
     professional: cfg0.professional || "",
     clinic_email: cfg0.clinic_email || "",
-    wa_number: cfg0.wa_number || ""
+    wa_number: cfg0.wa_number || "",
+    // '' (clínica antigua que nunca eligió) se muestra como estética, que es lo que de hecho ha
+    // estado usando. Así el selector nunca aparece en blanco ni sugiere que falta configurar algo.
+    vertical: cfg0.vertical || "estetica"
   });
   const emailReplyOk = !f.clinic_email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.clinic_email.trim());
   const [saved, setSaved] = useState(false);
@@ -2668,6 +2671,7 @@ function ClinicDataCard({ T }) {
     try {
       const patch = { clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") };
       if (isAdmin) patch.clinic_name = f.clinic_name.trim(); // el nombre solo lo guarda el admin
+      if (isAdmin) patch.vertical = f.vertical;              // la especialidad también: define los módulos del panel
       DB.set("config", Object.assign({}, DB.cfg(), patch));
       try { window.dispatchEvent(new Event("jcm:config")); } catch (e2) {} // refresca el nombre/avatar del header
       setSaved(true); setTimeout(() => setSaved(false), 1800);
@@ -2707,6 +2711,21 @@ function ClinicDataCard({ T }) {
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>WhatsApp</span>
           <input value={waDisplay} onChange={e => onWa(e.target.value)} inputMode="numeric" placeholder="+569 1234 5678" style={luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
         </label>
+        {/* Especialidad / vertical — solo el dueño. Define QUÉ módulos clínicos ve la clínica
+            (odontograma, presupuesto dental, agenda por sillón). No toca ningún dato del paciente. */}
+        {isAdmin && <label style={{ display: "block" }}>
+          <span style={luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Especialidad / vertical</span>
+          <select value={f.vertical} onChange={e => { setF({ ...f, vertical: e.target.value }); setSaved(false); }} style={luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }}>
+            <option value="estetica">Medicina estética</option>
+            <option value="dental">Odontología</option>
+          </select>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 }}>
+            {f.vertical === "dental"
+              ? "La ficha muestra el odontograma, la agenda se organiza por sillón y el presupuesto trabaja con plano de tratamiento y cuotas."
+              : "La ficha muestra el mapa facial y la antropometría. Cambia a Odontología para activar odontograma, agenda por sillón y presupuesto dental."}
+            {" "}Puedes cambiarla cuando quieras: no se borra ni se modifica ningún dato de tus pacientes.
+          </div>
+        </label>}
       </div>
     </div>
   );

@@ -2285,7 +2285,10 @@ function ClinicDataCard({ T }) {
     clinic_maps: cfg0.clinic_maps || "",
     professional: cfg0.professional || "",
     clinic_email: cfg0.clinic_email || "",
-    wa_number: cfg0.wa_number || ""
+    wa_number: cfg0.wa_number || "",
+    // '' (clínica antigua que nunca eligió) se muestra como estética, que es lo que de hecho ha
+    // estado usando. Así el selector nunca aparece en blanco ni sugiere que falta configurar algo.
+    vertical: cfg0.vertical || "estetica"
   });
   const emailReplyOk = !f.clinic_email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.clinic_email.trim());
   const [saved, setSaved] = useState(false);
@@ -2306,6 +2309,7 @@ function ClinicDataCard({ T }) {
     try {
       const patch = { clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") };
       if (isAdmin) patch.clinic_name = f.clinic_name.trim();
+      if (isAdmin) patch.vertical = f.vertical;
       DB.set("config", Object.assign({}, DB.cfg(), patch));
       try {
         window.dispatchEvent(new Event("jcm:config"));
@@ -2332,7 +2336,10 @@ function ClinicDataCard({ T }) {
   }, placeholder: "Ej: Dra. Karenina Soto" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "Correo para respuestas de pacientes", value: f.clinic_email, onChange: (v) => {
     setF({ ...f, clinic_email: v });
     setSaved(false);
-  }, placeholder: "Ej: contacto@tuclinica.cl" }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: emailReplyOk ? T.textMute : "#e06a6a", lineHeight: 1.5, marginTop: 5 } }, emailReplyOk ? "Cuando un paciente responda un recordatorio, su respuesta llegar\xE1 a este correo. Si lo dejas vac\xEDo, se usa el correo con que iniciaste sesi\xF3n." : "Correo no v\xE1lido.")), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "WhatsApp"), /* @__PURE__ */ React.createElement("input", { value: waDisplay, onChange: (e) => onWa(e.target.value), inputMode: "numeric", placeholder: "+569 1234 5678", style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } }))));
+  }, placeholder: "Ej: contacto@tuclinica.cl" }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: emailReplyOk ? T.textMute : "#e06a6a", lineHeight: 1.5, marginTop: 5 } }, emailReplyOk ? "Cuando un paciente responda un recordatorio, su respuesta llegar\xE1 a este correo. Si lo dejas vac\xEDo, se usa el correo con que iniciaste sesi\xF3n." : "Correo no v\xE1lido.")), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "WhatsApp"), /* @__PURE__ */ React.createElement("input", { value: waDisplay, onChange: (e) => onWa(e.target.value), inputMode: "numeric", placeholder: "+569 1234 5678", style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } })), isAdmin && /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Especialidad / vertical"), /* @__PURE__ */ React.createElement("select", { value: f.vertical, onChange: (e) => {
+    setF({ ...f, vertical: e.target.value });
+    setSaved(false);
+  }, style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("option", { value: "estetica" }, "Medicina est\xE9tica"), /* @__PURE__ */ React.createElement("option", { value: "dental" }, "Odontolog\xEDa")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 } }, f.vertical === "dental" ? "La ficha muestra el odontograma, la agenda se organiza por sill\xF3n y el presupuesto trabaja con plano de tratamiento y cuotas." : "La ficha muestra el mapa facial y la antropometr\xEDa. Cambia a Odontolog\xEDa para activar odontograma, agenda por sill\xF3n y presupuesto dental.", " ", "Puedes cambiarla cuando quieras: no se borra ni se modifica ning\xFAn dato de tus pacientes."))));
 }
 function AdminPinCard({ T }) {
   const [pin, setPin] = useState(() => {

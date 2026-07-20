@@ -80,12 +80,67 @@ const DB = {
       // Plantillas de mensajes de WhatsApp propias de la clínica (editables en el panel móvil,
       // Reportes → Plantillas de mensajes). Vacías = se usa el texto predeterminado (ver más abajo).
       msg_tpl_confirm: '',
-      msg_tpl_asist: ''
+      msg_tpl_asist: '',
+      // Vertical de la clínica: '' o 'estetica' = medicina estética (comportamiento histórico);
+      // 'dental' activa el módulo odontológico. Vacío por defecto A PROPÓSITO: las clínicas que ya
+      // existen nunca escribieron esta clave, y deben seguir viéndose exactamente igual que siempre.
+      vertical: ''
     };
     // Combina con lo guardado para que claves nuevas siempre tengan default.
     return Object.assign(def, this.get('config') || {});
   }
 };
+
+// ── VERTICAL DE LA CLÍNICA (estética / dental) ─────────────────────────────
+// Medique no es dos softwares: es el mismo panel multi-tenant con una vertical que se activa POR
+// CLÍNICA. Todo lo dental cuelga de estos dos helpers, así que una clínica estética jamás ve nada
+// odontológico. La regla es estricta: si vertical !== 'dental', el comportamiento es el histórico.
+const VERTICALES = ['estetica', 'dental'];
+function clinicVertical() {
+  // Defensivo a propósito: esto se llama desde el render de React y desde jcm_saas/portal, donde
+  // DB.cfg() puede fallar (localStorage bloqueado, sesión a medio cargar). Ante CUALQUIER duda se
+  // responde 'estetica' — degradar a la vertical histórica es seguro; adivinar 'dental' no lo es.
+  try {
+    const v = String((DB.cfg() || {}).vertical || '').trim().toLowerCase();
+    return VERTICALES.indexOf(v) >= 0 ? v : 'estetica';
+  } catch (e) { return 'estetica'; }
+}
+function isDental() { return clinicVertical() === 'dental'; }
+
+// Nomenclatura por vertical. Un solo lugar donde vive el vocabulario clínico, para que las vistas
+// no repartan ternarios de isDental() por todas partes.
+const JCM_TERMS = {
+  estetica: {
+    ficha:         'Ficha Clínica',
+    mapa:          'Mapa facial y antropometría',
+    mapaCorto:     'Mapa facial',
+    procedimiento: 'Procedimiento',
+    procedimientos:'Procedimientos',
+    box:           'Box',
+    boxes:         'Boxes',
+    profesional:   'Profesional',
+    vertical:      'Medicina estética'
+  },
+  dental: {
+    ficha:         'Ficha Odontológica',
+    mapa:          'Odontograma',
+    mapaCorto:     'Odontograma',
+    procedimiento: 'Tratamiento',
+    procedimientos:'Tratamientos',
+    box:           'Sillón',
+    boxes:         'Sillones',
+    profesional:   'Odontólogo',
+    vertical:      'Odontología'
+  }
+};
+function jcmTerms() { return JCM_TERMS[clinicVertical()] || JCM_TERMS.estetica; }
+
+try {
+  window.VERTICALES = VERTICALES;
+  window.clinicVertical = clinicVertical;
+  window.isDental = isDental;
+  window.jcmTerms = jcmTerms;
+} catch (e) {}
 
 // ── PLANTILLAS DE MENSAJES DE WHATSAPP (editables por clínica) ─────────────────────────────
 // Cada clínica puede escribir su propio texto (panel móvil, Reportes → Plantillas de mensajes),
