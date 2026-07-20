@@ -265,6 +265,36 @@ function adminNavItems() {
     return true;
   });
 }
+// SEG · ¿Puede la sesión actual RENDERIZAR esta sección? Se usa para gatear el árbol de vistas,
+// no solo el menú. El redirect por useEffect no basta: corre DESPUÉS de pintar (la vista prohibida
+// se monta un frame y sus datos quedan en el DOM) y además tenía un escape por `openPatient`, así
+// que a un profesional sin el permiso Pacientes le bastaba abrir una cita desde la Agenda para ver
+// la ficha clínica completa. Ojo: esto sigue siendo defensa de CLIENTE — el enforcement real es
+// C-04 (permisos en el servidor); mientras eso no exista, los datos igual bajan al navegador.
+function sectionAllowedFor(section) {
+  try {
+    var role = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole) ? window.JCSAAS.currentRole() : 'owner';
+    if (role !== 'professional') return true;
+    var perms = (window.JCSAAS.currentPerms && window.JCSAAS.currentPerms()) || {};
+    var allowed = {};
+    Object.keys(PERM_NAV).forEach(function (p) { if (perms[p]) PERM_NAV[p].forEach(function (k) { allowed[k] = 1; }); });
+    return !!allowed[section];
+  } catch (e) { return false; } // ante la duda, se niega
+}
+// Vista que reemplaza a cualquier sección sin permiso. No revela qué contiene la sección.
+function SinPermisoView({ T }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "64px 24px", textAlign: "center" }}>
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.5">
+        <rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V8a5 5 0 0 1 10 0v3" />
+      </svg>
+      <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, margin: "14px 0 6px" }}>Sin acceso a esta sección</div>
+      <div style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, maxWidth: 380, lineHeight: 1.55 }}>
+        Tu cuenta no tiene permiso para ver este contenido. Si lo necesitas, pídeselo al administrador de la clínica.
+      </div>
+    </div>
+  );
+}
 
 // Aísla los datos por clínica. En SaaS, las clínicas parten VACÍAS (operacional);
 // solo la clínica BASE (JC Medical) conserva sus servicios/equipo/inventario reales.
@@ -1814,13 +1844,15 @@ function AdminApp() {
     try {
       var role = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole) ? window.JCSAAS.currentRole() : 'owner';
       if (role !== 'professional') return;
-      if (openPatient) return;
+      // SEG · Se eliminó el escape "if (openPatient) return". Abrir un paciente desde la Agenda
+      // pone section='pacientes' y con ese early-return el gate no corría: un profesional sin el
+      // permiso Pacientes veía (y editaba) la ficha clínica completa con un solo clic.
       var items = adminNavItems();
       // ALTO-03: se quitó el escape "|| section === 'pacientes'" que dejaba entrar a Pacientes SIEMPRE,
       // aun sin el permiso (bastaba escribir la URL). Ahora Pacientes se gatea por permiso como el
       // resto (PERM_NAV.Pacientes). El enforcement server-side real va con C-04 (permisos en la nube).
       var ok = items.some(function (n) { return n.k === section; });
-      if (!ok) setSection((items[0] && items[0].k) || 'dashboard');
+      if (!ok) { setOpenPatient(null); setSection((items[0] && items[0].k) || 'dashboard'); }
     } catch (e) {}
   }, [section, openPatient]);
 
@@ -1985,6 +2017,11 @@ function AdminApp() {
   else if (section === "convenios") body = <ConveniosView T={T} />;
   else if (section === "boletas") body = <BoletasView T={T} patients={patients} />;
   else if (section === "pagosonline") body = <PagosOnlineView T={T} patients={patients} />;
+
+  // SEG · Enforcement por RENDER (va DESPUÉS de toda la cadena, para que ninguna rama lo esquive).
+  // El redirect de useEffect corre después de pintar y no cubre la URL directa ni el primer render
+  // de _initRoute; esto sí. Sin el permiso de la sección, el árbol de la vista no se construye.
+  if (!sectionAllowedFor(section)) body = <SinPermisoView T={T} />;
 
   const RAIL = 60, EXP = 212;
   // "shellLux" = look premium con foto de fondo (everest) + glass, gateado a Los Medique.
@@ -5324,11 +5361,30 @@ function SaasGate() {
       // 2FA: si está activa y este dispositivo no es de confianza, pedir código por email.
       if (MFA_ON) {
         let dev = ""; try { dev = localStorage.getItem(devKey()) || ""; } catch (e) {}
+        // SEG · Antes CUALQUIER resultado no-ok caía en proceed(): bastaba con que la petición a
+        // /api/otp fallara (o que el atacante la bloqueara desde devtools) para saltarse el 2FA.
+        // Ahora se distinguen los dos casos:
+        //  · "no configurado" (falta OTP_SECRET en Vercel) → se deja pasar A PROPÓSITO, para no
+        //    dejar a nadie afuera, pero se avisa fuerte en consola. Es una decisión de despliegue.
+        //  · fallo transitorio (red, 5xx) → NO se pasa: se vuelve al login para reintentar.
+        // OJO — límite conocido: este control es de UI. El OTP corre DESPUÉS de
+        // signInWithEmailAndPassword, así que la sesión de Firebase ya es válida y las reglas ya
+        // conceden acceso: quien tenga la contraseña puede leer datos desde la consola sin pasar
+        // por esta pantalla. El 2FA real exige un custom claim verificado en firestore.rules.
         window.mediqueOtp("check", { device: dev }).then(function (r) {
           if (r && r.ok && r.trusted) { proceed(); }
           else if (r && r.ok) { setPhase("otp"); otpSend(); }   // configurado pero dispositivo nuevo
-          else { proceed(); }                                    // endpoint no configurado/falla → no bloquear
-        }).catch(function () { proceed(); });
+          else if (r && r.configured === false) {
+            console.error("[2FA] /api/otp no está configurado (falta OTP_SECRET): el segundo factor NO se está aplicando.");
+            proceed();
+          } else {
+            setPhase("auth");
+            setErr("No pudimos verificar el segundo factor. Revisa tu conexión e inténtalo de nuevo.");
+          }
+        }).catch(function () {
+          setPhase("auth");
+          setErr("No pudimos verificar el segundo factor. Revisa tu conexión e inténtalo de nuevo.");
+        });
         return;
       }
       proceed();

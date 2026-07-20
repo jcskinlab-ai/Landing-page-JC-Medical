@@ -388,6 +388,7 @@
       state.clinic = info.clinic;
       state.role = info.role; state.perms = info.perms; state.userName = info.name;
       bindDB();
+      idleStart(); // SEG · arranca el temporizador de inactividad (4 h) con la sesión ya resuelta
       pullAll().then(function () {
         liveKv();
         flushDirty(); // reintenta subir lo que quedó sin sincronizar en sesiones anteriores
@@ -403,8 +404,37 @@
 
   function teardown() {
     if (unsubKv) { try { unsubKv(); } catch (e) {} unsubKv = null; }
+    if (unsubPublic) { try { unsubPublic(); } catch (e) {} unsubPublic = null; } // fuga leve: listener que quedaba vivo tras el logout
+    idleStop();
     state.bound = false; // se re-bindea al próximo login (el namespace cambia)
     // Nota: no restauramos DB._k porque al cerrar sesión se vuelve a la pantalla de login.
+    wipeLocalClinicData();
+  }
+
+  // SEG · Al cerrar sesión hay que BORRAR los datos clínicos del dispositivo. Antes teardown() solo
+  // desuscribía el listener, así que en el disco quedaban en claro y para siempre: patients,
+  // appointments, phist_<id> (historial), pcons_<id> (consentimientos con firmas base64), cash e
+  // inventory. Cualquiera con acceso físico al equipo de recepción —o un profesional al que ya le
+  // revocaron el acceso— los leía con un localStorage.getItem.
+  // Importante: NO se borra si quedan bloques sin subir a la nube (__dirty__), porque en ese caso
+  // el dispositivo es la única copia y borrar sería perder datos clínicos. En ese caso se avisa.
+  function wipeLocalClinicData() {
+    try {
+      var pre = 'jcm_' + (state.clinicId ? state.clinicId + '_' : '');
+      if (!state.clinicId) return; // sin clínica resuelta no tocamos nada
+      var pend = 0;
+      try { pend = Object.keys(dirtyAll() || {}).length; } catch (e) { pend = 0; }
+      if (pend > 0) {
+        try {
+          if (window.jcmError) window.jcmError('Quedaron ' + pend + ' bloque(s) sin subir a la nube. Se conservan en este dispositivo: vuelve a entrar con internet para completar la sincronización antes de usar otro equipo.');
+          else alert('Quedaron ' + pend + ' bloque(s) sin subir a la nube; se conservan en este dispositivo.');
+        } catch (e) {}
+        return;
+      }
+      var kill = [];
+      Object.keys(localStorage).forEach(function (full) { if (full.indexOf(pre) === 0) kill.push(full); });
+      kill.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+    } catch (e) { /* nunca bloquear el logout por esto */ }
   }
 
   // ── API: registro / login ─────────────────────────────────────────────
@@ -449,6 +479,35 @@
     });
   }
   function logout() { return ready.then(function () { return auth.signOut(); }); }
+
+  // SEG · Idle-timeout REAL. El panel decía "Sesión protegida · expira en 4 horas de inactividad"
+  // pero no existía ningún temporizador: la persistencia es LOCAL, así que la sesión quedaba
+  // abierta indefinidamente. En un PC compartido de recepción eso deja las fichas médicas a la
+  // vista de cualquiera. Ahora la frase es cierta: 4 h sin actividad → cierre de sesión.
+  var IDLE_MS = 4 * 60 * 60 * 1000;
+  var _idleAt = Date.now(), _idleTimer = null;
+  function idleTouch() { _idleAt = Date.now(); }
+  function idleCheck() {
+    if (!state.clinicId) return;                 // sin sesión activa no hay nada que cerrar
+    if (Date.now() - _idleAt < IDLE_MS) return;
+    try { if (window.jcmToast) window.jcmToast('Sesión cerrada por inactividad.', 'info'); } catch (e) {}
+    idleStop();
+    logout().then(function () { try { location.reload(); } catch (e) {} });
+  }
+  function idleStart() {
+    if (_idleTimer) return;
+    idleTouch();
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'visibilitychange'].forEach(function (ev) {
+      try { window.addEventListener(ev, idleTouch, { passive: true }); } catch (e) {}
+    });
+    _idleTimer = setInterval(idleCheck, 60000); // se comprueba cada minuto
+  }
+  function idleStop() {
+    if (_idleTimer) { clearInterval(_idleTimer); _idleTimer = null; }
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'visibilitychange'].forEach(function (ev) {
+      try { window.removeEventListener(ev, idleTouch); } catch (e) {}
+    });
+  }
   function resetPassword(email) {
     var e = (email || '').trim().toLowerCase();
     // Primero el correo propio (Resend, mejor entregabilidad). Si el endpoint no responde OK,

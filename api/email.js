@@ -85,7 +85,10 @@ function clip(s, n) { return String(s == null ? '' : s).trim().slice(0, n); }
 async function handleLead(req, res) {
   const body = req.body || {};
   if (body.website || body.hp) return res.status(200).json({ ok: true }); // honeypot: bot → no-op silencioso
-  const ip = (req.headers['x-forwarded-for'] || 'ip').toString().split(',')[0].trim();
+  // SEG · La IP real va al FINAL del X-Forwarded-For (la primera entrada la pone el cliente y hacía
+  // el límite por IP evadible). Vercel expone la real en x-real-ip.
+  const _xff = (req.headers['x-forwarded-for'] || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+  const ip = ((req.headers['x-real-ip'] || '').toString().trim()) || _xff[_xff.length - 1] || 'ip';
   if (leadTooMany(ip)) return res.status(429).json({ ok: false, error: "Demasiadas solicitudes seguidas. Intenta más tarde." });
   const nombre = clip(body.nombre, 120), clinica = clip(body.clinica, 120), email = clip(body.email, 160);
   const fono = clip(body.fono, 40), plan = clip(body.plan, 40), msg = clip(body.msg, 2000);

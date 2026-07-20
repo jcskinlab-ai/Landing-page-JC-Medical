@@ -42,8 +42,17 @@ service cloud.firestore {
                            && get(/databases/$(database)/documents/clinics/$(request.resource.data.clinicId)).data.ownerUid == request.auth.uid;
       // En update, el clinicId NO puede cambiar: evita que un usuario se reasigne a otra clínica
       // y obtenga acceso a sus datos (myClinic() lee este campo).
+      // SEG · role/perms/createdBy también se congelan: son campos de AUTORIZACIÓN y este doc lo
+      // escribe el propio usuario. Sin esto, un profesional se ponía role:'owner' (o borraba el
+      // campo, porque api/team-access.js usaba el fallback "owner") y pasaba a gestionar accesos
+      // de la clínica: crear cuentas, fijar contraseñas y revocar a otros. Solo el Admin SDK
+      // (api/team-access.js, que ignora estas reglas) debe escribirlos.
+      // Se usa .get(campo, default) para no romper en docs antiguos que no traigan el campo.
       allow update:        if signedIn() && request.auth.uid == uid
-                           && request.resource.data.clinicId == resource.data.clinicId;
+                           && request.resource.data.clinicId == resource.data.clinicId
+                           && request.resource.data.get('role', '') == resource.data.get('role', '')
+                           && request.resource.data.get('perms', {}) == resource.data.get('perms', {})
+                           && request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '');
       // Solo el super-admin puede eliminar el mapeo (al borrar una clínica desde la consola).
       allow delete:        if isSuper();
     }
@@ -80,9 +89,16 @@ service cloud.firestore {
 
     // Perfil público de la clínica (marca, dirección, horarios, precios) para la
     // app de pacientes y la reserva. Lectura libre; solo la clínica lo escribe.
-    match /tenants/{clinicId}/public/{doc} {
+    // SEG · Antes era /public/{doc} con comodín y sin clinicActive: cualquier miembro de la clínica
+    // —incluida una en plan 'pending' nunca aprobada— podía escribir documentos arbitrarios de
+    // hasta 1 MiB en una ruta de lectura pública (defacement de la página de reserva, o el proyecto
+    // usado como hosting de contenido ajeno). El único doc que la app usa es 'profile'.
+    // NOTA para el dueño: este doc es de lectura LIBRE y hoy incluye los datos de transferencia
+    // (banco, titular, RUT, número) — quien conozca el clinicId, que va en las URLs públicas ?c=,
+    // los puede leer. Es intencional para la reserva, pero conviene decidirlo a conciencia.
+    match /tenants/{clinicId}/public/profile {
       allow read:  if true;
-      allow write: if signedIn() && myClinic() == clinicId;
+      allow write: if signedIn() && myClinic() == clinicId && clinicActive(clinicId);
     }
 
     // Reservas que dejan los pacientes (sin login): pueden CREAR una reserva en su
@@ -93,8 +109,15 @@ service cloud.firestore {
                     && request.resource.data.name.size() < 120
                     && request.resource.data.phone is string
                     && request.resource.data.phone.size() < 30
-                    && (!('note' in request.resource.data) || request.resource.data.note.size() < 1000)
-                    && (!('proc' in request.resource.data) || request.resource.data.proc.size() < 200)
+                    // SEG · hay que exigir `is string` ANTES de .size(): sobre una lista, .size()
+                    // devuelve el NÚMERO DE ELEMENTOS, no bytes. Sin el chequeo de tipo bastaba
+                    // mandar note: ["<100 KB>", "<100 KB>", ...] (size()=5) para colar un doc de
+                    // ~1 MiB y llenar la bandeja de reservas de cualquier clínica activa.
+                    && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() < 1000))
+                    && (!('proc' in request.resource.data) || (request.resource.data.proc is string && request.resource.data.proc.size() < 200))
+                    && (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() < 160))
+                    && (!('fecha' in request.resource.data) || (request.resource.data.fecha is string && request.resource.data.fecha.size() < 20))
+                    && (!('time' in request.resource.data) || (request.resource.data.time is string && request.resource.data.time.size() < 20))
                     && request.resource.data.createdAt is number
                     && request.resource.data.createdAt >= request.time.toMillis() - 300000
                     && request.resource.data.createdAt <= request.time.toMillis() + 300000
@@ -107,8 +130,9 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasOnly(['name','email','phone','kind','ig','tiktok','ciudad','redPrincipal','reach','views','audiencia','ofrece','proc','message','createdAt'])
                     && request.resource.data.name is string
                     && request.resource.data.name.size() < 120
-                    && (!('message' in request.resource.data) || request.resource.data.message.size() < 2000)
-                    && (!('ofrece' in request.resource.data) || request.resource.data.ofrece.size() < 1000)
+                    // SEG · `is string` antes de .size() (ver el comentario en bookings).
+                    && (!('message' in request.resource.data) || (request.resource.data.message is string && request.resource.data.message.size() < 2000))
+                    && (!('ofrece' in request.resource.data) || (request.resource.data.ofrece is string && request.resource.data.ofrece.size() < 1000))
                     && request.resource.data.createdAt is number
                     && request.resource.data.createdAt >= request.time.toMillis() - 300000
                     && request.resource.data.createdAt <= request.time.toMillis() + 300000
@@ -122,7 +146,19 @@ service cloud.firestore {
       // C-02: el ALTA pública se acota como las reservas (shape + createdAt ±5 min + clínica
       // activa) para bloquear spam masivo y altas en clínicas inexistentes/suspendidas.
       allow create: if request.resource.data.keys().hasOnly(['name','phone','email','points','created','createdAt'])
-                    && request.resource.data.size() < 1000
+                    // OJO: request.resource.data.size() cuenta CLAVES del mapa, no bytes; con el
+                    // hasOnly de 6 claves este chequeo no aporta nada. Los topes reales son los de
+                    // tipo/longitud de abajo.
+                    && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() < 120))
+                    && (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() < 30))
+                    && (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() < 160))
+                    // SEG · `points` venía en el hasOnly SIN restringir su valor: un paciente se
+                    // registraba con points: 999999 e importWebAppUsers los copiaba tal cual al
+                    // panel, canjeando descuentos falsos. El alta anónima debe traer 0; solo la
+                    // clínica logueada puede fijar puntos.
+                    && ((signedIn() && myClinic() == clinicId)
+                        || !('points' in request.resource.data)
+                        || request.resource.data.points == 0)
                     && request.resource.data.createdAt is number
                     && request.resource.data.createdAt >= request.time.toMillis() - 300000
                     && request.resource.data.createdAt <= request.time.toMillis() + 300000
@@ -147,7 +183,8 @@ service cloud.firestore {
                     && request.resource.data.stars >= 1 && request.resource.data.stars <= 5
                     && request.resource.data.name is string
                     && request.resource.data.name.size() < 120
-                    && (!('comment' in request.resource.data) || request.resource.data.comment.size() < 2000)
+                    // SEG · `is string` antes de .size() (ver el comentario en bookings).
+                    && (!('comment' in request.resource.data) || (request.resource.data.comment is string && request.resource.data.comment.size() < 2000))
                     && request.resource.data.createdAt is number
                     && request.resource.data.createdAt >= request.time.toMillis() - 300000
                     && request.resource.data.createdAt <= request.time.toMillis() + 300000

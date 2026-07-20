@@ -294,6 +294,25 @@ function adminNavItems() {
     return true;
   });
 }
+function sectionAllowedFor(section) {
+  try {
+    var role = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole ? window.JCSAAS.currentRole() : "owner";
+    if (role !== "professional") return true;
+    var perms = window.JCSAAS.currentPerms && window.JCSAAS.currentPerms() || {};
+    var allowed = {};
+    Object.keys(PERM_NAV).forEach(function(p) {
+      if (perms[p]) PERM_NAV[p].forEach(function(k) {
+        allowed[k] = 1;
+      });
+    });
+    return !!allowed[section];
+  } catch (e) {
+    return false;
+  }
+}
+function SinPermisoView({ T }) {
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "64px 24px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "34", height: "34", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "1.5" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "11", width: "18", height: "10", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M7 11V8a5 5 0 0 1 10 0v3" })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text, margin: "14px 0 6px" } }, "Sin acceso a esta secci\xF3n"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, maxWidth: 380, lineHeight: 1.55 } }, "Tu cuenta no tiene permiso para ver este contenido. Si lo necesitas, p\xEDdeselo al administrador de la cl\xEDnica."));
+}
 function scopeClinicData() {
   if (!(window.JCSAAS && window.JCSAAS.enabled)) return;
   var clinic = window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {};
@@ -1596,12 +1615,14 @@ function AdminApp() {
     try {
       var role = window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole ? window.JCSAAS.currentRole() : "owner";
       if (role !== "professional") return;
-      if (openPatient) return;
       var items = adminNavItems();
       var ok = items.some(function(n) {
         return n.k === section;
       });
-      if (!ok) setSection(items[0] && items[0].k || "dashboard");
+      if (!ok) {
+        setOpenPatient(null);
+        setSection(items[0] && items[0].k || "dashboard");
+      }
     } catch (e) {
     }
   }, [section, openPatient]);
@@ -1857,6 +1878,7 @@ function AdminApp() {
   else if (section === "convenios") body = /* @__PURE__ */ React.createElement(ConveniosView, { T });
   else if (section === "boletas") body = /* @__PURE__ */ React.createElement(BoletasView, { T, patients });
   else if (section === "pagosonline") body = /* @__PURE__ */ React.createElement(PagosOnlineView, { T, patients });
+  if (!sectionAllowedFor(section)) body = /* @__PURE__ */ React.createElement(SinPermisoView, { T });
   const RAIL = 60, EXP = 212;
   const shellLux = typeof isLosMedique === "function" && isLosMedique();
   const everestBg = shellLux ? T.dark ? "linear-gradient(rgba(9,11,15,.80), rgba(9,11,15,.90)), url('/assets/everest.jpg')" : "linear-gradient(rgba(238,238,240,.84), rgba(238,238,240,.91)), url('/assets/everest.jpg')" : null;
@@ -4351,11 +4373,16 @@ function SaasGate() {
           } else if (r && r.ok) {
             setPhase("otp");
             otpSend();
-          } else {
+          } else if (r && r.configured === false) {
+            console.error("[2FA] /api/otp no est\xE1 configurado (falta OTP_SECRET): el segundo factor NO se est\xE1 aplicando.");
             proceed();
+          } else {
+            setPhase("auth");
+            setErr("No pudimos verificar el segundo factor. Revisa tu conexi\xF3n e int\xE9ntalo de nuevo.");
           }
         }).catch(function() {
-          proceed();
+          setPhase("auth");
+          setErr("No pudimos verificar el segundo factor. Revisa tu conexi\xF3n e int\xE9ntalo de nuevo.");
         });
         return;
       }

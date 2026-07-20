@@ -47,11 +47,20 @@ function todayCL() {
   } catch (e) { return new Date().toISOString().slice(0, 10); }
 }
 
+// SEG/ALTO-07 · fetch con timeout. El fix original solo se aplicó a api/ai.js; este webhook seguía
+// con fetch pelado, así que si Groq se cuelga la función corre hasta el límite de Vercel, Meta
+// reintenta el webhook (amplificación de coste) y el paciente nunca recibe respuesta.
+async function fetchWithTimeout(url, opts, ms) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || 20000);
+  try { return await fetch(url, Object.assign({}, opts, { signal: ctl.signal })); }
+  finally { clearTimeout(t); }
+}
 // ── Llama a Groq y devuelve el texto de la respuesta ──
 async function askGroq(messages) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("falta GROQ_API_KEY");
-  const r = await fetch(GROQ_URL, {
+  const r = await fetchWithTimeout(GROQ_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({

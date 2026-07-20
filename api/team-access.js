@@ -115,6 +115,33 @@ function pTooMany(key) {
   return r.count > 6;
 }
 function pAttReset(key) { _pAtt.delete(key); }
+// SEG · Rate-limit PERSISTENTE (Firestore). El Map de arriba vive en memoria: se reinicia en cada
+// cold start y es por-instancia, así que en Vercel se evadía lanzando peticiones en paralelo. Con
+// eso, forzar por fuerza bruta las 3 respuestas de seguridad (entropía baja: mascota, ciudad natal)
+// era viable y daba acceso al historial clínico del paciente. Este contador es común a todas las
+// instancias y sobrevive a los cold starts. Se usa ADEMÁS del de memoria, no en su lugar.
+function pThrottleRef(db, key) {
+  return db.collection("portalThrottle").doc(String(key).replace(/[^\w|.-]/g, "_").slice(0, 400));
+}
+async function pTooManyDb(db, key) {
+  try {
+    return await db.runTransaction(async (tx) => {
+      const ref = pThrottleRef(db, key);
+      const snap = await tx.get(ref);
+      const now = Date.now();
+      const d = snap.exists ? snap.data() : null;
+      const fresh = !d || (now - (d.ts || 0)) > 900000; // ventana de 15 min
+      const count = (fresh ? 0 : (d.count || 0)) + 1;
+      tx.set(ref, { ts: fresh ? now : (d.ts || now), count, at: now });
+      return count > 6;
+    });
+  } catch (e) {
+    // Si Firestore falla no bloqueamos al paciente legítimo: queda el contador en memoria.
+    console.error("[portal] throttle", e.message || e);
+    return false;
+  }
+}
+async function pAttResetDb(db, key) { try { await pThrottleRef(db, key).delete(); } catch (e) {} }
 // Envío de WhatsApp (Cloud API). Devuelve true/false; nunca lanza (fallback = link manual).
 async function pSendWhats(to, body) {
   const token = process.env.WHATSAPP_TOKEN, phoneId = process.env.WHATSAPP_PHONE_ID;
@@ -147,7 +174,11 @@ function pSafeHistory(history) {
 
 // Acciones PÚBLICAS del portal (sin Firebase; identidad por RUT / token propio).
 async function portalPublic(req, res, action, body, db, SECRET) {
-  const ipKey = (req.headers["x-forwarded-for"] || "ip").toString().split(",")[0].trim();
+  // SEG · La IP real la agrega el proxy al FINAL de X-Forwarded-For; la PRIMERA entrada la controla
+  // el cliente, así que tomarla dejaba el tope por IP totalmente evadible (una IP distinta por
+  // request). Vercel expone la real en x-real-ip; si falta, se usa la ÚLTIMA entrada del XFF.
+  const _xff = (req.headers["x-forwarded-for"] || "").toString().split(",").map(s => s.trim()).filter(Boolean);
+  const ipKey = ((req.headers["x-real-ip"] || "").toString().trim()) || _xff[_xff.length - 1] || "ip";
 
   if (action === "portal-verify-token") {
     const p = pReadToken(SECRET, body.token);
@@ -155,6 +186,8 @@ async function portalPublic(req, res, action, body, db, SECRET) {
     const aDoc = await db.collection("tenants").doc(p.clinicId).collection("portalauth").doc(p.rutKey).get();
     const a = aDoc.exists ? aDoc.data() : null;
     if (!a || !a.authorized) return res.status(403).json({ ok: false, error: "El acceso no está autorizado por la clínica." });
+    // SEG · un solo uso: el enlace deja de servir apenas se consume (ver portal-register).
+    if (!a.activateJti || p.jti !== a.activateJti) return res.status(400).json({ ok: false, error: "Este enlace ya se usó o venció. Pídele a la clínica que lo reenvíe." });
     return res.status(200).json({ ok: true, name: a.name || "", alreadySet: a.status === "active" });
   }
 
@@ -165,6 +198,12 @@ async function portalPublic(req, res, action, body, db, SECRET) {
     const aDoc = await aRef.get();
     const a = aDoc.exists ? aDoc.data() : null;
     if (!a || !a.authorized) return res.status(403).json({ ok: false, error: "El acceso no está autorizado por la clínica." });
+    // SEG · UN SOLO USO. El comentario original decía "link de un solo uso" pero nada lo hacía
+    // cumplir: el token seguía sirviendo sus 48 h completas aunque el paciente ya lo hubiera usado,
+    // así que cualquiera con el enlace (WhatsApp reenviado, teléfono prestado, captura, historial)
+    // podía redefinir clave y preguntas y quedarse con la cuenta. Ahora el jti del token tiene que
+    // coincidir con el guardado, y se invalida al consumirlo.
+    if (!a.activateJti || p.jti !== a.activateJti) return res.status(400).json({ ok: false, error: "Este enlace ya se usó o venció. Pídele a la clínica que lo reenvíe." });
     const password = String(body.password || "");
     if (password.length < 6) return res.status(400).json({ ok: false, error: "La clave debe tener al menos 6 caracteres." });
     const questions = Array.isArray(body.questions) ? body.questions.map(q => String(q || "").trim().slice(0, 160)) : [];
@@ -173,7 +212,8 @@ async function portalPublic(req, res, action, body, db, SECRET) {
       return res.status(400).json({ ok: false, error: "Define las 3 preguntas de seguridad con sus respuestas." });
     const pw = pPbkdf2(password);
     const secQ = questions.map((q, i) => { const h = pPbkdf2(answers[i]); return { q, hash: h.hash, salt: h.salt }; });
-    await aRef.set({ hash: pw.hash, salt: pw.salt, secQ, status: "active", registeredAt: Date.now() }, { merge: true });
+    // activateJti a null = enlace consumido. tokenVer sube para invalidar sesiones anteriores.
+    await aRef.set({ hash: pw.hash, salt: pw.salt, secQ, status: "active", registeredAt: Date.now(), activateJti: null, tokenVer: (a.tokenVer || 0) + 1 }, { merge: true });
     return res.status(200).json({ ok: true });
   }
 
@@ -181,7 +221,7 @@ async function portalPublic(req, res, action, body, db, SECRET) {
     const rk = pRutKey(body.rut);
     const genericErr = { ok: false, error: "RUT o clave incorrectos." };
     if (!rk) return res.status(400).json(genericErr);
-    if (pTooMany("login|" + rk) || pTooMany("loginip|" + ipKey)) return res.status(429).json({ ok: false, error: "Demasiados intentos. Espera unos minutos." });
+    if (pTooMany("login|" + rk) || pTooMany("loginip|" + ipKey) || await pTooManyDb(db, "login|" + rk)) return res.status(429).json({ ok: false, error: "Demasiados intentos. Espera unos minutos." });
     const idxDoc = await db.collection("portalIndex").doc(rk).get();
     const clinicId = idxDoc.exists ? idxDoc.data().clinicId : null;
     if (!clinicId) return res.status(401).json(genericErr);
@@ -189,14 +229,23 @@ async function portalPublic(req, res, action, body, db, SECRET) {
     const a = aDoc.exists ? aDoc.data() : null;
     if (!a || !a.authorized || a.status !== "active" || !a.hash) return res.status(401).json(genericErr);
     if (!pPbkdf2Verify(body.password, a.hash, a.salt)) return res.status(401).json(genericErr);
-    pAttReset("login|" + rk);
-    const token = pSignToken(SECRET, { clinicId, patientId: a.patientId, rutKey: rk, typ: "sess", exp: Date.now() + 24 * 60 * 60 * 1000 });
+    pAttReset("login|" + rk); await pAttResetDb(db, "login|" + rk);
+    // `ver` permite invalidar sesiones vivas: si la clínica revoca el acceso (o el paciente cambia
+    // la clave), tokenVer sube y los tokens emitidos antes dejan de validar en portal-me.
+    const token = pSignToken(SECRET, { clinicId, patientId: a.patientId, rutKey: rk, typ: "sess", ver: (a.tokenVer || 0), exp: Date.now() + 24 * 60 * 60 * 1000 });
     return res.status(200).json({ ok: true, token, name: a.name || "" });
   }
 
   if (action === "portal-me") {
     const p = pReadToken(SECRET, body.token);
     if (!p || p.typ !== "sess") return res.status(401).json({ ok: false, error: "Sesión expirada. Inicia sesión de nuevo." });
+    // SEG · Revalidar contra portalauth en CADA lectura. Antes solo se comprobaba la firma y el exp
+    // del token, así que `portal-revoke` no surtía efecto hasta 24 h después: la clínica creía haber
+    // cortado el acceso y el token seguía entregando la ficha clínica completa.
+    const sAuthDoc = await db.collection("tenants").doc(p.clinicId).collection("portalauth").doc(p.rutKey).get();
+    const sAuth = sAuthDoc.exists ? sAuthDoc.data() : null;
+    if (!sAuth || !sAuth.authorized || sAuth.status !== "active" || (sAuth.tokenVer || 0) !== (p.ver || 0))
+      return res.status(401).json({ ok: false, error: "Sesión expirada. Inicia sesión de nuevo." });
     const patients = (await pReadKv(db, p.clinicId, "patients")) || [];
     const pat = patients.find(x => x.id === p.patientId);
     if (!pat) return res.status(404).json({ ok: false, error: "Ficha no encontrada." });
@@ -223,7 +272,7 @@ async function portalPublic(req, res, action, body, db, SECRET) {
 
   if (action === "portal-recover-start") {
     const rk = pRutKey(body.rut);
-    if (!rk || pTooMany("recover|" + rk) || pTooMany("recoverip|" + ipKey)) return res.status(429).json({ ok: false, error: "Demasiados intentos. Espera unos minutos." });
+    if (!rk || pTooMany("recover|" + rk) || pTooMany("recoverip|" + ipKey) || await pTooManyDb(db, "recover|" + rk)) return res.status(429).json({ ok: false, error: "Demasiados intentos. Espera unos minutos." });
     const idxDoc = await db.collection("portalIndex").doc(rk).get();
     const clinicId = idxDoc.exists ? idxDoc.data().clinicId : null;
     if (!clinicId) return res.status(404).json({ ok: false, error: "No hay una cuenta activa para ese RUT." });
@@ -235,7 +284,7 @@ async function portalPublic(req, res, action, body, db, SECRET) {
 
   if (action === "portal-recover-verify") {
     const rk = pRutKey(body.rut);
-    if (!rk || pTooMany("recover2|" + rk) || pTooMany("recoverip|" + ipKey)) return res.status(429).json({ ok: false, error: "Demasiados intentos. Espera unos minutos." });
+    if (!rk || pTooMany("recover2|" + rk) || pTooMany("recoverip|" + ipKey) || await pTooManyDb(db, "recover2|" + rk)) return res.status(429).json({ ok: false, error: "Demasiados intentos. Espera unos minutos." });
     const answers = Array.isArray(body.answers) ? body.answers.map(pNormAnswer) : [];
     const newPassword = String(body.newPassword || "");
     if (answers.length !== 3) return res.status(400).json({ ok: false, error: "Responde las 3 preguntas." });
@@ -250,8 +299,19 @@ async function portalPublic(req, res, action, body, db, SECRET) {
     const allOk = a.secQ.every((q, i) => pPbkdf2Verify(answers[i], q.hash, q.salt));
     if (!allOk) return res.status(401).json({ ok: false, error: "Alguna respuesta no coincide." });
     const pw = pPbkdf2(newPassword);
-    await aRef.set({ hash: pw.hash, salt: pw.salt, recoveredAt: Date.now() }, { merge: true });
+    // tokenVer sube: un cambio de clave invalida las sesiones abiertas con la clave anterior.
+    await aRef.set({ hash: pw.hash, salt: pw.salt, recoveredAt: Date.now(), tokenVer: (a.tokenVer || 0) + 1 }, { merge: true });
     pAttReset("recover|" + rk); pAttReset("recover2|" + rk);
+    await pAttResetDb(db, "recover|" + rk); await pAttResetDb(db, "recover2|" + rk);
+    // SEG · Avisar al WhatsApp registrado. La recuperación es puramente knowledge-based (RUT + 3
+    // respuestas adivinables), así que este aviso es la red de seguridad: si no fue el paciente,
+    // se entera y puede pedirle a la clínica que revoque. No reemplaza a un 2º factor real.
+    try {
+      const pats = (await pReadKv(db, clinicId, "patients")) || [];
+      const pat2 = pats.find(x => x.id === a.patientId);
+      const ph2 = pWaPhone(pat2 && pat2.phone);
+      if (ph2) await pSendWhats(ph2, "Se acaba de cambiar la clave de tu portal de paciente. Si no fuiste tú, avísale a tu clínica de inmediato.");
+    } catch (e) {}
     return res.status(200).json({ ok: true });
   }
 
@@ -275,20 +335,40 @@ async function portalAdmin(res, action, body, db, clinicId, callerUid, caller, S
 
   if (action === "portal-revoke") {
     if (!rk) return res.status(400).json({ ok: false, error: "El paciente no tiene RUT." });
-    await db.collection("tenants").doc(clinicId).collection("portalauth").doc(rk).set({ authorized: false, status: "revoked", revokedAt: Date.now(), revokedBy: callerUid }, { merge: true });
+    const rRef = db.collection("tenants").doc(clinicId).collection("portalauth").doc(rk);
+    const rDoc = await rRef.get();
+    const rPrev = rDoc.exists ? rDoc.data() : null;
+    // SEG · tokenVer sube e invalida las sesiones ya emitidas (portal-me lo comprueba). Antes la
+    // revocación no cortaba nada: el token vivía sus 24 h y seguía entregando la ficha.
+    // activateJti a null: un enlace de activación pendiente tampoco debe seguir sirviendo.
+    await rRef.set({ authorized: false, status: "revoked", revokedAt: Date.now(), revokedBy: callerUid, activateJti: null, tokenVer: ((rPrev && rPrev.tokenVer) || 0) + 1 }, { merge: true });
     return res.status(200).json({ ok: true, status: "revoked" });
   }
 
   // action === "portal-activate"
   if (!rk) return res.status(400).json({ ok: false, error: "El paciente no tiene RUT registrado. Agrégalo en su ficha antes de activar el portal." });
   const phone = pWaPhone(pat.phone);
+  // SEG · portalIndex es un índice GLOBAL de RUT → clínica. Antes se sobrescribía sin mirar, así
+  // que si otra clínica activaba el portal para el mismo RUT (paciente atendido en dos clínicas
+  // Medique, o a propósito), el paciente original quedaba fuera de su portal. Ahora no se pisa una
+  // activación vigente ajena: la clínica anterior debe revocar primero.
+  const idxRef = db.collection("portalIndex").doc(rk);
+  const idxPrev = await idxRef.get();
+  const prevClinic = idxPrev.exists ? (idxPrev.data() || {}).clinicId : null;
+  if (prevClinic && prevClinic !== clinicId) {
+    const oDoc = await db.collection("tenants").doc(prevClinic).collection("portalauth").doc(rk).get();
+    const o = oDoc.exists ? oDoc.data() : null;
+    if (o && o.authorized) return res.status(409).json({ ok: false, error: "Ese RUT ya tiene un portal activo en otra clínica. Debe revocarlo allí antes de activarlo aquí." });
+  }
+  // jti: nonce que hace el enlace de activación de un solo uso (ver portal-register).
+  const jti = crypto.randomBytes(16).toString("hex");
   await db.collection("tenants").doc(clinicId).collection("portalauth").doc(rk).set({
     clinicId, patientId: pat.id, name: pat.name || "", authorized: true, status: "pending",
-    activatedBy: callerUid, activatedAt: Date.now()
+    activatedBy: callerUid, activatedAt: Date.now(), activateJti: jti
   }, { merge: true });
-  await db.collection("portalIndex").doc(rk).set({ clinicId });
+  await idxRef.set({ clinicId });
   const exp = Date.now() + 48 * 60 * 60 * 1000;
-  const token = pSignToken(SECRET, { clinicId, rutKey: rk, patientId: pat.id, typ: "activate", exp });
+  const token = pSignToken(SECRET, { clinicId, rutKey: rk, patientId: pat.id, typ: "activate", jti, exp });
   const link = PORTAL_BASE + "/?activar=" + encodeURIComponent(token);
   const clinicName = (caller && caller.clinicName) || "tu clínica";
   const msg = "Hola " + ((pat.name || "").split(" ")[0] || "") + ", activaste el acceso a tu ficha en " + clinicName +
@@ -356,18 +436,9 @@ export default async function handler(req, res) {
 
     const preBody = req.body && typeof req.body === "object" ? req.body : {};
 
-    // ── Generar link de pago (cualquier usuario del panel; no requiere Admin SDK) ──
-    if (preBody.action === "pay-link") {
-      const provider = ("" + (preBody.provider || "")).toLowerCase();
-      const amount = Math.round(parseFloat(preBody.amount) || 0);
-      const desc = ("" + (preBody.desc || "Atención")).slice(0, 120);
-      if (amount < 100) return res.status(400).json({ ok: false, error: "Monto inválido." });
-      let pr;
-      if (provider.indexOf("mercado") >= 0) pr = await mercadoPago(amount, desc, safeOrigin);
-      else if (provider.indexOf("flow") >= 0) pr = await flow(amount, desc, safeOrigin);
-      else return res.status(400).json({ ok: false, error: "Proveedor no soportado aún. Usa Mercado Pago o Flow." });
-      return res.status(pr.ok ? 200 : 502).json(pr);
-    }
+    // SEG · "pay-link" estaba AQUÍ, antes de resolver la clínica: bastaba cualquier cuenta del
+    // proyecto para generar links de cobro ilimitados contra las credenciales de pasarela de la
+    // PLATAFORMA. Se movió más abajo, después de exigir clínica con plan vigente.
 
     const { auth, db } = await getAdmin();
 
@@ -375,8 +446,40 @@ export default async function handler(req, res) {
     const callerDoc = await db.collection("users").doc(callerUid).get();
     const caller = callerDoc.exists ? callerDoc.data() : null;
     if (!caller || !caller.clinicId) return res.status(403).json({ ok: false, error: "Tu cuenta no está asociada a una clínica." });
-    if ((caller.role || "owner") === "professional") return res.status(403).json({ ok: false, error: "Solo el dueño de la clínica puede gestionar accesos." });
     const clinicId = caller.clinicId;
+
+    // ── Generar link de pago ──
+    // Va DESPUÉS de resolver la clínica: exige pertenecer a una con plan vigente. No exige ser
+    // dueño (recepción también cobra), pero ya no lo puede llamar cualquier cuenta del proyecto.
+    if (preBody.action === "pay-link") {
+      const cDoc0 = await db.collection("clinics").doc(clinicId).get();
+      const plan0 = cDoc0.exists ? ((cDoc0.data() || {}).plan || "") : "";
+      if (["active", "comp", "trial"].indexOf(plan0) < 0) return res.status(403).json({ ok: false, error: "Tu clínica no tiene un plan vigente." });
+      const provider = ("" + (preBody.provider || "")).toLowerCase();
+      const amount = Math.round(parseFloat(preBody.amount) || 0);
+      const desc = ("" + (preBody.desc || "Atención")).slice(0, 120);
+      if (amount < 100) return res.status(400).json({ ok: false, error: "Monto inválido." });
+      if (amount > 20000000) return res.status(400).json({ ok: false, error: "Monto fuera de rango." });
+      let pr;
+      if (provider.indexOf("mercado") >= 0) pr = await mercadoPago(amount, desc, safeOrigin);
+      else if (provider.indexOf("flow") >= 0) pr = await flow(amount, desc, safeOrigin);
+      else return res.status(400).json({ ok: false, error: "Proveedor no soportado aún. Usa Mercado Pago o Flow." });
+      return res.status(pr.ok ? 200 : 502).json(pr);
+    }
+
+    // SEG · La autorización NO puede depender de users/{uid}.role: ese doc lo escribe el PROPIO
+    // usuario (firestore.rules permite el update de su mapeo), así que un profesional podía
+    // ponerse role:'owner' — o borrar el campo, porque el fallback era "owner" — y pasar por aquí.
+    // La fuente de verdad es clinics/{clinicId}.ownerUid, que las reglas congelan en el update.
+    const clinicDoc = await db.collection("clinics").doc(clinicId).get();
+    const ownerUid = clinicDoc.exists ? ((clinicDoc.data() || {}).ownerUid || "") : "";
+    if (ownerUid) {
+      if (ownerUid !== callerUid) return res.status(403).json({ ok: false, error: "Solo el dueño de la clínica puede gestionar accesos." });
+    } else {
+      // Clínicas antiguas sin ownerUid: se cae al chequeo por rol (débil, pero mitigado porque las
+      // reglas ya congelan role/perms). Rama a ELIMINAR cuando se rellene ownerUid en todas.
+      if ((caller.role || "owner") === "professional") return res.status(403).json({ ok: false, error: "Solo el dueño de la clínica puede gestionar accesos." });
+    }
 
     const body = req.body || {};
     const action = body.action;
@@ -401,13 +504,25 @@ export default async function handler(req, res) {
       let existing = null;
       try { existing = await auth.getUserByEmail(email); } catch (e) { existing = null; }
       if (existing) {
-        // Si ya tiene cuenta y pertenece a OTRA clínica, no la tocamos.
+        // SEG · FAIL-CLOSED. Antes el guard era `if (ex && ex.clinicId && ex.clinicId !== clinicId)`:
+        // una cuenta SIN doc users/{uid} — o con doc sin clinicId — no lo activaba y caía al camino
+        // de abajo, que le REESCRIBE la contraseña. Las cuentas super-admin no pertenecen a ninguna
+        // clínica, así que cualquier dueño podía apropiarse de la cuenta maestra del SaaS enviando
+        // su correo. Ahora solo se toca una cuenta que YA es demostrablemente de esta clínica.
         const exDoc = await db.collection("users").doc(existing.uid).get();
         const ex = exDoc.exists ? exDoc.data() : null;
-        if (ex && ex.clinicId && ex.clinicId !== clinicId) {
-          return res.status(409).json({ ok: false, error: "Ese correo ya tiene una cuenta en otra clínica." });
+        if (!ex || ex.clinicId !== clinicId) {
+          return res.status(409).json({ ok: false, error: "Ese correo ya tiene una cuenta y no pertenece a tu clínica." });
         }
-        // Mismo clínica (o sin doc): actualiza clave + perms y lo deja como profesional.
+        // Nunca por esta vía: la cuenta del dueño (evita que un miembro le cambie la clave y lo
+        // degrade) ni una cuenta con privilegios de plataforma.
+        if (ownerUid && existing.uid === ownerUid) {
+          return res.status(409).json({ ok: false, error: "La cuenta del dueño no se gestiona desde aquí." });
+        }
+        if (existing.customClaims && existing.customClaims.superAdmin === true) {
+          return res.status(409).json({ ok: false, error: "Esa cuenta no se puede gestionar desde aquí." });
+        }
+        // Miembro de esta clínica: actualiza clave + perms y lo deja como profesional.
         await auth.updateUser(existing.uid, { password: password });
         await db.collection("users").doc(existing.uid).set({ clinicId, role: "professional", perms, name, createdBy: callerUid, updatedAt: Date.now() }, { merge: true });
         return res.status(200).json({ ok: true, uid: existing.uid, email, updated: true });

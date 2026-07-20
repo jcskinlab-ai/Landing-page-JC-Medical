@@ -13,8 +13,11 @@
 //
 // NOTA de seguridad: la verificación es sin estado, pero AHORA limita los reintentos del código
 // en memoria (8 intentos / 10 min por uid) para frenar el brute-force de los 6 dígitos. El código
-// vence en 5 min y el endpoint exige token de Firebase + CORS propio; App Check bloquea peticiones
-// que no vengan de la app. El contador en memoria se reinicia en cold starts (aceptable: cada 'send'
+// vence en 5 min y el endpoint exige token de Firebase + CORS propio. (CORRECCIÓN: aquí se afirmaba
+// que "App Check bloquea peticiones que no vengan de la app" — es FALSO para este endpoint y para
+// todos los de api/: App Check se activa en el cliente pero NINGÚN endpoint verifica la cabecera
+// X-Firebase-AppCheck, así que no aporta defensa aquí.) El contador en memoria se reinicia en cold
+// starts (aceptable: cada 'send'
 // genera un código nuevo). Para un tope estricto a prueba de multi-instancia, migrar el OTP a
 // Firestore con Admin SDK (mejora futura).
 
@@ -131,7 +134,12 @@ export default async function handler(req, res) {
   // Enviar código al correo de la cuenta.
   if (action === 'send') {
     if (!email) return res.status(400).json({ ok: false, error: "Tu cuenta no tiene un correo para enviar el código." });
-    const code = '' + Math.floor(100000 + Math.random() * 900000);
+    // SEG · el envío también se limita. Antes solo 'verify' contaba intentos, así que se podían
+    // disparar códigos sin tope: quema de cuota de Resend y daño a la reputación del dominio.
+    if (otpTooMany('send|' + uid)) return res.status(429).json({ ok: false, error: "Demasiados códigos pedidos. Espera unos minutos." });
+    // SEG · Math.random() usa el PRNG no criptográfico de V8: observando salidas propias se puede
+    // reconstruir su estado y predecir el código emitido a otra cuenta en la misma instancia.
+    const code = '' + crypto.randomInt(100000, 1000000);
     const exp = now + 5 * 60 * 1000;
     const sig = hmac(SECRET, uid + '|' + code + '|' + exp);
     const sent = await sendEmail(email, code);
