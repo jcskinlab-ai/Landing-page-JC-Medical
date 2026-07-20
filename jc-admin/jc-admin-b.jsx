@@ -503,6 +503,9 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const fmtVisto = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) + ", " + new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "Sin abrir";
   const recitas = patients.map(p => ({ p, r: recitaFor(p) })).filter(x => x.r);
   const recitasDue = recitas.filter(x => x.r.vence);
+  // "Para contactar hoy" = vencidos que AÚN no se han enviado. Al tocar WhatsApp se marca como
+  // enviado (recitaSent) y el contador del encabezado baja en vivo; la fila sigue visible como "Enviado".
+  const recitasPend = recitasDue.filter(({ p, r }) => !recitaSent[recitaSentKey(p, r)]);
   const waLink = (p, r) => recitaWa(p, r);
   const fmtD = d => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
@@ -528,9 +531,9 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
         {chip("recientes", "Recientes", setFilt, filt)}{chip("calendario", "Calendario", setFilt, filt)}{chip("todos", "Todos", setFilt, filt)}{chip("agendado", "Agendado", setFilt, filt)}{chip("comprado", "Comprado", setFilt, filt)}{chip("interesado", "Interesado", setFilt, filt)}
       </div>
       {/* campañas de re-cita */}
-      <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasDue.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasDue.length ? "rgba(31,138,91,.35)" : T.line) }}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={recitasDue.length ? "#1F8A5B" : T.textMute} strokeWidth="1.6"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
-        <span style={{ flex: 1, textAlign: "left", fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>Campañas de re-cita por WhatsApp{recitasDue.length ? " · " + recitasDue.length + " para contactar hoy" : ""}</span>
+      <button onClick={() => setOpenCamp(!openCamp)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: recitasPend.length ? "rgba(31,138,91,.08)" : T.surface, border: "1px solid " + (recitasPend.length ? "rgba(31,138,91,.35)" : T.line) }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={recitasPend.length ? "#1F8A5B" : T.textMute} strokeWidth="1.6"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>
+        <span style={{ flex: 1, textAlign: "left", fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>Campañas de re-cita por WhatsApp{recitasPend.length ? " · " + recitasPend.length + " para contactar hoy" : (recitasDue.length ? " · todos contactados hoy" : "")}</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.6" style={{ transform: openCamp ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
       </button>
       {openCamp && (
