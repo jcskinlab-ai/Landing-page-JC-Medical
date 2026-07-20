@@ -521,9 +521,10 @@ function recitaFor(p) {
     fam = "sculptra";
     umbral = _rcMeses("recita_meses_sculptra", 2);
     precio = jcmProcPrice(lastScu && (lastScu.proc || lastScu.title) || tag) || 45e4;
+    const topeScu = _rcMeses("recita_sesiones_sculptra", 3);
     const ses = hist.filter((h) => scuRe.test(h.proc || h.title || "")).length || 1;
-    if (ses >= 3) return null;
-    motivo = "Sculptra \xB7 sesi\xF3n " + (ses + 1) + " de 3 (a " + umbral + " meses)";
+    if (ses >= topeScu) return null;
+    motivo = "Sculptra \xB7 sesi\xF3n " + (ses + 1) + " de " + topeScu + " (a " + umbral + " meses)";
     msg = "tu siguiente sesi\xF3n de Sculptra potencia y prolonga tu col\xE1geno (vas en la sesi\xF3n " + (ses + 1) + " de 3)";
     refTs = lastScu ? _recitaTs(lastScu.date || lastScu.fecha) : _recitaTs(p.lastVisit);
   } else {

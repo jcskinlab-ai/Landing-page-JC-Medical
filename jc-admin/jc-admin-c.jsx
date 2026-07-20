@@ -2556,20 +2556,21 @@ function RecitaPlazoCard({ T }) {
   const [tox, setTox] = useState(cfg0.recita_meses_toxina != null ? String(cfg0.recita_meses_toxina) : "");
   const [scu, setScu] = useState(cfg0.recita_meses_sculptra != null ? String(cfg0.recita_meses_sculptra) : "");
   const [rin, setRin] = useState(cfg0.recita_meses_rino != null ? String(cfg0.recita_meses_rino) : "");
+  const [scuTope, setScuTope] = useState(cfg0.recita_sesiones_sculptra != null ? String(cfg0.recita_sesiones_sculptra) : "");
   const [saved, setSaved] = useState(false);
   function save() {
     const clean = v => { const n = parseFloat(v); return (isFinite(n) && n > 0) ? n : null; };
-    const patch = { recita_meses_toxina: clean(tox), recita_meses_sculptra: clean(scu), recita_meses_rino: clean(rin) };
+    const patch = { recita_meses_toxina: clean(tox), recita_meses_sculptra: clean(scu), recita_meses_rino: clean(rin), recita_sesiones_sculptra: clean(scuTope) };
     try { DB.set("config", Object.assign({}, DB.cfg(), patch)); setSaved(true); setTimeout(() => setSaved(false), 1800); window.jcmToast && window.jcmToast("Plazos de re-cita guardados.", "ok"); } catch (e) {}
   }
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const inp = luxF ? { ...DS.ctl(T), width: "100%" } : { fontFamily: T.sans, fontSize: 13, padding: "9px 34px 9px 11px", borderRadius: 8, border: "1px solid " + T.line, background: T.bg, color: T.text, outline: "none", width: "100%", boxSizing: "border-box" };
-  const row = (label, val, set, def) => (
+  const row = (label, val, set, def, suf = "meses") => (
     <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 9 }}>
       <div style={{ flex: 1, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{label}</div>
       <div style={{ position: "relative", width: 140, flexShrink: 0 }}>
         <input value={val} onChange={e => set(e.target.value.replace(/[^\d.]/g, ""))} placeholder={"Ej. " + def} style={inp} />
-        <span style={{ position: "absolute", right: 11, top: "50%", transform: "translateY(-50%)", fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, pointerEvents: "none" }}>meses</span>
+        <span style={{ position: "absolute", right: 11, top: "50%", transform: "translateY(-50%)", fontFamily: T.sans, fontSize: 11.5, color: T.textFaint, pointerEvents: "none" }}>{suf}</span>
       </div>
     </div>
   );
@@ -2579,10 +2580,12 @@ function RecitaPlazoCard({ T }) {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
         Campaña re-cita · Plazos de recontacto
       </div>
-      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Define a los cuántos meses desde la última sesión un paciente aparece listo para recontactar en la campaña de re-cita. Si dejas un campo vacío, se usa el valor por defecto.</div>
+      <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginBottom: 14, lineHeight: 1.5 }}>Define a los cuántos meses desde la última sesión un paciente aparece listo para recontactar en la campaña de re-cita, y cuántas sesiones tiene el esquema de Sculptra. Si dejas un campo vacío, se usa el valor por defecto.</div>
       {row("💉 Toxina botulínica", tox, setTox, 3)}
       {row("🧬 Sculptra / bioestimulador", scu, setScu, 2)}
       {row("👃 Rinomodelación / relleno", rin, setRin, 10)}
+      <div style={{ height: 1, background: T.line, margin: "6px 0 11px" }} />
+      {row("🧬 Sculptra · sesiones del esquema", scuTope, setScuTope, 3, "sesiones")}
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
         <button onClick={save} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{saved ? "✓ Guardado" : "Guardar"}</button>
       </div>

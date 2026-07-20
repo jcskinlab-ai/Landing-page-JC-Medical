@@ -413,9 +413,10 @@ function recitaFor(p) {
   } else if (pick === "sculptra") {
     fam = "sculptra"; umbral = _rcMeses("recita_meses_sculptra", 2);
     precio = jcmProcPrice((lastScu && (lastScu.proc || lastScu.title)) || tag) || 450000; // valor actual del procedimiento
+    const topeScu = _rcMeses("recita_sesiones_sculptra", 3); // tope de sesiones configurable (por defecto 3)
     const ses = hist.filter(h => scuRe.test(h.proc || h.title || "")).length || 1;
-    if (ses >= 3) return null; // esquema de 3 sesiones completo
-    motivo = "Sculptra · sesión " + (ses + 1) + " de 3 (a " + umbral + " meses)";
+    if (ses >= topeScu) return null; // esquema completo
+    motivo = "Sculptra · sesión " + (ses + 1) + " de " + topeScu + " (a " + umbral + " meses)";
     msg = "tu siguiente sesión de Sculptra potencia y prolonga tu colágeno (vas en la sesión " + (ses + 1) + " de 3)";
     refTs = lastScu ? _recitaTs(lastScu.date || lastScu.fecha) : _recitaTs(p.lastVisit);
   } else {
