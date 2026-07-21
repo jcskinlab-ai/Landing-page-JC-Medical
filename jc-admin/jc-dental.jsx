@@ -476,8 +476,320 @@ function RxSlot({ T, url, readOnly, onPick, onDel }) {
   );
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+ * PLANO DE TRATAMIENTO · PRESUPUESTO DENTAL Y CUOTAS
+ * ────────────────────────────────────────────────────────────────────────────
+ * En estética un presupuesto es una COTIZACIÓN: se emite, se imprime y se
+ * archiva (patient.presupuestos, un array histórico). En odontología es otra
+ * cosa: un plano de tratamiento VIVO, con procedimientos que avanzan de
+ * pendiente a hecho, ligados a una pieza, aprobados por el paciente y pagados
+ * en cuotas a lo largo de meses.
+ *
+ * Por eso NO se toca `patient.presupuestos` (sigue igual, para estética) y el
+ * plano vive en `patient.presupuesto` (singular), como pide el documento.
+ * ════════════════════════════════════════════════════════════════════════════ */
+const PLAN_PRIORIDADES = [
+  { id: "alta",  label: "Alta",  desc: "Dolor o infección", peso: 0 },
+  { id: "media", label: "Media", desc: "Funcional",         peso: 1 },
+  { id: "baja",  label: "Baja",  desc: "Estético",          peso: 2 }
+];
+const PLAN_ESTADOS = [
+  { id: "pendiente", label: "Pendiente" },
+  { id: "encurso",   label: "En curso"  },
+  { id: "hecho",     label: "Hecho"     }
+];
+function planPrioridad(id) {
+  for (var i = 0; i < PLAN_PRIORIDADES.length; i++) if (PLAN_PRIORIDADES[i].id === id) return PLAN_PRIORIDADES[i];
+  return PLAN_PRIORIDADES[1];
+}
+function planEstadoLabel(id) {
+  for (var i = 0; i < PLAN_ESTADOS.length; i++) if (PLAN_ESTADOS[i].id === id) return PLAN_ESTADOS[i].label;
+  return "Pendiente";
+}
+function planGet(patient) {
+  var p = (patient && patient.presupuesto) || null;
+  return {
+    items:  (p && Array.isArray(p.items))  ? p.items  : [],
+    abonos: (p && Array.isArray(p.abonos)) ? p.abonos : [],
+    aprobacion: (p && p.aprobacion) || null,
+    ts: (p && p.ts) || 0
+  };
+}
+// Totales del plano. PURA: el dinero se prueba en harness, no a ojo.
+function planTotales(plan) {
+  var items = (plan && plan.items) || [], abonos = (plan && plan.abonos) || [], i;
+  var total = 0, hecho = 0, pendiente = 0;
+  for (i = 0; i < items.length; i++) {
+    var precio = Number(items[i].precio) || 0;
+    total += precio;
+    if (items[i].estado === "hecho") hecho += precio; else pendiente += precio;
+  }
+  var pagado = 0;
+  for (i = 0; i < abonos.length; i++) pagado += Number(abonos[i].monto) || 0;
+  return { total: total, pagado: pagado, saldo: total - pagado, valorHecho: hecho, valorPendiente: pendiente };
+}
+// Ordena por urgencia clínica: dolor/infección → funcional → estético. Los ya hechos van al final:
+// dejan de ser una decisión pendiente. Estable dentro de cada grupo (no reordena lo empatado).
+function planOrdenado(items) {
+  return ((items || []).map(function (it, i) { return { it: it, i: i }; })).sort(function (a, b) {
+    var ah = a.it.estado === "hecho" ? 1 : 0, bh = b.it.estado === "hecho" ? 1 : 0;
+    if (ah !== bh) return ah - bh;
+    var ap = planPrioridad(a.it.prioridad).peso, bp = planPrioridad(b.it.prioridad).peso;
+    if (ap !== bp) return ap - bp;
+    return a.i - b.i;
+  }).map(function (x) { return x.it; });
+}
+// Lo que el paciente puede ver (portal): sin precios internos ni notas privadas.
+function planPendientesPublicos(patient) {
+  var plan = planGet(patient);
+  return planOrdenado(plan.items).filter(function (it) { return it.estado !== "hecho"; }).map(function (it) {
+    return { proc: it.proc || "", pieza: it.pieza || "", prioridad: it.prioridad || "media", estado: it.estado || "pendiente" };
+  });
+}
+
+function PlanDentalTab({ T, patient, updatePatient }) {
+  const plan = planGet(patient);
+  const tot = planTotales(plan);
+  const fmt = function (n) {
+    try { return (window.JCDATA && window.JCDATA.fmt) ? window.JCDATA.fmt(n) : ("$" + (Number(n) || 0).toLocaleString("es-CL")); }
+    catch (e) { return "$" + (Number(n) || 0); }
+  };
+  const servicios = (function () { try { return (window.clinicServiceList ? window.clinicServiceList() : []) || []; } catch (e) { return []; } })();
+
+  const [nProc, setNProc] = useState("");
+  const [nPieza, setNPieza] = useState("");
+  const [nPrecio, setNPrecio] = useState("");
+  const [nPrio, setNPrio] = useState("media");
+  const [abono, setAbono] = useState("");
+  const [metodo, setMetodo] = useState("Efectivo");
+  const [firmando, setFirmando] = useState(false);
+
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
+  const inp = { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", boxSizing: "border-box" };
+  const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
+  const card = luxF ? Object.assign({}, DS.card(T), { padding: "16px 18px" }) : { background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "14px 16px" };
+
+  function savePlan(patch, extra) {
+    const next = Object.assign({}, plan, patch, { ts: Date.now() });
+    updatePatient(patient.id, Object.assign({ presupuesto: next }, extra || {}));
+  }
+  function addItem() {
+    const proc = (nProc || "").trim();
+    if (!proc) { window.jcmToast && window.jcmToast("Escribe el procedimiento.", "error"); return; }
+    const it = {
+      id: "pi" + Date.now() + Math.random().toString(36).slice(2, 5),
+      proc: proc, pieza: nPieza || "", precio: parseInt(String(nPrecio).replace(/\D/g, ""), 10) || 0,
+      prioridad: nPrio, estado: "pendiente"
+    };
+    savePlan({ items: plan.items.concat([it]) });
+    setNProc(""); setNPieza(""); setNPrecio(""); setNPrio("media");
+  }
+  function updItem(id, patch) {
+    savePlan({ items: plan.items.map(function (it) { return it.id === id ? Object.assign({}, it, patch) : it; }) });
+  }
+  // Marcar "hecho" con una pieza asociada escribe TAMBIÉN en el historial de esa pieza del
+  // odontograma: es el vínculo que pide el documento. Se hace en UN solo updatePatient para que
+  // el plano y el odontograma no puedan quedar desincronizados.
+  function setEstadoItem(it, estado) {
+    if (estado === "hecho" && it.pieza) {
+      const prev = odontoPieza(patient, it.pieza);
+      const entry = {
+        fecha: new Date().toISOString().slice(0, 10),
+        estado: prev.estado,
+        proc: it.proc || "",
+        proName: (function () { try { return (window.DB && DB.cfg().professional) || ""; } catch (e) { return ""; } })(),
+        nota: "Registrado desde el plano de tratamiento"
+      };
+      const items = plan.items.map(function (x) { return x.id === it.id ? Object.assign({}, x, { estado: estado }) : x; });
+      updatePatient(patient.id, {
+        presupuesto: Object.assign({}, plan, { items: items, ts: Date.now() }),
+        odontograma: odontoSetPieza(patient, it.pieza, { hist: [entry].concat(prev.hist) })
+      });
+      window.jcmToast && window.jcmToast("Hecho · registrado en el historial de la pieza " + it.pieza + ".", "ok");
+      return;
+    }
+    updItem(it.id, { estado: estado });
+  }
+  function delItem(id) { savePlan({ items: plan.items.filter(function (it) { return it.id !== id; }) }); }
+
+  function addAbono() {
+    const monto = parseInt(String(abono).replace(/\D/g, ""), 10) || 0;
+    if (monto <= 0) { window.jcmToast && window.jcmToast("Escribe el monto del abono.", "error"); return; }
+    if (typeof window.cashAdd !== "function") { window.jcmError && window.jcmError("La Caja no está disponible: el abono NO se registró."); return; }
+    // Primero la Caja. Si cashAdd fallara, no queremos un abono "fantasma" en el plano que cuadre
+    // el saldo del paciente sin respaldo en cash_moves.
+    try {
+      window.cashAdd({
+        type: "ingreso", kind: "atencion", amount: monto, method: metodo,
+        concept: "Abono plan de tratamiento · " + (patient.name || ""),
+        patient: patient.name || "",
+        prof: (function () { try { return (window.DB && DB.cfg().professional) || ""; } catch (e) { return ""; } })()
+      });
+    } catch (e) {
+      window.jcmError && window.jcmError("No se pudo registrar el abono en Caja. No se guardó nada.");
+      return;
+    }
+    savePlan({ abonos: plan.abonos.concat([{ id: "ab" + Date.now(), monto: monto, metodo: metodo, fecha: new Date().toISOString().slice(0, 10) }]) });
+    setAbono("");
+    window.jcmToast && window.jcmToast("Abono de " + fmt(monto) + " registrado en Caja.", "ok");
+  }
+
+  const piezasSel = odontoPiezasDe("permanente");
+
+  return (
+    <div>
+      {/* Totales */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        {[["Total del plan", tot.total, T.text], ["Pagado", tot.pagado, DS ? DS.ok : "#1F8A5B"], ["Saldo pendiente", tot.saldo, tot.saldo > 0 ? (DS ? DS.warn : "#C9A227") : (DS ? DS.ok : "#1F8A5B")]].map(function (row) {
+          return (
+            <div key={row[0]} style={Object.assign({}, card, { flex: "1 1 150px" })}>
+              <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{row[0]}</div>
+              <div style={{ fontFamily: T.serif, fontSize: 24, color: row[2] }}>{fmt(row[1])}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Aprobación del paciente */}
+      <div style={Object.assign({}, card, { marginBottom: 16 })}>
+        {plan.aprobacion && plan.aprobacion.ts ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ color: DS ? DS.ok : "#1F8A5B", fontFamily: T.sans, fontSize: 12.5 }}>✓ Plan aprobado por {plan.aprobacion.nombre || "el paciente"}</span>
+            <span style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{new Date(plan.aprobacion.ts).toLocaleString("es-CL")}</span>
+            {plan.aprobacion.sig && <img src={plan.aprobacion.sig} alt="Firma del paciente" style={{ height: 44, background: "#fff", borderRadius: 4, border: "1px solid " + T.line }} />}
+            <button type="button" onClick={function () { if (window.confirm("¿Anular la aprobación? El paciente deberá volver a firmar.")) savePlan({ aprobacion: null }); }}
+              style={{ marginLeft: "auto", background: "none", border: "none", color: T.textFaint, fontFamily: T.sans, fontSize: 11, cursor: "pointer" }}>Anular aprobación</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textMute, flex: 1, minWidth: 200 }}>Este plan aún no ha sido aprobado por el paciente.</span>
+            <AdBtn T={T} primary onClick={function () { if (!plan.items.length) { window.jcmToast && window.jcmToast("Agrega al menos un procedimiento.", "info"); return; } setFirmando(true); }}>Firmar aprobación</AdBtn>
+          </div>
+        )}
+      </div>
+
+      {/* Alta de procedimiento */}
+      <div style={Object.assign({}, card, { marginBottom: 14 })}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label style={{ flex: "2 1 200px" }}><span style={lbl}>Procedimiento</span>
+            <input value={nProc} onChange={function (e) { setNProc(e.target.value); }} list="plan-svc" placeholder="Ej: Endodoncia" style={inp} />
+            <datalist id="plan-svc">{servicios.map(function (s) { return <option key={s.name} value={s.name} />; })}</datalist>
+          </label>
+          <label style={{ flex: "0 1 110px" }}><span style={lbl}>Pieza</span>
+            <select value={nPieza} onChange={function (e) { setNPieza(e.target.value); }} style={inp}>
+              <option value="">— sin pieza —</option>
+              {piezasSel.map(function (n) { return <option key={n} value={String(n)}>{n}</option>; })}
+            </select>
+          </label>
+          <label style={{ flex: "0 1 130px" }}><span style={lbl}>Precio</span>
+            <input value={nPrecio} onChange={function (e) { setNPrecio(e.target.value.replace(/\D/g, "")); }} inputMode="numeric" placeholder="0" style={Object.assign({}, inp, { textAlign: "right" })} />
+          </label>
+          <label style={{ flex: "0 1 150px" }}><span style={lbl}>Prioridad</span>
+            <select value={nPrio} onChange={function (e) { setNPrio(e.target.value); }} style={inp}>
+              {PLAN_PRIORIDADES.map(function (p) { return <option key={p.id} value={p.id}>{p.label} · {p.desc}</option>; })}
+            </select>
+          </label>
+          <AdBtn T={T} onClick={addItem}>+ Agregar</AdBtn>
+        </div>
+      </div>
+
+      {/* Plano */}
+      {plan.items.length === 0
+        ? <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.textFaint, padding: "14px 0" }}>El plano de tratamiento está vacío. Agrega procedimientos arriba.</div>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 16 }}>
+            {planOrdenado(plan.items).map(function (it) {
+              const pr = planPrioridad(it.prioridad);
+              const done = it.estado === "hecho";
+              return (
+                <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "11px 14px", opacity: done ? 0.65 : 1 }}>
+                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: pr.id === "alta" ? (DS ? DS.danger : "#C0285A") : pr.id === "media" ? (DS ? DS.warn : "#C9A227") : T.textMute }} />
+                  <div style={{ flex: 1, minWidth: 150 }}>
+                    <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, textDecoration: done ? "line-through" : "none" }}>{it.proc}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint }}>
+                      {it.pieza ? "Pieza " + it.pieza + " · " : ""}Prioridad {pr.label.toLowerCase()} · {pr.desc.toLowerCase()}
+                    </div>
+                  </div>
+                  <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text, fontVariantNumeric: "tabular-nums" }}>{fmt(it.precio)}</span>
+                  <select value={it.estado} onChange={function (e) { setEstadoItem(it, e.target.value); }}
+                    style={{ fontFamily: T.sans, fontSize: 11.5, padding: "6px 9px", borderRadius: 7, border: "1px solid " + T.line, background: T.surface, color: T.textMute, cursor: "pointer" }}>
+                    {PLAN_ESTADOS.map(function (s) { return <option key={s.id} value={s.id}>{s.label}</option>; })}
+                  </select>
+                  <button type="button" onClick={function () { delItem(it.id); }} aria-label={"Quitar " + it.proc}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: 2, display: "flex" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              );
+            })}
+          </div>}
+
+      {/* Cuotas */}
+      <div style={card}>
+        <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 12 }}>Pagos por cuotas</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 }}>
+          <label style={{ flex: "0 1 150px" }}><span style={lbl}>Abono</span>
+            <input value={abono} onChange={function (e) { setAbono(e.target.value.replace(/\D/g, "")); }} inputMode="numeric" placeholder="0" style={Object.assign({}, inp, { textAlign: "right" })} />
+          </label>
+          <label style={{ flex: "0 1 150px" }}><span style={lbl}>Método</span>
+            <select value={metodo} onChange={function (e) { setMetodo(e.target.value); }} style={inp}>
+              {["Efectivo", "Débito", "Crédito", "Transferencia"].map(function (m) { return <option key={m} value={m}>{m}</option>; })}
+            </select>
+          </label>
+          <AdBtn T={T} primary onClick={addAbono}>Registrar abono</AdBtn>
+        </div>
+        {plan.abonos.length === 0
+          ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin abonos registrados.</div>
+          : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {plan.abonos.map(function (a) {
+                return (
+                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: T.sans, fontSize: 12.5, color: T.text, padding: "8px 10px", borderRadius: 6, background: T.surface2 || T.surface, border: "1px solid " + T.line }}>
+                    <span style={{ flex: 1 }}>{a.fecha} · {a.metodo}</span>
+                    <strong style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(a.monto)}</strong>
+                  </div>
+                );
+              })}
+              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 4, lineHeight: 1.5 }}>
+                Cada abono queda registrado como ingreso en Caja. Para corregir un cobro, hazlo en Caja: así el movimiento y su auditoría no se separan de lo que ve el paciente.
+              </div>
+            </div>}
+      </div>
+
+      {firmando && <PlanFirmaModal T={T} patient={patient} onClose={function () { setFirmando(false); }}
+        onSign={function (r) { savePlan({ aprobacion: { nombre: r.nombre, sig: r.sig, ts: Date.now() } }); setFirmando(false); window.jcmToast && window.jcmToast("Plan aprobado y firmado.", "ok"); }} />}
+    </div>
+  );
+}
+
+/* Aprobación digital del plano. Reutiliza SignaturePad (jc-sign.jsx), el mismo componente con el
+   que se firman los consentimientos, para que la firma del paciente sea una sola cosa en el sistema. */
+function PlanFirmaModal({ T, patient, onClose, onSign }) {
+  const [nombre, setNombre] = useState(patient.name || "");
+  const [sig, setSig] = useState(null);
+  const [acepta, setAcepta] = useState(false);
+  const listo = !!(nombre.trim() && sig && acepta);
+  const inp = { width: "100%", fontFamily: T.sans, fontSize: 13.5, padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.line, background: T.surface, color: T.text, outline: "none", boxSizing: "border-box" };
+  return (
+    <AdModal T={T} title="Aprobación del plan de tratamiento" onClose={onClose}
+      footer={<AdBtn T={T} primary full onClick={function () { if (listo) onSign({ nombre: nombre.trim(), sig: sig }); }}>{listo ? "Aprobar y firmar" : "Completa nombre, firma y aceptación"}</AdBtn>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <label><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Nombre de quien aprueba</span>
+          <input value={nombre} onChange={function (e) { setNombre(e.target.value); }} style={inp} /></label>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 9, fontFamily: T.sans, fontSize: 12.5, color: T.textMute, lineHeight: 1.5, cursor: "pointer" }}>
+          <input type="checkbox" checked={acepta} onChange={function (e) { setAcepta(e.target.checked); }} style={{ marginTop: 3, flexShrink: 0 }} />
+          <span>Declaro que me explicaron los procedimientos del plan, su orden y su costo, y que acepto realizarlos.</span>
+        </label>
+        <div>
+          <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Firma del paciente</span>
+          <SignaturePad T={T} onChange={setSig} height={170} />
+        </div>
+      </div>
+    </AdModal>
+  );
+}
+
 Object.assign(window, {
-  Odontograma, ToothSVG, RxSlot,
+  Odontograma, ToothSVG, RxSlot, PlanDentalTab, PlanFirmaModal,
+  PLAN_PRIORIDADES, PLAN_ESTADOS, planGet, planTotales, planOrdenado, planPrioridad, planEstadoLabel, planPendientesPublicos,
   ODONTO_ESTADOS, ODONTO_DENTICION, odontoEstado, odontoTipo, odontoEsSuperior, odontoPiezasDe,
   odontoGet, odontoPieza, odontoSetPieza, odontoStats, odontoResumenTexto, odontoRxView
 });

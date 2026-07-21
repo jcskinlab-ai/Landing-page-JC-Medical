@@ -172,6 +172,93 @@ function pSafeHistory(history) {
   })).filter(h => h.proc);
 }
 
+/* ══════════ PURE-DENTAL-START · Portal dental (Fase G) ══════════
+   Funciones PURAS (sin Firestore, sin req/res) para que se puedan probar en un harness.
+   Todo lo que sale hacia el paciente pasa por una ALLOWLIST explícita, igual que pSafeHistory:
+   se construye un objeto nuevo campo por campo, NUNCA se borran campos de uno existente. El
+   `precio` del plano es interno (es lo que la clínica cobra, y el plano trae además abonos,
+   aprobación y notas) y no debe salir jamás por aquí. */
+
+// Mismo orden clínico que jc-dental.jsx: dolor/infección → funcional → estético.
+const P_PLAN_PESO = { alta: 0, media: 1, baja: 2 };
+function pPlanPrio(v) {
+  const k = String(v == null ? "" : v).toLowerCase();
+  return Object.prototype.hasOwnProperty.call(P_PLAN_PESO, k) ? k : "media";
+}
+
+// Tratamientos PENDIENTES del plano, ordenados por urgencia. Solo {proc, prioridad, estado}.
+// Los `estado === "hecho"` se excluyen (ya no son una decisión pendiente del paciente).
+export function pSafePlanItems(presupuesto) {
+  const items = (presupuesto && Array.isArray(presupuesto.items)) ? presupuesto.items : [];
+  return items
+    .map((it, i) => ({ it, i }))
+    .filter(x => x.it && typeof x.it === "object" && String(x.it.estado || "pendiente") !== "hecho" && String(x.it.proc || "").trim())
+    .sort((a, b) => {
+      const d = P_PLAN_PESO[pPlanPrio(a.it.prioridad)] - P_PLAN_PESO[pPlanPrio(b.it.prioridad)];
+      return d !== 0 ? d : a.i - b.i; // estable dentro de cada prioridad
+    })
+    .map(x => ({
+      proc: String(x.it.proc || "").trim().slice(0, 120),
+      prioridad: pPlanPrio(x.it.prioridad),
+      estado: String(x.it.estado || "pendiente") === "encurso" ? "encurso" : "pendiente"
+    }));
+}
+
+// Procedimientos que cuentan como profilaxis/limpieza en el historial.
+const P_LIMPIEZA_RE = /limpieza|profilaxis|destartraje|tartrectom|higiene\s+(oral|bucal|dental)/i;
+function pIsoValid(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  if (mo < 1 || mo > 12 || d < 1) return null;
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return { y, mo, d };
+}
+// Suma meses a una fecha ISO recortando al último día del mes destino (31-ago +6 → 28/29-feb).
+export function pAddMonthsISO(iso, n) {
+  const v = pIsoValid(iso);
+  if (!v) return null;
+  const t = (v.mo - 1) + n;
+  const ny = v.y + Math.floor(t / 12);
+  const nmo = ((t % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(ny, nmo + 1, 0)).getUTCDate();
+  const nd = Math.min(v.d, lastDay);
+  return ny + "-" + String(nmo + 1).padStart(2, "0") + "-" + String(nd).padStart(2, "0");
+}
+// Recordatorio de profilaxis: +6 meses desde la ÚLTIMA limpieza registrada en el historial.
+// Si no hay ninguna limpieza (o no tiene fecha ISO usable) devuelve null: NO se inventan fechas.
+export function pNextProfilaxis(history) {
+  const hs = Array.isArray(history) ? history : [];
+  let last = "";
+  for (const h of hs) {
+    if (!h || typeof h !== "object") continue;
+    if (!P_LIMPIEZA_RE.test(String(h.proc || ""))) continue;
+    const iso = String(h.date || "");
+    if (!pIsoValid(iso)) continue;
+    if (iso > last) last = iso;
+  }
+  if (!last) return null;
+  const proxima = pAddMonthsISO(last, 6);
+  return proxima ? { ultima: last, proxima } : null;
+}
+
+// Bloque dental que se agrega al payload de portal-me. SOLO se llama si la clínica es dental.
+export function pDentalExtras(patient, history) {
+  const pendientes = pSafePlanItems(patient && patient.presupuesto);
+  return {
+    dental: true,
+    pendientes,
+    nextStep: pendientes[0] || null, // ya viene ordenado: alta → media → baja
+    profilaxis: pNextProfilaxis(history)
+  };
+}
+// La vertical vive en el config de la clínica (config.vertical === "dental").
+export function pIsDental(cfg) {
+  return !!cfg && String(cfg.vertical || "").toLowerCase() === "dental";
+}
+/* ══════════ PURE-DENTAL-END ══════════ */
+
 // Acciones PÚBLICAS del portal (sin Firebase; identidad por RUT / token propio).
 async function portalPublic(req, res, action, body, db, SECRET) {
   // SEG · La IP real la agrega el proxy al FINAL de X-Forwarded-For; la PRIMERA entrada la controla
@@ -263,11 +350,16 @@ async function portalPublic(req, res, action, body, db, SECRET) {
         .sort((x, y) => ((x.fecha || "") + (x.time || "")).localeCompare((y.fecha || "") + (y.time || "")));
       if (fut[0]) nextAppt = { fecha: fut[0].fecha, time: fut[0].time || "", proc: fut[0].proc || "" };
     } catch (e) {}
-    let clinicName = "", clinicWhats = "";
+    let clinicName = "", clinicWhats = "", clinicCfg = null;
     try { const pub = await db.collection("tenants").doc(p.clinicId).collection("public").doc("profile").get(); if (pub.exists) { clinicName = (pub.data().clinic_name || pub.data().name || ""); clinicWhats = String(pub.data().wa_number || pub.data().whatsapp || "").replace(/\D/g, ""); } } catch (e) {}
     // El número de WhatsApp de la clínica vive en su config (privada); el servidor sí puede leerla.
-    try { const cfg = await pReadKv(db, p.clinicId, "config"); if (cfg) { if (!clinicName) clinicName = cfg.clinic_name || ""; if (!clinicWhats) clinicWhats = String(cfg.wa_number || cfg.whatsapp || "").replace(/\D/g, ""); } } catch (e) {}
-    return res.status(200).json({ ok: true, name: pat.name || "", clinicName, clinicWhats, history: pSafeHistory(hist), nextAppt });
+    // De ahí sale también la vertical (config.vertical): en el servidor no existe window.isDental().
+    try { const cfg = await pReadKv(db, p.clinicId, "config"); if (cfg) { clinicCfg = cfg; if (!clinicName) clinicName = cfg.clinic_name || ""; if (!clinicWhats) clinicWhats = String(cfg.wa_number || cfg.whatsapp || "").replace(/\D/g, ""); } } catch (e) {}
+    const out = { ok: true, name: pat.name || "", clinicName, clinicWhats, history: pSafeHistory(hist), nextAppt };
+    // Extras dentales (plano de tratamiento + profilaxis). En una clínica ESTÉTICA no se agrega
+    // ninguna clave: el payload queda byte a byte igual que antes de la Fase G.
+    if (pIsDental(clinicCfg)) Object.assign(out, pDentalExtras(pat, hist));
+    return res.status(200).json(out);
   }
 
   if (action === "portal-recover-start") {

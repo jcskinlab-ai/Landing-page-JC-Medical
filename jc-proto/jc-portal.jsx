@@ -252,6 +252,7 @@ function FichaView({ T, S, sess, onLogout, onExpired }) {
           {data.nextAppt.proc && <div style={S.nextSub}>{data.nextAppt.proc}</div>}
         </div>
       )}
+      {data.dental && <DentalPlanBlock T={T} S={S} data={data} />}
       <div style={S.secLabel}>Mis procedimientos ({hist.length})</div>
       {hist.length === 0 && <div style={S.info}>Aún no tienes procedimientos registrados.</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -277,6 +278,80 @@ function FichaView({ T, S, sess, onLogout, onExpired }) {
         ))}
       </div>
       <button style={S.btnGhost} onClick={onLogout}>Cerrar sesión</button>
+    </div>
+  );
+}
+
+/* ── Plano de tratamiento dental (solo cuando la clínica es dental) ──
+   El servidor decide: si `data.dental` no viene, esto no se monta y la ficha queda idéntica a la
+   de una clínica estética. El payload dental ya llega filtrado (sin precios ni notas internas):
+   aquí NO se muestra nada que el servidor no haya puesto explícitamente. */
+const PLAN_PRIO_LABEL = { alta: "Prioridad alta", media: "Prioridad media", baja: "Prioridad baja" };
+const PLAN_PRIO_COLOR = { alta: "#C0285A", media: "#B4761F", baja: "#5A7D8C" };
+
+function WaGlyph() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z" /></svg>;
+}
+
+function DentalPlanBlock({ T, S, data }) {
+  const pend = (data && data.pendientes) || [];
+  const next = (data && data.nextStep) || null;
+  const prof = (data && data.profilaxis) || null;
+  const whats = data && data.clinicWhats;
+  if (!pend.length && !prof) return null;
+
+  function waLink(proc) {
+    return "https://wa.me/" + whats + "?text=" + encodeURIComponent(
+      "Hola, soy " + ((data && data.name) || "") + ". Me gustaría agendar mi tratamiento de " + proc + "."
+    );
+  }
+  // El próximo paso ya va destacado arriba: en la lista se muestra el resto. Se comprueba que el
+  // destacado sea de verdad el primero antes de recortarlo — si algún día el servidor eligiera otro,
+  // preferimos repetir uno a ocultarle al paciente un tratamiento pendiente sin que se note.
+  const mismoQuePrimero = !!(next && pend[0] && pend[0].proc === next.proc && pend[0].prioridad === next.prioridad && pend[0].estado === next.estado);
+  const resto = mismoQuePrimero ? pend.slice(1) : pend;
+
+  return (
+    <div>
+      {pend.length > 0 && <div style={S.secLabel}>Mis tratamientos pendientes ({pend.length})</div>}
+      {next && (
+        <div style={S.planNext}>
+          <div style={S.planNextLabel}>Tu próximo paso</div>
+          <div style={S.planNextMain}>{next.proc}</div>
+          <div style={{ ...S.planPrio, color: PLAN_PRIO_COLOR[next.prioridad] || T.textMute }}>
+            {PLAN_PRIO_LABEL[next.prioridad] || "Prioridad media"}{next.estado === "encurso" ? " · en curso" : ""}
+          </div>
+          {whats && (
+            <a href={waLink(next.proc)} target="_blank" rel="noopener" style={S.histWa}>
+              <WaGlyph />Agendar {next.proc}
+            </a>
+          )}
+        </div>
+      )}
+      {resto.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          {resto.map((it, i) => (
+            <div key={i} style={S.planItem}>
+              <span style={S.planItemProc}>{it.proc}</span>
+              <span style={{ ...S.planItemPrio, color: PLAN_PRIO_COLOR[it.prioridad] || T.textMute }}>
+                {it.estado === "encurso" ? "En curso" : (function (s) { return s.charAt(0).toUpperCase() + s.slice(1); })((PLAN_PRIO_LABEL[it.prioridad] || "Prioridad media").replace("Prioridad ", ""))}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {prof && prof.proxima && (
+        <div style={S.profBox}>
+          <div style={S.planNextLabel}>Tu próxima limpieza</div>
+          <div style={S.planNextMain}>{fmtFecha(prof.proxima)}</div>
+          {prof.ultima && <div style={S.nextSub}>Tu última limpieza fue el {fmtFecha(prof.ultima)}.</div>}
+          {whats && (
+            <a href={waLink("limpieza dental")} target="_blank" rel="noopener" style={S.histWa}>
+              <WaGlyph />Agendar mi limpieza
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -323,6 +398,14 @@ function portalStyles(T) {
     nextLabel: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, marginBottom: 4 },
     nextMain: { fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text, textTransform: "capitalize" },
     nextSub: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 },
+    planNext: { background: T.accentSoft || "rgba(84,112,127,.1)", border: "1px solid " + T.accent, borderRadius: 12, padding: "13px 15px" },
+    planNextLabel: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, marginBottom: 4 },
+    planNextMain: { fontFamily: T.sans, fontSize: 15, fontWeight: 600, color: T.text },
+    planPrio: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, marginTop: 3 },
+    planItem: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "10px 13px" },
+    planItemProc: { fontFamily: T.sans, fontSize: 13, color: T.text },
+    planItemPrio: { fontFamily: T.sans, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
+    profBox: { background: T.surface2 || T.surface, border: "1px dashed " + T.line, borderRadius: 12, padding: "13px 15px", marginTop: 12 },
     histItem: { background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: "13px 15px" },
     histTop: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
     histProc: { fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text },
