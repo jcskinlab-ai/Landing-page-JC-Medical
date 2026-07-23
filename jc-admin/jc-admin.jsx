@@ -69,15 +69,33 @@ function nIcon(name, c) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{p}</svg>;
 }
 
+// Normaliza texto para búsqueda: minúsculas + SIN tildes/diacríticos, para que
+// "María" y "maria" (y cualquier mezcla de acentos en la base) se encuentren igual.
+function jcmNorm(s) {
+  return ("" + (s == null ? "" : s)).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+// Coincidencia de paciente por PALABRAS SUELTAS (todas deben aparecer, en cualquier orden)
+// e insensible a tildes: "juan p" encuentra "Juan Claudio Parra Perez". Busca en nombre,
+// RUT, email y teléfono; los tokens numéricos también matchean contra RUT/teléfono sin formato.
+function jcmPatientMatch(p, query) {
+  var q = jcmNorm(query).trim();
+  if (!q) return true;
+  p = p || {};
+  var hay = jcmNorm((p.name || "") + " " + (p.rut || "") + " " + (p.email || "") + " " + (p.phone || ""));
+  var digits = ((p.rut || "") + (p.phone || "")).replace(/[^0-9kK]/g, "").toLowerCase();
+  return q.split(/\s+/).every(function (tok) {
+    if (hay.indexOf(tok) >= 0) return true;
+    if (/^[0-9k.\-]+$/.test(tok)) { var d = tok.replace(/[^0-9k]/g, ""); return d && digits.indexOf(d) >= 0; }
+    return false;
+  });
+}
+if (typeof window !== "undefined") { window.jcmNorm = jcmNorm; window.jcmPatientMatch = jcmPatientMatch; }
+
 /* Buscador directo de pacientes (barra superior, estilo Medique) */
 function PatientSearch({ T, patients, onOpen, compact }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const res = q.trim() ? (patients || []).filter(p =>
-    (p.name || "").toLowerCase().includes(q.toLowerCase()) ||
-    (p.rut || "").toLowerCase().includes(q.toLowerCase()) ||
-    (p.email || "").toLowerCase().includes(q.toLowerCase()) ||
-    (p.phone || "").includes(q)).slice(0, 7) : [];
+  const res = q.trim() ? (patients || []).filter(p => jcmPatientMatch(p, q)).slice(0, 7) : [];
   // compact (lux): más chico + translúcido para integrarse a la página (sin barra oscura).
   const inpStyle = compact
     ? { width: "100%", fontFamily: T.sans, fontSize: 12, padding: "7px 12px 7px 30px", borderRadius: 999, border: "1px solid " + (T.dark ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.6)"), background: T.dark ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.5)", color: T.text, outline: "none", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }
@@ -2210,7 +2228,7 @@ function AdminApp() {
             .filter(n => !q || norm(n.l).includes(q))
             .map(n => ({ type: "nav", key: n.k, label: n.l }));
           const patMatches = !q ? [] : patients
-            .filter(p => norm(p.name).includes(q) || norm(p.rut).includes(q) || norm(p.phone).includes(q))
+            .filter(p => jcmPatientMatch(p, q))
             .slice(0, 6)
             .map(p => ({ type: "patient", id: p.id, label: p.name || "Sin nombre", sub: [p.rut, p.age ? p.age + " años" : ""].filter(Boolean).join(" · ") }));
           const results = navMatches.concat(patMatches);
@@ -2746,6 +2764,7 @@ function ApptBlock({ T, a, onClick, compact }) {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, alignItems: "center" }}>
         <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: st.color, flexShrink: 0 }} />
+          {a.proc && <span aria-hidden="true" title={jcmProcColor(a.proc).label} style={{ width: 6, height: 6, borderRadius: "50%", background: jcmProcColor(a.proc).color, flexShrink: 0 }} />}
           <span style={{ fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameLabel}</span>
         </span>
         {!compact && <span style={{ fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 }}>{a.time}</span>}
@@ -3310,7 +3329,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                       /* Citas cortas (<30 min): una sola fila — la caja queda delgada (alto real) y no
                          invade el slot siguiente ni tapa su botón "+". */
                       <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 }} /><span aria-hidden="true" title={jcmProcColor(a.proc).label} style={{ width: 6, height: 6, borderRadius: "50%", background: jcmProcColor(a.proc).color, flexShrink: 0 }} />
                         <span style={{ fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", flexShrink: 0 }}>{a.time}</span>
                         {ini && <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 8, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 4px" }}>{ini}</span>}
                         <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
@@ -3320,7 +3339,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                         {/* Fila superior: rango horario + duración (izq) · inicial del procedimiento (der) — igual que la referencia */}
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                           <span style={{ display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 }}>
-                            <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                            <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 }} /><span aria-hidden="true" title={jcmProcColor(a.proc).label} style={{ width: 6, height: 6, borderRadius: "50%", background: jcmProcColor(a.proc).color, flexShrink: 0 }} />
                             <span style={{ fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" }}>{a.time} - {endOf(a)}</span>
                             <span style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" }}>{(parseInt(a.dur) || 60)} min</span>
                           </span>
@@ -3658,6 +3677,25 @@ function jcmApptState(a, T) {
   return { key: "pendiente", label: "Pendiente", color: (T && T.accent) || "#8A7E6B" };
 }
 if (typeof window !== "undefined") window.jcmApptState = jcmApptState;
+
+// Procedimiento de una cita → color, para reconocer de un vistazo el tipo de atención
+// (segundo punto, junto al punto de ESTADO). Se resuelve por palabras clave sobre el texto
+// libre de a.proc (mismo criterio que procInitial). Familias:
+//   morado   = toxina botulínica (Botox, bruxismo, hiperhidrosis)
+//   plateado = ácido hialurónico / rellenos (labios, rinomodelación, ojeras, surcos)
+//   rojo     = bioestimuladores (Sculptra, PLLA, Radiesse, colágeno)
+//   dorado   = quemadores de grasa (papada, deoxicólico, lipólisis)
+// Cualquier otro procedimiento (evaluación, mesoterapia, control…) → neutro.
+var JCM_PROC_COLORS = { botox: "#9C7BD4", ah: "#C2C9D2", bio: "#C0285A", quem: "#CDA434", otro: "#6E7681" };
+function jcmProcColor(proc) {
+  var p = (proc || "").toLowerCase();
+  if (/botox|toxina|b[oó]tox|bruxismo|maset|hiperhidros|axila/.test(p)) return { key: "botox", label: "Toxina botulínica", color: JCM_PROC_COLORS.botox };
+  if (/hialur|[aá]cido h|relleno|labio|rinomodel|ojera|surco|perfilado|mentón|menton/.test(p)) return { key: "ah", label: "Ácido hialurónico", color: JCM_PROC_COLORS.ah };
+  if (/sculptra|plla|bioestim|radiesse|col[aá]geno|inductor/.test(p)) return { key: "bio", label: "Bioestimulador", color: JCM_PROC_COLORS.bio };
+  if (/quemador|grasa|papada|deoxic[oó]lico|lip[oó]lisis|lipopapada|reduc/.test(p)) return { key: "quem", label: "Quemador de grasa", color: JCM_PROC_COLORS.quem };
+  return { key: "otro", label: proc || "Procedimiento", color: JCM_PROC_COLORS.otro };
+}
+if (typeof window !== "undefined") window.jcmProcColor = jcmProcColor;
 function ComentarioPopup({ T, appt, updateAppt, onClose }) {
   const [txt, setTxt] = useState(appt.comentario || "");
   const save = () => { updateAppt(appt.id, { comentario: txt.trim() }); onClose(); };
@@ -3779,6 +3817,7 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, icsBt
                   {ordered.slice(0, 3).map((a, idx) => { const c = jcmApptState(a, T).color; return (
                     <span key={idx} title={(a.time ? a.time + " · " : "") + (a.name || "Cita") + (a.proc ? " · " + a.proc : "")} style={{ display: "flex", alignItems: "center", gap: 5, background: chipBg, ...cellBlur, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
                       <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                      <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: jcmProcColor(a.proc).color, flexShrink: 0 }} />
                       {a.time ? a.time + " " : ""}{a.name || "Cita"}
                     </span>
                   ); })}
@@ -3872,7 +3911,11 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       const natural = topW(a.time);
       const pushed = cursor >= 0 && natural < cursor;
       const top = pushed ? cursor + 2 : natural;
-      const h = pushed ? Math.max(20, Math.min(fullH, 26)) : fullH;
+      // Antes: las citas "empujadas" (pegadas a la anterior) se truncaban a máx 26px
+      // sin importar su duración → una de 60 min se veía como una de 15. Ahora todo
+      // bloque mide proporcional a sus minutos reales (fullH); el apilado por `top`
+      // ya evita el solape empujando la siguiente hacia abajo.
+      const h = fullH;
       cursor = top + h;
       return { ...a, _top: top, _h: h };
     });
@@ -4078,6 +4121,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                   {stackAppts(da).map(a => {
                     const isPendPago = a.status === "pendiente_pago";
                     const accentColor = jcmApptState(a, T).color;
+                    const procC = jcmProcColor(a.proc).color; // color por PROCEDIMIENTO (2º indicador)
                     // Hora de término = inicio + duración; se muestra siempre (sin hover) junto al servicio.
                     const _durMin = parseInt(a.dur) || 60;
                     const _endMin = mins(a.time) + _durMin;
@@ -4117,12 +4161,13 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                             </div>
                             {/* "bioestim" cubre citas antiguas guardadas antes de renombrar el catálogo a Sculptra —
                                 mismo procedimiento, incluso si el texto guardado en esa cita sigue diciendo "Bioestimulación". */}
-                            {a.proc && <span style={{ flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{/bioestim/i.test(a.proc) ? "S" : a.proc[0].toUpperCase()}</span>}
+                            {a.proc && <span title={jcmProcColor(a.proc).label} style={{ flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: procC + "33", color: procC, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 }}>{/bioestim/i.test(a.proc) ? "S" : a.proc[0].toUpperCase()}</span>}
                           </div>
                         ) : (
                           <div style={{ height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E1" + "22" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                               <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 }} />
+                              {a.proc && <span aria-hidden="true" title={jcmProcColor(a.proc).label} style={{ width: 6, height: 6, borderRadius: "50%", background: procC, flexShrink: 0 }} />}
                               <span style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                             </div>
                             {a._h > 26 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {(parseInt(a.dur) || 60)} min{a.proc ? " · " + (isPendPago ? "⏳ Pago pendiente" : a.proc) : ""}</div>}
@@ -4288,7 +4333,23 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const especialidades = D.catalog.map(s => s.sec);
   // Prellenado por el copiloto (voz/texto): salta al paso 2 con la hora ya elegida.
   const pf = prefill || {};
-  const [step, setStep] = useState(pf.time ? 2 : 1);
+  // Semana visible = hoy + 6 días (nunca días pasados). Se calcula ANTES de los estados
+  // para poder preseleccionar el próximo hueco disponible.
+  const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const b0 = new Date();
+  const _MESES3 = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const week = []; for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), mm: _MESES3[dt.getMonth()], wd: wdN[dt.getDay()], wday: dt.getDay() }); }
+  const dayInfo = off => { const dt = new Date(b0); dt.setDate(b0.getDate() + off); return { wd: wdN[dt.getDay()], dd: dt.getDate(), mm: _MESES3[dt.getMonth()] }; };
+  // Un slot de HOY que ya pasó no debe poder verse ni agendarse (ilógico). nowMin = minutos del día actual.
+  const nowMin = b0.getHours() * 60 + b0.getMinutes();
+  const slotPast = (off, h) => off === 0 && mins(h) < nowMin;
+  const slotBlk = (off, h) => (appts || []).some(a => { if (a.status === "anulada" || a.status === "cancelada") return false; if (apptDayOff(a) !== off) return false; const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(h); return ts >= as && ts < as + ad; });
+  // Próximo hueco disponible (primer slot futuro y libre, recorriendo día a día). Base de la recomendación
+  // y del fallback cuando se abre desde un día cuyos horarios ya vencieron (muestra el día siguiente).
+  const nextFree = (() => { for (const w of week) { for (const h of adminSlots()) { if (!slotPast(w.off, h) && !slotBlk(w.off, h)) return { dayOff: w.off, time: h }; } } return null; })();
+  // Si el prellenado apunta a una hora ya pasada, se descarta y se usa el próximo hueco real.
+  const pfValid = pf.time && !slotPast(pf.day || 0, pf.time);
+  const [step, setStep] = useState(pfValid ? 2 : 1);
   // parámetros
   const [esp, setEsp] = useState("Todas");
   const [proc, setProc] = useState(pf.proc || "Evaluación general");
@@ -4302,7 +4363,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [notas, setNotas] = useState(pf.notas || "");
   const [repetir, setRepetir] = useState(0); // repeticiones semanales adicionales
   // selección
-  const [pick, setPick] = useState(pf.time ? { dayOff: pf.day || 0, time: pf.time } : null); // {dayOff, time}
+  const [pick, setPick] = useState(pfValid ? { dayOff: pf.day || 0, time: pf.time } : (pf.time ? nextFree : null)); // {dayOff, time}. Si el prellenado ya pasó, cae al próximo hueco (puede ser el día siguiente).
   // paciente
   const [tipo, setTipo] = useState(pf.patName && !pf.patId ? "nuevo" : "existente");
   const [pid, setPid] = useState(pf.patId || "");
@@ -4322,11 +4383,6 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   // "Todas" usa la lista completa de servicios de la clínica (catálogo base + servicios propios creados en Servicios).
   const allClinicProcs = (window.clinicServiceList ? Array.from(new Set(window.clinicServiceList().map(s => s.name))) : PROC_LIST());
   const procsByEsp = esp === "Todas" ? allClinicProcs : (D.catalog.find(s => s.sec === esp) || { groups: [] }).groups.reduce((a, g) => a.concat(g.items.map(i => i.n)), []);
-  const wdN = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-  const b0 = new Date();
-  const week = []; for (let off = 0; off < 7; off++) { const dt = new Date(b0); dt.setDate(b0.getDate() + off); week.push({ off, dd: dt.getDate(), mm: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][dt.getMonth()], wd: wdN[dt.getDay()], wday: dt.getDay() }); }
-  // Info de fecha para cualquier offset (también semanas distintas a la actual, desde el calendario)
-  const dayInfo = off => { const dt = new Date(b0); dt.setDate(b0.getDate() + off); return { wd: wdN[dt.getDay()], dd: dt.getDate(), mm: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][dt.getMonth()] }; };
   const pat = patients.find(p => p.id === pid);
   const finalName = tipo === "existente" ? (pat ? pat.name : "") : nombre;
   const finalPhone = pat ? pat.phone : phone;
@@ -4559,7 +4615,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                     </button>
                   );
                   if (q) {
-                    const fl = patients.filter(p => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q) || (qNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qNorm)));
+                    const fl = patients.filter(p => jcmPatientMatch(p, patQ));
                     return fl.length ? fl.map(btn) : <div style={{ padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin resultados para "{patQ}".</div>;
                   }
                   // Sin búsqueda: solo los 2 pacientes más recientes; el resto queda desplegable. (P9)
@@ -4621,6 +4677,17 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   return (
     <AdModal T={T} title="Dar cita (agendar)" onClose={onClose} wide
       footer={<div style={{ display: "flex", gap: 10, alignItems: "center" }}><div style={{ flex: 1, fontFamily: T.sans, fontSize: 12, color: T.textMute }}>{pick ? "1 hora seleccionada · " + pick.time : "0 horas seleccionadas"}</div><AdBtn T={T} onClick={onClose}>Cerrar</AdBtn><AdBtn T={T} primary onClick={() => pick && setStep(2)}>Continuar</AdBtn></div>}>
+      {/* Recomendación: próximo hueco disponible — botón sobre los horarios, alineado con el título. */}
+      {nextFree && (() => { const di = dayInfo(nextFree.dayOff); const isSel = pick && pick.dayOff === nextFree.dayOff && pick.time === nextFree.time; return (
+        <button onClick={() => setPick({ dayOff: nextFree.dayOff, time: nextFree.time })}
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "8px 13px", borderRadius: 999, cursor: "pointer",
+            background: isSel ? T.accent + "1e" : (T.surface2 || T.accent + "10"), border: "1px solid " + (isSel ? T.accent + "88" : T.line), fontFamily: T.sans }}>
+          <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: "#16A34A", flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: T.textMute }}>Próximo disponible:</span>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: T.text }}>{di.wd} {di.dd} {di.mm} · {nextFree.dayOff === 0 ? "hoy " : (nextFree.dayOff === 1 ? "mañana " : "")}{nextFree.time}</span>
+          {!isSel && <span style={{ fontSize: 11.5, fontWeight: 600, color: T.accent }}>Usar →</span>}
+        </button>
+      ); })()}
       <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 18, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           <div><span style={lbl}>Especialidad</span><select value={esp} onChange={e => { setEsp(e.target.value); }} style={selStyle}><option>Todas</option>{especialidades.map(s => <option key={s}>{s}</option>)}</select></div>
@@ -4638,9 +4705,9 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                 <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".06em", textTransform: "uppercase", color: T.textMute, paddingBottom: 4 }}>{w.wd}</div>
                 <div style={{ fontFamily: T.serif, fontSize: 15, color: T.text, paddingBottom: 8 }}>{w.dd} {w.mm}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {adminSlots().map(h => {
+                  {adminSlots().filter(h => !slotPast(w.off, h)).map(h => {
                     const sel = pick && pick.dayOff === w.off && pick.time === h;
-                    const blk = (appts || []).some(a => { if (a.status === "anulada" || a.status === "cancelada") return false; if (apptDayOff(a) !== w.off) return false; const as = mins(a.time), ad = parseInt(a.dur)||60, ts = mins(h); return ts >= as && ts < as + ad; });
+                    const blk = slotBlk(w.off, h);
                     return <button key={h} disabled={blk} onClick={() => !blk && setPick({ dayOff: w.off, time: h })}
                       style={{ fontFamily: T.sans, fontSize: 10.5, padding: "6px 2px", borderRadius: 5,
                         cursor: blk ? "not-allowed" : "pointer",
@@ -4649,6 +4716,8 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
                         border: "1px solid " + (sel ? T.accent : (blk ? T.lineSoft : T.line)),
                         opacity: blk ? 0.55 : 1 }}>{h}</button>;
                   })}
+                  {/* Hoy con todos los horarios vencidos: se avisa en vez de dejar la columna vacía. */}
+                  {w.off === 0 && adminSlots().filter(h => !slotPast(w.off, h)).length === 0 && <span style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, padding: "8px 2px" }}>Sin horas hoy</span>}
                 </div>
               </div>
             ))}
