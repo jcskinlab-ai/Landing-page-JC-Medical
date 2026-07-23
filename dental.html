@@ -83,10 +83,13 @@
     radial-gradient(120% 80% at 50% -10%,rgba(14,154,160,.12),transparent 55%),
     linear-gradient(180deg,#f2f8f9 0%,#e9f1f4 45%,#e2edf0 100%)}
   .blobs{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
-  .blobs i{position:absolute;border-radius:50%;opacity:.5;mix-blend-mode:multiply}
-  .blobs i:nth-child(1){width:46vw;height:46vw;left:-12vw;top:-8vw;background:radial-gradient(circle,#bfe6e3,transparent 65%);animation:drift1 26s ease-in-out infinite alternate}
-  .blobs i:nth-child(2){width:38vw;height:38vw;right:-10vw;top:22vh;background:radial-gradient(circle,#c3e4f0,transparent 65%);animation:drift2 32s ease-in-out infinite alternate}
-  .blobs i:nth-child(3){width:36vw;height:36vw;left:26vw;bottom:-16vw;background:radial-gradient(circle,#d0efe9,transparent 65%);opacity:.5;animation:drift3 38s ease-in-out infinite alternate}
+  /* Blend NORMAL (no multiply): multiply desaturaba el teal a gris ("plomo") y donde los blobs se
+     solapaban se acumulaba. Con normal + opacidad baja quedan como un velo turquesa apenas
+     perceptible, y el fondo se lee limpio/claro como el resto de las secciones. */
+  .blobs i{position:absolute;border-radius:50%;opacity:.22;mix-blend-mode:normal}
+  .blobs i:nth-child(1){width:46vw;height:46vw;left:-12vw;top:-8vw;background:radial-gradient(circle,#cdeeeb,transparent 65%);animation:drift1 26s ease-in-out infinite alternate}
+  .blobs i:nth-child(2){width:38vw;height:38vw;right:-10vw;top:22vh;background:radial-gradient(circle,#d3ecf6,transparent 65%);animation:drift2 32s ease-in-out infinite alternate}
+  .blobs i:nth-child(3){width:36vw;height:36vw;left:26vw;bottom:-16vw;background:radial-gradient(circle,#daf2ed,transparent 65%);opacity:.22;animation:drift3 38s ease-in-out infinite alternate}
   @keyframes drift1{to{transform:translate(9vw,7vh) scale(1.15)}}
   @keyframes drift2{to{transform:translate(-8vw,-6vh) scale(1.12)}}
   @keyframes drift3{to{transform:translate(6vw,-8vh) scale(1.2)}}
@@ -105,6 +108,10 @@
   @media(max-width:980px){.nav.scrolled .nav-card{height:52px}}
   .brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:17px;letter-spacing:.14em;flex:0 0 auto}
   .brand .mark{width:34px;height:34px;flex:0 0 auto;border-radius:26%;background:linear-gradient(150deg,#12b3aa,#0c7aa8);border:1px solid var(--line-2);display:grid;place-items:center;color:#fff}
+  /* El diente del logo es <use href="#tooth">: el path del símbolo no trae fill, así que por
+     defecto salía NEGRO (color:#fff del .mark no cruza al shadow tree de <use>). fill sí es
+     heredable, así que puesto en el <svg> pinta el diente de blanco sobre el cuadro turquesa. */
+  .brand .mark svg{fill:#fff}
   .brand .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--ice);border:1px solid rgba(182,202,221,.4);border-radius:6px;padding:2px 6px;text-transform:uppercase}
   .nav-links{display:flex;gap:28px;margin:0 auto}
   .nav-links a{font-size:14.5px;color:var(--text-2);transition:color .2s;position:relative;padding:4px 0}
@@ -550,7 +557,7 @@
 </section>
 
 <!-- ══════════ PRESUPUESTO / PLAN ══════════ -->
-<section class="sec" id="tratamiento" style="background:rgba(12,12,14,.45)">
+<section class="sec" id="tratamiento" style="background:rgba(255,255,255,.5)">
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Presupuesto y plan de tratamiento</span>
@@ -668,7 +675,7 @@
 </section>
 
 <!-- ══════════ IA CLÍNICA ══════════ -->
-<section class="sec" id="ia" style="background:rgba(12,12,14,.45)">
+<section class="sec" id="ia" style="background:rgba(255,255,255,.5)">
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">IA clínica</span>
@@ -771,7 +778,7 @@
 </section>
 
 <!-- ══════════ COMPARACIÓN ══════════ -->
-<section class="sec" id="comparar" style="background:rgba(12,12,14,.45)">
+<section class="sec" id="comparar" style="background:rgba(255,255,255,.5)">
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Comparación</span>
@@ -876,7 +883,7 @@
 </section>
 
 <!-- ══════════ FAQ ══════════ -->
-<section class="sec" id="faq" style="background:rgba(12,12,14,.45)">
+<section class="sec" id="faq" style="background:rgba(255,255,255,.5)">
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Preguntas frecuentes</span>
