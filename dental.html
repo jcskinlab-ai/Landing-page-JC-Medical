@@ -111,7 +111,8 @@
   /* El diente del logo es <use href="#tooth">: el path del símbolo no trae fill, así que por
      defecto salía NEGRO (color:#fff del .mark no cruza al shadow tree de <use>). fill sí es
      heredable, así que puesto en el <svg> pinta el diente de blanco sobre el cuadro turquesa. */
-  .brand .mark svg{fill:#fff}
+  .mark svg,.mini-logo svg{fill:#fff}
+  .cta-final .ic svg{fill:var(--ice)}
   .brand .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--ice);border:1px solid rgba(182,202,221,.4);border-radius:6px;padding:2px 6px;text-transform:uppercase}
   .nav-links{display:flex;gap:28px;margin:0 auto}
   .nav-links a{font-size:14.5px;color:var(--text-2);transition:color .2s;position:relative;padding:4px 0}
@@ -302,7 +303,7 @@
 
   /* ── pasos ───────────────────────────────────────────── */
   .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-  .step{position:relative;border:1px solid var(--line);border-radius:18px;padding:24px 22px;background:linear-gradient(170deg,rgba(29,30,30,.55),rgba(15,16,16,.5))}
+  .step{position:relative;border:1px solid var(--line);border-radius:18px;padding:24px 22px;background:linear-gradient(170deg,rgba(255,255,255,.72),rgba(255,255,255,.52))}
   .step .sn{font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.1em;background:var(--accgrad);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:10px}
   .step h4{font-size:17px;font-weight:600;letter-spacing:-.015em;margin:0 0 8px}
   .step p{margin:0;color:var(--text-2);font-size:14px;line-height:1.55;text-wrap:pretty}
