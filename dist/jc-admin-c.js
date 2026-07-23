@@ -3181,7 +3181,7 @@ function PendientesView({ T, patients, appts, go, openP, updatePatient, goApt })
   const rows = rowsAll.filter((r) => {
     if (ptipo && r.tipo !== ptipo) return false;
     if (!pql) return true;
-    return (r.name || "").toLowerCase().includes(pql) || (r.rut || "").toLowerCase().includes(pql);
+    return window.jcmPatientMatch ? window.jcmPatientMatch(r, pq) : (r.name || "").toLowerCase().includes(pql) || (r.rut || "").toLowerCase().includes(pql);
   });
   const tipos = Array.from(new Set(alertas.map((a) => a.t)));
   const fmtReg = (ts) => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) + " " + new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "\u2014";

@@ -79,10 +79,32 @@ function nIcon(name, c) {
   }[name];
   return /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: c, strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, p);
 }
+function jcmNorm(s) {
+  return ("" + (s == null ? "" : s)).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+function jcmPatientMatch(p, query) {
+  var q = jcmNorm(query).trim();
+  if (!q) return true;
+  p = p || {};
+  var hay = jcmNorm((p.name || "") + " " + (p.rut || "") + " " + (p.email || "") + " " + (p.phone || ""));
+  var digits = ((p.rut || "") + (p.phone || "")).replace(/[^0-9kK]/g, "").toLowerCase();
+  return q.split(/\s+/).every(function(tok) {
+    if (hay.indexOf(tok) >= 0) return true;
+    if (/^[0-9k.\-]+$/.test(tok)) {
+      var d = tok.replace(/[^0-9k]/g, "");
+      return d && digits.indexOf(d) >= 0;
+    }
+    return false;
+  });
+}
+if (typeof window !== "undefined") {
+  window.jcmNorm = jcmNorm;
+  window.jcmPatientMatch = jcmPatientMatch;
+}
 function PatientSearch({ T, patients, onOpen, compact }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const res = q.trim() ? (patients || []).filter((p) => (p.name || "").toLowerCase().includes(q.toLowerCase()) || (p.rut || "").toLowerCase().includes(q.toLowerCase()) || (p.email || "").toLowerCase().includes(q.toLowerCase()) || (p.phone || "").includes(q)).slice(0, 7) : [];
+  const res = q.trim() ? (patients || []).filter((p) => jcmPatientMatch(p, q)).slice(0, 7) : [];
   const inpStyle = compact ? { width: "100%", fontFamily: T.sans, fontSize: 12, padding: "7px 12px 7px 30px", borderRadius: 999, border: "1px solid " + (T.dark ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.6)"), background: T.dark ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.5)", color: T.text, outline: "none", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } : { width: "100%", fontFamily: T.sans, fontSize: 12.5, padding: "8px 12px 8px 32px", borderRadius: 999, border: "1px solid " + T.chipBorder, background: T.chipBg, color: T.text, outline: "none" };
   return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", flex: compact ? "0 1 240px" : 1, maxWidth: compact ? 240 : 320, minWidth: 140 } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "1.7", style: { position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "7" }), /* @__PURE__ */ React.createElement("path", { d: "M21 21l-4.3-4.3" })), /* @__PURE__ */ React.createElement(
     "input",
@@ -2028,7 +2050,7 @@ function AdminApp() {
     const q = cmdQ.trim().toLowerCase();
     const norm = (s) => ("" + (s || "")).toLowerCase();
     const navMatches = adminNavItems().filter((n) => !q || norm(n.l).includes(q)).map((n) => ({ type: "nav", key: n.k, label: n.l }));
-    const patMatches = !q ? [] : patients.filter((p) => norm(p.name).includes(q) || norm(p.rut).includes(q) || norm(p.phone).includes(q)).slice(0, 6).map((p) => ({ type: "patient", id: p.id, label: p.name || "Sin nombre", sub: [p.rut, p.age ? p.age + " a\xF1os" : ""].filter(Boolean).join(" \xB7 ") }));
+    const patMatches = !q ? [] : patients.filter((p) => jcmPatientMatch(p, q)).slice(0, 6).map((p) => ({ type: "patient", id: p.id, label: p.name || "Sin nombre", sub: [p.rut, p.age ? p.age + " a\xF1os" : ""].filter(Boolean).join(" \xB7 ") }));
     const results = navMatches.concat(patMatches);
     const idx = results.length ? Math.min(cmdIdx, results.length - 1) : 0;
     const run = (c) => {
@@ -2457,7 +2479,7 @@ function ApptBlock({ T, a, onClick, compact }) {
   return /* @__PURE__ */ React.createElement("div", { "data-appt": true, onClick: (e) => {
     e.stopPropagation();
     onClick(a);
-  }, style: { cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: st.color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, nameLabel)), !compact && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 } }, a.time)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, compact ? a.time + " \xB7 " + a.proc : a.proc), !compact && st.key !== "pendiente" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, display: "inline-block", fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".04em", color: st.color, background: st.color + "1a", borderRadius: 5, padding: "2px 6px" } }, st.label));
+  }, style: { cursor: "pointer", background: T.surface2, border: "1px solid " + st.color + "66", borderRadius: 6, padding: compact ? "5px 7px" : "8px 11px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: st.color, flexShrink: 0 } }), a.proc && /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", title: jcmProcColor(a.proc).label, style: { width: 6, height: 6, borderRadius: "50%", background: jcmProcColor(a.proc).color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: compact ? 10.5 : 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, nameLabel)), !compact && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: st.color, flexShrink: 0 } }, a.time)), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: compact ? 9 : 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, compact ? a.time + " \xB7 " + a.proc : a.proc), !compact && st.key !== "pendiente" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, display: "inline-block", fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: ".04em", color: st.color, background: st.color + "1a", borderRadius: 5, padding: "2px 6px" } }, st.label));
 }
 function ICSImportModal({ T, onClose, onImport }) {
   const [step, setStep] = useState(1);
@@ -3009,8 +3031,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         a._compact ? (
           /* Citas cortas (<30 min): una sola fila — la caja queda delgada (alto real) y no
              invade el slot siguiente ni tapa su botón "+". */
-          /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", flexShrink: 0 } }, a.time), ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 4px" } }, ini), tCol && /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", title: "Tipo: " + a.tipoDental, style: { flexShrink: 0, width: 6, height: 6, borderRadius: 2, background: tCol } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name))
-        ) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" } }, a.time, " - ", endOf(a)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" } }, parseInt(a.dur) || 60, " min")), tCol ? /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 4, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { title: "Tipo: " + a.tipoDental, style: { fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: tCol, background: tCol + "22", border: "1px solid " + tCol + "44", borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap" } }, a.tipoDental), ini && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" } }, ini)) : ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" } }, ini)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), a.proc && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.proc), dentalOn && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", flexShrink: 0, fontFamily: T.sans, fontSize: 10, color: T.textFaint, whiteSpace: "nowrap" } }, jcmSillonOf(a))))
+          /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", title: jcmProcColor(a.proc).label, style: { width: 6, height: 6, borderRadius: "50%", background: jcmProcColor(a.proc).color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", flexShrink: 0 } }, a.time), ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 4px" } }, ini), tCol && /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", title: "Tipo: " + a.tipoDental, style: { flexShrink: 0, width: 6, height: 6, borderRadius: 2, background: tCol } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name))
+        ) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: "50%", background: col, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", title: jcmProcColor(a.proc).label, style: { width: 6, height: 6, borderRadius: "50%", background: jcmProcColor(a.proc).color, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap" } }, a.time, " - ", endOf(a)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, whiteSpace: "nowrap" } }, parseInt(a.dur) || 60, " min")), tCol ? /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 4, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { title: "Tipo: " + a.tipoDental, style: { fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: tCol, background: tCol + "22", border: "1px solid " + tCol + "44", borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap" } }, a.tipoDental), ini && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" } }, ini)) : ini && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 8.5, fontWeight: 700, color: col, background: col + "33", borderRadius: 4, padding: "1px 5px" } }, ini)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), a.proc && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.proc), dentalOn && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", flexShrink: 0, fontFamily: T.sans, fontSize: 10, color: T.textFaint, whiteSpace: "nowrap" } }, jcmSillonOf(a))))
       );
     }), showNow && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 54, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 0, top: -7, width: 8, height: 8, borderRadius: "50%", background: "#C0285A" } }), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", right: 4, top: -16, fontFamily: T.sans, fontSize: 9, letterSpacing: ".1em", color: "#C0285A", textTransform: "uppercase" } }, "Ahora ", fmtTime(now)))))), (() => {
       const card = { ...dayGlass(16), padding: 15 };
@@ -3238,6 +3260,16 @@ function jcmApptState(a, T) {
   return { key: "pendiente", label: "Pendiente", color: T && T.accent || "#8A7E6B" };
 }
 if (typeof window !== "undefined") window.jcmApptState = jcmApptState;
+var JCM_PROC_COLORS = { botox: "#9C7BD4", ah: "#C2C9D2", bio: "#C0285A", quem: "#CDA434", otro: "#6E7681" };
+function jcmProcColor(proc) {
+  var p = (proc || "").toLowerCase();
+  if (/botox|toxina|b[oó]tox|bruxismo|maset|hiperhidros|axila/.test(p)) return { key: "botox", label: "Toxina botul\xEDnica", color: JCM_PROC_COLORS.botox };
+  if (/hialur|[aá]cido h|relleno|labio|rinomodel|ojera|surco|perfilado|mentón|menton/.test(p)) return { key: "ah", label: "\xC1cido hialur\xF3nico", color: JCM_PROC_COLORS.ah };
+  if (/sculptra|plla|bioestim|radiesse|col[aá]geno|inductor/.test(p)) return { key: "bio", label: "Bioestimulador", color: JCM_PROC_COLORS.bio };
+  if (/quemador|grasa|papada|deoxic[oó]lico|lip[oó]lisis|lipopapada|reduc/.test(p)) return { key: "quem", label: "Quemador de grasa", color: JCM_PROC_COLORS.quem };
+  return { key: "otro", label: proc || "Procedimiento", color: JCM_PROC_COLORS.otro };
+}
+if (typeof window !== "undefined") window.jcmProcColor = jcmProcColor;
 function ComentarioPopup({ T, appt, updateAppt, onClose }) {
   const [txt, setTxt] = useState(appt.comentario || "");
   const save = () => {
@@ -3319,7 +3351,7 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, icsBt
       const ordered = list.slice().sort((x, y2) => (x.time || "").localeCompare(y2.time || ""));
       return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => onDay(offOf(d)), style: { textAlign: "left", background: isToday ? T.accent + "1e" : veil, minHeight: 100, minWidth: 0, padding: "7px 7px", border: "none", ...cellBorders, cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? T.accent : T.text, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: isToday ? T.accent + "33" : "transparent", flexShrink: 0 } }, d.getDate()), ordered.slice(0, 3).map((a, idx) => {
         const c = jcmApptState(a, T).color;
-        return /* @__PURE__ */ React.createElement("span", { key: idx, title: (a.time ? a.time + " \xB7 " : "") + (a.name || "Cita") + (a.proc ? " \xB7 " + a.proc : ""), style: { display: "flex", alignItems: "center", gap: 5, background: chipBg, ...cellBlur, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: "50%", background: c, flexShrink: 0 } }), a.time ? a.time + " " : "", a.name || "Cita");
+        return /* @__PURE__ */ React.createElement("span", { key: idx, title: (a.time ? a.time + " \xB7 " : "") + (a.name || "Cita") + (a.proc ? " \xB7 " + a.proc : ""), style: { display: "flex", alignItems: "center", gap: 5, background: chipBg, ...cellBlur, borderRadius: 4, padding: "2px 6px", fontFamily: T.sans, fontSize: 9.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: "50%", background: c, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: "50%", background: jcmProcColor(a.proc).color, flexShrink: 0 } }), a.time ? a.time + " " : "", a.name || "Cita");
       }), ordered.length > 3 && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 9, color: T.accent, paddingLeft: 3 } }, "+", ordered.length - 3, " m\xE1s"));
     }));
   })());
@@ -3412,7 +3444,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
       const natural = topW(a.time);
       const pushed = cursor >= 0 && natural < cursor;
       const top = pushed ? cursor + 2 : natural;
-      const h = pushed ? Math.max(20, Math.min(fullH, 26)) : fullH;
+      const h = fullH;
       cursor = top + h;
       return { ...a, _top: top, _h: h };
     });
@@ -3511,6 +3543,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
     }), stackAppts(da).map((a) => {
       const isPendPago = a.status === "pendiente_pago";
       const accentColor = jcmApptState(a, T).color;
+      const procC = jcmProcColor(a.proc).color;
       const _durMin = parseInt(a.dur) || 60;
       const _endMin = mins(a.time) + _durMin;
       const horaFin = String(Math.floor(_endMin / 60)).padStart(2, "0") + ":" + String(_endMin % 60).padStart(2, "0");
@@ -3566,8 +3599,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
              (ref. del usuario). En Los Medique (luxF) el tinte es cristal esmerilado (backdrop-blur
              Nivel 2) para que la montaña del fondo se transparente y la cita no sea un bloque
              pastel opaco. */
-          /* @__PURE__ */ React.createElement("div", { style: { height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? luxF ? "1e" : "26" : luxF ? "14" : "1c"), ...luxF ? { backdropFilter: window.JCDS.glassBlur.small, WebkitBackdropFilter: window.JCDS.glassBlur.small } : {}, border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: tall ? "4px 6px 4px 8px" : "0 6px 0 8px", overflow: "hidden", display: "flex", alignItems: tall ? "stretch" : "center", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: T.text } }, a.time)), tall && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, isPendPago ? "\u23F3 Pago pendiente" : a.proc || "Cita"), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textFaint } }, "\u2013 ", horaFin))), a.proc && /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: accentColor + "33", color: accentColor, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 } }, /bioestim/i.test(a.proc) ? "S" : a.proc[0].toUpperCase()))
-        ) : /* @__PURE__ */ React.createElement("div", { style: { height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E122" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name)), a._h > 26 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time, " \xB7 ", parseInt(a.dur) || 60, " min", a.proc ? " \xB7 " + (isPendPago ? "\u23F3 Pago pendiente" : a.proc) : ""))
+          /* @__PURE__ */ React.createElement("div", { style: { height: "100%", cursor: "pointer", background: isPendPago ? "#B8860B" + (T.dark ? "22" : "16") : accentColor + (T.dark ? luxF ? "1e" : "26" : luxF ? "14" : "1c"), ...luxF ? { backdropFilter: window.JCDS.glassBlur.small, WebkitBackdropFilter: window.JCDS.glassBlur.small } : {}, border: "1px solid " + accentColor + (luxF ? "2a" : "33"), borderRadius: luxF ? DS.r.ctl : 6, padding: tall ? "4px 6px 4px 8px" : "0 6px 0 8px", overflow: "hidden", display: "flex", alignItems: tall ? "stretch" : "center", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: T.text } }, a.time)), tall && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, isPendPago ? "\u23F3 Pago pendiente" : a.proc || "Cita"), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 9.5, color: T.textFaint } }, "\u2013 ", horaFin))), a.proc && /* @__PURE__ */ React.createElement("span", { title: jcmProcColor(a.proc).label, style: { flexShrink: 0, alignSelf: tall ? "flex-start" : "center", width: 15, height: 15, borderRadius: 3, background: procC + "33", color: procC, fontFamily: T.sans, fontSize: 8.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: 0 } }, /bioestim/i.test(a.proc) ? "S" : a.proc[0].toUpperCase()))
+        ) : /* @__PURE__ */ React.createElement("div", { style: { height: "100%", cursor: "pointer", background: isPendPago ? "#FFF8E122" : T.surface, border: "1px solid " + (isPendPago ? "#B8860B44" : T.line), borderRadius: 6, padding: "4px 6px", overflow: "hidden", boxShadow: "0 2px 6px rgba(40,38,30,.08)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: accentColor, flexShrink: 0 } }), a.proc && /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", title: jcmProcColor(a.proc).label, style: { width: 6, height: 6, borderRadius: "50%", background: procC, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name)), a._h > 26 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.time, " \xB7 ", parseInt(a.dur) || 60, " min", a.proc ? " \xB7 " + (isPendPago ? "\u23F3 Pago pendiente" : a.proc) : ""))
       );
     }));
   }), v2 && /* @__PURE__ */ React.createElement("div", { style: { width: 52, flexShrink: 0, position: "relative", height: wkGridH, borderLeft: "1px solid " + T.lineSoft, overflow: "hidden" } }, ADMIN_HALF_HOURS.map((hhmm, i) => {
@@ -3698,7 +3731,38 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const team = (window.CADMIN || { team: [] }).team;
   const especialidades = D.catalog.map((s) => s.sec);
   const pf = prefill || {};
-  const [step, setStep] = useState(pf.time ? 2 : 1);
+  const wdN2 = ["Dom", "Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b"];
+  const b0 = /* @__PURE__ */ new Date();
+  const _MESES3 = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const week = [];
+  for (let off = 0; off < 7; off++) {
+    const dt = new Date(b0);
+    dt.setDate(b0.getDate() + off);
+    week.push({ off, dd: dt.getDate(), mm: _MESES3[dt.getMonth()], wd: wdN2[dt.getDay()], wday: dt.getDay() });
+  }
+  const dayInfo = (off) => {
+    const dt = new Date(b0);
+    dt.setDate(b0.getDate() + off);
+    return { wd: wdN2[dt.getDay()], dd: dt.getDate(), mm: _MESES3[dt.getMonth()] };
+  };
+  const nowMin = b0.getHours() * 60 + b0.getMinutes();
+  const slotPast = (off, h) => off === 0 && mins(h) < nowMin;
+  const slotBlk = (off, h) => (appts || []).some((a) => {
+    if (a.status === "anulada" || a.status === "cancelada") return false;
+    if (apptDayOff(a) !== off) return false;
+    const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(h);
+    return ts >= as && ts < as + ad;
+  });
+  const nextFree = (() => {
+    for (const w of week) {
+      for (const h of adminSlots()) {
+        if (!slotPast(w.off, h) && !slotBlk(w.off, h)) return { dayOff: w.off, time: h };
+      }
+    }
+    return null;
+  })();
+  const pfValid = pf.time && !slotPast(pf.day || 0, pf.time);
+  const [step, setStep] = useState(pfValid ? 2 : 1);
   const [esp, setEsp] = useState("Todas");
   const [proc, setProc] = useState(pf.proc || "Evaluaci\xF3n general");
   const [prof, setProf] = useState(team[0] ? team[0].name : clinicDisplayName());
@@ -3724,7 +3788,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [sucursal, setSucursal] = useState(pf.sucursal || (sucursalesList[0] || ""));
   const [notas, setNotas] = useState(pf.notas || "");
   const [repetir, setRepetir] = useState(0);
-  const [pick, setPick] = useState(pf.time ? { dayOff: pf.day || 0, time: pf.time } : null);
+  const [pick, setPick] = useState(pfValid ? { dayOff: pf.day || 0, time: pf.time } : pf.time ? nextFree : null);
   const [tipo, setTipo] = useState(pf.patName && !pf.patId ? "nuevo" : "existente");
   const [pid, setPid] = useState(pf.patId || "");
   const [patQ, setPatQ] = useState("");
@@ -3740,19 +3804,6 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [origen, setOrigen] = useState("");
   const allClinicProcs = window.clinicServiceList ? Array.from(new Set(window.clinicServiceList().map((s) => s.name))) : PROC_LIST();
   const procsByEsp = esp === "Todas" ? allClinicProcs : (D.catalog.find((s) => s.sec === esp) || { groups: [] }).groups.reduce((a, g) => a.concat(g.items.map((i) => i.n)), []);
-  const wdN2 = ["Dom", "Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b"];
-  const b0 = /* @__PURE__ */ new Date();
-  const week = [];
-  for (let off = 0; off < 7; off++) {
-    const dt = new Date(b0);
-    dt.setDate(b0.getDate() + off);
-    week.push({ off, dd: dt.getDate(), mm: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][dt.getMonth()], wd: wdN2[dt.getDay()], wday: dt.getDay() });
-  }
-  const dayInfo = (off) => {
-    const dt = new Date(b0);
-    dt.setDate(b0.getDate() + off);
-    return { wd: wdN2[dt.getDay()], dd: dt.getDate(), mm: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][dt.getMonth()] };
-  };
   const pat = patients.find((p) => p.id === pid);
   const finalName = tipo === "existente" ? pat ? pat.name : "" : nombre;
   const finalPhone = pat ? pat.phone : phone;
@@ -3907,7 +3958,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         const recency = (p) => p.updatedAt || p.created || p.lastVisit || p.ts || 0;
         const btn = (p) => /* @__PURE__ */ React.createElement("button", { key: p.id, onClick: () => setPid(p.id), style: { display: "block", width: "100%", textAlign: "left", padding: "10px 13px", background: pid === p.id ? T.surface2 || T.accent + "14" : "transparent", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, p.rut || p.phone || "Paciente"));
         if (q) {
-          const fl = patients.filter((p) => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q) || qNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qNorm));
+          const fl = patients.filter((p) => jcmPatientMatch(p, patQ));
           return fl.length ? fl.map(btn) : /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 13px", fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, 'Sin resultados para "', patQ, '".');
         }
         const ord = [...patients].sort((a, b) => recency(b) - recency(a));
@@ -3932,6 +3983,32 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       wide: true,
       footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontFamily: T.sans, fontSize: 12, color: T.textMute } }, pick ? "1 hora seleccionada \xB7 " + pick.time : "0 horas seleccionadas"), /* @__PURE__ */ React.createElement(AdBtn, { T, onClick: onClose }, "Cerrar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, onClick: () => pick && setStep(2) }, "Continuar"))
     },
+    nextFree && (() => {
+      const di = dayInfo(nextFree.dayOff);
+      const isSel = pick && pick.dayOff === nextFree.dayOff && pick.time === nextFree.time;
+      return /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: () => setPick({ dayOff: nextFree.dayOff, time: nextFree.time }),
+          style: {
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 14,
+            padding: "8px 13px",
+            borderRadius: 999,
+            cursor: "pointer",
+            background: isSel ? T.accent + "1e" : T.surface2 || T.accent + "10",
+            border: "1px solid " + (isSel ? T.accent + "88" : T.line),
+            fontFamily: T.sans
+          }
+        },
+        /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: "50%", background: "#16A34A", flexShrink: 0 } }),
+        /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: T.textMute } }, "Pr\xF3ximo disponible:"),
+        /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12.5, fontWeight: 600, color: T.text } }, di.wd, " ", di.dd, " ", di.mm, " \xB7 ", nextFree.dayOff === 0 ? "hoy " : nextFree.dayOff === 1 ? "ma\xF1ana " : "", nextFree.time),
+        !isSel && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, fontWeight: 600, color: T.accent } }, "Usar \u2192")
+      );
+    })(),
     /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "200px 1fr", gap: 18, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 13 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Especialidad"), /* @__PURE__ */ React.createElement("select", { value: esp, onChange: (e) => {
       setEsp(e.target.value);
     }, style: selStyle }, /* @__PURE__ */ React.createElement("option", null, "Todas"), especialidades.map((s) => /* @__PURE__ */ React.createElement("option", { key: s }, s)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: selStyle }, /* @__PURE__ */ React.createElement("option", { value: "Evaluaci\xF3n general" }, "Evaluaci\xF3n general"), procOptionsByCat(procsByEsp))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, dentalOn ? jcmT().profesional || "Profesional" : "Profesional"), /* @__PURE__ */ React.createElement("select", { value: prof, onChange: (e) => setProf(e.target.value), style: selStyle }, team.map((t) => {
@@ -3940,14 +4017,9 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
     }))), sucursalesList.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Sucursal"), /* @__PURE__ */ React.createElement("select", { value: sucursal, onChange: (e) => setSucursal(e.target.value), style: selStyle }, sucursalesList.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Recurso"), /* @__PURE__ */ React.createElement("select", { value: recurso, onChange: (e) => setRecurso(e.target.value), style: selStyle }, /* @__PURE__ */ React.createElement("option", null, "No especificado"), /* @__PURE__ */ React.createElement("option", null, "Sala de procedimientos"), /* @__PURE__ */ React.createElement("option", null, "Sala de evaluaci\xF3n"))), dentalOn && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Tipo"), /* @__PURE__ */ React.createElement("select", { value: tipoDental, onChange: (e) => pickTipoDental(e.target.value), style: selStyle }, JCM_TIPOS_DENTAL.map((t) => /* @__PURE__ */ React.createElement("option", { key: t, value: t }, t)))), dentalOn ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, jcmT().box || "Sill\xF3n"), /* @__PURE__ */ React.createElement("select", { value: camilla, onChange: (e) => setCamilla(e.target.value), style: selStyle }, sillonOpts.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s)))) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Box / Camilla"), /* @__PURE__ */ React.createElement("select", { value: camilla, onChange: (e) => setCamilla(e.target.value), style: selStyle }, /* @__PURE__ */ React.createElement("option", null, "Box 1"), /* @__PURE__ */ React.createElement("option", null, "Box 2"), /* @__PURE__ */ React.createElement("option", null, "Camilla 1"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => {
       durTouched.current = true;
       setDur(e.target.value);
-    }, style: selStyle }, DUR_OPTS.map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d))))), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, minmax(80px,1fr))", gap: 6, minWidth: 620 } }, week.map((w) => /* @__PURE__ */ React.createElement("div", { key: w.off, style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".06em", textTransform: "uppercase", color: T.textMute, paddingBottom: 4 } }, w.wd), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, paddingBottom: 8 } }, w.dd, " ", w.mm), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, adminSlots().map((h) => {
+    }, style: selStyle }, DUR_OPTS.map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d))))), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, minmax(80px,1fr))", gap: 6, minWidth: 620 } }, week.map((w) => /* @__PURE__ */ React.createElement("div", { key: w.off, style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".06em", textTransform: "uppercase", color: T.textMute, paddingBottom: 4 } }, w.wd), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 15, color: T.text, paddingBottom: 8 } }, w.dd, " ", w.mm), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, adminSlots().filter((h) => !slotPast(w.off, h)).map((h) => {
       const sel = pick && pick.dayOff === w.off && pick.time === h;
-      const blk = (appts || []).some((a) => {
-        if (a.status === "anulada" || a.status === "cancelada") return false;
-        if (apptDayOff(a) !== w.off) return false;
-        const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(h);
-        return ts >= as && ts < as + ad;
-      });
+      const blk = slotBlk(w.off, h);
       return /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -3968,7 +4040,7 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         },
         h
       );
-    })))))))
+    }), w.off === 0 && adminSlots().filter((h) => !slotPast(w.off, h)).length === 0 && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, padding: "8px 2px" } }, "Sin horas hoy")))))))
   );
 }
 function CitaEditModal({ T, appt, patients, only, onClose, onSave, onCancel }) {

@@ -480,7 +480,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const ql = q.trim().toLowerCase();
   const qlNorm = ql.replace(/[^0-9k]/g, "");
   let list = patients.filter(p => {
-    if (ql && !(p.name.toLowerCase().includes(ql) || (p.rut || "").toLowerCase().includes(ql) || (qlNorm.length >= 3 && (p.rut || "").replace(/[^0-9kK]/g, "").toLowerCase().includes(qlNorm)))) return false;
+    if (q.trim() && window.jcmPatientMatch && !window.jcmPatientMatch(p, q)) return false;
     const m = meta(p);
     if (filt === "agendado" && !m.ag) return false;
     if (filt === "comprado" && !m.comp) return false;
@@ -947,16 +947,18 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
         </div>
       </div>
 
-      {/* tarjetas de datos — Teléfono y Email son clickeables para editar */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: luxF ? 14 : 10, margin: luxF ? "22px 0 4px" : "16px 0 4px" }}>
+      {/* Tarjetas de datos — más compactas (pedido: la cabecera ocupaba demasiado y empujaba el
+          formulario fuera de pantalla). Edad y Estado ya se ven junto al nombre; aquí van en una
+          sola fila baja, con Teléfono y Email clickeables para editar. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: luxF ? 10 : 8, margin: luxF ? "12px 0 2px" : "10px 0 2px" }}>
         {[["Edad", (patient.age ? patient.age + " años" : "—"), true], ["Teléfono", patient.phone || "—", true], ["Email", patient.email || "—", true], ["Estado", estado, false]].map(([l, v, editable], i) => (
           <div key={l} onClick={editable ? () => setEditD(true) : undefined} title={editable ? "Haz clic para editar" : undefined}
             style={luxF
-              ? { ...DS.card(T), padding: "16px 18px", minWidth: 0, cursor: editable ? "pointer" : "default", transition: DS.trans("border-color, transform"), ...DS.reveal(i) }
-              : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "12px 14px", minWidth: 0, cursor: editable ? "pointer" : "default", transition: "border-color .15s" }}
+              ? { ...DS.card(T), padding: "8px 13px", minWidth: 0, cursor: editable ? "pointer" : "default", transition: DS.trans("border-color, transform"), ...DS.reveal(i) }
+              : { background: T.surface, border: "1px solid " + T.line, borderRadius: 10, padding: "7px 12px", minWidth: 0, cursor: editable ? "pointer" : "default", transition: "border-color .15s" }}
             onMouseEnter={editable ? e => { e.currentTarget.style.borderColor = T.accent + (luxF ? "66" : ""); } : undefined}
             onMouseLeave={editable ? e => { e.currentTarget.style.borderColor = T.line; } : undefined}>
-            <div style={{ fontFamily: T.sans, fontSize: luxF ? DS.ft.eyebrow : 9, letterSpacing: luxF ? ".14em" : ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: luxF ? 8 : 5, display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ fontFamily: T.sans, fontSize: luxF ? DS.ft.eyebrow : 9, letterSpacing: luxF ? ".14em" : ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: luxF ? 3 : 2, display: "flex", alignItems: "center", gap: 4 }}>
               {l}
               {editable && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>}
             </div>
@@ -967,8 +969,8 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
 
       {/* barra de pestañas horizontal */}
       <div className="jc-scroll" style={luxF
-        ? { display: "flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, margin: "22px 0 18px" }
-        : { display: "flex", gap: 4, overflowX: "auto", borderBottom: "1px solid " + T.line, margin: "14px 0 18px" }}>
+        ? { display: "flex", gap: 2, overflowX: "auto", background: T.surface2 || T.surface, border: "1px solid " + T.line, borderRadius: DS.r.seg, padding: 3, margin: "12px 0 12px" }
+        : { display: "flex", gap: 4, overflowX: "auto", borderBottom: "1px solid " + T.line, margin: "10px 0 12px" }}>
         {TABS.map(([k, l]) => (
           <button key={k} onClick={() => goTab(k)} style={luxF
             ? { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", background: tab === k ? T.surface : "none", boxShadow: tab === k ? "0 1px 2px rgba(0,0,0,.06)" : "none", border: "none", borderRadius: DS.r.ctl, cursor: "pointer", fontFamily: T.sans, fontSize: DS.ft.sub, fontWeight: tab === k ? 600 : 500, color: tab === k ? T.text : T.textMute, whiteSpace: "nowrap", transition: DS.trans("background,box-shadow,color") }
@@ -994,7 +996,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       {tab === "odontograma" && <Odontograma T={T} patient={patient} updatePatient={updatePatient} readOnly={false} />}
       {tab === "fichaclinica" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: luxF ? 12 : 10, marginBottom: luxF ? 20 : 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: luxF ? 12 : 10, marginBottom: luxF ? 12 : 10 }}>
             {[["Notas internas", patient.notes, "#C9A227"], ["Alergias", (window.clinVal ? window.clinVal(patient.clinica || {}, "alergias") : (patient.clinica || {}).alergias), "#1F8A5B"], ["Antecedentes", (window.clinVal ? window.clinVal(patient.clinica || {}, "morbidos") : (patient.clinica || {}).morbidos), T.accent]].map(([l, v, c], i) => (
               luxF ? (
                 <div key={l} style={{ ...DS.card(T), padding: "14px 16px", ...DS.reveal(i) }}>
@@ -2890,13 +2892,40 @@ function ExamenesTab({ T, patient }) {
   function crearOrden() {
     const lista = [...selExams, ...(extraExam.trim() ? [extraExam.trim()] : [])];
     if (!lista.length) { window.jcmToast && window.jcmToast("Elige al menos un examen.", "info"); return; }
-    const o = { id: "lo" + Date.now(), patId: patient.id, patName: patient.name, examenes: lista.join(", "), tipo: tipoOrden, estado: "Solicitado", fecha: new Date().toISOString().slice(0, 10) };
+    // Se guarda el profesional que la crea → la orden impresa sale con SU membrete/firma.
+    const prof = (window.clinicPro && window.clinicPro()) || "";
+    const o = { id: "lo" + Date.now(), patId: patient.id, patName: patient.name, examenes: lista.join(", "), tipo: tipoOrden, estado: "Solicitado", fecha: new Date().toISOString().slice(0, 10), prof: prof };
     let all = []; try { all = (window.DB && window.DB.get("lab_orders")) || []; } catch (e) {}
     const next = [o, ...all];
     try { window.DB && window.DB.set("lab_orders", next); } catch (e) {}
     setOrdenes(next.filter(x => x.patId === patient.id));
     setSelExams([]); setExtraExam("");
-    window.jcmToast && window.jcmToast("Orden de examen creada.", "ok");
+    window.jcmToast && window.jcmToast("Orden creada. Abriendo documento para imprimir…", "ok");
+    setTimeout(() => imprimirOrden(o), 120); // documento real (A4) listo para imprimir / guardar como PDF
+  }
+  // Orden de exámenes IMPRIMIBLE (PDF): misma hoja editorial A4 que receta/consentimiento, con el
+  // membrete de la clínica, los datos del paciente, la lista numerada de exámenes y la firma del
+  // profesional que la creó. Se imprime con el diálogo del navegador → "Guardar como PDF".
+  function imprimirOrden(o) {
+    if (!o) return;
+    const e = jcmDocEsc;
+    const b = jcmDocBrand(o.prof || "");
+    const MESES_L = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    let fechaLarga = o.fecha; try { const d = new Date(o.fecha + "T00:00:00"); fechaLarga = d.getDate() + " de " + MESES_L[d.getMonth()] + " de " + d.getFullYear(); } catch (_) {}
+    const items = (o.examenes || "").split(",").map(s => s.trim()).filter(Boolean);
+    const folio = "N° " + ("" + (o.id || "")).replace(/\D/g, "").slice(-6);
+    const titleBlock = "<div class='titleblock'><div><div class='eyebrow'>Solicitud de exámenes</div>"
+      + "<h1 class='doc-title'>Orden de <span class='it'>exámenes</span></h1></div>"
+      + "<div class='folio'><span class='k'>Folio</span><span class='vbig'>" + e(folio) + "</span></div></div>";
+    const pband = jcmPband(patient, [["RUT / CI", patient.rut], ["Edad", patient.age ? patient.age + " años" : ""], ["Fecha", fechaLarga]], o.estado || "Solicitado");
+    const listHTML = "<ol class='indlist'>" + items.map(it => "<li><span class='num'></span><span class='txt'>" + e(it) + "</span></li>").join("") + "</ol>";
+    const tipoBox = o.tipo ? "<div class='diag'><div class='dx-tick'></div><div class='dx-k'>Modalidad</div><div class='dx-v'>" + e(o.tipo === "Interno" ? "Toma interna en la clínica" : "Toma externa (laboratorio)") + "</div></div>" : "";
+    const body = "<div class='body'>" + tipoBox
+      + "<div class='section'><div class='section-head'><span class='sh-label'>Exámenes solicitados</span><span class='sh-num'>" + items.length + "</span><span class='sh-rule'></span></div>"
+      + (items.length ? listHTML : "<div class='empty-note'>Sin exámenes.</div>") + "</div></div>";
+    const signFoot = jcmSignFoot(b, o.prof || b.proName, "Orden de exámenes", patient.name || "", fechaLarga, null);
+    const inner = jcmMasthead(b) + titleBlock + pband + body + signFoot;
+    jcmPrintDoc("Orden de exámenes · " + (patient.name || ""), b, inner);
   }
   function persist(n) { setFiles(n); try { window.DB && window.DB.set(patExamKey(patient.id), n); } catch (e) {} }
   function onPick(e) {
@@ -2938,7 +2967,13 @@ function ExamenesTab({ T, patient }) {
       {ordenes.length > 0 && <div style={{ marginTop: 18 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Órdenes solicitadas</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{ordenes.map(o => (
-          <div key={o.id} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 12px", fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{o.examenes} <span style={{ color: T.textFaint, fontSize: 11 }}>· {o.tipo} · {o.estado} · {o.fecha}</span></div>))}</div>
+          <div key={o.id} style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "9px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 12.5, color: T.text }}>{o.examenes} <span style={{ color: T.textFaint, fontSize: 11 }}>· {o.tipo} · {o.estado} · {o.fecha}</span></div>
+            <button onClick={() => imprimirOrden(o)} title="Imprimir / guardar como PDF" style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 7, cursor: "pointer", background: "transparent", border: "1px solid " + T.line, color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M6 9V2h12v7" /><rect x="6" y="13" width="12" height="8" /><path d="M6 17H3v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5h-3" /></svg>
+              Imprimir
+            </button>
+          </div>))}</div>
       </div>}
       <div style={{ marginTop: 18 }}>
         <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, marginBottom: 10 }}>Exámenes cargados ({files.length})</div>

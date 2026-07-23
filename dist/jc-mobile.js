@@ -46,6 +46,24 @@ const WDS = ["Dom", "Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b"];
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const MESES_LARGOS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DOW_FULL = ["Domingo", "Lunes", "Martes", "Mi\xE9rcoles", "Jueves", "Viernes", "S\xE1bado"];
+function mNorm(s) {
+  return ("" + (s == null ? "" : s)).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+function mPatientMatch(p, query) {
+  var q = mNorm(query).trim();
+  if (!q) return true;
+  p = p || {};
+  var hay = mNorm((p.name || "") + " " + (p.rut || "") + " " + (p.email || "") + " " + (p.phone || ""));
+  var digits = ((p.rut || "") + (p.phone || "")).replace(/[^0-9kK]/g, "").toLowerCase();
+  return q.split(/\s+/).every(function(tok) {
+    if (hay.indexOf(tok) >= 0) return true;
+    if (/^[0-9k.\-]+$/.test(tok)) {
+      var d = tok.replace(/[^0-9k]/g, "");
+      return d && digits.indexOf(d) >= 0;
+    }
+    return false;
+  });
+}
 function clinicMapsLinkM() {
   try {
     const m = window.DB && window.DB.cfg && window.DB.cfg().clinic_maps;
@@ -559,7 +577,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
   const active = appts.filter((a) => a.status !== "anulada");
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
-  const searchMatches = !ql ? [] : active.filter((a) => (a.name || "").toLowerCase().includes(ql) || (a.rut || "").toLowerCase().includes(ql) || (a.proc || "").toLowerCase().includes(ql) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
+  const searchMatches = !ql ? [] : active.filter((a) => mPatientMatch(a, ql) || mNorm(a.proc).includes(mNorm(ql)) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
   const searchResults = searchMatches.map((a) => ({ a, off: isoToDayOff(a.fecha || offToISO(a.day || 0)) })).sort((x, y) => {
     const dx = Math.abs(x.off), dy = Math.abs(y.off);
     return dx !== dy ? dx - dy : y.off - x.off;
@@ -794,7 +812,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const [selDay, setSelDay] = useState(today);
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
-  const searchMatches = !ql ? [] : appts.filter((a) => (a.name || "").toLowerCase().includes(ql) || (a.rut || "").toLowerCase().includes(ql) || (a.proc || "").toLowerCase().includes(ql) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
+  const searchMatches = !ql ? [] : appts.filter((a) => mPatientMatch(a, ql) || mNorm(a.proc).includes(mNorm(ql)) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
   const searchResults = searchMatches.map((a) => ({ a, off: isoToDayOff(a.fecha || offToISO(a.day || 0)) })).sort((x, y) => {
     const dx = Math.abs(x.off), dy = Math.abs(y.off);
     return dx !== dy ? dx - dy : y.off - x.off;
@@ -1012,7 +1030,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       },
       /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, fontWeight: 500, color: T.textFaint } }, d.wd),
       /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 16, fontWeight: 600, color: isSel ? T.accent : d.isToday ? T.text : T.textMute, lineHeight: 1.15 } }, d.dd),
-      /* @__PURE__ */ React.createElement("div", { style: { width: 5, height: 5, borderRadius: "50%", background: isSel ? T.accent : hasApts ? T.textFaint : "transparent" } })
+      /* @__PURE__ */ React.createElement("div", { style: { width: 5, height: 5, borderRadius: "50%", background: hasApts ? isSel ? T.accent : T.textFaint : "transparent" } })
     );
   }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setDayMode((m) => m === "list" ? "cal" : "list"), style: { margin: "6px 16px 6px", flexShrink: 0, width: "calc(100% - 32px)", background: T.flatFill, border: "1px solid " + T.flatBorder, borderRadius: 16, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", fontFamily: "inherit" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "8.5" }), /* @__PURE__ */ React.createElement("path", { d: "M12 7.5V12l3 2" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 13, color: T.text } }, dayMode === "list" ? "Ver horarios disponibles" : "Ver lista de citas")), /* @__PURE__ */ React.createElement("svg", { width: "8", height: "14", viewBox: "0 0 8 14", fill: "none" }, /* @__PURE__ */ React.createElement("path", { d: "M1 1l6 6-6 6", stroke: T.textFaint, strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }))), dayMode === "list" ? /* @__PURE__ */ React.createElement("div", { onTouchStart: onDaySwipeStart, onTouchEnd: onDaySwipeEnd, className: "no-sb", style: { flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "0 16px 8px", display: "flex", flexDirection: "column", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text } }, (() => {
     const d = /* @__PURE__ */ new Date(selDay + "T12:00:00");
@@ -1080,6 +1098,8 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const avail = slotsMap[fecha] != null ? slotsMap[fecha] : weeklyDef;
   const occupied = new Set(appts.filter((a) => a.fecha === fecha && a.status !== "anulada").map((a) => a.time));
   const freeSlots = avail.filter((s) => !occupied.has(s));
+  const slotGrid = clinicSeededM() ? slotsM() : avail;
+  const freeSlots15 = avail.length === 0 ? [] : slotGrid.filter((s) => !occupied.has(s));
   function confirm() {
     if (!canSave || saved) return;
     let patId = pid;
@@ -1149,7 +1169,8 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       }, "aria-label": "Cambiar paciente", style: { flexShrink: 0, background: "none", border: "none", color: T.textMute, cursor: "pointer", fontFamily: T.sans, fontSize: 12 } }, "Cambiar"))
     ) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, background: T.inputFill, border: "1px solid " + T.inputBorder, borderRadius: 12, padding: "0 12px" } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "1.7", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("circle", { cx: "10.5", cy: "10.5", r: "6" }), /* @__PURE__ */ React.createElement("path", { d: "M20 20l-5-5" })), /* @__PURE__ */ React.createElement("input", { value: pq, onChange: (e) => setPq(e.target.value), placeholder: "Buscar por nombre o RUT\u2026", autoFocus: true, style: { flex: 1, background: "none", border: "none", outline: "none", color: T.text, fontFamily: T.sans, fontSize: 14, padding: "11px 0", minWidth: 0 } })), (() => {
       const q = pq.trim().toLowerCase();
-      const res = q.length >= 1 ? patientOptions.filter((p) => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q)).slice(0, 8) : patientOptions.slice(0, 8);
+      if (!q) return null;
+      const res = patientOptions.filter((p) => mPatientMatch(p, q)).slice(0, 8);
       if (!res.length) return /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, padding: "9px 2px 0" } }, 'Sin coincidencias. Prueba con "Paciente nuevo".');
       return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 214, overflowY: "auto" }, className: "no-sb" }, res.map((p) => /* @__PURE__ */ React.createElement("button", { key: p.id, onClick: () => {
         setPid(p.id);
@@ -1197,10 +1218,10 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
         );
       })));
     })()), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Hora"), /* @__PURE__ */ React.createElement("select", { value: time, onChange: (e) => setTime(e.target.value), style: { ...inp, width: "auto" } }, (() => {
-      const base = freeSlots.length ? freeSlots : slotsM();
+      const base = freeSlots15.length ? freeSlots15 : slotsM();
       const opts = base.indexOf(time) >= 0 ? base : [time, ...base];
       return opts.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s, " hrs"));
-    })())), freeSlots.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -8 } }, "No hay horas marcadas como disponibles para este d\xEDa."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, width: "auto" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "75 minutos", "90 minutos", "120 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement("textarea", { value: comment, onChange: (e) => setComment(e.target.value), placeholder: "Ej. Control, seguimiento, evaluaci\xF3n\u2026", rows: 2, style: { ...inp, resize: "none" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "11px 13px", borderRadius: 12, background: T.flatFill, border: "1px solid " + T.flatBorder } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: notifyWa, onChange: (e) => setNotifyWa(e.target.checked) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, "Notificar al paciente por WhatsApp")), /* @__PURE__ */ React.createElement("button", { onClick: confirm, disabled: !canSave || saved, style: { marginTop: 4, height: 50, borderRadius: 14, border: "none", background: saved ? T.green : T.accent, color: saved ? "#fff" : T.onAccent, fontFamily: T.sans, fontSize: 15, fontWeight: 600, cursor: canSave && !saved ? "pointer" : "not-allowed", opacity: canSave || saved ? 1 : 0.5, transition: "background .3s" } }, saved ? "\u2713 Cita guardada" : "Guardar cita"))
+    })())), freeSlots15.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -8 } }, "No hay horas marcadas como disponibles para este d\xEDa."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, width: "auto" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "75 minutos", "90 minutos", "120 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement("textarea", { value: comment, onChange: (e) => setComment(e.target.value), placeholder: "Ej. Control, seguimiento, evaluaci\xF3n\u2026", rows: 2, style: { ...inp, resize: "none" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "11px 13px", borderRadius: 12, background: T.flatFill, border: "1px solid " + T.flatBorder } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: notifyWa, onChange: (e) => setNotifyWa(e.target.checked) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, "Notificar al paciente por WhatsApp")), /* @__PURE__ */ React.createElement("button", { onClick: confirm, disabled: !canSave || saved, style: { marginTop: 4, height: 50, borderRadius: 14, border: "none", background: saved ? T.green : T.accent, color: saved ? "#fff" : T.onAccent, fontFamily: T.sans, fontSize: 15, fontWeight: 600, cursor: canSave && !saved ? "pointer" : "not-allowed", opacity: canSave || saved ? 1 : 0.5, transition: "background .3s" } }, saved ? "\u2713 Cita guardada" : "Guardar cita"))
   );
 }
 function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient }) {
@@ -1215,7 +1236,7 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
       return {};
     }
   })();
-  const list = (ql ? patients.filter((p) => (p.name || "").toLowerCase().includes(ql) || (p.rut || "").toLowerCase().includes(ql) || (p.phone || "").includes(ql)) : patients).slice().sort((a, b) => (opened[b.id] || 0) - (opened[a.id] || 0));
+  const list = (ql ? patients.filter((p) => mPatientMatch(p, ql)) : patients).slice().sort((a, b) => (opened[b.id] || 0) - (opened[a.id] || 0));
   function openFicha(id) {
     try {
       const m = window.DB && window.DB.get("pat_opened") || {};

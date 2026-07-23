@@ -56,6 +56,21 @@ const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov"
 const MESES_LARGOS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DOW_FULL = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
+// Búsqueda tolerante — MISMO criterio que el panel de escritorio (jcmNorm/jcmPatientMatch en
+// jc-admin.jsx), replicado aquí porque ese bundle no se carga en el móvil. Sin tildes + por
+// palabras sueltas: "juan p" encuentra "Juan Claudio Parra", "maria" encuentra "María".
+function mNorm(s) { return ("" + (s == null ? "" : s)).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+function mPatientMatch(p, query) {
+  var q = mNorm(query).trim(); if (!q) return true; p = p || {};
+  var hay = mNorm((p.name || "") + " " + (p.rut || "") + " " + (p.email || "") + " " + (p.phone || ""));
+  var digits = ((p.rut || "") + (p.phone || "")).replace(/[^0-9kK]/g, "").toLowerCase();
+  return q.split(/\s+/).every(function (tok) {
+    if (hay.indexOf(tok) >= 0) return true;
+    if (/^[0-9k.\-]+$/.test(tok)) { var d = tok.replace(/[^0-9k]/g, ""); return d && digits.indexOf(d) >= 0; }
+    return false;
+  });
+}
+
 /* ═══ Mensajes de WhatsApp — EXACTOS a los del portal de escritorio (jcmCitaConfirmMsg /
    jcmConfirmAsistMsg en jc-admin.jsx) ═══ replicados aquí porque ese bundle no carga en el móvil. */
 // Link "inteligente" de mapa (P11 en el portal): usa el link propio de la clínica si lo guardó,
@@ -614,8 +629,8 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
   const searchMatches = !ql ? [] : active
-    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql)
-      || ((a.proc||"").toLowerCase().includes(ql) && inCurrentMonth(a.fecha||offToISO(a.day||0))));
+    .filter(a => mPatientMatch(a, ql)
+      || (mNorm(a.proc).includes(mNorm(ql)) && inCurrentMonth(a.fecha||offToISO(a.day||0))));
   // El conteo total (searchMatches.length) se muestra siempre, aunque la lista renderizada se
   // recorte — sin esto, buscar un procedimiento frecuente no serviría para saber "cuántos hay".
   const searchResults = searchMatches
@@ -1021,8 +1036,8 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
   const searchMatches = !ql ? [] : appts
-    .filter(a => (a.name||"").toLowerCase().includes(ql) || (a.rut||"").toLowerCase().includes(ql)
-      || ((a.proc||"").toLowerCase().includes(ql) && inCurrentMonth(a.fecha||offToISO(a.day||0))));
+    .filter(a => mPatientMatch(a, ql)
+      || (mNorm(a.proc).includes(mNorm(ql)) && inCurrentMonth(a.fecha||offToISO(a.day||0))));
   // El conteo total (searchMatches.length) se muestra siempre, aunque la lista renderizada se
   // recorte — sin esto, buscar un procedimiento frecuente no serviría para saber "cuántos hay".
   const searchResults = searchMatches
@@ -1275,7 +1290,10 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
                     background:"transparent", border:"1.4px solid "+(isSel ? T.accent : "transparent") }}>
                   <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:500, color: T.textFaint }}>{d.wd}</span>
                   <span style={{ fontFamily:T.serif, fontSize:16, fontWeight:600, color: isSel ? T.accent : (d.isToday ? T.text : T.textMute), lineHeight:1.15 }}>{d.dd}</span>
-                  <div style={{ width:5, height:5, borderRadius:"50%", background: isSel ? T.accent : (hasApts ? T.textFaint : "transparent") }} />
+                  {/* El punto indica SOLO que hay citas ese día (no la selección, que ya se ve por el
+                      borde + el número en acento). Antes se pintaba también en el día elegido aunque
+                      estuviera vacío, y parecía que todos los días tenían citas. */}
+                  <div style={{ width:5, height:5, borderRadius:"50%", background: hasApts ? (isSel ? T.accent : T.textFaint) : "transparent" }} />
                 </button>
               );
             })}
@@ -1412,6 +1430,12 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const avail = slotsMap[fecha]!=null ? slotsMap[fecha] : weeklyDef;
   const occupied = new Set(appts.filter(a=>a.fecha===fecha && a.status!=="anulada").map(a=>a.time));
   const freeSlots = avail.filter(s=>!occupied.has(s));
+  // Opciones de hora del selector: en JC Medical (modo 15 min) se ofrece la grilla completa cada
+  // 15 min —igual que el portal de escritorio, que ignora la granularidad guardada en horarios_v1—
+  // para poder agendar a las y cuarto/menos cuarto. El resto de clínicas mantiene su configuración.
+  // Si el día está cerrado (avail vacío), no se ofrece ninguna hora.
+  const slotGrid = clinicSeededM() ? slotsM() : avail;
+  const freeSlots15 = (avail.length === 0) ? [] : slotGrid.filter(s => !occupied.has(s));
 
   function confirm() {
     if (!canSave || saved) return;
@@ -1485,9 +1509,11 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
             </div>
             {(() => {
               const q = pq.trim().toLowerCase();
-              const res = q.length>=1
-                ? patientOptions.filter(p => (p.name||"").toLowerCase().includes(q) || (p.rut||"").toLowerCase().includes(q)).slice(0,8)
-                : patientOptions.slice(0,8);
+              // Sin búsqueda NO se lista a nadie: mostrar toda la agenda de pacientes aquí era solo
+              // ruido (ya se elige "existente/nuevo" con el botón de arriba) y empujaba los campos
+              // de abajo (procedimiento, fecha, hora) fuera de pantalla. La lista aparece al escribir.
+              if (!q) return null;
+              const res = patientOptions.filter(p => mPatientMatch(p, q)).slice(0,8);
               if (!res.length) return <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, padding:"9px 2px 0" }}>Sin coincidencias. Prueba con "Paciente nuevo".</div>;
               return (
                 <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:6, maxHeight:214, overflowY:"auto" }} className="no-sb">
@@ -1580,10 +1606,10 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <span style={lbl}>Hora</span>
         <select value={time} onChange={e=>setTime(e.target.value)} style={{ ...inp, width:"auto" }}>
-          {(() => { const base = freeSlots.length ? freeSlots : slotsM(); const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
+          {(() => { const base = freeSlots15.length ? freeSlots15 : slotsM(); const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
         </select>
       </div>
-      {freeSlots.length===0 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>No hay horas marcadas como disponibles para este día.</div>}
+      {freeSlots15.length===0 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>No hay horas marcadas como disponibles para este día.</div>}
 
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <span style={lbl}>Duración</span>
@@ -1616,7 +1642,7 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
   // por última vez que se abrió la ficha (pat_opened, misma clave — así abrir un paciente en el
   // portal también lo sube en el móvil), no alfabético. Antes ordenaba solo por nombre.
   const opened = (() => { try { return (window.DB && window.DB.get("pat_opened")) || {}; } catch (e) { return {}; } })();
-  const list = (ql ? patients.filter(p => (p.name||"").toLowerCase().includes(ql) || (p.rut||"").toLowerCase().includes(ql) || (p.phone||"").includes(ql)) : patients)
+  const list = (ql ? patients.filter(p => mPatientMatch(p, ql)) : patients)
     .slice().sort((a,b)=>(opened[b.id]||0)-(opened[a.id]||0));
   function openFicha(id) {
     try { const m = (window.DB && window.DB.get("pat_opened")) || {}; m[id] = Date.now(); window.DB && window.DB.set("pat_opened", m); } catch (e) {}
