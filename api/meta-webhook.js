@@ -33,10 +33,18 @@ function getSession(id) {
 function todayCL() { try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); } catch (e) { return new Date().toISOString().slice(0, 10); } }
 function _hora() { try { return new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()); } catch (e) { return ""; } }
 
+// SEG/ALTO-07 · fetch con timeout. El fix original solo llegó a api/ai.js; sin esto, si Groq se
+// cuelga la función corre hasta el límite de Vercel y Meta reintenta el webhook (amplificación).
+async function fetchWithTimeout(url, opts, ms) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || 20000);
+  try { return await fetch(url, Object.assign({}, opts, { signal: ctl.signal })); }
+  finally { clearTimeout(t); }
+}
 async function askGroq(messages) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("falta GROQ_API_KEY");
-  const r = await fetch(GROQ_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key }, body: JSON.stringify({ model: process.env.GROQ_MODEL || "openai/gpt-oss-120b", messages, temperature: 0.4, max_tokens: 350, response_format: { type: "json_object" } }) });
+  const r = await fetchWithTimeout(GROQ_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key }, body: JSON.stringify({ model: process.env.GROQ_MODEL || "openai/gpt-oss-120b", messages, temperature: 0.4, max_tokens: 350, response_format: { type: "json_object" } }) });
   if (!r.ok) { const t = await r.text().catch(() => ""); throw new Error("Groq " + r.status + " " + t); }
   const data = await r.json();
   return (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
@@ -84,7 +92,18 @@ async function appendInbox(clinicId, channel, contactId, name, inboundText, repl
   if (inboundText) t.msgs.push({ f: "in", t: String(inboundText).slice(0, 2000), h });
   if (replyText) t.msgs.push({ f: "out", t: String(replyText).slice(0, 2000), h });
   t.msgs = t.msgs.slice(-200);
-  const body = { fields: { v: { stringValue: JSON.stringify(convs).slice(0, 900000) }, _ts: { integerValue: String(Date.now()) } } };
+  // M-WACONV: podar por CANTIDAD, no por caracteres. Antes: JSON.stringify(convs).slice(0, 900000)
+  // cortaba el string a la mitad de un objeto al superar el tope → JSON.parse fallaba y la bandeja
+  // "Agente IA" dejaba de sincronizar. Ahora conservamos las últimas N conversaciones (las nuevas
+  // van al frente por unshift, así que .slice(0, N) mantiene las más recientes) y limitamos los
+  // mensajes por conversación; si aún excede el presupuesto de bytes, descartamos las
+  // conversaciones más viejas (del final) de a una. El JSON resultante SIEMPRE queda válido.
+  const MAX_CONVS = 500, MAX_MSGS = 200, MAX_BYTES = 900000;
+  if (convs.length > MAX_CONVS) convs = convs.slice(0, MAX_CONVS);
+  convs.forEach(c => { if (c && Array.isArray(c.msgs) && c.msgs.length > MAX_MSGS) c.msgs = c.msgs.slice(-MAX_MSGS); });
+  let payload = JSON.stringify(convs);
+  while (payload.length > MAX_BYTES && convs.length > 1) { convs.pop(); payload = JSON.stringify(convs); }
+  const body = { fields: { v: { stringValue: payload }, _ts: { integerValue: String(Date.now()) } } };
   await fetch(base, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify(body) }).catch(() => {});
 }
 
@@ -136,6 +155,11 @@ export default async function handler(req, res) {
   } catch (e) {}
 
   if (!jobs.length) return res.status(200).json({ ok: true });
+
+  // SEG · Tope de mensajes por request. `jobs` se llenaba sin límite y luego se recorría en serie
+  // con una llamada a Groq y un envío por elemento: un POST forjado con miles de entradas era un
+  // amplificador de coste (Groq) y de envío de DMs. wa-webhook no tiene el problema (procesa uno).
+  if (jobs.length > 10) { console.warn("[meta-webhook] batch recortado", jobs.length, "->10"); jobs.length = 10; }
 
   // Procesa cada mensaje (responde + agenda + guarda). 200 a Meta igual.
   for (const j of jobs) {

@@ -35,11 +35,17 @@ service firebase.storage {
 
     // Archivos de cada clínica (fotos de pacientes, rostros, consentimientos).
     match /{clinicId}/{allPaths=**} {
-      allow read:  if signedIn() && (isSuper() || myClinic() == clinicId);
-      allow write: if signedIn() && (isSuper() || myClinic() == clinicId)
+      // SEG · Se quitó el bypass `isSuper() ||`. En Firestore el acceso a los datos clínicos exige
+      // myClinic() ANTES que isSuper() (firestore.rules, match kv), o sea que el super-admin NO
+      // puede leer fichas ajenas — buen diseño. Aquí era al revés: el super-admin leía y BORRABA
+      // fotos de pacientes, mapas faciales y consentimientos en PDF de todas las clínicas, con la
+      // autorización decidida por un string de correo. Ni super.html ni api/super-ops.js usan
+      // Storage (verificado), así que quitarlo no rompe ninguna función.
+      allow read:  if signedIn() && myClinic() == clinicId;
+      allow write: if signedIn() && myClinic() == clinicId
                    && request.resource.size < 15 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*|application/pdf');
-      allow delete: if signedIn() && (isSuper() || myClinic() == clinicId);
+      allow delete: if signedIn() && myClinic() == clinicId;
     }
   }
 }

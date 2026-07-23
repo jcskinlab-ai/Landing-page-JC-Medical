@@ -111,6 +111,29 @@
   var syncErrors = {};  // k -> { code, at } del último error de subida (para el diagnóstico)
   var lastSyncOk = 0;   // timestamp del último push confirmado
 
+  // BLINDAJE (guard 1 MiB): Firestore RECHAZA cualquier documento > ~1 MiB. Como cada sección se
+  // guarda como un blob único, la agenda/pacientes/caja crecen hasta toparlo y ahí el guardado en la
+  // nube empieza a fallar. Antes eso quedaba oculto tras un toast tranquilizador (pérdida silenciosa).
+  // Con esto avisamos ANTES, nombrando la sección, para archivar/pedir soporte a tiempo.
+  var BIG_KEY_NAMES = {
+    appointments: 'la agenda', patients: 'los pacientes', cash: 'la caja', cash_moves: 'la caja',
+    inventory: 'el inventario', inv_items: 'el inventario', wa_conversations: 'las conversaciones',
+    crm_leads: 'los contactos de marketing', lab_orders: 'las órdenes de laboratorio', users: 'los usuarios de la app'
+  };
+  var _bigWarned = {};
+  function warnBigKey(k, bytes, critical) {
+    var now = Date.now();
+    if (now - (_bigWarned[k] || 0) < 3600000) return; // 1 aviso por sección por hora (sin spam)
+    _bigWarned[k] = now;
+    var name = BIG_KEY_NAMES[k] || ('"' + k + '"');
+    var mb = (bytes / 1048576).toFixed(2);
+    var msg = critical
+      ? ('⚠ ' + name + ' llegó al límite de tamaño de la nube (' + mb + ' MB). Los cambios nuevos podrían NO guardarse en la nube. Contacta a soporte para archivar datos antiguos.')
+      : ('Aviso: ' + name + ' está creciendo (' + mb + ' MB). Conviene archivar datos antiguos antes de llegar al límite. Avísale a soporte.');
+    try { if (window.jcmToast) window.jcmToast(msg, critical ? 'error' : 'info'); else if (critical && window.alert) window.alert(msg); } catch (e) {}
+    try { console.warn('[JCM] tamaño kv/' + k + ' = ' + mb + ' MB (' + bytes + ' bytes)'); } catch (e) {}
+  }
+
   function pushKey(k, v, attempt) {
     if (!db || !state.clinicId) return;
     attempt = attempt || 0;
@@ -121,7 +144,16 @@
       try {
         var snapshot = pendingPush[k]; // valor que estamos intentando subir
         var ref = db.collection('tenants').doc(state.clinicId).collection('kv').doc(k);
-        var op = v == null ? ref.delete() : ref.set({ v: JSON.stringify(v), _ts: Date.now() });
+        var payloadStr = v == null ? null : JSON.stringify(v);
+        // Guard 1 MiB: medimos el tamaño real y avisamos antes del límite de la nube.
+        if (payloadStr != null) {
+          try {
+            var bytes = (typeof TextEncoder !== 'undefined') ? new TextEncoder().encode(payloadStr).length : payloadStr.length;
+            if (bytes > 950000) warnBigKey(k, bytes, true);        // ~1 MiB: el guardado en nube va a fallar
+            else if (bytes > 780000) warnBigKey(k, bytes, false);  // ~75%: avisar con tiempo
+          } catch (e) {}
+        }
+        var op = payloadStr == null ? ref.delete() : ref.set({ v: payloadStr, _ts: Date.now() });
         op.then(function () {
           // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
           if (pendingPush[k] === snapshot) { delete pendingPush[k]; setDirty(k, false); }
@@ -356,6 +388,7 @@
       state.clinic = info.clinic;
       state.role = info.role; state.perms = info.perms; state.userName = info.name;
       bindDB();
+      idleStart(); // SEG · arranca el temporizador de inactividad (4 h) con la sesión ya resuelta
       pullAll().then(function () {
         liveKv();
         flushDirty(); // reintenta subir lo que quedó sin sincronizar en sesiones anteriores
@@ -371,8 +404,45 @@
 
   function teardown() {
     if (unsubKv) { try { unsubKv(); } catch (e) {} unsubKv = null; }
+    if (unsubPublic) { try { unsubPublic(); } catch (e) {} unsubPublic = null; } // fuga leve: listener que quedaba vivo tras el logout
+    idleStop();
     state.bound = false; // se re-bindea al próximo login (el namespace cambia)
     // Nota: no restauramos DB._k porque al cerrar sesión se vuelve a la pantalla de login.
+    wipeLocalClinicData();
+  }
+
+  // SEG · Al cerrar sesión hay que BORRAR los datos clínicos del dispositivo. Antes teardown() solo
+  // desuscribía el listener, así que en el disco quedaban en claro y para siempre: patients,
+  // appointments, phist_<id> (historial), pcons_<id> (consentimientos con firmas base64), cash e
+  // inventory. Cualquiera con acceso físico al equipo de recepción —o un profesional al que ya le
+  // revocaron el acceso— los leía con un localStorage.getItem.
+  // Importante: NO se borra si quedan bloques sin subir a la nube (__dirty__), porque en ese caso
+  // el dispositivo es la única copia y borrar sería perder datos clínicos. En ese caso se avisa.
+  function wipeLocalClinicData() {
+    try {
+      var pre = 'jcm_' + (state.clinicId ? state.clinicId + '_' : '');
+      if (!state.clinicId) return; // sin clínica resuelta no tocamos nada
+      var pend = 0;
+      try { pend = Object.keys(dirtyAll() || {}).length; } catch (e) { pend = 0; }
+      if (pend > 0) {
+        try {
+          if (window.jcmError) window.jcmError('Quedaron ' + pend + ' bloque(s) sin subir a la nube. Se conservan en este dispositivo: vuelve a entrar con internet para completar la sincronización antes de usar otro equipo.');
+          else alert('Quedaron ' + pend + ' bloque(s) sin subir a la nube; se conservan en este dispositivo.');
+        } catch (e) {}
+        return;
+      }
+      // Regla: NUNCA borrar algo que no tenga copia en la nube. Las claves NO_SYNC (admin_pass,
+      // saas_ns, etc.) viven solo en este dispositivo, así que borrarlas sería una pérdida
+      // irrecuperable — y además no son datos clínicos, que es lo que este borrado protege.
+      var kill = [];
+      Object.keys(localStorage).forEach(function (full) {
+        if (full.indexOf(pre) !== 0) return;
+        var k = full.slice(pre.length);
+        if (NO_SYNC[k]) return;
+        kill.push(full);
+      });
+      kill.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+    } catch (e) { /* nunca bloquear el logout por esto */ }
   }
 
   // ── API: registro / login ─────────────────────────────────────────────
@@ -417,6 +487,35 @@
     });
   }
   function logout() { return ready.then(function () { return auth.signOut(); }); }
+
+  // SEG · Idle-timeout REAL. El panel decía "Sesión protegida · expira en 4 horas de inactividad"
+  // pero no existía ningún temporizador: la persistencia es LOCAL, así que la sesión quedaba
+  // abierta indefinidamente. En un PC compartido de recepción eso deja las fichas médicas a la
+  // vista de cualquiera. Ahora la frase es cierta: 4 h sin actividad → cierre de sesión.
+  var IDLE_MS = 4 * 60 * 60 * 1000;
+  var _idleAt = Date.now(), _idleTimer = null;
+  function idleTouch() { _idleAt = Date.now(); }
+  function idleCheck() {
+    if (!state.clinicId) return;                 // sin sesión activa no hay nada que cerrar
+    if (Date.now() - _idleAt < IDLE_MS) return;
+    try { if (window.jcmToast) window.jcmToast('Sesión cerrada por inactividad.', 'info'); } catch (e) {}
+    idleStop();
+    logout().then(function () { try { location.reload(); } catch (e) {} });
+  }
+  function idleStart() {
+    if (_idleTimer) return;
+    idleTouch();
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'visibilitychange'].forEach(function (ev) {
+      try { window.addEventListener(ev, idleTouch, { passive: true }); } catch (e) {}
+    });
+    _idleTimer = setInterval(idleCheck, 60000); // se comprueba cada minuto
+  }
+  function idleStop() {
+    if (_idleTimer) { clearInterval(_idleTimer); _idleTimer = null; }
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'visibilitychange'].forEach(function (ev) {
+      try { window.removeEventListener(ev, idleTouch); } catch (e) {}
+    });
+  }
   function resetPassword(email) {
     var e = (email || '').trim().toLowerCase();
     // Primero el correo propio (Resend, mejor entregabilidad). Si el endpoint no responde OK,

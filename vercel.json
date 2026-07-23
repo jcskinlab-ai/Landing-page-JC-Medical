@@ -12,6 +12,8 @@
     { "source": "/super", "has": [{ "type": "host", "value": "(www\\.)?jcmedical\\.cl" }], "destination": "https://admin.medique.cl/", "permanent": false },
     { "source": "/panel", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "https://portal.medique.cl/", "permanent": false },
     { "source": "/panel/:path*", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "https://portal.medique.cl/:path*", "permanent": false },
+    { "source": "/panel", "has": [{ "type": "host", "value": "dental.medique.cl" }], "destination": "https://portal.medique.cl/", "permanent": false },
+    { "source": "/panel/:path*", "has": [{ "type": "host", "value": "dental.medique.cl" }], "destination": "https://portal.medique.cl/:path*", "permanent": false },
     { "source": "/admin", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "https://admin.medique.cl/", "permanent": false }
   ],
   "rewrites": [
@@ -20,6 +22,7 @@
     { "source": "/(.*)", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Admin" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "pacientes.medique.cl" }], "destination": "/mi-ficha" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "admin.medique.cl" }], "destination": "/super" },
+    { "source": "/", "has": [{ "type": "host", "value": "dental.medique.cl" }], "destination": "/dental" },
     { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "/medique-home" },
     { "source": "/app", "destination": "/JC_App" },
     { "source": "/reservar", "destination": "/agendar" },
@@ -42,7 +45,7 @@
       ]
     },
     {
-      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index|super|review|colaborar|medique-home)(.html)?",
+      "source": "/(JC_App|JC_Admin|JC_Mobile|agendar|index|super|review|colaborar|medique-home|dental)(.html)?",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, max-age=0, must-revalidate" }]
     },
     {

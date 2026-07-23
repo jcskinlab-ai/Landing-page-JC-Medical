@@ -47,11 +47,20 @@ function todayCL() {
   } catch (e) { return new Date().toISOString().slice(0, 10); }
 }
 
+// SEG/ALTO-07 · fetch con timeout. El fix original solo se aplicó a api/ai.js; este webhook seguía
+// con fetch pelado, así que si Groq se cuelga la función corre hasta el límite de Vercel, Meta
+// reintenta el webhook (amplificación de coste) y el paciente nunca recibe respuesta.
+async function fetchWithTimeout(url, opts, ms) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || 20000);
+  try { return await fetch(url, Object.assign({}, opts, { signal: ctl.signal })); }
+  finally { clearTimeout(t); }
+}
 // ── Llama a Groq y devuelve el texto de la respuesta ──
 async function askGroq(messages) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("falta GROQ_API_KEY");
-  const r = await fetch(GROQ_URL, {
+  const r = await fetchWithTimeout(GROQ_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
@@ -135,7 +144,18 @@ async function appendInbox(clinicId, channel, contactId, name, inboundText, repl
   if (inboundText) t.msgs.push({ f: "in", t: String(inboundText).slice(0, 2000), h });
   if (replyText) t.msgs.push({ f: "out", t: String(replyText).slice(0, 2000), h });
   t.msgs = t.msgs.slice(-200);
-  const body = { fields: { v: { stringValue: JSON.stringify(convs).slice(0, 900000) }, _ts: { integerValue: String(Date.now()) } } };
+  // M-WACONV: podar por CANTIDAD, no por caracteres. Antes: JSON.stringify(convs).slice(0, 900000)
+  // cortaba el string a la mitad de un objeto al superar el tope → JSON.parse fallaba y la bandeja
+  // "Agente IA" dejaba de sincronizar. Ahora conservamos las últimas N conversaciones (las nuevas
+  // van al frente por unshift, así que .slice(0, N) mantiene las más recientes) y limitamos los
+  // mensajes por conversación; si aún excede el presupuesto de bytes, descartamos las
+  // conversaciones más viejas (del final) de a una. El JSON resultante SIEMPRE queda válido.
+  const MAX_CONVS = 500, MAX_MSGS = 200, MAX_BYTES = 900000;
+  if (convs.length > MAX_CONVS) convs = convs.slice(0, MAX_CONVS);
+  convs.forEach(c => { if (c && Array.isArray(c.msgs) && c.msgs.length > MAX_MSGS) c.msgs = c.msgs.slice(-MAX_MSGS); });
+  let payload = JSON.stringify(convs);
+  while (payload.length > MAX_BYTES && convs.length > 1) { convs.pop(); payload = JSON.stringify(convs); }
+  const body = { fields: { v: { stringValue: payload }, _ts: { integerValue: String(Date.now()) } } };
   await fetch(base, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify(body) }).catch(() => {});
 }
 

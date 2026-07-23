@@ -789,7 +789,12 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
   const points = patient.points || [];
   // Pestañas NUEVAS (presupuesto, esquema facial) solo para Los Medique hasta el push global.
   const _newFeat = !(window.jcmNewFeat) || window.jcmNewFeat();
-  const TABS = [["fichaclinica", "Ficha Clínica"], ["mapa", "Mapa facial y antropometría"], ["procedimientos", "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["campana", "Campaña"], ["notas", "Notas"], ["ia", "IA"]];
+  // Vertical dental: el mapa facial NO tiene uso en odontología, así que esa pestaña se REEMPLAZA
+  // por el odontograma (no se suma). En estética `_dental` es false y jcmTerms() devuelve
+  // exactamente las etiquetas de siempre, así que este array queda idéntico al histórico.
+  const _dental = !!(window.isDental && window.isDental());
+  const _terms = (window.jcmTerms && window.jcmTerms()) || {};
+  const TABS = [["fichaclinica", _terms.ficha || "Ficha Clínica"], (_dental ? ["odontograma", "Odontograma"] : ["mapa", "Mapa facial y antropometría"]), ["procedimientos", _terms.procedimientos || "Procedimientos"], ["imagenes", "Imágenes"], ["consent", "Consentimientos"], ["receta", "Receta / Indicaciones"], ...(_newFeat ? [["presupuesto", "Presupuesto"]] : []), ["facturacion", "Atenciones"], ...(_newFeat ? [["examenes", "Exámenes"]] : []), ["campana", "Campaña"], ["notas", "Notas"], ["ia", "IA"]];
   const estado = patient.estado || "Activo";
   const activo = estado === "Activo";
   const wa = "https://wa.me/" + (patient.phone || "").replace(/\D/g, "");
@@ -985,6 +990,10 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
           <FaceMap T={T} value={points} onChange={savePoints} patient={patient} updatePatient={updatePatient} readOnly={true} />
         </div>
       )}
+      {/* El odontograma SÍ es editable aquí, a diferencia del mapa facial (readOnly, se edita por
+          sesión): el estado de una pieza es una propiedad acumulativa de la boca del paciente, no
+          la foto de una sesión. Una pieza extraída sigue extraída en la sesión siguiente. */}
+      {tab === "odontograma" && <Odontograma T={T} patient={patient} updatePatient={updatePatient} readOnly={false} />}
       {tab === "fichaclinica" && (
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: luxF ? 12 : 10, marginBottom: luxF ? 12 : 10 }}>
@@ -1014,7 +1023,12 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       {tab === "imagenes" && <ImagenesTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "consent" && <ConsentTab T={T} patient={patient} updatePatient={updatePatient} />}
       {tab === "receta" && <RecetaTab T={T} patient={patient} updatePatient={updatePatient} />}
-      {tab === "presupuesto" && <PresupuestoTab T={T} patient={patient} updatePatient={updatePatient} />}
+      {/* En dental el "presupuesto" es un plano de tratamiento vivo (procedimientos que avanzan,
+          ligados a una pieza, aprobados y pagados en cuotas), no una cotización que se archiva.
+          Vive en jc-dental.jsx y guarda en patient.presupuesto, sin tocar patient.presupuestos. */}
+      {tab === "presupuesto" && (_dental && window.PlanDentalTab
+        ? <PlanDentalTab T={T} patient={patient} updatePatient={updatePatient} />
+        : <PresupuestoTab T={T} patient={patient} updatePatient={updatePatient} />)}
       {tab === "examenes" && <ExamenesTab T={T} patient={patient} />}
       {tab === "facturacion" && <FacturacionTab T={T} patient={patient} updatePatient={updatePatient} onOpenSession={(hi) => { setEditIdx(hi); setViewMode(true); setNewEntry(true); setTab("procedimientos"); }} />}
       {tab === "campana" && <CampanaTab T={T} patient={patient} updatePatient={updatePatient} />}
@@ -1610,6 +1624,27 @@ function SesionDetalle({ T, h, patient, onClose, onEditar, go }) {
 }
 
 /* ─────────── CONSENTIMIENTOS ─────────── */
+/* ══ JCM_CONSENT_VERTICAL_START (marcador: el harness de tests recorta desde aquí) ══
+ * Filtro del catálogo de consentimientos por rubro de la clínica. PURA a propósito:
+ * una clínica estética no debe ver NI UN consentimiento dental, y viceversa.
+ *  - `vertical` ausente  → la plantilla se ofrece siempre (extraordinario y las plantillas
+ *    propias de la clínica, que llegan mapeadas como kind "extra" sin `vertical`).
+ *  - `vertical` presente → solo si coincide con el rubro activo.
+ * En estética devuelve exactamente el mismo arreglo (mismos ítems, mismo orden) que antes
+ * de existir este filtro, porque todas las plantillas históricas son "estetica". */
+function jcmConsentsForVertical(list, dental) {
+  var vert = dental ? "dental" : "estetica";
+  return (list || []).filter(function (c) { return !!c && (!c.vertical || c.vertical === vert); });
+}
+/* ══ JCM_CONSENT_VERTICAL_END ══ */
+// Catálogo base ya filtrado para la clínica activa. Se usa SOLO donde se ofrece firmar algo
+// nuevo; los documentos ya firmados se resuelven contra el catálogo completo (window.JCADMIN
+// .consents) para que un consentimiento antiguo siga renderizando su texto.
+function jcmConsentCatalog() {
+  var A = (typeof window !== "undefined" && window.JCADMIN) || {};
+  var dental = !!(typeof window !== "undefined" && window.isDental && window.isDental());
+  return jcmConsentsForVertical(A.consents || [], dental);
+}
 function ConsentView({ T, patients, updatePatient }) {
   const A = window.JCADMIN;
   const [signing, setSigning] = useState(null); // {patient, template}
@@ -1627,7 +1662,7 @@ function ConsentView({ T, patients, updatePatient }) {
               <div style={{ fontFamily: T.sans, fontSize: 13.5, fontWeight: 500, color: T.text }}>{p.name}</div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{p.tags && p.tags[0]}</div>
             </div>
-            <AdBtn T={T} small primary onClick={() => setSigning({ patient: p, template: A.consents[0] })}>Firmar</AdBtn>
+            <AdBtn T={T} small primary onClick={() => setSigning({ patient: p, template: jcmConsentCatalog()[0] })}>Firmar</AdBtn>
           </div>
         ))}
         {pending.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Todos los pacientes tienen consentimiento firmado.</div>}
@@ -1650,7 +1685,7 @@ function ConsentView({ T, patients, updatePatient }) {
       {signing && <SignConsentModal T={T} data={signing} onClose={() => setSigning(null)}
         onSign={(r) => {
           const p = signing.patient;
-          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
           try {
             var _nts = nuevo.ts || Date.now();
             window.DB.set("pcons_" + p.id + "_" + _nts, nuevo);
@@ -1708,6 +1743,16 @@ function jcmConsentLegalBody(doc) {
   }
   return body;
 }
+// C-05: captura del médico responsable EN EL MOMENTO de firmar, para CONGELARLO dentro del
+// consentimiento (pcons_). Así editar/reordenar/borrar la lista medic_sigs en Configuración NO
+// altera retroactivamente el médico atribuido en consentimientos ya firmados (falseaba la autoría).
+function _snapMedicoResp() {
+  try {
+    var ms = window.DB.get("medic_sigs");
+    if (ms && ms.length && ms[0]) { var m = ms[0]; return { name: m.name || "", rut: m.rut || "", registro: m.registro || "", sig: m.sig || "" }; }
+  } catch (_) {}
+  return null;
+}
 // Consentimiento como HTML embebible (estilos inline, sin CSS externo) para anexarlo a la ficha.
 // Resuelve las firmas (recorte async). Los "subidos" imagen se incrustan; el PDF va como nota.
 function jcmConsentInnerHTML(doc, patient) {
@@ -1717,8 +1762,10 @@ function jcmConsentInnerHTML(doc, patient) {
     return Promise.resolve("<p style='font-size:12px;color:#444;line-height:1.6'>Consentimiento adjunto como archivo PDF (<b>" + esc(doc.title || "documento") + "</b>). Imprímelo por separado desde la pestaña Consentimientos.</p>");
   }
   const body = jcmConsentLegalBody(doc);
-  var medicoSig = null;
-  try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {}
+  // C-05: usa el médico CONGELADO en el consentimiento (doc.medico); medic_sigs[0] solo como
+  // respaldo para consentimientos antiguos firmados antes de congelarlo.
+  var medicoSig = (doc && doc.medico) || null;
+  if (!medicoSig) { try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {} }
   return Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
     const sp = crops[0], spr = crops[1];
     const numCols = medicoSig ? 3 : 2;
@@ -1787,8 +1834,9 @@ function SignConsentModal({ T, data, onClose, onSign }) {
   // Plantillas PROPIAS de la clínica (módulo Consentimientos) además de las base, disponibles para firmar.
   // Se mapean a kind "extra" (texto libre + autorización), que ConsentDoc ya renderiza.
   const customTpls = (function () { try { return ((window.DB && window.DB.get("consent_templates")) || []).filter(t => t && t.active !== false && (t.title || "").trim()).map(t => ({ id: t.id, title: t.title, kind: "extra", proc: t.cat || "", body: t.body || "" })); } catch (e) { return []; } })();
-  // Las plantillas PROPIAS de la clínica van primero; las predeterminadas (base) después.
-  const allTpls = customTpls.concat(A.consents || []);
+  // Las plantillas PROPIAS de la clínica van primero (nunca se filtran por rubro: son suyas);
+  // las predeterminadas (base) después, ya filtradas por el rubro de la clínica.
+  const allTpls = customTpls.concat(jcmConsentCatalog());
   const [tpl, setTpl] = useState(data.template);
   const [nombre, setNombre] = useState(data.patient.name || "");
   const [ci, setCi] = useState(data.patient.rut || "");
@@ -2004,8 +2052,10 @@ function ConsentTab({ T, patient, updatePatient }) {
     // En iOS, la pestaña debe abrirse DENTRO del gesto del usuario; se rellena al recortar las firmas.
     const winIOS = openOnly ? window.open("", "_blank") : null;
     if (winIOS) { try { winIOS.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento…</body>"); } catch (e) {} }
-    var medicoSig = null;
-    try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {}
+    // C-05: usa el médico CONGELADO en el consentimiento (doc.medico); medic_sigs[0] solo como
+    // respaldo para consentimientos antiguos firmados antes de congelarlo.
+    var medicoSig = (doc && doc.medico) || null;
+    if (!medicoSig) { try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {} }
     Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
       const sp = crops[0], spr = crops[1];
       const numCols = medicoSig ? 3 : 2;
@@ -2038,7 +2088,7 @@ function ConsentTab({ T, patient, updatePatient }) {
       {/* Crear consentimiento (4 plantillas, incl. extraordinario) */}
       <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>Crear consentimiento</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        {A.consents.map(c => <AdBtn key={c.id} T={T} small primary onClick={() => start(c)}>{c.title}</AdBtn>)}
+        {jcmConsentCatalog().map(c => <AdBtn key={c.id} T={T} small primary onClick={() => start(c)}>{c.title}</AdBtn>)}
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
         <AdBtn T={T} small onClick={openUpload}>↑ Subir consentimiento (foto o archivo)</AdBtn>
@@ -2155,8 +2205,8 @@ function ConsentTab({ T, patient, updatePatient }) {
         </AdModal>
       )}
 
-      {signing && <SignConsentModal T={T} data={{ patient: patient, template: tpl0 || A.consents[0] }} onClose={() => setSigning(false)} onSign={(r) => {
-        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, ts: Date.now() };
+      {signing && <SignConsentModal T={T} data={{ patient: patient, template: tpl0 || jcmConsentCatalog()[0] }} onClose={() => setSigning(false)} onSign={(r) => {
+        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
         const lista = patConsents(patient).slice();
         lista.unshift(nuevo);
         commitConsents(lista); // guarda el consentimiento en su propia clave (sube a la nube)
@@ -2574,6 +2624,49 @@ function AuditoriaIA({ T, patient, go }) {
   );
 }
 
+/* ══ JCM_DENTAL_AI_START (marcador: el harness de tests recorta desde aquí) ══
+ * Contexto dental para la IA (Fase F). PURA: recibe las funciones del módulo dental por
+ * inyección (`api`), así se prueba en Node sin DOM. Devuelve texto plano, nunca datos
+ * identificatorios (nombre, RUT, teléfono, correo NO se envían al modelo externo). */
+function jcmDentalAICtx(patient, api) {
+  var W = api || (typeof window !== "undefined" ? window : {});
+  var out = [];
+  var odo = "";
+  try { odo = W.odontoResumenTexto ? W.odontoResumenTexto(patient) : ""; } catch (e) { odo = ""; }
+  out.push("ODONTOGRAMA:\n" + (odo || "Sin hallazgos registrados en el odontograma."));
+  var plan = { items: [] };
+  try { if (W.planGet) plan = W.planGet(patient) || plan; } catch (e) {}
+  var items = plan.items || [];
+  try { if (W.planOrdenado) items = W.planOrdenado(items) || items; } catch (e) {}
+  var linea = function (it) {
+    return "- " + (it.proc || "(sin procedimiento)")
+      + (it.pieza ? " · pieza " + it.pieza : "")
+      + " · prioridad " + (it.prioridad || "media")
+      + " · " + (it.estado || "pendiente");
+  };
+  var pend = [], hechos = [], i;
+  for (i = 0; i < items.length; i++) (items[i].estado === "hecho" ? hechos : pend).push(items[i]);
+  out.push("PLAN DE TRATAMIENTO · PENDIENTES (" + pend.length + ", ordenados por urgencia clínica):\n"
+    + (pend.length ? pend.map(linea).join("\n") : "- Sin procedimientos pendientes en el plano."));
+  if (hechos.length) out.push("PLAN DE TRATAMIENTO · YA REALIZADOS (" + hechos.length + "):\n" + hechos.map(linea).join("\n"));
+  if (plan.aprobacion) out.push("Plan aprobado por el paciente.");
+  return out.join("\n\n");
+}
+// Prompts de odontología: orientativos, sin diagnóstico definitivo, la decisión es del profesional.
+const JCM_DENTAL_AI_BASE = "Eres un asistente de apoyo para un profesional odontólogo en Chile. "
+  + "Escribes en español de Chile, con lenguaje clínico y sobrio. Trabajas SOLO con los datos entregados: no inventes hallazgos, piezas ni antecedentes. "
+  + "NO emites diagnósticos definitivos ni indicaciones terapéuticas cerradas: tu salida es ORIENTATIVA y la decisión clínica es siempre del profesional tratante, que debe confirmarla con examen clínico y las imágenes que estime necesarias. "
+  + "No interpretas radiografías ni imágenes: no dispones de ellas. Si un dato falta, dilo explícitamente en vez de suponerlo.";
+const JCM_DENTAL_AI_RESUMEN = JCM_DENTAL_AI_BASE
+  + " Redacta un resumen narrativo breve (5-8 líneas) del estado dental del paciente y cierra con una sección «Piezas en riesgo» "
+  + "listando las piezas que, según lo registrado, requieren atención prioritaria y por qué. Si no hay hallazgos registrados, dilo.";
+const JCM_DENTAL_AI_PLAN = JCM_DENTAL_AI_BASE
+  + " Propón un ORDEN SUGERIDO para los procedimientos pendientes, agrupado en tres etapas y en este criterio de urgencia: "
+  + "1) dolor, infección o riesgo de pérdida de la pieza; 2) función (masticación, restauración, rehabilitación); 3) estético. "
+  + "Para cada procedimiento indica en una línea por qué va en esa etapa. No inventes procedimientos que no estén en la lista. "
+  + "Cierra recordando que es una propuesta orientativa que el profesional debe validar y ajustar con el paciente.";
+/* ══ JCM_DENTAL_AI_END ══ */
+
 /* ─────────── RESUMEN CLÍNICO IA ─────────── */
 function ResumenIA({ T, patient }) {
   const [summary, setSummary] = useState("");
@@ -2581,6 +2674,11 @@ function ResumenIA({ T, patient }) {
   const [q, setQ] = useState("");
   const [ans, setAns] = useState([]);
   const [asking, setAsking] = useState(false);
+  // Fase F · IA dental. En estética `_dental` es false y TODO lo de abajo queda inerte:
+  // el contexto, los prompts y la UI son exactamente los históricos.
+  const _dental = !!(window.isDental && window.isDental());
+  const [plan, setPlan] = useState("");
+  const [planLoad, setPlanLoad] = useState(false);
 
   function ctx() {
     const c = patient.clinica || {};
@@ -2601,7 +2699,7 @@ function ResumenIA({ T, patient }) {
     // Pseudonimización hacia la IA externa (Groq, Ley 21.719): nombre, RUT, teléfono y correo
     // NUNCA se envían — el resumen se redacta solo con hechos clínicos. La app ya sabe a qué
     // paciente pertenece (se muestra dentro de su propia ficha), el modelo no necesita su identidad.
-    return [
+    const base = [
       "Paciente" + (patient.age ? " de " + patient.age + " años" : ""),
       "Tratamientos etiquetados: " + ((patient.tags || []).join(", ") || "ninguno"),
       clinFields && ("Clínica: " + clinFields),
@@ -2610,6 +2708,8 @@ function ResumenIA({ T, patient }) {
       patient.notes && ("Notas internas: " + patient.notes),
       "Consentimiento: " + (patient.consent ? "firmado" : "PENDIENTE"),
     ].filter(Boolean).join(". ");
+    // Solo en clínicas dentales se adjunta el odontograma y el plano de tratamiento.
+    return _dental ? (base + "\n\n" + jcmDentalAICtx(patient)) : base;
   }
   // ── Resumen clínico LOCAL (sin servidor): redacta a partir de los datos del paciente.
   // Funciona siempre; si hay IA conectada (window.claude) se usa esa en su lugar.
@@ -2631,8 +2731,38 @@ function ResumenIA({ T, patient }) {
       lines.push("Aún no hay sesiones registradas en la ficha.");
     }
     if (patient.notes) lines.push("Antecedentes/notas: " + patient.notes + ".");
+    if (_dental) lines.push("", jcmDentalAICtx(patient), "", "Orientativo: revisa el odontograma y confirma con examen clínico.");
     lines.push("A vigilar: " + (patient.consent ? "consentimiento firmado; " : "⚠ consentimiento PENDIENTE de firma; ") + "confirmar evolución y reacciones en el control de seguimiento.");
     return lines.join("\n");
+  }
+  // Fallback sin servidor para el plan sugerido: usa el mismo criterio de urgencia que planOrdenado.
+  function localPlan() {
+    const p = (window.planGet ? window.planGet(patient) : { items: [] }) || { items: [] };
+    let items = p.items || [];
+    try { if (window.planOrdenado) items = window.planOrdenado(items) || items; } catch (e) {}
+    const pend = items.filter(it => it.estado !== "hecho");
+    if (!pend.length) return "No hay procedimientos pendientes en el plano de tratamiento.";
+    const etapa = { alta: "1 · Dolor, infección o riesgo de pérdida", media: "2 · Función", baja: "3 · Estético" };
+    const out = ["Orden sugerido (orientativo · debe validarlo el profesional):"];
+    ["alta", "media", "baja"].forEach(pr => {
+      const g = pend.filter(it => (it.prioridad || "media") === pr);
+      if (!g.length) return;
+      out.push("", etapa[pr] + ":");
+      g.forEach(it => out.push("  • " + (it.proc || "(sin procedimiento)") + (it.pieza ? " · pieza " + it.pieza : "")));
+    });
+    return out.join("\n");
+  }
+  async function genPlan() {
+    setPlanLoad(true);
+    try {
+      if (window.mediqueAI) {
+        const res = await window.mediqueAI([{ role: "user", content: "DATOS DEL PACIENTE:\n" + ctx() + "\n\nPropón el orden sugerido del plan de tratamiento." }], {}, { system: JCM_DENTAL_AI_PLAN, max_tokens: 700 });
+        setPlan((res && res.ok && res.reply ? res.reply.trim() : "") || localPlan());
+      } else {
+        setPlan(localPlan());
+      }
+    } catch (e) { setPlan(localPlan()); }
+    setPlanLoad(false);
   }
   function localAnswer(text) {
     const t = text.toLowerCase();
@@ -2662,7 +2792,7 @@ function ResumenIA({ T, patient }) {
     setLoading(true);
     try {
       if (window.mediqueAI) {
-        const system = "Eres asistente clínico de una consulta de medicina estética en Chile. Redacta en español un resumen clínico breve (4-6 líneas) del paciente, basado SOLO en estos datos. Indica tratamientos realizados, evolución y puntos a vigilar. No inventes datos.";
+        const system = _dental ? JCM_DENTAL_AI_RESUMEN : "Eres asistente clínico de una consulta de medicina estética en Chile. Redacta en español un resumen clínico breve (4-6 líneas) del paciente, basado SOLO en estos datos. Indica tratamientos realizados, evolución y puntos a vigilar. No inventes datos.";
         const res = await window.mediqueAI([{ role: "user", content: "DATOS: " + ctx() + "\n\nGenera el resumen clínico." }], {}, { system: system, max_tokens: 500 });
         setSummary((res && res.ok && res.reply ? res.reply.trim() : "") || localSummary());
       } else {
@@ -2678,7 +2808,7 @@ function ResumenIA({ T, patient }) {
     setQ(""); setAns(a => [...a, { role: "user", content: text }]); setAsking(true);
     try {
       if (window.mediqueAI) {
-        const system = "Responde en español, breve y clínico, SOLO con base en los datos del paciente que te dan. Si no hay dato, dilo.";
+        const system = _dental ? (JCM_DENTAL_AI_BASE + " Responde breve, en 2-5 líneas, solo con base en los datos entregados. Si el dato no está, dilo.") : "Responde en español, breve y clínico, SOLO con base en los datos del paciente que te dan. Si no hay dato, dilo.";
         const res = await window.mediqueAI([{ role: "user", content: "DATOS: " + ctx() + "\n\nPREGUNTA: " + text }], {}, { system: system, max_tokens: 500 });
         setAns(a => [...a, { role: "ai", content: (res && res.ok && res.reply ? res.reply.trim() : "") || localAnswer(text) }]);
       } else {
@@ -2712,6 +2842,21 @@ function ResumenIA({ T, patient }) {
           </div>
         );
       })()}
+      {/* Fase F · Plan de tratamiento sugerido. Solo en clínicas dentales. */}
+      {_dental && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent }}>Plan de tratamiento sugerido · IA</div>
+            <AdBtn T={T} small primary onClick={genPlan}>{planLoad ? "Ordenando…" : (plan ? "Regenerar" : "Sugerir orden")}</AdBtn>
+          </div>
+          <div style={{ background: "rgba(106,130,150,.10)", border: "1px solid " + T.line, borderRadius: 8, padding: "12px 14px", fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginBottom: 14 }}>
+            Ordena los procedimientos <b>ya registrados</b> en el plano de tratamiento según urgencia clínica (dolor o infección → función → estético). Es una propuesta <b>orientativa</b>: no constituye diagnóstico y la decisión clínica es del profesional tratante.
+          </div>
+          <div style={{ minHeight: 64, background: T.surface, border: "1px solid " + T.line, borderRadius: 8, padding: "16px", fontFamily: T.sans, fontSize: 13, color: plan ? T.text : T.textFaint, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+            {planLoad ? "Revisando el odontograma y el plano de tratamiento…" : (plan || "Toca «Sugerir orden» para proponer una secuencia de los procedimientos pendientes.")}
+          </div>
+        </div>
+      )}
       {/* asistente inline */}
       <div style={{ marginTop: 16, background: "rgba(106,130,150,.08)", border: "1px solid " + T.line, borderRadius: 10, padding: "14px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -2953,8 +3098,19 @@ function PresupuestoTab({ T, patient, updatePatient }) {
   );
 }
 
+/* Recetas rápidas de odontología (Fase E). Son un ATAJO DE ESCRITURA: rellenan el campo Rp.
+ * con una posología habitual que el profesional DEBE revisar y ajustar al paciente.
+ * No tocan el control de permisos: se renderizan dentro del bloque que ya exige
+ * jcmCanPrescribeNow() y tipo === "receta". Un Enfermero no llega nunca a verlas. */
+const RX_RAPIDAS_DENTAL = [
+  { id: "ibu400", label: "Ibuprofeno 400 mg", linea: "Ibuprofeno 400 mg — 1 comprimido cada 8 horas · vía Oral (con alimentos, por 3 días)" },
+  { id: "ibu600", label: "Ibuprofeno 600 mg", linea: "Ibuprofeno 600 mg — 1 comprimido cada 8 horas · vía Oral (con alimentos, por 3 días)" },
+  { id: "amx875", label: "Amoxicilina 875 mg", linea: "Amoxicilina 875 mg — 1 comprimido cada 12 horas · vía Oral (por 7 días, completar el tratamiento)" },
+  { id: "cli300", label: "Clindamicina 300 mg", linea: "Clindamicina 300 mg — 1 cápsula cada 8 horas · vía Oral (por 7 días; alternativa en alergia a penicilina)" }
+];
 function RecetaTab({ T, patient, updatePatient }) {
   const D = window.JCDATA;
+  const _dental = !!(window.isDental && window.isDental());
   const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
   // tipo: "receta" (médico / dentista) | "indicaciones" (enfermería). Un profesional Enfermero
   // no puede crear recetas: parte directo en "indicaciones", que es lo único que le corresponde.
@@ -3060,7 +3216,9 @@ function RecetaTab({ T, patient, updatePatient }) {
       <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 12, padding: 18, marginBottom: 18 }}>
         <label style={{ display: "block" }}><span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Diagnóstico (opcional)</span>
           {(() => {
-            const DIAG_OPTS = ["Neuromodulación con Toxina botulínica", "Sculptra de colágeno", "Armonización facial"];
+            const DIAG_OPTS = _dental
+              ? ["Caries dental", "Pulpitis", "Absceso periapical", "Pericoronaritis", "Enfermedad periodontal", "Exodoncia simple", "Exodoncia quirúrgica", "Endodoncia", "Rehabilitación / prótesis", "Ortodoncia", "Implante dental"]
+              : ["Neuromodulación con Toxina botulínica", "Sculptra de colágeno", "Armonización facial"];
             const isOther = diag && !DIAG_OPTS.includes(diag);
             return (
               <div>
@@ -3081,6 +3239,20 @@ function RecetaTab({ T, patient, updatePatient }) {
               {tpls.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           ) : null; })()}
+          {/* Recetas rápidas dentales. Doble condición: rubro dental Y tipo "receta", que solo
+              es alcanzable cuando canPrescribe (jcmCanPrescribeNow) es true — un Enfermero
+              arranca y queda fijo en "indicaciones" y no tiene botón para cambiar de tipo. */}
+          {_dental && canPrescribe && tipo === "receta" && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginBottom: 6 }}>Recetas rápidas · odontología</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {RX_RAPIDAS_DENTAL.map(r => (
+                  <button key={r.id} type="button" onClick={() => setRp(rp ? rp + "\n" + r.linea : r.linea)} style={{ fontFamily: T.sans, fontSize: 11.5, padding: "7px 12px", borderRadius: 999, cursor: "pointer", background: "transparent", color: T.accent, border: "1px solid " + T.chipBorder }}>+ {r.label}</button>
+                ))}
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 }}>Posologías habituales de referencia. Revisa dosis, duración, alergias e interacciones antes de firmar.</div>
+            </div>
+          )}
           {tipo === "receta" && (
             <div style={{ marginBottom: 8, border: "1px solid " + T.line, borderRadius: 10, overflow: "hidden" }}>
               <button type="button" onClick={() => setVadeOpen(o => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 13px", background: T.surface2 || T.surface, border: "none", cursor: "pointer", textAlign: "left", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>
@@ -3178,4 +3350,4 @@ function RecetaTab({ T, patient, updatePatient }) {
   );
 }
 
-Object.assign(window, { initials, Avatar, AdBtn, AdField, AdModal, AdTag, PacientesView, NewPatientModal, FichaMedica, NotasTab, NewEntryModal, ConsentView, SignConsentModal, ConsentTab, RecetaTab, ImagenesTab, FacturacionTab, CampanaTab, AuditoriaIA, ResumenIA, recitaFor, recitaDue, recitaMsg, recitaWa });
+Object.assign(window, { initials, Avatar, AdBtn, AdField, AdModal, AdTag, PacientesView, NewPatientModal, FichaMedica, NotasTab, NewEntryModal, ConsentView, SignConsentModal, ConsentTab, jcmConsentsForVertical, jcmConsentCatalog, jcmDentalAICtx, RecetaTab, ImagenesTab, FacturacionTab, CampanaTab, AuditoriaIA, ResumenIA, recitaFor, recitaDue, recitaMsg, recitaWa });

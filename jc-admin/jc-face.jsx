@@ -1385,4 +1385,7 @@ function ViewTab({ T, active, children, onClick }) {
 function ghostBtn(T) { return { fontFamily: T.sans, fontSize: 11, letterSpacing: ".04em", padding: "8px 13px", borderRadius: 7, cursor: "pointer", background: T.surface, color: T.textMute, border: "1px solid " + T.line }; }
 function primBtn(T) { return { fontFamily: T.sans, fontSize: 11, letterSpacing: ".04em", padding: "8px 15px", borderRadius: 7, background: T.text, color: T.bg, border: "1px solid " + T.text }; }
 
-Object.assign(window, { FaceMap, FaceSVG, ViewTab, PuncionTool, AureoTool, PtosisTool, RickettsTool, MarquardtTool, MarquardtMask, aureoCompute, ptosisCompute, ptosisCompare, detectFaceMesh });
+// faceGetPhoto/faceSetPhoto/fileToDataURL se exponen para que otros módulos (el odontograma
+// dental y sus radiografías) reutilicen EXACTAMENTE la misma capa de imágenes —local + Storage,
+// con su manejo de cuota y su borrado— en vez de duplicarla y arriesgar dos comportamientos.
+Object.assign(window, { FaceMap, FaceSVG, ViewTab, PuncionTool, AureoTool, PtosisTool, RickettsTool, MarquardtTool, MarquardtMask, aureoCompute, ptosisCompute, ptosisCompare, detectFaceMesh, faceGetPhoto, faceSetPhoto, fileToDataURL });

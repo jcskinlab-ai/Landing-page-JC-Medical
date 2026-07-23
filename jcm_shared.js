@@ -48,12 +48,16 @@ const DB = {
   set(k, v) {
     try { localStorage.setItem(this._k(k), JSON.stringify(v)); return v; }
     catch(e) {
-      // No fallar en silencio: un intake/ficha que no se guarda es un dato perdido.
+      // C-06: NO fallar en silencio. Antes se avisaba UNA sola vez (_storageWarned) → tras el primer
+      // fallo todo guardado siguiente era 100% mudo y el "✓ Guardado" salía igual, con el dato perdido
+      // (cuota llena / navegación privada). Ahora se avisa en CADA fallo (con un throttle corto para
+      // no spamear el alert) para que el usuario SIEMPRE sepa que ese dato NO quedó guardado.
       try { console.error('[JCM] No se pudo guardar "' + k + '" en este dispositivo:', e); } catch(_) {}
       try {
-        if (!this._storageWarned && typeof window !== 'undefined' && window.alert) {
-          this._storageWarned = true;
-          window.alert('No se pudo guardar la información en este dispositivo (almacenamiento lleno o navegación privada). Anota los datos y reintenta o usa otro navegador.');
+        var _t = Date.now();
+        if (typeof window !== 'undefined' && window.alert && (_t - (this._lastStorageWarn || 0) > 4000)) {
+          this._lastStorageWarn = _t;
+          window.alert('⚠ No se pudo guardar "' + k + '" en este dispositivo (almacenamiento lleno o navegación privada). El dato NO quedó guardado: anótalo y reintenta, o usa otro navegador.');
         }
       } catch(_) {}
       return null;
@@ -76,12 +80,67 @@ const DB = {
       // Plantillas de mensajes de WhatsApp propias de la clínica (editables en el panel móvil,
       // Reportes → Plantillas de mensajes). Vacías = se usa el texto predeterminado (ver más abajo).
       msg_tpl_confirm: '',
-      msg_tpl_asist: ''
+      msg_tpl_asist: '',
+      // Vertical de la clínica: '' o 'estetica' = medicina estética (comportamiento histórico);
+      // 'dental' activa el módulo odontológico. Vacío por defecto A PROPÓSITO: las clínicas que ya
+      // existen nunca escribieron esta clave, y deben seguir viéndose exactamente igual que siempre.
+      vertical: ''
     };
     // Combina con lo guardado para que claves nuevas siempre tengan default.
     return Object.assign(def, this.get('config') || {});
   }
 };
+
+// ── VERTICAL DE LA CLÍNICA (estética / dental) ─────────────────────────────
+// Medique no es dos softwares: es el mismo panel multi-tenant con una vertical que se activa POR
+// CLÍNICA. Todo lo dental cuelga de estos dos helpers, así que una clínica estética jamás ve nada
+// odontológico. La regla es estricta: si vertical !== 'dental', el comportamiento es el histórico.
+const VERTICALES = ['estetica', 'dental'];
+function clinicVertical() {
+  // Defensivo a propósito: esto se llama desde el render de React y desde jcm_saas/portal, donde
+  // DB.cfg() puede fallar (localStorage bloqueado, sesión a medio cargar). Ante CUALQUIER duda se
+  // responde 'estetica' — degradar a la vertical histórica es seguro; adivinar 'dental' no lo es.
+  try {
+    const v = String((DB.cfg() || {}).vertical || '').trim().toLowerCase();
+    return VERTICALES.indexOf(v) >= 0 ? v : 'estetica';
+  } catch (e) { return 'estetica'; }
+}
+function isDental() { return clinicVertical() === 'dental'; }
+
+// Nomenclatura por vertical. Un solo lugar donde vive el vocabulario clínico, para que las vistas
+// no repartan ternarios de isDental() por todas partes.
+const JCM_TERMS = {
+  estetica: {
+    ficha:         'Ficha Clínica',
+    mapa:          'Mapa facial y antropometría',
+    mapaCorto:     'Mapa facial',
+    procedimiento: 'Procedimiento',
+    procedimientos:'Procedimientos',
+    box:           'Box',
+    boxes:         'Boxes',
+    profesional:   'Profesional',
+    vertical:      'Medicina estética'
+  },
+  dental: {
+    ficha:         'Ficha Odontológica',
+    mapa:          'Odontograma',
+    mapaCorto:     'Odontograma',
+    procedimiento: 'Tratamiento',
+    procedimientos:'Tratamientos',
+    box:           'Sillón',
+    boxes:         'Sillones',
+    profesional:   'Odontólogo',
+    vertical:      'Odontología'
+  }
+};
+function jcmTerms() { return JCM_TERMS[clinicVertical()] || JCM_TERMS.estetica; }
+
+try {
+  window.VERTICALES = VERTICALES;
+  window.clinicVertical = clinicVertical;
+  window.isDental = isDental;
+  window.jcmTerms = jcmTerms;
+} catch (e) {}
 
 // ── PLANTILLAS DE MENSAJES DE WHATSAPP (editables por clínica) ─────────────────────────────
 // Cada clínica puede escribir su propio texto (panel móvil, Reportes → Plantillas de mensajes),

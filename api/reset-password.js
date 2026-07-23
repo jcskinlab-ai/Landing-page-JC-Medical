@@ -73,7 +73,10 @@ export default async function handler(req, res) {
   if (!isEmail(email)) return res.status(400).json({ ok: false, error: "Correo inválido." });
 
   // Anti-abuso: por IP (5/min, 50/día) y por correo (3/min, 8/día).
-  const ip = (req.headers["x-forwarded-for"] || "").toString().split(",")[0].trim() || "ip?";
+  // SEG · La IP real va al FINAL del X-Forwarded-For (la primera la controla el cliente y hacía el
+  // límite por IP evadible). Vercel expone la real en x-real-ip.
+  const _xff = (req.headers["x-forwarded-for"] || "").toString().split(",").map(s => s.trim()).filter(Boolean);
+  const ip = ((req.headers["x-real-ip"] || "").toString().trim()) || _xff[_xff.length - 1] || "ip?";
   if (!rlHit("ip:" + ip, 5, 50) || !rlHit("em:" + email, 3, 8)) {
     return res.status(429).json({ ok: false, error: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo." });
   }

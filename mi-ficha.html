@@ -27,8 +27,8 @@
 
 <!-- Portal AUTOCONTENIDO: React + tema + la app. NO carga jcm_saas/jcm_cloud → el navegador del
      paciente nunca toca Firestore; todo pasa por /api/team-access (acciones portal-*, server-side). -->
-<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 <script>
   window.useState = React.useState;
   window.useEffect = React.useEffect;
@@ -36,6 +36,6 @@
   window.useMemo = React.useMemo;
 </script>
 <script src="/jc-proto/jc-theme.js?v=82"></script>
-<script src="/dist/jc-portal.js?v=4"></script>
+<script src="/dist/jc-portal.js?v=5"></script>
 </body>
 </html>

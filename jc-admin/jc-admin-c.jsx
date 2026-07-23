@@ -697,6 +697,12 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
   const [showAllEsp, setShowAllEsp] = useState(false);
   const [showAllTrat, setShowAllTrat] = useState(false);
   const [tipoOtro, setTipoOtro] = useState(() => !!(member && member.tipoProf && TIPO_PROF_OPTS.indexOf(member.tipoProf) < 0));
+  // Vertical dental: el cargo se elige de un catálogo (Dentista/Asistente/Ortodoncista/Endodoncista)
+  // para que la agenda pueda agrupar por rol. Se conserva "Otro" con texto libre porque un
+  // consultorio real tiene cargos que no están en la lista (higienista, recepción).
+  const _rolesDental = (window.JCM_ROLES_DENTAL || []).concat(["Otro"]);
+  const _dentalTeam = !!(window.isDental && window.isDental());
+  const [rolOtro, setRolOtro] = useState(() => !!(member && member.role && _rolesDental.indexOf(member.role) < 0));
   // Acceso de login del profesional (multiusuario por clínica).
   const [accPass, setAccPass] = useState("");
   const [accBusy, setAccBusy] = useState(false);
@@ -757,7 +763,18 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
         <ProfSec T={T} n="1" title="Información básica">
           <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
             <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} placeholder="Ej: Dra. María Pérez" />
-            <AdField T={T} label="Título / cargo" value={f.role} onChange={v => setF({ ...f, role: v })} placeholder="Ej: Médico estético" />
+            {_dentalTeam
+              ? <div>
+                  <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Título / cargo</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <select value={rolOtro ? "Otro" : (f.role || "")} onChange={e => { const v = e.target.value; if (v === "Otro") { setRolOtro(true); } else { setRolOtro(false); setF({ ...f, role: v }); } }} style={{ flex: 1, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", cursor: "pointer" }}>
+                      <option value="">Elegir…</option>
+                      {_rolesDental.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    {rolOtro && <input value={f.role || ""} onChange={e => setF({ ...f, role: e.target.value })} placeholder="Especifica el cargo" style={{ flex: 1, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />}
+                  </div>
+                </div>
+              : <AdField T={T} label="Título / cargo" value={f.role} onChange={v => setF({ ...f, role: v })} placeholder="Ej: Médico estético" />}
             <div>
               <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Tipo de profesional</span>
               <div style={{ display: "flex", gap: 8 }}>
@@ -981,7 +998,12 @@ function ConsentimientosView({ T }) {
   let patients = []; try { patients = (window.DB && window.DB.get("patients")) || (window.JCADMIN && window.JCADMIN.patients) || []; } catch (e) {}
   const firmados = patients.filter(p => p.consent).length;
   const pendientes = patients.filter(p => !p.consent).length;
-  const base = (window.JCADMIN && window.JCADMIN.consents) || [];
+  // Catálogo base filtrado por rubro: una clínica estética no debe ver plantillas dentales
+  // (ni al revés) tampoco en este panel de configuración. En estética el filtro devuelve
+  // exactamente la misma lista de siempre. Fallback al catálogo completo si b.jsx no cargó.
+  const base = window.jcmConsentsForVertical
+    ? window.jcmConsentsForVertical((window.JCADMIN && window.JCADMIN.consents) || [], !!(window.isDental && window.isDental()))
+    : ((window.JCADMIN && window.JCADMIN.consents) || []);
   function setActiveKey(k, on) { const n = { ...active, [k]: on }; setActive(n); try { window.DB && window.DB.set("consent_active", n); } catch (e) {} }
   function persist(n) { setTpls(n); saveConsentTplsDB(n); }
   function save(t) {
@@ -2203,8 +2225,19 @@ const IND_TPL_SEED = [
   { id: "tpl_bio", name: "Sculptra de colágeno", body: "• Realiza masajes en la zona 5 minutos, 5 veces al día, por 5 días (regla del 5).\n• Aplica frío local las primeras 24 h si hay inflamación.\n• Evita sol directo, sauna y ejercicio intenso por 48 h.\n• Puede haber leve inflamación o pequeños hematomas que ceden en pocos días.\n• Los resultados son progresivos durante las semanas siguientes.\n• Asiste a tus sesiones de control según el plan indicado." },
   { id: "tpl_arm", name: "Armonización facial", body: "• Aplica frío local 10 min cada 2 h durante las primeras 24 h.\n• No manipules ni masajees la zona salvo indicación.\n• Evita ejercicio intenso, sauna, calor y alcohol por 24–48 h.\n• Duerme boca arriba las primeras noches.\n• Pueden aparecer inflamación o hematomas leves que ceden en días.\n• Ante dolor intenso, palidez o cambio de color de la piel, contáctanos de inmediato." }
 ];
+// Semilla para clínicas dentales. Se ofrece SOLO cuando window.isDental() es true; en estética
+// este arreglo no se toca nunca y getIndTemplates devuelve exactamente lo de siempre.
+// A diferencia de la estética (donde solo la clínica base hereda ejemplos), aquí sí se siembra:
+// una clínica dental es por definición nueva y quedaría sin ninguna plantilla que insertar.
+// Siguen siendo editables: en cuanto la clínica guarda sus propias plantillas, cfg.ind_templates manda.
+const IND_TPL_SEED_DENTAL = [
+  { id: "tpl_post_exo", name: "Post extracción dental", body: "• Muerde la gasa con fuerza durante 30–45 minutos y luego retírala. Si sigue sangrando, coloca una gasa limpia y repite.\n• Las primeras 24 h: NO escupas, no te enjuagues, no uses bombilla y no fumes. Esos movimientos desprenden el coágulo que cicatriza la herida.\n• Aplica frío por fuera de la mejilla, 15 minutos sí y 15 no, durante las primeras 24 h.\n• Alimentación blanda y fría o tibia el primer día. Evita alimentos duros, muy calientes, picantes y el alcohol.\n• Mastica por el lado opuesto y no toques la zona con la lengua ni con los dedos.\n• Cepilla el resto de tus dientes normalmente; en la zona operada cepilla con suavidad desde el día siguiente.\n• Desde las 24 h puedes enjuagarte suavemente con agua tibia con sal (1 cucharadita en un vaso), 2–3 veces al día.\n• Toma los medicamentos exactamente como se te indicaron y completa el antibiótico si se te recetó.\n• Es normal que haya dolor e inflamación los primeros 2–3 días y que puedas abrir menos la boca.\n• CONSULTA de inmediato si: el sangrado no cede, el dolor aumenta después del tercer día, hay fiebre, mal olor persistente o el aumento de volumen sigue creciendo." },
+  { id: "tpl_post_blanq", name: "Post blanqueamiento dental", body: "• Durante las primeras 48 h evita alimentos y bebidas con pigmentos: café, té, vino tinto, bebidas cola, betarraga, salsa de tomate, curry, chocolate y jugos oscuros.\n• No fumes: el tabaco es lo que más rápido revierte el resultado.\n• Prefiere alimentos claros: pollo, arroz, pastas sin salsa roja, lácteos, plátano, papa.\n• Es frecuente sentir sensibilidad al frío o punzadas breves durante los primeros días; disminuye sola.\n• Usa la pasta para dientes sensibles que se te indicó y evita bebidas muy frías o muy calientes.\n• Cepilla suavemente, 3 veces al día, con cepillo de cerdas suaves.\n• No uses enjuagues con clorhexidina durante estos días: pueden manchar.\n• El color final se estabiliza después de 1–2 semanas. No evalúes el resultado el mismo día.\n• Asiste a tu control para evaluar el resultado y definir si corresponde una sesión adicional.\n• CONSULTA si la sensibilidad es intensa, no cede con el analgésico indicado o aparece dolor espontáneo." },
+  { id: "tpl_post_cir", name: "Post cirugía bucal", body: "• Reposo relativo durante las primeras 24–48 h. Evita ejercicio, agacharte y levantar peso.\n• Duerme con la cabeza más alta que el cuerpo las primeras noches (usa una almohada extra).\n• Aplica frío por fuera de la mejilla, 15 minutos sí y 15 no, durante las primeras 24 h. Desde el tercer día puedes usar calor local suave si hay inflamación.\n• Las primeras 24 h: no escupas, no te enjuagues, no uses bombilla y no fumes.\n• Alimentación blanda y fría o tibia los primeros días. Nada duro, muy caliente, picante ni alcohol.\n• No toques la herida ni los puntos con la lengua ni con los dedos.\n• Cepilla el resto de tus dientes normalmente y usa el enjuague que se te indicó desde el día siguiente.\n• Completa el antibiótico y los analgésicos tal como se te indicaron, aunque te sientas bien.\n• Es esperable dolor, inflamación de la mejilla, hematomas y dificultad para abrir la boca durante varios días.\n• Asiste al control y al retiro de puntos en la fecha indicada.\n• CONSULTA DE INMEDIATO si: el sangrado no cede, hay fiebre, el aumento de volumen crece después del tercer día, aparece dificultad para tragar o respirar, o el dolor se hace intenso y no calma con lo indicado." }
+];
 function getIndTemplates() {
   try { const c = (window.DB && DB.cfg().ind_templates); if (c && c.length) return c; } catch (e) {}
+  if (typeof window !== "undefined" && window.isDental && window.isDental()) return IND_TPL_SEED_DENTAL;
   // Solo la clínica base (JC Medical) o el modo local heredan las plantillas de ejemplo; las nuevas parten en blanco.
   return ((typeof clinicSeeded === "function") ? clinicSeeded() : true) ? IND_TPL_SEED : [];
 }
@@ -2650,7 +2683,15 @@ function ClinicDataCard({ T }) {
     clinic_maps: cfg0.clinic_maps || "",
     professional: cfg0.professional || "",
     clinic_email: cfg0.clinic_email || "",
-    wa_number: cfg0.wa_number || ""
+    wa_number: cfg0.wa_number || "",
+    // '' (clínica antigua que nunca eligió) se muestra como estética, que es lo que de hecho ha
+    // estado usando. Así el selector nunca aparece en blanco ni sugiere que falta configurar algo.
+    vertical: cfg0.vertical || "estetica",
+    // Un sillón por línea. Se normaliza con el mismo lector que usa la agenda (jcmSillonList),
+    // así lo que se ve aquí es exactamente lo que la agenda va a agrupar.
+    sillones: (function () {
+      try { return ((window.jcmSillonList && window.jcmSillonList(cfg0.sillones)) || []).join("\n"); } catch (e) { return ""; }
+    })()
   });
   const emailReplyOk = !f.clinic_email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.clinic_email.trim());
   const [saved, setSaved] = useState(false);
@@ -2668,6 +2709,11 @@ function ClinicDataCard({ T }) {
     try {
       const patch = { clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") };
       if (isAdmin) patch.clinic_name = f.clinic_name.trim(); // el nombre solo lo guarda el admin
+      if (isAdmin) patch.vertical = f.vertical;              // la especialidad también: define los módulos del panel
+      if (isAdmin && f.vertical === "dental") {
+        // Solo se guarda en dental: una clínica estética nunca escribe esta clave.
+        patch.sillones = String(f.sillones || "").split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+      }
       DB.set("config", Object.assign({}, DB.cfg(), patch));
       try { window.dispatchEvent(new Event("jcm:config")); } catch (e2) {} // refresca el nombre/avatar del header
       setSaved(true); setTimeout(() => setSaved(false), 1800);
@@ -2707,6 +2753,28 @@ function ClinicDataCard({ T }) {
           <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>WhatsApp</span>
           <input value={waDisplay} onChange={e => onWa(e.target.value)} inputMode="numeric" placeholder="+569 1234 5678" style={luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }} />
         </label>
+        {/* Especialidad / vertical — solo el dueño. Define QUÉ módulos clínicos ve la clínica
+            (odontograma, presupuesto dental, agenda por sillón). No toca ningún dato del paciente. */}
+        {isAdmin && <label style={{ display: "block" }}>
+          <span style={luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Especialidad / vertical</span>
+          <select value={f.vertical} onChange={e => { setF({ ...f, vertical: e.target.value }); setSaved(false); }} style={luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" }}>
+            <option value="estetica">Medicina estética</option>
+            <option value="dental">Odontología</option>
+          </select>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 }}>
+            {f.vertical === "dental"
+              ? "La ficha muestra el odontograma, la agenda se organiza por sillón y el presupuesto trabaja con plano de tratamiento y cuotas."
+              : "La ficha muestra el mapa facial y la antropometría. Cambia a Odontología para activar odontograma, agenda por sillón y presupuesto dental."}
+            {" "}Puedes cambiarla cuando quieras: no se borra ni se modifica ningún dato de tus pacientes.
+          </div>
+        </label>}
+        {isAdmin && f.vertical === "dental" && <label style={{ display: "block" }}>
+          <span style={luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>Sillones</span>
+          <textarea value={f.sillones} onChange={e => { setF({ ...f, sillones: e.target.value }); setSaved(false); }} rows={3} placeholder={"Sillón 1\nSillón 2"} style={{ width: "100%", padding: "12px 13px", borderRadius: luxF ? DS.r.ctl : 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 }} />
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 }}>
+            Uno por línea. La agenda del día agrupa las citas por sillón. Las citas que no tengan sillón asignado aparecen en “Sin asignar” — nunca se ocultan.
+          </div>
+        </label>}
       </div>
     </div>
   );
@@ -4330,7 +4398,7 @@ function CopilotConfigView({ T }) {
 function AgenteIAView({ T, patients, addAppt }) {
   const seeded = (typeof clinicSeeded === "function") ? clinicSeeded() : true;
   const [convs, setConvs] = useState(() => { try { const s = DB.get("wa_conversations"); if (s) return s; } catch (e) {} return seeded ? WA_SEED : []; });
-  const [appts, setAppts] = useState(() => { try { return DB.get("appts") || []; } catch (e) { return []; } });
+  const [appts, setAppts] = useState(() => { try { return DB.get("appointments") || []; } catch (e) { return []; } });
   const [sel, setSel] = useState(convs[0] ? convs[0].id : null);
   const [draft, setDraft] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
@@ -5055,9 +5123,19 @@ function optimizePatientsBlock() {
         const own = DB.get(key);
         let target = Array.isArray(own) ? own.slice() : [];
         (legacy || []).forEach(d => { if (d && !target.some(t => t && t.ts === d.ts)) target.push(d); });
-        if (target.length) DB.set(key, target);
-        np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
-        movedCons++; changed = true;
+        if (target.length) {
+          DB.set(key, target);
+          // C-07: SOLO se quitan las firmas inline del índice si el guardado en pcons_<id> quedó
+          // CONFIRMADO (igual que el bloque de imágenes). Antes se borraban SIEMPRE: si el DB.set
+          // fallaba en silencio (cuota; las firmas base64 pesan), el consentimiento firmado se
+          // perdía para siempre. saved.length >= target.length cubre tanto el write nuevo como el
+          // caso en que ya estaba persistido.
+          const saved = DB.get(key);
+          if (Array.isArray(saved) && saved.length >= target.length) {
+            np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+            movedCons++; changed = true;
+          }
+        }
       } catch (e) {}
     }
     // 3) Reconcilia el flag: si el paciente tiene consentimientos en su bloque propio, marca consent:true.

@@ -98,6 +98,18 @@ async function readAppointments(sa, projectId, clinicId) {
   try { return JSON.parse(v) || []; } catch (e) { return []; }
 }
 
+// C-03: resuelve la clínica REAL del llamante leyendo users/{uid}.clinicId con la cuenta de
+// servicio. Es la única fuente de verdad de la pertenencia (myClinic() del cliente no es confiable).
+async function readUserClinicId(sa, projectId, uid) {
+  const token = await getAccessToken(sa);
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${encodeURIComponent(uid)}`;
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) return null;
+  const doc = await r.json();
+  const cid = doc && doc.fields && doc.fields.clinicId && doc.fields.clinicId.stringValue;
+  return cid || null;
+}
+
 // Misma convención que ya usa el resto del código (mobile: consentPendingM, jc-data.js procMin):
 // "evaluación" se identifica por texto libre en a.proc, no hay categoría estructurada en los datos.
 const esEvaluacion = proc => /evaluaci/i.test(proc || "");
@@ -175,12 +187,17 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
     const authz = req.headers['authorization'] || '';
     const idToken = authz.startsWith('Bearer ') ? authz.slice(7) : '';
-    try { await verifyFirebaseToken(idToken, PROJECT_ID); }
+    let caller;
+    try { caller = await verifyFirebaseToken(idToken, PROJECT_ID); }
     catch (e) { return res.status(401).json({ ok: false, error: "No autorizado: inicia sesión en el panel." }); }
     if (!sa) return res.status(503).json({ ok: false, configured: false, error: "Calendario no configurado aún: falta la clave de servicio de Firebase (FIREBASE_SERVICE_ACCOUNT)." });
-    const body = req.body || {};
-    const clinicId = (body.clinicId || "").toString().trim();
-    if (!clinicId) return res.status(400).json({ ok: false, error: "Falta clinicId." });
+    // C-03: la clínica se resuelve del LLAMANTE en el servidor (users/{uid}.clinicId), NUNCA del
+    // body. Antes se firmaba el token de suscripción con el clinicId que enviara el cliente → un
+    // usuario logueado podía pedir el feed .ics (agenda completa: paciente, teléfono, procedimiento)
+    // de CUALQUIER clínica. Ahora solo puede obtener el de la suya.
+    let clinicId = null;
+    try { clinicId = await readUserClinicId(sa, PROJECT_ID, caller.sub); } catch (e) { clinicId = null; }
+    if (!clinicId) return res.status(403).json({ ok: false, error: "Tu cuenta no está asociada a una clínica." });
     // Un link por categoría (procedimiento/evaluación): mismo token — no es secreto per-categoría,
     // "cat" solo filtra qué citas trae el feed. Cada uno se suscribe como un calendario aparte, así
     // se puede colorear distinto en Google/Apple/Outlook por igual (no es un truco solo de iPhone).

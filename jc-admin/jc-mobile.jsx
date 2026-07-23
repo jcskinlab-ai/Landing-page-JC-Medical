@@ -2108,11 +2108,12 @@ function MasTab({ T, mode, toggleMode, openOverlay, onLogout, openNotif, goAnula
 
       {/* Tarjeta-lista de accesos */}
       <div style={{ ...glassPanel(T,18), overflow:"hidden", marginBottom:14 }}>
-        {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
-        {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
+        {/* SEG · las entradas del menú siguen el permiso (el gate duro está en el render del overlay). */}
+        {mobileCan("pacientes") && row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOverlay("pacientes"))}
+        {mobileCan("reportes") && row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOverlay("reportes"))}
         {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>, "Notificaciones", openNotif)}
         {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9a8 8 0 1 1 1.3 6.5"/><path d="M4 4v5h5"/></svg>, "Citas anuladas", goAnuladas)}
-        {row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOverlay("plantillas"))}
+        {mobileCan("plantillas") && row(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOverlay("plantillas"))}
         {row(<svg id="jcm-mob-rfab-icon2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>, "Actualizar datos", ()=>{ const b = document.getElementById("jcm-mob-rfab-icon2"); if(b){ b.style.transition="transform .55s"; b.style.transform="rotate(360deg)"; setTimeout(()=>{b.style.transition="";b.style.transform="";},600);} window.dispatchEvent(new CustomEvent("jcsaas:data")); }, true)}
       </div>
 
@@ -2158,8 +2159,47 @@ function OverlayShell({ T, title, onBack, children }) {
 }
 
 /* ─── Shell principal ─── */
+// SEG · El panel móvil NO consultaba rol ni permisos en ninguna línea: un profesional con permiso
+// solo de Agenda entraba a movil.medique.cl con sus mismas credenciales y veía pacientes, fichas y
+// reportes completos. Eso anulaba el modelo de permisos del panel de escritorio, sin devtools ni
+// URLs raras. Este mapeo asocia cada zona del móvil al permiso que la habilita; los nombres deben
+// coincidir con los de PERM_NAV en jc-admin.jsx (Agenda, Pacientes, Servicios, Inventario,
+// Reportes, Marketing, Configuración).
+var MOBILE_PERM = {
+  citas: "Agenda", agenda: "Agenda", nueva: "Agenda", horarios: "Agenda",
+  pacientes: "Pacientes", ficha: "Pacientes",
+  reportes: "Reportes",
+  // Plantillas edita la configuración de mensajes de TODA la clínica, no es una vista de consulta.
+  plantillas: "Configuración"
+};
+function mobileCan(key) {
+  try {
+    var role = (window.JCSAAS && window.JCSAAS.enabled && window.JCSAAS.currentRole) ? window.JCSAAS.currentRole() : 'owner';
+    if (role !== 'professional') return true; // dueño/staff: sin cambios
+    var need = MOBILE_PERM[key];
+    if (!need) return true; // zonas sin dato clínico (menú, tema, cerrar sesión)
+    var perms = (window.JCSAAS.currentPerms && window.JCSAAS.currentPerms()) || {};
+    return !!perms[need];
+  } catch (e) { return false; } // ante la duda, se niega
+}
+function SinPermisoM({ T }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"56px 26px", textAlign:"center" }}>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg>
+      <div style={{ fontFamily:T.serif, fontSize:17, color:T.text, margin:"12px 0 6px" }}>Sin acceso</div>
+      <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, lineHeight:1.55, maxWidth:280 }}>Tu cuenta no tiene permiso para ver esta sección. Pídeselo al administrador de la clínica.</div>
+    </div>
+  );
+}
 function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   const [tab, setTab] = useState("citas");
+  // SEG · Si la pestaña actual no está permitida, aterrizar en la primera que sí lo esté. El gate
+  // de render (más abajo) es la barrera dura; esto solo evita que el usuario choque contra un muro.
+  useEffect(() => {
+    if (mobileCan(tab)) return;
+    var order = ["citas", "agenda", "mas"];
+    for (var i = 0; i < order.length; i++) { if (mobileCan(order[i])) { setTab(order[i]); return; } }
+  }, [tab]);
   const [overlay, setOverlay] = useState(null); // null | "pacientes" | "reportes" | {type:"ficha", id}
   const [apptSheet, setApptSheet] = useState(null); // appt abierta en la hoja de acciones
   const [drawer, setDrawer] = useState(false); // menú lateral (hamburguesa)
@@ -2337,7 +2377,9 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     { lbl:"Inicio", on: tab==="citas"  && !overlay, act:()=>{ setOverlay(null); setTab("citas"); },  icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9"/></svg> },
     { lbl:"Agenda", on: tab==="agenda" && !overlay, act:()=>{ setOverlay(null); setTab("agenda"); }, icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17"/><path d="M8 3v4M16 3v4"/></svg> },
     { lbl:"Menú",   on: tab==="mas"    && !overlay, act:()=>{ setOverlay(null); setTab("mas"); },    icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg> },
-  ];
+  ].filter(function (t) { // SEG · no ofrecer pestañas que el permiso no habilita
+    return t.lbl === "Inicio" ? mobileCan("citas") : t.lbl === "Agenda" ? mobileCan("agenda") : true;
+  });
 
   // Fondo con BLUR real (pedido): la foto vive en su propia capa aparte y detrás (PhotoBgLayers),
   // y el contenido real va en una capa separada ENCIMA — así el blur nunca toca el texto/los
@@ -2372,10 +2414,11 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
             — solo scrollea la lista interna (próximas citas / horario). Por eso este contenedor
             exterior NO tiene scroll propio para esas pestañas; cada una maneja su scroll interno. */}
         <div style={{ flex:1, minHeight:0, overflowY: (tab==="agenda"||tab==="citas") ? "hidden" : "auto" }}>
-          {tab==="citas"    && <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} openNotif={()=>setNotifOpen(true)} bellCount={bellCount} />}
-          {tab==="horarios" && <HorariosTab T={T} appts={appts} />}
-          {tab==="nueva"    && <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} />}
-          {tab==="agenda"   && <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} />}
+          {/* SEG · gate por permiso en el RENDER de cada pestaña (ver MOBILE_PERM / mobileCan). */}
+          {tab==="citas"    && (mobileCan("citas")    ? <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} openNotif={()=>setNotifOpen(true)} bellCount={bellCount} /> : <SinPermisoM T={T} />)}
+          {tab==="horarios" && (mobileCan("horarios") ? <HorariosTab T={T} appts={appts} /> : <SinPermisoM T={T} />)}
+          {tab==="nueva"    && (mobileCan("nueva")    ? <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} /> : <SinPermisoM T={T} />)}
+          {tab==="agenda"   && (mobileCan("agenda")   ? <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} /> : <SinPermisoM T={T} />)}
           {tab==="mas"      && <MasTab      T={T} mode={mode} toggleMode={toggleMode} openOverlay={setOverlay} onLogout={onLogout} openNotif={()=>setNotifOpen(true)} goAnuladas={()=>{ setOverlay(null); setAgShowAnuladas(true); setTab("agenda"); }} />}
         </div>
 
@@ -2395,11 +2438,12 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
       </div>
 
       {/* Overlays de navegación tipo iOS push */}
-      {overlay==="pacientes" && <PacientesOverlay T={T} patients={patients} appts={appts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} />}
-      {overlay==="reportes" && <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} />}
+      {/* SEG · los overlays también se gatean: son la vía por la que se llega a fichas y reportes. */}
+      {overlay==="pacientes" && (mobileCan("pacientes") ? <PacientesOverlay T={T} patients={patients} appts={appts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} /> : <OverlayShell T={T} title="Pacientes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
+      {overlay==="reportes" && (mobileCan("reportes") ? <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} /> : <OverlayShell T={T} title="Reportes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
       {/* Plantillas de mensajes: opción PROPIA (pedido: no es un reporte) — vive en Más y el menú lateral. */}
-      {overlay==="plantillas" && <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setOverlay(null)}><MessageTemplatesView T={T} /></OverlayShell>}
-      {overlay && overlay.type==="ficha" && <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={appts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} />}
+      {overlay==="plantillas" && (mobileCan("plantillas") ? <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setOverlay(null)}><MessageTemplatesView T={T} /></OverlayShell> : <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
+      {overlay && overlay.type==="ficha" && (mobileCan("ficha") ? <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={appts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} /> : <OverlayShell T={T} title="Ficha" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
 
       {/* Panel de PENDIENTES (campana): consentimientos por firmar + pagos por confirmar (datos reales). */}
       {notifOpen && (() => {
@@ -2474,13 +2518,14 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
                 </div>
               </div>
               <div className="jc-scroll" style={{ flex:1, overflowY:"auto", padding:"12px 8px", display:"flex", flexDirection:"column", gap:2 }}>
-                {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>, "Inicio", ()=>go("citas"))}
-                {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01"/></svg>, "Agenda", ()=>go("agenda"))}
-                {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>go("nueva"))}
-                {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Horarios", ()=>go("horarios"))}
-                {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOv("pacientes"))}
-                {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOv("reportes"))}
-                {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOv("plantillas"))}
+                {/* SEG · el menú lateral es otra vía a las mismas vistas: se gatea igual. */}
+                {mobileCan("citas") && navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>, "Inicio", ()=>go("citas"))}
+                {mobileCan("agenda") && navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01"/></svg>, "Agenda", ()=>go("agenda"))}
+                {mobileCan("nueva") && navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 5v14M5 12h14"/></svg>, "Nueva cita", ()=>go("nueva"))}
+                {mobileCan("horarios") && navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, "Horarios", ()=>go("horarios"))}
+                {mobileCan("pacientes") && navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 1 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Pacientes", ()=>openOv("pacientes"))}
+                {mobileCan("reportes") && navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V4M4 20h16M8 20v-6M12 20V9M16 20v-9M20 20v-4"/></svg>, "Reportes", ()=>openOv("reportes"))}
+                {mobileCan("plantillas") && navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, "Plantillas de mensajes", ()=>openOv("plantillas"))}
                 <div style={{ height:1, background:T.divider, margin:"8px 12px" }} />
                 {navItem(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>, "Actualizar datos", ()=>{ window.dispatchEvent(new CustomEvent("jcsaas:data")); setDrawer(false); })}
                 {navItem(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>, "Cerrar sesión", ()=>{ setDrawer(false); onLogout(); }, true)}

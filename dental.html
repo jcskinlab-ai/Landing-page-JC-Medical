@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Medique Dental — Software para consultorios odontológicos en Chile</title>
+<meta name="description" content="Odontograma digital FDI, presupuestos con firma y cuotas, agenda por sillón, IA clínica orientativa, portal del paciente y bot de WhatsApp. Para consultorios odontológicos de Chile. Desde $49.990 CLP/mes." />
+<meta name="theme-color" content="#0b0b0d" />
+<meta name="robots" content="index,follow" />
+<link rel="canonical" href="https://dental.medique.cl/" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Medique Dental — Software para consultorios odontológicos" />
+<meta property="og:description" content="Odontograma digital, plan de tratamiento con firma y cuotas, agenda por sillón, IA clínica y portal del paciente. Lanzamiento Q4 2026." />
+<meta property="og:url" content="https://dental.medique.cl/" />
+<meta property="og:locale" content="es_CL" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Jost:wght@300;400;500;600&family=Marcellus&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0b0d; --panel:#161616; --panel-3:#242422;
+    --line:rgba(244,239,232,.15); --line-2:rgba(244,239,232,.26);
+    --text:#f7f3ec; --text-2:rgba(244,239,232,.75); --text-3:rgba(244,239,232,.52);
+    --ice:#b6cadd; --ice-soft:#d4dfe9; --glow:rgba(150,182,218,.5);
+    --acc1:#b6cadd; --acc2:#9aacbd;
+    --accgrad:linear-gradient(95deg,#f6f2ea 0%,#e4dccd 45%,#9aacbd 100%);
+    --btn:linear-gradient(180deg,#f6f2ea,#e4dccd); --btn-text:#12130f;
+    --green:#33c07a;
+    /* semánticos del design system (JCDS) — estados del odontograma */
+    --ok:#3fbe86; --danger:#e2687a; --warn:#e0c163; --info:#6fa8c7; --violet:#9b83e0;
+    --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --serif:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono","Source Code Pro",ui-monospace,monospace;
+    /* los mockups conservan la tipografía del producto real */
+    --mqserif:"Marcellus",Georgia,serif;
+    --mqital:"Cormorant Garamond",Georgia,serif;
+    --mqsans:"Jost",var(--sans);
+    --maxw:1200px;
+    --sp-sec:clamp(64px,5vw + 40px,128px);
+    --sp-head:clamp(38px,3vw + 24px,64px);
+    --sp-block:clamp(40px,4vw + 24px,64px);
+    --glassbg:linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.035));
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;overflow-x:hidden}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  @supports(overflow:clip){html,body{overflow-x:clip}}
+  img,svg{max-width:100%}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:rgba(150,182,218,.85);color:#0a1626}
+  :where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--acc1);outline-offset:3px;border-radius:6px}
+  .skip{position:absolute;left:-9999px;top:0;z-index:300;background:var(--btn);color:var(--btn-text);padding:12px 18px;border-radius:0 0 12px 0;font-weight:600}
+  .skip:focus{left:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,28px)}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#9aacbd;font-weight:500}
+  .sec-head .eyebrow{display:inline-flex;align-items:center;gap:14px}
+  .sec-head .eyebrow::before,.sec-head .eyebrow::after{content:"";width:28px;height:1px;background:currentColor;opacity:.45;flex:0 0 auto}
+  .h2{font-family:var(--serif);font-weight:700;font-size:clamp(1.85rem,4.4vw,3.3rem);line-height:1.1;letter-spacing:-.03em;text-wrap:balance;margin:0}
+  .sub{color:var(--text-2);font-size:clamp(15px,1.6vw,18px);line-height:1.6;max-width:40em;text-wrap:pretty}
+  .sec{padding:var(--sp-sec) 0;position:relative}
+  .sec-head{text-align:center;max-width:780px;margin:0 auto var(--sp-head);display:flex;flex-direction:column;align-items:center;gap:16px}
+  .sec-head .sub{text-align:center}
+  .num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+
+  .btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;font-family:var(--sans);font-weight:600;font-size:15px;padding:13px 22px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .25s,background .2s,border-color .2s}
+  .btn-primary{background:var(--btn);color:var(--btn-text);box-shadow:0 12px 40px -12px rgba(236,230,220,.55),0 0 0 1px rgba(246,242,234,.25),inset 0 1px 0 rgba(255,255,255,.75)}
+  .btn-primary::after{content:"";position:absolute;top:-25%;bottom:-25%;left:-75%;width:45%;background:linear-gradient(105deg,rgba(255,255,255,0),rgba(255,255,255,.8),rgba(255,255,255,0));transform:skewX(-22deg);transition:left .65s ease;pointer-events:none}
+  .btn-primary:hover::after{left:140%}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 54px -10px rgba(236,230,220,.8)}
+  .btn-ghost{border-color:var(--line-2);color:var(--text);background:rgba(255,255,255,.02)}
+  .btn-ghost:hover{border-color:rgba(182,202,221,.55);background:rgba(242,237,230,.07);transform:translateY(-2px)}
+  .btn-sm{padding:10px 17px;font-size:14px;border-radius:10px}
+  .btn:active{transform:translateY(0) scale(.96);transition-duration:.09s}
+  .pill{display:inline-flex;align-items:center;gap:9px;padding:8px 15px;border:1px solid var(--line-2);border-radius:999px;background:rgba(255,255,255,.02);font-size:13px}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 auto}
+
+  /* ── fondo ───────────────────────────────────────────── */
+  .bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+    radial-gradient(120% 80% at 50% -10%,rgba(80,110,150,.2),transparent 55%),
+    linear-gradient(180deg,#080a0e 0%,#0b0b0d 45%,#0a0a0c 100%)}
+  .blobs{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+  .blobs i{position:absolute;border-radius:50%;opacity:.24;mix-blend-mode:screen}
+  .blobs i:nth-child(1){width:46vw;height:46vw;left:-12vw;top:-8vw;background:radial-gradient(circle,#56677c,transparent 65%);animation:drift1 26s ease-in-out infinite alternate}
+  .blobs i:nth-child(2){width:38vw;height:38vw;right:-10vw;top:22vh;background:radial-gradient(circle,#9aacbd,transparent 65%);animation:drift2 32s ease-in-out infinite alternate}
+  .blobs i:nth-child(3){width:36vw;height:36vw;left:26vw;bottom:-16vw;background:radial-gradient(circle,#3e4a59,transparent 65%);opacity:.2;animation:drift3 38s ease-in-out infinite alternate}
+  @keyframes drift1{to{transform:translate(9vw,7vh) scale(1.15)}}
+  @keyframes drift2{to{transform:translate(-8vw,-6vh) scale(1.12)}}
+  @keyframes drift3{to{transform:translate(6vw,-8vh) scale(1.2)}}
+
+  /* ── aviso + nav ─────────────────────────────────────── */
+  .anno{position:relative;z-index:61;background:linear-gradient(180deg,rgba(7,9,13,.6),rgba(7,9,13,0));font-size:13.5px;color:var(--text-2)}
+  .anno .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;min-height:44px;padding:10px 46px;position:relative;text-align:center}
+  .anno b{color:var(--text);font-weight:500}
+  .anno a{color:var(--text);font-weight:500;text-decoration:underline;text-underline-offset:2px}
+  .anno .x{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text-3);background:none;border:0;cursor:pointer;font-size:18px;line-height:1;padding:6px}
+  .anno.hide{display:none}
+  .nav{position:sticky;top:0;z-index:60;padding:14px 0;background:transparent}
+  .nav .wrap{display:block;max-width:none;padding:0 clamp(16px,3vw,44px)}
+  .nav-card{position:relative;display:flex;align-items:center;gap:26px;height:66px;padding:0 16px 0 20px;border:1px solid rgba(255,255,255,.16);border-radius:24px;background:linear-gradient(180deg,rgba(9,11,16,.5),rgba(9,11,16,.62));backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);box-shadow:0 18px 44px -30px rgba(0,0,0,.9);transition:background .35s,height .35s,border-color .35s}
+  .nav.scrolled .nav-card{height:56px;border-color:rgba(236,230,220,.3);background:linear-gradient(180deg,rgba(10,13,19,.95),rgba(9,11,16,.97))}
+  @media(max-width:980px){.nav.scrolled .nav-card{height:52px}}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:17px;letter-spacing:.14em;flex:0 0 auto}
+  .brand .mark{width:34px;height:34px;flex:0 0 auto;border-radius:26%;background:linear-gradient(150deg,#1e3247,#0d1620);border:1px solid var(--line-2);display:grid;place-items:center;color:var(--ice)}
+  .brand .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--ice);border:1px solid rgba(182,202,221,.4);border-radius:6px;padding:2px 6px;text-transform:uppercase}
+  .nav-links{display:flex;gap:28px;margin:0 auto}
+  .nav-links a{font-size:14.5px;color:var(--text-2);transition:color .2s;position:relative;padding:4px 0}
+  .nav-links a:hover{color:var(--text)}
+  .nav-links a::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,var(--acc1),transparent);transform:scaleX(0);transform-origin:left;transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+  .nav-links a:hover::after,.nav-links a[aria-current="true"]::after{transform:scaleX(1)}
+  .nav-links a[aria-current="true"]{color:var(--text)}
+  .nav-right{display:flex;align-items:center;gap:18px}
+  .nav-right .login{font-size:14.5px;color:var(--text-2)}
+  .nav-right .login:hover{color:var(--text)}
+  .burger{display:none;position:relative;background:none;border:1px solid var(--line-2);border-radius:10px;width:44px;height:40px;color:var(--text);cursor:pointer;margin-left:auto}
+  .burger span{position:absolute;top:50%;left:50%;width:18px;height:2px;background:currentColor;border-radius:2px;transform:translate(-50%,-50%);transition:background .18s}
+  .burger span::before,.burger span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:currentColor;border-radius:2px;transition:transform .34s cubic-bezier(.2,.8,.2,1)}
+  .burger span::before{top:-6px}.burger span::after{top:6px}
+  body:has(.mobile-menu.show) .burger span{background:transparent}
+  body:has(.mobile-menu.show) .burger span::before{transform:translateY(6px) rotate(45deg)}
+  body:has(.mobile-menu.show) .burger span::after{transform:translateY(-6px) rotate(-45deg)}
+  .mobile-menu{display:flex;position:fixed;inset:0;z-index:55;background:rgba(9,11,16,.86);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);padding:120px 28px 26px;flex-direction:column;gap:8px;opacity:0;visibility:hidden;transform:translateY(-10px);transition:opacity .3s ease,transform .42s cubic-bezier(.2,.8,.2,1),visibility .3s;pointer-events:none}
+  .mobile-menu.show{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+  .mobile-menu a:not(.btn){font-size:19px;padding:13px 0;border-bottom:1px solid var(--line);color:var(--text-2)}
+  @media(max-width:980px){
+    .nav-links,.nav-right .login,.nav-right .btn{display:none}
+    .burger{display:block}
+    .brand{font-size:15px;letter-spacing:.1em}
+  }
+
+  /* ── glass cards ─────────────────────────────────────── */
+  .card,.plan,.faq-item,.os-row,.cta-final,.app,.mod{
+    position:relative;border-radius:22px;
+    background:
+      radial-gradient(340px circle at var(--mx,50%) var(--my,-4%),rgba(255,255,255,.16),transparent 60%),
+      var(--glassbg),
+      linear-gradient(170deg,rgba(31,32,32,.66),rgba(15,16,17,.6));
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.5),inset 0 -18px 32px -24px rgba(120,160,220,.28),0 26px 60px -30px rgba(0,0,0,.66)}
+  .card::before,.plan::before,.faq-item::before,.cta-final::before,.app::before,.mod::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+    background:radial-gradient(240px circle at var(--mx,50%) var(--my,-20%),rgba(186,214,244,.85),transparent 55%),linear-gradient(135deg,rgba(255,255,255,.55),rgba(255,255,255,0) 30%,rgba(255,255,255,0) 63%,rgba(255,255,255,.28));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:.9;z-index:1}
+  .card>*,.plan>*:not(.reco-tag),.cta-final>*,.mod>*{position:relative;z-index:2}
+  .card,.plan,.mod{transition:transform .55s cubic-bezier(.34,1.45,.64,1),border-color .28s,box-shadow .45s cubic-bezier(.2,.8,.2,1)}
+  .card:hover,.mod:hover,.plan:not(.reco):hover{transform:translateY(-4px)}
+
+  /* ── hero ────────────────────────────────────────────── */
+  .hero{position:relative;padding:clamp(30px,5vw,58px) 0 20px}
+  .hero-grid{position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.06fr);gap:clamp(28px,4vw,52px);align-items:center}
+  .hero h1{font-family:var(--serif);font-weight:700;font-size:clamp(2.2rem,5vw,4rem);line-height:1.06;letter-spacing:-.035em;margin:22px 0 20px;text-wrap:balance}
+  .hero h1 .ice{background:linear-gradient(100deg,#e4dccd 25%,#f6f2ea 42%,#9aacbd 58%);background-size:230% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shineTxt 6.5s linear infinite}
+  @keyframes shineTxt{to{background-position:-230% 0}}
+  .hero .sub{margin-bottom:28px}
+  .hero-cta{display:flex;gap:13px;flex-wrap:wrap}
+  .hero-hints{display:flex;gap:6px 16px;flex-wrap:wrap;margin-top:18px;font-family:var(--mono);font-size:10.5px;color:var(--text-3)}
+  .hero-hints span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .hero-hints svg{color:var(--acc2);flex:0 0 auto}
+  @media(max-width:980px){.hero-grid{grid-template-columns:1fr}}
+
+  /* ── mockup shell (tipografía del producto real) ─────── */
+  .app{overflow:hidden;font-family:var(--mqsans)}
+  .app-top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);position:relative;z-index:2}
+  .app-top .mini-logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#1b2d44,#0e1a28);display:grid;place-items:center;color:var(--ice);flex:0 0 auto}
+  .app-top b{font-size:12.5px;font-weight:600}
+  .app-top small{color:var(--text-3);font-size:10.5px}
+  .app-top .who{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--text-3)}
+  .av{border-radius:50%;background:linear-gradient(135deg,#2b3a4d,#405066);display:grid;place-items:center;color:var(--ice-soft);font-family:var(--mqserif);border:1px solid var(--line-2);flex:0 0 auto;width:26px;height:26px;font-size:11px}
+  .app-body{padding:14px;position:relative;z-index:2}
+  .mk-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .mk-hd .lbl{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3)}
+  .mk-hd h4{font-family:var(--mqserif);font-weight:400;font-size:20px;margin:2px 0 0}
+  .mk-hd .r{font-size:10.5px;color:var(--text-3);text-align:right}
+  .box{background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:14px;padding:13px}
+
+  /* ── odontograma ─────────────────────────────────────── */
+  .odo-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .odo{min-width:430px}
+  .odo-arch{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;position:relative}
+  .odo-arch::before{content:"";position:absolute;left:50%;top:4px;bottom:4px;width:1px;background:var(--line);transform:translateX(-.5px)}
+  .odo-row{display:flex;gap:3px;padding:6px 0}
+  .odo-row.right{justify-content:flex-start}
+  .odo-row.left{justify-content:flex-end}
+  .odo-mid{grid-column:1/-1;height:1px;background:var(--line);margin:2px 0}
+  .tooth{width:24px;flex:0 0 auto;text-align:center;cursor:default}
+  .tooth .n{font-family:var(--mono);font-size:8px;color:var(--text-3);letter-spacing:.02em;display:block;margin-top:2px}
+  /* OJO: el diente se pinta con <use href="#tooth">, y <use> clona el símbolo dentro de un shadow
+     tree. Un selector de descendencia como `.tooth .body` NO alcanza ese contenido clonado — por eso
+     los dientes salían NEGROS (el fill por defecto) sobre el fondo oscuro. Solo cruzan al shadow
+     tree las propiedades HEREDABLES, así que fill/stroke se aplican sobre el <svg> contenedor y el
+     path los hereda (el símbolo no declara fill propio, condición necesaria para que esto funcione). */
+  .tooth svg{display:block;width:22px;height:26px;margin:0 auto;fill:rgba(236,236,232,.9);stroke:rgba(20,25,30,.35);stroke-width:1}
+  .tooth[data-s="sano"] svg{fill:#eceae4}
+  .tooth[data-s="caries"] svg{fill:var(--danger)}
+  .tooth[data-s="obturacion"] svg{fill:var(--info)}
+  .tooth[data-s="corona"] svg{fill:var(--warn)}
+  .tooth[data-s="endodoncia"] svg{fill:var(--violet)}
+  .tooth[data-s="implante"] svg{fill:#7f8b96}
+  .tooth[data-s="extraccion"] svg{fill:rgba(226,104,122,.28);stroke:var(--danger);stroke-dasharray:3 2}
+  .tooth[data-s="ausente"] svg{fill:rgba(255,255,255,.06);stroke:rgba(244,239,232,.3)}
+  .tooth[data-s="fractura"] svg{fill:#c98f6a}
+  .tooth[data-s="sellante"] svg{fill:var(--ok)}
+  .tooth[data-s="ausente"] .n,.tooth[data-s="extraccion"] .n{color:var(--danger)}
+  .tooth.sel svg{filter:drop-shadow(0 0 6px rgba(182,202,221,.9))}
+  .odo-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:14px;font-size:10.5px;color:var(--text-2)}
+  .odo-legend span{display:inline-flex;align-items:center;gap:6px}
+  .odo-legend i{width:9px;height:9px;border-radius:3px;flex:0 0 auto;border:1px solid rgba(0,0,0,.3)}
+
+  /* ── listas / filas de mockup ────────────────────────── */
+  .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:11.5px}
+  .row:first-of-type{border-top:0}
+  .row b{font-weight:600}
+  .row .sp{margin-left:auto;text-align:right;flex:0 0 auto}
+  .tagx{font-size:9px;border-radius:6px;padding:2px 7px;border:1px solid var(--line-2);color:var(--text-2);white-space:nowrap}
+  .tagx.hi{color:var(--danger);border-color:rgba(226,104,122,.4);background:rgba(226,104,122,.1)}
+  .tagx.md{color:var(--warn);border-color:rgba(224,193,99,.4);background:rgba(224,193,99,.1)}
+  .tagx.lo{color:var(--ok);border-color:rgba(63,190,134,.4);background:rgba(63,190,134,.1)}
+  .bar{height:5px;border-radius:3px;background:rgba(255,255,255,.09);overflow:hidden;margin-top:5px}
+  .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#9aacbd,#e4dccd)}
+
+  /* ── grids ───────────────────────────────────────────── */
+  .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:clamp(26px,4vw,52px);align-items:center}
+  .split.rev>*:first-child{order:2}
+  @media(max-width:980px){.split{grid-template-columns:1fr}.split.rev>*:first-child{order:0}}
+  .split h3{font-family:var(--serif);font-weight:600;letter-spacing:-.025em;font-size:clamp(1.5rem,3vw,2.1rem);line-height:1.15;margin:14px 0 12px;text-wrap:balance}
+  .split p.sub{margin:0 0 20px}
+  .flist{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:11px}
+  .flist li{display:flex;gap:10px;font-size:14.5px;color:var(--text-2);text-wrap:pretty}
+  .flist li svg{color:var(--acc1);flex:0 0 auto;margin-top:4px}
+  .flist li b{color:var(--text);font-weight:600}
+
+  .os-row{display:grid;grid-template-columns:repeat(3,1fr);border-radius:24px;overflow:hidden}
+  .os-item{display:flex;gap:16px;padding:26px 26px;border-left:1px solid var(--line);position:relative;z-index:2}
+  .os-item:first-child{border-left:0}
+  .os-item .ic{width:44px;height:44px;border-radius:12px;background:rgba(242,237,230,.1);border:1px solid var(--line-2);display:grid;place-items:center;color:var(--ice);flex:0 0 auto}
+  .os-item h3{font-size:16px;margin:2px 0 6px;font-weight:600;letter-spacing:-.01em}
+  .os-item p{margin:0;color:var(--text-2);font-size:14px;text-wrap:pretty}
+  @media(max-width:860px){.os-row{grid-template-columns:1fr}.os-item{border-left:0;border-top:1px solid var(--line)}.os-item:first-child{border-top:0}}
+
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .mod{padding:24px 22px}
+  .mod .ic{width:40px;height:40px;border-radius:11px;background:rgba(242,237,230,.1);border:1px solid var(--line-2);display:grid;place-items:center;color:var(--ice);margin-bottom:14px}
+  .mod h3{font-family:var(--serif);font-weight:600;letter-spacing:-.02em;font-size:18px;margin:0 0 8px}
+  .mod p{margin:0;color:var(--text-2);font-size:14px;text-wrap:pretty}
+  @media(max-width:900px){.grid3{grid-template-columns:1fr}}
+
+  /* ── agenda por sillón ───────────────────────────────── */
+  .wk-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .wk{min-width:520px;display:grid;grid-template-columns:44px repeat(4,1fr);font-size:9.5px}
+  .wk .th{color:var(--text-3);padding:8px 6px;border-bottom:1px solid var(--line);text-align:center}
+  .wk .th b{display:block;color:var(--text-2);font-size:10.5px}
+  .wk .tlab{color:var(--text-3);padding:6px;border-right:1px solid var(--line);text-align:right;font-family:var(--mono);font-size:8.5px}
+  .wk .col{position:relative;border-left:1px solid var(--line);min-height:220px}
+  .wk .ev{position:absolute;left:3px;right:3px;border-radius:7px;padding:5px 6px;background:rgba(107,138,180,.18);border:1px solid rgba(140,170,210,.3);line-height:1.25;overflow:hidden}
+  .wk .ev b{display:block;font-weight:600;font-size:9.5px}
+  .wk .ev span{color:var(--text-2);font-size:8.5px}
+  .wk .ev.u{background:rgba(226,104,122,.16);border-color:rgba(226,104,122,.35)}
+  .wk .ev.o{background:rgba(155,131,224,.16);border-color:rgba(155,131,224,.35)}
+  .wk .ev.c{background:rgba(63,190,134,.14);border-color:rgba(63,190,134,.33)}
+
+  /* ── comparación ─────────────────────────────────────── */
+  .cmp-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:22px}
+  table.cmp{min-width:560px;width:100%;border-collapse:collapse;font-size:14px}
+  table.cmp th,table.cmp td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left}
+  table.cmp thead th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);font-weight:600;white-space:nowrap}
+  table.cmp thead th.me{color:var(--ice)}
+  table.cmp td.f{color:var(--text);font-weight:500}
+  table.cmp td.c{text-align:center;width:14%}
+  table.cmp tbody tr:last-child td{border-bottom:0}
+  table.cmp .yes{color:var(--ok);font-weight:700}
+  table.cmp .no{color:var(--text-3)}
+  .cmp-note{font-size:12.5px;color:var(--text-3);margin:16px auto 0;max-width:66ch;text-align:center;text-wrap:pretty}
+
+  /* ── precios ─────────────────────────────────────────── */
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}
+  .plan{padding:28px 24px;display:flex;flex-direction:column}
+  .plan.reco{box-shadow:0 40px 90px -46px rgba(120,160,220,.55),inset 0 0 0 1px rgba(242,237,230,.14),inset 0 1px 1px rgba(255,255,255,.5)}
+  .reco-tag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--btn-text);background:var(--btn);border-radius:999px;padding:6px 13px;z-index:3;white-space:nowrap}
+  .plan h3{font-family:var(--serif);font-size:22px;margin:0 0 6px;font-weight:600;letter-spacing:-.02em}
+  .plan .pd{color:var(--text-2);font-size:13px;margin:0 0 20px;min-height:38px;text-wrap:pretty}
+  .plan .price{display:flex;align-items:baseline;gap:6px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .plan .price .v{font-family:var(--mono);font-weight:600;font-size:30px;line-height:1;letter-spacing:-.04em}
+  .plan .price .u{font-size:12px;color:var(--text-3);line-height:1.2}
+  .plan ul{list-style:none;padding:0;margin:0 0 22px;display:flex;flex-direction:column;gap:10px}
+  .plan li{display:flex;gap:10px;font-size:13.5px;color:var(--text-2);text-wrap:pretty}
+  .plan li svg{color:var(--acc1);flex:0 0 auto;margin-top:3px;opacity:.85}
+  .plan .btn{width:100%;margin-top:auto;background:rgba(255,255,255,.04);border:1px solid var(--line-2);color:var(--text)}
+  .plan.reco .btn{background:var(--btn);color:var(--btn-text);border:0}
+  .price-note{display:flex;justify-content:center;gap:8px;align-items:center;color:var(--text-3);font-size:13px;margin:-22px 0 34px;text-align:center;flex-wrap:wrap}
+  @media(max-width:980px){.plans{grid-template-columns:1fr;padding-top:14px}.plan.reco{order:-1}}
+
+  /* ── pasos ───────────────────────────────────────────── */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .step{position:relative;border:1px solid var(--line);border-radius:18px;padding:24px 22px;background:linear-gradient(170deg,rgba(29,30,30,.55),rgba(15,16,16,.5))}
+  .step .sn{font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.1em;background:var(--accgrad);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:10px}
+  .step h4{font-size:17px;font-weight:600;letter-spacing:-.015em;margin:0 0 8px}
+  .step p{margin:0;color:var(--text-2);font-size:14px;line-height:1.55;text-wrap:pretty}
+  @media(max-width:860px){.steps{grid-template-columns:1fr}}
+
+  /* ── faq ─────────────────────────────────────────────── */
+  .faq-list{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  .faq-item{overflow:hidden;border-radius:18px}
+  .faq-q{width:100%;text-align:left;background:none;border:0;color:var(--text);font-family:var(--sans);font-size:15.5px;font-weight:500;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:16px;cursor:pointer;position:relative;z-index:2}
+  .faq-q svg{transition:transform .25s;color:var(--text-3);flex:0 0 auto}
+  .faq-item.open .faq-q svg{transform:rotate(180deg);color:var(--acc1)}
+  .faq-a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s cubic-bezier(.2,.8,.2,1);position:relative;z-index:2}
+  .faq-a p{min-height:0;overflow:hidden;margin:0;padding:0 22px;opacity:0;transition:opacity .3s ease,padding-bottom .45s cubic-bezier(.2,.8,.2,1);color:var(--text-2);font-size:14.5px;max-width:68ch;text-wrap:pretty}
+  .faq-item.open .faq-a{grid-template-rows:1fr}
+  .faq-item.open .faq-a p{opacity:1;padding-bottom:20px}
+
+  /* ── cta final + footer ──────────────────────────────── */
+  .cta-final{padding:40px 36px;display:flex;align-items:center;gap:26px;flex-wrap:wrap}
+  .cta-final .ic{width:60px;height:60px;border-radius:16px;background:rgba(242,237,230,.1);border:1px solid var(--line-2);display:grid;place-items:center;color:var(--ice);flex:0 0 auto}
+  .cta-final h3{font-family:var(--serif);font-weight:600;letter-spacing:-.025em;font-size:clamp(1.4rem,3vw,2.1rem);margin:0 0 6px;line-height:1.15;text-wrap:balance}
+  .cta-final p{margin:0;color:var(--text-2);font-size:14.5px}
+  .cta-final .acts{margin-left:auto;display:flex;gap:12px;flex-wrap:wrap}
+  @media(max-width:760px){.cta-final .acts{margin-left:0;width:100%}.cta-final .acts .btn{flex:1 1 100%}}
+  footer{border-top:1px solid var(--line);padding:56px 0 32px;margin-top:20px;background:rgba(10,10,12,.86)}
+  .foot{display:grid;grid-template-columns:1.5fr 1fr 1fr auto;gap:30px}
+  .foot .col h5{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin:0 0 14px;font-weight:600}
+  .foot .col a{display:block;color:var(--text-2);font-size:14px;padding:5px 0}
+  .foot .col a:hover{color:var(--text)}
+  .foot .about p{color:var(--text-2);font-size:14px;max-width:26em;margin:12px 0 16px;text-wrap:pretty}
+  .foot .socials{display:flex;gap:10px}
+  .foot .socials a{width:38px;height:38px;border:1px solid var(--line-2);border-radius:10px;display:grid;place-items:center;color:var(--text-2)}
+  .foot .socials a:hover{color:var(--text);border-color:var(--ice)}
+  .foot-btm{display:flex;justify-content:space-between;align-items:center;margin-top:40px;padding-top:22px;border-top:1px solid var(--line);color:var(--text-3);font-size:13px;flex-wrap:wrap;gap:14px}
+  .foot-btm .links{display:flex;gap:20px;flex-wrap:wrap}
+  @media(max-width:860px){.foot{grid-template-columns:1fr 1fr}.foot .about{grid-column:1/-1}}
+  @media(max-width:520px){.foot{grid-template-columns:1fr}}
+
+  /* ── dock móvil ──────────────────────────────────────── */
+  .m-dock{position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:52;display:none;grid-template-columns:1fr 1.45fr 1fr;gap:8px;padding:8px;border-radius:20px;background:rgba(12,14,19,.95);border:1px solid rgba(236,230,220,.18);box-shadow:0 18px 50px -12px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.07)}
+  .md-item{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 6px;border-radius:13px;font-weight:600;font-size:12.5px;color:var(--text-2);background:rgba(255,255,255,.05);border:1px solid rgba(236,230,220,.12);white-space:nowrap}
+  .md-item:active{transform:scale(.94)}
+  .md-item svg{flex:0 0 auto}
+  .md-main{background:var(--btn);color:var(--btn-text);border:0;font-size:13px}
+  .md-wa{color:#8ce3b0;border-color:rgba(87,217,150,.35);background:rgba(43,106,74,.16)}
+  @media(max-width:760px){.m-dock{display:grid}body{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}}
+
+  /* ── modal demo ──────────────────────────────────────── */
+  .modal-ov{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(4,10,20,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);opacity:0;transition:opacity .3s}
+  .modal-ov.show{display:flex;opacity:1}
+  .modal-glass{position:relative;width:min(520px,100%);max-height:92vh;overflow:auto;border-radius:26px;padding:30px;
+    background:linear-gradient(180deg,rgba(34,34,32,.72),rgba(17,17,16,.82));
+    backdrop-filter:blur(30px) saturate(200%);-webkit-backdrop-filter:blur(30px) saturate(200%);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.5),0 40px 90px -30px rgba(0,0,0,.8);
+    transform:translateY(18px) scale(.97);transition:transform .38s cubic-bezier(.2,.9,.2,1)}
+  .modal-ov.show .modal-glass{transform:none}
+  .modal-x{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:var(--text);font-size:18px;cursor:pointer;display:grid;place-items:center;z-index:3}
+  .modal-in h3{font-family:var(--serif);font-weight:600;letter-spacing:-.02em;font-size:24px;margin:6px 0 6px}
+  .modal-in>p{color:var(--text-2);font-size:14px;margin:0}
+  .modal-in>form{margin-top:18px}
+  .fld{margin-bottom:12px}
+  .fld label{display:block;font-size:12px;color:var(--text-2);margin-bottom:6px}
+  .fld input,.fld select,.fld textarea{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(236,230,220,.2);border-radius:12px;padding:12px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;color-scheme:dark;transition:border-color .2s,box-shadow .2s}
+  .fld select option{background:#181817;color:#f2ede6}
+  .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--ice);box-shadow:0 0 0 3px rgba(242,237,230,.16)}
+  .fld [aria-invalid="true"]{border-color:#e2687a;box-shadow:0 0 0 3px rgba(226,104,122,.16)}
+  .fld textarea{resize:vertical}
+  .fld-err{display:block;color:#e88aa0;font-size:11.5px;margin-top:5px}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:480px){.frow{grid-template-columns:1fr}}
+  .form-alt{text-align:center;font-size:13px;color:var(--text-3);margin:14px 0 0}
+  .form-alt a{color:var(--ice)}
+  .form-ok{text-align:center;padding:22px 0 8px}
+  .ok-check{width:62px;height:62px;border-radius:50%;margin:0 auto 16px;display:grid;place-items:center;font-size:29px;color:#0a1626;background:linear-gradient(135deg,#a7e8c4,#77dfa2)}
+  .form-ok h4{font-size:20px;margin:0 0 8px}
+
+  /* scrollbars */
+  *{scrollbar-width:thin;scrollbar-color:rgba(154,172,189,.4) rgba(255,255,255,.04)}
+  *::-webkit-scrollbar{width:9px;height:9px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:rgba(154,172,189,.4);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+
+  .sec[id],header[id]{scroll-margin-top:104px}
+  @media(max-width:980px){.sec[id],header[id]{scroll-margin-top:88px}}
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important}
+  }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Saltar al contenido</a>
+<div class="bgfx" aria-hidden="true"></div>
+<div class="blobs" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<!-- icono de diente reutilizable -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="tooth" viewBox="0 0 22 26">
+    <path class="body" d="M11 1.6c2.6 0 3.6-.9 5.6-.9 2.8 0 4.4 2.1 4.4 5.4 0 3.2-1.2 5-1.8 7.6-.6 2.4-.6 5.3-1.3 8-.4 1.6-1 2.7-2 2.7-1.3 0-1.7-1.5-2.1-3.6-.4-2-.7-4.2-1.8-4.2s-1.4 2.2-1.8 4.2c-.4 2.1-.8 3.6-2.1 3.6-1 0-1.6-1.1-2-2.7-.7-2.7-.7-5.6-1.3-8C4.2 11.1 3 9.3 3 6.1 3 2.8 4.6.7 7.4.7c2 0 3 .9 3.6.9Z"/>
+  </symbol>
+</defs></svg>
+
+<div class="anno" id="anno">
+  <div class="wrap">
+    <span>✦ <b>Medique Dental — lanzamiento Q4 2026.</b> <a href="#demo">Agenda una demo y sé de los primeros →</a></span>
+    <button class="x" aria-label="Cerrar aviso" onclick="document.getElementById('anno').classList.add('hide')">×</button>
+  </div>
+</div>
+
+<nav class="nav" id="nav" aria-label="Principal">
+  <div class="wrap">
+   <div class="nav-card">
+    <a class="brand" href="#top">
+      <span class="mark" aria-hidden="true"><svg width="18" height="20" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+      <span>MEDIQUE</span> <span class="tag">Dental</span>
+    </a>
+    <div class="nav-links">
+      <a href="#odontograma">Odontograma</a>
+      <a href="#tratamiento">Tratamientos</a>
+      <a href="#agenda">Agenda</a>
+      <a href="#comparar">Comparar</a>
+      <a href="#precios">Precios</a>
+    </div>
+    <div class="nav-right">
+      <a class="login" href="/panel">Entrar al panel</a>
+      <a class="btn btn-primary btn-sm" href="#demo">Agendar demo</a>
+    </div>
+    <button class="burger" aria-label="Abrir menú" aria-expanded="false" aria-controls="mm" id="burger"><span></span></button>
+   </div>
+  </div>
+</nav>
+
+<div class="mobile-menu" id="mm">
+  <a href="#odontograma">Odontograma</a>
+  <a href="#tratamiento">Tratamientos</a>
+  <a href="#agenda">Agenda por sillón</a>
+  <a href="#ia">IA clínica</a>
+  <a href="#comparar">Comparar</a>
+  <a href="#precios">Precios</a>
+  <a href="#faq">Preguntas frecuentes</a>
+  <a class="btn btn-ghost" href="/panel" style="margin-top:14px">Entrar al panel</a>
+  <a class="btn btn-primary" href="#demo" style="margin-top:8px">Agendar demo</a>
+</div>
+
+<main id="main">
+
+<!-- ══════════ HERO ══════════ -->
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <span class="pill"><span class="dot"></span> Nuevo · para consultorios odontológicos</span>
+        <h1>La ficha dental que <span class="ice">se entiende sola</span></h1>
+        <p class="sub">Odontograma digital pieza por pieza, presupuesto que el paciente firma desde el celular y agenda por sillón. Todo dentro de Medique, con bot de WhatsApp, Meta Ads e IA incluidos en el mismo ecosistema.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#demo">Agendar demo</a>
+          <a class="btn btn-ghost" href="#odontograma">Ver cómo funciona</a>
+        </div>
+        <div class="hero-hints">
+          <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Desde $49.990 CLP/mes</span>
+          <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Sin permanencia mínima</span>
+          <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Hecho en Chile</span>
+        </div>
+      </div>
+
+      <!-- mockup: odontograma -->
+      <div class="app" role="img" aria-label="Vista del odontograma digital de Medique Dental: 32 piezas en notación FDI, cada una coloreada según su estado (sano, caries, obturación, corona, endodoncia, implante, extracción indicada, ausente, fractura o sellante).">
+        <div class="app-top">
+          <span class="mini-logo" aria-hidden="true"><svg width="14" height="16" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+          <div><b>Ficha odontológica</b><br><small>Camila Rojas · 34 años · Ficha 1042</small></div>
+          <div class="who"><span class="av" aria-hidden="true">V</span> Dra. Valentina S.</div>
+        </div>
+        <div class="app-body">
+          <div class="mk-hd">
+            <div><div class="lbl">Odontograma</div><h4>Notación FDI · 32 piezas</h4></div>
+            <div class="r">Actualizado hoy<br>4 hallazgos activos</div>
+          </div>
+          <div class="odo-wrap">
+            <div class="odo" id="odo"></div>
+          </div>
+          <div class="odo-legend" id="odoLegend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════ BANDA OS ══════════ -->
+<section class="sec" style="padding-top:clamp(40px,4vw,64px)">
+  <div class="wrap">
+    <div class="os-row">
+      <div class="os-item">
+        <span class="ic" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/></svg></span>
+        <div><h3>Tu clínica</h3><p>Odontograma, plan de tratamiento, agenda por sillón, documentos y pagos por cuotas en una sola ficha.</p></div>
+      </div>
+      <div class="os-item">
+        <span class="ic" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+        <div><h3>Tu paciente</h3><p>Portal propio: ve qué le falta, cuál es el próximo paso, firma su presupuesto y reserva 24/7.</p></div>
+      </div>
+      <div class="os-item">
+        <span class="ic" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h6v6"/></svg></span>
+        <div><h3>Tu crecimiento</h3><p>Bot de WhatsApp que responde y agenda, Meta Ads conectado e IA clínica orientativa. Sin plugins de terceros.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ ODONTOGRAMA ══════════ -->
+<section class="sec" id="odontograma">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Odontograma digital</span>
+      <h2 class="h2">Cada pieza tiene su historia. Y queda escrita.</h2>
+      <p class="sub">32 piezas en notación FDI. Marcas el estado con un clic y la ficha guarda el historial completo de esa pieza, con las radiografías asociadas.</p>
+    </div>
+    <div class="split">
+      <div>
+        <h3>Diez estados, cero ambigüedad</h3>
+        <p class="sub">Sano, caries, obturación, corona, endodoncia, implante, extracción indicada, ausente, fractura y sellante. El mismo lenguaje para todo el equipo, sin abreviaturas propias de cada profesional.</p>
+        <ul class="flist">
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Historial por pieza.</b> Quién la trató, cuándo y qué se hizo. La pieza 26 cuenta su propia línea de tiempo.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Radiografías asociadas.</b> Subes la imagen y queda colgada de la pieza, no perdida en una carpeta del computador.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Comparación en el tiempo.</b> Ves el odontograma de hace un año junto al de hoy.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Del hallazgo al presupuesto.</b> Marcas caries en la 36 y ya puedes mandarla al plan de tratamiento.</span></li>
+        </ul>
+      </div>
+      <div class="app">
+        <div class="app-top">
+          <span class="mini-logo" aria-hidden="true"><svg width="14" height="16" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+          <div><b>Pieza 36</b><br><small>Primer molar inferior izquierdo</small></div>
+          <div class="who"><span class="tagx hi">Caries activa</span></div>
+        </div>
+        <div class="app-body">
+          <div class="box" style="margin-bottom:10px">
+            <div class="row"><span class="av" aria-hidden="true">V</span><div><b>Caries oclusal detectada</b><br><span style="color:var(--text-3);font-size:10px">Dra. Valentina S. · 14 jul 2026</span></div><span class="sp tagx hi">Prioridad alta</span></div>
+            <div class="row"><span class="av" aria-hidden="true">M</span><div><b>Radiografía bitewing subida</b><br><span style="color:var(--text-3);font-size:10px">Matías P. · 14 jul 2026</span></div><span class="sp tagx">RX-0421</span></div>
+            <div class="row"><span class="av" aria-hidden="true">V</span><div><b>Obturación compuesta</b><br><span style="color:var(--text-3);font-size:10px">Dra. Valentina S. · 2 mar 2024</span></div><span class="sp tagx lo">Completado</span></div>
+            <div class="row"><span class="av" aria-hidden="true">R</span><div><b>Control anual</b><br><span style="color:var(--text-3);font-size:10px">Dr. Rodrigo A. · 18 ago 2023</span></div><span class="sp tagx">Sin hallazgos</span></div>
+          </div>
+          <div class="box">
+            <div style="font-size:10.5px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:9px">Radiografías de la pieza</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <div style="aspect-ratio:4/5;border-radius:9px;background:linear-gradient(160deg,#26384c,#101a24);border:1px solid var(--line);position:relative"><span style="position:absolute;bottom:5px;left:6px;font-family:var(--mono);font-size:8px;color:var(--text-2)">jul 26</span></div>
+              <div style="aspect-ratio:4/5;border-radius:9px;background:linear-gradient(160deg,#22303f,#0e1720);border:1px solid var(--line);position:relative"><span style="position:absolute;bottom:5px;left:6px;font-family:var(--mono);font-size:8px;color:var(--text-2)">mar 24</span></div>
+              <div style="aspect-ratio:4/5;border-radius:9px;background:linear-gradient(160deg,#1d2934,#0c141c);border:1px solid var(--line);position:relative"><span style="position:absolute;bottom:5px;left:6px;font-family:var(--mono);font-size:8px;color:var(--text-2)">ago 23</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PRESUPUESTO / PLAN ══════════ -->
+<section class="sec" id="tratamiento" style="background:rgba(12,12,14,.45)">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Presupuesto y plan de tratamiento</span>
+      <h2 class="h2">Del hallazgo al <span class="ice">sí, hagámoslo</span></h2>
+      <p class="sub">Armas el plan con precios y prioridades, el paciente lo firma digitalmente desde su celular y define cómo lo paga: al contado o en cuotas con abono y saldo.</p>
+    </div>
+    <div class="split rev">
+      <div class="app">
+        <div class="app-top">
+          <span class="mini-logo" aria-hidden="true"><svg width="14" height="16" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+          <div><b>Plan de tratamiento</b><br><small>Camila Rojas · Presupuesto #318</small></div>
+          <div class="who"><span class="tagx lo">Aprobado</span></div>
+        </div>
+        <div class="app-body">
+          <div class="box" style="margin-bottom:10px">
+            <div class="row"><div><b>Obturación pieza 36</b><br><span style="color:var(--text-3);font-size:10px">Sesión 1 · completado</span></div><span class="sp"><span class="tagx hi">Alta</span><br><span class="num" style="font-size:11px">$48.000</span></span></div>
+            <div class="row"><div><b>Endodoncia pieza 26</b><br><span style="color:var(--text-3);font-size:10px">Sesión 2 de 3 · en curso</span><div class="bar"><i style="width:66%"></i></div></div><span class="sp"><span class="tagx hi">Alta</span><br><span class="num" style="font-size:11px">$220.000</span></span></div>
+            <div class="row"><div><b>Corona metal-porcelana 26</b><br><span style="color:var(--text-3);font-size:10px">Pendiente · tras endodoncia</span></div><span class="sp"><span class="tagx md">Media</span><br><span class="num" style="font-size:11px">$260.000</span></span></div>
+            <div class="row"><div><b>Destartraje y profilaxis</b><br><span style="color:var(--text-3);font-size:10px">Pendiente · agendable</span></div><span class="sp"><span class="tagx lo">Baja</span><br><span class="num" style="font-size:11px">$45.000</span></span></div>
+          </div>
+          <div class="box" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="font-size:10px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase">Total del plan</div>
+              <div class="num" style="font-size:22px;margin:4px 0 10px">$573.000</div>
+              <div style="font-size:10.5px;color:var(--text-2)">Abono <b class="num">$150.000</b> pagado<br>Saldo en <b class="num">4 cuotas</b> de <b class="num">$105.750</b></div>
+              <div class="bar" style="margin-top:8px"><i style="width:26%"></i></div>
+              <div style="font-size:9.5px;color:var(--text-3);margin-top:5px">26% pagado · próxima cuota 5 ago</div>
+            </div>
+            <div style="border-left:1px solid var(--line);padding-left:12px">
+              <div style="font-size:10px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase">Aprobación digital</div>
+              <svg viewBox="0 0 150 46" style="width:100%;height:44px;margin-top:8px" aria-hidden="true"><path d="M6 34c14-20 22 6 32-6s14-16 24-4 16 14 26 2 20-12 32-6" fill="none" stroke="#d4dfe9" stroke-width="1.8" stroke-linecap="round" opacity=".85"/></svg>
+              <div style="font-size:9.5px;color:var(--text-3);border-top:1px solid var(--line);padding-top:6px;margin-top:2px">Camila Rojas · firmado el 12 jul 2026, 19:04<br>Consentimiento de endodoncia adjunto</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3>El presupuesto deja de ser un papel que se pierde</h3>
+        <p class="sub">Cada procedimiento lleva precio, prioridad clínica y avance real. El paciente ve lo mismo que ves tú, y firma sin imprimir nada.</p>
+        <ul class="flist">
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Prioridad y avance.</b> Alta, media o baja; y cuántas sesiones llevan de las que se planificaron.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Firma digital del paciente.</b> Queda registrada con fecha, hora y el documento que aceptó.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Pagos por cuotas.</b> Defines abono y saldo, y el sistema lleva la cuenta de lo pagado y lo que viene.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Nada se cae solo.</b> Los tratamientos pendientes siguen visibles hasta que se cierran o se descartan.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ AGENDA POR SILLÓN ══════════ -->
+<section class="sec" id="agenda">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Agenda por sillón</span>
+      <h2 class="h2">Tres sillones, cinco profesionales, una sola agenda</h2>
+      <p class="sub">La agenda se organiza por sillón y por profesional, y cada tipo de atención trae su propia duración. Una urgencia no ocupa el mismo bloque que una ortodoncia.</p>
+    </div>
+    <div class="app" style="margin-bottom:var(--sp-block)">
+      <div class="app-top">
+        <span class="mini-logo" aria-hidden="true"><svg width="14" height="16" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+        <div><b>Agenda</b><br><small>Martes 21 de julio · 4 sillones</small></div>
+        <div class="who">08:00 – 13:00</div>
+      </div>
+      <div class="app-body">
+        <div class="wk-wrap">
+          <div class="wk">
+            <div class="th"></div>
+            <div class="th"><b>Sillón 1</b>Dra. Valentina S.</div>
+            <div class="th"><b>Sillón 2</b>Dr. Rodrigo A.</div>
+            <div class="th"><b>Sillón 3</b>Dra. Ignacia M.</div>
+            <div class="th"><b>Sillón 4</b>Higiene</div>
+            <div class="tlab">08:00<br><br>09:00<br><br>10:00<br><br>11:00<br><br>12:00</div>
+            <div class="col">
+              <div class="ev" style="top:4px;height:52px"><b>Consulta</b><span>M. Fuentes · 30 min</span></div>
+              <div class="ev o" style="top:60px;height:82px"><b>Endodoncia</b><span>C. Rojas · pieza 26 · 90 min</span></div>
+              <div class="ev" style="top:150px;height:52px"><b>Control</b><span>P. Díaz · 30 min</span></div>
+            </div>
+            <div class="col">
+              <div class="ev u" style="top:4px;height:44px"><b>Urgencia</b><span>Dolor agudo · 25 min</span></div>
+              <div class="ev" style="top:56px;height:96px"><b>Cirugía</b><span>Tercer molar · 100 min</span></div>
+            </div>
+            <div class="col">
+              <div class="ev o" style="top:16px;height:64px"><b>Ortodoncia</b><span>Control brackets · 40 min</span></div>
+              <div class="ev o" style="top:88px;height:64px"><b>Ortodoncia</b><span>Instalación · 40 min</span></div>
+              <div class="ev" style="top:160px;height:52px"><b>Consulta</b><span>Primera vez · 30 min</span></div>
+            </div>
+            <div class="col">
+              <div class="ev c" style="top:4px;height:46px"><b>Limpieza</b><span>Profilaxis · 30 min</span></div>
+              <div class="ev c" style="top:58px;height:46px"><b>Limpieza</b><span>Destartraje · 30 min</span></div>
+              <div class="ev c" style="top:112px;height:46px"><b>Limpieza</b><span>Profilaxis · 30 min</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="grid3">
+      <div class="mod">
+        <span class="ic" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>
+        <h3>Duraciones que calzan</h3>
+        <p>Consulta, urgencia, ortodoncia, endodoncia, cirugía, control y limpieza: cada tipo de atención con su propio bloque. Se acaban los "creí que era media hora".</p>
+      </div>
+      <div class="mod">
+        <span class="ic" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15 20a5.5 5.5 0 0 1 6.5-5.4"/></svg></span>
+        <h3>Multi-profesional</h3>
+        <p>Cada profesional ve su día; la recepción ve el box completo. Los permisos definen quién puede mover qué.</p>
+      </div>
+      <div class="mod">
+        <span class="ic" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z"/></svg></span>
+        <h3>El bot confirma por ti</h3>
+        <p>El bot de WhatsApp de Medique responde consultas, confirma la hora y reagenda. Es parte del producto, no un módulo aparte.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ IA CLÍNICA ══════════ -->
+<section class="sec" id="ia" style="background:rgba(12,12,14,.45)">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">IA clínica</span>
+      <h2 class="h2">Un resumen del estado dental en dos líneas</h2>
+      <p class="sub">La IA lee el odontograma y te devuelve un resumen del estado general, las piezas en riesgo y una propuesta de orden por urgencia. Es una ayuda para ordenar el trabajo, no un diagnóstico: la decisión clínica siempre es tuya.</p>
+    </div>
+    <div class="split">
+      <div class="app">
+        <div class="app-top">
+          <span class="mini-logo" aria-hidden="true"><svg width="14" height="16" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+          <div><b>Resumen asistido</b><br><small>Camila Rojas · generado hoy 09:12</small></div>
+          <div class="who"><span class="tagx">Orientativo</span></div>
+        </div>
+        <div class="app-body">
+          <div class="box" style="margin-bottom:10px">
+            <div style="font-size:10px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Estado general</div>
+            <p style="margin:0;font-size:12px;line-height:1.6;color:var(--text-2)">Dentición completa salvo la pieza 38, ausente. Se registran dos lesiones activas en el sector posterior inferior y una endodoncia en curso en la 26 pendiente de corona. Higiene con acumulación de cálculo en el sector anterior inferior.</p>
+          </div>
+          <div class="box" style="margin-bottom:10px">
+            <div style="font-size:10px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Piezas en riesgo</div>
+            <div class="row"><b>26</b><span style="color:var(--text-2)">Endodoncia sin corona definitiva</span><span class="sp tagx hi">Riesgo de fractura</span></div>
+            <div class="row"><b>36</b><span style="color:var(--text-2)">Caries oclusal activa</span><span class="sp tagx hi">Atender pronto</span></div>
+            <div class="row"><b>47</b><span style="color:var(--text-2)">Obturación con filtración marginal</span><span class="sp tagx md">Revisar</span></div>
+          </div>
+          <div class="box">
+            <div style="font-size:10px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Orden sugerido</div>
+            <div class="row"><span class="num" style="color:var(--acc1)">01</span><span style="color:var(--text-2)">Completar endodoncia 26 e instalar corona</span></div>
+            <div class="row"><span class="num" style="color:var(--acc1)">02</span><span style="color:var(--text-2)">Obturar pieza 36</span></div>
+            <div class="row"><span class="num" style="color:var(--acc1)">03</span><span style="color:var(--text-2)">Destartraje y profilaxis</span></div>
+            <div class="row"><span class="num" style="color:var(--acc1)">04</span><span style="color:var(--text-2)">Control de la obturación en 47</span></div>
+          </div>
+          <p style="margin:12px 0 0;font-size:10.5px;color:var(--text-3);line-height:1.5">Contenido generado automáticamente a partir de la ficha. Debe ser revisado y validado por el profesional tratante antes de usarse con el paciente.</p>
+        </div>
+      </div>
+      <div>
+        <h3>Ahorra la parte aburrida, no el criterio</h3>
+        <p class="sub">Escribir el resumen del estado dental toma tiempo y siempre queda para después. La IA lo redacta a partir de lo que ya registraste; tú lo corriges y lo apruebas.</p>
+        <ul class="flist">
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Alertas de piezas en riesgo</b> según lo registrado en el odontograma.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Plan sugerido por urgencia,</b> listo para editar y convertir en presupuesto.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Siempre editable.</b> Nada se envía al paciente sin que un profesional lo apruebe.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span><b>Explica en simple.</b> El mismo resumen se puede traducir a lenguaje de paciente para la conversación del box.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PORTAL DEL PACIENTE + DOCUMENTOS ══════════ -->
+<section class="sec" id="paciente">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Portal del paciente y documentos</span>
+      <h2 class="h2">El paciente sabe qué le falta. Y vuelve.</h2>
+      <p class="sub">Los tratamientos largos se abandonan cuando el paciente pierde de vista cuál era el próximo paso. El portal lo deja en primer plano.</p>
+    </div>
+    <div class="split rev">
+      <div class="app" style="max-width:420px;margin:0 auto">
+        <div class="app-top">
+          <span class="mini-logo" aria-hidden="true"><svg width="14" height="16" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+          <div><b>Mi tratamiento</b><br><small>Portal del paciente</small></div>
+        </div>
+        <div class="app-body">
+          <div class="box" style="margin-bottom:10px">
+            <div style="font-size:10px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase">Tu próximo paso</div>
+            <div style="font-family:var(--mqserif);font-size:17px;margin:6px 0 4px">Endodoncia pieza 26 · sesión 3</div>
+            <div style="font-size:11px;color:var(--text-2)">Martes 28 de julio · 09:30 · Sillón 1 · Dra. Valentina S.</div>
+            <div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap"><span class="tagx lo">Confirmar</span><span class="tagx">Reagendar</span><span class="tagx">Indicaciones</span></div>
+          </div>
+          <div class="box" style="margin-bottom:10px">
+            <div style="font-size:10px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Pendiente en tu plan</div>
+            <div class="row"><span style="color:var(--text-2)">Corona metal-porcelana 26</span><span class="sp tagx md">Tras endodoncia</span></div>
+            <div class="row"><span style="color:var(--text-2)">Destartraje y profilaxis</span><span class="sp tagx lo">Puedes reservar</span></div>
+          </div>
+          <div class="box">
+            <div class="row"><span aria-hidden="true" style="color:var(--acc1)">◷</span><div><b>Tu profilaxis toca en enero</b><br><span style="color:var(--text-3);font-size:10px">Te avisamos por WhatsApp cada 6 meses</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3>Reserva 24/7, recordatorios que sirven</h3>
+        <p class="sub">Sin llamar a la clínica ni esperar que contesten. Y el recordatorio de profilaxis cada 6 meses trae de vuelta a pacientes que ya se habían olvidado de ti.</p>
+        <div class="grid3" style="grid-template-columns:1fr;gap:12px;margin-top:6px">
+          <div class="card" style="padding:18px 20px">
+            <h4 style="margin:0 0 6px;font-size:15.5px;font-weight:600">Consentimientos informados</h4>
+            <p style="margin:0;color:var(--text-2);font-size:13.5px">Extracción, ortodoncia e implante. Se firman digitalmente y quedan guardados en la ficha, con fecha y hora.</p>
+          </div>
+          <div class="card" style="padding:18px 20px">
+            <h4 style="margin:0 0 6px;font-size:15.5px;font-weight:600">Indicaciones post-procedimiento</h4>
+            <p style="margin:0;color:var(--text-2);font-size:13.5px">Se envían por WhatsApp apenas termina la atención, con el texto que tu clínica definió.</p>
+          </div>
+          <div class="card" style="padding:18px 20px">
+            <h4 style="margin:0 0 6px;font-size:15.5px;font-weight:600">Recetas</h4>
+            <p style="margin:0;color:var(--text-2);font-size:13.5px">Emitidas desde la ficha, con los datos del profesional y del paciente ya cargados.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ COMPARACIÓN ══════════ -->
+<section class="sec" id="comparar" style="background:rgba(12,12,14,.45)">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Comparación</span>
+      <h2 class="h2">Comparación por funcionalidad</h2>
+      <p class="sub">Denticlic y Reservo son productos serios y con años en el mercado chileno. La diferencia de Medique Dental no está en la ficha ni en la agenda: está en el ecosistema que viene alrededor.</p>
+    </div>
+    <div class="card cmp-wrap">
+      <table class="cmp">
+        <caption class="sr-only" style="position:absolute;left:-9999px">Comparación de funcionalidades entre Medique Dental, Denticlic y Reservo</caption>
+        <thead>
+          <tr>
+            <th scope="col">Funcionalidad</th>
+            <th scope="col" class="c me">Medique Dental</th>
+            <th scope="col" class="c">Denticlic</th>
+            <th scope="col" class="c">Reservo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="f">Agenda odontológica</td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td></tr>
+          <tr><td class="f">Ficha clínica del paciente</td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td></tr>
+          <tr><td class="f">Odontograma digital (FDI, 32 piezas)</td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="no" aria-label="No figura en su oferta pública">—</span></td></tr>
+          <tr><td class="f">Reserva en línea para el paciente</td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td></tr>
+          <tr><td class="f">Resumen clínico e IA orientativa</td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="no" aria-label="No figura en su oferta pública">—</span></td><td class="c"><span class="no" aria-label="No figura en su oferta pública">—</span></td></tr>
+          <tr><td class="f">Bot de WhatsApp que responde y agenda</td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="no" aria-label="No figura en su oferta pública">—</span></td><td class="c"><span class="no" aria-label="No figura en su oferta pública">—</span></td></tr>
+          <tr><td class="f">Meta Ads integrado al mismo panel</td><td class="c"><span class="yes" aria-label="Incluido">✓</span></td><td class="c"><span class="no" aria-label="No figura en su oferta pública">—</span></td><td class="c"><span class="no" aria-label="No figura en su oferta pública">—</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cmp-note">✓ incluido en el producto · — no figura en la información pública del producto a julio de 2026. Comparación elaborada a partir de lo que cada empresa publica en su propio sitio; puede cambiar y te invitamos a verificarla directamente con ellos antes de decidir.</p>
+  </div>
+</section>
+
+<!-- ══════════ PRECIOS ══════════ -->
+<section class="sec" id="precios">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Planes</span>
+      <h2 class="h2">Precios claros, en pesos chilenos</h2>
+      <p class="sub">Sin permanencia mínima y sin costo de implementación. Cambias de plan cuando tu consultorio crece.</p>
+    </div>
+    <p class="price-note">Valores mensuales en CLP, IVA incluido. Lanzamiento Q4 2026.</p>
+    <div class="plans">
+      <div class="plan">
+        <h3>Consulta</h3>
+        <p class="pd">Para el consultorio de un profesional que quiere dejar el papel y el Excel.</p>
+        <div class="price"><span class="v">$49.990</span><span class="u">CLP<br>/mes</span></div>
+        <ul>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>1 sillón y 1 profesional</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Odontograma digital completo</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Presupuestos con firma digital</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Agenda y reserva en línea 24/7</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Portal del paciente</li>
+        </ul>
+        <button class="btn" type="button" data-plan="Consulta">Agendar demo</button>
+      </div>
+      <div class="plan reco">
+        <span class="reco-tag">Más elegido</span>
+        <h3>Clínica</h3>
+        <p class="pd">Para consultorios con varios sillones y un equipo que necesita coordinarse.</p>
+        <div class="price"><span class="v">$79.990</span><span class="u">CLP<br>/mes</span></div>
+        <ul>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Hasta 4 sillones y profesionales ilimitados</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Todo lo del plan Consulta</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Pagos por cuotas: abono y saldo</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>IA clínica: resumen y plan sugerido</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Bot de WhatsApp de la clínica</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Consentimientos, indicaciones y recetas</li>
+        </ul>
+        <button class="btn" type="button" data-plan="Clínica">Agendar demo</button>
+      </div>
+      <div class="plan">
+        <h3>Red</h3>
+        <p class="pd">Para redes odontológicas con más de una sede y ambición de crecer.</p>
+        <div class="price"><span class="v">$129.990</span><span class="u">CLP<br>/mes</span></div>
+        <ul>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Sillones y sedes ilimitados</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Todo lo del plan Clínica</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Meta Ads integrado al panel</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Reportes consolidados por sede</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Permisos por rol y datos aislados por sede</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Soporte prioritario</li>
+        </ul>
+        <button class="btn" type="button" data-plan="Red">Agendar demo</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PASOS ══════════ -->
+<section class="sec" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Cómo partimos</span>
+      <h2 class="h2">Tres pasos, sin proyecto de meses</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="sn">01</div><h4>Conversamos 20 minutos</h4><p>Nos cuentas cómo trabaja tu consultorio hoy y te mostramos el sistema con un caso parecido al tuyo.</p></div>
+      <div class="step"><div class="sn">02</div><h4>Cargamos tus datos</h4><p>Te ayudamos a subir pacientes, profesionales, sillones y tu lista de precios. No partes de cero.</p></div>
+      <div class="step"><div class="sn">03</div><h4>Atiendes con Medique</h4><p>Tu equipo empieza a usarlo el mismo día. Si no te sirve, te vas cuando quieras: no hay permanencia.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FAQ ══════════ -->
+<section class="sec" id="faq" style="background:rgba(12,12,14,.45)">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Preguntas frecuentes</span>
+      <h2 class="h2">Lo que nos preguntan</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item"><button class="faq-q" type="button">¿Cuándo está disponible Medique Dental?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>El lanzamiento está previsto para el cuarto trimestre de 2026. Estamos tomando demos ahora para trabajar con los primeros consultorios y ajustar el producto con su feedback antes de abrir al público.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿El odontograma usa notación FDI?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. Las 32 piezas se identifican con la notación FDI de dos dígitos (18–11, 21–28, 48–41, 31–38), que es la que se usa habitualmente en Chile. Cada pieza guarda su estado, su historial y las radiografías asociadas.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿La IA diagnostica por mí?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>No, y no queremos que lo haga. La IA redacta un resumen del estado dental a partir de lo que tú registraste, marca piezas que podrían necesitar atención y propone un orden por urgencia. Todo es orientativo, editable y requiere que el profesional tratante lo revise y apruebe. La responsabilidad clínica es siempre del profesional.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Puedo cobrar en cuotas?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. En el presupuesto defines un abono inicial y el saldo en cuotas. El sistema lleva el registro de lo pagado, lo pendiente y la próxima cuota, y el paciente ve lo mismo en su portal.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Sirve si tengo un solo sillón?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. El plan Consulta está pensado exactamente para eso: un profesional, un sillón, con el odontograma, los presupuestos y la reserva en línea completos. Cuando sumes sillones cambias de plan sin migrar nada.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Cómo se relaciona con el resto de Medique?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Medique Dental es la versión odontológica del mismo sistema. Comparte el panel, el bot de WhatsApp, la integración con Meta Ads y la IA. Si tu centro combina odontología con estética, funciona todo desde una sola cuenta.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Hay costo de implementación o permanencia?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>No. La implementación es guiada y sin costo, y no hay permanencia mínima: cambias de plan o cancelas cuando quieras.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CTA FINAL ══════════ -->
+<section class="sec" id="demo" style="padding-top:0">
+  <div class="wrap">
+    <div class="cta-final">
+      <span class="ic" aria-hidden="true"><svg width="26" height="30" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+      <div>
+        <h3>Conoce Medique Dental <span class="ice">en tu consultorio</span></h3>
+        <p>20 minutos, sin compromiso. Te mostramos el odontograma con un caso real de tu especialidad.</p>
+      </div>
+      <div class="acts">
+        <a class="btn btn-primary" href="#demo" data-demo>Agendar demo</a>
+        <a class="btn btn-ghost" id="salesBtn" href="https://wa.me/56977636248" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z"/></svg>
+          Hablar con ventas
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div class="about">
+        <a class="brand" href="#top">
+          <span class="mark" aria-hidden="true"><svg width="18" height="20" viewBox="0 0 22 26"><use href="#tooth"/></svg></span>
+          <span>MEDIQUE</span> <span class="tag">Dental</span>
+        </a>
+        <p>El sistema operativo para consultorios odontológicos que quieren ordenar la ficha y crecer.</p>
+        <div class="socials">
+          <a href="https://wa.me/56977636248" target="_blank" rel="noopener" aria-label="WhatsApp"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z"/></svg></a>
+          <a href="mailto:hola@medique.cl" aria-label="Correo electrónico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a>
+        </div>
+      </div>
+      <div class="col"><h5>Producto</h5><a href="#odontograma">Odontograma</a><a href="#tratamiento">Presupuestos</a><a href="#agenda">Agenda por sillón</a><a href="#ia">IA clínica</a><a href="#precios">Precios</a></div>
+      <div class="col"><h5>Medique</h5><a href="https://medique.cl">Medique Estética</a><a href="#comparar">Comparación</a><a href="#faq">Preguntas frecuentes</a><a href="/panel">Entrar al panel</a></div>
+      <div class="col" style="text-align:right"><a href="/panel" style="margin-bottom:14px">Entrar al panel</a><a class="btn btn-primary btn-sm" href="#demo" data-demo>Agendar demo</a></div>
+    </div>
+    <div class="foot-btm">
+      <span>© 2026 Medique SpA. Todos los derechos reservados.</span>
+      <div class="links"><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Política de privacidad</a></div>
+      <span>Hecho en Chile 🇨🇱</span>
+    </div>
+  </div>
+</footer>
+
+<nav class="m-dock" aria-label="Accesos rápidos">
+  <a class="md-item" href="#precios"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20.6 13.4 11 3H4v7l9.6 10.4a2 2 0 0 0 2.8 0l4.2-4.2a2 2 0 0 0 0-2.8z"/><circle cx="7.5" cy="6.5" r="1"/></svg>Planes</a>
+  <a class="md-item md-main" href="#demo" data-demo><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Agendar demo</a>
+  <a class="md-item md-wa" data-wa href="https://wa.me/56977636248" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z"/></svg>WhatsApp</a>
+</nav>
+
+<!-- ══════════ MODAL DEMO ══════════ -->
+<div class="modal-ov" id="demoModal" aria-hidden="true">
+  <div class="modal-glass" role="dialog" aria-modal="true" aria-labelledby="dmTitle">
+    <button class="modal-x" type="button" data-close aria-label="Cerrar">×</button>
+    <div class="modal-in">
+      <span class="eyebrow">Medique Dental</span>
+      <h3 id="dmTitle">Conoce Medique <span class="ice">en tu consultorio</span></h3>
+      <p>Te contactamos por WhatsApp para coordinar 20 minutos. Sin compromiso.</p>
+      <form id="demoForm" novalidate>
+        <div class="fld"><label for="f-nombre">Nombre y apellido</label><input id="f-nombre" name="nombre" required placeholder="Ej: Valentina Soto" autocomplete="name" aria-describedby="e-nombre"><small class="fld-err" id="e-nombre" hidden>Necesitamos tu nombre.</small></div>
+        <div class="fld"><label for="f-clinica">Consultorio o clínica</label><input id="f-clinica" name="clinica" required placeholder="Nombre de tu consultorio" autocomplete="organization" aria-describedby="e-clinica"><small class="fld-err" id="e-clinica" hidden>Necesitamos el nombre del consultorio.</small></div>
+        <div class="frow">
+          <div class="fld"><label for="f-email">Email</label><input type="email" id="f-email" name="email" required placeholder="tu@correo.cl" autocomplete="email" aria-describedby="e-email"><small class="fld-err" id="e-email" hidden>Necesitamos tu correo.</small></div>
+          <div class="fld"><label for="f-fono">Teléfono / WhatsApp</label><input id="f-fono" name="fono" required placeholder="+56 9 …" inputmode="tel" autocomplete="tel" aria-describedby="e-fono"><small class="fld-err" id="e-fono" hidden>Necesitamos un teléfono.</small></div>
+        </div>
+        <div class="fld"><label for="f-sillones">Sillones en tu consultorio</label><select id="f-sillones" name="sillones"><option>1 sillón</option><option>2 a 4 sillones</option><option>5 o más sillones</option><option>Más de una sede</option></select></div>
+        <div class="fld"><label for="f-plan">Plan de interés</label><select id="f-plan" name="plan"><option>Sin definir aún</option><option>Consulta</option><option>Clínica</option><option>Red</option></select></div>
+        <div class="fld"><label for="f-msg">Mensaje (opcional)</label><textarea id="f-msg" name="msg" rows="2" placeholder="Cuéntanos sobre tu consultorio…"></textarea></div>
+        <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden"><label for="f-website">No llenar este campo</label><input id="f-website" name="website" tabindex="-1" autocomplete="off"></div>
+        <button class="btn btn-primary" type="submit" style="width:100%">Enviar y continuar por WhatsApp</button>
+        <p class="form-alt">¿Prefieres escribir directo? <a href="https://wa.me/56977636248" data-wa target="_blank" rel="noopener">Abrir WhatsApp</a></p>
+      </form>
+      <div class="form-ok" hidden>
+        <div class="ok-check" aria-hidden="true">✓</div>
+        <h4>¡Listo! Recibimos tus datos</h4>
+        <p style="color:var(--text-2);font-size:14px;margin:0 0 18px">Te contactamos a la brevedad. Si quieres, sigue la conversación ahora mismo por WhatsApp.</p>
+        <a class="btn btn-primary" data-wa href="https://wa.me/56977636248" target="_blank" rel="noopener" style="width:100%">Continuar por WhatsApp</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var MEDIQUE={ whatsapp:'56977636248', email:'hola@medique.cl', panel:'/panel', endpoint:'/api/email' };
+  function waLink(t){return 'https://wa.me/'+MEDIQUE.whatsapp+'?text='+encodeURIComponent(t);}
+
+  /* ── odontograma: 32 piezas FDI ───────────────────── */
+  var ESTADOS={
+    sano:'Sano', caries:'Caries', obturacion:'Obturación', corona:'Corona',
+    endodoncia:'Endodoncia', implante:'Implante', extraccion:'Extracción indicada',
+    ausente:'Ausente', fractura:'Fractura', sellante:'Sellante'
+  };
+  // cuadrantes FDI: superior derecho 18-11, superior izquierdo 21-28,
+  // inferior derecho 48-41, inferior izquierdo 31-38
+  var Q1=[18,17,16,15,14,13,12,11], Q2=[21,22,23,24,25,26,27,28];
+  var Q4=[48,47,46,45,44,43,42,41], Q3=[31,32,33,34,35,36,37,38];
+  var EST={ 18:'ausente', 17:'obturacion', 16:'corona', 15:'sellante', 26:'endodoncia',
+            27:'obturacion', 28:'extraccion', 38:'ausente', 36:'caries', 37:'obturacion',
+            46:'implante', 47:'obturacion', 45:'sellante', 11:'fractura', 48:'extraccion' };
+  function tooth(n){
+    var s=EST[n]||'sano';
+    return '<span class="tooth" data-s="'+s+'" title="Pieza '+n+' · '+ESTADOS[s]+'">'+
+      '<svg viewBox="0 0 22 26" aria-hidden="true"><use href="#tooth"/></svg>'+
+      '<span class="n">'+n+'</span></span>';
+  }
+  function rowHtml(arr,cls){ return '<div class="odo-row '+cls+'">'+arr.map(tooth).join('')+'</div>'; }
+  var odo=document.getElementById('odo');
+  if(odo){
+    odo.innerHTML='<div class="odo-arch">'+
+      rowHtml(Q1,'left')+rowHtml(Q2,'right')+
+      '<div class="odo-mid"></div>'+
+      rowHtml(Q4,'left')+rowHtml(Q3,'right')+
+    '</div>';
+    var leg=document.getElementById('odoLegend');
+    var colores={sano:'#eceae4',caries:'var(--danger)',obturacion:'var(--info)',corona:'var(--warn)',
+      endodoncia:'var(--violet)',implante:'#7f8b96',extraccion:'rgba(226,104,122,.35)',
+      ausente:'rgba(255,255,255,.08)',fractura:'#c98f6a',sellante:'var(--ok)'};
+    if(leg){
+      leg.innerHTML=Object.keys(ESTADOS).map(function(k){
+        return '<span><i style="background:'+colores[k]+'"></i>'+ESTADOS[k]+'</span>';
+      }).join('');
+    }
+  }
+
+  /* ── nav móvil ─────────────────────────────────────── */
+  var mm=document.getElementById('mm'), burger=document.getElementById('burger');
+  function closeMenu(){ mm.classList.remove('show'); burger.setAttribute('aria-expanded','false'); }
+  burger.addEventListener('click',function(){
+    var on=mm.classList.toggle('show');
+    burger.setAttribute('aria-expanded',String(on));
+    burger.setAttribute('aria-label',on?'Cerrar menú':'Abrir menú');
+  });
+  mm.addEventListener('click',function(e){ if(e.target===mm||e.target.tagName==='A') closeMenu(); });
+
+  /* ── nav sticky + scroll spy ───────────────────────── */
+  var nav=document.getElementById('nav');
+  var spyLinks=[].slice.call(document.querySelectorAll('.nav-links a'));
+  var spyTargets=spyLinks.map(function(a){ return document.querySelector(a.getAttribute('href')); });
+  function onScroll(){
+    nav.classList.toggle('scrolled', window.scrollY>16);
+    var y=window.scrollY+140, cur=-1;
+    spyTargets.forEach(function(t,i){ if(t&&t.offsetTop<=y) cur=i; });
+    spyLinks.forEach(function(a,i){ if(i===cur) a.setAttribute('aria-current','true'); else a.removeAttribute('aria-current'); });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true}); onScroll();
+
+  /* ── FAQ ───────────────────────────────────────────── */
+  document.querySelectorAll('.faq-item').forEach(function(item,i){
+    var q=item.querySelector('.faq-q'), a=item.querySelector('.faq-a');
+    a.id='faq-a-'+i; q.setAttribute('aria-expanded','false'); q.setAttribute('aria-controls',a.id);
+    q.addEventListener('click',function(){
+      var open=item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(function(x){ x.classList.remove('open'); });
+      if(!open) item.classList.add('open');
+      document.querySelectorAll('.faq-q').forEach(function(b){
+        b.setAttribute('aria-expanded',String(b.parentElement.classList.contains('open')));
+      });
+    });
+  });
+
+  /* ── modal demo ────────────────────────────────────── */
+  var modal=document.getElementById('demoModal'), form=document.getElementById('demoForm');
+  var okBox=modal.querySelector('.form-ok'), lastFocus=null;
+  function setInert(on){
+    [].forEach.call(document.body.children,function(el){
+      if(el===modal||el.tagName==='SCRIPT') return;
+      if(on) el.setAttribute('inert',''); else el.removeAttribute('inert');
+    });
+  }
+  function openModal(plan){
+    lastFocus=document.activeElement;
+    form.hidden=false; okBox.hidden=true;
+    if(plan){ var sel=form.querySelector('[name=plan]');
+      [].forEach.call(sel.options,function(o){ if(o.text===plan) sel.value=o.value; }); }
+    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden'; setInert(true); closeMenu();
+    setTimeout(function(){ var f=form.querySelector('input'); if(f) f.focus(); },80);
+  }
+  function closeModal(){
+    modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
+    document.body.style.overflow=''; setInert(false);
+    if(lastFocus) lastFocus.focus();
+  }
+  document.querySelectorAll('a[href="#demo"],[data-demo]').forEach(function(a){
+    a.addEventListener('click',function(e){ e.preventDefault(); openModal(a.getAttribute('data-plan')); });
+  });
+  document.querySelectorAll('.plan .btn').forEach(function(b){
+    b.addEventListener('click',function(e){ e.preventDefault(); openModal(b.getAttribute('data-plan')); });
+  });
+  modal.addEventListener('click',function(e){ if(e.target===modal||e.target.hasAttribute('data-close')) closeModal(); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&modal.classList.contains('show')) closeModal(); });
+  // focus trap
+  modal.addEventListener('keydown',function(e){
+    if(e.key!=='Tab') return;
+    var f=modal.querySelectorAll('a[href],button:not([disabled]),input,select,textarea');
+    f=[].filter.call(f,function(el){ return el.offsetParent!==null; });
+    if(!f.length) return;
+    var first=f[0], last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+  });
+
+  /* ── WhatsApp ──────────────────────────────────────── */
+  function setWa(t){ document.querySelectorAll('[data-wa]').forEach(function(a){ a.setAttribute('href',waLink(t)); }); }
+  setWa('Hola Medique 👋 Quiero agendar una demo de Medique Dental para mi consultorio.');
+  var salesBtn=document.getElementById('salesBtn');
+  if(salesBtn) salesBtn.href=waLink('Hola Medique 👋 Quiero hablar con ventas sobre Medique Dental.');
+
+  /* ── envío del formulario ──────────────────────────── */
+  function setErr(el,msg){ el.setAttribute('aria-invalid','true');
+    var e=document.getElementById('e-'+el.name); if(e){ e.hidden=false; if(msg) e.textContent=msg; } }
+  function clearErr(el){ el.removeAttribute('aria-invalid');
+    var e=document.getElementById('e-'+el.name); if(e) e.hidden=true; }
+  form.addEventListener('input',function(e){ if(e.target.getAttribute('aria-invalid')) clearErr(e.target); });
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    var ok=true,data={};
+    ['nombre','clinica','email','fono'].forEach(function(k){
+      var el=form.querySelector('[name='+k+']'); data[k]=el.value.trim();
+      if(!data[k]){ setErr(el); ok=false; } else clearErr(el);
+    });
+    var em=form.querySelector('[name=email]');
+    if(data.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)){ setErr(em,'Revisa el formato del correo.'); ok=false; }
+    if(!ok){ var bad=form.querySelector('[aria-invalid="true"]'); if(bad) bad.focus(); return; }
+    data.plan=form.querySelector('[name=plan]').value;
+    data.sillones=form.querySelector('[name=sillones]').value;
+    data.msg=form.querySelector('[name=msg]').value.trim();
+    data.website=form.querySelector('[name=website]').value;
+    data.vertical='dental'; data.action='lead';
+    if(MEDIQUE.endpoint){ try{ fetch(MEDIQUE.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),keepalive:true}); }catch(err){} }
+    setWa('Hola Medique 👋 Soy '+data.nombre+' de '+data.clinica+'. Quiero una demo de Medique Dental'+
+      (data.plan&&data.plan!=='Sin definir aún'?' (plan '+data.plan+')':'')+'. '+data.sillones+'. Mi correo: '+data.email+'.');
+    form.hidden=true; okBox.hidden=false;
+    var b=okBox.querySelector('.btn'); if(b) b.focus();
+  });
+
+  /* ── liquid glass: reflejo especular sigue al cursor ─ */
+  if(window.matchMedia('(pointer:fine)').matches){
+    document.querySelectorAll('.card,.mod,.plan,.faq-item,.nav-card,.app,.cta-final').forEach(function(el){
+      var rect=null,px=0,py=0,queued=false;
+      el.addEventListener('pointerenter',function(){ rect=el.getBoundingClientRect(); });
+      el.addEventListener('pointermove',function(e){
+        px=e.clientX; py=e.clientY;
+        if(queued) return; queued=true;
+        requestAnimationFrame(function(){
+          queued=false; if(!rect) rect=el.getBoundingClientRect();
+          el.style.setProperty('--mx',((px-rect.left)/rect.width*100).toFixed(1)+'%');
+          el.style.setProperty('--my',((py-rect.top)/rect.height*100).toFixed(1)+'%');
+        });
+      });
+    });
+  }
+
+  /* ── reveal al hacer scroll ────────────────────────── */
+  if(!window.matchMedia('(prefers-reduced-motion:reduce)').matches&&'IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(en){
+      en.forEach(function(x){ if(x.isIntersecting){ x.target.style.opacity=1; x.target.style.transform=''; io.unobserve(x.target); } });
+    },{threshold:.12});
+    document.querySelectorAll('.grid3,.plans,.steps,.faq-list,.os-row').forEach(function(g){
+      [].forEach.call(g.children,function(el,i){
+        var d=Math.min(i,6)*70;
+        el.style.opacity=0; el.style.transform='translateY(20px)';
+        el.style.transition='opacity .6s cubic-bezier(.2,.8,.2,1) '+d+'ms,transform .6s cubic-bezier(.2,.8,.2,1) '+d+'ms';
+        io.observe(el);
+      });
+    });
+  }
+</script>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Medique Dental","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"Software para consultorios odontológicos en Chile: odontograma digital FDI, presupuesto y plan de tratamiento con firma digital y pagos por cuotas, agenda por sillón, IA clínica orientativa, portal del paciente y documentos.","inLanguage":"es-CL","offers":{"@type":"AggregateOffer","priceCurrency":"CLP","lowPrice":"49990","highPrice":"129990","offerCount":"3"},"provider":{"@type":"Organization","name":"Medique SpA","url":"https://medique.cl"}}
+</script>
+
+</body>
+</html>

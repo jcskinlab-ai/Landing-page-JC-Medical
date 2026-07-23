@@ -697,6 +697,9 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
   const [showAllEsp, setShowAllEsp] = useState(false);
   const [showAllTrat, setShowAllTrat] = useState(false);
   const [tipoOtro, setTipoOtro] = useState(() => !!(member && member.tipoProf && TIPO_PROF_OPTS.indexOf(member.tipoProf) < 0));
+  const _rolesDental = (window.JCM_ROLES_DENTAL || []).concat(["Otro"]);
+  const _dentalTeam = !!(window.isDental && window.isDental());
+  const [rolOtro, setRolOtro] = useState(() => !!(member && member.role && _rolesDental.indexOf(member.role) < 0));
   const [accPass, setAccPass] = useState("");
   const [accBusy, setAccBusy] = useState(false);
   const [accMsg, setAccMsg] = useState("");
@@ -789,7 +792,15 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
     }
     return out;
   }
-  return /* @__PURE__ */ React.createElement(AdModal, { T, wide: true, title: member ? "Editar profesional" : "Nuevo profesional", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center" } }, onDelete && /* @__PURE__ */ React.createElement("button", { onClick: onDelete, title: "Eliminar profesional", style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 44, borderRadius: 8, border: "1px solid #C0285A55", background: "transparent", color: "#C0285A", fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" })), "Eliminar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" }) }, "Guardar profesional")) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(ProfSec, { T, n: "1", title: "Informaci\xF3n b\xE1sica" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: v }), placeholder: "Ej: Dra. Mar\xEDa P\xE9rez" }), /* @__PURE__ */ React.createElement(AdField, { T, label: "T\xEDtulo / cargo", value: f.role, onChange: (v) => setF({ ...f, role: v }), placeholder: "Ej: M\xE9dico est\xE9tico" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Tipo de profesional"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("select", { value: tipoOtro ? "Otro" : f.tipoProf || "", onChange: (e) => {
+  return /* @__PURE__ */ React.createElement(AdModal, { T, wide: true, title: member ? "Editar profesional" : "Nuevo profesional", onClose, footer: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center" } }, onDelete && /* @__PURE__ */ React.createElement("button", { onClick: onDelete, title: "Eliminar profesional", style: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 44, borderRadius: 8, border: "1px solid #C0285A55", background: "transparent", color: "#C0285A", fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" })), "Eliminar"), /* @__PURE__ */ React.createElement(AdBtn, { T, primary: true, full: true, onClick: () => ok && onSave({ ...f, role: f.role || (f.especialidades || [])[0] || "" }) }, "Guardar profesional")) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(ProfSec, { T, n: "1", title: "Informaci\xF3n b\xE1sica" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement(AdField, { T, label: "Nombre completo", value: f.name, onChange: (v) => setF({ ...f, name: v }), placeholder: "Ej: Dra. Mar\xEDa P\xE9rez" }), _dentalTeam ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "T\xEDtulo / cargo"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("select", { value: rolOtro ? "Otro" : f.role || "", onChange: (e) => {
+    const v = e.target.value;
+    if (v === "Otro") {
+      setRolOtro(true);
+    } else {
+      setRolOtro(false);
+      setF({ ...f, role: v });
+    }
+  }, style: { flex: 1, padding: "12px 10px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Elegir\u2026"), _rolesDental.map((o) => /* @__PURE__ */ React.createElement("option", { key: o, value: o }, o))), rolOtro && /* @__PURE__ */ React.createElement("input", { value: f.role || "", onChange: (e) => setF({ ...f, role: e.target.value }), placeholder: "Especifica el cargo", style: { flex: 1, padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" } }))) : /* @__PURE__ */ React.createElement(AdField, { T, label: "T\xEDtulo / cargo", value: f.role, onChange: (v) => setF({ ...f, role: v }), placeholder: "Ej: M\xE9dico est\xE9tico" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 } }, "Tipo de profesional"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("select", { value: tipoOtro ? "Otro" : f.tipoProf || "", onChange: (e) => {
     const v = e.target.value;
     if (v === "Otro") {
       setTipoOtro(true);
@@ -954,7 +965,7 @@ function ConsentimientosView({ T }) {
   }
   const firmados = patients.filter((p) => p.consent).length;
   const pendientes = patients.filter((p) => !p.consent).length;
-  const base = window.JCADMIN && window.JCADMIN.consents || [];
+  const base = window.jcmConsentsForVertical ? window.jcmConsentsForVertical(window.JCADMIN && window.JCADMIN.consents || [], !!(window.isDental && window.isDental())) : window.JCADMIN && window.JCADMIN.consents || [];
   function setActiveKey(k, on) {
     const n = { ...active, [k]: on };
     setActive(n);
@@ -1968,12 +1979,18 @@ const IND_TPL_SEED = [
   { id: "tpl_bio", name: "Sculptra de col\xE1geno", body: "\u2022 Realiza masajes en la zona 5 minutos, 5 veces al d\xEDa, por 5 d\xEDas (regla del 5).\n\u2022 Aplica fr\xEDo local las primeras 24 h si hay inflamaci\xF3n.\n\u2022 Evita sol directo, sauna y ejercicio intenso por 48 h.\n\u2022 Puede haber leve inflamaci\xF3n o peque\xF1os hematomas que ceden en pocos d\xEDas.\n\u2022 Los resultados son progresivos durante las semanas siguientes.\n\u2022 Asiste a tus sesiones de control seg\xFAn el plan indicado." },
   { id: "tpl_arm", name: "Armonizaci\xF3n facial", body: "\u2022 Aplica fr\xEDo local 10 min cada 2 h durante las primeras 24 h.\n\u2022 No manipules ni masajees la zona salvo indicaci\xF3n.\n\u2022 Evita ejercicio intenso, sauna, calor y alcohol por 24\u201348 h.\n\u2022 Duerme boca arriba las primeras noches.\n\u2022 Pueden aparecer inflamaci\xF3n o hematomas leves que ceden en d\xEDas.\n\u2022 Ante dolor intenso, palidez o cambio de color de la piel, cont\xE1ctanos de inmediato." }
 ];
+const IND_TPL_SEED_DENTAL = [
+  { id: "tpl_post_exo", name: "Post extracci\xF3n dental", body: "\u2022 Muerde la gasa con fuerza durante 30\u201345 minutos y luego ret\xEDrala. Si sigue sangrando, coloca una gasa limpia y repite.\n\u2022 Las primeras 24 h: NO escupas, no te enjuagues, no uses bombilla y no fumes. Esos movimientos desprenden el co\xE1gulo que cicatriza la herida.\n\u2022 Aplica fr\xEDo por fuera de la mejilla, 15 minutos s\xED y 15 no, durante las primeras 24 h.\n\u2022 Alimentaci\xF3n blanda y fr\xEDa o tibia el primer d\xEDa. Evita alimentos duros, muy calientes, picantes y el alcohol.\n\u2022 Mastica por el lado opuesto y no toques la zona con la lengua ni con los dedos.\n\u2022 Cepilla el resto de tus dientes normalmente; en la zona operada cepilla con suavidad desde el d\xEDa siguiente.\n\u2022 Desde las 24 h puedes enjuagarte suavemente con agua tibia con sal (1 cucharadita en un vaso), 2\u20133 veces al d\xEDa.\n\u2022 Toma los medicamentos exactamente como se te indicaron y completa el antibi\xF3tico si se te recet\xF3.\n\u2022 Es normal que haya dolor e inflamaci\xF3n los primeros 2\u20133 d\xEDas y que puedas abrir menos la boca.\n\u2022 CONSULTA de inmediato si: el sangrado no cede, el dolor aumenta despu\xE9s del tercer d\xEDa, hay fiebre, mal olor persistente o el aumento de volumen sigue creciendo." },
+  { id: "tpl_post_blanq", name: "Post blanqueamiento dental", body: "\u2022 Durante las primeras 48 h evita alimentos y bebidas con pigmentos: caf\xE9, t\xE9, vino tinto, bebidas cola, betarraga, salsa de tomate, curry, chocolate y jugos oscuros.\n\u2022 No fumes: el tabaco es lo que m\xE1s r\xE1pido revierte el resultado.\n\u2022 Prefiere alimentos claros: pollo, arroz, pastas sin salsa roja, l\xE1cteos, pl\xE1tano, papa.\n\u2022 Es frecuente sentir sensibilidad al fr\xEDo o punzadas breves durante los primeros d\xEDas; disminuye sola.\n\u2022 Usa la pasta para dientes sensibles que se te indic\xF3 y evita bebidas muy fr\xEDas o muy calientes.\n\u2022 Cepilla suavemente, 3 veces al d\xEDa, con cepillo de cerdas suaves.\n\u2022 No uses enjuagues con clorhexidina durante estos d\xEDas: pueden manchar.\n\u2022 El color final se estabiliza despu\xE9s de 1\u20132 semanas. No eval\xFAes el resultado el mismo d\xEDa.\n\u2022 Asiste a tu control para evaluar el resultado y definir si corresponde una sesi\xF3n adicional.\n\u2022 CONSULTA si la sensibilidad es intensa, no cede con el analg\xE9sico indicado o aparece dolor espont\xE1neo." },
+  { id: "tpl_post_cir", name: "Post cirug\xEDa bucal", body: "\u2022 Reposo relativo durante las primeras 24\u201348 h. Evita ejercicio, agacharte y levantar peso.\n\u2022 Duerme con la cabeza m\xE1s alta que el cuerpo las primeras noches (usa una almohada extra).\n\u2022 Aplica fr\xEDo por fuera de la mejilla, 15 minutos s\xED y 15 no, durante las primeras 24 h. Desde el tercer d\xEDa puedes usar calor local suave si hay inflamaci\xF3n.\n\u2022 Las primeras 24 h: no escupas, no te enjuagues, no uses bombilla y no fumes.\n\u2022 Alimentaci\xF3n blanda y fr\xEDa o tibia los primeros d\xEDas. Nada duro, muy caliente, picante ni alcohol.\n\u2022 No toques la herida ni los puntos con la lengua ni con los dedos.\n\u2022 Cepilla el resto de tus dientes normalmente y usa el enjuague que se te indic\xF3 desde el d\xEDa siguiente.\n\u2022 Completa el antibi\xF3tico y los analg\xE9sicos tal como se te indicaron, aunque te sientas bien.\n\u2022 Es esperable dolor, inflamaci\xF3n de la mejilla, hematomas y dificultad para abrir la boca durante varios d\xEDas.\n\u2022 Asiste al control y al retiro de puntos en la fecha indicada.\n\u2022 CONSULTA DE INMEDIATO si: el sangrado no cede, hay fiebre, el aumento de volumen crece despu\xE9s del tercer d\xEDa, aparece dificultad para tragar o respirar, o el dolor se hace intenso y no calma con lo indicado." }
+];
 function getIndTemplates() {
   try {
     const c = window.DB && DB.cfg().ind_templates;
     if (c && c.length) return c;
   } catch (e) {
   }
+  if (typeof window !== "undefined" && window.isDental && window.isDental()) return IND_TPL_SEED_DENTAL;
   return (typeof clinicSeeded === "function" ? clinicSeeded() : true) ? IND_TPL_SEED : [];
 }
 function FirmasMedicasEditor({ T }) {
@@ -2285,7 +2302,19 @@ function ClinicDataCard({ T }) {
     clinic_maps: cfg0.clinic_maps || "",
     professional: cfg0.professional || "",
     clinic_email: cfg0.clinic_email || "",
-    wa_number: cfg0.wa_number || ""
+    wa_number: cfg0.wa_number || "",
+    // '' (clínica antigua que nunca eligió) se muestra como estética, que es lo que de hecho ha
+    // estado usando. Así el selector nunca aparece en blanco ni sugiere que falta configurar algo.
+    vertical: cfg0.vertical || "estetica",
+    // Un sillón por línea. Se normaliza con el mismo lector que usa la agenda (jcmSillonList),
+    // así lo que se ve aquí es exactamente lo que la agenda va a agrupar.
+    sillones: function() {
+      try {
+        return (window.jcmSillonList && window.jcmSillonList(cfg0.sillones) || []).join("\n");
+      } catch (e) {
+        return "";
+      }
+    }()
   });
   const emailReplyOk = !f.clinic_email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.clinic_email.trim());
   const [saved, setSaved] = useState(false);
@@ -2306,6 +2335,12 @@ function ClinicDataCard({ T }) {
     try {
       const patch = { clinic_addr: f.clinic_addr.trim(), clinic_maps: (f.clinic_maps || "").trim(), professional: f.professional.trim(), clinic_email: f.clinic_email.trim().toLowerCase(), wa_number: (f.wa_number || "").replace(/\D/g, "") };
       if (isAdmin) patch.clinic_name = f.clinic_name.trim();
+      if (isAdmin) patch.vertical = f.vertical;
+      if (isAdmin && f.vertical === "dental") {
+        patch.sillones = String(f.sillones || "").split("\n").map(function(s) {
+          return s.trim();
+        }).filter(Boolean);
+      }
       DB.set("config", Object.assign({}, DB.cfg(), patch));
       try {
         window.dispatchEvent(new Event("jcm:config"));
@@ -2332,7 +2367,13 @@ function ClinicDataCard({ T }) {
   }, placeholder: "Ej: Dra. Karenina Soto" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(AdField, { T, label: "Correo para respuestas de pacientes", value: f.clinic_email, onChange: (v) => {
     setF({ ...f, clinic_email: v });
     setSaved(false);
-  }, placeholder: "Ej: contacto@tuclinica.cl" }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: emailReplyOk ? T.textMute : "#e06a6a", lineHeight: 1.5, marginTop: 5 } }, emailReplyOk ? "Cuando un paciente responda un recordatorio, su respuesta llegar\xE1 a este correo. Si lo dejas vac\xEDo, se usa el correo con que iniciaste sesi\xF3n." : "Correo no v\xE1lido.")), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "WhatsApp"), /* @__PURE__ */ React.createElement("input", { value: waDisplay, onChange: (e) => onWa(e.target.value), inputMode: "numeric", placeholder: "+569 1234 5678", style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } }))));
+  }, placeholder: "Ej: contacto@tuclinica.cl" }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: emailReplyOk ? T.textMute : "#e06a6a", lineHeight: 1.5, marginTop: 5 } }, emailReplyOk ? "Cuando un paciente responda un recordatorio, su respuesta llegar\xE1 a este correo. Si lo dejas vac\xEDo, se usa el correo con que iniciaste sesi\xF3n." : "Correo no v\xE1lido.")), /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "WhatsApp"), /* @__PURE__ */ React.createElement("input", { value: waDisplay, onChange: (e) => onWa(e.target.value), inputMode: "numeric", placeholder: "+569 1234 5678", style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } })), isAdmin && /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Especialidad / vertical"), /* @__PURE__ */ React.createElement("select", { value: f.vertical, onChange: (e) => {
+    setF({ ...f, vertical: e.target.value });
+    setSaved(false);
+  }, style: luxF ? { ...DS.ctl(T), width: "100%", height: DS.h.ctl + 4 } : { width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("option", { value: "estetica" }, "Medicina est\xE9tica"), /* @__PURE__ */ React.createElement("option", { value: "dental" }, "Odontolog\xEDa")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 } }, f.vertical === "dental" ? "La ficha muestra el odontograma, la agenda se organiza por sill\xF3n y el presupuesto trabaja con plano de tratamiento y cuotas." : "La ficha muestra el mapa facial y la antropometr\xEDa. Cambia a Odontolog\xEDa para activar odontograma, agenda por sill\xF3n y presupuesto dental.", " ", "Puedes cambiarla cuando quieras: no se borra ni se modifica ning\xFAn dato de tus pacientes.")), isAdmin && f.vertical === "dental" && /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: luxF ? { ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 } : { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, "Sillones"), /* @__PURE__ */ React.createElement("textarea", { value: f.sillones, onChange: (e) => {
+    setF({ ...f, sillones: e.target.value });
+    setSaved(false);
+  }, rows: 3, placeholder: "Sill\xF3n 1\nSill\xF3n 2", style: { width: "100%", padding: "12px 13px", borderRadius: luxF ? DS.r.ctl : 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 } }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, lineHeight: 1.5, marginTop: 5 } }, "Uno por l\xEDnea. La agenda del d\xEDa agrupa las citas por sill\xF3n. Las citas que no tengan sill\xF3n asignado aparecen en \u201CSin asignar\u201D \u2014 nunca se ocultan."))));
 }
 function AdminPinCard({ T }) {
   const [pin, setPin] = useState(() => {
@@ -3468,7 +3509,7 @@ function AgenteIAView({ T, patients, addAppt }) {
   });
   const [appts, setAppts] = useState(() => {
     try {
-      return DB.get("appts") || [];
+      return DB.get("appointments") || [];
     } catch (e) {
       return [];
     }
@@ -4117,10 +4158,15 @@ function optimizePatientsBlock() {
         (legacy || []).forEach((d) => {
           if (d && !target.some((t) => t && t.ts === d.ts)) target.push(d);
         });
-        if (target.length) DB2.set(key, target);
-        np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
-        movedCons++;
-        changed = true;
+        if (target.length) {
+          DB2.set(key, target);
+          const saved = DB2.get(key);
+          if (Array.isArray(saved) && saved.length >= target.length) {
+            np = Object.assign({}, np, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
+            movedCons++;
+            changed = true;
+          }
+        }
       } catch (e) {
       }
     }

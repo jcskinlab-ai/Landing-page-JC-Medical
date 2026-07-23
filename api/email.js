@@ -85,24 +85,32 @@ function clip(s, n) { return String(s == null ? '' : s).trim().slice(0, n); }
 async function handleLead(req, res) {
   const body = req.body || {};
   if (body.website || body.hp) return res.status(200).json({ ok: true }); // honeypot: bot → no-op silencioso
-  const ip = (req.headers['x-forwarded-for'] || 'ip').toString().split(',')[0].trim();
+  // SEG · La IP real va al FINAL del X-Forwarded-For (la primera entrada la pone el cliente y hacía
+  // el límite por IP evadible). Vercel expone la real en x-real-ip.
+  const _xff = (req.headers['x-forwarded-for'] || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+  const ip = ((req.headers['x-real-ip'] || '').toString().trim()) || _xff[_xff.length - 1] || 'ip';
   if (leadTooMany(ip)) return res.status(429).json({ ok: false, error: "Demasiadas solicitudes seguidas. Intenta más tarde." });
   const nombre = clip(body.nombre, 120), clinica = clip(body.clinica, 120), email = clip(body.email, 160);
   const fono = clip(body.fono, 40), plan = clip(body.plan, 40), msg = clip(body.msg, 2000);
+  // Vertical de origen del lead (landing de estética vs dental.medique.cl). Sin esto, una
+  // solicitud de un consultorio odontológico llega indistinguible de una de estética y se le
+  // responde con el discurso equivocado. Lista cerrada: el valor viene del navegador.
+  const vertical = clip(body.vertical, 20).toLowerCase() === "dental" ? "dental" : "estetica";
+  const verticalLbl = vertical === "dental" ? "Dental" : "Estética";
   if (!nombre || !clinica || !fono || !isEmail(email)) return res.status(400).json({ ok: false, error: "Datos incompletos o correo inválido." });
   const key = process.env.RESEND_API_KEY;
   if (!key) return res.status(503).json({ ok: false, configured: false, error: "Correo no configurado (falta RESEND_API_KEY)." });
   const to = process.env.LEADS_TO || 'medique.cl@gmail.com';
   const from = process.env.MAIL_FROM || process.env.OTP_FROM || 'Medique <noreply@medique.cl>';
-  const rows = [["Nombre", nombre], ["Clínica", clinica], ["Email", email], ["Teléfono / WhatsApp", fono], ["Plan de interés", plan || "—"], ["Mensaje", msg || "—"]];
+  const rows = [["Producto", verticalLbl], ["Nombre", nombre], ["Clínica", clinica], ["Email", email], ["Teléfono / WhatsApp", fono], ["Plan de interés", plan || "—"], ["Mensaje", msg || "—"]];
   const inner = rows.map(([k, v]) => `<tr><td style="padding:6px 0;color:#8a92a0;width:150px;vertical-align:top">${esc(k)}</td><td style="padding:6px 0;color:#222"><b>${esc(v)}</b></td></tr>`).join("");
-  const html = brandHtml(`<div style="font-size:16px;margin-bottom:10px"><b>Nueva solicitud de demo</b></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${inner}</table>`, "Medique");
+  const html = brandHtml(`<div style="font-size:16px;margin-bottom:10px"><b>Nueva solicitud de demo · ${esc(verticalLbl)}</b></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${inner}</table>`, "Medique", vertical === "dental" ? "gestión para consultorios odontológicos" : null);
   const text = rows.map(([k, v]) => k + ": " + v).join("\n");
   try {
     const r = await fetch(RESEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-      body: JSON.stringify({ from, to: [to], subject: "Nueva demo · " + clinica + " (" + nombre + ")", html, text, reply_to: email })
+      body: JSON.stringify({ from, to: [to], subject: "Nueva demo " + verticalLbl + " · " + clinica + " (" + nombre + ")", html, text, reply_to: email })
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) { console.error("[lead] Resend", r.status, data); return res.status(502).json({ ok: false, error: "No se pudo registrar la solicitud." }); }
@@ -111,20 +119,23 @@ async function handleLead(req, res) {
 }
 
 // Envuelve el texto/cuerpo en una plantilla HTML simple con la marca Medique.
-function brandHtml(bodyHtml, clinicName) {
+// `tagline` es opcional: sin él se conserva el pie histórico (medicina estética), para no cambiar
+// ningún correo que ya existe. Los leads dentales pasan el suyo.
+function brandHtml(bodyHtml, clinicName, tagline) {
   const name = esc(clinicName || 'Medique');
+  const foot = esc(tagline || 'gestión para clínicas de medicina estética');
   return `<!doctype html><html><body style="margin:0;background:#f4f5f7;padding:24px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e6e8ec">
       <tr><td style="background:#10151F;padding:20px 28px;color:#F2EFE9;font-size:18px;letter-spacing:.04em">${name}</td></tr>
       <tr><td style="padding:28px;color:#222;font-size:15px;line-height:1.6">${bodyHtml}</td></tr>
-      <tr><td style="padding:18px 28px;border-top:1px solid #eee;color:#8a92a0;font-size:12px">Enviado con Medique · gestión para clínicas de medicina estética</td></tr>
+      <tr><td style="padding:18px 28px;border-top:1px solid #eee;color:#8a92a0;font-size:12px">Enviado con Medique · ${foot}</td></tr>
     </table>
   </td></tr></table></body></html>`;
 }
 
 export default async function handler(req, res) {
-  const ALLOWED_ORIGINS = ['https://medique.cl', 'https://www.medique.cl', 'https://portal.medique.cl', 'https://admin.medique.cl', 'https://jcmedical.cl', 'https://www.jcmedical.cl'];
+  const ALLOWED_ORIGINS = ['https://medique.cl', 'https://www.medique.cl', 'https://dental.medique.cl', 'https://portal.medique.cl', 'https://admin.medique.cl', 'https://jcmedical.cl', 'https://www.jcmedical.cl'];
   const origin = req.headers.origin || '';
   const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   res.setHeader("Access-Control-Allow-Origin", safeOrigin);

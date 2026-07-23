@@ -8,6 +8,10 @@ serviceAccount*.json
 **/serviceAccount*.json
 *.serviceaccount.json
 
+# Secretos: variables de entorno (GROQ/RESEND/service-account) — NUNCA subir
+.env
+.env.*
+
 # Prototipos de diseño (no publicar) y documentos/PDF sueltos
 # designs/ (raíz) = JC Medical (design-system.html). Medique/designs/ = mockups del panel Medique.
 designs/

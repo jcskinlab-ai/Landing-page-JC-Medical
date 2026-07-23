@@ -1042,4 +1042,4 @@ function ghostBtn(T) {
 function primBtn(T) {
   return { fontFamily: T.sans, fontSize: 11, letterSpacing: ".04em", padding: "8px 15px", borderRadius: 7, background: T.text, color: T.bg, border: "1px solid " + T.text };
 }
-Object.assign(window, { FaceMap, FaceSVG, ViewTab, PuncionTool, AureoTool, PtosisTool, RickettsTool, MarquardtTool, MarquardtMask, aureoCompute, ptosisCompute, ptosisCompare, detectFaceMesh });
+Object.assign(window, { FaceMap, FaceSVG, ViewTab, PuncionTool, AureoTool, PtosisTool, RickettsTool, MarquardtTool, MarquardtMask, aureoCompute, ptosisCompute, ptosisCompare, detectFaceMesh, faceGetPhoto, faceSetPhoto, fileToDataURL });
