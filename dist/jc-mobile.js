@@ -46,6 +46,24 @@ const WDS = ["Dom", "Lun", "Mar", "Mi\xE9", "Jue", "Vie", "S\xE1b"];
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const MESES_LARGOS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DOW_FULL = ["Domingo", "Lunes", "Martes", "Mi\xE9rcoles", "Jueves", "Viernes", "S\xE1bado"];
+function mNorm(s) {
+  return ("" + (s == null ? "" : s)).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+function mPatientMatch(p, query) {
+  var q = mNorm(query).trim();
+  if (!q) return true;
+  p = p || {};
+  var hay = mNorm((p.name || "") + " " + (p.rut || "") + " " + (p.email || "") + " " + (p.phone || ""));
+  var digits = ((p.rut || "") + (p.phone || "")).replace(/[^0-9kK]/g, "").toLowerCase();
+  return q.split(/\s+/).every(function(tok) {
+    if (hay.indexOf(tok) >= 0) return true;
+    if (/^[0-9k.\-]+$/.test(tok)) {
+      var d = tok.replace(/[^0-9k]/g, "");
+      return d && digits.indexOf(d) >= 0;
+    }
+    return false;
+  });
+}
 function clinicMapsLinkM() {
   try {
     const m = window.DB && window.DB.cfg && window.DB.cfg().clinic_maps;
@@ -559,7 +577,7 @@ function HomeTab({ T, appts, patients, onOpenAppt, goTab, openOverlay, openNotif
   const active = appts.filter((a) => a.status !== "anulada");
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
-  const searchMatches = !ql ? [] : active.filter((a) => (a.name || "").toLowerCase().includes(ql) || (a.rut || "").toLowerCase().includes(ql) || (a.proc || "").toLowerCase().includes(ql) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
+  const searchMatches = !ql ? [] : active.filter((a) => mPatientMatch(a, ql) || mNorm(a.proc).includes(mNorm(ql)) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
   const searchResults = searchMatches.map((a) => ({ a, off: isoToDayOff(a.fecha || offToISO(a.day || 0)) })).sort((x, y) => {
     const dx = Math.abs(x.off), dy = Math.abs(y.off);
     return dx !== dy ? dx - dy : y.off - x.off;
@@ -794,7 +812,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const [selDay, setSelDay] = useState(today);
   const [q, setQ] = useState("");
   const ql = q.trim().toLowerCase();
-  const searchMatches = !ql ? [] : appts.filter((a) => (a.name || "").toLowerCase().includes(ql) || (a.rut || "").toLowerCase().includes(ql) || (a.proc || "").toLowerCase().includes(ql) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
+  const searchMatches = !ql ? [] : appts.filter((a) => mPatientMatch(a, ql) || mNorm(a.proc).includes(mNorm(ql)) && inCurrentMonth(a.fecha || offToISO(a.day || 0)));
   const searchResults = searchMatches.map((a) => ({ a, off: isoToDayOff(a.fecha || offToISO(a.day || 0)) })).sort((x, y) => {
     const dx = Math.abs(x.off), dy = Math.abs(y.off);
     return dx !== dy ? dx - dy : y.off - x.off;
@@ -1152,7 +1170,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     ) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, background: T.inputFill, border: "1px solid " + T.inputBorder, borderRadius: 12, padding: "0 12px" } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "1.7", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("circle", { cx: "10.5", cy: "10.5", r: "6" }), /* @__PURE__ */ React.createElement("path", { d: "M20 20l-5-5" })), /* @__PURE__ */ React.createElement("input", { value: pq, onChange: (e) => setPq(e.target.value), placeholder: "Buscar por nombre o RUT\u2026", autoFocus: true, style: { flex: 1, background: "none", border: "none", outline: "none", color: T.text, fontFamily: T.sans, fontSize: 14, padding: "11px 0", minWidth: 0 } })), (() => {
       const q = pq.trim().toLowerCase();
       if (!q) return null;
-      const res = patientOptions.filter((p) => (p.name || "").toLowerCase().includes(q) || (p.rut || "").toLowerCase().includes(q)).slice(0, 8);
+      const res = patientOptions.filter((p) => mPatientMatch(p, q)).slice(0, 8);
       if (!res.length) return /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, padding: "9px 2px 0" } }, 'Sin coincidencias. Prueba con "Paciente nuevo".');
       return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 214, overflowY: "auto" }, className: "no-sb" }, res.map((p) => /* @__PURE__ */ React.createElement("button", { key: p.id, onClick: () => {
         setPid(p.id);
@@ -1218,7 +1236,7 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
       return {};
     }
   })();
-  const list = (ql ? patients.filter((p) => (p.name || "").toLowerCase().includes(ql) || (p.rut || "").toLowerCase().includes(ql) || (p.phone || "").includes(ql)) : patients).slice().sort((a, b) => (opened[b.id] || 0) - (opened[a.id] || 0));
+  const list = (ql ? patients.filter((p) => mPatientMatch(p, ql)) : patients).slice().sort((a, b) => (opened[b.id] || 0) - (opened[a.id] || 0));
   function openFicha(id) {
     try {
       const m = window.DB && window.DB.get("pat_opened") || {};
