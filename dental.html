@@ -79,10 +79,13 @@
   .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 auto}
 
   /* ── fondo ───────────────────────────────────────────── */
-  .bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;background:
-    radial-gradient(120% 80% at 50% -10%,rgba(14,154,160,.12),transparent 55%),
-    linear-gradient(180deg,#f2f8f9 0%,#e9f1f4 45%,#e2edf0 100%)}
-  .blobs{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+  /* Foto de fondo fija con VELO BLANCO encima (igual que la de estética usa velo oscuro sobre el
+     Everest): el velo garantiza que el texto oscuro y las tarjetas sigan legibles sobre las ondas.
+     La imagen es clara y con el centro despejado, así que el velo puede ser suave. */
+  .bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(233,241,244,.55),rgba(233,241,244,.68)),url(/assets/bg-dental.jpg) center/cover no-repeat}
+  /* Con la foto de fondo, los blobs sobran (duplicaban las ondas). Se ocultan. */
+  .blobs{display:none;position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
   /* Blend NORMAL (no multiply): multiply desaturaba el teal a gris ("plomo") y donde los blobs se
      solapaban se acumulaba. Con normal + opacidad baja quedan como un velo turquesa apenas
      perceptible, y el fondo se lee limpio/claro como el resto de las secciones. */
