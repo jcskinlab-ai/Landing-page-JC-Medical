@@ -4494,10 +4494,10 @@ function OnboardingWizard({ T, onDone }) {
     ));
   };
   return /* @__PURE__ */ React.createElement("div", { className: "jc-stage", style: {
-    backgroundImage: "linear-gradient(rgba(9,11,15,.76), rgba(9,11,15,.90)), url('/assets/everest.jpg')",
+    backgroundImage: "linear-gradient(rgba(9,11,15,.60), rgba(9,11,15,.80)), url('/assets/login-cumbres.jpg')",
     backgroundColor: T.bg,
     backgroundSize: "cover",
-    backgroundPosition: "center top",
+    backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
     minHeight: "100dvh",
     padding: "24px 16px"
@@ -4528,6 +4528,105 @@ function OnboardingWizard({ T, onDone }) {
     last ? "Entrar al panel" : "Siguiente"
   ))));
 }
+const LOGIN_CSS = `
+/* Sora en t\xEDtulos y botones; Inter en TODO el texto chico (eyebrow, subt\xEDtulos, campos, enlaces,
+   letra fina). Inter tiene m\xE1s altura de x que Jost, as\xED que a 10-12px se lee bastante mejor \u2014
+   que era justo el problema. Es adem\xE1s la sans de la landing medique.cl, as\xED que el acceso y el
+   sitio p\xFAblico hablan el mismo idioma. Para cambiarla, basta tocar --jcl-sans aqu\xED. */
+.jcl-stage{--jcl-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--jcl-display:'Sora',-apple-system,'Segoe UI',sans-serif;
+  position:relative;overflow:hidden;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;background-size:cover;background-position:center;background-repeat:no-repeat}
+.jcl-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.jcl-veil{position:absolute;inset:0;pointer-events:none;background:linear-gradient(rgba(9,11,15,.58),rgba(9,11,15,.80))}
+/* Halo fr\xEDo detr\xE1s del cristal: lo despega del fondo y respira muy lento. */
+.jcl-halo{position:absolute;left:50%;top:50%;width:min(820px,130vw);height:min(820px,130vw);transform:translate(-50%,-50%);pointer-events:none;background:radial-gradient(circle,rgba(150,182,218,.17) 0%,rgba(150,182,218,.06) 40%,rgba(9,11,15,0) 70%);animation:jclBreathe 16s ease-in-out infinite}
+.jcl-card{position:relative;width:100%;max-width:404px;padding:34px 30px 26px;border-radius:26px;overflow:hidden;
+  background:rgba(255,255,255,.055);
+  -webkit-backdrop-filter:blur(26px) saturate(1.45);backdrop-filter:blur(26px) saturate(1.45);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 44px 96px -44px rgba(0,0,0,.92),inset 0 1px 0 rgba(255,255,255,.10);
+  animation:jclCard .8s cubic-bezier(.2,.8,.2,1) both}
+/* Filo superior iluminado: el borde "mojado" del cristal. */
+.jcl-card::before{content:"";position:absolute;top:0;left:14%;right:14%;height:1px;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent)}
+/* Reflejo que cruza el cristal cada tanto. */
+.jcl-sheen{position:absolute;top:-60%;bottom:-60%;left:0;width:32%;pointer-events:none;transform:skewX(-18deg) translateX(-260%);background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.08),rgba(255,255,255,0));animation:jclSheen 11s ease-in-out infinite}
+.jcl-st{animation:jclRise .7s cubic-bezier(.2,.8,.2,1) both}
+.jcl-eyebrow{font-family:var(--jcl-sans);font-size:9.5px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;color:rgba(198,215,233,.8);text-align:center}
+.jcl-title{font-family:var(--jcl-display);font-weight:600;font-size:33px;letter-spacing:-.032em;line-height:1.06;text-align:center;color:#F5F7FB;margin:13px 0 7px}
+.jcl-sub{font-family:var(--jcl-sans);font-size:13px;font-weight:400;line-height:1.55;letter-spacing:-.005em;text-align:center;color:rgba(235,242,252,.66);margin:0 0 22px}
+.jcl-foot{text-align:center;margin-top:15px;font-family:var(--jcl-sans);font-size:12.5px;color:rgba(235,242,252,.62)}
+.jcl-fine{font-family:var(--jcl-sans);font-size:11.5px;line-height:1.55;text-align:center;color:rgba(235,242,252,.6);margin-top:2px}
+.jcl-fine a{color:rgba(190,208,226,.95);text-decoration:underline}
+.jcl-in{width:100%;padding:14px 15px;border-radius:13px;box-sizing:border-box;outline:none;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#F5F7FB;
+  font-family:var(--jcl-sans);font-size:14px;letter-spacing:-.005em;
+  transition:border-color .22s ease,background .22s ease,box-shadow .22s ease}
+/* .5 y no menos: medido sobre el cristal, un placeholder a .42 quedaba en 4.3:1 (bajo el 4.5 de WCAG AA). */
+.jcl-in::placeholder{color:rgba(235,242,252,.52)}
+.jcl-in:hover{background:rgba(255,255,255,.085)}
+.jcl-in:focus{border-color:rgba(182,202,221,.72);background:rgba(255,255,255,.10);box-shadow:0 0 0 4px rgba(150,182,218,.15)}
+/* Autocompletar de Chrome: sin esto pinta el campo de blanco y rompe el cristal. */
+.jcl-in:-webkit-autofill,.jcl-in:-webkit-autofill:hover,.jcl-in:-webkit-autofill:focus{-webkit-text-fill-color:#F5F7FB;caret-color:#F5F7FB;-webkit-box-shadow:0 0 0 1000px rgba(26,32,42,.96) inset;transition:background-color 9999s ease-in-out 0s}
+.jcl-otp{text-align:center;letter-spacing:.5em;font-size:22px}
+.jcl-btn{position:relative;overflow:hidden;width:100%;padding:15px;border:none;border-radius:13px;cursor:pointer;
+  background:linear-gradient(180deg,#F7F4EE,#DFD8CB);color:#0B0D11;
+  font-family:var(--jcl-display);font-size:11.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;
+  box-shadow:0 16px 36px -18px rgba(240,236,228,.8);
+  transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,opacity .2s ease}
+.jcl-btn::after{content:"";position:absolute;top:-30%;bottom:-30%;left:-70%;width:42%;pointer-events:none;transform:skewX(-22deg);background:linear-gradient(105deg,rgba(255,255,255,0),rgba(255,255,255,.7),rgba(255,255,255,0));transition:left .7s ease}
+.jcl-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 22px 46px -18px rgba(240,236,228,.95)}
+.jcl-btn:hover:not(:disabled)::after{left:130%}
+.jcl-btn:active:not(:disabled){transform:translateY(0)}
+.jcl-btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.jcl-ghost{width:100%;padding:14px;border-radius:13px;cursor:pointer;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.045);color:#F5F7FB;
+  font-family:var(--jcl-sans);font-size:11.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;
+  transition:background .2s ease,border-color .2s ease,transform .2s cubic-bezier(.2,.8,.2,1)}
+.jcl-ghost:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.3);transform:translateY(-1px)}
+.jcl-link{background:none;border:none;padding:6px;cursor:pointer;font-family:var(--jcl-sans);font-size:12.5px;font-weight:500;color:rgba(190,208,226,.92);
+  background-image:linear-gradient(currentColor,currentColor);background-repeat:no-repeat;background-position:50% 88%;background-size:0% 1px;
+  transition:color .2s ease,background-size .28s cubic-bezier(.2,.8,.2,1)}
+.jcl-link:hover{color:#F5F7FB;background-size:76% 1px}
+.jcl-err{font-family:var(--jcl-sans);font-size:12.5px;color:#F08098;animation:jclRise .35s ease both}
+.jcl-ok{font-family:var(--jcl-sans);font-size:12.5px;color:#6CD3A6;animation:jclRise .35s ease both}
+/* Viaje a la cumbre: el telef\xE9rico recorre el cable hasta la monta\xF1a mientras se carga el panel.
+   Es indeterminado a prop\xF3sito (no sabemos cu\xE1nto tarda Firestore): da vueltas hasta que el panel
+   monta. Los mensajes S\xCD avanzan y se quedan en el \xFAltimo, para no prometer un progreso falso. */
+.jcl-travel{display:flex;flex-direction:column;align-items:center;gap:20px;padding:10px 0 4px}
+.jcl-rail{position:relative;width:100%;max-width:246px;height:2px;border-radius:2px;background:rgba(255,255,255,.13)}
+.jcl-rail::after{content:"";position:absolute;inset:0;border-radius:2px;transform-origin:left;background:linear-gradient(90deg,rgba(182,202,221,0),rgba(182,202,221,.8));animation:jclFill 3s cubic-bezier(.5,.03,.35,1) infinite}
+.jcl-goal{position:absolute;right:0;top:50%;transform:translate(60%,-50%);font-size:17px;line-height:1;animation:jclGoal 3s ease-in-out infinite}
+.jcl-rider{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);animation:jclRide 3s cubic-bezier(.5,.03,.35,1) infinite}
+.jcl-bob{display:block;font-size:21px;line-height:1;animation:jclBob 1s ease-in-out infinite}
+.jcl-steps{font-family:var(--jcl-sans);font-size:12.5px;color:rgba(235,242,252,.72);text-align:center;min-height:18px;animation:jclRise .4s ease both}
+@keyframes jclCard{from{opacity:0;transform:translateY(26px) scale(.985);filter:blur(7px)}to{opacity:1;transform:none;filter:none}}
+@keyframes jclRise{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:none}}
+@keyframes jclSheen{0%,62%{transform:skewX(-18deg) translateX(-260%)}100%{transform:skewX(-18deg) translateX(560%)}}
+@keyframes jclBreathe{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(.94)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}}
+@keyframes jclRide{0%{left:0;opacity:0}7%{opacity:1}84%{left:100%;opacity:1}93%,100%{left:100%;opacity:0}}
+@keyframes jclBob{0%,100%{transform:translateY(-1.5px) rotate(-3deg)}50%{transform:translateY(1.5px) rotate(3deg)}}
+@keyframes jclFill{0%{transform:scaleX(0);opacity:1}84%{transform:scaleX(1);opacity:1}93%,100%{transform:scaleX(1);opacity:0}}
+@keyframes jclGoal{0%,78%{transform:translate(60%,-50%) scale(1)}86%{transform:translate(60%,-50%) scale(1.3)}94%,100%{transform:translate(60%,-50%) scale(1)}}
+@media (prefers-reduced-motion: reduce){.jcl-card,.jcl-st,.jcl-sheen,.jcl-halo,.jcl-err,.jcl-ok,.jcl-steps{animation:none!important}.jcl-in,.jcl-btn,.jcl-ghost,.jcl-link{transition:none!important}
+  /* El viaje se queda quieto: el telef\xE9rico a mitad de camino y el cable lleno a medias. */
+  .jcl-rider{animation:none!important;left:50%}.jcl-bob,.jcl-goal{animation:none!important}.jcl-rail::after{animation:none!important;transform:scaleX(.5)}}
+`;
+function LoginTravel() {
+  const MSGS = ["Verificando tu acceso\u2026", "Cargando los datos de tu cl\xEDnica\u2026", "Preparando tu agenda\u2026", "Casi listo\u2026"];
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => n + 1 < MSGS.length ? n + 1 : n), 1900);
+    return () => clearInterval(t);
+  }, []);
+  return /* @__PURE__ */ React.createElement("div", { className: "jcl-travel" }, /* @__PURE__ */ React.createElement("div", { className: "jcl-rail" }, /* @__PURE__ */ React.createElement("span", { className: "jcl-goal", "aria-hidden": "true" }, "\u{1F3D4}\uFE0F"), /* @__PURE__ */ React.createElement("span", { className: "jcl-rider", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "jcl-bob" }, "\u{1F6A1}"))), /* @__PURE__ */ React.createElement("div", { className: "jcl-steps", role: "status", "aria-live": "polite" }, MSGS[i]));
+}
+const LOGIN_STILL = function() {
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return !!(c && c.saveData);
+  } catch (e) {
+    return false;
+  }
+}();
 function SaasGate() {
   const T = window.JCTHEME && window.JCTHEME.editorial || { bg: "#070707", surface: "#141414", line: "rgba(255,255,255,.14)", text: "#F2EDE6", textMute: "rgba(242,237,230,.6)", accent: "#B9C2CB", gold: "#B9C2CB", serif: "Cormorant Garamond, serif", sans: "Jost, sans-serif", primaryBg: "#F2EDE6", primaryText: "#070707" };
   const [phase, setPhase] = useState("loading");
@@ -4538,6 +4637,7 @@ function SaasGate() {
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [entering, setEntering] = useState(false);
   const [otpInfo, setOtpInfo] = useState(null);
   const [otpCode, setOtpCode] = useState("");
   const [otpErr, setOtpErr] = useState("");
@@ -4550,6 +4650,7 @@ function SaasGate() {
     }
   }
   function proceed() {
+    setEntering(true);
     if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) {
       setPhase("migrate");
       return;
@@ -4700,23 +4801,11 @@ function SaasGate() {
     }
     setPhase("app");
   } });
-  const inp = { width: "100%", padding: "13px 14px", borderRadius: 6, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 14, outline: "none", boxSizing: "border-box" };
-  const pBtn = (label, onClick, disabled) => /* @__PURE__ */ React.createElement("button", { onClick, disabled, style: { marginTop: 4, padding: "14px", borderRadius: 6, border: "none", background: T.primaryBg, color: T.primaryText, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 } }, label);
-  const gBtn = (label, onClick) => /* @__PURE__ */ React.createElement("button", { onClick, style: { marginTop: 4, padding: "13px", borderRadius: 6, border: "1px solid " + T.line, background: "transparent", color: T.text, fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" } }, label);
-  const link = (label, onClick) => /* @__PURE__ */ React.createElement("button", { onClick, style: { background: "none", border: "none", cursor: "pointer", color: T.accent, fontFamily: T.sans, fontSize: 12, textDecoration: "underline", padding: 6 } }, label);
-  const wrap = (title, subtitle, body, footer) => /* @__PURE__ */ React.createElement("div", { style: {
-    minHeight: "100dvh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    backgroundImage: "linear-gradient(rgba(9,11,15,.76), rgba(9,11,15,.90)), url('/assets/everest.jpg')",
-    backgroundColor: T.bg,
-    backgroundSize: "cover",
-    backgroundPosition: "center top",
-    backgroundRepeat: "no-repeat"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 380 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" } }, "Medique \xB7 Panel cl\xEDnico"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontWeight: 300, fontSize: 34, color: T.text, textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 } }, title), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" } }, subtitle), body, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: 14 } }, footer)));
-  if (phase === "loading") return wrap("Conectando\u2026", "Verificando tu sesi\xF3n.", /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", color: T.textMute, fontFamily: T.sans, fontSize: 12 } }, "Un momento\u2026"), null);
+  const pBtn = (label, onClick, disabled) => /* @__PURE__ */ React.createElement("button", { className: "jcl-btn", onClick, disabled }, label);
+  const gBtn = (label, onClick) => /* @__PURE__ */ React.createElement("button", { className: "jcl-ghost", onClick }, label);
+  const link = (label, onClick) => /* @__PURE__ */ React.createElement("button", { className: "jcl-link", onClick }, label);
+  const wrap = (title, subtitle, body, footer) => /* @__PURE__ */ React.createElement("div", { className: "jcl-stage", style: { backgroundImage: "url('/assets/login-cumbres.jpg')", backgroundColor: T.bg } }, /* @__PURE__ */ React.createElement("style", { dangerouslySetInnerHTML: { __html: LOGIN_CSS } }), !LOGIN_STILL && /* @__PURE__ */ React.createElement("video", { className: "jcl-video", autoPlay: true, muted: true, loop: true, playsInline: true, preload: "auto", "aria-hidden": "true", tabIndex: -1, poster: "/assets/login-cumbres.jpg" }, /* @__PURE__ */ React.createElement("source", { src: "/assets/login-cumbres.mp4", type: "video/mp4" })), /* @__PURE__ */ React.createElement("div", { className: "jcl-veil" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-halo" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-card", key: title }, /* @__PURE__ */ React.createElement("div", { className: "jcl-sheen" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-st jcl-eyebrow", style: { animationDelay: ".05s" } }, "Medique \xB7 Panel cl\xEDnico"), /* @__PURE__ */ React.createElement("h1", { className: "jcl-st jcl-title", style: { animationDelay: ".12s" } }, title), /* @__PURE__ */ React.createElement("p", { className: "jcl-st jcl-sub", style: { animationDelay: ".18s" } }, subtitle), /* @__PURE__ */ React.createElement("div", { className: "jcl-st", style: { animationDelay: ".24s" } }, body), /* @__PURE__ */ React.createElement("div", { className: "jcl-st jcl-foot", style: { animationDelay: ".3s" } }, footer)));
+  if (phase === "loading") return wrap("Conectando\u2026", "Estamos verificando tu sesi\xF3n.", /* @__PURE__ */ React.createElement(LoginTravel, null), null);
   if (phase === "otp") {
     return wrap(
       "Verifica que eres t\xFA",
@@ -4736,9 +4825,9 @@ function SaasGate() {
           inputMode: "numeric",
           placeholder: "\xB7\xB7\xB7\xB7\xB7\xB7",
           "data-nocap": "",
-          style: { ...inp, textAlign: "center", letterSpacing: ".5em", fontSize: 22 }
+          className: "jcl-in jcl-otp"
         }
-      ), otpErr && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#E0607A" } }, otpErr), pBtn("Verificar y entrar", otpVerify, otpCode.length !== 6), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, link("Reenviar c\xF3digo", otpSend))),
+      ), otpErr && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, otpErr), pBtn("Verificar y entrar", otpVerify, otpCode.length !== 6), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, link("Reenviar c\xF3digo", otpSend))),
       link("Cerrar sesi\xF3n", () => window.JCSAAS.logout())
     );
   }
@@ -4780,13 +4869,16 @@ function SaasGate() {
       null
     );
   }
+  if (entering || busy && view === "login") {
+    return wrap("Entrando a tu panel", "Estamos dejando todo listo para ti.", /* @__PURE__ */ React.createElement(LoginTravel, null), null);
+  }
   if (view === "register") {
     return wrap(
       "Crea tu cl\xEDnica",
       "Tu cuenta queda en revisi\xF3n y la aprobamos a la brevedad. Luego tienes 14 d\xEDas de prueba gratis, sin tarjeta.",
-      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: clinic, autoFocus: true, onChange: (e) => setClinic(e.target.value), placeholder: "Nombre de la cl\xEDnica", style: inp }), /* @__PURE__ */ React.createElement("input", { value: email, onChange: (e) => setEmail(e.target.value), placeholder: "Correo", inputMode: "email", autoComplete: "email", "data-nocap": "", style: inp }), /* @__PURE__ */ React.createElement("input", { type: "password", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => {
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: clinic, autoFocus: true, onChange: (e) => setClinic(e.target.value), placeholder: "Nombre de la cl\xEDnica", className: "jcl-in" }), /* @__PURE__ */ React.createElement("input", { value: email, onChange: (e) => setEmail(e.target.value), placeholder: "Correo", inputMode: "email", autoComplete: "email", "data-nocap": "", className: "jcl-in" }), /* @__PURE__ */ React.createElement("input", { type: "password", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => {
         if (e.key === "Enter") doRegister();
-      }, placeholder: "Contrase\xF1a (m\xEDn. 6)", autoComplete: "new-password", style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#E0607A" } }, err), pBtn(busy ? "Creando\u2026" : "Crear cuenta y empezar", doRegister, busy || !clinic || !email || !pass), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, lineHeight: 1.5, textAlign: "center", marginTop: 2 } }, "Al crear tu cuenta aceptas los ", /* @__PURE__ */ React.createElement("a", { href: "/terminos", target: "_blank", rel: "noopener", style: { color: T.accent, textDecoration: "underline" } }, "T\xE9rminos de Servicio"), " y la ", /* @__PURE__ */ React.createElement("a", { href: "/privacidad", target: "_blank", rel: "noopener", style: { color: T.accent, textDecoration: "underline" } }, "Pol\xEDtica de Privacidad"), ".")),
+      }, placeholder: "Contrase\xF1a (m\xEDn. 6)", autoComplete: "new-password", className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), pBtn(busy ? "Creando\u2026" : "Crear cuenta y empezar", doRegister, busy || !clinic || !email || !pass), /* @__PURE__ */ React.createElement("div", { className: "jcl-fine" }, "Al crear tu cuenta aceptas los ", /* @__PURE__ */ React.createElement("a", { href: "/terminos", target: "_blank", rel: "noopener" }, "T\xE9rminos de Servicio"), " y la ", /* @__PURE__ */ React.createElement("a", { href: "/privacidad", target: "_blank", rel: "noopener" }, "Pol\xEDtica de Privacidad"), ".")),
       /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "\xBFYa tienes cuenta? ", link("Inicia sesi\xF3n", () => {
         setView("login");
         setErr("");
@@ -4797,7 +4889,7 @@ function SaasGate() {
     return wrap(
       "Recuperar contrase\xF1a",
       "Te enviaremos un enlace a tu correo para restablecerla.",
-      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: email, autoFocus: true, onChange: (e) => setEmail(e.target.value), placeholder: "Correo de tu cuenta", inputMode: "email", "data-nocap": "", style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#E0607A" } }, err), msg && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#56b58b" } }, msg), pBtn(busy ? "Enviando\u2026" : "Enviar enlace", doRecover, busy || !email)),
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: email, autoFocus: true, onChange: (e) => setEmail(e.target.value), placeholder: "Correo de tu cuenta", inputMode: "email", "data-nocap": "", className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), msg && /* @__PURE__ */ React.createElement("div", { className: "jcl-ok" }, msg), pBtn(busy ? "Enviando\u2026" : "Enviar enlace", doRecover, busy || !email)),
       link("\u2190 Volver", () => {
         setView("login");
         setErr("");
@@ -4808,9 +4900,9 @@ function SaasGate() {
   return wrap(
     "Iniciar sesi\xF3n",
     "Entra al panel de tu cl\xEDnica.",
-    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: email, autoFocus: true, onChange: (e) => setEmail(e.target.value), placeholder: "Correo", inputMode: "email", autoComplete: "email", "data-nocap": "", style: inp }), /* @__PURE__ */ React.createElement("input", { type: "password", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => {
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: email, autoFocus: true, onChange: (e) => setEmail(e.target.value), placeholder: "Correo", inputMode: "email", autoComplete: "email", "data-nocap": "", className: "jcl-in" }), /* @__PURE__ */ React.createElement("input", { type: "password", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => {
       if (e.key === "Enter") doLogin();
-    }, placeholder: "Contrase\xF1a", autoComplete: "current-password", style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#E0607A" } }, err), pBtn(busy ? "Entrando\u2026" : "Entrar", doLogin, busy || !email || !pass), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, link("\xBFOlvidaste tu contrase\xF1a?", () => {
+    }, placeholder: "Contrase\xF1a", autoComplete: "current-password", className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), pBtn(busy ? "Entrando\u2026" : "Entrar", doLogin, busy || !email || !pass), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, link("\xBFOlvidaste tu contrase\xF1a?", () => {
       setView("recover");
       setErr("");
     }))),
