@@ -3319,31 +3319,28 @@ const FICHA_TIPOS = [["general", "Ficha general"], ["facial", "Facial"], ["corpo
 const FICHA_ZONAS_FACIAL = ["Frente", "Entrecejo", "Patas de gallo", "Ojeras", "Pómulos", "Surcos nasogenianos", "Labios", "Código de barras", "Mentón", "Línea mandibular", "Cuello"];
 const FICHA_ZONAS_CORPORAL = ["Abdomen", "Flancos", "Espalda", "Brazos", "Muslos", "Glúteos", "Papada", "Rodillas", "Pantorrillas", "Dorso de manos"];
 // Posiciones aproximadas de cada zona sobre el mapa (Área 5: mapa interactivo).
-const FICHA_FACE_POS = { "Frente": [100, 42], "Entrecejo": [100, 74], "Patas de gallo": [150, 86], "Ojeras": [124, 100], "Pómulos": [142, 120], "Surcos nasogenianos": [120, 138], "Código de barras": [100, 150], "Labios": [100, 166], "Mentón": [100, 190], "Línea mandibular": [58, 172], "Cuello": [100, 222] };
-const FICHA_BODY_POS = { "Papada": [80, 40], "Espalda": [80, 96], "Brazos": [34, 116], "Flancos": [54, 130], "Abdomen": [80, 134], "Glúteos": [100, 170], "Muslos": [62, 196], "Dorso de manos": [27, 166], "Rodillas": [64, 232], "Pantorrillas": [64, 256] };
+// Coords (viewBox) alineadas a las ilustraciones anatómicas /assets/map-face.jpg (200×240) y
+// /assets/map-body.jpg (160×280). Verificadas sobre la imagen real, no sobre el óvalo antiguo.
+const FICHA_FACE_POS = { "Frente": [100, 53], "Entrecejo": [100, 84], "Patas de gallo": [148, 98], "Ojeras": [122, 112], "Pómulos": [138, 126], "Surcos nasogenianos": [118, 140], "Código de barras": [100, 152], "Labios": [100, 164], "Mentón": [100, 182], "Línea mandibular": [58, 166], "Cuello": [100, 212] };
+const FICHA_BODY_POS = { "Papada": [82, 48], "Espalda": [82, 84], "Brazos": [40, 108], "Flancos": [58, 116], "Abdomen": [82, 118], "Glúteos": [90, 148], "Dorso de manos": [30, 160], "Muslos": [66, 188], "Rodillas": [72, 214], "Pantorrillas": [72, 244] };
 // Mapa anatómico interactivo (facial / corporal): hotspots clicables que sincronizan con las zonas de la ficha.
 function FichaZoneMap({ T, kind, active, onToggle }) {
   const facial = kind === "facial";
   const pos = facial ? FICHA_FACE_POS : FICHA_BODY_POS;
+  const vw = facial ? 200 : 160, vh = facial ? 240 : 280;
+  const img = facial ? "/assets/map-face.jpg?v=1" : "/assets/map-body.jpg?v=1";
+  const cid = "fzm-" + kind; // clip id único por mapa
   return (
     <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
-      <svg viewBox={facial ? "0 0 200 240" : "0 0 160 280"} style={{ width: facial ? 170 : 130, maxWidth: "100%", height: "auto" }}>
-        {facial ? (
-          <g fill="none" stroke={T.line} strokeWidth="1.5">
-            <ellipse cx="100" cy="115" rx="62" ry="82" fill={T.surface2 || T.surface} />
-            <path d="M68 92q30 -20 64 0" />
-            <path d="M88 150q12 10 24 0" />
-            <line x1="100" y1="196" x2="100" y2="232" />
-          </g>
-        ) : (
-          <g fill={T.surface2 || T.surface} stroke={T.line} strokeWidth="1.5">
-            <circle cx="80" cy="26" r="17" />
-            <path d="M56 48h48l9 70-13 6 -5 58 4 62h-17l-6-58h-4l-6 58H53l4-62-5-58-13-6z" />
-          </g>
-        )}
+      <svg viewBox={"0 0 " + vw + " " + vh} style={{ width: facial ? 170 : 130, maxWidth: "100%", height: "auto" }}>
+        <defs><clipPath id={cid}><rect width={vw} height={vh} rx="16" /></clipPath></defs>
+        {/* Ilustración anatómica de base (reemplaza el óvalo/figura antiguos). Recortada a esquinas
+            redondeadas; sobre ella van los hotspots clicables de cada zona. */}
+        <image href={img} xlinkHref={img} x="0" y="0" width={vw} height={vh} preserveAspectRatio="xMidYMid slice" clipPath={"url(#" + cid + ")"} />
+        <rect width={vw} height={vh} rx="16" fill="none" stroke={T.line} strokeWidth="1.5" />
         {Object.keys(pos).map(z => { const p = pos[z]; const on = active(z); return (
           <g key={z} style={{ cursor: "pointer" }} onClick={() => onToggle(z)}>
-            <circle cx={p[0]} cy={p[1]} r="8.5" fill={on ? T.accent : T.surface} stroke={on ? T.accent : T.textMute} strokeWidth="1.5" opacity={on ? 1 : .85} />
+            <circle cx={p[0]} cy={p[1]} r="8.5" fill={on ? T.accent : "rgba(12,16,22,.7)"} stroke={on ? T.accent : "rgba(255,255,255,.85)"} strokeWidth="1.5" />
             {on && <path d={"M" + (p[0] - 3.5) + " " + p[1] + "l2.5 2.5 4.5 -5"} fill="none" stroke={T.onAccent || "#fff"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />}
             <title>{z}</title>
           </g>
