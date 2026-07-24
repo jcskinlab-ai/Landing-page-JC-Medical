@@ -3328,7 +3328,7 @@ function FichaZoneMap({ T, kind, active, onToggle }) {
   const facial = kind === "facial";
   const pos = facial ? FICHA_FACE_POS : FICHA_BODY_POS;
   const vw = facial ? 200 : 160, vh = facial ? 240 : 280;
-  const img = facial ? "/assets/map-face.jpg?v=1" : "/assets/map-body.jpg?v=1";
+  const img = facial ? "/assets/map-face.jpg?v=2" : "/assets/map-body.jpg?v=2";
   const cid = "fzm-" + kind; // clip id único por mapa
   return (
     <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>

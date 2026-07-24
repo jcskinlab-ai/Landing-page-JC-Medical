@@ -2792,7 +2792,7 @@ function FichaZoneMap({ T, kind, active, onToggle }) {
   const facial = kind === "facial";
   const pos = facial ? FICHA_FACE_POS : FICHA_BODY_POS;
   const vw = facial ? 200 : 160, vh = facial ? 240 : 280;
-  const img = facial ? "/assets/map-face.jpg?v=1" : "/assets/map-body.jpg?v=1";
+  const img = facial ? "/assets/map-face.jpg?v=2" : "/assets/map-body.jpg?v=2";
   const cid = "fzm-" + kind;
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "center", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 " + vw + " " + vh, style: { width: facial ? 170 : 130, maxWidth: "100%", height: "auto" } }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("clipPath", { id: cid }, /* @__PURE__ */ React.createElement("rect", { width: vw, height: vh, rx: "16" }))), /* @__PURE__ */ React.createElement("image", { href: img, xlinkHref: img, x: "0", y: "0", width: vw, height: vh, preserveAspectRatio: "xMidYMid slice", clipPath: "url(#" + cid + ")" }), /* @__PURE__ */ React.createElement("rect", { width: vw, height: vh, rx: "16", fill: "none", stroke: T.line, strokeWidth: "1.5" }), Object.keys(pos).map((z) => {
     const p = pos[z];
