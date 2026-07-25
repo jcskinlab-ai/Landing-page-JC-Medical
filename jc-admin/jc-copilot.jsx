@@ -75,28 +75,39 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
   const scRef = useRef(null);
   const recRef = useRef(null);
 
+  // BUG (celular) · Antes el FAB llevaba onMouseDown Y onTouchStart, cada uno con su propio par
+  // move/up. En un teléfono un tap recorre AMBOS caminos: primero touchstart→touchend (abre) y
+  // después el mousedown/mouseup que el navegador sintetiza para el mismo tap (vuelve a cerrar).
+  // El `e.preventDefault()` no lo evitaba: React registra touchstart como listener PASIVO en la
+  // raíz, así que cancelarlo desde un onTouchStart no tiene efecto y el navegador sintetiza igual.
+  // Resultado: en PC abría y en celular no abría nunca.
+  // Ahora se usa un solo camino con eventos de puntero (ratón, táctil y lápiz en la misma API):
+  // un gesto = un pointerdown, sin eventos sintetizados detrás. pointerdown SÍ es cancelable en
+  // React, así que el preventDefault además suprime los de ratón.
   function onFabDown(e) {
-    const isTouch = e.type === "touchstart";
-    const startX = isTouch ? e.touches[0].clientX : e.clientX;
-    const startY = isTouch ? e.touches[0].clientY : e.clientY;
+    const startX = e.clientX, startY = e.clientY, id = e.pointerId;
     const startRight = pos.right, startBottom = pos.bottom;
     let moved = false;
     function onMove(ev) {
-      const cx = isTouch ? ev.touches[0].clientX : ev.clientX;
-      const cy = isTouch ? ev.touches[0].clientY : ev.clientY;
-      if (Math.abs(cx - startX) > 4 || Math.abs(cy - startY) > 4) moved = true;
+      if (ev.pointerId !== id) return;
+      if (Math.abs(ev.clientX - startX) > 4 || Math.abs(ev.clientY - startY) > 4) moved = true;
       if (moved) {
         const vw = window.innerWidth, vh = window.innerHeight;
-        setPos({ right: Math.min(vw - 64, Math.max(8, startRight - (cx - startX))), bottom: Math.min(vh - 64, Math.max(8, startBottom - (cy - startY))) });
+        setPos({ right: Math.min(vw - 64, Math.max(8, startRight - (ev.clientX - startX))), bottom: Math.min(vh - 64, Math.max(8, startBottom - (ev.clientY - startY))) });
       }
     }
-    function onUp() {
-      document.removeEventListener(isTouch ? "touchmove" : "mousemove", onMove);
-      document.removeEventListener(isTouch ? "touchend" : "mouseup", onUp);
-      if (!moved) setOpen(o => !o);
+    function onUp(ev) {
+      if (ev.pointerId !== id) return;
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      if (!moved && ev.type === "pointerup") setOpen(o => !o);
     }
-    document.addEventListener(isTouch ? "touchmove" : "mousemove", onMove, { passive: false });
-    document.addEventListener(isTouch ? "touchend" : "mouseup", onUp);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    // pointercancel: si el navegador se queda con el gesto (scroll, gesto del sistema), hay que
+    // soltar los listeners igual — si no, quedan colgados hasta la próxima interacción.
+    document.addEventListener("pointercancel", onUp);
     e.preventDefault();
   }
 
@@ -272,7 +283,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
   return (
     <>
       {/* FAB — arrastrable (click corto abre/cierra; drag mueve) */}
-      <button onMouseDown={onFabDown} onTouchStart={onFabDown} title="Copiloto · Evaluación facial" style={{
+      <button onPointerDown={onFabDown} title="Copiloto · Evaluación facial" aria-label="Abrir el copiloto de IA" style={{
         position: "fixed", right: pos.right, bottom: pos.bottom, zIndex: 200, width: 56, height: 56, borderRadius: "50%", cursor: "grab", border: "1px solid rgba(255,255,255,.22)",
         background: "rgba(20,20,16,.55)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
         boxShadow: "0 8px 28px -6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12)", display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none", touchAction: "none"

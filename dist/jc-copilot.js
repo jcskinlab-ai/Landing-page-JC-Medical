@@ -109,27 +109,27 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
   const scRef = useRef(null);
   const recRef = useRef(null);
   function onFabDown(e) {
-    const isTouch = e.type === "touchstart";
-    const startX = isTouch ? e.touches[0].clientX : e.clientX;
-    const startY = isTouch ? e.touches[0].clientY : e.clientY;
+    const startX = e.clientX, startY = e.clientY, id = e.pointerId;
     const startRight = pos.right, startBottom = pos.bottom;
     let moved = false;
     function onMove(ev) {
-      const cx = isTouch ? ev.touches[0].clientX : ev.clientX;
-      const cy = isTouch ? ev.touches[0].clientY : ev.clientY;
-      if (Math.abs(cx - startX) > 4 || Math.abs(cy - startY) > 4) moved = true;
+      if (ev.pointerId !== id) return;
+      if (Math.abs(ev.clientX - startX) > 4 || Math.abs(ev.clientY - startY) > 4) moved = true;
       if (moved) {
         const vw = window.innerWidth, vh = window.innerHeight;
-        setPos({ right: Math.min(vw - 64, Math.max(8, startRight - (cx - startX))), bottom: Math.min(vh - 64, Math.max(8, startBottom - (cy - startY))) });
+        setPos({ right: Math.min(vw - 64, Math.max(8, startRight - (ev.clientX - startX))), bottom: Math.min(vh - 64, Math.max(8, startBottom - (ev.clientY - startY))) });
       }
     }
-    function onUp() {
-      document.removeEventListener(isTouch ? "touchmove" : "mousemove", onMove);
-      document.removeEventListener(isTouch ? "touchend" : "mouseup", onUp);
-      if (!moved) setOpen((o) => !o);
+    function onUp(ev) {
+      if (ev.pointerId !== id) return;
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      if (!moved && ev.type === "pointerup") setOpen((o) => !o);
     }
-    document.addEventListener(isTouch ? "touchmove" : "mousemove", onMove, { passive: false });
-    document.addEventListener(isTouch ? "touchend" : "mouseup", onUp);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
     e.preventDefault();
   }
   function ctx() {
@@ -360,7 +360,7 @@ function Copilot({ T, patients, appts, addAppt, onDarCita }) {
     "\xBFC\xF3mo diferencio ptosis palpebral de descenso de ceja?",
     "\xBFC\xF3mo estandarizo la foto antes/despu\xE9s?"
   ];
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onMouseDown: onFabDown, onTouchStart: onFabDown, title: "Copiloto \xB7 Evaluaci\xF3n facial", style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onPointerDown: onFabDown, title: "Copiloto \xB7 Evaluaci\xF3n facial", "aria-label": "Abrir el copiloto de IA", style: {
     position: "fixed",
     right: pos.right,
     bottom: pos.bottom,
