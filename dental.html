@@ -713,14 +713,14 @@
 <div class="mobile-menu" id="mm">
   <a href="#producto">Producto</a>
   <button class="abre-win" data-win="win-panel" type="button">Odontograma</button>
-  <a href="#tratamiento">Plan de tratamiento</a>
-  <a href="#agenda">Agenda por sillón</a>
+  <button type="button" class="abre-win" data-win="win-panel">Plan de tratamiento</button>
+  <button type="button" class="abre-win" data-win="win-panel">Agenda por sillón</button>
   <button class="abre-win" data-win="win-como" type="button">Cómo funciona</button>
   <a href="#ia">IA clínica</a>
   <a href="#verticales">Estética</a>
   <button class="abre-win" data-win="win-comparar" type="button">Comparar</button>
   <a href="#planes">Planes</a>
-  <a href="#faq">Preguntas frecuentes</a>
+  <button type="button" class="abre-win" data-win="win-faq">Preguntas frecuentes</button>
   <a class="btn btn-ghost" href="/panel" style="margin-top:14px">Entrar al panel</a>
   <a class="btn btn-primary" href="#demo" style="margin-top:8px">Agendar demo</a>
 </div>
@@ -1257,8 +1257,8 @@
           <a href="mailto:hola@medique.cl" aria-label="Correo electrónico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a>
         </div>
       </div>
-      <div class="col"><h5>Producto</h5><button class="abre-win" data-win="win-panel" type="button">Odontograma</button><a href="#tratamiento">Presupuestos</a><a href="#agenda">Agenda por sillón</a><a href="#ia">IA clínica</a><a href="#planes">Planes</a></div>
-      <div class="col"><h5>Medique</h5><a href="https://medique.cl">Medique Estética</a><a href="#comparar">Comparación</a><a href="#faq">Preguntas frecuentes</a><a href="/panel">Entrar al panel</a></div>
+      <div class="col"><h5>Producto</h5><button class="abre-win" data-win="win-panel" type="button">Odontograma</button><button type="button" class="abre-win" data-win="win-panel">Presupuestos</button><button type="button" class="abre-win" data-win="win-panel">Agenda por sillón</button><a href="#ia">IA clínica</a><a href="#planes">Planes</a></div>
+      <div class="col"><h5>Medique</h5><a href="https://medique.cl">Medique Estética</a><button type="button" class="abre-win" data-win="win-comparar">Comparación</button><button type="button" class="abre-win" data-win="win-faq">Preguntas frecuentes</button><a href="/panel">Entrar al panel</a></div>
       <div class="col" style="text-align:right"><a href="/panel" style="margin-bottom:14px">Entrar al panel</a><a class="btn btn-p btn-sm" href="#demo" data-demo>Agendar demo</a></div>
     </div>
     <div class="foot-btm">
@@ -1571,7 +1571,7 @@
     burger.setAttribute('aria-expanded',String(on));
     burger.setAttribute('aria-label',on?'Cerrar menú':'Abrir menú');
   });
-  mm.addEventListener('click',function(e){ if(e.target===mm||e.target.tagName==='A') closeMenu(); });
+  mm.addEventListener('click',function(e){ if(e.target===mm||e.target.closest('a,button')) closeMenu(); });
 
   /* ── scroll spy de la subnav (mapa rehecho con los ids nuevos) ── */
   var spyLinks=[].slice.call(document.querySelectorAll('.subnav nav a'));

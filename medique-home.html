@@ -1470,7 +1470,7 @@
 
 <!-- DOCK MÓVIL: accesos rápidos -->
 <nav class="m-dock" aria-label="Accesos rápidos">
-  <a class="md-item" href="#precios"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4 11 3H4v7l9.6 10.4a2 2 0 0 0 2.8 0l4.2-4.2a2 2 0 0 0 0-2.8z"/><circle cx="7.5" cy="6.5" r="1"/></svg>Planes</a>
+  <a class="md-item" href="#planes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4 11 3H4v7l9.6 10.4a2 2 0 0 0 2.8 0l4.2-4.2a2 2 0 0 0 0-2.8z"/><circle cx="7.5" cy="6.5" r="1"/></svg>Planes</a>
   <a class="md-item md-main" href="#demo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Agendar demo</a>
   <a class="md-item md-wa" data-wa href="https://wa.me/56977636248"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1-5A8.5 8.5 0 1 1 21 11.5z"/></svg>WhatsApp</a>
 </nav>
@@ -1655,7 +1655,7 @@
     if(burger) burger.addEventListener('click',function(){setMenu(!mm.classList.contains('show'))});
     if(mm){
       mm.addEventListener('click',function(e){
-        if(e.target===mm||e.target.tagName==='A') setMenu(false);
+        if(e.target===mm||e.target.closest('a,button')) setMenu(false);   // ahora el menú lleva botones que abren ventanas
       });
     }
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&mm&&mm.classList.contains('show'))setMenu(false)});
