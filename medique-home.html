@@ -307,6 +307,32 @@
   .faq-item.open .faq-a p{opacity:1;transform:none;padding-bottom:20px;transition-delay:.06s}
   .faq-q:active{opacity:.85}
 
+
+  /* ═══ VENTANAS DE DETALLE ═══
+     El socio pidió que la landing no entregue tanta data de golpe: máximo ~6 pantallas hasta los
+     precios. En vez de BORRAR contenido (los mockups con cursor fantasma son lo mejor que hay
+     aquí), el detalle se mueve a ventanas que se abren a demanda. El contenido sigue en el DOM,
+     con sus scripts y sus anclas: solo deja de ocupar scroll en el camino a los precios. */
+  .win{position:fixed;inset:0;z-index:120;display:none;padding:0}
+  .win.on{display:block}
+  .win-velo{position:absolute;inset:0;background:rgba(11,11,13,.42);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  .win-caja{position:relative;height:100%;max-width:1180px;margin:0 auto;background:var(--canvas);
+    overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+    box-shadow:0 0 90px -20px rgba(11,11,13,.5);animation:winUp .34s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes winUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  .win-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:14px 22px;
+    background:rgba(245,245,247,.86);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);
+    border-bottom:1px solid var(--line)}
+  .win-top h2{font-size:19px;letter-spacing:-.02em;margin:0}
+  .win-x{margin-left:auto;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#fff;
+    cursor:pointer;display:grid;place-items:center;color:var(--tx);font-size:17px;line-height:1;transition:background .2s,transform .2s}
+  .win-x:hover{background:rgba(11,11,13,.06);transform:scale(1.06)}
+  .win .sec{padding:44px 0}
+  .win .sec:first-of-type{padding-top:26px}
+  body.win-abierta{overflow:hidden}
+  /* enlace que abre ventana: se ve como los demás, pero es <button> */
+  .abre-win{appearance:none;background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer}
+  @media(max-width:900px){ .win-caja{max-width:100%} .win-top{padding:12px 16px} .win-top h2{font-size:16px} }
   /* ── cierre con vídeo velado ── */
   .cierre{position:relative;border-radius:44px;margin:0 14px;overflow:hidden;min-height:min(560px,72vh);display:grid;place-items:center;text-align:center;padding:80px 22px}
   .cierre video,.cierre img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 62%}
@@ -791,7 +817,7 @@
   <div class="w-lg in">
     <a class="marca" href="#top"><img src="/assets/medique-mark-256.png" alt="" width="26" height="26" decoding="async">Medique</a>
     <nav aria-label="Secciones">
-      <a href="#producto">Producto</a><a href="#recorrido">Cómo funciona</a><a href="#ia">Agente IA</a><a href="#verticales">Dental</a><a href="#planes">Planes</a>
+      <a href="#producto">Producto</a><button class="abre-win" data-win="win-como" type="button">Cómo funciona</button><a href="#ia">Agente IA</a><a href="#verticales">Dental</a><a href="#planes">Planes</a>
     </nav>
     <div class="acc">
       <a class="btn btn-s btn-sm" href="https://portal.medique.cl">Entrar al panel</a>
@@ -802,11 +828,11 @@
 </div>
 <div class="mobile-menu" id="mm">
   <a href="#producto">Producto</a>
-  <a href="#recorrido">Cómo funciona</a>
+  <button class="abre-win" data-win="win-como" type="button">Cómo funciona</button>
   <a href="#ia">Agente IA</a>
   <a href="#verticales">Dental</a>
   <a href="#planes">Planes</a>
-  <a href="#faq">Preguntas frecuentes</a>
+  <button class="abre-win" data-win="win-faq" type="button">Preguntas frecuentes</button>
   <a class="btn btn-s" href="https://portal.medique.cl" style="margin-top:14px">Entrar al panel</a>
   <a class="btn btn-p" href="#demo" style="margin-top:8px">Agendar demo</a>
 </div>
@@ -933,10 +959,19 @@
         <div class="strip"><div class="on">Sede<b>Providencia</b></div><div>Sede<b>Talca</b></div><div>Sede<b>Viña</b></div></div>
       </div>
     </div>
+
+      <div class="rev" style="display:flex;gap:12px;justify-content:center;margin-top:30px;flex-wrap:wrap">
+        <button class="btn btn-p" data-win="win-panel" type="button">Ver el panel por dentro ›</button>
+        <button class="btn btn-s" data-win="win-como" type="button">Cómo funciona</button>
+      </div>
   </div>
 </section>
 
 <!-- AGENDA · mockup a ancho completo -->
+<div class="win" id="win-panel" role="dialog" aria-modal="true" aria-label="El panel por dentro">
+  <div class="win-velo"></div>
+  <div class="win-caja">
+    <div class="win-top"><h2>El panel por dentro</h2><span class="lead" style="font-size:14px">Agenda, fichas y marketing, funcionando</span><button class="win-x" type="button" aria-label="Cerrar">✕</button></div>
 <section class="sec bloque" id="agenda">
   <div class="w-lg">
     <div class="sec-head rev">
@@ -1168,8 +1203,14 @@
     </div>
   </div>
 </section>
+  </div>
+</div>
 
 <!-- RECORRIDO -->
+<div class="win" id="win-como" role="dialog" aria-modal="true" aria-label="Cómo funciona">
+  <div class="win-velo"></div>
+  <div class="win-caja">
+    <div class="win-top"><h2>Cómo funciona</h2><span class="lead" style="font-size:14px">Del mensaje a la ficha, sin escalas</span><button class="win-x" type="button" aria-label="Cerrar">✕</button></div>
 <section class="sec" id="recorrido">
   <div class="w-lg">
     <div class="sec-head c rev">
@@ -1213,6 +1254,8 @@
     </div>
   </div>
 </section>
+  </div>
+</div>
 
 <!-- OSCURO · AGENTE IA -->
 <section class="oscuro" id="ia">
@@ -1364,6 +1407,10 @@
 </section>
 
 <!-- FAQ -->
+<div class="win" id="win-faq" role="dialog" aria-modal="true" aria-label="Preguntas frecuentes">
+  <div class="win-velo"></div>
+  <div class="win-caja">
+    <div class="win-top"><h2>Preguntas frecuentes</h2><span class="lead" style="font-size:14px">Lo que más nos preguntan</span><button class="win-x" type="button" aria-label="Cerrar">✕</button></div>
 <section class="sec" id="faq" style="padding-top:0">
   <div class="w-lg">
     <div class="sec-head c rev">
@@ -1379,6 +1426,8 @@
     </div>
   </div>
 </section>
+  </div>
+</div>
 
 <!-- CIERRE -->
 <section class="cierre" id="demo">
@@ -1407,8 +1456,8 @@
           <a href="mailto:hola@medique.cl" aria-label="Email"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a>
         </div>
       </div>
-      <div class="col"><h5>Producto</h5><a href="#producto">Funciones</a><a href="#agenda">Agenda</a><a href="#fichas">Fichas clínicas</a><a href="#marketing">Marketing</a><a href="#planes">Planes</a></div>
-      <div class="col"><h5>Medique</h5><a href="#verticales">Medique Dental</a><a href="#faq">Preguntas frecuentes</a><a href="https://portal.medique.cl">Iniciar sesión</a></div>
+      <div class="col"><h5>Producto</h5><a href="#producto">Funciones</a><button class="abre-win" data-win="win-panel" type="button">Agenda</button><button class="abre-win" data-win="win-panel" type="button">Fichas clínicas</button><button class="abre-win" data-win="win-panel" type="button">Marketing</button><a href="#planes">Planes</a></div>
+      <div class="col"><h5>Medique</h5><a href="#verticales">Medique Dental</a><button class="abre-win" data-win="win-faq" type="button">Preguntas frecuentes</button><a href="https://portal.medique.cl">Iniciar sesión</a></div>
       <div class="col" data-right style="text-align:right"><a href="https://portal.medique.cl" style="margin-bottom:14px">Iniciar sesión</a><a class="btn btn-p btn-sm" href="#demo">Agendar demo</a></div>
     </div>
     <div class="foot-btm">
@@ -1547,6 +1596,54 @@
 
   // ===== handlers que antes eran onclick inline (aviso, burger, menú móvil) =====
   (function(){
+
+  /* ═══ VENTANAS DE DETALLE ═══
+     Abren el contenido que se sacó del scroll principal. El contenido nunca se borró: sigue en el
+     DOM con sus mockups y sus guiones, así que al abrir la ventana los IntersectionObserver ven
+     los elementos aparecer y las demos arrancan solas. */
+  (function(){
+    var abierta=null, disparador=null;
+    function abrir(id, ev){
+      if(ev) ev.preventDefault();
+      var w=document.getElementById(id); if(!w) return;
+      disparador = ev && ev.currentTarget ? ev.currentTarget : null;
+      if(abierta) cerrar();
+      w.classList.add('on');
+      document.body.classList.add('win-abierta');
+      abierta=w;
+      var caja=w.querySelector('.win-caja'); if(caja) caja.scrollTop=0;
+      var x=w.querySelector('.win-x'); if(x) x.focus();
+      // Los mockups estaban en display:none, así que su IntersectionObserver los tenía como
+      // "fuera de pantalla" y no despertaba al mostrarlos. Se arrancan a mano.
+      // setTimeout y no requestAnimationFrame: el rAF no corre con la pestaña en segundo plano,
+      // y la ventana debe quedar lista aunque se abra desde una pestaña que acaba de recuperar foco.
+      setTimeout(function(){
+        window.dispatchEvent(new Event('resize'));
+        [].forEach.call(w.querySelectorAll('.app.mq'), function(mq){
+          mq.classList.add('demo-in');
+          if(mq.__demo && !mq.__live) mq.__demo.start();
+        });
+      }, 60);
+    }
+    function cerrar(){
+      if(!abierta) return;
+      [].forEach.call(abierta.querySelectorAll('.app.mq'), function(mq){
+        mq.classList.remove('demo-in');
+        if(mq.__demo) mq.__demo.stop();     // fuera de pantalla no se gastan frames
+      });
+      abierta.classList.remove('on');
+      abierta=null;
+      document.body.classList.remove('win-abierta');
+      if(disparador && disparador.focus) disparador.focus();
+    }
+    document.addEventListener('click',function(e){
+      var t=e.target.closest('[data-win]');
+      if(t){ abrir(t.getAttribute('data-win'), e); return; }
+      if(e.target.closest('.win-x') || e.target.classList.contains('win-velo')) cerrar();
+    });
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape') cerrar(); });
+    window.abrirVentana=abrir;
+  })();
     var anno=document.getElementById('anno'),annoX=document.getElementById('annoX');
     if(annoX&&anno) annoX.addEventListener('click',function(){anno.classList.add('hide')});
     var mm=document.getElementById('mm'),burger=document.getElementById('burger');
@@ -1879,6 +1976,9 @@
 
     var mqIO=new IntersectionObserver(function(en){en.forEach(function(x){
       var mq=x.target;
+      // Dentro de una ventana de detalle manda el gestor de ventanas: este observer no reporta
+      // intersección para subárboles position:fixed y apagaba lo que la ventana encendía.
+      if(mq.closest('.win')) return;
       if(x.isIntersecting){mq.classList.add('demo-in');arrancar(mq)}
       else{
         mq.classList.remove('demo-in');mq.__pend=false;
