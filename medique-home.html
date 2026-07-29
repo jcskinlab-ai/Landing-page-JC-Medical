@@ -799,6 +799,33 @@
     .mq-cursor,.mq-take{display:none!important}
     .oscuro .brillo,.hero .halo{display:none}
   }
+
+  /* ── Plan Fundador: banda de lanzamiento sobre la rejilla ── */
+  .fundador{position:relative;margin:0 0 26px;border-radius:var(--r);overflow:hidden;
+    background:linear-gradient(150deg,#12324F 0%,#1B4E7E 52%,#2E6491 100%);color:#fff;
+    box-shadow:0 30px 70px -40px rgba(18,50,79,.85)}
+  .fundador .in{display:grid;grid-template-columns:1.35fr 1fr;gap:0}
+  .fundador .txt{padding:34px 34px 30px}
+  .fundador .cinta{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:6px 14px;
+    font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+  .fundador h3{margin:16px 0 10px;font-size:clamp(24px,2.6vw,32px);color:#fff}
+  .fundador p{font-size:15px;line-height:1.55;color:rgba(255,255,255,.72);letter-spacing:-.01em;max-width:52ch}
+  .fundador ul{list-style:none;margin:18px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:9px 18px}
+  .fundador li{display:flex;gap:9px;align-items:flex-start;font-size:14px;color:rgba(255,255,255,.9);letter-spacing:-.01em}
+  .fundador li b{color:#BBD3E6;font-weight:700;flex:0 0 auto}
+  .fundador .caja{background:rgba(255,255,255,.07);border-left:1px solid rgba(255,255,255,.16);
+    padding:34px 30px;display:flex;flex-direction:column;justify-content:center}
+  .fundador .precio-f{font-size:clamp(34px,4vw,46px);font-weight:600;letter-spacing:-.04em;line-height:1}
+  .fundador .precio-f span{font-size:15px;font-weight:400;color:rgba(255,255,255,.6);letter-spacing:-.01em}
+  .fundador .antes{font-size:15px;color:rgba(255,255,255,.55);text-decoration:line-through;margin-top:4px}
+  .fundador .btn{margin-top:20px;width:100%;justify-content:center;background:#fff;color:#12324F;border:none;
+    box-shadow:0 14px 30px -14px rgba(0,0,0,.6)}
+  .fundador .btn:hover{background:#EAF1F7;transform:translateY(-2px)}
+  .fundador .fino{margin-top:14px;font-size:12px;line-height:1.5;color:rgba(255,255,255,.6)}
+  @media(max-width:900px){ .fundador .in{grid-template-columns:1fr} .fundador ul{grid-template-columns:1fr}
+    .fundador .caja{border-left:none;border-top:1px solid rgba(255,255,255,.16)} }
+
 </style>
 </head>
 <body>
@@ -1327,6 +1354,25 @@
       <h2>Planes claros.</h2>
     </div>
     <p class="price-note rev">Precios por clínica (no por profesional) en CLP, IVA no incluido. Ajustables anualmente según IPC.</p>
+    <div class="fundador rev">
+      <div class="in">
+        <div class="txt">
+          <span class="cinta">Plan Fundador &middot; primeras 10 cl&iacute;nicas</span>
+          <h3>Todo lo que ya funciona, al precio de lanzamiento.</h3>
+          <p>Agenda, fichas cl&iacute;nicas, consentimientos firmados, inventario, caja y la IA del panel funcionando desde hoy. Lo &uacute;nico que a&uacute;n no est&aacute; disponible es que el agente responda tu WhatsApp e Instagram: esa parte espera la verificaci&oacute;n de Meta.</p>
+          <ul><li><b>&rsaquo;</b> Agenda y ficha cl&iacute;nica completas</li><li><b>&rsaquo;</b> Consentimientos firmados</li><li><b>&rsaquo;</b> Inventario y caja</li><li><b>&rsaquo;</b> Copiloto de IA en el panel</li><li><b>&rsaquo;</b> Recordatorios autom&aacute;ticos por correo</li><li><b>&rsaquo;</b> Reservas online desde un enlace</li><li><b>&rsaquo;</b> Multi-sede y roles</li><li><b>&rsaquo;</b> Portal del paciente</li></ul>
+        </div>
+        <div class="caja">
+          <div class="precio-f">$49.990 <span>/ mes</span></div>
+          <div class="antes">Despu&eacute;s $69.990</div>
+          <button class="btn" type="button" data-plan="Fundador" data-demo>Quiero ser fundador</button>
+          <p class="fino">Precio congelado 12 meses. El canal de WhatsApp e Instagram se activa
+            <b style="color:#fff;font-weight:600">sin costo adicional</b> apenas Meta apruebe la verificaci&oacute;n
+            de la cuenta &mdash; sin fecha comprometida, porque no depende de nosotros.
+            Sin permanencia: cancelas cuando quieras.</p>
+        </div>
+      </div>
+    </div>
     <div class="planes">
       <div class="plan rev">
         <h3>Agenda</h3>
@@ -1491,7 +1537,7 @@
           <div class="fld"><label for="f-email">Email</label><input type="email" id="f-email" name="email" required placeholder="tu@correo.cl" autocomplete="email" aria-describedby="e-email"><small class="fld-err" id="e-email" hidden>Ingresa tu correo.</small></div>
           <div class="fld"><label for="f-fono">Teléfono / WhatsApp</label><input id="f-fono" name="fono" required placeholder="+56 9 …" inputmode="tel" autocomplete="tel" aria-describedby="e-fono"><small class="fld-err" id="e-fono" hidden>Ingresa tu teléfono.</small></div>
         </div>
-        <div class="fld"><label for="f-plan">Plan de interés</label><select id="f-plan" name="plan"><option>Sin definir aún</option><option>Agenda</option><option>Completo</option><option>Pro</option><option>Marketing</option><option>Full Service</option></select></div>
+        <div class="fld"><label for="f-plan">Plan de interés</label><select id="f-plan" name="plan"><option>Sin definir aún</option><option>Fundador</option><option>Agenda</option><option>Completo</option><option>Pro</option><option>Marketing</option><option>Full Service</option></select></div>
         <div class="fld"><label for="f-msg">Mensaje (opcional)</label><textarea id="f-msg" name="msg" rows="2" placeholder="Cuéntanos sobre tu clínica…"></textarea></div>
         <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden"><label for="f-website">No llenar este campo</label><input id="f-website" name="website" tabindex="-1" autocomplete="off"></div>
         <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Enviar solicitud <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
@@ -1517,7 +1563,8 @@
     email:'hola@medique.cl',
     portal:'https://portal.medique.cl',
     endpoint:'/api/email',                  // ← solicitudes de demo → correo a medique.cl@gmail.com (api/email.js, action:'lead')
-    checkout:{Agenda:'',Completo:'',Pro:'',Marketing:'','Full Service':''}  // ← URLs de pago (Stripe/MercadoPago) por plan
+    checkout:{
+      'Fundador':'',Agenda:'',Completo:'',Pro:'',Marketing:'','Full Service':''}  // ← URLs de pago (Stripe/MercadoPago) por plan
   };
   function waLink(t){return 'https://wa.me/'+MEDIQUE.whatsapp+'?text='+encodeURIComponent(t);}
 
