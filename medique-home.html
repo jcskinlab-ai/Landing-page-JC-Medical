@@ -24,7 +24,7 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
 {"@type":"Organization","name":"Medique","url":"https://www.medique.cl/","logo":"https://www.medique.cl/assets/og-medique.jpg","description":"Software de gestión para clínicas de medicina estética en Chile: agenda, fichas clínicas, marketing y agente de IA.","areaServed":"CL"},
-{"@type":"SoftwareApplication","name":"Medique","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://www.medique.cl/","description":"El sistema operativo para clínicas estéticas: agenda inteligente, fichas clínicas, inventario, caja, marketing y agente de IA.","offers":{"@type":"AggregateOffer","priceCurrency":"CLP","lowPrice":"24500","highPrice":"249200","offerCount":"4"}},
+{"@type":"SoftwareApplication","name":"Medique","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://www.medique.cl/","description":"El sistema operativo para clínicas estéticas: agenda inteligente, fichas clínicas, inventario, caja, marketing y agente de IA.","offers":{"@type":"AggregateOffer","priceCurrency":"CLP","lowPrice":"24500","highPrice":"183800","offerCount":"4"}},
 {"@type":"FAQPage","mainEntity":[
 {"@type":"Question","name":"¿Cómo se protege la información de mi clínica?","acceptedAnswer":{"@type":"Answer","text":"Cada clínica tiene sus datos aislados, cifrados y respaldados automáticamente. Los accesos se controlan por roles y sede, cumpliendo con la normativa chilena de protección de datos (Ley 19.628)."}},
 {"@type":"Question","name":"¿Puedo migrar mis datos desde Excel u otro sistema?","acceptedAnswer":{"@type":"Answer","text":"Sí. Puedes importar tus pacientes desde Excel o CSV, y te acompañamos en el proceso para que tu clínica quede operando sin perder información."}},
@@ -281,6 +281,8 @@
   .plan li{display:flex;gap:9px;align-items:flex-start;letter-spacing:-.01em}
   .plan li b{color:var(--azul);font-weight:700;flex:0 0 auto}
   .plan .btn{width:100%;margin-top:auto}
+  .plan .nota-plan{font-size:12px;color:var(--tx-2);line-height:1.5;margin:0 0 14px;text-wrap:pretty}
+  .soon{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(138,107,0,.13);color:#7A5E00;white-space:nowrap}
 
   /* ── Regla de usuarios + créditos + adicionales ── */
   .regla-user{margin-top:22px;background:#fff;border:1px solid rgba(0,0,0,.06);border-left:3px solid var(--azul);border-radius:var(--r);padding:22px 26px;display:flex;gap:18px;align-items:flex-start}
@@ -1380,7 +1382,7 @@
           <span class="cinta">Plan Fundador &middot; primeras 10 cl&iacute;nicas</span>
           <h3>Todo lo que ya funciona, al precio de lanzamiento.</h3>
           <p>Agenda, fichas cl&iacute;nicas, consentimientos firmados, inventario, caja y la IA del panel funcionando desde hoy. La mensajer&iacute;a autom&aacute;tica con WhatsApp e Instagram est&aacute; en desarrollo y entra en tu plan sin costo cuando se libere.</p>
-          <ul><li><b>&rsaquo;</b> Agenda y ficha cl&iacute;nica completas</li><li><b>&rsaquo;</b> Consentimientos firmados</li><li><b>&rsaquo;</b> Inventario y caja</li><li><b>&rsaquo;</b> Copiloto de IA en el panel</li><li><b>&rsaquo;</b> Recordatorios autom&aacute;ticos por correo</li><li><b>&rsaquo;</b> Reservas online desde un enlace</li><li><b>&rsaquo;</b> Multi-sede y roles</li><li><b>&rsaquo;</b> Portal del paciente</li><li><b>&rsaquo;</b> Hasta 8 profesionales que atienden</li><li><b>&rsaquo;</b> 40.000 cr&eacute;ditos al mes</li></ul>
+          <ul><li><b>&rsaquo;</b> Agenda y ficha cl&iacute;nica completas</li><li><b>&rsaquo;</b> Consentimientos firmados</li><li><b>&rsaquo;</b> Inventario y caja</li><li><b>&rsaquo;</b> Copiloto de IA en el panel</li><li><b>&rsaquo;</b> Recordatorios autom&aacute;ticos por correo <b style="color:#BBD3E6;font-weight:600">· ya funciona</b></li><li><b>&rsaquo;</b> Reservas online desde un enlace</li><li><b>&rsaquo;</b> Roles y permisos por equipo</li><li><b>&rsaquo;</b> Portal del paciente</li><li><b>&rsaquo;</b> Hasta 8 profesionales que atienden</li><li><b>&rsaquo;</b> 40.000 cr&eacute;ditos al mes (se activan al liberar la mensajer&iacute;a)</li></ul>
         </div>
         <div class="caja">
           <div class="precio-f">2,2 UF <span>/ mes</span></div>
@@ -1402,9 +1404,10 @@
           <li><b aria-hidden="true">›</b> Agenda diaria con estados de citas</li>
           <li><b aria-hidden="true">›</b> Panel móvil para el equipo</li>
           <li><b aria-hidden="true">›</b> Reserva online + código QR</li>
-          <li><b aria-hidden="true">›</b> Recordatorio por WhatsApp 24 h</li>
+          <li><b aria-hidden="true">›</b> Recordatorios automáticos por correo</li>
+          <li><b aria-hidden="true">›</b> Recordatorio por WhatsApp 24 h <span class="soon">Próximamente</span></li>
           <li><b aria-hidden="true">›</b> 1 profesional · 1 sucursal</li>
-          <li><b aria-hidden="true">›</b> 6.000 créditos al mes</li>
+          <li><b aria-hidden="true">›</b> 6.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
         <a class="btn btn-s plan-cta" href="#demo" data-plan="Agenda">Empezar con Agenda</a>
       </div>
@@ -1418,7 +1421,7 @@
           <li><b aria-hidden="true">›</b> Consentimientos + firma médica</li>
           <li><b aria-hidden="true">›</b> Caja, finanzas e inventario</li>
           <li><b aria-hidden="true">›</b> Hasta 3 profesionales · 1 sucursal</li>
-          <li><b aria-hidden="true">›</b> 15.000 créditos al mes</li>
+          <li><b aria-hidden="true">›</b> 15.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
         <a class="btn btn-s plan-cta" href="#demo" data-plan="Completo">Elegir Completo</a>
       </div>
@@ -1433,22 +1436,23 @@
           <li><b aria-hidden="true">›</b> Copilot clínico integrado</li>
           <li><b aria-hidden="true">›</b> Lectura de facturas con IA</li>
           <li><b aria-hidden="true">›</b> Hasta 8 profesionales · 1 sucursal</li>
-          <li><b aria-hidden="true">›</b> 40.000 créditos al mes</li>
+          <li><b aria-hidden="true">›</b> 40.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
         <a class="btn btn-p plan-cta" href="#demo" data-plan="Pro">Probar Pro con una demo</a>
       </div>
       <div class="plan rev">
         <h3>Marketing</h3>
         <p class="p">Clínica que invierte en publicidad y quiere pacientes agendando solos por WhatsApp.</p>
-        <div class="price"><span class="v">6,1 UF</span><span class="u">/mes</span><span class="clp">≈ $249.200 CLP</span></div>
+        <div class="price"><span class="v">4,5 UF</span><span class="u">/mes</span><span class="clp">≈ $183.800 CLP</span></div>
         <ul>
           <li><b aria-hidden="true">›</b> Todo lo de Pro</li>
-          <li><b aria-hidden="true">›</b> Bot de WhatsApp 24/7 (agenda solo)</li>
+          <li><b aria-hidden="true">›</b> Bot de WhatsApp 24/7 (agenda solo) <span class="soon">Próximamente</span></li>
           <li><b aria-hidden="true">›</b> Meta Ads conectado</li>
           <li><b aria-hidden="true">›</b> CRM de leads: anuncio → cita agendada</li>
           <li><b aria-hidden="true">›</b> Hasta 15 profesionales · 2 sucursales</li>
-          <li><b aria-hidden="true">›</b> 90.000 créditos al mes</li>
+          <li><b aria-hidden="true">›</b> 90.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
+        <p class="nota-plan">Precio de lanzamiento mientras el bot está en desarrollo. El precio de lista es 6,1 UF y entra en vigor cuando se libere la mensajería: si contratas ahora, mantienes 4,5 UF durante 12 meses.</p>
         <a class="btn btn-s plan-cta" href="#demo" data-plan="Marketing">Quiero Marketing</a>
       </div>
     </div>
@@ -1490,7 +1494,7 @@
         <h3>Full Service — tu Meta Ads gestionado por un experto.</h3>
         <p>Para la clínica que quiere delegar por completo su publicidad y ventas mientras el equipo se enfoca en la atención clínica. Un experto certificado crea y gestiona activamente tus campañas — no solo te conecta el dashboard.</p>
         <ul class="ps-list">
-          <li><b aria-hidden="true">›</b> Todo lo de Marketing (bot WhatsApp + Meta Ads + CRM)</li>
+          <li><b aria-hidden="true">›</b> Todo lo de Marketing (Meta Ads + CRM; bot de WhatsApp <span class="soon">Próximamente</span>)</li>
           <li><b aria-hidden="true">›</b> Creación y gestión activa de campañas Meta Ads</li>
           <li><b aria-hidden="true">›</b> Diseño de creativos publicitarios a medida</li>
           <li><b aria-hidden="true">›</b> Tutoría mensual de venta directa (4 sesiones)</li>
@@ -1499,8 +1503,8 @@
         </ul>
       </div>
       <div class="ps-cta">
-        <div class="ps-price">Desde 8,5 UF / mes <span style="font-weight:400;color:var(--tx-2);font-size:13px">(≈ $347.200)</span></div>
-        <p>Se suma a tu plan. Cupos limitados por clínica para asegurar atención dedicada del experto.</p>
+        <div class="ps-price">24,5 UF / mes <span style="font-weight:400;color:var(--tx-2);font-size:13px">(≈ $1.000.700)</span></div>
+        <p>Se suma a tu plan. <b>Máximo 5 clínicas a la vez</b>: es gestión humana todos los meses, no un panel más. El SLA de 2 horas existe porque el cupo está cerrado.</p>
         <a class="btn btn-p" href="#demo" data-plan="Full Service">Hablar con nosotros</a>
       </div>
     </div>
