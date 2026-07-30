@@ -6,7 +6,7 @@
 <link rel="icon" type="image/svg+xml" href="/assets/favicon-dental.svg" />
 <link rel="apple-touch-icon" href="/assets/favicon-dental.svg" />
 <title>Medique Dental — Software para consultorios odontológicos en Chile</title>
-<meta name="description" content="Odontograma digital FDI, presupuestos con firma y cuotas, agenda por sillón, IA clínica orientativa, portal del paciente y bot de WhatsApp. Para consultorios odontológicos de Chile. Desde $49.990 CLP/mes." />
+<meta name="description" content="Odontograma digital FDI, presupuestos con firma y cuotas, agenda por sillón, IA clínica orientativa, portal del paciente y bot de WhatsApp. Para consultorios odontológicos de Chile. Desde 1,3 UF al mes (≈ $53.100)." />
 <meta name="theme-color" content="#E9F1F4" />
 <meta name="robots" content="index,follow" />
 <link rel="canonical" href="https://dental.medique.cl/" />
@@ -324,7 +324,9 @@
     padding:34px 30px;display:flex;flex-direction:column;justify-content:center}
   .fundador .precio-f{font-size:clamp(34px,4vw,46px);font-weight:600;letter-spacing:-.04em;line-height:1}
   .fundador .precio-f span{font-size:15px;font-weight:400;color:rgba(255,255,255,.6);letter-spacing:-.01em}
-  .fundador .antes{font-size:15px;color:rgba(255,255,255,.55);text-decoration:line-through;margin-top:4px}
+  .fundador .clp-f{font-size:14px;color:rgba(255,255,255,.72);margin-top:8px;letter-spacing:-.01em}
+  .fundador .antes{font-size:14px;color:rgba(255,255,255,.55);margin-top:6px}
+  .fundador .antes s{text-decoration:line-through}
   .fundador .btn{margin-top:20px;width:100%;justify-content:center;background:#fff;color:#12324F;border:none;
     box-shadow:0 14px 30px -14px rgba(0,0,0,.6)}
   .fundador .btn:hover{background:#EAF1F7;transform:translateY(-2px)}
@@ -343,12 +345,30 @@
   .plan .price{display:flex;align-items:baseline;gap:6px;margin:16px 0 18px;padding-bottom:18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
   .plan .price .v{font-family:var(--mono);font-weight:600;font-size:30px;line-height:1;letter-spacing:-.04em}
   .plan .price .u{font-size:12px;color:var(--tx-2);line-height:1.2}
+  .plan .price .clp{flex:0 0 100%;font-size:13px;color:var(--tx-2);margin-top:9px;letter-spacing:-.01em;font-family:var(--mono)}
   .plan ul{margin:0 0 24px;display:flex;flex-direction:column;gap:10px;font-size:14px;color:var(--tx-2)}
   .plan li{display:flex;gap:9px;align-items:flex-start;letter-spacing:-.01em;text-wrap:pretty}
   .plan li svg{color:var(--azul);flex:0 0 auto;margin-top:4px}
   .plan .btn{width:100%;justify-content:center;margin-top:auto}
   .price-note{display:flex;justify-content:center;gap:8px;align-items:center;color:var(--tx-2);font-size:13px;margin-top:18px;text-align:center;flex-wrap:wrap}
   @media(max-width:880px){.planes{grid-template-columns:1fr}.plan.top{order:-1}}
+
+  /* ── Regla de usuarios + créditos + adicionales ── */
+  .regla-user{margin-top:22px;padding:22px 26px;display:flex;gap:18px;align-items:flex-start}
+  .regla-user .ru-ic{flex:0 0 auto;color:var(--azul);margin-top:2px}
+  .regla-user h3{font-size:17px;margin:0 0 6px;letter-spacing:-.02em}
+  .regla-user p{font-size:14px;color:var(--tx-2);margin:0;line-height:1.6;text-wrap:pretty;max-width:76ch}
+  .detalle-precio{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .dp{padding:26px 26px 22px}
+  .dp h3{font-size:16px;margin:0 0 4px;letter-spacing:-.02em}
+  .dp > p{font-size:13px;color:var(--tx-2);margin:0 0 16px;line-height:1.55;text-wrap:pretty}
+  .dp-fila{display:flex;justify-content:space-between;gap:14px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .dp-fila:last-of-type{border-bottom:none}
+  .dp-fila span:first-child{color:var(--tx-2);letter-spacing:-.01em}
+  .dp-fila span:last-child{font-weight:600;white-space:nowrap;font-family:var(--mono)}
+  .dp-fila em{font-style:normal;font-weight:400;color:var(--tx-2);font-size:12px}
+  .dp-pie{font-size:12px;color:var(--tx-2);margin:14px 0 0;line-height:1.55;text-wrap:pretty}
+  @media(max-width:880px){.detalle-precio{grid-template-columns:1fr}.regla-user{flex-direction:column;gap:12px}}
 
 
   /* ═══ VENTANAS DE DETALLE ═══
@@ -764,7 +784,7 @@
       <a class="btn btn-p" href="#demo">Agendar demo</a>
       <a class="btn btn-s" href="#producto">Ver el odontograma ›</a>
     </div>
-    <p class="micro rev">Desde $49.990 CLP/mes · sin permanencia · hecho en Chile</p>
+    <p class="micro rev">Desde 1,3 UF/mes (≈ $53.100) · sin permanencia · hecho en Chile</p>
   </div>
   <div class="escena">
     <div class="marco" id="marco">
@@ -1177,7 +1197,7 @@
   <div class="w-lg">
     <div class="sec-head c rev">
       <h2>Planes claros,<br>en pesos chilenos.</h2>
-      <p class="lead">Sin permanencia mínima y sin costo de implementación. Cambias de plan cuando tu consultorio crece.</p>
+      <p class="lead">Precios en UF, sin permanencia mínima. Cambias de plan cuando tu consultorio crece.</p>
     </div>
     <div class="fundador rev">
       <div class="in">
@@ -1185,15 +1205,16 @@
           <span class="cinta">Plan Fundador &middot; primeras 10 cl&iacute;nicas</span>
           <h3>Todo lo que ya funciona, al precio de lanzamiento.</h3>
           <p>Odontograma, plano de tratamiento firmado, agenda por sill&oacute;n, caja y la IA cl&iacute;nica funcionando desde hoy. La mensajer&iacute;a autom&aacute;tica con WhatsApp e Instagram est&aacute; en desarrollo y entra en tu plan sin costo cuando se libere.</p>
-          <ul><li><b>&rsaquo;</b> Odontograma de 32 piezas</li><li><b>&rsaquo;</b> Plano de tratamiento firmado</li><li><b>&rsaquo;</b> Agenda por sill&oacute;n</li><li><b>&rsaquo;</b> Radiograf&iacute;as en la ficha</li><li><b>&rsaquo;</b> Resumen cl&iacute;nico con IA</li><li><b>&rsaquo;</b> Recordatorios por correo</li><li><b>&rsaquo;</b> Portal del paciente</li><li><b>&rsaquo;</b> Caja y cuotas</li></ul>
+          <ul><li><b>&rsaquo;</b> Odontograma de 32 piezas</li><li><b>&rsaquo;</b> Plano de tratamiento firmado</li><li><b>&rsaquo;</b> Agenda por sill&oacute;n</li><li><b>&rsaquo;</b> Radiograf&iacute;as en la ficha</li><li><b>&rsaquo;</b> Resumen cl&iacute;nico con IA</li><li><b>&rsaquo;</b> Recordatorios por correo</li><li><b>&rsaquo;</b> Portal del paciente</li><li><b>&rsaquo;</b> Caja y cuotas</li><li><b>&rsaquo;</b> 4 sillones y 8 profesionales</li><li><b>&rsaquo;</b> 45.000 cr&eacute;ditos al mes</li></ul>
         </div>
         <div class="caja">
-          <div class="precio-f">$59.990 <span>/ mes</span></div>
-          <div class="antes">Despu&eacute;s $79.990</div>
+          <div class="precio-f">2,4 UF <span>/ mes</span></div>
+          <div class="clp-f">&asymp; $98.000 CLP al valor de hoy</div>
+          <div class="antes">Precio de lista: <s>3,7 UF</s> (&asymp; $151.100)</div>
           <button class="btn" type="button" data-plan="Fundador" data-demo>Quiero ser fundador</button>
           <p class="fino">Precio congelado 12 meses. Todo lo que liberemos en ese periodo &mdash;incluida la mensajer&iacute;a con WhatsApp e Instagram&mdash;
             entra en tu plan <b style="color:#fff;font-weight:600">sin costo adicional</b>, al mismo precio.
-            Sin permanencia: cancelas cuando quieras.</p>
+            Sin permanencia: cancelas cuando quieras. La configuraci&oacute;n inicial (8,5 UF por &uacute;nica vez) se cobra aparte.</p>
         </div>
       </div>
     </div>
@@ -1201,9 +1222,10 @@
       <div class="plan rev">
         <h3>Consulta</h3>
         <p class="pd">Para el consultorio de un profesional que quiere dejar el papel y el Excel.</p>
-        <div class="price"><span class="v">$49.990</span><span class="u">CLP<br>/mes</span></div>
+        <div class="price"><span class="v">1,3 UF</span><span class="u">/mes</span><span class="clp">≈ $53.100 CLP</span></div>
         <ul>
-          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>1 sillón y 1 profesional</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>1 sillón · 1 profesional · 1 sede</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>8.000 créditos al mes</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Odontograma digital completo</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Presupuestos con firma digital</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Agenda y reserva en línea 24/7</li>
@@ -1215,9 +1237,10 @@
         <span class="et">Más elegido</span>
         <h3>Clínica</h3>
         <p class="pd">Para consultorios con varios sillones y un equipo que necesita coordinarse.</p>
-        <div class="price"><span class="v">$79.990</span><span class="u">CLP<br>/mes</span></div>
+        <div class="price"><span class="v">3,7 UF</span><span class="u">/mes</span><span class="clp">≈ $151.100 CLP</span></div>
         <ul>
-          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Hasta 4 sillones y profesionales ilimitados</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Hasta 4 sillones y 8 profesionales</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>45.000 créditos al mes</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Todo lo del plan Consulta</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Pagos por cuotas: abono y saldo</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>IA clínica: resumen y plan sugerido</li>
@@ -1229,9 +1252,10 @@
       <div class="plan rev">
         <h3>Red</h3>
         <p class="pd">Para redes odontológicas con más de una sede y ambición de crecer.</p>
-        <div class="price"><span class="v">$129.990</span><span class="u">CLP<br>/mes</span></div>
+        <div class="price"><span class="v">8,5 UF</span><span class="u">/mes</span><span class="clp">≈ $347.200 CLP</span></div>
         <ul>
-          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Sillones y sedes ilimitados</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Sillones ilimitados · hasta 25 profesionales · 3 sedes</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>120.000 créditos al mes</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Todo lo del plan Clínica</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Meta Ads integrado al panel</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Reportes consolidados por sede</li>
@@ -1241,7 +1265,38 @@
         <button class="btn btn-s" type="button" data-plan="Red">Agendar demo</button>
       </div>
     </div>
-    <p class="price-note">Valores mensuales en CLP, IVA incluido. Lanzamiento Q4 2026.</p>
+    <div class="card regla-user rev">
+      <svg class="ru-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <div>
+        <h3>Recepción y administración no pagan usuario.</h3>
+        <p>Solo cuentan los profesionales que atienden pacientes, los que ocupan un sillón en la agenda. Recepcionistas, asistentes dentales, administrativos y contadores son <b>ilimitados y sin costo</b>. Cada uno con su propia clave, porque la trazabilidad de quién modificó cada odontograma es lo que hace defendible tu ficha clínica.</p>
+      </div>
+    </div>
+
+    <div class="detalle-precio rev">
+      <div class="card dp">
+        <h3>Qué consume un crédito</h3>
+        <p>Los créditos cubren la mensajería, el agendamiento automático y las campañas salientes. Se renuevan cada mes y te avisamos al 80% de consumo.</p>
+        <div class="dp-fila"><span>Conversación de texto <em>(hasta 10 mensajes)</em></span><span>10</span></div>
+        <div class="dp-fila"><span>Agendamiento confirmado por el bot</span><span>150</span></div>
+        <div class="dp-fila"><span>Recordatorio o plantilla suelta</span><span>5</span></div>
+        <div class="dp-fila"><span>Reactivación de paciente <em>(mensaje saliente)</em></span><span>15</span></div>
+        <div class="dp-fila"><span>Minuto de voz <em>(próximamente)</em></span><span>100</span></div>
+        <p class="dp-pie">Si superas el cupo, se carga un bloque de 10.000 créditos por 0,5 UF y seguimos andando. El odontograma, los presupuestos, la agenda y la caja no consumen créditos: solo la mensajería.</p>
+      </div>
+      <div class="card dp">
+        <h3>Adicionales</h3>
+        <p>Todo en UF, sin letra chica. Los pagos únicos se cobran una sola vez, al inicio.</p>
+        <div class="dp-fila"><span>Configuración inicial <em>(pago único)</em></span><span>8,5 UF</span></div>
+        <div class="dp-fila"><span>Migración desde Dentalink o Medilink <em>(pago único)</em></span><span>8,5 UF</span></div>
+        <div class="dp-fila"><span>Profesional adicional</span><span>0,37 UF / mes</span></div>
+        <div class="dp-fila"><span>Sede adicional <em>(incluye 30.000 créditos)</em></span><span>2,0 UF / mes</span></div>
+        <div class="dp-fila"><span>Bloque de 10.000 créditos</span><span>0,5 UF</span></div>
+        <p class="dp-pie">La configuración inicial la hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda por sillón funcionando y capacitamos al equipo. Pago semestral adelantado: 10% de descuento.</p>
+      </div>
+    </div>
+
+    <p class="price-note">Precios en UF, con el equivalente en pesos al valor del día. IVA incluido. UF de referencia: $40.844,79 (30 de julio de 2026). Lanzamiento Q4 2026.</p>
   </div>
 </section>
 
@@ -1263,7 +1318,9 @@
       <div class="faq-item"><button class="faq-q" type="button">¿Puedo cobrar en cuotas?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. En el presupuesto defines un abono inicial y el saldo en cuotas. El sistema lleva el registro de lo pagado, lo pendiente y la próxima cuota, y el paciente ve lo mismo en su portal.</p></div></div>
       <div class="faq-item"><button class="faq-q" type="button">¿Sirve si tengo un solo sillón?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. El plan Consulta está pensado exactamente para eso: un profesional, un sillón, con el odontograma, los presupuestos y la reserva en línea completos. Cuando sumes sillones cambias de plan sin migrar nada.</p></div></div>
       <div class="faq-item"><button class="faq-q" type="button">¿Cómo se relaciona con el resto de Medique?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Medique Dental es la versión odontológica del mismo sistema. Comparte el panel, el bot de WhatsApp, la integración con Meta Ads y la IA. Si tu centro combina odontología con estética, funciona todo desde una sola cuenta.</p></div></div>
-      <div class="faq-item"><button class="faq-q" type="button">¿Hay costo de implementación o permanencia?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>No. La implementación es guiada y sin costo, y no hay permanencia mínima: cambias de plan o cancelas cuando quieras.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Hay costo de implementación o permanencia?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>No hay permanencia mínima: cambias de plan o cancelas cuando quieras. La configuración inicial sí se cobra, una sola vez (8,5 UF), y la hacemos nosotros contigo: cargamos tus pacientes, tu odontograma inicial, tus tratamientos y tus precios, dejamos la agenda por sillón funcionando y capacitamos al equipo.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Por qué los precios están en UF?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Porque es lo estándar en software chileno y evita el alza sorpresa. En vez de subirte el precio de golpe cada cierto tiempo, el valor se ajusta solo con la UF, que es un porcentaje mínimo al mes. Te cobramos en pesos, al valor de la UF del día de la factura.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Qué pasa si me quedo sin créditos?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Nada se corta. Te avisamos al 80% de consumo y, si igual lo superas, se carga automáticamente un bloque de 10.000 créditos por 0,5 UF. El odontograma, los presupuestos, la agenda y la caja no consumen créditos: solo la mensajería y el agendamiento automático.</p></div></div>
     </div>
   </div>
 </section>
