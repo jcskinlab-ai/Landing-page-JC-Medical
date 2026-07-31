@@ -281,6 +281,12 @@
   .plan li{display:flex;gap:9px;align-items:flex-start;letter-spacing:-.01em}
   .plan li b{color:var(--azul);font-weight:700;flex:0 0 auto}
   .plan .btn{width:100%;margin-top:auto}
+  /* ── Doble CTA por plan: agendar demo arriba, contratar abajo ── */
+  .plan-ctas{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+  .plan-ctas .btn{width:100%;margin-top:0}
+  .btn-pagar{background:transparent;border:1px solid var(--azul);color:var(--azul);font-weight:600}
+  .btn-pagar:hover{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .btn-pagar[hidden]{display:none}
   /* ── Selector de ciclo de pago ── */
   .ciclo-wrap{display:flex;justify-content:center;margin-top:24px}
   .ciclo{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:rgba(0,0,0,.05);border:1px solid var(--line)}
@@ -1398,6 +1404,7 @@
           <div class="clp-f">Precio fundador: ya es el descuento, no se combina con el semestral.</div>
           <div class="antes">Precio de lista: <s>$138.900</s></div>
           <button class="btn" type="button" data-plan="Fundador" data-demo>Quiero ser fundador</button>
+          <a class="btn btn-pagar" data-plan="Fundador" href="#" hidden style="margin-top:8px;background:transparent;border-color:rgba(255,255,255,.45);color:#fff">Contratar Fundador</a>
           <p class="fino">Precio congelado 12 meses. Todo lo que liberemos en ese periodo &mdash;incluida la mensajer&iacute;a con WhatsApp e Instagram&mdash;
             entra en tu plan <b style="color:#fff;font-weight:600">sin costo adicional</b>, al mismo precio.
             Sin permanencia: cancelas cuando quieras. La configuraci&oacute;n inicial ($347.200 por &uacute;nica vez) se cobra aparte.</p>
@@ -1424,7 +1431,10 @@
           <li><b aria-hidden="true">›</b> 1 profesional · 1 sucursal</li>
           <li><b aria-hidden="true">›</b> 6.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
-        <a class="btn btn-s plan-cta" href="#demo" data-plan="Agenda">Empezar con Agenda</a>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Agenda" data-demo>Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Agenda" href="#" hidden>Contratar Agenda</a>
+        </div>
       </div>
       <div class="plan rev">
         <h3>Completo</h3>
@@ -1438,7 +1448,10 @@
           <li><b aria-hidden="true">›</b> Hasta 3 profesionales · 1 sucursal</li>
           <li><b aria-hidden="true">›</b> 15.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
-        <a class="btn btn-s plan-cta" href="#demo" data-plan="Completo">Elegir Completo</a>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Completo" data-demo>Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Completo" href="#" hidden>Contratar Completo</a>
+        </div>
       </div>
       <div class="plan top rev">
         <span class="et">Recomendado</span>
@@ -1453,7 +1466,10 @@
           <li><b aria-hidden="true">›</b> Hasta 8 profesionales · 1 sucursal</li>
           <li><b aria-hidden="true">›</b> 40.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
-        <a class="btn btn-p plan-cta" href="#demo" data-plan="Pro">Probar Pro con una demo</a>
+        <div class="plan-ctas">
+          <button class="btn btn-p" type="button" data-plan="Pro" data-demo>Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Pro" href="#" hidden>Contratar Pro</a>
+        </div>
       </div>
       <div class="plan rev">
         <h3>Marketing</h3>
@@ -1468,7 +1484,10 @@
           <li><b aria-hidden="true">›</b> 90.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
         <p class="nota-plan">Precio de lanzamiento mientras el bot está en desarrollo. El precio de lista es $249.200 y entra en vigor cuando se libere la mensajería: si contratas ahora, mantienes $183.800 durante 12 meses.</p>
-        <a class="btn btn-s plan-cta" href="#demo" data-plan="Marketing">Quiero Marketing</a>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Marketing" data-demo>Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Marketing" href="#" hidden>Contratar Marketing</a>
+        </div>
       </div>
     </div>
 
@@ -1640,7 +1659,9 @@
     portal:'https://portal.medique.cl',
     endpoint:'/api/email',                  // ← solicitudes de demo → correo a medique.cl@gmail.com (api/email.js, action:'lead')
     checkout:{
-      'Fundador':'',Agenda:'',Completo:'',Pro:'',Marketing:'','Full Service':''}  // ← URLs de pago (Stripe/MercadoPago) por plan
+      // ← Pega acá el link de Mercado Pago de cada plan. En cuanto uno tenga URL,
+      //   su botón "Contratar" aparece solo en la tarjeta. Vacío = botón oculto.
+      'Fundador':'',Agenda:'',Completo:'',Pro:'',Marketing:'','Full Service':''}
   };
   function waLink(t){return 'https://wa.me/'+MEDIQUE.whatsapp+'?text='+encodeURIComponent(t);}
 
@@ -1677,18 +1698,23 @@
     setTimeout(function(){var f=form.querySelector('input');if(f)f.focus();},80);
   }
   function closeModal(){modal.classList.remove('show');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';setInert(false);var mm=document.getElementById('mm');if(mm)mm.classList.remove('show');if(lastFocus)lastFocus.focus();}
-  // open: any link to #demo or [data-demo] (los .plan-cta tienen su propio handler)
-  document.querySelectorAll('a[href="#demo"]:not(.plan-cta),[data-demo]').forEach(function(a){
+  // open: cualquier enlace a #demo o [data-demo]. Los .btn-pagar se excluyen: llevan a la pasarela.
+  document.querySelectorAll('a[href="#demo"]:not(.btn-pagar),[data-demo]').forEach(function(a){
     a.addEventListener('click',function(e){e.preventDefault();openModal(a.getAttribute('data-plan'));});
   });
-  // plan CTAs → checkout URL if defined, else open modal with the plan
-  document.querySelectorAll('.plan .btn').forEach(function(b){
-    b.addEventListener('click',function(e){
-      e.preventDefault();
-      var plan=b.getAttribute('data-plan')||b.closest('.plan').querySelector('h3').textContent.trim();
-      var url=MEDIQUE.checkout[plan];
-      if(url){window.location.href=url;}else{openModal(plan);}
-    });
+
+  /* Botón "Contratar": aparece SOLO si ese plan tiene URL de pago cargada en
+     MEDIQUE.checkout. Un botón de pago que no lleva a ninguna parte es peor que
+     no tenerlo —el visitante hace clic, no pasa nada y se va—, así que se revela
+     cuando hay a dónde ir y no antes. Pegando el link de Mercado Pago en el
+     objeto de arriba, el botón sale solo: no hay que tocar nada más. */
+  document.querySelectorAll('.btn-pagar').forEach(function (b) {
+    var url = (MEDIQUE.checkout || {})[b.getAttribute('data-plan')];
+    if (!url) return;
+    b.setAttribute('href', url);
+    b.setAttribute('target', '_blank');
+    b.setAttribute('rel', 'noopener');
+    b.hidden = false;
   });
   // close: overlay / x / Esc
   modal.addEventListener('click',function(e){if(e.target===modal||e.target.hasAttribute('data-close'))closeModal();});

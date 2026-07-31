@@ -352,6 +352,12 @@
   .plan .btn{width:100%;justify-content:center;margin-top:auto}
   .price-note{display:flex;justify-content:center;gap:8px;align-items:center;color:var(--tx-2);font-size:13px;margin-top:18px;text-align:center;flex-wrap:wrap}
   @media(max-width:880px){.planes{grid-template-columns:1fr}.plan.top{order:-1}}
+  /* ── Doble CTA por plan: agendar demo arriba, contratar abajo ── */
+  .plan-ctas{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+  .plan-ctas .btn{width:100%;margin-top:0}
+  .btn-pagar{background:transparent;border:1px solid var(--azul);color:var(--azul);font-weight:600}
+  .btn-pagar:hover{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .btn-pagar[hidden]{display:none}
   /* ── Selector de ciclo de pago ── */
   .ciclo-wrap{display:flex;justify-content:center;margin-top:24px}
   .ciclo{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:rgba(0,0,0,.05);border:1px solid var(--line)}
@@ -1222,6 +1228,7 @@
           <div class="clp-f">Precio fundador: ya es el descuento, no se combina con el semestral.</div>
           <div class="antes">Precio de lista: <s>$151.100</s></div>
           <button class="btn" type="button" data-plan="Fundador" data-demo>Quiero ser fundador</button>
+          <a class="btn btn-pagar" data-plan="Fundador" href="#" hidden style="margin-top:8px;background:transparent;border-color:rgba(255,255,255,.45);color:#fff">Contratar Fundador</a>
           <p class="fino">Precio congelado 12 meses. Todo lo que liberemos en ese periodo &mdash;incluida la mensajer&iacute;a con WhatsApp e Instagram&mdash;
             entra en tu plan <b style="color:#fff;font-weight:600">sin costo adicional</b>, al mismo precio.
             Sin permanencia: cancelas cuando quieras. La configuraci&oacute;n inicial ($347.200 por &uacute;nica vez) se cobra aparte.</p>
@@ -1247,7 +1254,10 @@
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Agenda y reserva en línea 24/7</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Portal del paciente</li>
         </ul>
-        <button class="btn btn-s" type="button" data-plan="Consulta">Agendar demo</button>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Consulta">Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Consulta" href="#" hidden>Contratar Consulta</a>
+        </div>
       </div>
       <div class="plan top rev">
         <span class="et">Más elegido</span>
@@ -1263,7 +1273,10 @@
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Bot de WhatsApp de la clínica <span class="soon">Próximamente</span></li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Consentimientos, indicaciones y recetas</li>
         </ul>
-        <button class="btn btn-p" type="button" data-plan="Clínica">Agendar demo</button>
+        <div class="plan-ctas">
+          <button class="btn btn-p" type="button" data-plan="Clínica">Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Clínica" href="#" hidden>Contratar Clínica</a>
+        </div>
       </div>
       <div class="plan rev">
         <h3>Red</h3>
@@ -1278,7 +1291,10 @@
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Permisos por rol y datos aislados por sede</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Soporte prioritario</li>
         </ul>
-        <button class="btn btn-s" type="button" data-plan="Red">Agendar demo</button>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Red">Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Red" href="#" hidden>Contratar Red</a>
+        </div>
       </div>
     </div>
     <div class="card regla-user rev">
@@ -1428,7 +1444,10 @@
   /* Guarda global: se lee UNA vez y condiciona todos los comportamientos. */
   var quieto = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 
-  var MEDIQUE={ whatsapp:'56977636248', email:'hola@medique.cl', panel:'/panel', endpoint:'/api/email' };
+  var MEDIQUE={ whatsapp:'56977636248', email:'hola@medique.cl', panel:'/panel', endpoint:'/api/email',
+    // ← Pega acá el link de Mercado Pago de cada plan. En cuanto uno tenga URL,
+    //   su botón "Contratar" aparece solo en la tarjeta. Vacío = botón oculto.
+    checkout:{ 'Fundador':'', Consulta:'', 'Clínica':'', Red:'' } };
   function waLink(t){return 'https://wa.me/'+MEDIQUE.whatsapp+'?text='+encodeURIComponent(t);}
 
   /* ── odontograma INTERACTIVO: 32 piezas FDI ─────────
@@ -1743,8 +1762,22 @@
   document.querySelectorAll('a[href="#demo"],[data-demo]').forEach(function(a){
     a.addEventListener('click',function(e){ e.preventDefault(); openModal(a.getAttribute('data-plan')); });
   });
-  document.querySelectorAll('.plan .btn').forEach(function(b){
+  document.querySelectorAll('.plan .btn:not(.btn-pagar)').forEach(function(b){
     b.addEventListener('click',function(e){ e.preventDefault(); openModal(b.getAttribute('data-plan')); });
+  });
+
+  /* Botón "Contratar": aparece SOLO si ese plan tiene URL de pago cargada en
+     MEDIQUE.checkout. Un botón de pago que no lleva a ninguna parte es peor que
+     no tenerlo —el visitante hace clic, no pasa nada y se va—, así que se revela
+     cuando hay a dónde ir y no antes. Pegando el link de Mercado Pago en el
+     objeto de arriba, el botón sale solo: no hay que tocar nada más. */
+  document.querySelectorAll('.btn-pagar').forEach(function (b) {
+    var url = (MEDIQUE.checkout || {})[b.getAttribute('data-plan')];
+    if (!url) return;
+    b.setAttribute('href', url);
+    b.setAttribute('target', '_blank');
+    b.setAttribute('rel', 'noopener');
+    b.hidden = false;
   });
   modal.addEventListener('click',function(e){ if(e.target===modal||e.target.hasAttribute('data-close')) closeModal(); });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&modal.classList.contains('show')) closeModal(); });
