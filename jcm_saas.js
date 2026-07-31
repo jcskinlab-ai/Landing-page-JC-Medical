@@ -346,6 +346,15 @@
       // La reserva directa (agendar.html) muestra SOLO estos, no el catálogo de otra clínica.
       services: (typeof window.clinicServiceList === 'function') ? window.clinicServiceList() : [],
       collabForm: (window.DB && window.DB.get('collab_form')) || null,
+      // Equipo, para que la reserva directa deje elegir profesional. Se publican SOLO los campos
+      // que esa página necesita — nombre, color y horario de atención. Nunca correo, teléfono, PIN
+      // ni permisos: este documento es de lectura pública.
+      team: (function () {
+        var t = (window.DB && window.DB.get('team')) || [];
+        if (!Array.isArray(t)) return [];
+        return t.filter(function (m) { return m && m.name && m.active !== false; })
+                .map(function (m) { return { id: m.id || m.name, name: m.name, color: m.color || '', horario: m.horario || null }; });
+      })(),
       // Slots ocupados (expandidos por duración): un appointment de 60 min a las 13:00 bloquea
       // 13:00 y 13:30. La app pública los lee sin necesitar acceso al KV privado.
       busySlots: (function () {
@@ -362,7 +371,9 @@
           var durMin = a.durMin || parseInt(a.dur) || 30;
           for (var t = startMin; t < startMin + durMin; t += 30) {
             var hh = Math.floor(t / 60), mm = t % 60;
-            slots.push({ fecha: a.fecha, time: (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm });
+            // `prof` viaja con cada hora ocupada: sin esto, la cita de UN profesional bloqueaba
+            // esa hora para TODOS en la reserva directa. Vacío = cita sin profesional asignado.
+            slots.push({ fecha: a.fecha, time: (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm, prof: (a.prof || '') });
           }
         });
         return slots;
@@ -883,7 +894,7 @@
     // La página de reserva (sin login) deja la reserva en la clínica activa (modo público).
     submitBooking: function (data) {
       if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });
-      var doc = { name: '', phone: '', email: '', proc: '', fecha: '', time: '', dur: '', procs: [], note: '', source: 'web', createdAt: Date.now() };
+      var doc = { name: '', phone: '', email: '', proc: '', prof: '', fecha: '', time: '', dur: '', procs: [], note: '', source: 'web', createdAt: Date.now() };
       Object.keys(data || {}).forEach(function (k) { if (k in doc) doc[k] = data[k]; });
       return db.collection('tenants').doc(state.clinicId).collection('bookings').add(doc);
     },
@@ -913,7 +924,9 @@
           var dayOff = 0;
           try { dayOff = Math.round((new Date(b.fecha + 'T00:00:00') - new Date().setHours(0, 0, 0, 0)) / 86400000); } catch (e) {}
           appts.push({
-            id: 'web' + d.id, _bk: d.id, name: b.name || '', phone: b.phone || '', email: b.email || '',
+            // `prof`: el profesional que el paciente eligió en la reserva directa. Sin esto la cita
+            // entraba sin dueño y caía siempre en la agenda del primero del equipo.
+            id: 'web' + d.id, _bk: d.id, name: b.name || '', phone: b.phone || '', email: b.email || '', prof: b.prof || undefined,
             proc: b.proc || '', dur: b.dur || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(b.proc) + ' minutos' : '30 minutos'), durMin: parseInt(b.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(b.proc) : 30), fecha: b.fecha || '', time: b.time || '',
             day: dayOff, status: 'pendiente_pago', origen: 'Reserva web', ts: new Date(b.createdAt || Date.now()).toISOString()
           });

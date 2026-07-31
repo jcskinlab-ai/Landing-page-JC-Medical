@@ -1586,17 +1586,24 @@ function AdminApp() {
     if (appt && appt.fecha && appt.time) {
       try {
         const map = window.DB && window.DB.get("horarios_dates") || {};
-        const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : [];
+        let cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha].slice() : null;
+        if (!cur) {
+          try {
+            cur = ((D.availability((/* @__PURE__ */ new Date(appt.fecha + "T00:00:00")).getDay()) || {}).slots || []).slice();
+          } catch (e2) {
+            cur = [];
+          }
+        }
         if (!cur.includes(appt.time)) {
           cur.push(appt.time);
           cur.sort();
-          map[appt.fecha] = cur;
         }
+        map[appt.fecha] = cur;
         if (window.DB) window.DB.set("horarios_dates", map);
       } catch (e) {
       }
     }
-    setAppts((as) => saveAppts(as.filter((a) => a.id !== id)));
+    setAppts((as) => saveAppts(as.map((a) => a.id === id ? { ...a, status: "anulada", attended: false, anuladaAt: Date.now() } : a)));
   }
   function syncWebBookings() {
     if (!(window.JCSAAS && window.JCSAAS.enabled)) return Promise.resolve({ ok: false, reason: "Este panel no est\xE1 conectado a la nube." });

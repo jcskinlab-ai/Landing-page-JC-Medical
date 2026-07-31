@@ -1816,17 +1816,25 @@ function AdminApp() {
       return saveAppts(as.map(a => a.id === id ? { ...a, ...patch } : a));
     });
   }
+  // Cancelar una cita la deja ANULADA (recuperable desde la bandeja de canceladas), no la borra.
+  // Antes este camino —el botón "Cancelar cita" del modal de edición— hacía un filter que la
+  // eliminaba, mientras que cancelar desde el menú de la vista semanal sí la dejaba anulada: dos
+  // botones con el mismo nombre y resultados distintos, y el destructivo era irreversible.
   function removeAppt(id) {
     const appt = appts.find(a => a.id === id);
     if (appt && appt.fecha && appt.time) {
       try {
+        // La base correcta es el horario del día (excepción de esa fecha, y si no la semanal).
+        // Partir de [] dejaba el día con UNA sola hora disponible en la reserva web.
         const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : [];
-        if (!cur.includes(appt.time)) { cur.push(appt.time); cur.sort(); map[appt.fecha] = cur; }
+        let cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha].slice() : null;
+        if (!cur) { try { cur = ((D.availability(new Date(appt.fecha + "T00:00:00").getDay()) || {}).slots || []).slice(); } catch (e2) { cur = []; } }
+        if (!cur.includes(appt.time)) { cur.push(appt.time); cur.sort(); }
+        map[appt.fecha] = cur;
         if (window.DB) window.DB.set('horarios_dates', map);
       } catch(e) {}
     }
-    setAppts(as => saveAppts(as.filter(a => a.id !== id)));
+    setAppts(as => saveAppts(as.map(a => a.id === id ? { ...a, status: "anulada", attended: false, anuladaAt: Date.now() } : a)));
   }
   // Trae las reservas hechas en la web (link público) a la agenda, AHORA y a demanda.
   // Lee directo Firestore (diagnóstico: cuántas hay), las importa y refresca la agenda.
