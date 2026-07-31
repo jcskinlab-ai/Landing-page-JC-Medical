@@ -185,18 +185,18 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
     }}>{children}</button>;
 }
 
-function AdField({ T, label, value, onChange, placeholder, inputMode, error }) {
+function AdField({ T, label, value, onChange, placeholder, inputMode, error, type }) {
   const nocap = inputMode === "email" || inputMode === "url";
   const DS = window.JCDS;
   if (!(DS && jcdsLux())) return <label style={{ display: "block" }}>
     <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{label}</span>
-    <input value={value} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    <input value={value} type={type} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       data-nocap={nocap ? "" : undefined}
       style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
   </label>;
   return <label style={{ display: "block" }}>
     <span style={{ ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 }}>{label}</span>
-    <input value={value} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    <input value={value} type={type} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       data-nocap={nocap ? "" : undefined}
       onFocus={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.boxShadow = DS.focus(T); }}
       onBlur={e => { e.currentTarget.style.borderColor = error ? DS.danger : T.line; e.currentTarget.style.boxShadow = ""; }}
@@ -261,35 +261,7 @@ function patImages(p) {
 // documento de pacientes. Así cada uno es pequeño, SÍ sube a la nube y se ve en todos los
 // dispositivos en tiempo real, sin chocar con el límite de 1 MB por documento de Firestore.
 function patConsKey(id) { return "pcons_" + id; }
-// Recorta el espacio en blanco de una firma (deja solo el trazo) para que se vea grande
-// en el documento. Funciona con firmas ya guardadas. Async (carga la imagen en un canvas).
-function cropSignatureDataUrl(dataUrl) {
-  return new Promise(function (resolve) {
-    if (!dataUrl || typeof dataUrl !== "string") return resolve(dataUrl);
-    var img = new Image();
-    img.onload = function () {
-      try {
-        var w = img.naturalWidth, h = img.naturalHeight;
-        if (!w || !h) return resolve(dataUrl);
-        var c = document.createElement("canvas"); c.width = w; c.height = h;
-        var ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0);
-        var d = ctx.getImageData(0, 0, w, h).data;
-        var minX = w, minY = h, maxX = 0, maxY = 0, found = false;
-        for (var y = 0; y < h; y++) { for (var x = 0; x < w; x++) { var i = (y * w + x) * 4; var br = (d[i] + d[i + 1] + d[i + 2]) / 3; if (br < 185) { found = true; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; } } }
-        if (!found) return resolve(dataUrl);
-        var pad = Math.round(Math.max(w, h) * 0.04);
-        minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad); maxX = Math.min(w, maxX + pad); maxY = Math.min(h, maxY + pad);
-        var cw = maxX - minX, ch = maxY - minY;
-        if (cw < 4 || ch < 4) return resolve(dataUrl);
-        var oc = document.createElement("canvas"); oc.width = cw; oc.height = ch;
-        oc.getContext("2d").drawImage(img, minX, minY, cw, ch, 0, 0, cw, ch);
-        resolve(oc.toDataURL("image/jpeg", 0.9));
-      } catch (e) { resolve(dataUrl); }
-    };
-    img.onerror = function () { resolve(dataUrl); };
-    img.src = dataUrl;
-  });
-}
+
 // Reduce el peso de una foto subida (consentimiento en papel) antes de guardarla.
 function compressImageDataUrl(dataUrl, maxW, q) {
   return new Promise(function (resolve) {
@@ -1083,19 +1055,36 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             // de modo que el procedimiento de la ficha aparece en Caja, Reportes y el Dashboard. Se guarda
             // sessionId en el movimiento para poder ofrecer eliminarlo si la sesión se borra después — antes
             // el borrado de una sesión dejaba el cobro huérfano en Caja, sin ninguna sesión asociada.
-            if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
-              // Descuenta el costo de insumos del procedimiento (config de inventario) para el líquido.
+            // Descuenta el costo de insumos del procedimiento (config de inventario) para el líquido.
+            {
               const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
-              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: newSessionId }); } catch (e3) {}
+              const _sesId = editing ? (e.id || newSessionId) : newSessionId;
+              const _mov = { type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: _sesId };
+              try {
+                // EDITAR una sesión también tiene que llegar a Caja. Antes el movimiento solo se
+                // creaba en el alta: corregir un cobro de $150.000 a $80.000 dejaba Caja en
+                // $150.000 para siempre, y ponerle precio a una sesión guardada sin cobro no
+                // generaba NUNCA el ingreso (aparecía en la ficha pero no en el cierre del día).
+                const _prev = (editing && window.cashAll && _sesId) ? (window.cashAll() || []).find(m => m.sessionId === _sesId) : null;
+                if ((e.cobro || 0) > 0) {
+                  if (_prev && window.cashUpdate) window.cashUpdate(_prev.id, { amount: e.cobro, cost: _cost, method: _mov.method, concept: _mov.concept, prof: _mov.prof });
+                  else if (window.cashAdd) window.cashAdd(_mov);
+                } else if (_prev && window.cashDelete) {
+                  window.cashDelete(_prev.id); // se le quitó el cobro a la sesión → sale de Caja
+                }
+              } catch (e3) {}
             }
-            // Al registrar una sesión NUEVA, si el paciente tiene una cita agendada HOY (y todavía no
-            // está marcada como atendida/anulada), la pasa a "atendida" automáticamente — antes había
-            // que ir a la Agenda y marcarla a mano, y quedaba pendiente aunque ya se hubiera atendido.
+            // Al registrar una sesión NUEVA, la cita de ese paciente EN LA FECHA DE LA SESIÓN (no la de
+            // hoy) pasa a "atendida" automáticamente — antes se comparaba contra el día actual, así que
+            // registrar hoy un procedimiento hecho ayer dejaba la cita colgada como pendiente.
             if (!editing && updateAppt) {
               try {
                 const d0 = new Date(); const isoHoy = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
-                const apptHoy = (appts || []).find(a => a.patId === patient.id && a.fecha === isoHoy && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida");
-                if (apptHoy) updateAppt(apptHoy.id, { status: "atendida", attended: true });
+                const fechaSes = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "") ? e.date : isoHoy;
+                const libre = a => a.patId === patient.id && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida";
+                // Prioriza la cita del día de la sesión; si no hay, cae a la de hoy (registro en el momento).
+                const apptSes = (appts || []).find(a => a.fecha === fechaSes && libre(a)) || (appts || []).find(a => a.fecha === isoHoy && libre(a));
+                if (apptSes) updateAppt(apptSes.id, { status: "atendida", attended: true });
               } catch (e5) {}
             }
             try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : ((e.cobro || 0) > 0 ? "Sesión registrada · " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesión registrada."), "ok"); } catch (e2) {}
@@ -1192,7 +1181,9 @@ function EditDatosModal({ T, patient, onClose, onSave }) {
   return (
     <AdModal T={T} title="Editar datos del paciente" onClose={onClose} footer={<AdBtn T={T} primary full onClick={() => ok && onSave({ name: f.name.trim(), rut: f.rut.trim(), age: parseInt(f.age, 10) || patient.age, phone: phoneEmpty ? "" : f.phone.trim(), email: f.email.trim(), estado: f.estado })}>Guardar cambios</AdBtn>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v })} />
+        {/* Sin números en el nombre — al CREAR un paciente ya se filtraba (onlyLetters), pero al
+            EDITAR uno existente no, así que se colaban nombres como "123123". */}
+        <AdField T={T} label="Nombre completo" value={f.name} onChange={v => setF({ ...f, name: v.replace(/[0-9]/g, "") })} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div><AdField T={T} label="CI / RUT" value={f.rut} onChange={v => setF({ ...f, rut: (window.jcmFmtRut ? window.jcmFmtRut(v) : v) })} />{rutWarn && <div style={{ fontFamily: T.sans, fontSize: 10.5, color: "#C9A227", marginTop: 5 }}>Revisa el dígito verificador.</div>}</div>
           <AdField T={T} label="Edad" value={f.age} onChange={v => setF({ ...f, age: v.replace(/\D/g, "").slice(0, 3) })} inputMode="numeric" />
@@ -1533,7 +1524,9 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "13px 14px" }}>
               <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 11 }}>Producto aplicado</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: v })} placeholder="Ej. AB1234" />
+                {/* El lote va SIEMPRE en mayúsculas (así viene impreso en la caja del producto y evita
+                    que el mismo lote quede escrito de dos formas distintas al buscarlo o auditarlo). */}
+                <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: (v || "").toUpperCase() })} placeholder="Ej. AB1234" />
                 <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => { let d = v.replace(/\D/g, "").slice(0, 8); let fmt = d.length > 6 ? d.slice(0,4)+"-"+d.slice(4,6)+"-"+d.slice(6) : d.length > 4 ? d.slice(0,4)+"-"+d.slice(4) : d; setF({ ...f, venc: fmt }); }} inputMode="numeric" placeholder="2027-03-15 (AAAA-MM-DD)" />
                 <label style={{ display: "block" }}>
                   <span style={lblS}>Temperatura conserv.</span>
@@ -1699,50 +1692,7 @@ function ConsentView({ T, patients, updatePatient }) {
   );
 }
 
-const CONSENT_EXCL = [
-  "Si estoy embarazada o en período de lactancia materna (Sólo mujeres).",
-  "Si tengo historial de enfermedades autoinmunes (Artritis Reumatoide, psoriasis, fiebre reumática, lupus eritematoso sistémico u otras). Si estoy recibiendo tratamiento de inmunoterapia.",
-  "Si tengo antecedente de cicatrización queloide o hipertrófica, problemas de acné o rosácea o cualquier infección en la zona a tratar.",
-  "Diabetes no controlada u otra enfermedad metabólica no controlada.",
-  "Discrasias sanguíneas o alteraciones de la coagulación (anemia aguda, leucemia, porfiria, protrombinemia u otras).",
-  "Si previamente me sometí a procedimientos con biopolímeros, puesto que puede desencadenar reacciones inflamatorias e infecciosas."
-];
-// Cuerpo legal del consentimiento (párrafos) según la plantilla firmada. Reutilizable por la impresión
-// del consentimiento suelto y por la impresión combinada con la ficha.
-function jcmConsentLegalBody(doc) {
-  const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const EU = esc(doc.prof || "____________________");
-  const p = (n, text) => "<p style='margin:0 0 11px;font-size:12px;line-height:1.6'>" + (n ? "<b>" + n + "</b> " : "") + text + "</p>";
-  let body = "";
-  if (doc.kind === "custom") {
-    let paras = doc.paragraphs;
-    if (!paras || !paras.length) { try { var tmpl = ((window.JCADMIN && window.JCADMIN.consents) || []).find(function (c) { return c.title === doc.title || c.id === doc.id; }); if (tmpl) paras = tmpl.paragraphs; } catch (e) {} }
-    (paras || []).forEach(function (pa) { body += p(esc(pa.n || ""), esc(pa.t || "").replace(/\{EU\}/g, "<b>" + EU + "</b>")); });
-    if (!paras || !paras.length) body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento " + esc(doc.proc || "") + ".");
-  } else if (doc.kind === "extra") {
-    if (doc.proc) body += p("", "Procedimiento: <b>" + esc(doc.proc) + "</b>.");
-    body += "<div style='white-space:pre-wrap;font-size:12px;line-height:1.6;margin-bottom:11px'>" + esc(doc.body || "—") + "</div>";
-    body += p("", "Autorizo a EU <b>" + EU + "</b> a realizar el procedimiento descrito, habiéndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes clínicos.");
-  } else if (doc.kind === "toxina") {
-    body += p("1.-", "Por el presente documento, autorizo a EU <b>" + EU + "</b> a realizar el procedimiento conocido como \"tratamiento cosmético para arrugas\" mediante la aplicación de Toxina Botulínica tipo A, producto que al ser utilizado en la musculatura facial de manera adecuada, produce relajamiento de la expresión con la disminución de las arrugas de expresión. El procedimiento mencionado me ha sido totalmente explicado por el profesional, entendiendo la naturaleza y las consecuencias del mismo. Los siguientes puntos me han sido especialmente aclarados:");
-    body += "<p style='margin:0 0 8px 16px;font-size:12px;line-height:1.6'><b>a)</b> En los sitios de la(s) aplicación(es) pueden quedar pequeñas marcas transitorias, enrojecimiento de la piel, hematomas, inflamación y efectos no deseados descritos en el prospecto, los mismos son comunes y reversibles.</p>";
-    body += "<p style='margin:0 0 11px 16px;font-size:12px;line-height:1.6'><b>b)</b> Todos los pacientes que estén siendo tratados con antibióticos del tipo de espectinomicina o amino glucósidos, enfermedades neuromusculares, embarazadas, mujeres en periodos de lactancia, que presenten rellenos con biopolímeros, siliconas, así como infección o signos de inflamación en los sitios de aplicación no pueden ser sometidos a la aplicación de Toxina Botulínica.</p>";
-    body += p("2.-", "He entendido que la duración de los resultados es variable y reversible, siendo aproximadamente de entre 3 a 6 meses y me ha sido explicado que los efectos comenzarán a evidenciarse después del cuarto día de la aplicación.");
-    body += p("3.-", "Soy consciente que la práctica de la medicina no es una ciencia exacta y reconozco que a pesar de que el profesional me ha informado adecuadamente las posibilidades absolutas y relativas de lograr los objetivos indicados en el punto 1, los resultados no pueden ser predecibles.");
-    body += p("4.-", "Doy fe de no haber omitido o alterado datos al exponer mis antecedentes clínicos.");
-    body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Congresos, cursos, demostraciones, capacitaciones).");
-    body += p("6.-", "He leído detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional nombrado a realizarme el procedimiento antes explicado.");
-  } else {
-    body += p("1.-", "Por el presente documento, autorizo a EU <b>" + EU + "</b> a realizar el procedimiento <b>" + esc(doc.proc || "") + "</b>, el cual me fue claramente explicado.");
-    body += p("2.-", "Reconozco que pueden existir las siguientes complicaciones temporales: hematomas (moretones), inflamación, dolor leve transitorio, cambios de sensibilidad de la piel, enrojecimiento de la piel, asimetrías leves, los cuales son comunes y totalmente reversibles." + (doc.vascular ? " Aunque el riesgo es menor al 1% existe la posibilidad de complicaciones graves como: obstrucción u oclusión vascular, en dicho caso el profesional pondrá todos los medios a su disposición para resolver el cuadro clínico de forma eficaz." : ""));
-    body += p("3.-", "Estoy consciente que la práctica de la Medicina no es una ciencia exacta y estoy en conocimiento que los resultados del procedimiento no son totalmente predecibles.");
-    body += p("4.-", "Entiendo que no puedo ser tratada(o) con " + esc(doc.proc4 || doc.proc || "") + ", en los siguientes casos y confirmo que no padezco ninguno de ellos:");
-    body += "<ul style='margin:0 0 11px;padding-left:20px'>" + CONSENT_EXCL.map(e => "<li style='font-size:12px;line-height:1.6;margin-bottom:5px'>" + esc(e) + "</li>").join("") + "</ul>";
-    body += p("5.-", "Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Demostraciones).");
-    body += p("6.-", "Doy fe de no haber omitido o alterado mis antecedentes clínicos. Leí detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.");
-  }
-  return body;
-}
+
 // C-05: captura del médico responsable EN EL MOMENTO de firmar, para CONGELARLO dentro del
 // consentimiento (pcons_). Así editar/reordenar/borrar la lista medic_sigs en Configuración NO
 // altera retroactivamente el médico atribuido en consentimientos ya firmados (falseaba la autoría).
@@ -1753,82 +1703,11 @@ function _snapMedicoResp() {
   } catch (_) {}
   return null;
 }
-// Consentimiento como HTML embebible (estilos inline, sin CSS externo) para anexarlo a la ficha.
-// Resuelve las firmas (recorte async). Los "subidos" imagen se incrustan; el PDF va como nota.
-function jcmConsentInnerHTML(doc, patient) {
-  const esc = s => ("" + (s == null ? "" : s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  if (doc && doc.kind === "upload") {
-    if (doc.img && doc.fileType !== "pdf") return Promise.resolve("<div style='text-align:center'><img src='" + doc.img + "' style='max-width:100%;max-height:940px;object-fit:contain'/></div>");
-    return Promise.resolve("<p style='font-size:12px;color:#444;line-height:1.6'>Consentimiento adjunto como archivo PDF (<b>" + esc(doc.title || "documento") + "</b>). Imprímelo por separado desde la pestaña Consentimientos.</p>");
-  }
-  const body = jcmConsentLegalBody(doc);
-  // C-05: usa el médico CONGELADO en el consentimiento (doc.medico); medic_sigs[0] solo como
-  // respaldo para consentimientos antiguos firmados antes de congelarlo.
-  var medicoSig = (doc && doc.medico) || null;
-  if (!medicoSig) { try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {} }
-  return Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
-    const sp = crops[0], spr = crops[1];
-    const numCols = medicoSig ? 3 : 2;
-    const sigH = medicoSig ? 130 : 175;
-    const cell = (label, img) => "<div><div style='font-size:12px;color:#444;margin-bottom:6px'>" + label + "</div><div style='height:" + sigH + "px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px'>" + (img ? "<img src='" + img + "' style='max-height:100%;max-width:100%;object-fit:contain'/>" : "") + "</div></div>";
-    return "<div style='color:#111'>"
-      + "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>"
-      + "<div style='font-size:12px;margin-bottom:6px'>Yo <b>" + esc(doc.nombre || (patient && patient.name) || "") + "</b></div>"
-      + "<div style='font-size:12px;margin-bottom:16px'>Identificado con CI N° <b>" + esc(doc.ci || (patient && patient.rut) || "") + "</b> · Edad <b>" + esc(doc.edad || (patient && patient.age) || "") + "</b></div>"
-      + body
-      + "<div style='display:grid;grid-template-columns:repeat(" + numCols + ",1fr);gap:18px;margin-top:22px'>"
-      + cell("Firma paciente", sp)
-      + cell("Firma profesional · " + esc(doc.prof || ""), spr)
-      + (medicoSig ? cell("Médico responsable · " + esc(medicoSig.name) + (medicoSig.rut ? " · RUT " + esc(medicoSig.rut) : "") + (medicoSig.registro ? " · Reg. " + esc(medicoSig.registro) : ""), medicoSig.sig) : "")
-      + "</div></div>";
-  });
-}
-// Documento de consentimiento con el texto real de JC Medical (3 plantillas).
-function ConsentDoc({ T, tpl, prof }) {
-  const P = ({ n, children }) => <p style={{ margin: "0 0 11px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}><b>{n}</b> {children}</p>;
-  const EU = prof || "____________________";
-  if (tpl.kind === "custom") {
-    // Consentimientos guardados antes de incluir paragraphs: los recuperamos de la plantilla por título.
-    let paras = tpl.paragraphs;
-    if (!paras || !paras.length) {
-      try { const tmpl = ((window.JCADMIN && window.JCADMIN.consents) || []).find(c => c.title === tpl.title || c.id === tpl.id); if (tmpl) paras = tmpl.paragraphs; } catch (e) {}
-    }
-    const renderT = t => { const parts = t.split("{EU}"); if (parts.length === 1) return t; return parts.reduce((a, p, i) => i < parts.length - 1 ? [...a, p, <b key={i}>{EU}</b>] : [...a, p], []); };
-    return <div>{(paras || []).map((p, i) => <P key={i} n={p.n}>{renderT(p.t)}</P>)}</div>;
-  }
-  if (tpl.kind === "extra") return (
-    <div>
-      {tpl.proc && <P n="">Procedimiento: <b>{tpl.proc}</b>.</P>}
-      <div style={{ whiteSpace: "pre-wrap", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}>{tpl.body || "—"}</div>
-      <P n="">Autorizo a EU <b>{EU}</b> a realizar el procedimiento descrito, habiéndoseme explicado su naturaleza, alcances y posibles complicaciones. Doy fe de no haber omitido antecedentes clínicos.</P>
-    </div>
-  );
-  if (tpl.kind === "toxina") return (
-    <div>
-      <P n="1.-">Por el presente documento, autorizo a EU <b>{EU}</b> a realizar el procedimiento conocido como “tratamiento cosmético para arrugas” mediante la aplicación de Toxina Botulínica tipo A, producto que al ser utilizado en la musculatura facial de manera adecuada, produce relajamiento de la expresión con la disminución de las arrugas de expresión. El procedimiento mencionado me ha sido totalmente explicado por el profesional, entendiendo la naturaleza y las consecuencias del mismo. Los siguientes puntos me han sido especialmente aclarados:</P>
-      <p style={{ margin: "0 0 8px 16px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}><b>a)</b> En los sitios de la(s) aplicación(es) pueden quedar pequeñas marcas transitorias, enrojecimiento de la piel, hematomas, inflamación y efectos no deseados descritos en el prospecto, los mismos son comunes y reversibles.</p>
-      <p style={{ margin: "0 0 11px 16px", fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text }}><b>b)</b> Todos los pacientes que estén siendo tratados con antibióticos del tipo de espectinomicina o amino glucósidos, enfermedades neuromusculares, embarazadas, mujeres en periodos de lactancia, que presenten rellenos con biopolímeros, siliconas, así como infección o signos de inflamación en los sitios de aplicación no pueden ser sometidos a la aplicación de Toxina Botulínica.</p>
-      <P n="2.-">He entendido que la duración de los resultados es variable y reversible, siendo aproximadamente de entre 3 a 6 meses y me ha sido explicado que los efectos comenzarán a evidenciarse después del cuarto día de la aplicación.</P>
-      <P n="3.-">Soy consciente que la práctica de la medicina no es una ciencia exacta y reconozco que a pesar de que el profesional me ha informado adecuadamente las posibilidades absolutas y relativas de lograr los objetivos indicados en el punto 1, los resultados no pueden ser predecibles.</P>
-      <P n="4.-">Doy fe de no haber omitido o alterado datos al exponer mis antecedentes clínicos.</P>
-      <P n="5.-">Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Congresos, cursos, demostraciones, capacitaciones).</P>
-      <P n="6.-">He leído detenidamente este consentimiento y lo he entendido totalmente, autorizando al profesional nombrado a realizarme el procedimiento antes explicado.</P>
-    </div>
-  );
-  return (
-    <div>
-      <P n="1.-">Por el presente documento, autorizo a EU <b>{EU}</b> a realizar el procedimiento <b>{tpl.proc}</b>, el cual me fue claramente explicado.</P>
-      <P n="2.-">Reconozco que pueden existir las siguientes complicaciones temporales: hematomas (moretones), inflamación, dolor leve transitorio, cambios de sensibilidad de la piel, enrojecimiento de la piel, asimetrías leves, los cuales son comunes y totalmente reversibles.{tpl.vascular ? " Aunque el riesgo es menor al 1% existe la posibilidad de complicaciones graves como: obstrucción u oclusión vascular, en dicho caso el profesional pondrá todos los medios a su disposición para resolver el cuadro clínico de forma eficaz." : ""}</P>
-      <P n="3.-">Estoy consciente que la práctica de la Medicina no es una ciencia exacta y estoy en conocimiento que los resultados del procedimiento no son totalmente predecibles.</P>
-      <P n="4.-">Entiendo que no puedo ser tratada(o) con {tpl.proc4 || tpl.proc}, en los siguientes casos y confirmo que no padezco ninguno de ellos:</P>
-      <ul style={{ margin: "0 0 11px", paddingLeft: 20 }}>
-        {CONSENT_EXCL.map((e, i) => <li key={i} style={{ fontFamily: T.sans, fontSize: 12, lineHeight: 1.6, color: T.text, marginBottom: 5 }}>{e}</li>)}
-      </ul>
-      <P n="5.-">Autorizo el registro del proceso mediante fotografías, vídeos, modelos de estudios y exámenes complementarios. Los cuales pueden ser utilizados con fines académicos en beneficio del progreso y desarrollo de las Ciencias de la Salud (Demostraciones).</P>
-      <P n="6.-">Doy fe de no haber omitido o alterado mis antecedentes clínicos. Leí detenidamente el acta de consentimiento, por lo que autorizo al profesional, para que realice los procedimientos antes explicados en prueba de conformidad con todo lo expuesto.</P>
-    </div>
-  );
-}
+
+// ConsentDoc / ConsentDocDark / CONSENT_EXCL viven ahora en jc-admin/jc-consent-doc.jsx (global,
+// cargado antes que este archivo) porque el panel MÓVIL también los necesita para firmar.
+// Modal de firma: se queda AQUÍ porque depende de AdModal/SignaturePad/jcmConsentCatalog,
+// que solo existen en el panel de escritorio.
 function SignConsentModal({ T, data, onClose, onSign }) {
   const A = window.JCADMIN;
   // Plantillas PROPIAS de la clínica (módulo Consentimientos) además de las base, disponibles para firmar.
@@ -1901,11 +1780,7 @@ function SignConsentModal({ T, data, onClose, onSign }) {
     </AdModal>
   );
 }
-// El documento usa texto negro sobre fondo blanco (look de impresión).
-function ConsentDocDark({ T, tpl, prof }) {
-  const TT = { ...T, text: "#111", sans: T.sans };
-  return <ConsentDoc T={TT} tpl={tpl} prof={prof} />;
-}
+
 
 function ConsentTab({ T, patient, updatePatient }) {
   const [signing, setSigning] = useState(false);
@@ -2311,9 +2186,17 @@ function ImagenesTab({ T, patient, updatePatient }) {
     }
   }
 
+  // Confirmación obligatoria: era el ÚNICO borrado destructivo del panel sin ninguna — una "×" de
+  // 13 px pegada a la fecha borraba la foto del registro Y del almacenamiento, sin deshacer. Son
+  // fotos antes/después: respaldo médico-legal del tratamiento.
   function deleteImg(im) {
-    commitImgs(imgs.filter(x => x.id !== im.id));
-    if (im.storPath && window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage(im.storPath);
+    const q = "¿Eliminar esta foto" + (im.label ? " (" + im.label + ")" : "") + "? No se puede deshacer.";
+    const seguir = window.jcmConfirm ? window.jcmConfirm(q) : Promise.resolve(window.confirm(q));
+    Promise.resolve(seguir).then(ok => {
+      if (!ok) return;
+      commitImgs(imgs.filter(x => x.id !== im.id));
+      if (im.storPath && window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage(im.storPath);
+    });
   }
   // Agrupa por procedimiento y, dentro, ordena por fecha (más reciente primero).
   const groups = {};
@@ -2409,8 +2292,18 @@ function FacturacionTab({ T, patient, updatePatient, onOpenSession }) {
   // Eliminar una atención = quitar el cobro de esa sesión (protegido con clave de admin).
   // La sesión clínica (procedimiento) se conserva; se borra aparte en Procedimientos con el PIN del profesional.
   function removeAtencion(hi) {
+    const ses = (patient.history || [])[hi] || null;
     const hist = (patient.history || []).map((h, i) => i === hi ? { ...h, cobro: 0, metodo: "", comprobante: "" } : h);
     updatePatient(patient.id, { history: hist });
+    // El ingreso real vive en cash_moves, no en la ficha: poner cobro:0 aquí dejaba el dinero
+    // contando en Caja, Reportes, Flujo de caja y Remuneraciones para siempre, aunque el aviso
+    // prometía que dejaba de contar en las ventas. Se borra el movimiento por sessionId, igual
+    // que ya hacía SesionDeleteModal.
+    try {
+      if (ses && ses.id && window.cashAll && window.cashDelete) {
+        (window.cashAll() || []).filter(m => m.sessionId === ses.id).forEach(m => window.cashDelete(m.id));
+      }
+    } catch (e) {}
     setDelAt(null);
   }
   const total = items.reduce((s, i) => s + (i.amount || 0), 0);

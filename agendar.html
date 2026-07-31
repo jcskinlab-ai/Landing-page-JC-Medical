@@ -67,6 +67,15 @@
   .cart-empty{font-size:12.5px;color:var(--faint);text-align:center;padding:4px 0 2px}
   .date-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none}
   .date-scroll::-webkit-scrollbar{display:none}
+  /* Selector de profesional (solo en clínicas con más de uno) */
+  .prof-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:20px;scrollbar-width:none}
+  .prof-scroll::-webkit-scrollbar{display:none}
+  .prof-btn{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:8px 14px 8px 8px;border-radius:999px;cursor:pointer;background:var(--surface);border:1px solid var(--line);transition:border-color .15s,background .15s}
+  .prof-btn:hover{border-color:var(--accent)}
+  .prof-btn.sel{background:var(--accent);border-color:var(--accent)}
+  .prof-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+  .prof-nm{font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap}
+  .prof-btn.sel .prof-nm{color:#fff}
   .date-btn{flex-shrink:0;min-width:64px;padding:12px 8px;border-radius:12px;cursor:pointer;text-align:center;background:var(--surface);border:1px solid var(--line);transition:all .15s}
   .date-btn:hover{border-color:var(--accent)}
   .date-btn.sel{background:var(--accent);border-color:var(--accent)}
@@ -163,6 +172,11 @@
 
     <!-- PASO 2: Fecha y hora -->
     <div class="step" id="s1">
+      <!-- Profesional: solo se pinta si la clínica tiene más de uno (ver renderProfs). -->
+      <div id="prof-area" class="hide">
+        <div class="sech">¿Con quién quieres atenderte?</div>
+        <div class="prof-scroll" id="prof-list"></div>
+      </div>
       <div class="sech">Elige tu fecha y hora</div>
       <div class="date-scroll" id="date-list"></div>
       <div id="time-area">
@@ -289,7 +303,7 @@
 <script src="jc-proto/jc-data.js?v=82"></script>
 <!-- Multi-clínica: si la URL trae ?c=clinicId, carga la marca/datos de esa clínica -->
 <script src="jcm_saas_config.js?v=7"></script>
-<script src="jcm_saas.js?v=35"></script>
+<script src="jcm_saas.js?v=38"></script>
 <script>
 (function(){
   var DAYS   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -298,6 +312,51 @@
   var cart = [];        // [{ name, price }]  (cada unidad es un elemento; 2 Botox = 2 elementos)
   var selDate = null;   // { date, wd, dd, mm }
   var selTime = null;   // "HH:MM"
+  var selProf = "";     // nombre del profesional elegido ("" = clínica de un solo profesional)
+
+  /* ─── Profesionales ───
+     El equipo llega en el perfil público de la clínica (jcm_saas.js → publishProfile), con solo
+     nombre, color y horario de atención. Cada profesional puede tener su propio horario: NUNCA
+     amplía el de la clínica, solo lo acota — así una clínica no puede quedar reservable fuera de
+     su horario por la configuración de un profesional. */
+  var DIA_KEY = ["dom","lun","mar","mie","jue","vie","sab"]; // índice = getDay()
+  function teamList(){ var t = (CLINIC && CLINIC.team) || []; return Array.isArray(t) ? t : []; }
+  function profByName(n){ return teamList().filter(function(p){ return p.name === n; })[0] || null; }
+  function iniciales(s){ return (s||"?").trim().split(/\s+/).map(function(w){ return w[0]; }).slice(0,2).join("").toUpperCase(); }
+  // Rango del profesional para ese día de la semana; null = sin horario propio (usa el de la clínica).
+  function profRango(nombre, wd){
+    var p = profByName(nombre);
+    if(!p || !p.horario) return null;
+    var d = p.horario[DIA_KEY[wd]];
+    if(!d) return null;
+    if(d.on === false) return { cerrado:true };
+    return { from: d.from || "00:00", to: d.to || "23:59" };
+  }
+  function renderProfs(){
+    var area = document.getElementById('prof-area'), list = document.getElementById('prof-list');
+    if(!area || !list) return;
+    var team = teamList();
+    // Con 0 o 1 profesional no se pregunta nada: no aporta y alarga la reserva.
+    if(team.length < 2){ area.classList.add('hide'); selProf = team.length ? team[0].name : ""; return; }
+    area.classList.remove('hide');
+    if(!profByName(selProf)) selProf = team[0].name;
+    list.innerHTML = team.map(function(p){
+      return '<div class="prof-btn'+(p.name===selProf?' sel':'')+'" data-prof="'+String(p.name).replace(/"/g,'&quot;')+'">'
+           +   '<span class="prof-av" style="background:'+(p.color||'#8B9EB0')+'">'+iniciales(p.name)+'</span>'
+           +   '<span class="prof-nm">'+esc(p.name)+'</span>'
+           + '</div>';
+    }).join('');
+    [].slice.call(list.querySelectorAll('.prof-btn')).forEach(function(b){
+      b.addEventListener('click', function(){
+        selProf = b.getAttribute('data-prof');
+        // Cambiar de profesional cambia la disponibilidad: se reinicia la elección de fecha/hora.
+        selDate = null; selTime = null;
+        renderProfs(); buildDates();
+        var ta = document.getElementById('time-area');
+        if(ta) ta.innerHTML = '<div class="time-empty">Selecciona una fecha para ver los horarios disponibles</div>';
+      });
+    });
+  }
 
   // Multi-clínica: marca/datos de la clínica activa (cuando la URL trae ?c=clinicId).
   var CLINIC = null;
@@ -308,7 +367,8 @@
       var tag = document.getElementById('clinic-tag');
       if(tag && p.name){ tag.textContent = p.name; tag.style.display = 'block'; }
       if(typeof buildServices === 'function') buildServices();
-      // Reconstruir fechas para aplicar los busySlots actualizados
+      // Reconstruir profesionales y fechas para aplicar el equipo y los busySlots actualizados
+      if(typeof renderProfs === 'function') renderProfs();
       if(typeof buildDates === 'function') buildDates();
       renderPago();
     }catch(e){}
@@ -368,10 +428,21 @@
       var d = new Date(dateStr+"T00:00:00"), wd = d.getDay();
       var hor = (CLINIC && CLINIC.horarios) || JSON.parse(localStorage.getItem("jcm_horarios_v1")||"{}");
       var h = hor && hor[wd];
-      if(h){ if(h.open===false) return []; return h.slots || defaultSlots(wd); }
-      if(wd === 0) return []; // domingo cerrado por defecto si no hay config
-      return defaultSlots(wd);
+      var base;
+      if(h){ if(h.open===false) return []; base = h.slots || defaultSlots(wd); }
+      else if(wd === 0) base = []; // domingo cerrado por defecto si no hay config
+      else base = defaultSlots(wd);
+      return acotarPorProfesional(base, wd);
     }catch(e){ return []; }
+  }
+  // El horario del profesional ACOTA el de la clínica, nunca lo amplía: si la clínica está cerrada
+  // esa hora, no se ofrece aunque el profesional la tenga marcada.
+  function acotarPorProfesional(slots, wd){
+    if(!selProf || !slots || !slots.length) return slots || [];
+    var r = profRango(selProf, wd);
+    if(!r) return slots;          // profesional sin horario propio → el de la clínica
+    if(r.cerrado) return [];      // ese día no atiende
+    return slots.filter(function(s){ return s >= r.from && s < r.to; }); // "HH:MM" compara bien como texto
   }
 
   /* ─── Carrito ─── */
@@ -495,7 +566,18 @@
     // Filtrar slots ocupados del perfil público de la clínica
     var busy = (CLINIC && CLINIC.busySlots) || (window.DB && window.DB.get('busySlots')) || [];
     var busySet = {};
-    busy.forEach(function(b){ if(b.fecha === ds) busySet[b.time] = true; });
+    var team = teamList();
+    // Solo bloquean las horas del profesional elegido: antes la cita de UNO tapaba esa hora para
+    // TODOS. Una cita sin profesional asignado se cuenta como del primero del equipo, igual que en
+    // el panel. Sin equipo publicado (clínica de un solo profesional) bloquean todas.
+    busy.forEach(function(b){
+      if(b.fecha !== ds) return;
+      if(team.length >= 2){
+        var duenio = (b.prof || '').trim() || (team[0] && team[0].name) || '';
+        if(duenio !== selProf) return;
+      }
+      busySet[b.time] = true;
+    });
     slots = slots.filter(function(s){ return !busySet[s]; });
     if(!isToday) return slots;
     var now = new Date(), cutMins = now.getHours()*60 + now.getMinutes() + 30;
@@ -601,7 +683,7 @@
     nextBtn.textContent   = n===STEPS-1 ? 'Confirmar cita' : 'Siguiente';
     barFill.style.width   = ((n+1)/STEPS*100)+'%';
     pageLbl.textContent   = (n+1)+' de '+STEPS;
-    if(n===1) buildDates();
+    if(n===1){ renderProfs(); buildDates(); }
     if(n===3) buildSummary();
     window.scrollTo({top:0, behavior:'smooth'});
   }
@@ -662,11 +744,15 @@
     if(!cart.length||!selDate||!selTime){ el.innerHTML=''; return; }
     var rows = [
       ['Tratamientos', procLines().join('<br>')],
+    ];
+    // Con varios profesionales, el paciente debe ver con quién queda antes de confirmar.
+    if(teamList().length >= 2 && selProf) rows.push(['Profesional', esc(selProf)]);
+    rows = rows.concat([
       ['Fecha',    DAYS[selDate.wd]+' '+selDate.dd+' '+selDate.mm],
       ['Hora',     selTime+' hrs'],
       ['Duración', fmtDur(cartTotalMin())],
       ['Total',    cartTotalPrice()>0 ? fmt(cartTotalPrice()) : 'A convenir en consulta']
-    ];
+    ]);
     el.innerHTML = rows.map(function(r){
       var isProc = r[0]==='Tratamientos';
       return '<div class="summ-row"><span class="summ-k">'+r[0]+'</span>'
@@ -721,6 +807,7 @@
     try{
       if(window.JCSAAS && window.JCSAAS.enabled && CLINIC && window.JCSAAS.submitBooking){
         window.JCSAAS.submitBooking({ name:name, rut:rut, phone:phone, email:email, proc:procLabel,
+          prof:selProf,   // el profesional elegido: así la cita entra en SU agenda, no en la del primero
           fecha:selDate.date, time:selTime, dur:totalMin+' min',
           procs: procsArr.map(function(p){ return p.name+(p.qty>1?' x'+p.qty:''); }), source:'web' })
           .then(function(){ try{ console.log('Reserva registrada en la clínica.'); }catch(_){ } })

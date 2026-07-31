@@ -120,7 +120,127 @@ function jcmConfirmAsistMsgM(a, clinNombre) {
   return window.fillMsgTpl(tpl, { nombre:a.name||"", primernombre:jcmFirstNameM(a.name), clinica:clinNombre, fecha:fecha||"", hora:a.time||"", tratamiento:a.proc||"", mapa:maps||"" });
 }
 
+/* ═══════════ Equipo / profesionales ═══════════
+   Mismo origen y mismo criterio que el panel de escritorio (DB.get("team") y el `prof` de la cita,
+   que guarda el NOMBRE del profesional, no su id). El móvil no leía nada de esto: las citas que
+   creaba nacían sin dueño y en el escritorio se le atribuían al primero del equipo. */
+function teamM() {
+  try {
+    const t = window.DB && window.DB.get("team");
+    if (Array.isArray(t)) return t.filter(x => x && x.name && x.active !== false);
+  } catch (e) {}
+  return [];
+}
+// Dueño de una cita. Las que no traen profesional (reservas web, citas antiguas, o creadas por el
+// móvil antes de este cambio) se atribuyen al PRIMERO del equipo — mismo criterio que el
+// escritorio, para que ninguna cita quede invisible.
+function profDeM(a, team) {
+  const p = ((a && a.prof) || "").trim();
+  if (p) return p;
+  return (team && team[0] && team[0].name) || "";
+}
+function profMatchM(a, selProf, team) {
+  if (!team || team.length < 2) return true; // clínica de un solo profesional: no se filtra nada
+  return profDeM(a, team) === selProf;
+}
+// Color e iniciales del profesional, para distinguirlos de un vistazo en la agenda.
+function profColorM(nombre, team) {
+  const t = (team || []).find(x => x.name === nombre);
+  return (t && t.color) || "#8B9EB0";
+}
+function inicialesM(s) { return (s || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase(); }
+function primerNombreM(s) { return ((s || "").trim().split(/\s+/)[0]) || ""; }
+
+/* ═══════════ Horas disponibles de un día (horarios_dates) ═══════════
+   `horarios_dates[fecha]` es la EXCEPCIÓN de un día concreto; si no existe, manda el horario
+   semanal (horarios_v1). Varias funciones lo escribían partiendo de una base equivocada — de `[]`
+   (que significa "día cerrado") o de la grilla cruda 08:00-19:45 (que ignora el horario semanal).
+   Así, confirmar una transferencia cerraba el día entero, cancelar una cita dejaba el día con una
+   sola hora, y crear una cita abría domingos y feriados también en la reserva web. */
+function slotsSemanaM(iso) {
+  try {
+    const h = window.DB && window.DB.get("horarios_v1");
+    const wd = new Date(iso + "T12:00:00").getDay();
+    if (h && h[wd]) return h[wd].open === false ? [] : (h[wd].slots || slotsM().slice());
+  } catch (e) {}
+  return slotsM().slice();
+}
+function slotsEfectivosM(iso) {
+  try {
+    const map = (window.DB && window.DB.get("horarios_dates")) || {};
+    if (Array.isArray(map[iso])) return map[iso].slice();
+  } catch (e) {}
+  return slotsSemanaM(iso);
+}
+// En clínicas con VARIOS profesionales este mapa no se toca: es de toda la clínica, así que quitar
+// una hora porque la ocupó un profesional se la bloquearía a los demás (y a la reserva web). Ahí el
+// control de choques por profesional de la agenda es el que manda.
+function slotMapAplicaM() { return teamM().length < 2; }
+function liberarSlotM(iso, hora) {
+  if (!iso || !hora || !slotMapAplicaM()) return;
+  try {
+    const map = (window.DB && window.DB.get("horarios_dates")) || {};
+    const cur = slotsEfectivosM(iso);
+    if (!cur.includes(hora)) { cur.push(hora); cur.sort(); }
+    map[iso] = cur;
+    if (window.DB) window.DB.set("horarios_dates", map);
+  } catch (e) {}
+}
+function ocuparSlotM(iso, hora) {
+  if (!iso || !hora || !slotMapAplicaM()) return;
+  try {
+    const map = (window.DB && window.DB.get("horarios_dates")) || {};
+    map[iso] = slotsEfectivosM(iso).filter(s => s !== hora);
+    if (window.DB) window.DB.set("horarios_dates", map);
+  } catch (e) {}
+}
+// Nombre del profesional con la sesión iniciada (para la vista "mis citas" y el valor por defecto
+// al agendar). Viene del doc users/{uid}, igual que en el escritorio.
+function miNombreProfM() {
+  try { return ((window.JCSAAS && window.JCSAAS.currentUserName && window.JCSAAS.currentUserName()) || "").trim(); } catch (e) { return ""; }
+}
+function soyProfesionalM() {
+  try { return (window.JCSAAS && window.JCSAAS.currentRole && window.JCSAAS.currentRole()) === "professional"; } catch (e) { return false; }
+}
+
+// Nombre de persona: no se aceptan números (pedido — se colaban "123123" como nombre de paciente).
+function soloNombreM(v) { return (v || "").replace(/[0-9]/g, ""); }
+// Props del campo RUT en el CELULAR. Antes llevaba inputMode="numeric", que en iOS abre el teclado
+// numérico puro: no había forma de escribir la K del dígito verificador. Con "text" sale el teclado
+// completo; lo que se escriba lo filtra igual jcmFmtRut, que solo deja dígitos y la K (o X, el
+// verificador de los RUT provisorios). autoCapitalize evita tener que buscar la mayúscula.
+const RUT_INPUT_M = { inputMode: "text", autoCapitalize: "characters", autoCorrect: "off", spellCheck: false };
 function minsM(t) { if (!t) return 0; const [h,m] = t.split(":"); return parseInt(h)*60+parseInt(m||0); }
+// Minutos → "HH:MM" (la inversa de minsM). Hace falta para poder ofrecer horas que NO caen en la
+// grilla, como las 17:45 justo después de una cita de 15 min que empezó a las 17:30.
+function hhmmM(m) { const h = Math.floor(m/60), r = m%60; return (h<10?"0":"")+h+":"+(r<10?"0":"")+r; }
+// Paso de la grilla en minutos (15 en JC Medical, 30 en el resto) — mismo criterio que slotsM().
+function stepM() { return clinicSeededM() ? 15 : 30; }
+// Duración real de una cita en minutos: la guardada, y si no la del catálogo del procedimiento.
+function durOfM(a) { return parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30); }
+// Tramos OCUPADOS de un día como intervalos [inicio, fin) en minutos. El fin es EXCLUYENTE: una
+// cita de 17:30 a 17:45 deja las 17:45 libres. Se ignora `ignoreId` para poder mover una cita sin
+// que choque consigo misma.
+function busyRangesM(appts, iso, ignoreId) {
+  return (appts||[])
+    .filter(a => a.status !== "anulada" && a.id !== ignoreId && a.time &&
+                 ((a.fecha ? a.fecha : offToISO(a.day||0)) === iso))
+    .map(a => { const s = minsM(a.time); return { s, e: s + durOfM(a) }; });
+}
+function overlapsM(s, e, busy) { return (busy||[]).some(b => s < b.e && b.s < e); }
+// Horas ofrecibles para una cita de `durMin` minutos. Dos cosas que antes no se hacían:
+//  · se descarta toda hora cuyo tramo PISE una cita existente — antes solo se tapaba la hora de
+//    inicio, así que una cita de 60 min dejaba libres los tres cuartos de hora siguientes;
+//  · se agregan las horas de TÉRMINO de las citas del día, para poder agendar justo después de una
+//    cita que no cierra en la grilla (17:45 tras una de 17:30 a 17:45).
+function freeStartsM(grid, avail, busy, durMin) {
+  if (!avail || !avail.length) return []; // día cerrado
+  const paso = stepM();
+  const gm = (grid||[]).map(minsM);
+  const cands = new Set(gm);
+  (busy||[]).forEach(b => { if (gm.some(m => m <= b.e && b.e < m + paso)) cands.add(b.e); });
+  return [...cands].sort((x,y)=>x-y).filter(m => !overlapsM(m, m + durMin, busy)).map(hhmmM);
+}
 // Estados OFICIALES de una cita (pedido explícito del usuario): Agendado · Confirmado · Atendido ·
 // No asistió · Cancelada. "Agendado" es el estado por defecto (antes se mostraba "Pendiente").
 const STATUS_STEPS = [
@@ -220,7 +340,8 @@ function endTimeM(a) {
    una paleta "sobre foto": texto claro + glass translúcido de verdad (frost, deja ver la montaña),
    sin importar el tema día/noche del resto del sistema. photoTheme() lo aplica una sola vez en los
    entry points y TODA la app hereda el mismo lenguaje. */
-const ON_PHOTO = { text: "#F5F7FB", mute: "rgba(235,242,252,.72)", faint: "rgba(235,242,252,.5)" };
+// (ON_PHOTO se eliminó: solo lo usaba el login antiguo del móvil, ahora reemplazado por las
+//  clases jcl-* del acceso compartido con el panel de escritorio.)
 // Fuente sans del panel móvil = Jost (la del prototipo aprobado "Claude Design", 10-jul-2026).
 // Reemplaza a SF Pro: el mockup nuevo usa Jost en todo el cuerpo/labels/botones y Fraunces en
 // títulos/números/nombres (ver FRAUNCES más abajo). Cargada en JC_Mobile.html junto a Fraunces.
@@ -306,13 +427,36 @@ function PhotoBgLayers({ T, hero }) {
 // que se vea la montaña + velo navy en degradado (más suave arriba, donde está el cielo, y más
 // denso hacia el centro/abajo donde vive el formulario) para mantener el texto/los inputs legibles.
 // Esta foto vive SOLO en el login; el resto del panel usa su propio fondo (PhotoBgLayers).
-function LoginVideoBg({ children }) {
-  const overlay = "linear-gradient(180deg, rgba(9,11,15,.42) 0%, rgba(9,11,15,.62) 45%, rgba(9,11,15,.82) 100%)";
+// Acceso al panel móvil: EL MISMO login del panel de escritorio (SaasGate) — tarjeta de cristal
+// sobre el video de cumbres, con las clases jcl-*. El CSS es compartido (window.JCM_LOGIN_CSS, en
+// jc-proto/jc-theme.js, que cargan ambos paneles) para que no se desincronicen. Antes el móvil
+// tenía su propio fondo plano y otra tipografía, y entrar se sentía como otro producto.
+const LOGIN_STILL_M = (function () {
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return !!(c && c.saveData);
+  } catch (e) { return false; }
+})();
+function LoginVideoBg({ children, title, subtitle, footer }) {
   return (
-    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#070707" }}>
-      <div style={{ position:"absolute", inset:0, backgroundImage:"url('/assets/evapp-login.jpg?v=1')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }} />
-      <div style={{ position:"absolute", inset:0, backgroundImage:overlay }} />
-      <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:340, display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
+    <div className="jcl-stage" style={{ backgroundImage: "url('/assets/login-cumbres.jpg')", backgroundColor: "#070707" }}>
+      <style dangerouslySetInnerHTML={{ __html: (typeof window !== "undefined" && window.JCM_LOGIN_CSS) || "" }} />
+      {!LOGIN_STILL_M && (
+        <video className="jcl-video" autoPlay muted loop playsInline preload="auto" aria-hidden="true" tabIndex={-1} poster="/assets/login-cumbres.jpg">
+          <source src="/assets/login-cumbres.mp4" type="video/mp4" />
+        </video>
+      )}
+      <div className="jcl-veil" />
+      <div className="jcl-halo" />
+      <div className="jcl-card" key={title}>
+        <div className="jcl-sheen" />
+        <div className="jcl-st jcl-eyebrow" style={{ animationDelay: ".05s" }}>Medique · Panel clínico</div>
+        {title && <h1 className="jcl-st jcl-title" style={{ animationDelay: ".12s" }}>{title}</h1>}
+        {subtitle && <p className="jcl-st jcl-sub" style={{ animationDelay: ".18s" }}>{subtitle}</p>}
+        <div className="jcl-st" style={{ animationDelay: ".24s" }}>{children}</div>
+        {footer && <div className="jcl-st jcl-foot" style={{ animationDelay: ".3s" }}>{footer}</div>}
+      </div>
     </div>
   );
 }
@@ -385,21 +529,15 @@ function LoginScreen({ T, onAuth }) {
     } catch(e) { setErr("Error de conexión"); setBusy(false); }
   }
   // Aspecto IDÉNTICO al login del portal de escritorio (SaasGate, jc-admin.jsx): sin logo, eyebrow
-  // en el color de acento, serif fina, inputs opacos con radio 6 (no glass translúcido).
-  const SERIF = FRAUNCES; // la serif real del portal (Fraunces), no Marcellus
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid rgba(255,255,255,.14)", background:"rgba(20,22,28,.85)", color:"#fff", outline:"none", boxSizing:"border-box" };
-  const btnSober = { width:"100%", background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:500, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"14px", cursor:"pointer", marginTop:4 };
+  // Mismo acceso que el panel de escritorio: tarjeta de cristal y clases jcl-* (LoginVideoBg).
   return (
-    <LoginVideoBg>
-      <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".28em", textTransform:"uppercase", color:T.accent, textAlign:"center" }}>Medique · Panel móvil</div>
-      <h1 style={{ fontFamily:SERIF, fontWeight:300, fontSize:34, color:"#fff", textAlign:"center", margin:"12px 0 6px", lineHeight:1.05 }}>Acceso privado</h1>
-      <p style={{ fontFamily:T.sans, fontSize:12.5, color:ON_PHOTO.mute, textAlign:"center", lineHeight:1.6, margin:"0 0 22px" }}>Accede al panel de tu clínica.</p>
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
-        {setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} style={inp} />}
-        <input type="password" placeholder="Contraseña del panel" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp} />
-        {err && <div style={{ fontFamily:T.sans, fontSize:12, color:T.red, textAlign:"center" }}>{err}</div>}
-        <button onClick={submit} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>
-          {busy?"…":(setup?"Crear acceso":"Entrar")}
+    <LoginVideoBg title={setup ? "Crea tu acceso" : "Iniciar sesión"} subtitle={setup ? "Define la contraseña del panel de tu clínica." : "Entra al panel de tu clínica."}>
+      <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+        {setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} className="jcl-in" />}
+        <input type="password" placeholder="Contraseña del panel" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} className="jcl-in" />
+        {err && <div className="jcl-err">{err}</div>}
+        <button className="jcl-btn" onClick={submit} disabled={busy||!pass.trim()}>
+          {busy?"Entrando…":(setup?"Crear acceso":"Entrar")}
         </button>
       </div>
     </LoginVideoBg>
@@ -410,13 +548,21 @@ function LoginScreen({ T, onAuth }) {
    Reemplaza el antiguo acordeón inline: se abre al tocar CUALQUIER cita (Inicio, Agenda) y permite
    cambiar entre los 5 estados oficiales, editar, comentar, restaurar si está cancelada y abrir la
    ficha del paciente. Un solo componente para toda la app — nada de lógica duplicada. */
-function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
+function ApptSheet({ T, appt:a, patients, appts, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [editCom, setEditCom] = useState(false);
   const [comTxt, setComTxt] = useState(a.comentario||"");
   const [edit, setEdit] = useState(false);
   const [ef, setEf] = useState({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
   const procOpts = (() => { try { return (window.JCDATA && window.JCDATA.catalog ? procList() : []) || []; } catch (e) { return []; } })();
+  // Mover una cita tampoco puede pisar a otra: se ignora ella misma para que no choque consigo, y
+  // solo se compara contra las citas del MISMO profesional.
+  const efChoca = (() => {
+    const s = minsM(ef.time), d = parseInt(ef.dur) || 30;
+    const eq = teamM();
+    const mias = eq.length >= 2 ? (appts || []).filter(x => profDeM(x, eq) === profDeM(a, eq)) : appts;
+    return !ef.time || overlapsM(s, s + d, busyRangesM(mias, ef.fecha, a.id));
+  })();
   const isPend = a.status === "pendiente_pago";
   const isAnulada = a.status === "anulada";
   const st = apptStateM(a, T);
@@ -469,6 +615,19 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
             </span>
           </button>
         </div>
+
+        {/* Profesional que atiende — solo se muestra si la clínica tiene más de uno (si no, sobra). */}
+        {(() => {
+          const eq = teamM();
+          if (eq.length < 2) return null;
+          const quien = profDeM(a, eq), c = profColorM(quien, eq);
+          return (
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:14 }}>
+              <span style={{ width:22, height:22, borderRadius:"50%", background:c, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:9.5, fontWeight:700, flexShrink:0 }}>{inicialesM(quien)}</span>
+              <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Atiende <span style={{ color:T.text, fontWeight:600 }}>{quien}</span>{!((a.prof||"").trim()) && <span style={{ color:T.textFaint }}> · sin asignar</span>}</span>
+            </div>
+          );
+        })()}
 
         {isPend && (
           <button onClick={()=>{ confirmPago(a.id); onClose(); }}
@@ -553,7 +712,8 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
                 ? <select value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} style={inp}>{[ef.proc, ...procOpts.filter(p=>p!==ef.proc)].filter(Boolean).map(p=><option key={p} value={p}>{p}</option>)}</select>
                 : <input value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} placeholder="Procedimiento" style={inp} />}
             </div>
-            <button onClick={()=>{ updateAppt(a.id,{ fecha:ef.fecha, day:isoToDayOff(ef.fecha), time:ef.time, dur:ef.dur+" minutos", proc:ef.proc }); setEdit(false); }} style={{ height:44, borderRadius:12, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:14, fontWeight:600, cursor:"pointer" }}>Guardar cambios</button>
+            {efChoca && <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.red }}>Ese horario se cruza con otra cita del mismo día.</div>}
+            <button disabled={efChoca} onClick={()=>{ if (efChoca) return; updateAppt(a.id,{ fecha:ef.fecha, day:isoToDayOff(ef.fecha), time:ef.time, dur:ef.dur+" minutos", proc:ef.proc }); setEdit(false); }} style={{ height:44, borderRadius:12, border:"none", background:efChoca?T.flatBorder:T.accent, color:efChoca?T.textFaint:T.onAccent, fontFamily:T.sans, fontSize:14, fontWeight:600, cursor:efChoca?"not-allowed":"pointer" }}>Guardar cambios</button>
           </div>
         )}
 
@@ -1026,7 +1186,8 @@ function abbrevProcM(proc) {
   return proc.trim().charAt(0).toUpperCase();
 }
 
-function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
+function AgendaTab({ T, appts, onOpenAppt, goTab, goNueva, showAnuladas, setShowAnuladas, equipo, selProf, setSelProf, soloMias }) {
+  equipo = equipo || [];
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
   // Buscador de pacientes (pedido): evita scrollear día por día para encontrar una cita. Busca en
@@ -1162,6 +1323,26 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     );
   }
 
+  // Selector de profesional. Solo aparece en clínicas con dos o más, y no se muestra a un
+  // profesional (que ya ve únicamente su propia agenda). Se ve una agenda a la vez, igual que en
+  // el panel de escritorio, porque en el ancho de un teléfono no caben columnas por persona.
+  const profRow = (equipo.length >= 2 && !soloMias) ? (
+    <div className="no-sb" style={{ display:"flex", gap:6, padding:"2px 14px 4px", flexShrink:0, overflowX:"auto" }}>
+      {equipo.map(t => {
+        const on = t.name === selProf;
+        const c = t.color || "#8B9EB0";
+        return (
+          <button key={t.id||t.name} onClick={()=>setSelProf && setSelProf(t.name)}
+            style={{ flexShrink:0, display:"flex", alignItems:"center", gap:6, padding:"5px 10px 5px 5px", borderRadius:999,
+              cursor:"pointer", border:"1px solid "+(on ? c : T.flatBorder), background: on ? "color-mix(in srgb, "+c+" 20%, transparent)" : "transparent" }}>
+            <span style={{ width:20, height:20, borderRadius:"50%", background:c, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:9, fontWeight:700, flexShrink:0 }}>{inicialesM(t.name)}</span>
+            <span style={{ fontFamily:T.sans, fontSize:12, fontWeight: on?600:500, color: on ? T.text : T.textMute, whiteSpace:"nowrap" }}>{primerNombreM(t.name)}</span>
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
   // Segmentado Día/Mes (el filtro de canceladas ahora vive en el icono del header, como la referencia).
   // Pedido: más chico, para dejar más protagonismo a la tira de días y las citas.
   const toggleRow = (
@@ -1225,7 +1406,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   // blur/saturación más altos, no solo un tinte plano. zIndex alto: siempre queda SOBRE la lista de
   // citas que scrollea detrás — nunca la tapa a ella, pero ella tampoco lo tapa a él.
   const fab = (
-    <button onClick={()=>goTab("nueva")} title="Nueva cita" aria-label="Nueva cita"
+    <button onClick={()=>(goNueva ? goNueva(selDay) : goTab("nueva"))} title="Nueva cita" aria-label="Nueva cita"
       style={{ position:"absolute", right:16, bottom:16+"px", width:56, height:56, borderRadius:"50%",
         background:T.accent, border:"none", color:T.onAccent, cursor:"pointer",
         boxShadow:"0 12px 28px -10px rgba(10,25,55,.5)",
@@ -1239,6 +1420,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     return (
       <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
         {toggleRow}
+        {profRow}
         {searchBar}
         {ql ? searchResultsBody : (<>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
@@ -1275,6 +1457,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   return (
     <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
       {toggleRow}
+      {profRow}
       {searchBar}
       {ql ? searchResultsBody : (<>
         {/* Tira de días continua (pedido): scroll horizontal nativo y directo, sin paginar por semana.
@@ -1378,7 +1561,9 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
 // capacidad real de crear un PACIENTE NUEVO (toggle segmentado existente/nuevo con RUT validado). El
 // guardado usa la lógica real: addAppt (status pendiente), addPatient si es nuevo, y el flujo real de
 // WhatsApp de confirmación (jcmCitaConfirmMsgM). Reemplaza al antiguo asistente de 3 pasos.
-function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
+// initialFecha: día preseleccionado en la Agenda (al tocar "+" con un día abierto se agenda EN ese
+// día, no en hoy). Sigue siendo editable con los steppers ‹ › y el calendario desplegable.
+function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialFecha }) {
   const [tipo, setTipo] = useState("existente"); // existente | nuevo
   const [pid, setPid] = useState("");
   const [pq, setPq] = useState(""); // buscador de paciente existente (por nombre/RUT)
@@ -1396,7 +1581,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [email, setEmail] = useState("");
   // Detalles de la cita
   const procs = procList();
-  const [fecha, setFecha] = useState(todayISO());
+  const [fecha, setFecha] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initialFecha || "") ? initialFecha : todayISO());
   const [calOpen, setCalOpen] = useState(false); // calendario desplegable al tocar la fecha
   const [calMonth, setCalMonth] = useState(() => new Date((todayISO())+"T12:00:00"));
   // Al mover la fecha (steppers o al elegir un día), el calendario sigue mostrando ese mes.
@@ -1404,6 +1589,14 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [time,  setTime]  = useState("10:00");
   const [proc,    setProc]    = useState(procs[0]||"Evaluación general");
   const [dur,     setDur]     = useState("30 minutos");
+  // Profesional que atiende. Por defecto el que tiene la sesión iniciada si es del equipo (lo más
+  // habitual: cada uno agenda lo suyo); si no, el primero — mismo criterio que el escritorio.
+  const equipo = teamM();
+  const [prof, setProf] = useState(() => {
+    const yo = miNombreProfM();
+    if (yo && equipo.some(t => t.name === yo)) return yo;
+    return (equipo[0] && equipo[0].name) || "";
+  });
   const [comment, setComment] = useState("");
   const [notifyWa, setNotifyWa] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -1420,7 +1613,6 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const finalEmail = tipo==="existente" ? (selectedPatient?selectedPatient.email:"") : email;
 
   const patientOk = tipo==="existente" ? !!selectedPatient : (name.trim() && (sinRut || rutOk) && phoneOk);
-  const canSave = patientOk && !!proc && !!fecha && !!time;
 
   const slotsMap = (window.DB && window.DB.get('horarios_dates')) || {};
   const weeklyDef = (() => {
@@ -1428,14 +1620,26 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     return slotsM().slice();
   })();
   const avail = slotsMap[fecha]!=null ? slotsMap[fecha] : weeklyDef;
-  const occupied = new Set(appts.filter(a=>a.fecha===fecha && a.status!=="anulada").map(a=>a.time));
-  const freeSlots = avail.filter(s=>!occupied.has(s));
   // Opciones de hora del selector: en JC Medical (modo 15 min) se ofrece la grilla completa cada
   // 15 min —igual que el portal de escritorio, que ignora la granularidad guardada en horarios_v1—
   // para poder agendar a las y cuarto/menos cuarto. El resto de clínicas mantiene su configuración.
   // Si el día está cerrado (avail vacío), no se ofrece ninguna hora.
   const slotGrid = clinicSeededM() ? slotsM() : avail;
-  const freeSlots15 = (avail.length === 0) ? [] : slotGrid.filter(s => !occupied.has(s));
+  const durMin = parseInt(dur) || 30;
+  // Los choques se miran SOLO contra las citas del mismo profesional: en una clínica con varios,
+  // dos personas sí pueden atender a la misma hora en boxes distintos.
+  const apptsProf = equipo.length >= 2 ? appts.filter(a => profDeM(a, equipo) === prof) : appts;
+  const busy = busyRangesM(apptsProf, fecha);
+  // Las horas libres dependen de la DURACIÓN elegida: una cita de 60 min no cabe en un hueco de 30
+  // y por eso deja de ofrecerse esa hora.
+  const freeSlots15 = freeStartsM(slotGrid, avail, busy, durMin);
+  const choqueHora = !!time && overlapsM(minsM(time), minsM(time) + durMin, busy);
+  // Si la hora elegida deja de caber (cambió el día, el procedimiento o la duración), se mueve sola
+  // a la primera libre en vez de quedar seleccionada una que pisaría otra cita.
+  useEffect(() => {
+    if (freeSlots15.length && freeSlots15.indexOf(time) < 0) setTime(freeSlots15[0]);
+  }, [freeSlots15.join(","), time]);
+  const canSave = patientOk && !!proc && !!fecha && !!time && !choqueHora;
 
   function confirm() {
     if (!canSave || saved) return;
@@ -1446,7 +1650,12 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     }
     // Pedido del usuario: crear la cita NO debe dejarla "Confirmada" — solo "Agendado" (pendiente).
     // Confirmar la asistencia del paciente es un paso aparte, que se hace desde la hoja de la cita.
-    addAppt({ id:Date.now().toString(36), patId, name:finalName.trim(), rut:(finalRut||"").trim(), phone:(finalPhone||"").trim(), email:(finalEmail||"").trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"pendiente", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
+    // `prof` (NOMBRE del profesional) es lo que usa el escritorio para repartir la agenda. Antes el
+    // móvil no lo guardaba, así que toda cita creada desde el celular caía bajo el primero del equipo.
+    // id con jcmUid (UUID), igual que el escritorio. Antes era solo Date.now(): dos equipos
+    // agendando en el mismo milisegundo generaban el MISMO id, y ahora que la nube fusiona por id
+    // eso haría que una cita se comiera a la otra.
+    addAppt({ id:(window.jcmUid ? window.jcmUid("a") : "a_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)), patId, name:finalName.trim(), rut:(finalRut||"").trim(), phone:(finalPhone||"").trim(), email:(finalEmail||"").trim(), proc, prof: prof || undefined, dur, time, fecha, day:isoToDayOff(fecha), status:"pendiente", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
     if (notifyWa && finalPhone) {
       const waP = (finalPhone||"").replace(/\D/g,"");
       if (waP.length>=8) {
@@ -1535,8 +1744,8 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <div><div style={lbl}>Nombre completo</div><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido" style={inp} /></div>
-          <div><div style={lbl}>RUT</div><input value={rut} onChange={e=>onRut(e.target.value)} disabled={sinRut} inputMode="numeric" placeholder={sinRut?"Sin RUT":"12.345.678-9"} style={{...inp, opacity:sinRut?.5:1, borderColor: (sinRut || rutOk || !rut) ? T.inputBorder : T.red}} /></div>
+          <div><div style={lbl}>Nombre completo</div><input value={name} onChange={e=>setName(soloNombreM(e.target.value))} placeholder="Nombre y apellido" autoCapitalize="words" style={inp} /></div>
+          <div><div style={lbl}>RUT</div><input value={rut} onChange={e=>onRut(e.target.value)} disabled={sinRut} {...RUT_INPUT_M} placeholder={sinRut?"Sin RUT":"12.345.678-9"} style={{...inp, opacity:sinRut?.5:1, borderColor: (sinRut || rutOk || !rut) ? T.inputBorder : T.red}} /></div>
           {!sinRut && rut && !rutOk && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-6 }}>Revisa el RUT: el dígito verificador no coincide.</div>}
           <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", marginTop:-4 }}>
             <input type="checkbox" checked={sinRut} onChange={e=>{ setSinRut(e.target.checked); if (e.target.checked) setRut(""); }} />
@@ -1609,7 +1818,8 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           {(() => { const base = freeSlots15.length ? freeSlots15 : slotsM(); const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
         </select>
       </div>
-      {freeSlots15.length===0 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>No hay horas marcadas como disponibles para este día.</div>}
+      {freeSlots15.length===0 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>{avail.length===0 ? "No hay horas marcadas como disponibles para este día." : "No queda ningún hueco de "+durMin+" min este día. Prueba otra duración u otro día."}</div>}
+      {choqueHora && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>Esa hora se cruza con otra cita ya agendada.</div>}
 
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <span style={lbl}>Duración</span>
@@ -1617,6 +1827,16 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
           {["15 minutos","30 minutos","45 minutos","60 minutos","75 minutos","90 minutos","120 minutos"].map(d=><option key={d}>{d}</option>)}
         </select>
       </div>
+
+      {/* Profesional: solo tiene sentido preguntarlo si la clínica tiene más de uno. */}
+      {equipo.length >= 2 && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <span style={lbl}>Profesional</span>
+          <select value={prof} onChange={e=>setProf(e.target.value)} style={{ ...inp, width:"auto" }}>
+            {equipo.map(t=><option key={t.id||t.name} value={t.name}>{t.name}</option>)}
+          </select>
+        </div>
+      )}
 
       <div><div style={lbl}>Comentario (opcional)</div>
         <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ej. Control, seguimiento, evaluación…" rows={2} style={{...inp, resize:"none"}} />
@@ -1715,24 +1935,297 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
 }
 
 /* ═══════════ Overlay: Ficha del paciente (vista + edición básica) ═══════════ */
+// Fecha de una sesión clínica → ISO ordenable. El historial trae "YYYY-MM-DD" (formato actual) y
+// fichas antiguas pueden traer "DD-MM-YYYY"; sin normalizar, ordenar por texto mezclaba ambas.
+function sesFechaISO(d) {
+  const s = String(d || "");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  return m ? m[3] + "-" + m[2] + "-" + m[1] : "";
+}
+// Historial clínico del paciente. NO está en el índice "patients" (liviano): vive en su propia clave
+// phist_<id> para no topar el límite de 1 MB por documento en la nube. El móvil lo leía de p.history
+// y por eso siempre mostraba 0 atenciones. Se cae a p.history para fichas en formato antiguo (inline).
+function sesionesDe(p) {
+  let h = [];
+  try { const ph = window.DB && window.DB.get("phist_" + p.id); if (Array.isArray(ph)) h = ph; } catch (e) {}
+  if (!h.length && Array.isArray(p.history)) h = p.history;
+  return h.slice().sort((a, b) => sesFechaISO(b.date).localeCompare(sesFechaISO(a.date)));
+}
+
+/* ═══════════ Estado de sincronización ═══════════
+   Trabajar sin señal ya funcionaba (todo se guarda primero en el equipo), pero desde el celular no
+   había forma de SABERLO: ni si algo quedó sin subir, ni cuándo terminó de subir. Este banner lo
+   dice con todas sus letras y solo aparece cuando hay algo que contar. */
+function SyncBannerM({ T, online }) {
+  const [pend, setPend] = useState(0);
+  const [listo, setListo] = useState(false); // confirmación breve al terminar de subir
+  const previo = useRef(0);
+  useEffect(() => {
+    let vivo = true;
+    function mirar() {
+      if (!vivo) return;
+      let n = 0;
+      try { n = (window.JCSAAS && window.JCSAAS.pendingKeys) ? window.JCSAAS.pendingKeys().length : 0; } catch (e) {}
+      setPend(n);
+      if (previo.current > 0 && n === 0) { setListo(true); setTimeout(() => vivo && setListo(false), 4000); }
+      previo.current = n;
+    }
+    mirar();
+    const t = setInterval(mirar, 3000);
+    return () => { vivo = false; clearInterval(t); };
+  }, []);
+
+  if (online && !pend && !listo) return null; // todo al día: no molestar
+
+  const tono = (!online || pend)
+    ? { bg:"rgba(184,134,11,.22)", bd:"rgba(184,134,11,.4)", ic:"#E8B84D", tx:"#F0D9A8" }
+    : { bg:"rgba(31,138,91,.20)",  bd:"rgba(31,138,91,.42)", ic:"#5FCE9B", tx:"#BFEBD5" };
+  const texto = !online
+    ? (pend ? "Sin conexión · " + pend + (pend === 1 ? " cambio guardado aquí, se subirá solo" : " cambios guardados aquí, se subirán solos")
+            : "Sin conexión · trabajando con los datos de este equipo")
+    : (pend ? "Subiendo " + pend + (pend === 1 ? " cambio…" : " cambios…") : "Todo sincronizado");
+
+  return (
+    <button onClick={() => { try { window.JCSAAS && window.JCSAAS.retrySync && window.JCSAAS.retrySync(); } catch (e) {} }}
+      style={{ flexShrink:0, width:"calc(100% - 28px)", margin:"0 14px 6px", padding:"8px 12px", borderRadius:12,
+        background:tono.bg, border:"1px solid "+tono.bd, display:"flex", alignItems:"center", gap:8,
+        cursor:"pointer", textAlign:"left" }}>
+      {/* Un icono por estado: sin señal (wifi tachado), subiendo (flecha) y al día (visto). Con
+          conexión el wifi tachado despistaba, porque justamente sí hay conexión. */}
+      {!online ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tono.ic} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5"/></svg>
+      ) : pend ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tono.ic} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      ) : (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tono.ic} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M20 6L9 17l-5-5"/></svg>
+      )}
+      <span style={{ fontFamily:T.sans, fontSize:11.5, color:tono.tx, lineHeight:1.35 }}>{texto}</span>
+    </button>
+  );
+}
+
+/* ═══════════ Consentimiento informado (móvil) ═══════════
+   Usa EXACTAMENTE las mismas plantillas (window.JCADMIN.consents), el mismo cuerpo legal
+   (window.ConsentDoc, en jc-consent-doc.jsx compartido con el escritorio) y el mismo almacenamiento
+   que jc-admin-b.jsx: cada documento en `pcons_<id>_<ts>` y el índice en `pconsm_<id>`. Así un
+   consentimiento firmado en el celular se abre idéntico en el PC, y al revés. */
+function patConsentsM(p) { // espejo de patConsents() en jc-admin-b.jsx
+  if (!p) return [];
+  try {
+    const man = window.DB && window.DB.get("pconsm_" + p.id);
+    if (Array.isArray(man) && man.length) {
+      const items = [];
+      man.forEach(ts => { try { const c = window.DB.get("pcons_" + p.id + "_" + ts); if (c) items.push(c); } catch (e) {} });
+      if (items.length) return items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    }
+    const v = window.DB && window.DB.get("pcons_" + p.id); // formato anterior (array completo)
+    if (Array.isArray(v) && v.length) return v;
+  } catch (e) {}
+  return p.consents || (p.consentDoc ? [p.consentDoc] : []);
+}
+// Abre un consentimiento ya firmado en una pestaña nueva, con el MISMO documento que genera el
+// escritorio (jcmConsentInnerHTML, en jc-consent-doc.jsx). En iOS la pestaña debe abrirse DENTRO
+// del gesto del usuario, así que se abre vacía y se rellena cuando terminan de recortarse las firmas.
+function abrirConsentM(doc, patient) {
+  const w = window.open("", "_blank");
+  if (w) { try { w.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento…</body>"); } catch (e) {} }
+  const inner = window.jcmConsentInnerHTML
+    ? window.jcmConsentInnerHTML(doc, patient)
+    : Promise.reject(new Error("sin generador"));
+  inner.then(html => {
+    const page = "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+      + "<title>" + ((doc.title || "Consentimiento").replace(/</g, "&lt;")) + "</title></head>"
+      + "<body style='margin:0;padding:26px;font-family:-apple-system,Segoe UI,sans-serif;background:#fff;color:#111'>"
+      + "<h2 style='font-size:16px;margin:0 0 14px'>" + ((doc.title || "Consentimiento").replace(/</g, "&lt;")) + "</h2>"
+      + html + "</body></html>";
+    if (w) { try { w.document.open(); w.document.write(page); w.document.close(); return; } catch (e) {} }
+    if (window.jcmPrintHTML) window.jcmPrintHTML(page);
+  }).catch(() => {
+    if (w) { try { w.close(); } catch (e) {} }
+    try { window.jcmError ? window.jcmError("No se pudo abrir el consentimiento.") : alert("No se pudo abrir el consentimiento."); } catch (e) {}
+  });
+}
+function snapMedicoM() { // espejo de _snapMedicoResp() en jc-admin-b.jsx
+  try { const ms = window.DB.get("medic_sigs"); if (ms && ms.length && ms[0]) { const m = ms[0]; return { name:m.name||"", rut:m.rut||"", registro:m.registro||"", sig:m.sig||"" }; } } catch (e) {}
+  return null;
+}
+function consentCatalogM() {
+  let base = [];
+  try { base = ((window.JCADMIN && window.JCADMIN.consents) || []).slice(); } catch (e) {}
+  // Plantillas propias de la clínica (módulo Consentimientos del escritorio) → mismas que allá.
+  try {
+    const propias = window.DB && window.DB.get("consent_templates");
+    if (Array.isArray(propias)) propias.forEach(t => base.push({ id:"tpl-"+(t.id||t.title), title:t.title||"Consentimiento", kind:"extra", proc:t.proc||"", cat:"Propio", body:t.body||"" }));
+  } catch (e) {}
+  const dental = (() => { try { return !!(window.isDental && window.isDental()); } catch (e) { return false; } })();
+  return base.filter(c => !c.vertical || c.vertical === (dental ? "dental" : "estetica"));
+}
+function ConsentSignM({ T, patient, onClose, onSaved }) {
+  const cat = consentCatalogM();
+  const [tpl, setTpl] = useState(null);
+  const hoy = (() => { const d = new Date(); return ("0"+d.getDate()).slice(-2)+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+String(d.getFullYear()).slice(-2); })();
+  const profDef = (() => { try { const p = window.DB && window.DB.cfg && window.DB.cfg().professional; return (p && (""+p).trim()) || ""; } catch (e) { return ""; } })();
+  const [f, setF] = useState({ nombre:patient.name||"", ci:patient.rut||"", edad:patient.age?String(patient.age):"", fecha:hoy, prof:profDef, aiPhotos:true });
+  const [body, setBody] = useState("");           // solo para la plantilla "extraordinaria"
+  const [sigPac, setSigPac] = useState(null);
+  const [sigPro, setSigPro] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
+  const miniLbl = { fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginBottom:4 };
+  const listo = !!tpl && f.nombre.trim() && f.prof.trim() && sigPac && sigPro && !busy;
+
+  function guardar() {
+    if (!listo) return;
+    setBusy(true);
+    try {
+      const doc = { kind:tpl.kind, title:tpl.title, cat:tpl.cat, proc:tpl.proc, proc4:tpl.proc4, vascular:tpl.vascular,
+        body: tpl.kind === "extra" ? body : tpl.body, paragraphs:tpl.paragraphs,
+        nombre:f.nombre.trim(), ci:f.ci.trim(), edad:f.edad.trim(), prof:f.prof.trim(), fecha:f.fecha, aiPhotos:!!f.aiPhotos,
+        sigPac, sigPro, medico:snapMedicoM(), ts:Date.now(), source:"movil" };
+      // Mismo esquema que commitConsents() del escritorio: documento aparte + manifest.
+      const lista = [doc, ...patConsentsM(patient)];
+      const man = [];
+      lista.forEach((c, i) => { const ts = c.ts || (Date.now() + i); window.DB.set("pcons_" + patient.id + "_" + ts, c); man.push(ts); });
+      window.DB.set("pconsm_" + patient.id, man);
+      // En el paciente solo la marca liviana (sin firmas), para no inflar el bloque `patients`.
+      const edadNum = parseInt(f.edad, 10);
+      const parcheEdad = (edadNum && !patient.age) ? { age: edadNum } : {};
+      onSaved({ consent:true, consentTs:Date.now(), consentInfo:tpl.title + " · " + f.fecha, aiPhotoConsent:!!f.aiPhotos, ...parcheEdad });
+      try { window.jcmToast && window.jcmToast("Consentimiento firmado y guardado.", "ok"); } catch (e) {}
+      onClose();
+    } catch (e) {
+      setBusy(false);
+      try { window.jcmError ? window.jcmError("No se pudo guardar el consentimiento.") : alert("No se pudo guardar el consentimiento."); } catch (e2) {}
+    }
+  }
+
+  const Pad = window.SignaturePad;
+  return (
+    <OverlayShell T={T} title="Consentimiento" onBack={onClose}>
+      <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:14 }}>
+        {!tpl ? (
+          <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+            <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Elige el consentimiento que va a firmar {patient.name}.</div>
+            {cat.map(c => (
+              <button key={c.id} onClick={()=>setTpl(c)} style={{ textAlign:"left", padding:"14px 15px", borderRadius:13, background:T.flatFill, border:"1px solid "+T.flatBorder, cursor:"pointer" }}>
+                <div style={{ fontFamily:T.sans, fontSize:14, fontWeight:600, color:T.text }}>{c.title}</div>
+                {c.cat && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:2 }}>{c.cat}</div>}
+              </button>
+            ))}
+            {!cat.length && <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>No hay plantillas disponibles.</div>}
+          </div>
+        ) : (
+          <>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+              <div style={{ fontFamily:T.serif, fontSize:18, color:T.text }}>{tpl.title}</div>
+              <button onClick={()=>setTpl(null)} style={{ background:"none", border:"none", color:T.accent, fontFamily:T.sans, fontSize:11.5, fontWeight:600, cursor:"pointer", flexShrink:0 }}>Cambiar</button>
+            </div>
+
+            <div style={{ ...glassPanel(T,12), padding:"13px 14px", display:"flex", flexDirection:"column", gap:9 }}>
+              <div><div style={miniLbl}>Nombre del paciente</div><input value={f.nombre} onChange={e=>setF(s=>({...s,nombre:soloNombreM(e.target.value)}))} autoCapitalize="words" style={inp} /></div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 84px", gap:8 }}>
+                <div><div style={miniLbl}>Cédula de identidad</div><input value={f.ci} onChange={e=>setF(s=>({...s,ci:window.jcmFmtRut?window.jcmFmtRut(e.target.value):e.target.value}))} {...RUT_INPUT_M} style={inp} /></div>
+                <div><div style={miniLbl}>Edad</div><input value={f.edad} onChange={e=>setF(s=>({...s,edad:e.target.value.replace(/\D/g,"").slice(0,3)}))} inputMode="numeric" style={{...inp, textAlign:"center"}} /></div>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 108px", gap:8 }}>
+                <div><div style={miniLbl}>Profesional</div><input value={f.prof} onChange={e=>setF(s=>({...s,prof:e.target.value}))} style={inp} /></div>
+                <div><div style={miniLbl}>Fecha</div><input value={f.fecha} onChange={e=>setF(s=>({...s,fecha:e.target.value}))} style={{...inp, textAlign:"center"}} /></div>
+              </div>
+              {tpl.kind === "extra" && (
+                <div><div style={miniLbl}>Texto del consentimiento</div>
+                  <textarea value={body} onChange={e=>setBody(e.target.value)} rows={5} placeholder="Describe el procedimiento y lo que el paciente autoriza…" style={{...inp, resize:"none"}} /></div>
+              )}
+            </div>
+
+            {/* Cuerpo legal: el MISMO componente que usa el panel de escritorio. */}
+            <div style={{ ...glassPanel(T,12), padding:"14px 15px", maxHeight:300, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
+              {window.ConsentDoc
+                ? <window.ConsentDoc T={T} tpl={tpl.kind === "extra" ? { ...tpl, body } : tpl} prof={f.prof} />
+                : <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.red }}>No se pudo cargar el texto del consentimiento. Revisa la conexión y vuelve a entrar.</div>}
+            </div>
+
+            <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", padding:"11px 13px", borderRadius:12, background:T.flatFill, border:"1px solid "+T.flatBorder }}>
+              <input type="checkbox" checked={f.aiPhotos} onChange={e=>setF(s=>({...s,aiPhotos:e.target.checked}))} />
+              <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>Autoriza fotografías con fines clínicos y académicos</span>
+            </label>
+
+            {Pad ? (
+              <>
+                <div><div style={miniLbl}>Firma del paciente</div><Pad T={T} onChange={setSigPac} height={150} /></div>
+                <div><div style={miniLbl}>Firma del profesional</div><Pad T={T} onChange={setSigPro} height={150} /></div>
+              </>
+            ) : <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.red }}>No se pudo cargar el módulo de firma.</div>}
+
+            {!listo && !busy && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>Faltan: {[!f.nombre.trim()&&"nombre", !f.prof.trim()&&"profesional", !sigPac&&"firma del paciente", !sigPro&&"firma del profesional"].filter(Boolean).join(", ")}.</div>}
+            <button onClick={guardar} disabled={!listo} style={{ height:48, borderRadius:13, border:"none", background:listo?T.accent:T.flatBorder, color:listo?T.onAccent:T.textFaint, fontFamily:T.sans, fontSize:14.5, fontWeight:600, cursor:listo?"pointer":"not-allowed" }}>
+              {busy ? "Guardando…" : "Firmar y guardar"}
+            </button>
+          </>
+        )}
+      </div>
+    </OverlayShell>
+  );
+}
+
 function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) {
   const p = patients.find(x=>x.id===patientId);
   const [edit, setEdit] = useState(false);
-  const [f, setF] = useState({ phone:p?p.phone||"":"", email:p?p.email||"":"", notas:p?p.notas||"":"" });
-  useEffect(()=>{ if(p) setF({ phone:p.phone||"", email:p.email||"", notas:p.notas||"" }); }, [patientId]);
+  // Datos básicos editables desde el celular (pedido: poder corregir la ficha sin el PC ni el iPad).
+  function fFrom(x) { return { name:x?x.name||"":"", rut:x?x.rut||"":"", age:(x&&x.age)?String(x.age):"", phone:x?x.phone||"":"", email:x?x.email||"":"", notas:x?x.notas||"":"" }; }
+  const [f, setF] = useState(() => fFrom(p));
+  useEffect(()=>{ if(p) setF(fFrom(p)); }, [patientId]);
+  const [firmando, setFirmando] = useState(false);
+  // Se releen los consentimientos tras firmar (viven en sus propias claves, no en el paciente).
+  const [consRev, setConsRev] = useState(0);
+  const firmados = useMemo(() => patConsentsM(p), [patientId, consRev, p && p.consentTs]);
   if (!p) return <OverlayShell T={T} title="Ficha" onBack={onBack}><div style={{ padding:30, textAlign:"center", fontFamily:T.sans, color:T.textMute }}>Paciente no encontrado.</div></OverlayShell>;
+  if (firmando) return <ConsentSignM T={T} patient={p} onClose={()=>setFirmando(false)}
+    onSaved={patch => { updatePatient(p.id, patch); setConsRev(v=>v+1); }} />;
 
   const mine = appts.filter(a => a.patId===p.id || a.name===p.name);
   const today = todayISO();
   const proximas = mine.filter(a=>a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=today).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   const pasadas = mine.filter(a=>(a.fecha||offToISO(a.day||0))<today || a.status==="atendida").sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
-  // Procedimientos registrados en el portal (pedido): el panel móvil no los registra, pero sí debe
-  // mostrarlos — es el mismo campo patient.history que usa la ficha clínica del portal, así queda
-  // el mismo registro visible en ambos lados sin duplicar la captura.
-  const sesiones = (p.history || []).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  // Atenciones clínicas registradas (las mismas que el portal): solo lectura en el móvil.
+  const sesiones = sesionesDe(p);
+  // Resumen: cuántas atenciones, cuándo fue la última y el desglose por tratamiento (lo que el
+  // profesional necesita ver de un vistazo antes de entrar a atender).
+  const ultimaSes = sesiones[0] || null;
+  const porTrat = (() => {
+    const m = {};
+    sesiones.forEach(h => { const k = (h.proc || "Sin especificar").trim(); m[k] = (m[k] || 0) + 1; });
+    return Object.keys(m).map(k => ({ name: k, n: m[k] })).sort((a, b) => b.n - a.n);
+  })();
+  const fmtSesFecha = iso => { const s = sesFechaISO(iso); if (!s) return iso || "—"; const d = new Date(s + "T12:00:00"); return isNaN(d) ? (iso || "—") : d.getDate() + " " + MESES[d.getMonth()] + " " + d.getFullYear(); };
   const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
+  const miniLbl = { fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginBottom:4 };
 
-  function save() { updatePatient(p.id, { phone:f.phone.trim(), email:f.email.trim(), notas:f.notas.trim() }); setEdit(false); }
+  // Solo el NOMBRE bloquea el guardado. El teléfono y el RUT avisan pero no impiden guardar: en el
+  // portal de escritorio exigir siempre teléfono válido dejaba el botón muerto en fichas antiguas
+  // sin teléfono y no se podía agregar la edad (mismo motivo que la regla `phoneEmpty` de
+  // jc-admin-b.jsx). Aquí no se repite ese error.
+  const emailOk = !f.email.trim() || /\S+@\S+\.\S+/.test(f.email.trim());
+  const rutWarn = !!f.rut.trim() && !!window.jcmValidRut && !window.jcmValidRut(f.rut);
+  const okSave = f.name.trim().length > 2 && emailOk;
+  // Espejo de markPaper() del escritorio: quita al paciente de "consentimiento pendiente".
+  function marcarPapel() {
+    if (!window.confirm("Marcar el consentimiento de " + (p.name || "este paciente") + " como firmado en papel. Dejará de aparecer como pendiente. ¿Continuar?")) return;
+    const d = new Date();
+    const fch = ("0"+d.getDate()).slice(-2) + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2);
+    updatePatient(p.id, { consent: true, consentInfo: "Firmado en papel · " + fch, paperConsent: true });
+    try { window.jcmToast && window.jcmToast("Marcado como firmado en papel.", "ok"); } catch (e) {}
+  }
+  function save() {
+    if (!okSave) return;
+    updatePatient(p.id, {
+      name: f.name.trim(), rut: f.rut.trim(),
+      age: f.age.trim() === "" ? 0 : (parseInt(f.age, 10) || 0),
+      phone: f.phone.trim(), email: f.email.trim(), notas: f.notas.trim(),
+    });
+    setEdit(false);
+  }
 
   return (
     <OverlayShell T={T} title="Ficha del paciente" onBack={onBack}>
@@ -1747,24 +2240,78 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 
         <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
-            <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Contacto</span>
+            <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Datos del paciente</span>
             {!edit && <button onClick={()=>setEdit(true)} style={{ background:"none", border:"none", color:T.accent, fontFamily:T.sans, fontSize:11.5, fontWeight:600, cursor:"pointer" }}>Editar</button>}
           </div>
           {edit ? (
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              <input value={f.phone} onChange={e=>setF(s=>({...s,phone:e.target.value}))} placeholder="Teléfono" style={inp} />
-              <input value={f.email} onChange={e=>setF(s=>({...s,email:e.target.value}))} placeholder="Correo" style={inp} />
+              <div>
+                <div style={miniLbl}>Nombre</div>
+                <input value={f.name} onChange={e=>setF(s=>({...s,name:soloNombreM(e.target.value)}))} placeholder="Nombre y apellidos" autoCapitalize="words" style={inp} />
+              </div>
+              {/* RUT y edad juntos: la edad es el dato que más se corrige desde el celular. */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 96px", gap:8 }}>
+                <div>
+                  <div style={miniLbl}>RUT</div>
+                  <input value={f.rut} onChange={e=>setF(s=>({...s,rut:window.jcmFmtRut?window.jcmFmtRut(e.target.value):e.target.value}))} placeholder="12.345.678-9" {...RUT_INPUT_M} style={inp} />
+                </div>
+                <div>
+                  <div style={miniLbl}>Edad</div>
+                  <input value={f.age} onChange={e=>setF(s=>({...s,age:e.target.value.replace(/\D/g,"").slice(0,3)}))} placeholder="—" inputMode="numeric" style={{...inp, textAlign:"center"}} />
+                </div>
+              </div>
+              {rutWarn && <div style={{ fontFamily:T.sans, fontSize:11, color:T.warn }}>Ese RUT no pasa el dígito verificador. Puedes guardarlo igual.</div>}
+              <div>
+                <div style={miniLbl}>Teléfono</div>
+                <input value={f.phone} onChange={e=>setF(s=>({...s,phone:e.target.value}))} placeholder="+56 9 1234 5678" inputMode="tel" style={inp} />
+              </div>
+              <div>
+                <div style={miniLbl}>Correo</div>
+                <input value={f.email} onChange={e=>setF(s=>({...s,email:e.target.value}))} placeholder="correo@ejemplo.cl" inputMode="email" style={inp} />
+              </div>
+              {!emailOk && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red }}>Ese correo no parece válido.</div>}
               <textarea value={f.notas} onChange={e=>setF(s=>({...s,notas:e.target.value}))} placeholder="Notas (alergias, preferencias, etc.)" rows={2} style={{...inp, resize:"none"}} />
+              {!okSave && f.name.trim().length<=2 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red }}>El nombre es obligatorio.</div>}
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={()=>{ setEdit(false); setF({phone:p.phone||"",email:p.email||"",notas:p.notas||""}); }} style={{ flex:1, height:38, borderRadius:8, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Cancelar</button>
-                <button onClick={save} style={{ flex:2, height:38, borderRadius:8, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer" }}>Guardar</button>
+                <button onClick={()=>{ setEdit(false); setF(fFrom(p)); }} style={{ flex:1, height:38, borderRadius:8, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+                <button onClick={save} disabled={!okSave} style={{ flex:2, height:38, borderRadius:8, border:"none", background:okSave?T.accent:T.flatBorder, color:okSave?T.onAccent:T.textFaint, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:okSave?"pointer":"not-allowed" }}>Guardar</button>
               </div>
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <div style={{ fontFamily:T.sans, fontSize:13, color:T.text }}>{p.rut || "Sin RUT"} · {p.age ? p.age+" años" : "Edad sin registrar"}</div>
               <div style={{ fontFamily:T.sans, fontSize:13, color:T.text }}>{p.phone || "Sin teléfono"}</div>
               <div style={{ fontFamily:T.sans, fontSize:13, color:T.text }}>{p.email || "Sin correo"}</div>
               {p.notas && <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:3, fontStyle:"italic" }}>{p.notas}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Consentimiento informado: mismas plantillas y mismo guardado que el panel de escritorio. */}
+        <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+            <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Consentimiento informado</span>
+            <button onClick={()=>setFirmando(true)} style={{ background:"none", border:"none", color:T.accent, fontFamily:T.sans, fontSize:11.5, fontWeight:600, cursor:"pointer" }}>Firmar</button>
+          </div>
+          {firmados.length ? (
+            <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+              {/* Tocar un consentimiento lo abre completo, con firmas, para leerlo o imprimirlo. */}
+              {firmados.map((c,i)=>(
+                <button key={c.ts||i} onClick={()=>abrirConsentM(c, p)} style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10, width:"100%", background:"none", border:"none", padding:"7px 0", cursor:"pointer", textAlign:"left" }}>
+                  <span style={{ fontFamily:T.sans, fontSize:13, color:T.text, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.title||"Consentimiento"}</span>
+                  <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, flexShrink:0 }}>{c.fecha||""} ›</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+              <div style={{ fontFamily:T.sans, fontSize:12.5, color:p.paperConsent?T.text:T.textMute }}>
+                {p.paperConsent ? (p.consentInfo || "Firmado en papel") : "Sin consentimiento firmado."}
+              </div>
+              {/* Igual que el escritorio: si ya lo firmó en papel, se marca y deja de salir como pendiente. */}
+              {!p.paperConsent && (
+                <button onClick={marcarPapel} style={{ alignSelf:"flex-start", background:"none", border:"1px solid "+T.line, borderRadius:8, padding:"7px 11px", color:T.textMute, fontFamily:T.sans, fontSize:11.5, cursor:"pointer" }}>Ya firmó en papel</button>
+              )}
             </div>
           )}
         </div>
@@ -1803,20 +2350,43 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
           </div>
         </div>
 
-        {/* Procedimientos del portal (pedido): solo lectura — el panel móvil no registra sesiones
-            clínicas, pero muestra las que ya se cargaron desde el portal para tener el mismo registro
-            visible en ambas partes. */}
+        {/* Atenciones registradas: resumen (cuántas · última · por tratamiento) + el detalle. Solo
+            lectura — el móvil no registra sesiones clínicas, pero el profesional necesita ver de un
+            vistazo qué se le ha hecho al paciente antes de atenderlo. */}
+        {sesiones.length > 0 && (
+          <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
+            <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:11 }}>Resumen de atenciones</div>
+            <div style={{ display:"flex", gap:10, marginBottom: porTrat.length ? 12 : 0 }}>
+              <div style={{ flex:1, ...glassChip(T), borderRadius:10, padding:"10px 12px" }}>
+                <div style={{ fontFamily:T.serif, fontSize:22, fontWeight:600, color:T.text, lineHeight:1.1 }}>{sesiones.length}</div>
+                <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginTop:2 }}>{sesiones.length===1 ? "atención" : "atenciones"}</div>
+              </div>
+              <div style={{ flex:2, ...glassChip(T), borderRadius:10, padding:"10px 12px", minWidth:0 }}>
+                <div style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{ultimaSes ? fmtSesFecha(ultimaSes.date) : "—"}</div>
+                <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>última · {ultimaSes && ultimaSes.proc ? ultimaSes.proc : "—"}</div>
+              </div>
+            </div>
+            {porTrat.map(t => (
+              <div key={t.name} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, padding:"6px 0", borderTop:"1px solid "+T.lineSoft }}>
+                <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.text, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</span>
+                <span style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.accent, flexShrink:0 }}>{t.n}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div>
-          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Procedimientos del portal ({sesiones.length})</div>
-          {sesiones.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin procedimientos registrados en el portal.</div>}
+          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Atenciones registradas ({sesiones.length})</div>
+          {sesiones.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin atenciones registradas todavía.</div>}
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {sesiones.slice(0,20).map((h,i) => (
               <div key={i} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px" }}>
-                <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{h.date||"—"} · {h.proc||"—"}{h.units ? " · "+h.units : ""}</div>
+                <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{fmtSesFecha(h.date)} · {h.proc||"—"}{h.units ? " · "+h.units : ""}</div>
                 {h.resumen && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>{h.resumen}</div>}
+                {h.recomendados && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>Recomendado: {h.recomendados}</div>}
                 {h.proName && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, fontStyle:"italic", marginTop:3 }}>Realizado por {h.proName}</div>}
               </div>
             ))}
+            {sesiones.length > 20 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint, textAlign:"center", padding:"4px 0" }}>Mostrando las 20 más recientes de {sesiones.length}.</div>}
           </div>
         </div>
       </div>
@@ -1863,19 +2433,19 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     .sort((a,b)=>b.n-a.n).slice(0,5);
   const maxProc = topProc[0] ? topProc[0].n : 1;
 
-  // Resumen del día (prototipo, líneas ~410-428): barras verticales por estado de las citas de HOY,
-  // con los colores OFICIALES de apptStateM (agendado azul · confirmada verde · atendida dorado ·
-  // no asistió rojo) y su conteo debajo. Excluye canceladas (no consumen agenda).
-  const todayIso = todayISO();
-  const todayA = appts.filter(a => (a.fecha||offToISO(a.day||0))===todayIso && a.status!=="anulada");
+  // Resumen del MES: barras verticales por estado de las citas del mes en curso, con los colores
+  // OFICIALES de apptStateM (agendado azul · confirmada verde · atendida dorado · no asistió rojo).
+  // Antes eran las citas de HOY, pero al abrir Reportes temprano salía todo en 0 y no daba lectura
+  // del negocio; el mes es la unidad con la que se mide la clínica (pedido del usuario).
+  const mesA = monthAppts.filter(a => a.status!=="anulada");
   const dayBars = [
-    { label:"Agendadas",  color:"#6EA8E8", count: todayA.filter(a=>!(a.status==="confirmada"||a.status==="atendida"||a.attended||a.status==="no_asistio")).length },
-    { label:"Confirmadas",color:"#46D27A", count: todayA.filter(a=>a.status==="confirmada").length },
-    { label:"Atendidas",  color:"#F5B93D", count: todayA.filter(a=>a.status==="atendida"||a.attended).length },
-    { label:"No asistió", color:"#FF6B7D", count: todayA.filter(a=>a.status==="no_asistio").length },
+    { label:"Agendadas",  color:"#6EA8E8", count: mesA.filter(a=>!(a.status==="confirmada"||a.status==="atendida"||a.attended||a.status==="no_asistio")).length },
+    { label:"Confirmadas",color:"#46D27A", count: mesA.filter(a=>a.status==="confirmada").length },
+    { label:"Atendidas",  color:"#F5B93D", count: mesA.filter(a=>a.status==="atendida"||a.attended).length },
+    { label:"No asistió", color:"#FF6B7D", count: mesA.filter(a=>a.status==="no_asistio").length },
   ];
   const dayMax = Math.max(1, ...dayBars.map(b=>b.count));
-  const todayLabelStr = (() => { const d=new Date(); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
+  const todayLabelStr = (() => { const d=new Date(); return MESES_LARGOS[d.getMonth()]+" "+d.getFullYear(); })();
   const weekTotal = Math.max(1, weekAppts.filter(a=>a.status!=="anulada").length);
 
   // Fila con ícono en círculo de color + valor coloreado + barra de progreso (prototipo reportRows).
@@ -1906,9 +2476,10 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
   return (
     <OverlayShell T={T} title="Reportes" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:16 }}>
-        {/* Resumen del día (prototipo): barras verticales por estado + conteos. */}
+        {/* Resumen del mes: barras verticales por estado + conteos. */}
         <div style={{ ...glassPanel(T,16), padding:"14px 16px" }}>
-          <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:11.5, color:T.textMute, marginBottom:10, textTransform:"capitalize" }}>Resumen del día · {todayLabelStr}</div>
+          {/* Sin textTransform:capitalize — escribía "Resumen Del Mes"; la etiqueta ya viene bien escrita. */}
+          <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:11.5, color:T.textMute, marginBottom:10 }}>Resumen del mes · {todayLabelStr}</div>
           <div style={{ display:"flex", alignItems:"flex-end", gap:16, height:44 }}>
             {dayBars.map(b => (
               <div key={b.label} style={{ display:"flex", flexDirection:"column", alignItems:"center", flex:1, height:"100%", justifyContent:"flex-end" }}>
@@ -1965,7 +2536,7 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
               {open && (() => {
                 // Al expandir: los próximos AGENDADOS de este procedimiento (fecha + nombre + "Agendado"),
                 // como en el prototipo — para saber a quién corresponde cada cita pendiente (real).
-                const upcomingAg = t.list.filter(a => !(a.status==="atendida"||a.attended) && (a.fecha||offToISO(a.day||0))>=todayIso);
+                const upcomingAg = t.list.filter(a => !(a.status==="atendida"||a.attended) && (a.fecha||offToISO(a.day||0))>=todayISO());
                 return (
                   <div style={{ display:"flex", flexDirection:"column", gap:7, padding:"0 0 12px 43px" }}>
                     {upcomingAg.length===0 && <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textFaint }}>Sin próximos agendados</div>}
@@ -2193,6 +2764,13 @@ function SinPermisoM({ T }) {
 }
 function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   const [tab, setTab] = useState("citas");
+  // Día con el que se abre "Nueva cita": si se entra desde la Agenda con un día seleccionado, se
+  // agenda EN ese día (editable); desde cualquier otro lado queda null → hoy.
+  const [nuevaFecha, setNuevaFecha] = useState(null);
+  const goNueva = (fecha) => { setNuevaFecha(fecha || null); setTab("nueva"); };
+  // Al salir del formulario por CUALQUIER vía (atrás, cerrar, barra de pestañas, menú) se olvida el
+  // día preseleccionado, para que la próxima "Nueva cita" desde Inicio vuelva a abrir en hoy.
+  useEffect(() => { if (tab !== "nueva" && nuevaFecha) setNuevaFecha(null); }, [tab]);
   // SEG · Si la pestaña actual no está permitida, aterrizar en la primera que sí lo esté. El gate
   // de render (más abajo) es la barrera dura; esto solo evita que el usuario choque contra un muro.
   useEffect(() => {
@@ -2207,6 +2785,43 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   const [agShowAnuladas, setAgShowAnuladas] = useState(false); // filtro de canceladas (icono del header en Agenda)
   const [appts, setAppts] = useState(() => (window.DB&&window.DB.get("appointments"))||[]);
   const [patients, setPatients] = useState(() => (window.DB&&window.DB.get("patients"))||[]);
+
+  // ── Multi-profesional ──────────────────────────────────────────────────────────────────────
+  // Equipo de la clínica y profesional elegido en la agenda. Se recalcula cuando llegan datos
+  // nuevos (un miembro puede agregarse desde el escritorio con la app abierta).
+  const [equipo, setEquipo] = useState(() => teamM());
+  useEffect(() => {
+    function recargar() { setEquipo(teamM()); }
+    window.addEventListener("jcsaas:data", recargar);
+    return () => window.removeEventListener("jcsaas:data", recargar);
+  }, []);
+  const [selProf, setSelProf] = useState("");
+  useEffect(() => {
+    if (!equipo.length) { if (selProf) setSelProf(""); return; }
+    if (equipo.some(t => t.name === selProf)) return;      // la selección sigue siendo válida
+    const yo = miNombreProfM();
+    setSelProf(equipo.some(t => t.name === yo) ? yo : equipo[0].name);
+  }, [equipo.map(t => t.name).join("|")]);
+  // SEG · Un profesional solo ve SUS citas y SUS pacientes, igual que en el panel de escritorio
+  // (jc-admin.jsx). Antes el móvil entregaba la agenda COMPLETA de la clínica a cualquiera del
+  // equipo que iniciara sesión. Dueño y recepción (staff) siguen viendo todo.
+  const misAppts = useMemo(() => {
+    const yo = miNombreProfM().toLowerCase();
+    if (!soyProfesionalM() || !yo) return appts;
+    return (appts || []).filter(a => {
+      const p = ((a.prof || "").trim()).toLowerCase();
+      // Cita sin profesional (reserva web o cita antigua): es del primero del equipo. Y si la
+      // clínica todavía no cargó su equipo, es de quien está usando la app — así nunca ocurre que
+      // un profesional abra la agenda y la vea vacía.
+      if (!p) return !equipo.length || (equipo[0].name || "").toLowerCase() === yo;
+      return p === yo;
+    });
+  }, [appts, equipo]);
+  // Vista de agenda: si la clínica tiene varios profesionales, se muestra uno a la vez.
+  const apptsVista = useMemo(() => {
+    if (equipo.length < 2 || soyProfesionalM()) return misAppts; // un solo profesional, o ya filtrado
+    return (misAppts || []).filter(a => profMatchM(a, selProf, equipo));
+  }, [misAppts, selProf, equipo]);
 
   // Gesto iOS: deslizar desde el BORDE IZQUIERDO hacia la derecha = "volver atrás" (como el pop
   // interactivo nativo). Solo cuenta si el toque EMPIEZA pegado al borde (≤24px), es un movimiento
@@ -2265,18 +2880,23 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   }, []);
 
   function saveAppts(updated) { window.DB&&window.DB.set("appointments", updated); setAppts(updated); }
-  function updateAppt(id, patch) { const all=(window.DB&&window.DB.get("appointments"))||[]; saveAppts(all.map(x=>x.id===id?{...x,...patch}:x)); }
+  function updateAppt(id, patch) {
+    const all=(window.DB&&window.DB.get("appointments"))||[];
+    // Reprogramar debe liberar el hueco viejo y ocupar el nuevo. Antes no se hacía: la hora vieja
+    // quedaba ocupada para siempre y la nueva se seguía ofreciendo en la reserva web (doble reserva).
+    const antes = all.find(x=>x.id===id);
+    if (antes && antes.fecha && antes.time && (patch.fecha || patch.time)) {
+      const nf = patch.fecha || antes.fecha, nt = patch.time || antes.time;
+      if (nf !== antes.fecha || nt !== antes.time) { liberarSlotM(antes.fecha, antes.time); ocuparSlotM(nf, nt); }
+    }
+    saveAppts(all.map(x=>x.id===id?{...x,...patch}:x));
+  }
 
   function confirmPago(id) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : [];
-        map[a.fecha] = cur.filter(s=>s!==a.time);
-        if (window.DB) window.DB.set('horarios_dates', map);
-      } catch(e) {}
+      ocuparSlotM(a.fecha, a.time);
     }
     saveAppts(all.map(x=>x.id===id?{...x,status:"confirmada"}:x));
   }
@@ -2287,12 +2907,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[a.fecha]) ? [...map[a.fecha]] : [];
-        if (!cur.includes(a.time)) { cur.push(a.time); cur.sort(); map[a.fecha]=cur; }
-        if (window.DB) window.DB.set('horarios_dates', map);
-      } catch(e) {}
+      liberarSlotM(a.fecha, a.time);
     }
     saveAppts(all.map(x=>x.id===id?{...x,status:"anulada",attended:false,anuladaAt:Date.now()}:x));
   }
@@ -2301,12 +2916,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : slotsM().slice();
-        map[a.fecha] = cur.filter(s=>s!==a.time);
-        if (window.DB) window.DB.set('horarios_dates', map);
-      } catch(e) {}
+      ocuparSlotM(a.fecha, a.time);
     }
     saveAppts(all.map(x=>x.id===id?{...x,status:"pendiente",attended:false,anuladaAt:null}:x));
   }
@@ -2314,12 +2924,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   function addAppt(appt) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     if (appt.fecha && appt.time) {
-      try {
-        const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : slotsM().slice();
-        map[appt.fecha] = cur.filter(s=>s!==appt.time);
-        if (window.DB) window.DB.set('horarios_dates', map);
-      } catch(e) {}
+      ocuparSlotM(appt.fecha, appt.time);
     }
     saveAppts([...all, appt]);
   }
@@ -2402,12 +3007,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
 
         {/* Aviso de sin conexión (pedido): visible y persistente mientras dure — no un toast que
             desaparece solo, porque el riesgo (datos desactualizados) sigue mientras siga offline. */}
-        {!online && (
-          <div style={{ flexShrink:0, margin:"0 14px 6px", padding:"8px 12px", borderRadius:12, background:"rgba(184,134,11,.22)", border:"1px solid rgba(184,134,11,.4)", display:"flex", alignItems:"center", gap:8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E8B84D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5"/></svg>
-            <span style={{ fontFamily:T.sans, fontSize:11.5, color:"#F0D9A8", lineHeight:1.35 }}>Sin conexión · mostrando datos guardados en este equipo</span>
-          </div>
-        )}
+        <SyncBannerM T={T} online={online} />
 
         {/* Content */}
         {/* Pedido: en Agenda y en Inicio la pantalla queda fija (KPI/accesos/encabezados no se mueven)
@@ -2415,10 +3015,10 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
             exterior NO tiene scroll propio para esas pestañas; cada una maneja su scroll interno. */}
         <div style={{ flex:1, minHeight:0, overflowY: (tab==="agenda"||tab==="citas") ? "hidden" : "auto" }}>
           {/* SEG · gate por permiso en el RENDER de cada pestaña (ver MOBILE_PERM / mobileCan). */}
-          {tab==="citas"    && (mobileCan("citas")    ? <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} openNotif={()=>setNotifOpen(true)} bellCount={bellCount} /> : <SinPermisoM T={T} />)}
+          {tab==="citas"    && (mobileCan("citas")    ? <HomeTab     T={T} appts={apptsVista} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} openNotif={()=>setNotifOpen(true)} bellCount={bellCount} equipo={equipo} /> : <SinPermisoM T={T} />)}
           {tab==="horarios" && (mobileCan("horarios") ? <HorariosTab T={T} appts={appts} /> : <SinPermisoM T={T} />)}
-          {tab==="nueva"    && (mobileCan("nueva")    ? <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} /> : <SinPermisoM T={T} />)}
-          {tab==="agenda"   && (mobileCan("agenda")   ? <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} /> : <SinPermisoM T={T} />)}
+          {tab==="nueva"    && (mobileCan("nueva")    ? <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} initialFecha={nuevaFecha} onDone={()=>{ setNuevaFecha(null); setTab("citas"); }} /> : <SinPermisoM T={T} />)}
+          {tab==="agenda"   && (mobileCan("agenda")   ? <AgendaTab   T={T} appts={apptsVista} onOpenAppt={setApptSheet} goTab={setTab} goNueva={goNueva} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} equipo={equipo} selProf={selProf} setSelProf={setSelProf} soloMias={soyProfesionalM()} /> : <SinPermisoM T={T} />)}
           {tab==="mas"      && <MasTab      T={T} mode={mode} toggleMode={toggleMode} openOverlay={setOverlay} onLogout={onLogout} openNotif={()=>setNotifOpen(true)} goAnuladas={()=>{ setOverlay(null); setAgShowAnuladas(true); setTab("agenda"); }} />}
         </div>
 
@@ -2439,11 +3039,11 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
 
       {/* Overlays de navegación tipo iOS push */}
       {/* SEG · los overlays también se gatean: son la vía por la que se llega a fichas y reportes. */}
-      {overlay==="pacientes" && (mobileCan("pacientes") ? <PacientesOverlay T={T} patients={patients} appts={appts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} /> : <OverlayShell T={T} title="Pacientes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
-      {overlay==="reportes" && (mobileCan("reportes") ? <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} /> : <OverlayShell T={T} title="Reportes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
+      {overlay==="pacientes" && (mobileCan("pacientes") ? <PacientesOverlay T={T} patients={patients} appts={misAppts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} /> : <OverlayShell T={T} title="Pacientes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
+      {overlay==="reportes" && (mobileCan("reportes") ? <ReportesOverlay T={T} appts={misAppts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} /> : <OverlayShell T={T} title="Reportes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
       {/* Plantillas de mensajes: opción PROPIA (pedido: no es un reporte) — vive en Más y el menú lateral. */}
       {overlay==="plantillas" && (mobileCan("plantillas") ? <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setOverlay(null)}><MessageTemplatesView T={T} /></OverlayShell> : <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
-      {overlay && overlay.type==="ficha" && (mobileCan("ficha") ? <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={appts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} /> : <OverlayShell T={T} title="Ficha" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
+      {overlay && overlay.type==="ficha" && (mobileCan("ficha") ? <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={misAppts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} /> : <OverlayShell T={T} title="Ficha" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
 
       {/* Panel de PENDIENTES (campana): consentimientos por firmar + pagos por confirmar (datos reales). */}
       {notifOpen && (() => {
@@ -2487,8 +3087,11 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
       })()}
 
       {/* Hoja de acciones de una cita (estados oficiales) */}
+      {/* Se pasa la cita RECIÉN LEÍDA de la lista, no el objeto congelado al abrir la hoja: ese
+          quedaba obsoleto tras guardar y hacía, entre otras cosas, que al reabrir el editor de
+          comentarios el textarea saliera vacío y al salir borrara la nota recién escrita. */}
       {apptSheet && (
-        <ApptSheet T={T} appt={apptSheet} patients={patients} onClose={()=>setApptSheet(null)}
+        <ApptSheet T={T} appt={(appts.find(x=>x.id===apptSheet.id) || apptSheet)} patients={patients} appts={appts} onClose={()=>setApptSheet(null)}
           updateAppt={updateAppt} cancelAppt={cancelAppt} restoreAppt={restoreAppt} confirmPago={confirmPago}
           onOpenFicha={(id)=>{ setApptSheet(null); setOverlay({type:"ficha", id}); }} />
       )}
@@ -2608,55 +3211,34 @@ function MobileSaasGate() {
 
   if (phase === "app") return <MobileShell T={T} D={D} mode={mode} toggleMode={toggleMode} onLogout={() => window.JCSAAS.logout()} />;
 
-  // Aspecto IDÉNTICO al login del portal de escritorio (SaasGate, jc-admin.jsx): sin logo, eyebrow
-  // en el color de acento, serif fina centrada, inputs opacos con radio 6 (no glass translúcido).
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid rgba(255,255,255,.14)", background:"rgba(20,22,28,.85)", color:"#fff", outline:"none", boxSizing:"border-box" };
-  const btnSober = { width:"100%", background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:500, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"14px", cursor:"pointer", marginTop:4 };
-  const linkSober = { background:"none", border:"none", cursor:"pointer", color:T.accent, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 };
-  const SERIF = FRAUNCES; // la serif real del portal (Fraunces), no Marcellus
-  const eyebrow = { fontFamily:T.sans, fontSize:10, letterSpacing:".28em", textTransform:"uppercase", color:T.accent, textAlign:"center" };
-  const title = { fontFamily:SERIF, fontWeight:300, fontSize:34, color:"#fff", textAlign:"center", margin:"12px 0 6px", lineHeight:1.05 };
-  const subtitle = { fontFamily:T.sans, fontSize:12.5, color:ON_PHOTO.mute, textAlign:"center", lineHeight:1.6, margin:"0 0 22px" };
-  // Toda la "zona de login" (cargando/entrar/bloqueado/recuperar) comparte el mismo fondo.
-  const center = (kids) => <LoginVideoBg>{kids}</LoginVideoBg>;
+  // Los estilos del acceso ya no se declaran aquí: son las clases jcl-* del CSS compartido
+  // (window.JCM_LOGIN_CSS), las mismas que usa el panel de escritorio.
+  // Mismo envoltorio (título + subtítulo + cuerpo + pie) y las mismas clases jcl-* que el escritorio.
+  const wrapM = (ttl, sub, body, foot) => <LoginVideoBg title={ttl} subtitle={sub} footer={foot}>{body}</LoginVideoBg>;
+  const linkM = (txt, onClick) => <button className="jcl-link" onClick={onClick}>{txt}</button>;
 
-  if (phase === "loading") return center(<>
-    <div style={eyebrow}>Medique · Panel móvil</div>
-    <h1 style={title}>Conectando…</h1>
-    <p style={subtitle}>Verificando tu sesión.</p>
-  </>);
+  if (phase === "loading") return wrapM("Conectando…", "Estamos verificando tu sesión.", <div style={{ height:8 }} />, null);
 
-  if (phase === "blocked") return center(<>
-    <h1 style={title}>Plan inactivo</h1>
-    <p style={subtitle}>El acceso de tu clínica no está activo. Escríbenos para reactivarlo.</p>
-    <button onClick={()=>window.JCSAAS.logout()} style={{ background:"none", border:"1px solid rgba(255,255,255,.25)", color:"#fff", fontFamily:T.sans, fontSize:12, borderRadius:6, padding:"12px 18px", cursor:"pointer" }}>Cerrar sesión</button>
-  </>);
+  if (phase === "blocked") return wrapM("Plan inactivo", "El acceso de tu clínica no está activo. Escríbenos para reactivarlo.",
+    <button className="jcl-ghost" onClick={()=>window.JCSAAS.logout()}>Cerrar sesión</button>, null);
 
-  if (view === "recover") return center(<>
-    <div style={eyebrow}>Medique · Panel móvil</div>
-    <h1 style={title}>Recuperar contraseña</h1>
-    <p style={subtitle}>Te enviaremos un enlace a tu correo para restablecerla.</p>
-    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
-      <input placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRecover()} style={inp} />
-      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:T.red, textAlign:"center" }}>{err}</div>}
-      {msg && <div style={{ fontFamily:T.sans, fontSize:12, color:"#7CDDA8", textAlign:"center" }}>{msg}</div>}
-      <button onClick={doRecover} disabled={busy||!email.trim()} style={{ ...btnSober, opacity:(busy||!email.trim())?.6:1 }}>{busy?"Enviando…":"Enviar enlace"}</button>
-      <div style={{ textAlign:"center" }}><button onClick={()=>{ setView("login"); setErr(""); setMsg(""); }} style={linkSober}>← Volver</button></div>
-    </div>
-  </>);
+  if (view === "recover") return wrapM("Recuperar contraseña", "Te enviaremos un enlace a tu correo para restablecerla.",
+    <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+      <input value={email} autoFocus onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRecover()} placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" className="jcl-in" />
+      {err && <div className="jcl-err">{err}</div>}
+      {msg && <div className="jcl-ok">{msg}</div>}
+      <button className="jcl-btn" onClick={doRecover} disabled={busy||!email.trim()}>{busy?"Enviando…":"Enviar enlace"}</button>
+      <div style={{ textAlign:"center" }}>{linkM("← Volver", ()=>{ setView("login"); setErr(""); setMsg(""); })}</div>
+    </div>, null);
 
-  return center(<>
-    <div style={eyebrow}>Medique · Panel móvil</div>
-    <h1 style={title}>Confirmar citas</h1>
-    <p style={subtitle}>Accede al panel de tu clínica.</p>
-    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
-      <input placeholder="Correo de tu clínica" inputMode="email" autoComplete="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} style={inp} />
-      <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} autoComplete="current-password" style={inp} />
-      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:T.red, textAlign:"center" }}>{err}</div>}
-      <button onClick={doLogin} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>{busy?"…":"Entrar"}</button>
-      <div style={{ textAlign:"center" }}><button onClick={()=>{ setView("recover"); setErr(""); }} style={linkSober}>¿Olvidaste tu contraseña?</button></div>
-    </div>
-  </>);
+  return wrapM("Iniciar sesión", "Entra al panel de tu clínica.",
+    <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+      <input value={email} autoFocus onChange={e=>setEmail(e.target.value)} placeholder="Correo" inputMode="email" autoComplete="email" data-nocap="" className="jcl-in" />
+      <input type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Contraseña" autoComplete="current-password" className="jcl-in" />
+      {err && <div className="jcl-err">{err}</div>}
+      <button className="jcl-btn" onClick={doLogin} disabled={busy||!email||!pass}>{busy?"Entrando…":"Entrar"}</button>
+      <div style={{ textAlign:"center" }}>{linkM("¿Olvidaste tu contraseña?", ()=>{ setView("recover"); setErr(""); })}</div>
+    </div>, null);
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(

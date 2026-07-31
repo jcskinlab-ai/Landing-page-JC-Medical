@@ -243,13 +243,17 @@ var PERM_NAV = {
   // no algo que un profesional individual deba ver — solo el dueño/staff la usa.
   "Agenda": ["agenda", "pendientes"],
   "Pacientes": ["pacientes"],
-  "Servicios": ["servicios", "equipo", "sucursales"],
+  // "equipo" y "sucursales" salen de aquí a propósito: dar "Servicios" a un profesional para que
+  // mantenga el catálogo de tratamientos le abría también la administración del EQUIPO, donde
+  // podía leer la clave personal de sus colegas —la misma que autoriza borrar sus sesiones
+  // clínicas— y desactivarlos o eliminarlos. Pasan a "Configuración", que es del dueño.
+  "Servicios": ["servicios"],
   "Inventario": ["inventario"],
   "Reportes": ["reportes", "resumen", "caja"],
   // "copilot" (Asistente IA) NO se incluye aquí a propósito: solo lo configura el dueño/admin
   // de la clínica, nunca un profesional aunque tenga el permiso "Marketing" activado.
   "Marketing": ["marketing", "crm", "difusiones", "agenteia", "automatizaciones", "fidelidad", "colaboracion"],
-  "Configuración": ["config", "administracion", "consentimientos", "fichaeditor", "tutoriales", "integraciones"]
+  "Configuración": ["config", "administracion", "consentimientos", "fichaeditor", "tutoriales", "integraciones", "equipo", "sucursales"]
 };
 function adminNavItems() {
   var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled)
@@ -654,7 +658,17 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const hoy = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada");
 // Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
-  const nuevosMes = patients.length;
+  // Pacientes dados de alta ESTE MES. Antes era patients.length: una clínica que importaba 800
+  // fichas veía "Nuevos pacientes: 800 · añadidos este mes" y el dato de captación quedaba inútil.
+  const nuevosMes = (function () {
+    const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+    return (patients || []).filter(p => {
+      const ts = p && p.fechaTs;
+      if (!ts) return false;                       // ficha antigua sin fecha de alta: no se cuenta
+      const f = new Date(ts);
+      return !isNaN(f) && f.getFullYear() === y && f.getMonth() === m;
+    }).length;
+  })();
   const green = "#1F8A5B";
   // ── Sistema "glass" (lux · ref. dashboard tipo Sophie): paneles flotantes translúcidos con blur.
   //    Oscuro = blanco translúcido sobre negro · Claro = off-white translúcido (blanco+gris, NO blanco crudo).
@@ -787,8 +801,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [funnelAnim, setFunnelAnim] = useState(false);
   useEffect(() => { const t = setTimeout(() => setFunnelAnim(true), 750); return () => clearTimeout(t); }, []);
   const funnel = (function () {
-    const mes = new Date().toISOString().slice(0, 7);
-    const inMonth = ts => (ts || "").slice(0, 7) === mes;
+    // Mes LOCAL, no UTC. Con toISOString() un cobro del 31 de julio a las 21:30 en Chile (UTC-4)
+    // se convertía en "2026-08-01" y el embudo lo contaba en agosto, mientras Caja —que sí usa día
+    // local— lo contaba en julio: la liquidación del mes no cuadraba con el registro de ventas.
+    const _mesLocal = d => { const x = new Date(d); return isNaN(x) ? "" : x.getFullYear() + "-" + ("0" + (x.getMonth() + 1)).slice(-2); };
+    const mes = _mesLocal(new Date());
+    const inMonth = ts => !!ts && _mesLocal(ts) === mes;
     let cash = []; try { cash = (typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || []); } catch (e) {}
     // Un procedimiento NO es una evaluación (se filtran del embudo).
     const esProc = s => !/evaluaci/i.test(s || "");
@@ -997,15 +1015,20 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       ));
     } else if (kpiPopup === "ingresos") {
       title = "Ingresos de hoy";
-      const pagadas = hoy.filter(a => a.paid);
-      if (!pagadas.length) rows = [<div key="0" style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "16px 0" }}>No hay pagos registrados hoy.</div>];
-      else rows = pagadas.map((a, i) => (
-        <div key={i} style={rowStyle}>
+      // La lista sale de los MOVIMIENTOS DE CAJA del día, la misma fuente que el total de abajo.
+      // Antes listaba citas con `paid: true`, un campo que no lo pone nadie (solo se escribe
+      // `paid: false` al crear la cita), así que el popup decía "No hay pagos registrados hoy"
+      // justo encima de "Total hoy $600.000".
+      let movsHoy = [];
+      try { movsHoy = ((typeof window.cashToday === "function" ? window.cashToday() : []) || []).filter(m => m.type !== "egreso"); } catch (e) { movsHoy = []; }
+      if (!movsHoy.length) rows = [<div key="0" style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "16px 0" }}>No hay pagos registrados hoy.</div>];
+      else rows = movsHoy.map((m, i) => (
+        <div key={m.id || i} style={rowStyle}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{a.name}</div>
-            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.proc} · {a.time || "—"}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{m.patient || m.concept || "Cobro"}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{[m.concept, m.method].filter(Boolean).join(" · ") || "—"}</div>
           </div>
-          <span style={{ fontFamily: T.serif, fontSize: 15, color: green }}>Pagado</span>
+          <span style={{ fontFamily: T.serif, fontSize: 15, color: green }}>{fmt(m.amount || 0)}</span>
         </div>
       ));
       rows.push(
@@ -1816,17 +1839,25 @@ function AdminApp() {
       return saveAppts(as.map(a => a.id === id ? { ...a, ...patch } : a));
     });
   }
+  // Cancelar una cita la deja ANULADA (recuperable desde la bandeja de canceladas), no la borra.
+  // Antes este camino —el botón "Cancelar cita" del modal de edición— hacía un filter que la
+  // eliminaba, mientras que cancelar desde el menú de la vista semanal sí la dejaba anulada: dos
+  // botones con el mismo nombre y resultados distintos, y el destructivo era irreversible.
   function removeAppt(id) {
     const appt = appts.find(a => a.id === id);
     if (appt && appt.fecha && appt.time) {
       try {
+        // La base correcta es el horario del día (excepción de esa fecha, y si no la semanal).
+        // Partir de [] dejaba el día con UNA sola hora disponible en la reserva web.
         const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : [];
-        if (!cur.includes(appt.time)) { cur.push(appt.time); cur.sort(); map[appt.fecha] = cur; }
+        let cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha].slice() : null;
+        if (!cur) { try { cur = ((D.availability(new Date(appt.fecha + "T00:00:00").getDay()) || {}).slots || []).slice(); } catch (e2) { cur = []; } }
+        if (!cur.includes(appt.time)) { cur.push(appt.time); cur.sort(); }
+        map[appt.fecha] = cur;
         if (window.DB) window.DB.set('horarios_dates', map);
       } catch(e) {}
     }
-    setAppts(as => saveAppts(as.filter(a => a.id !== id)));
+    setAppts(as => saveAppts(as.map(a => a.id === id ? { ...a, status: "anulada", attended: false, anuladaAt: Date.now() } : a)));
   }
   // Trae las reservas hechas en la web (link público) a la agenda, AHORA y a demanda.
   // Lee directo Firestore (diagnóstico: cuántas hay), las importa y refresca la agenda.
@@ -4539,10 +4570,6 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   // Un slot de HOY que ya pasó no debe poder verse ni agendarse (ilógico). nowMin = minutos del día actual.
   const nowMin = b0.getHours() * 60 + b0.getMinutes();
   const slotPast = (off, h) => off === 0 && mins(h) < nowMin;
-  const slotBlk = (off, h) => (appts || []).some(a => { if (a.status === "anulada" || a.status === "cancelada") return false; if (apptDayOff(a) !== off) return false; const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(h); return ts >= as && ts < as + ad; });
-  // Próximo hueco disponible (primer slot futuro y libre, recorriendo día a día). Base de la recomendación
-  // y del fallback cuando se abre desde un día cuyos horarios ya vencieron (muestra el día siguiente).
-  const nextFree = (() => { for (const w of week) { for (const h of adminSlots()) { if (!slotPast(w.off, h) && !slotBlk(w.off, h)) return { dayOff: w.off, time: h }; } } return null; })();
   // Si el prellenado apunta a una hora ya pasada, se descarta y se usa el próximo hueco real.
   const pfValid = pf.time && !slotPast(pf.day || 0, pf.time);
   const [step, setStep] = useState(pfValid ? 2 : 1);
@@ -4558,6 +4585,27 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [camilla, setCamilla] = useState(() => dentalOn ? (sillonOpts[0] || "Box 1") : "Box 1");
   const [tipoDental, setTipoDental] = useState(dentalOn ? JCM_TIPOS_DENTAL[0] : "");
   const [dur, setDur] = useState("30 minutos");
+  // slotBlk y nextFree van DESPUÉS de `dur` y `prof` porque ahora dependen de ellos.
+  // Un slot está bloqueado si el tramo de la cita QUE SE VA A CREAR se cruza con una existente del
+  // MISMO profesional. Antes solo se miraba si la hora de inicio caía dentro de otra cita: con una
+  // cita de 30 min a las 10:30, elegir 60 min a las 10:00 no se marcaba y se agendaban dos
+  // pacientes encima. Y como no se filtraba por profesional, la cita de uno tapaba la hora del otro.
+  const slotBlk = (off, h) => {
+    const ts = mins(h), te = ts + (parseInt(dur) || 30);
+    return (appts || []).some(a => {
+      if (a.status === "anulada" || a.status === "cancelada") return false;
+      if (apptDayOff(a) !== off) return false;
+      if (team.length >= 2) {
+        const duenio = ((a.prof || "").trim()) || (team[0] && team[0].name) || "";
+        if (duenio !== prof) return false; // otro profesional: no bloquea esta agenda
+      }
+      const as = mins(a.time), ae = as + (parseInt(a.dur) || 60);
+      return ts < ae && as < te; // solapamiento real de tramos
+    });
+  };
+  // Próximo hueco disponible (primer slot futuro y libre, recorriendo día a día). Base de la recomendación
+  // y del fallback cuando se abre desde un día cuyos horarios ya vencieron (muestra el día siguiente).
+  const nextFree = (() => { for (const w of week) { for (const h of adminSlots()) { if (!slotPast(w.off, h) && !slotBlk(w.off, h)) return { dayOff: w.off, time: h }; } } return null; })();
   // Si el usuario tocó la duración a mano, el tipo de atención ya NO la pisa.
   const durTouched = useRef(false);
   function pickTipoDental(v) {
@@ -4627,11 +4675,22 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         }
       }
       onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, ...dentalFields, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
-      // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente
+      // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente.
+      // Se hace para la cita Y para cada repetición semanal: antes solo se bloqueaba la primera
+      // fecha, así que el link público seguía ofreciendo esa hora las semanas siguientes y un
+      // paciente podía reservar encima. Se parte de la excepción del día si existe, y si no del
+      // horario semanal (partir de [] dejaba el día con una sola hora disponible).
       try {
-        const dt = new Date(apptFecha + "T00:00:00");
-        const curr = D.availability(dt.getDay());
-        D.saveDateSlots(apptFecha, (curr.slots || []).filter(s => s !== pick.time));
+        const fechas = [apptFecha];
+        for (var _b = 1; _b <= (repetir || 0); _b++) {
+          fechas.push(new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff + 7 * _b).toISOString().slice(0, 10));
+        }
+        const mapa = (window.DB && window.DB.get("horarios_dates")) || {};
+        fechas.forEach(function (f) {
+          let base = Array.isArray(mapa[f]) ? mapa[f] : null;
+          if (!base) { try { base = ((D.availability(new Date(f + "T00:00:00").getDay()) || {}).slots || []); } catch (e2) { base = []; } }
+          D.saveDateSlots(f, base.filter(s => s !== pick.time));
+        });
       } catch (e) {}
       // Auto-abrir WhatsApp si el checkbox estaba marcado y hay teléfono
       if (sendMail) {
@@ -5571,87 +5630,9 @@ function OnboardingWizard({ T, onDone }) {
    Lenguaje: cristal esmerilado sobre el video de cumbres + Sora para los títulos (el resto del
    panel sigue en Marcellus/Jost — el acceso es la única pantalla con tipografía propia).
    Todo lo animado se apaga con prefers-reduced-motion al final del bloque. */
-const LOGIN_CSS = `
-/* Sora en títulos y botones; Inter en TODO el texto chico (eyebrow, subtítulos, campos, enlaces,
-   letra fina). Inter tiene más altura de x que Jost, así que a 10-12px se lee bastante mejor —
-   que era justo el problema. Es además la sans de la landing medique.cl, así que el acceso y el
-   sitio público hablan el mismo idioma. Para cambiarla, basta tocar --jcl-sans aquí. */
-.jcl-stage{--jcl-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--jcl-display:'Sora',-apple-system,'Segoe UI',sans-serif;
-  position:relative;overflow:hidden;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;background-size:cover;background-position:center;background-repeat:no-repeat}
-.jcl-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
-.jcl-veil{position:absolute;inset:0;pointer-events:none;background:linear-gradient(rgba(9,11,15,.58),rgba(9,11,15,.80))}
-/* Halo frío detrás del cristal: lo despega del fondo y respira muy lento. */
-.jcl-halo{position:absolute;left:50%;top:50%;width:min(820px,130vw);height:min(820px,130vw);transform:translate(-50%,-50%);pointer-events:none;background:radial-gradient(circle,rgba(150,182,218,.17) 0%,rgba(150,182,218,.06) 40%,rgba(9,11,15,0) 70%);animation:jclBreathe 16s ease-in-out infinite}
-.jcl-card{position:relative;width:100%;max-width:404px;padding:34px 30px 26px;border-radius:26px;overflow:hidden;
-  background:rgba(255,255,255,.055);
-  -webkit-backdrop-filter:blur(26px) saturate(1.45);backdrop-filter:blur(26px) saturate(1.45);
-  border:1px solid rgba(255,255,255,.14);
-  box-shadow:0 44px 96px -44px rgba(0,0,0,.92),inset 0 1px 0 rgba(255,255,255,.10);
-  animation:jclCard .8s cubic-bezier(.2,.8,.2,1) both}
-/* Filo superior iluminado: el borde "mojado" del cristal. */
-.jcl-card::before{content:"";position:absolute;top:0;left:14%;right:14%;height:1px;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent)}
-/* Reflejo que cruza el cristal cada tanto. */
-.jcl-sheen{position:absolute;top:-60%;bottom:-60%;left:0;width:32%;pointer-events:none;transform:skewX(-18deg) translateX(-260%);background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.08),rgba(255,255,255,0));animation:jclSheen 11s ease-in-out infinite}
-.jcl-st{animation:jclRise .7s cubic-bezier(.2,.8,.2,1) both}
-.jcl-eyebrow{font-family:var(--jcl-sans);font-size:9.5px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;color:rgba(198,215,233,.8);text-align:center}
-.jcl-title{font-family:var(--jcl-display);font-weight:600;font-size:33px;letter-spacing:-.032em;line-height:1.06;text-align:center;color:#F5F7FB;margin:13px 0 7px}
-.jcl-sub{font-family:var(--jcl-sans);font-size:13px;font-weight:400;line-height:1.55;letter-spacing:-.005em;text-align:center;color:rgba(235,242,252,.66);margin:0 0 22px}
-.jcl-foot{text-align:center;margin-top:15px;font-family:var(--jcl-sans);font-size:12.5px;color:rgba(235,242,252,.62)}
-.jcl-fine{font-family:var(--jcl-sans);font-size:11.5px;line-height:1.55;text-align:center;color:rgba(235,242,252,.6);margin-top:2px}
-.jcl-fine a{color:rgba(190,208,226,.95);text-decoration:underline}
-.jcl-in{width:100%;padding:14px 15px;border-radius:13px;box-sizing:border-box;outline:none;
-  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#F5F7FB;
-  font-family:var(--jcl-sans);font-size:14px;letter-spacing:-.005em;
-  transition:border-color .22s ease,background .22s ease,box-shadow .22s ease}
-/* .5 y no menos: medido sobre el cristal, un placeholder a .42 quedaba en 4.3:1 (bajo el 4.5 de WCAG AA). */
-.jcl-in::placeholder{color:rgba(235,242,252,.52)}
-.jcl-in:hover{background:rgba(255,255,255,.085)}
-.jcl-in:focus{border-color:rgba(182,202,221,.72);background:rgba(255,255,255,.10);box-shadow:0 0 0 4px rgba(150,182,218,.15)}
-/* Autocompletar de Chrome: sin esto pinta el campo de blanco y rompe el cristal. */
-.jcl-in:-webkit-autofill,.jcl-in:-webkit-autofill:hover,.jcl-in:-webkit-autofill:focus{-webkit-text-fill-color:#F5F7FB;caret-color:#F5F7FB;-webkit-box-shadow:0 0 0 1000px rgba(26,32,42,.96) inset;transition:background-color 9999s ease-in-out 0s}
-.jcl-otp{text-align:center;letter-spacing:.5em;font-size:22px}
-.jcl-btn{position:relative;overflow:hidden;width:100%;padding:15px;border:none;border-radius:13px;cursor:pointer;
-  background:linear-gradient(180deg,#F7F4EE,#DFD8CB);color:#0B0D11;
-  font-family:var(--jcl-display);font-size:11.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;
-  box-shadow:0 16px 36px -18px rgba(240,236,228,.8);
-  transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,opacity .2s ease}
-.jcl-btn::after{content:"";position:absolute;top:-30%;bottom:-30%;left:-70%;width:42%;pointer-events:none;transform:skewX(-22deg);background:linear-gradient(105deg,rgba(255,255,255,0),rgba(255,255,255,.7),rgba(255,255,255,0));transition:left .7s ease}
-.jcl-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 22px 46px -18px rgba(240,236,228,.95)}
-.jcl-btn:hover:not(:disabled)::after{left:130%}
-.jcl-btn:active:not(:disabled){transform:translateY(0)}
-.jcl-btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
-.jcl-ghost{width:100%;padding:14px;border-radius:13px;cursor:pointer;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.045);color:#F5F7FB;
-  font-family:var(--jcl-sans);font-size:11.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;
-  transition:background .2s ease,border-color .2s ease,transform .2s cubic-bezier(.2,.8,.2,1)}
-.jcl-ghost:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.3);transform:translateY(-1px)}
-.jcl-link{background:none;border:none;padding:6px;cursor:pointer;font-family:var(--jcl-sans);font-size:12.5px;font-weight:500;color:rgba(190,208,226,.92);
-  background-image:linear-gradient(currentColor,currentColor);background-repeat:no-repeat;background-position:50% 88%;background-size:0% 1px;
-  transition:color .2s ease,background-size .28s cubic-bezier(.2,.8,.2,1)}
-.jcl-link:hover{color:#F5F7FB;background-size:76% 1px}
-.jcl-err{font-family:var(--jcl-sans);font-size:12.5px;color:#F08098;animation:jclRise .35s ease both}
-.jcl-ok{font-family:var(--jcl-sans);font-size:12.5px;color:#6CD3A6;animation:jclRise .35s ease both}
-/* Viaje a la cumbre: el teleférico recorre el cable hasta la montaña mientras se carga el panel.
-   Es indeterminado a propósito (no sabemos cuánto tarda Firestore): da vueltas hasta que el panel
-   monta. Los mensajes SÍ avanzan y se quedan en el último, para no prometer un progreso falso. */
-.jcl-travel{display:flex;flex-direction:column;align-items:center;gap:20px;padding:10px 0 4px}
-.jcl-rail{position:relative;width:100%;max-width:246px;height:2px;border-radius:2px;background:rgba(255,255,255,.13)}
-.jcl-rail::after{content:"";position:absolute;inset:0;border-radius:2px;transform-origin:left;background:linear-gradient(90deg,rgba(182,202,221,0),rgba(182,202,221,.8));animation:jclFill 3s cubic-bezier(.5,.03,.35,1) infinite}
-.jcl-goal{position:absolute;right:0;top:50%;transform:translate(60%,-50%);font-size:17px;line-height:1;animation:jclGoal 3s ease-in-out infinite}
-.jcl-rider{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);animation:jclRide 3s cubic-bezier(.5,.03,.35,1) infinite}
-.jcl-bob{display:block;font-size:21px;line-height:1;animation:jclBob 1s ease-in-out infinite}
-.jcl-steps{font-family:var(--jcl-sans);font-size:12.5px;color:rgba(235,242,252,.72);text-align:center;min-height:18px;animation:jclRise .4s ease both}
-@keyframes jclCard{from{opacity:0;transform:translateY(26px) scale(.985);filter:blur(7px)}to{opacity:1;transform:none;filter:none}}
-@keyframes jclRise{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:none}}
-@keyframes jclSheen{0%,62%{transform:skewX(-18deg) translateX(-260%)}100%{transform:skewX(-18deg) translateX(560%)}}
-@keyframes jclBreathe{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(.94)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}}
-@keyframes jclRide{0%{left:0;opacity:0}7%{opacity:1}84%{left:100%;opacity:1}93%,100%{left:100%;opacity:0}}
-@keyframes jclBob{0%,100%{transform:translateY(-1.5px) rotate(-3deg)}50%{transform:translateY(1.5px) rotate(3deg)}}
-@keyframes jclFill{0%{transform:scaleX(0);opacity:1}84%{transform:scaleX(1);opacity:1}93%,100%{transform:scaleX(1);opacity:0}}
-@keyframes jclGoal{0%,78%{transform:translate(60%,-50%) scale(1)}86%{transform:translate(60%,-50%) scale(1.3)}94%,100%{transform:translate(60%,-50%) scale(1)}}
-@media (prefers-reduced-motion: reduce){.jcl-card,.jcl-st,.jcl-sheen,.jcl-halo,.jcl-err,.jcl-ok,.jcl-steps{animation:none!important}.jcl-in,.jcl-btn,.jcl-ghost,.jcl-link{transition:none!important}
-  /* El viaje se queda quieto: el teleférico a mitad de camino y el cable lleno a medias. */
-  .jcl-rider{animation:none!important;left:50%}.jcl-bob,.jcl-goal{animation:none!important}.jcl-rail::after{animation:none!important;transform:scaleX(.5)}}
-`;
+// El CSS del acceso vive en jc-proto/jc-theme.js (window.JCM_LOGIN_CSS) para que el panel MÓVIL
+// use exactamente el mismo login sin duplicar el bloque.
+const LOGIN_CSS = (typeof window !== "undefined" && window.JCM_LOGIN_CSS) || "";
 
 /* Animación de "viaje a la cumbre" mientras se prepara el panel. Los mensajes avanzan cada 1,9 s y
    se detienen en el último: si Firestore tarda, es mejor quedarse en "Casi listo…" que mentir con

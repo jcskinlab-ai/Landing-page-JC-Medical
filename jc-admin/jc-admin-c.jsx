@@ -797,7 +797,10 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
               </div>
             </div>
             <div>
-              <AdField T={T} label="Clave de confirmación (4–6 dígitos)" value={f.pin || ""} onChange={v => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} inputMode="numeric" placeholder="••••" />
+              {/* type="password": es la credencial con la que ese profesional autoriza borrar SUS
+                  sesiones clínicas. Se mostraba en texto plano, así que cualquiera con acceso a
+                  Equipo podía leer el PIN de un colega y borrar sesiones en su nombre. */}
+              <AdField T={T} label="Clave de confirmación (4–6 dígitos)" value={f.pin || ""} onChange={v => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} type="password" inputMode="numeric" placeholder="••••" />
               <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 7, lineHeight: 1.5 }}>Clave personal del profesional. Se pide para confirmar cambios en las sesiones que él/ella realizó.</p>
             </div>
             {togRow("Profesional activo", f.active, () => setF({ ...f, active: !f.active }))}
@@ -3422,7 +3425,13 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       </div>
     ); })}</div>;
   };
-  const tipo = f.tipo || "general";
+  // Vertical dental: la ficha de estetica (zonas faciales, piel, toxina, bloqueador solar) no
+  // aplica en odontologia. Se REEMPLAZA por la anamnesis dental, no se esconde: una ficha
+  // odontologica a la que solo le faltan campos seria peor que la actual.
+  const _dental = !!(window.isDental && window.isDental());
+  // En dental no hay facial ni corporal, asi que el tipo se fuerza: si una clinica cambio de
+  // vertical con una ficha guardada en "facial", el render no puede quedar en un tipo muerto.
+  const tipo = _dental ? "general" : (f.tipo || "general");
   const imc = calcIMC(f.peso, f.talla);
   // Secciones estéticas (piel/hábitos/evaluación facial) solo aplican a ficha General y Facial.
   // Los antecedentes médicos son compartidos y se muestran siempre (misma data clinica.*).
@@ -3450,9 +3459,9 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
         <AdBtn T={T} small primary onClick={() => { try { updatePatient(patient.id, { clinica: f }); setSaved(true); } catch(e) { if(window.jcmError) window.jcmError("Error al guardar la ficha. Intenta de nuevo."); } }}>{saved ? "✓ Guardada" : "Guardar ficha"}</AdBtn>
       </div>
       {/* Selector de tipo de ficha */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+      {!_dental && <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {FICHA_TIPOS.map(([k, l]) => <button key={k} type="button" onClick={() => setVal("tipo", k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: tipo === k ? 600 : 500, padding: "8px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (tipo === k ? T.accent : T.line), background: tipo === k ? T.accent : "transparent", color: tipo === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>)}
-      </div>
+      </div>}
       {/* Antropometría (Corporal) — compacta y colapsable: peso/talla/IMC en una fila. */}
       {tipo === "corporal" && (
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, marginBottom: 14, overflow: "hidden" }}>
@@ -3492,10 +3501,14 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       {(() => {
         const grid = (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
-            {chipField("Antecedentes mórbidos", "morbidos", ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
+            {chipField("Antecedentes mórbidos", "morbidos", _dental
+              ? ["Hipertensión", "Diabetes", "Cardiopatía", "Anticoagulantes", "Asma", "Epilepsia", "Bifosfonatos"]
+              : ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
             {nrField("Alergias", "alergias", "Ej. Penicilina, AINEs…", "alpha")}
             {nrField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
-            {chipField("Procedimientos estéticos previos", "esteticos", ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
+            {_dental
+              ? chipField("Tratamientos odontológicos previos", "tratPrevios", ["Ortodoncia", "Endodoncia", "Implantes", "Extracciones", "Prótesis", "Blanqueamiento"], "Detalle (pieza, año, profesional…)")
+              : chipField("Procedimientos estéticos previos", "esteticos", ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
             {nrField("Hospitalizaciones", "hospital", "—")}
             {nrField("Medicamentos de uso diario", "medicamentos", "—")}
           </div>
@@ -3516,15 +3529,23 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
 
       {showEstetica && <>
       {/* Piel y factores de riesgo — desplegable en facial (mismos datos que la general) */}
-      {sect("Piel y factores de riesgo", (
+      {sect(_dental ? "Factores de riesgo" : "Piel y factores de riesgo", (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
-          {nrField("Cicatriz hipertrófica / queloides", "cicatriz", "—")}
-          {chipField("Patología dérmica", "dermica", ["Dermatitis atópica", "Rosácea", "Sensibilidad indeterminada"], "Otra patología…")}
-          {nrField("Problemas de coagulación", "coagulacion", "—")}
-          {nrField("Enfermedades autoinmunes", "autoinmune", "—")}
-          {nrField("Historial de herpes labial", "herpes", "—")}
-          {field("Exposición solar", sel("expsolar", ["Alta", "Media", "Baja", "No refiere"]))}
-          {field("Uso de bloqueador", sel("bloqueador", ["Diario", "2 veces al día", "Cada 4 horas", "No uso", "No refiere"]))}
+          {_dental ? <>
+            {nrField("Problemas de coagulación", "coagulacion", "—")}
+            {nrField("Enfermedades autoinmunes", "autoinmune", "—")}
+            {chipField("Bruxismo", "bruxismo", ["Diurno", "Nocturno", "Usa férula"], "Detalle…")}
+            {chipField("Sangrado de encías", "encias", ["Al cepillar", "Espontáneo", "Con seda dental"], "Detalle…")}
+            {nrField("Historial de herpes labial", "herpes", "—")}
+          </> : <>
+            {nrField("Cicatriz hipertrófica / queloides", "cicatriz", "—")}
+            {chipField("Patología dérmica", "dermica", ["Dermatitis atópica", "Rosácea", "Sensibilidad indeterminada"], "Otra patología…")}
+            {nrField("Problemas de coagulación", "coagulacion", "—")}
+            {nrField("Enfermedades autoinmunes", "autoinmune", "—")}
+            {nrField("Historial de herpes labial", "herpes", "—")}
+            {field("Exposición solar", sel("expsolar", ["Alta", "Media", "Baja", "No refiere"]))}
+            {field("Uso de bloqueador", sel("bloqueador", ["Diario", "2 veces al día", "Cada 4 horas", "No uso", "No refiere"]))}
+          </>}
         </div>
       ), showPiel, setShowPiel)}
 
@@ -3547,15 +3568,19 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           {field("Alimentación", sel("alimentacion", ["Balanceada", "No balanceada", "Hipocalórica", "Hipercalórica", "Hiperproteica"]))}
         </div>
         <div style={{ marginTop: 14 }}>
-          <span style={lbl}>Cuidados de la piel en casa</span>
-          {chips("skincare", ["Bloqueador", "Sérum", "Crema", "Contorno de ojos", "Vitamina C"])}
-          <div style={{ marginTop: 10 }}>{text("skincare", "Otros productos…")}</div>
+          <span style={lbl}>{_dental ? "Higiene oral" : "Cuidados de la piel en casa"}</span>
+          {_dental
+            ? chips("higieneOral", ["Cepillado 2× al día", "Cepillado 3× al día", "Seda dental", "Enjuague bucal", "Irrigador"])
+            : chips("skincare", ["Bloqueador", "Sérum", "Crema", "Contorno de ojos", "Vitamina C"])}
+          <div style={{ marginTop: 10 }}>{_dental
+            ? text("higieneOral", "Última limpieza, pasta que usa, observaciones…")
+            : text("skincare", "Otros productos…")}</div>
         </div>
       </>), showHabitos, setShowHabitos)}
 
       {/* Evaluación y plan — desplegable en facial (es lo que sí cambia por tipo de ficha) */}
       {sect("Evaluación y plan", (<>
-        {[["evaluacion", "Evaluación facial"], ["plan", "Tratamientos recomendados"]].map(([k, label]) => {
+        {[["evaluacion", _dental ? "Evaluación odontológica" : "Evaluación facial"], ["plan", "Tratamientos recomendados"]].map(([k, label]) => {
           const isPlan = k === "plan";
           const totalU = isPlan ? sumUnits(f.plan) : 0;
           // En "Tratamientos recomendados", al escribir "Total U:" el número se completa solo
@@ -3573,7 +3598,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
                   {grabando ? "Detener" : "Dictar"}
                 </button>
               </div>
-              <textarea value={f[k] || ""} onChange={onCh} rows={3} placeholder={isPlan ? 'Ej: 20u frontal, 10u procerus… escribe "Total U:" y se suma solo' : "Escribe o dicta la evaluación…"} style={inp({ resize: "vertical" })} />
+              <textarea value={f[k] || ""} onChange={onCh} rows={3} placeholder={isPlan ? (_dental ? "Ej: obturación 3.6, endodoncia 2.6, destartraje…" : 'Ej: 20u frontal, 10u procerus… escribe "Total U:" y se suma solo') : "Escribe o dicta la evaluación…"} style={inp({ resize: "vertical" })} />
               {isPlan && totalU > 0 && <span style={{ display: "inline-block", marginTop: 7, fontFamily: T.sans, fontSize: 11, fontWeight: 500, color: T.accent, background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + (T.accent + "44"), borderRadius: 999, padding: "4px 11px" }}>Σ Total detectado: {totalU} U</span>}
             </div>
           );
@@ -4606,12 +4631,21 @@ function _billDay(dateStr) {
 }
 // Actualiza un movimiento de caja (p.ej. cambiar el método de pago).
 function cashUpdate(id, patch) { cashSave(cashAll().map(m => m.id === id ? { ...m, ...patch } : m)); }
+// Estas dos escriben `patients` DIRECTO en DB, sin pasar por el estado de React del panel. Sin
+// avisar, el panel se quedaba con la lista vieja en memoria y el siguiente updatePatient (guardar
+// una nota, cambiar un teléfono) volcaba esa lista obsoleta completa: el cobro borrado REAPARECÍA
+// y el método de pago volvía al anterior. "jcsaas:data" es justo el evento que hace que el panel
+// vuelva a leer pacientes y citas desde DB.
+function patientsChangedExternally() {
+  cashNotify();
+  try { window.dispatchEvent(new CustomEvent("jcsaas:data", { detail: {} })); } catch (e) {}
+}
 // Cambia el método de pago de una atención de la ficha (patient.billing) desde Caja.
 function billingUpdateMethod(patId, billId, metodo) {
   try {
     const pts = (window.DB && DB.get("patients")) || [];
     DB.set("patients", pts.map(p => p.id === patId ? { ...p, billing: (p.billing || []).map(b => b.id === billId ? { ...b, metodo: metodo } : b) } : p));
-    cashNotify();
+    patientsChangedExternally();
   } catch (e) {}
 }
 // Quita una atención del registro de Caja (p.billing). NO toca la sesión del historial clínico.
@@ -4619,7 +4653,7 @@ function billingDelete(patId, billId) {
   try {
     const pts = (window.DB && DB.get("patients")) || [];
     DB.set("patients", pts.map(p => p.id === patId ? { ...p, billing: (p.billing || []).filter(b => b.id !== billId) } : p));
-    cashNotify();
+    patientsChangedExternally();
   } catch (e) {}
 }
 // Movimientos de caja del período + las atenciones PAGADAS de las fichas (que no pasan por "sesión con cobro").
@@ -5763,6 +5797,9 @@ function CajaView({ T }) {
           </div>
         ))}
       </div>
+      {/* Proyección del mes: va ANTES del histórico porque responde la pregunta que el dueño se hace
+          al abrir Ventas ("¿cómo voy a cerrar?"), y el gráfico de 6 meses queda como respaldo. */}
+      <ProyeccionVentasIA T={T} />
       {/* Flujo de caja + Tratamientos que más venden lado a lado (referencia): el gráfico se lleva
           el espacio ancho y el ranking queda como tarjeta destacada compacta (top 1 + expandir). */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(240px,1fr)", gap: 16, alignItems: "start", marginBottom: 2 }}>
@@ -5893,7 +5930,17 @@ function CajaView({ T }) {
         onClose={() => setDelMov(null)}
         onOk={() => { if (delMov._src === "billing") billingDelete(delMov._patId, delMov._billId); else cashDelete(delMov.id); setDelMov(null); setTick(t => t + 1); }} />}
       {mov && <NuevoMovModal T={T} onClose={() => setMov(false)} onSave={mv => { cashAdd({ ...mv, kind: "manual" }); setMov(false); setTick(tick + 1); }} />}
-      {cierre && <CierreModal T={T} ingresos={ingresos} egresos={egresos} costoIns={costoIns} neto={neto} fecha={fechaTxt} onClose={() => setCierre(false)} />}
+      {/* El cierre es SIEMPRE del día de hoy, así que sus totales se calculan aparte del chip de
+          período. Antes recibía los del período mirado: estando en "Este mes" el botón guardaba
+          $8.400.000 en cierres_caja con la fecha de hoy, como si fuera la caja de un solo día. */}
+      {cierre && (() => {
+        const mHoy = cashMovimientos().filter(m => m._day === hoyDay);
+        const iHoy = mHoy.filter(m => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
+        const eHoy = mHoy.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+        const cHoy = mHoy.reduce((s, m) => s + (m.cost || 0), 0);
+        const nHoy = iHoy - eHoy - (mHoy.filter(m => m.kind === "atencion").length * adCost);
+        return <CierreModal T={T} ingresos={iHoy} egresos={eHoy} costoIns={cHoy} neto={nHoy} fecha={fechaTxt} dia={hoyDay} onClose={() => setCierre(false)} />;
+      })()}
       {editMov && <MetodoPagoModal T={T} mov={editMov} onClose={() => setEditMov(null)} onSave={metodo => {
         if (editMov._src === "billing") billingUpdateMethod(editMov._patId, editMov._billId, metodo);
         else cashUpdate(editMov.id, { method: metodo });
@@ -5956,14 +6003,17 @@ function NuevoMovModal({ T, onClose, onSave }) {
     </AdModal>
   );
 }
-function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
+function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, dia, onClose }) {
   const D = window.JCDATA;
   const [done, setDone] = useState(false);
   function confirmarCierre() {
     try {
       const cierres = (window.DB && window.DB.get("cierres_caja")) || [];
-      cierres.unshift({ fecha, ingresos, egresos, costoIns, neto, ts: new Date().toISOString() });
-      window.DB && window.DB.set("cierres_caja", cierres.slice(0, 90));
+      // Un cierre por día: dos clics generaban dos registros de la misma fecha y la caja aparecía
+      // cuadrada dos veces. Se reemplaza el del día en vez de apilar otro.
+      const restantes = dia ? cierres.filter(c => c.dia !== dia) : cierres;
+      restantes.unshift({ fecha, dia, ingresos, egresos, costoIns, neto, ts: new Date().toISOString() });
+      window.DB && window.DB.set("cierres_caja", restantes.slice(0, 90));
       setDone(true);
       try { window.jcmToast && window.jcmToast("Cierre del día registrado.", "ok"); } catch (e2) {}
     } catch (e) {
@@ -6443,6 +6493,150 @@ function ChatInternoView({ T }) {
 }
 
 /* ── N9 · Flujo de caja (ingresos vs egresos por mes) ── */
+/* ═══ Proyección de venta del mes + recomendaciones con IA (Registro de Ventas) ═══
+   IMPORTANTE: la CIFRA proyectada NO la inventa la IA. Se calcula aquí con el ritmo real de
+   ingresos del mes en curso y el historial de los meses anteriores, así es auditable y no cambia
+   entre consultas. La IA solo INTERPRETA esos números y propone acciones concretas. Usa
+   window.mediqueAI (/api/ai) — no se crea ningún endpoint nuevo (tope de 12 funciones en Vercel). */
+function ProyeccionVentasIA({ T }) {
+  const D = window.JCDATA;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" && jcdsLux());
+  const [busy, setBusy] = useState(false);
+  const [out, setOut] = useState(null);
+  const [err, setErr] = useState("");
+  const MESL = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+  let cash = []; try { cash = (window.cashMovimientos && window.cashMovimientos()) || (window.cashAll && window.cashAll()) || []; } catch (e) {}
+  const now = new Date();
+  const curKey = _localDay(now).slice(0, 7);
+  const keyOf = x => ((x._day || x.ts || "")).slice(0, 7);
+  const ingDe = k => cash.filter(x => keyOf(x) === k && x.type !== "egreso").reduce((s, x) => s + (x.amount || 0), 0);
+  // 5 meses anteriores (cerrados) + el mes en curso aparte.
+  const hist = []; for (let i = 5; i >= 1; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); hist.push({ key: _localDay(d).slice(0, 7), lbl: MESL[d.getMonth()], ing: ingDe(_localDay(d).slice(0, 7)) }); }
+
+  const ingMes = ingDe(curKey);
+  const ventasMes = cash.filter(x => keyOf(x) === curKey && x.type !== "egreso" && x.kind === "atencion").length;
+  const diaHoy = now.getDate();
+  const diasMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const diasRest = Math.max(0, diasMes - diaHoy);
+  const ritmoDia = diaHoy > 0 ? ingMes / diaHoy : 0;
+  const proy = Math.round(ritmoDia * diasMes);                     // cierre estimado al ritmo actual
+  const ticket = ventasMes > 0 ? Math.round(ingMes / ventasMes) : 0;
+  const conDatos = hist.filter(h => h.ing > 0);
+  const promHist = conDatos.length ? Math.round(conDatos.reduce((s, h) => s + h.ing, 0) / conDatos.length) : 0;
+  const mesAnt = hist.length ? hist[hist.length - 1].ing : 0;
+  const deltaAnt = mesAnt > 0 ? Math.round((proy - mesAnt) / mesAnt * 100) : null;
+  // Agenda por venir: citas ya agendadas de aquí a fin de mes (ingreso probable aún no cobrado).
+  let citasRest = 0;
+  try {
+    const hoyISO = _localDay(now);
+    citasRest = ((window.DB && DB.get("appointments")) || []).filter(a => {
+      const f = a.fecha || ""; return f.slice(0, 7) === curKey && f >= hoyISO && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida";
+    }).length;
+  } catch (e) {}
+  const maxBar = Math.max(1, proy, ...hist.map(h => h.ing));
+  const sinHistorial = conDatos.length === 0 && ingMes === 0;
+
+  function analizar() {
+    if (busy) return;
+    if (!window.mediqueAI) { setErr("La IA no está disponible en este servidor."); return; }
+    setBusy(true); setErr(""); setOut(null);
+    const clinic = (function () { try { return { name: DB.cfg().clinic_name || "" }; } catch (e) { return {}; } })();
+    // Top tratamientos del mes (por monto), para que las recomendaciones sean del negocio real.
+    const porTrat = {};
+    cash.filter(x => keyOf(x) === curKey && x.kind === "atencion" && x.type !== "egreso")
+      .forEach(x => { const k = (x.concept || "").split("·")[0].trim() || "Sin especificar"; porTrat[k] = (porTrat[k] || 0) + (x.amount || 0); });
+    const top = Object.keys(porTrat).map(k => k + ": " + D.fmt(porTrat[k])).sort().slice(0, 6).join(" | ") || "sin ventas aún";
+    const histTxt = hist.map(h => h.lbl + " " + D.fmt(h.ing)).join(" | ");
+    const datos = [
+      "Clínica de medicina estética en Chile (moneda CLP).",
+      "Ingresos de los 5 meses anteriores: " + histTxt + ".",
+      "Mes en curso: lleva " + D.fmt(ingMes) + " en " + diaHoy + " de " + diasMes + " días (" + ventasMes + " ventas, ticket promedio " + D.fmt(ticket) + ").",
+      "Proyección de cierre calculada al ritmo actual: " + D.fmt(proy) + (deltaAnt != null ? " (" + (deltaAnt >= 0 ? "+" : "") + deltaAnt + "% vs el mes anterior)" : "") + ".",
+      "Promedio de los meses anteriores: " + D.fmt(promHist) + ".",
+      "Quedan " + diasRest + (diasRest === 1 ? " día" : " días") + " y hay " + citasRest + (citasRest === 1 ? " cita ya agendada" : " citas ya agendadas") + " por atender este mes.",
+      "Tratamientos que más facturan este mes: " + top + "."
+    ].join("\n");
+    const system = "Eres un analista de negocio para clínicas de medicina estética en Chile. Te dan cifras YA CALCULADAS: no las recalcules ni inventes otras, úsalas tal cual. "
+      + "Responde en español de Chile, directo y sin adornos, en máximo 220 palabras, con esta estructura exacta:\n"
+      + "LECTURA: dos o tres frases interpretando la proyección (¿va bien, va corto, de qué depende?).\n"
+      + "ACCIONES: 4 viñetas para AUMENTAR INGRESOS este mes, cada una concreta y accionable con la agenda y los tratamientos que te dieron (nada genérico tipo 'mejorar el marketing').\n"
+      + "CAPTACIÓN: 2 viñetas para atraer pacientes nuevos.\n"
+      + "No prometas resultados garantizados ni des consejos médicos. No uses markdown ni asteriscos.";
+    window.mediqueAI([{ role: "user", content: datos }], clinic, { system: system, max_tokens: 700 }).then(function (r) {
+      setBusy(false);
+      if (r && r.ok && r.reply) setOut(r.reply);
+      else if (r && r.configured === false) setErr("La IA no está configurada en el servidor (falta GROQ_API_KEY).");
+      else setErr((r && r.error) || "La IA no respondió. Intenta de nuevo.");
+    }).catch(function () { setBusy(false); setErr("No se pudo contactar la IA."); });
+  }
+
+  const card = luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 16 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "18px 20px", marginBottom: 16 };
+  const deltaCol = deltaAnt == null ? T.textMute : deltaAnt >= 0 ? "#1F8A5B" : "#C0285A";
+  return (
+    <div style={card}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>Proyección del mes</div>
+          <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 }}>Al ritmo de {D.fmt(Math.round(ritmoDia))} por día · quedan {diasRest} día{diasRest === 1 ? "" : "s"}</div>
+        </div>
+        <button onClick={analizar} disabled={busy || sinHistorial} title={sinHistorial ? "Aún no hay ventas registradas para analizar" : "Analizar con IA"}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 34, padding: "0 14px", borderRadius: luxF ? DS.r.ctl : 8, border: "1px solid " + T.accent, background: busy ? "transparent" : T.accent, color: busy ? T.accent : (T.onAccent || "#fff"), fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: (busy || sinHistorial) ? "not-allowed" : "pointer", opacity: sinHistorial ? .5 : 1 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4.5" y="8" width="15" height="10" rx="3" /><path d="M12 4.5V8" /><circle cx="12" cy="3.4" r="1.3" /></svg>
+          {busy ? "Analizando…" : (out ? "Volver a analizar" : "Analizar con IA")}
+        </button>
+      </div>
+
+      {/* Cifra proyectada + comparativas */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontFamily: T.serif, fontSize: 32, color: T.text, lineHeight: 1.05 }}>{D.fmt(proy)}</div>
+          <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 3 }}>cierre estimado de {MESL[now.getMonth()]}</div>
+        </div>
+        {deltaAnt != null && (
+          <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: deltaCol, paddingBottom: 4 }}>
+            {deltaAnt >= 0 ? "▲ " : "▼ "}{Math.abs(deltaAnt)}% <span style={{ color: T.textFaint, fontWeight: 400 }}>vs mes anterior</span>
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 14 }}>
+        {[["Van este mes", D.fmt(ingMes)], ["Ventas", String(ventasMes)], ["Ticket promedio", D.fmt(ticket)], ["Citas por atender", String(citasRest)], ["Promedio meses previos", D.fmt(promHist)]].map(([l, v]) => (
+          <div key={l}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{v}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 1 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Historial + la proyección como última barra (punteada = aún no ocurre) */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 82, marginBottom: 4 }}>
+        {hist.concat([{ key: "proy", lbl: MESL[now.getMonth()], ing: proy, esProy: true }]).map(m => (
+          <div key={m.key} title={(m.esProy ? "Proyectado: " : "") + D.fmt(m.ing)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+            <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+              <div style={{ width: "62%", height: Math.round((m.ing / maxBar) * 58) + "px", minHeight: 2, borderRadius: "4px 4px 0 0",
+                background: m.esProy ? "transparent" : T.accent, border: m.esProy ? ("1.5px dashed " + T.accent) : "none", opacity: m.esProy ? 1 : .75 }} />
+            </div>
+            <span style={{ fontFamily: T.sans, fontSize: 9.5, color: m.esProy ? T.accent : T.textFaint, fontWeight: m.esProy ? 600 : 400 }}>{m.lbl}</span>
+          </div>
+        ))}
+      </div>
+
+      {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: 10 }}>{err}</div>}
+      {sinHistorial && !err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10 }}>Aún no hay ventas registradas: la proyección aparecerá cuando empieces a cobrar atenciones.</div>}
+
+      {out && (
+        <div style={{ marginTop: 14, paddingTop: 13, borderTop: "1px solid " + T.line }}>
+          <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Análisis y recomendaciones · IA</div>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{out}</div>
+        </div>
+      )}
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, marginTop: 12, lineHeight: 1.5 }}>
+        La cifra se calcula con tus ingresos reales (ritmo del mes e historial), no la genera la IA. Es una estimación: cambia según lo que cobres los días que quedan.
+      </div>
+    </div>
+  );
+}
+
 // Gráfico de flujo de caja (6 meses) reutilizable — se usa en Flujo de caja y en Registro de Ventas.
 function FlujoCajaChart({ T, title }) {
   const D = window.JCDATA;

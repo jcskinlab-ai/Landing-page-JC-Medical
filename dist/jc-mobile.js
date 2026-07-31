@@ -120,10 +120,127 @@ function jcmConfirmAsistMsgM(a, clinNombre) {
   tpl = tpl && ("" + tpl).trim() || window.DEFAULT_TPL_ASIST;
   return window.fillMsgTpl(tpl, { nombre: a.name || "", primernombre: jcmFirstNameM(a.name), clinica: clinNombre, fecha: fecha || "", hora: a.time || "", tratamiento: a.proc || "", mapa: maps || "" });
 }
+function teamM() {
+  try {
+    const t = window.DB && window.DB.get("team");
+    if (Array.isArray(t)) return t.filter((x) => x && x.name && x.active !== false);
+  } catch (e) {
+  }
+  return [];
+}
+function profDeM(a, team) {
+  const p = (a && a.prof || "").trim();
+  if (p) return p;
+  return team && team[0] && team[0].name || "";
+}
+function profMatchM(a, selProf, team) {
+  if (!team || team.length < 2) return true;
+  return profDeM(a, team) === selProf;
+}
+function profColorM(nombre, team) {
+  const t = (team || []).find((x) => x.name === nombre);
+  return t && t.color || "#8B9EB0";
+}
+function inicialesM(s) {
+  return (s || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}
+function primerNombreM(s) {
+  return (s || "").trim().split(/\s+/)[0] || "";
+}
+function slotsSemanaM(iso) {
+  try {
+    const h = window.DB && window.DB.get("horarios_v1");
+    const wd = (/* @__PURE__ */ new Date(iso + "T12:00:00")).getDay();
+    if (h && h[wd]) return h[wd].open === false ? [] : h[wd].slots || slotsM().slice();
+  } catch (e) {
+  }
+  return slotsM().slice();
+}
+function slotsEfectivosM(iso) {
+  try {
+    const map = window.DB && window.DB.get("horarios_dates") || {};
+    if (Array.isArray(map[iso])) return map[iso].slice();
+  } catch (e) {
+  }
+  return slotsSemanaM(iso);
+}
+function slotMapAplicaM() {
+  return teamM().length < 2;
+}
+function liberarSlotM(iso, hora) {
+  if (!iso || !hora || !slotMapAplicaM()) return;
+  try {
+    const map = window.DB && window.DB.get("horarios_dates") || {};
+    const cur = slotsEfectivosM(iso);
+    if (!cur.includes(hora)) {
+      cur.push(hora);
+      cur.sort();
+    }
+    map[iso] = cur;
+    if (window.DB) window.DB.set("horarios_dates", map);
+  } catch (e) {
+  }
+}
+function ocuparSlotM(iso, hora) {
+  if (!iso || !hora || !slotMapAplicaM()) return;
+  try {
+    const map = window.DB && window.DB.get("horarios_dates") || {};
+    map[iso] = slotsEfectivosM(iso).filter((s) => s !== hora);
+    if (window.DB) window.DB.set("horarios_dates", map);
+  } catch (e) {
+  }
+}
+function miNombreProfM() {
+  try {
+    return (window.JCSAAS && window.JCSAAS.currentUserName && window.JCSAAS.currentUserName() || "").trim();
+  } catch (e) {
+    return "";
+  }
+}
+function soyProfesionalM() {
+  try {
+    return (window.JCSAAS && window.JCSAAS.currentRole && window.JCSAAS.currentRole()) === "professional";
+  } catch (e) {
+    return false;
+  }
+}
+function soloNombreM(v) {
+  return (v || "").replace(/[0-9]/g, "");
+}
+const RUT_INPUT_M = { inputMode: "text", autoCapitalize: "characters", autoCorrect: "off", spellCheck: false };
 function minsM(t) {
   if (!t) return 0;
   const [h, m] = t.split(":");
   return parseInt(h) * 60 + parseInt(m || 0);
+}
+function hhmmM(m) {
+  const h = Math.floor(m / 60), r = m % 60;
+  return (h < 10 ? "0" : "") + h + ":" + (r < 10 ? "0" : "") + r;
+}
+function stepM() {
+  return clinicSeededM() ? 15 : 30;
+}
+function durOfM(a) {
+  return parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+}
+function busyRangesM(appts, iso, ignoreId) {
+  return (appts || []).filter((a) => a.status !== "anulada" && a.id !== ignoreId && a.time && (a.fecha ? a.fecha : offToISO(a.day || 0)) === iso).map((a) => {
+    const s = minsM(a.time);
+    return { s, e: s + durOfM(a) };
+  });
+}
+function overlapsM(s, e, busy) {
+  return (busy || []).some((b) => s < b.e && b.s < e);
+}
+function freeStartsM(grid, avail, busy, durMin) {
+  if (!avail || !avail.length) return [];
+  const paso = stepM();
+  const gm = (grid || []).map(minsM);
+  const cands = new Set(gm);
+  (busy || []).forEach((b) => {
+    if (gm.some((m) => m <= b.e && b.e < m + paso)) cands.add(b.e);
+  });
+  return [...cands].sort((x, y) => x - y).filter((m) => !overlapsM(m, m + durMin, busy)).map(hhmmM);
 }
 const STATUS_STEPS = [
   { key: "pendiente", label: "Agendado" },
@@ -209,7 +326,6 @@ function endTimeM(a) {
   const e = start + dur, hh = Math.floor(e / 60) % 24, mm = (e % 60 + 60) % 60;
   return (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
 }
-const ON_PHOTO = { text: "#F5F7FB", mute: "rgba(235,242,252,.72)", faint: "rgba(235,242,252,.5)" };
 const JOST = "'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif";
 const FRAUNCES = "'Fraunces', Georgia, serif";
 const MOBILE_THEME_KEY = "jcm_mobile_theme";
@@ -316,9 +432,17 @@ function glassChip(T) {
 function PhotoBgLayers({ T, hero }) {
   return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, background: hero ? T.heroBg : T.bgRadial } });
 }
-function LoginVideoBg({ children }) {
-  const overlay = "linear-gradient(180deg, rgba(9,11,15,.42) 0%, rgba(9,11,15,.62) 45%, rgba(9,11,15,.82) 100%)";
-  return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", minHeight: "100dvh", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 24px", backgroundColor: "#070707" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: "url('/assets/evapp-login.jpg?v=1')", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: overlay } }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", alignItems: "center" } }, children));
+const LOGIN_STILL_M = function() {
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return !!(c && c.saveData);
+  } catch (e) {
+    return false;
+  }
+}();
+function LoginVideoBg({ children, title, subtitle, footer }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "jcl-stage", style: { backgroundImage: "url('/assets/login-cumbres.jpg')", backgroundColor: "#070707" } }, /* @__PURE__ */ React.createElement("style", { dangerouslySetInnerHTML: { __html: typeof window !== "undefined" && window.JCM_LOGIN_CSS || "" } }), !LOGIN_STILL_M && /* @__PURE__ */ React.createElement("video", { className: "jcl-video", autoPlay: true, muted: true, loop: true, playsInline: true, preload: "auto", "aria-hidden": "true", tabIndex: -1, poster: "/assets/login-cumbres.jpg" }, /* @__PURE__ */ React.createElement("source", { src: "/assets/login-cumbres.mp4", type: "video/mp4" })), /* @__PURE__ */ React.createElement("div", { className: "jcl-veil" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-halo" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-card", key: title }, /* @__PURE__ */ React.createElement("div", { className: "jcl-sheen" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-st jcl-eyebrow", style: { animationDelay: ".05s" } }, "Medique \xB7 Panel cl\xEDnico"), title && /* @__PURE__ */ React.createElement("h1", { className: "jcl-st jcl-title", style: { animationDelay: ".12s" } }, title), subtitle && /* @__PURE__ */ React.createElement("p", { className: "jcl-st jcl-sub", style: { animationDelay: ".18s" } }, subtitle), /* @__PURE__ */ React.createElement("div", { className: "jcl-st", style: { animationDelay: ".24s" } }, children), footer && /* @__PURE__ */ React.createElement("div", { className: "jcl-st jcl-foot", style: { animationDelay: ".3s" } }, footer)));
 }
 function consentPendingM(patients, appts) {
   appts = appts || [];
@@ -410,12 +534,9 @@ function LoginScreen({ T, onAuth }) {
       setBusy(false);
     }
   }
-  const SERIF = FRAUNCES;
-  const inp = { width: "100%", fontFamily: T.sans, fontSize: 16, padding: "14px 16px", borderRadius: 6, border: "1px solid rgba(255,255,255,.14)", background: "rgba(20,22,28,.85)", color: "#fff", outline: "none", boxSizing: "border-box" };
-  const btnSober = { width: "100%", background: "rgba(235,238,242,.92)", color: "#15181D", fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", border: "none", borderRadius: 6, padding: "14px", cursor: "pointer", marginTop: 4 };
-  return /* @__PURE__ */ React.createElement(LoginVideoBg, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" } }, "Medique \xB7 Panel m\xF3vil"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: SERIF, fontWeight: 300, fontSize: 34, color: "#fff", textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 } }, "Acceso privado"), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12.5, color: ON_PHOTO.mute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" } }, "Accede al panel de tu cl\xEDnica."), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", display: "flex", flexDirection: "column", gap: 11 } }, setup && /* @__PURE__ */ React.createElement("input", { placeholder: "Usuario", value: user, onChange: (e) => setUser(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a del panel", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.red, textAlign: "center" } }, err), /* @__PURE__ */ React.createElement("button", { onClick: submit, disabled: busy, style: { ...btnSober, opacity: busy ? 0.6 : 1 } }, busy ? "\u2026" : setup ? "Crear acceso" : "Entrar")));
+  return /* @__PURE__ */ React.createElement(LoginVideoBg, { title: setup ? "Crea tu acceso" : "Iniciar sesi\xF3n", subtitle: setup ? "Define la contrase\xF1a del panel de tu cl\xEDnica." : "Entra al panel de tu cl\xEDnica." }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, setup && /* @__PURE__ */ React.createElement("input", { placeholder: "Usuario", value: user, onChange: (e) => setUser(e.target.value), className: "jcl-in" }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a del panel", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), /* @__PURE__ */ React.createElement("button", { className: "jcl-btn", onClick: submit, disabled: busy || !pass.trim() }, busy ? "Entrando\u2026" : setup ? "Crear acceso" : "Entrar")));
 }
-function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
+function ApptSheet({ T, appt: a, patients, appts, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [editCom, setEditCom] = useState(false);
   const [comTxt, setComTxt] = useState(a.comentario || "");
@@ -427,6 +548,12 @@ function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, rest
     } catch (e) {
       return [];
     }
+  })();
+  const efChoca = (() => {
+    const s = minsM(ef.time), d = parseInt(ef.dur) || 30;
+    const eq = teamM();
+    const mias = eq.length >= 2 ? (appts || []).filter((x) => profDeM(x, eq) === profDeM(a, eq)) : appts;
+    return !ef.time || overlapsM(s, s + d, busyRangesM(mias, ef.fecha, a.id));
   })();
   const isPend = a.status === "pendiente_pago";
   const isAnulada = a.status === "anulada";
@@ -465,7 +592,12 @@ function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, rest
   const stepBtn = (dir, onClick) => /* @__PURE__ */ React.createElement("button", { onClick, "aria-label": dir < 0 ? "D\xEDa anterior" : "D\xEDa siguiente", style: { width: 44, height: 44, borderRadius: "50%", background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 28, height: 28, borderRadius: "50%", background: T.glassFill, border: "1px solid " + T.glassBorder, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: T.text, strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: dir < 0 ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7" }))));
   return /* @__PURE__ */ React.createElement("div", { onMouseDown: (e) => {
     if (e.target === e.currentTarget) onClose();
-  }, style: { position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(2,4,8,.6)" } }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), className: "no-sb", style: sheet }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 5, borderRadius: 100, background: T.divider, margin: "0 auto 16px" } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 44, height: 44, borderRadius: "50%", background: T.accentSoft, border: "1px solid " + T.accentBorder, color: T.accentStrong, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 14, fontWeight: 600, flexShrink: 0 } }, initials), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, fontWeight: 600, color: T.text, lineHeight: 1.2 } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 } }, a.time, " \xB7 ", a.proc || "\u2014", " \xB7 ", durLabel), matched && /* @__PURE__ */ React.createElement("button", { onClick: () => onOpenFicha(matched.id), style: { marginTop: 6, background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: T.sans, fontSize: 12, color: T.accentStrong } }, "Ver ficha del paciente \u2192")), /* @__PURE__ */ React.createElement("button", { onClick: onClose, "aria-label": "Cerrar", style: { flexShrink: 0, width: 44, height: 44, borderRadius: "50%", border: "none", background: "none", color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginRight: -6, marginTop: -6 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 32, height: 32, borderRadius: "50%", border: "1px solid " + T.flatBorder, background: T.flatFill, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M5 5l14 14M19 5L5 19" }))))), isPend && /* @__PURE__ */ React.createElement(
+  }, style: { position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(2,4,8,.6)" } }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), className: "no-sb", style: sheet }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 5, borderRadius: 100, background: T.divider, margin: "0 auto 16px" } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 44, height: 44, borderRadius: "50%", background: T.accentSoft, border: "1px solid " + T.accentBorder, color: T.accentStrong, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.serif, fontSize: 14, fontWeight: 600, flexShrink: 0 } }, initials), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, fontWeight: 600, color: T.text, lineHeight: 1.2 } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, marginTop: 2 } }, a.time, " \xB7 ", a.proc || "\u2014", " \xB7 ", durLabel), matched && /* @__PURE__ */ React.createElement("button", { onClick: () => onOpenFicha(matched.id), style: { marginTop: 6, background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: T.sans, fontSize: 12, color: T.accentStrong } }, "Ver ficha del paciente \u2192")), /* @__PURE__ */ React.createElement("button", { onClick: onClose, "aria-label": "Cerrar", style: { flexShrink: 0, width: 44, height: 44, borderRadius: "50%", border: "none", background: "none", color: T.textMute, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginRight: -6, marginTop: -6 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 32, height: 32, borderRadius: "50%", border: "1px solid " + T.flatBorder, background: T.flatFill, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M5 5l14 14M19 5L5 19" }))))), (() => {
+    const eq = teamM();
+    if (eq.length < 2) return null;
+    const quien = profDeM(a, eq), c = profColorM(quien, eq);
+    return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 22, height: 22, borderRadius: "50%", background: c, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 9.5, fontWeight: 700, flexShrink: 0 } }, inicialesM(quien)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Atiende ", /* @__PURE__ */ React.createElement("span", { style: { color: T.text, fontWeight: 600 } }, quien), !(a.prof || "").trim() && /* @__PURE__ */ React.createElement("span", { style: { color: T.textFaint } }, " \xB7 sin asignar")));
+  })(), isPend && /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => {
@@ -522,10 +654,11 @@ function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, rest
   ), /* @__PURE__ */ React.createElement("button", { onClick: () => {
     if (!edit) setEf({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
     setEdit((v) => !v);
-  }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 9, padding: "13px 14px", borderRadius: 14, background: T.flatFill, border: "1px solid " + T.flatBorder, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M4 20l4-1 10-10-3-3L5 16l-1 4Z" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text, flex: 1 } }, "Editar fecha, hora, duraci\xF3n o procedimiento")), edit && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, padding: 14, borderRadius: 14, background: T.flatFill, border: "1px solid " + T.flatBorder, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Fecha"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, stepBtn(-1, () => setEf((f) => ({ ...f, fecha: shiftDateM(f.fecha, -1) }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 12.5, color: T.text, minWidth: 88, textAlign: "center" } }, dayLabelM(ef.fecha)), stepBtn(1, () => setEf((f) => ({ ...f, fecha: shiftDateM(f.fecha, 1) }))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Hora"), /* @__PURE__ */ React.createElement("input", { type: "time", value: ef.time, onChange: (e) => setEf((f) => ({ ...f, time: e.target.value })), style: { ...inp, width: "auto" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: ef.dur, onChange: (e) => setEf((f) => ({ ...f, dur: e.target.value })), style: { ...inp, width: "auto" } }, ["15", "30", "45", "60", "90", "120"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d, " min")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, display: "block", marginBottom: 6 } }, "Procedimiento"), procOpts.length ? /* @__PURE__ */ React.createElement("select", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), style: inp }, [ef.proc, ...procOpts.filter((p) => p !== ef.proc)].filter(Boolean).map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p))) : /* @__PURE__ */ React.createElement("input", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), placeholder: "Procedimiento", style: inp })), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 9, padding: "13px 14px", borderRadius: 14, background: T.flatFill, border: "1px solid " + T.flatBorder, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M4 20l4-1 10-10-3-3L5 16l-1 4Z" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text, flex: 1 } }, "Editar fecha, hora, duraci\xF3n o procedimiento")), edit && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, padding: 14, borderRadius: 14, background: T.flatFill, border: "1px solid " + T.flatBorder, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Fecha"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, stepBtn(-1, () => setEf((f) => ({ ...f, fecha: shiftDateM(f.fecha, -1) }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 12.5, color: T.text, minWidth: 88, textAlign: "center" } }, dayLabelM(ef.fecha)), stepBtn(1, () => setEf((f) => ({ ...f, fecha: shiftDateM(f.fecha, 1) }))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Hora"), /* @__PURE__ */ React.createElement("input", { type: "time", value: ef.time, onChange: (e) => setEf((f) => ({ ...f, time: e.target.value })), style: { ...inp, width: "auto" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: ef.dur, onChange: (e) => setEf((f) => ({ ...f, dur: e.target.value })), style: { ...inp, width: "auto" } }, ["15", "30", "45", "60", "90", "120"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d, " min")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, display: "block", marginBottom: 6 } }, "Procedimiento"), procOpts.length ? /* @__PURE__ */ React.createElement("select", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), style: inp }, [ef.proc, ...procOpts.filter((p) => p !== ef.proc)].filter(Boolean).map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p))) : /* @__PURE__ */ React.createElement("input", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), placeholder: "Procedimiento", style: inp })), efChoca && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.red } }, "Ese horario se cruza con otra cita del mismo d\xEDa."), /* @__PURE__ */ React.createElement("button", { disabled: efChoca, onClick: () => {
+    if (efChoca) return;
     updateAppt(a.id, { fecha: ef.fecha, day: isoToDayOff(ef.fecha), time: ef.time, dur: ef.dur + " minutos", proc: ef.proc });
     setEdit(false);
-  }, style: { height: 44, borderRadius: 12, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, "Guardar cambios")), waPhone && // Mismo mensaje que el botón "Confirmar asistencia" del portal de escritorio
+  }, style: { height: 44, borderRadius: 12, border: "none", background: efChoca ? T.flatBorder : T.accent, color: efChoca ? T.textFaint : T.onAccent, fontFamily: T.sans, fontSize: 14, fontWeight: 600, cursor: efChoca ? "not-allowed" : "pointer" } }, "Guardar cambios")), waPhone && // Mismo mensaje que el botón "Confirmar asistencia" del portal de escritorio
   // (jcmConfirmAsistMsg): pide responder SÍ/NO, con fecha/hora en español y cómo llegar.
   /* @__PURE__ */ React.createElement(
     "a",
@@ -807,7 +940,8 @@ function abbrevProcM(proc) {
   if (!proc) return "\u2014";
   return proc.trim().charAt(0).toUpperCase();
 }
-function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
+function AgendaTab({ T, appts, onOpenAppt, goTab, goNueva, showAnuladas, setShowAnuladas, equipo, selProf, setSelProf, soloMias }) {
+  equipo = equipo || [];
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
   const [q, setQ] = useState("");
@@ -926,6 +1060,30 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       ...apptCardTintM(st.color)
     } }, /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: FRAUNCES, fontSize: 11.5, fontWeight: 500, color: st.color } }, a.time), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: isAnulada ? "line-through" : "none" } }, abbrevNameM(a.name)), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, marginRight: 10, fontFamily: T.sans, fontSize: 10, fontWeight: 700, color: st.color, background: "color-mix(in srgb, " + st.color + " 18%, #141B26)", borderRadius: 5, padding: "2px 6px" } }, abbrevProcM(a.proc)));
   }
+  const profRow = equipo.length >= 2 && !soloMias ? /* @__PURE__ */ React.createElement("div", { className: "no-sb", style: { display: "flex", gap: 6, padding: "2px 14px 4px", flexShrink: 0, overflowX: "auto" } }, equipo.map((t) => {
+    const on = t.name === selProf;
+    const c = t.color || "#8B9EB0";
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: t.id || t.name,
+        onClick: () => setSelProf && setSelProf(t.name),
+        style: {
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "5px 10px 5px 5px",
+          borderRadius: 999,
+          cursor: "pointer",
+          border: "1px solid " + (on ? c : T.flatBorder),
+          background: on ? "color-mix(in srgb, " + c + " 20%, transparent)" : "transparent"
+        }
+      },
+      /* @__PURE__ */ React.createElement("span", { style: { width: 20, height: 20, borderRadius: "50%", background: c, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 9, fontWeight: 700, flexShrink: 0 } }, inicialesM(t.name)),
+      /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: on ? 600 : 500, color: on ? T.text : T.textMute, whiteSpace: "nowrap" } }, primerNombreM(t.name))
+    );
+  })) : null;
   const toggleRow = /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, padding: "5px 14px 4px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flex: 1, gap: 3, padding: 3, borderRadius: 11, ...glassChip(T) } }, [["dia", "D\xEDa"], ["mes", "Mes"]].map(([k, l]) => (
     // Pedido: al tocar "Día" siempre vuelve al día de HOY automáticamente (no se queda en
     // el último día que se haya elegido).
@@ -952,7 +1110,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   const fab = /* @__PURE__ */ React.createElement(
     "button",
     {
-      onClick: () => goTab("nueva"),
+      onClick: () => goNueva ? goNueva(selDay) : goTab("nueva"),
       title: "Nueva cita",
       "aria-label": "Nueva cita",
       style: {
@@ -977,7 +1135,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   );
   if (view === "mes") {
     const WD = ["L", "M", "M", "J", "V", "S", "D"];
-    return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" } }, toggleRow, searchBar, ql ? searchResultsBody : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 16px 8px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthCur((c) => {
+    return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" } }, toggleRow, profRow, searchBar, ql ? searchResultsBody : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 16px 8px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthCur((c) => {
       const m = c.m - 1;
       return m < 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m };
     }), style: { width: 44, height: 44, borderRadius: 999, ...glassChip(T), color: T.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, "\u2039"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 19, fontWeight: 600, color: T.text } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: FRAUNCES, fontStyle: "italic", color: T.accent } }, MESES_LARGOS[monthCur.m]), " ", monthCur.y), /* @__PURE__ */ React.createElement("button", { onClick: () => setMonthCur((c) => {
@@ -1004,7 +1162,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
       } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 14, fontWeight: 600, color: isToday ? T.accent : T.text } }, c.dd), n > 0 && /* @__PURE__ */ React.createElement("span", { style: { display: "flex", gap: 2 } }, Array.from({ length: Math.min(n, 3) }).map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { width: 5, height: 5, borderRadius: "50%", background: T.accent } }))));
     })))), fab);
   }
-  return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" } }, toggleRow, searchBar, ql ? searchResultsBody : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { ref: stripRef, style: { overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", padding: "5px 10px 3px", minWidth: "max-content", gap: 2 } }, stripDays.map((d) => {
+  return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" } }, toggleRow, profRow, searchBar, ql ? searchResultsBody : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { ref: stripRef, style: { overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", padding: "5px 10px 3px", minWidth: "max-content", gap: 2 } }, stripDays.map((d) => {
     const isSel = d.iso === selDay;
     const hasApts = (apptCountByDate[d.iso] || 0) > 0;
     return /* @__PURE__ */ React.createElement(
@@ -1041,7 +1199,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
     return /* @__PURE__ */ React.createElement("button", { key: a.id, onClick: () => onOpenAppt(a), style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer", background: T.flatFill, border: "1px solid " + T.flatBorder, borderRadius: 14, padding: "12px 14px", opacity: isAnulada ? 0.6 : 1 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "inline-block", fontFamily: T.sans, fontWeight: 700, fontSize: 9.5, letterSpacing: ".06em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 100, color: st.color, background: "color-mix(in srgb, " + st.color + " 16%, #141B26)", marginBottom: 7 } }, st.label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 13.5, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: isAnulada ? "line-through" : "none" } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.proc || "\u2014")), /* @__PURE__ */ React.createElement("div", { style: { width: 1, alignSelf: "stretch", background: T.divider } }), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: FRAUNCES, fontWeight: 600, fontSize: 15, color: st.color } }, a.time), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 1 } }, endTimeM(a))));
   }), dayAppts.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "34px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.textMute } }, showAnuladas ? "Sin citas canceladas este d\xEDa" : "Sin citas este d\xEDa"), !showAnuladas && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Toca + para agendar una cita.")), !showAnuladas && anuladasCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowAnuladas(true), style: { width: "100%", background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0 4px", cursor: "pointer", fontFamily: "inherit" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Ver citas anuladas"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "(", anuladasCount, ")")), /* @__PURE__ */ React.createElement("div", { style: { height: 88, flexShrink: 0 } })) : /* @__PURE__ */ React.createElement("div", { ref: dayRef, onTouchStart: onDaySwipeStart, onTouchEnd: onDaySwipeEnd, style: { flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginLeft: 48, paddingRight: 12 } }, CAL_HOURS.map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { position: "absolute", left: -48, right: 0, top: (h - CAL_START) * CAL_PX_HOUR, display: "flex", alignItems: "flex-start", zIndex: 1 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.textFaint, width: 42, textAlign: "right", paddingRight: 8, lineHeight: 1, transform: "translateY(-5px)", flexShrink: 0 } }, h < 10 ? "0" + h : "" + h, ":00"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, borderTop: "1px solid " + T.divider, marginTop: 0 } }))), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", minHeight: (CAL_END - CAL_START) * CAL_PX_HOUR + 40 } }, dayAppts.map((a) => apptBlock(a))), dayAppts.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "46%", left: 0, right: 0, transform: "translateY(-50%)", textAlign: "center", pointerEvents: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.textMute } }, showAnuladas ? "Sin citas canceladas este d\xEDa" : "Sin citas este d\xEDa"), !showAnuladas && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Toca + para agendar una cita."))))), fab);
 }
-function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
+function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialFecha }) {
   const [tipo, setTipo] = useState("existente");
   const [pid, setPid] = useState("");
   const [pq, setPq] = useState("");
@@ -1061,7 +1219,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [sinRut, setSinRut] = useState(false);
   const [email, setEmail] = useState("");
   const procs = procList();
-  const [fecha, setFecha] = useState(todayISO());
+  const [fecha, setFecha] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initialFecha || "") ? initialFecha : todayISO());
   const [calOpen, setCalOpen] = useState(false);
   const [calMonth, setCalMonth] = useState(() => /* @__PURE__ */ new Date(todayISO() + "T12:00:00"));
   useEffect(() => {
@@ -1070,6 +1228,12 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [time, setTime] = useState("10:00");
   const [proc, setProc] = useState(procs[0] || "Evaluaci\xF3n general");
   const [dur, setDur] = useState("30 minutos");
+  const equipo = teamM();
+  const [prof, setProf] = useState(() => {
+    const yo = miNombreProfM();
+    if (yo && equipo.some((t) => t.name === yo)) return yo;
+    return equipo[0] && equipo[0].name || "";
+  });
   const [comment, setComment] = useState("");
   const [notifyWa, setNotifyWa] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -1083,7 +1247,6 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const finalRut = tipo === "existente" ? selectedPatient ? selectedPatient.rut : "" : rut;
   const finalEmail = tipo === "existente" ? selectedPatient ? selectedPatient.email : "" : email;
   const patientOk = tipo === "existente" ? !!selectedPatient : name.trim() && (sinRut || rutOk) && phoneOk;
-  const canSave = patientOk && !!proc && !!fecha && !!time;
   const slotsMap = window.DB && window.DB.get("horarios_dates") || {};
   const weeklyDef = (() => {
     try {
@@ -1096,10 +1259,16 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
     return slotsM().slice();
   })();
   const avail = slotsMap[fecha] != null ? slotsMap[fecha] : weeklyDef;
-  const occupied = new Set(appts.filter((a) => a.fecha === fecha && a.status !== "anulada").map((a) => a.time));
-  const freeSlots = avail.filter((s) => !occupied.has(s));
   const slotGrid = clinicSeededM() ? slotsM() : avail;
-  const freeSlots15 = avail.length === 0 ? [] : slotGrid.filter((s) => !occupied.has(s));
+  const durMin = parseInt(dur) || 30;
+  const apptsProf = equipo.length >= 2 ? appts.filter((a) => profDeM(a, equipo) === prof) : appts;
+  const busy = busyRangesM(apptsProf, fecha);
+  const freeSlots15 = freeStartsM(slotGrid, avail, busy, durMin);
+  const choqueHora = !!time && overlapsM(minsM(time), minsM(time) + durMin, busy);
+  useEffect(() => {
+    if (freeSlots15.length && freeSlots15.indexOf(time) < 0) setTime(freeSlots15[0]);
+  }, [freeSlots15.join(","), time]);
+  const canSave = patientOk && !!proc && !!fecha && !!time && !choqueHora;
   function confirm() {
     if (!canSave || saved) return;
     let patId = pid;
@@ -1107,7 +1276,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       const np = addPatient({ name: name.trim(), rut: sinRut ? "" : rut.trim(), phone: phone.trim(), email: email.trim(), age: 0 });
       patId = np.id;
     }
-    addAppt({ id: Date.now().toString(36), patId, name: finalName.trim(), rut: (finalRut || "").trim(), phone: (finalPhone || "").trim(), email: (finalEmail || "").trim(), proc, dur, time, fecha, day: isoToDayOff(fecha), status: "pendiente", source: "movil", comentario: comment.trim() || void 0, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+    addAppt({ id: window.jcmUid ? window.jcmUid("a") : "a_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), patId, name: finalName.trim(), rut: (finalRut || "").trim(), phone: (finalPhone || "").trim(), email: (finalEmail || "").trim(), proc, prof: prof || void 0, dur, time, fecha, day: isoToDayOff(fecha), status: "pendiente", source: "movil", comentario: comment.trim() || void 0, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
     if (notifyWa && finalPhone) {
       const waP = (finalPhone || "").replace(/\D/g, "");
       if (waP.length >= 8) {
@@ -1175,7 +1344,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 214, overflowY: "auto" }, className: "no-sb" }, res.map((p) => /* @__PURE__ */ React.createElement("button", { key: p.id, onClick: () => {
         setPid(p.id);
       }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer", background: T.flatFill, border: "1px solid " + T.flatBorder, borderRadius: 11, padding: "10px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, height: 30, borderRadius: "50%", background: T.accentSoft, border: "1px solid " + T.accentBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontWeight: 600, fontSize: 11, color: T.accentStrong } }, (p.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase())), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, p.name), p.rut && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, p.rut)))));
-    })())) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Nombre completo"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Nombre y apellido", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => onRut(e.target.value), disabled: sinRut, inputMode: "numeric", placeholder: sinRut ? "Sin RUT" : "12.345.678-9", style: { ...inp, opacity: sinRut ? 0.5 : 1, borderColor: sinRut || rutOk || !rut ? T.inputBorder : T.red } })), !sinRut && rut && !rutOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -6 } }, "Revisa el RUT: el d\xEDgito verificador no coincide."), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", marginTop: -4 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: sinRut, onChange: (e) => {
+    })())) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Nombre completo"), /* @__PURE__ */ React.createElement("input", { value: name, onChange: (e) => setName(soloNombreM(e.target.value)), placeholder: "Nombre y apellido", autoCapitalize: "words", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: rut, onChange: (e) => onRut(e.target.value), disabled: sinRut, ...RUT_INPUT_M, placeholder: sinRut ? "Sin RUT" : "12.345.678-9", style: { ...inp, opacity: sinRut ? 0.5 : 1, borderColor: sinRut || rutOk || !rut ? T.inputBorder : T.red } })), !sinRut && rut && !rutOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -6 } }, "Revisa el RUT: el d\xEDgito verificador no coincide."), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", marginTop: -4 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: sinRut, onChange: (e) => {
       setSinRut(e.target.checked);
       if (e.target.checked) setRut("");
     } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Paciente extranjero / sin RUT")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { type: "tel", inputMode: "numeric", value: phone, onChange: (e) => onPhone(e.target.value), style: { ...inp, borderColor: phoneOk ? T.inputBorder : T.red } })), !phoneOk && phone.length > PHONE_PFX.length && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -6 } }, "Ingresa los 8 d\xEDgitos del tel\xE9fono."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Correo (opcional)"), /* @__PURE__ */ React.createElement("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), placeholder: "correo@ejemplo.com", style: inp }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Procedimiento"), /* @__PURE__ */ React.createElement("select", { value: proc, onChange: (e) => setProc(e.target.value), style: inp }, /* @__PURE__ */ React.createElement("option", null, "Evaluaci\xF3n general"), procs.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Fecha"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, stepBtn(-1, () => setFecha((f) => shiftDateM(f, -1))), /* @__PURE__ */ React.createElement("button", { onClick: () => setCalOpen((o) => !o), "aria-label": "Abrir calendario", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minWidth: 100, height: 30, padding: "0 10px", borderRadius: 10, background: calOpen ? T.accentSoft : "none", border: "1px solid " + (calOpen ? T.accentBorder : "transparent"), cursor: "pointer" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 12.5, color: T.text } }, dayLabelM(fecha)), /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", style: { transform: calOpen ? "rotate(180deg)" : "none", transition: "transform .2s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), stepBtn(1, () => setFecha((f) => shiftDateM(f, 1))))), calOpen && (() => {
@@ -1221,7 +1390,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
       const base = freeSlots15.length ? freeSlots15 : slotsM();
       const opts = base.indexOf(time) >= 0 ? base : [time, ...base];
       return opts.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s, " hrs"));
-    })())), freeSlots15.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -8 } }, "No hay horas marcadas como disponibles para este d\xEDa."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, width: "auto" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "75 minutos", "90 minutos", "120 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement("textarea", { value: comment, onChange: (e) => setComment(e.target.value), placeholder: "Ej. Control, seguimiento, evaluaci\xF3n\u2026", rows: 2, style: { ...inp, resize: "none" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "11px 13px", borderRadius: 12, background: T.flatFill, border: "1px solid " + T.flatBorder } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: notifyWa, onChange: (e) => setNotifyWa(e.target.checked) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, "Notificar al paciente por WhatsApp")), /* @__PURE__ */ React.createElement("button", { onClick: confirm, disabled: !canSave || saved, style: { marginTop: 4, height: 50, borderRadius: 14, border: "none", background: saved ? T.green : T.accent, color: saved ? "#fff" : T.onAccent, fontFamily: T.sans, fontSize: 15, fontWeight: 600, cursor: canSave && !saved ? "pointer" : "not-allowed", opacity: canSave || saved ? 1 : 0.5, transition: "background .3s" } }, saved ? "\u2713 Cita guardada" : "Guardar cita"))
+    })())), freeSlots15.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -8 } }, avail.length === 0 ? "No hay horas marcadas como disponibles para este d\xEDa." : "No queda ning\xFAn hueco de " + durMin + " min este d\xEDa. Prueba otra duraci\xF3n u otro d\xEDa."), choqueHora && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -8 } }, "Esa hora se cruza con otra cita ya agendada."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, width: "auto" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "75 minutos", "90 minutos", "120 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), equipo.length >= 2 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Profesional"), /* @__PURE__ */ React.createElement("select", { value: prof, onChange: (e) => setProf(e.target.value), style: { ...inp, width: "auto" } }, equipo.map((t) => /* @__PURE__ */ React.createElement("option", { key: t.id || t.name, value: t.name }, t.name)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement("textarea", { value: comment, onChange: (e) => setComment(e.target.value), placeholder: "Ej. Control, seguimiento, evaluaci\xF3n\u2026", rows: 2, style: { ...inp, resize: "none" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "11px 13px", borderRadius: 12, background: T.flatFill, border: "1px solid " + T.flatBorder } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: notifyWa, onChange: (e) => setNotifyWa(e.target.checked) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, "Notificar al paciente por WhatsApp")), /* @__PURE__ */ React.createElement("button", { onClick: confirm, disabled: !canSave || saved, style: { marginTop: 4, height: 50, borderRadius: 14, border: "none", background: saved ? T.green : T.accent, color: saved ? "#fff" : T.onAccent, fontFamily: T.sans, fontSize: 15, fontWeight: 600, cursor: canSave && !saved ? "pointer" : "not-allowed", opacity: canSave || saved ? 1 : 0.5, transition: "background .3s" } }, saved ? "\u2713 Cita guardada" : "Guardar cita"))
   );
 }
 function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient }) {
@@ -1268,28 +1437,318 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
     })()), /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2", strokeLinecap: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })));
   })), list.length > visibleCount && /* @__PURE__ */ React.createElement("button", { onClick: () => setVisibleCount((c) => c + PAGE), style: { ...glassChip(T), borderRadius: 12, padding: "12px", color: T.text, fontFamily: T.sans, fontSize: 13, fontWeight: 600, cursor: "pointer" } }, "Mostrar m\xE1s (", list.length - visibleCount, " restantes)")));
 }
+function sesFechaISO(d) {
+  const s = String(d || "");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  return m ? m[3] + "-" + m[2] + "-" + m[1] : "";
+}
+function sesionesDe(p) {
+  let h = [];
+  try {
+    const ph = window.DB && window.DB.get("phist_" + p.id);
+    if (Array.isArray(ph)) h = ph;
+  } catch (e) {
+  }
+  if (!h.length && Array.isArray(p.history)) h = p.history;
+  return h.slice().sort((a, b) => sesFechaISO(b.date).localeCompare(sesFechaISO(a.date)));
+}
+function SyncBannerM({ T, online }) {
+  const [pend, setPend] = useState(0);
+  const [listo, setListo] = useState(false);
+  const previo = useRef(0);
+  useEffect(() => {
+    let vivo = true;
+    function mirar() {
+      if (!vivo) return;
+      let n = 0;
+      try {
+        n = window.JCSAAS && window.JCSAAS.pendingKeys ? window.JCSAAS.pendingKeys().length : 0;
+      } catch (e) {
+      }
+      setPend(n);
+      if (previo.current > 0 && n === 0) {
+        setListo(true);
+        setTimeout(() => vivo && setListo(false), 4e3);
+      }
+      previo.current = n;
+    }
+    mirar();
+    const t = setInterval(mirar, 3e3);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, []);
+  if (online && !pend && !listo) return null;
+  const tono = !online || pend ? { bg: "rgba(184,134,11,.22)", bd: "rgba(184,134,11,.4)", ic: "#E8B84D", tx: "#F0D9A8" } : { bg: "rgba(31,138,91,.20)", bd: "rgba(31,138,91,.42)", ic: "#5FCE9B", tx: "#BFEBD5" };
+  const texto = !online ? pend ? "Sin conexi\xF3n \xB7 " + pend + (pend === 1 ? " cambio guardado aqu\xED, se subir\xE1 solo" : " cambios guardados aqu\xED, se subir\xE1n solos") : "Sin conexi\xF3n \xB7 trabajando con los datos de este equipo" : pend ? "Subiendo " + pend + (pend === 1 ? " cambio\u2026" : " cambios\u2026") : "Todo sincronizado";
+  return /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => {
+        try {
+          window.JCSAAS && window.JCSAAS.retrySync && window.JCSAAS.retrySync();
+        } catch (e) {
+        }
+      },
+      style: {
+        flexShrink: 0,
+        width: "calc(100% - 28px)",
+        margin: "0 14px 6px",
+        padding: "8px 12px",
+        borderRadius: 12,
+        background: tono.bg,
+        border: "1px solid " + tono.bd,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        cursor: "pointer",
+        textAlign: "left"
+      }
+    },
+    !online ? /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: tono.ic, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5" })) : pend ? /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: tono.ic, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M12 19V5M5 12l7-7 7 7" })) : /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: tono.ic, strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M20 6L9 17l-5-5" })),
+    /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: tono.tx, lineHeight: 1.35 } }, texto)
+  );
+}
+function patConsentsM(p) {
+  if (!p) return [];
+  try {
+    const man = window.DB && window.DB.get("pconsm_" + p.id);
+    if (Array.isArray(man) && man.length) {
+      const items = [];
+      man.forEach((ts) => {
+        try {
+          const c = window.DB.get("pcons_" + p.id + "_" + ts);
+          if (c) items.push(c);
+        } catch (e) {
+        }
+      });
+      if (items.length) return items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    }
+    const v = window.DB && window.DB.get("pcons_" + p.id);
+    if (Array.isArray(v) && v.length) return v;
+  } catch (e) {
+  }
+  return p.consents || (p.consentDoc ? [p.consentDoc] : []);
+}
+function abrirConsentM(doc, patient) {
+  const w = window.open("", "_blank");
+  if (w) {
+    try {
+      w.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento\u2026</body>");
+    } catch (e) {
+    }
+  }
+  const inner = window.jcmConsentInnerHTML ? window.jcmConsentInnerHTML(doc, patient) : Promise.reject(new Error("sin generador"));
+  inner.then((html) => {
+    const page = "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>" + (doc.title || "Consentimiento").replace(/</g, "&lt;") + "</title></head><body style='margin:0;padding:26px;font-family:-apple-system,Segoe UI,sans-serif;background:#fff;color:#111'><h2 style='font-size:16px;margin:0 0 14px'>" + (doc.title || "Consentimiento").replace(/</g, "&lt;") + "</h2>" + html + "</body></html>";
+    if (w) {
+      try {
+        w.document.open();
+        w.document.write(page);
+        w.document.close();
+        return;
+      } catch (e) {
+      }
+    }
+    if (window.jcmPrintHTML) window.jcmPrintHTML(page);
+  }).catch(() => {
+    if (w) {
+      try {
+        w.close();
+      } catch (e) {
+      }
+    }
+    try {
+      window.jcmError ? window.jcmError("No se pudo abrir el consentimiento.") : alert("No se pudo abrir el consentimiento.");
+    } catch (e) {
+    }
+  });
+}
+function snapMedicoM() {
+  try {
+    const ms = window.DB.get("medic_sigs");
+    if (ms && ms.length && ms[0]) {
+      const m = ms[0];
+      return { name: m.name || "", rut: m.rut || "", registro: m.registro || "", sig: m.sig || "" };
+    }
+  } catch (e) {
+  }
+  return null;
+}
+function consentCatalogM() {
+  let base = [];
+  try {
+    base = (window.JCADMIN && window.JCADMIN.consents || []).slice();
+  } catch (e) {
+  }
+  try {
+    const propias = window.DB && window.DB.get("consent_templates");
+    if (Array.isArray(propias)) propias.forEach((t) => base.push({ id: "tpl-" + (t.id || t.title), title: t.title || "Consentimiento", kind: "extra", proc: t.proc || "", cat: "Propio", body: t.body || "" }));
+  } catch (e) {
+  }
+  const dental = (() => {
+    try {
+      return !!(window.isDental && window.isDental());
+    } catch (e) {
+      return false;
+    }
+  })();
+  return base.filter((c) => !c.vertical || c.vertical === (dental ? "dental" : "estetica"));
+}
+function ConsentSignM({ T, patient, onClose, onSaved }) {
+  const cat = consentCatalogM();
+  const [tpl, setTpl] = useState(null);
+  const hoy = (() => {
+    const d = /* @__PURE__ */ new Date();
+    return ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2);
+  })();
+  const profDef = (() => {
+    try {
+      const p = window.DB && window.DB.cfg && window.DB.cfg().professional;
+      return p && ("" + p).trim() || "";
+    } catch (e) {
+      return "";
+    }
+  })();
+  const [f, setF] = useState({ nombre: patient.name || "", ci: patient.rut || "", edad: patient.age ? String(patient.age) : "", fecha: hoy, prof: profDef, aiPhotos: true });
+  const [body, setBody] = useState("");
+  const [sigPac, setSigPac] = useState(null);
+  const [sigPro, setSigPro] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const inp = { width: "100%", fontFamily: T.sans, fontSize: 14, padding: "11px 13px", borderRadius: 9, border: "1px solid " + T.inputBorder, background: T.inputFill, color: T.text, outline: "none", boxSizing: "border-box" };
+  const miniLbl = { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginBottom: 4 };
+  const listo = !!tpl && f.nombre.trim() && f.prof.trim() && sigPac && sigPro && !busy;
+  function guardar() {
+    if (!listo) return;
+    setBusy(true);
+    try {
+      const doc = {
+        kind: tpl.kind,
+        title: tpl.title,
+        cat: tpl.cat,
+        proc: tpl.proc,
+        proc4: tpl.proc4,
+        vascular: tpl.vascular,
+        body: tpl.kind === "extra" ? body : tpl.body,
+        paragraphs: tpl.paragraphs,
+        nombre: f.nombre.trim(),
+        ci: f.ci.trim(),
+        edad: f.edad.trim(),
+        prof: f.prof.trim(),
+        fecha: f.fecha,
+        aiPhotos: !!f.aiPhotos,
+        sigPac,
+        sigPro,
+        medico: snapMedicoM(),
+        ts: Date.now(),
+        source: "movil"
+      };
+      const lista = [doc, ...patConsentsM(patient)];
+      const man = [];
+      lista.forEach((c, i) => {
+        const ts = c.ts || Date.now() + i;
+        window.DB.set("pcons_" + patient.id + "_" + ts, c);
+        man.push(ts);
+      });
+      window.DB.set("pconsm_" + patient.id, man);
+      const edadNum = parseInt(f.edad, 10);
+      const parcheEdad = edadNum && !patient.age ? { age: edadNum } : {};
+      onSaved({ consent: true, consentTs: Date.now(), consentInfo: tpl.title + " \xB7 " + f.fecha, aiPhotoConsent: !!f.aiPhotos, ...parcheEdad });
+      try {
+        window.jcmToast && window.jcmToast("Consentimiento firmado y guardado.", "ok");
+      } catch (e) {
+      }
+      onClose();
+    } catch (e) {
+      setBusy(false);
+      try {
+        window.jcmError ? window.jcmError("No se pudo guardar el consentimiento.") : alert("No se pudo guardar el consentimiento.");
+      } catch (e2) {
+      }
+    }
+  }
+  const Pad = window.SignaturePad;
+  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Consentimiento", onBack: onClose }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 14 } }, !tpl ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Elige el consentimiento que va a firmar ", patient.name, "."), cat.map((c) => /* @__PURE__ */ React.createElement("button", { key: c.id, onClick: () => setTpl(c), style: { textAlign: "left", padding: "14px 15px", borderRadius: 13, background: T.flatFill, border: "1px solid " + T.flatBorder, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text } }, c.title), c.cat && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, c.cat))), !cat.length && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "No hay plantillas disponibles.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.text } }, tpl.title), /* @__PURE__ */ React.createElement("button", { onClick: () => setTpl(null), style: { background: "none", border: "none", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer", flexShrink: 0 } }, "Cambiar")), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px", display: "flex", flexDirection: "column", gap: 9 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Nombre del paciente"), /* @__PURE__ */ React.createElement("input", { value: f.nombre, onChange: (e) => setF((s) => ({ ...s, nombre: soloNombreM(e.target.value) })), autoCapitalize: "words", style: inp })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 84px", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "C\xE9dula de identidad"), /* @__PURE__ */ React.createElement("input", { value: f.ci, onChange: (e) => setF((s) => ({ ...s, ci: window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value })), ...RUT_INPUT_M, style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Edad"), /* @__PURE__ */ React.createElement("input", { value: f.edad, onChange: (e) => setF((s) => ({ ...s, edad: e.target.value.replace(/\D/g, "").slice(0, 3) })), inputMode: "numeric", style: { ...inp, textAlign: "center" } }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 108px", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Profesional"), /* @__PURE__ */ React.createElement("input", { value: f.prof, onChange: (e) => setF((s) => ({ ...s, prof: e.target.value })), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Fecha"), /* @__PURE__ */ React.createElement("input", { value: f.fecha, onChange: (e) => setF((s) => ({ ...s, fecha: e.target.value })), style: { ...inp, textAlign: "center" } }))), tpl.kind === "extra" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Texto del consentimiento"), /* @__PURE__ */ React.createElement("textarea", { value: body, onChange: (e) => setBody(e.target.value), rows: 5, placeholder: "Describe el procedimiento y lo que el paciente autoriza\u2026", style: { ...inp, resize: "none" } }))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "14px 15px", maxHeight: 300, overflowY: "auto", WebkitOverflowScrolling: "touch" } }, window.ConsentDoc ? /* @__PURE__ */ React.createElement(window.ConsentDoc, { T, tpl: tpl.kind === "extra" ? { ...tpl, body } : tpl, prof: f.prof }) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.red } }, "No se pudo cargar el texto del consentimiento. Revisa la conexi\xF3n y vuelve a entrar.")), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "11px 13px", borderRadius: 12, background: T.flatFill, border: "1px solid " + T.flatBorder } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: f.aiPhotos, onChange: (e) => setF((s) => ({ ...s, aiPhotos: e.target.checked })) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, "Autoriza fotograf\xEDas con fines cl\xEDnicos y acad\xE9micos")), Pad ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Firma del paciente"), /* @__PURE__ */ React.createElement(Pad, { T, onChange: setSigPac, height: 150 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Firma del profesional"), /* @__PURE__ */ React.createElement(Pad, { T, onChange: setSigPro, height: 150 }))) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.red } }, "No se pudo cargar el m\xF3dulo de firma."), !listo && !busy && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "Faltan: ", [!f.nombre.trim() && "nombre", !f.prof.trim() && "profesional", !sigPac && "firma del paciente", !sigPro && "firma del profesional"].filter(Boolean).join(", "), "."), /* @__PURE__ */ React.createElement("button", { onClick: guardar, disabled: !listo, style: { height: 48, borderRadius: 13, border: "none", background: listo ? T.accent : T.flatBorder, color: listo ? T.onAccent : T.textFaint, fontFamily: T.sans, fontSize: 14.5, fontWeight: 600, cursor: listo ? "pointer" : "not-allowed" } }, busy ? "Guardando\u2026" : "Firmar y guardar"))));
+}
 function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) {
   const p = patients.find((x) => x.id === patientId);
   const [edit, setEdit] = useState(false);
-  const [f, setF] = useState({ phone: p ? p.phone || "" : "", email: p ? p.email || "" : "", notas: p ? p.notas || "" : "" });
+  function fFrom(x) {
+    return { name: x ? x.name || "" : "", rut: x ? x.rut || "" : "", age: x && x.age ? String(x.age) : "", phone: x ? x.phone || "" : "", email: x ? x.email || "" : "", notas: x ? x.notas || "" : "" };
+  }
+  const [f, setF] = useState(() => fFrom(p));
   useEffect(() => {
-    if (p) setF({ phone: p.phone || "", email: p.email || "", notas: p.notas || "" });
+    if (p) setF(fFrom(p));
   }, [patientId]);
+  const [firmando, setFirmando] = useState(false);
+  const [consRev, setConsRev] = useState(0);
+  const firmados = useMemo(() => patConsentsM(p), [patientId, consRev, p && p.consentTs]);
   if (!p) return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Ficha", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: 30, textAlign: "center", fontFamily: T.sans, color: T.textMute } }, "Paciente no encontrado."));
+  if (firmando) return /* @__PURE__ */ React.createElement(
+    ConsentSignM,
+    {
+      T,
+      patient: p,
+      onClose: () => setFirmando(false),
+      onSaved: (patch) => {
+        updatePatient(p.id, patch);
+        setConsRev((v) => v + 1);
+      }
+    }
+  );
   const mine = appts.filter((a) => a.patId === p.id || a.name === p.name);
   const today = todayISO();
   const proximas = mine.filter((a) => a.status !== "anulada" && (a.fecha || offToISO(a.day || 0)) >= today).sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
   const pasadas = mine.filter((a) => (a.fecha || offToISO(a.day || 0)) < today || a.status === "atendida").sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
-  const sesiones = (p.history || []).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const sesiones = sesionesDe(p);
+  const ultimaSes = sesiones[0] || null;
+  const porTrat = (() => {
+    const m = {};
+    sesiones.forEach((h) => {
+      const k = (h.proc || "Sin especificar").trim();
+      m[k] = (m[k] || 0) + 1;
+    });
+    return Object.keys(m).map((k) => ({ name: k, n: m[k] })).sort((a, b) => b.n - a.n);
+  })();
+  const fmtSesFecha = (iso) => {
+    const s = sesFechaISO(iso);
+    if (!s) return iso || "\u2014";
+    const d = /* @__PURE__ */ new Date(s + "T12:00:00");
+    return isNaN(d) ? iso || "\u2014" : d.getDate() + " " + MESES[d.getMonth()] + " " + d.getFullYear();
+  };
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 14, padding: "11px 13px", borderRadius: 9, border: "1px solid " + T.inputBorder, background: T.inputFill, color: T.text, outline: "none", boxSizing: "border-box" };
+  const miniLbl = { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginBottom: 4 };
+  const emailOk = !f.email.trim() || /\S+@\S+\.\S+/.test(f.email.trim());
+  const rutWarn = !!f.rut.trim() && !!window.jcmValidRut && !window.jcmValidRut(f.rut);
+  const okSave = f.name.trim().length > 2 && emailOk;
+  function marcarPapel() {
+    if (!window.confirm("Marcar el consentimiento de " + (p.name || "este paciente") + " como firmado en papel. Dejar\xE1 de aparecer como pendiente. \xBFContinuar?")) return;
+    const d = /* @__PURE__ */ new Date();
+    const fch = ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2);
+    updatePatient(p.id, { consent: true, consentInfo: "Firmado en papel \xB7 " + fch, paperConsent: true });
+    try {
+      window.jcmToast && window.jcmToast("Marcado como firmado en papel.", "ok");
+    } catch (e) {
+    }
+  }
   function save() {
-    updatePatient(p.id, { phone: f.phone.trim(), email: f.email.trim(), notas: f.notas.trim() });
+    if (!okSave) return;
+    updatePatient(p.id, {
+      name: f.name.trim(),
+      rut: f.rut.trim(),
+      age: f.age.trim() === "" ? 0 : parseInt(f.age, 10) || 0,
+      phone: f.phone.trim(),
+      email: f.email.trim(),
+      notas: f.notas.trim()
+    });
     setEdit(false);
   }
-  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Ficha del paciente", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 56, height: 56, borderRadius: "50%", background: T.accentSoft, border: "1px solid " + T.accentBorder, color: T.accentStrong, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 19, fontWeight: 700, flexShrink: 0 } }, (p.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, [p.rut, p.age ? p.age + " a\xF1os" : ""].filter(Boolean).join(" \xB7 ")))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, "Contacto"), !edit && /* @__PURE__ */ React.createElement("button", { onClick: () => setEdit(true), style: { background: "none", border: "none", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer" } }, "Editar")), edit ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("input", { value: f.phone, onChange: (e) => setF((s) => ({ ...s, phone: e.target.value })), placeholder: "Tel\xE9fono", style: inp }), /* @__PURE__ */ React.createElement("input", { value: f.email, onChange: (e) => setF((s) => ({ ...s, email: e.target.value })), placeholder: "Correo", style: inp }), /* @__PURE__ */ React.createElement("textarea", { value: f.notas, onChange: (e) => setF((s) => ({ ...s, notas: e.target.value })), placeholder: "Notas (alergias, preferencias, etc.)", rows: 2, style: { ...inp, resize: "none" } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Ficha del paciente", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 56, height: 56, borderRadius: "50%", background: T.accentSoft, border: "1px solid " + T.accentBorder, color: T.accentStrong, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 19, fontWeight: 700, flexShrink: 0 } }, (p.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, [p.rut, p.age ? p.age + " a\xF1os" : ""].filter(Boolean).join(" \xB7 ")))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, "Datos del paciente"), !edit && /* @__PURE__ */ React.createElement("button", { onClick: () => setEdit(true), style: { background: "none", border: "none", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer" } }, "Editar")), edit ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Nombre"), /* @__PURE__ */ React.createElement("input", { value: f.name, onChange: (e) => setF((s) => ({ ...s, name: soloNombreM(e.target.value) })), placeholder: "Nombre y apellidos", autoCapitalize: "words", style: inp })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 96px", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: f.rut, onChange: (e) => setF((s) => ({ ...s, rut: window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value })), placeholder: "12.345.678-9", ...RUT_INPUT_M, style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Edad"), /* @__PURE__ */ React.createElement("input", { value: f.age, onChange: (e) => setF((s) => ({ ...s, age: e.target.value.replace(/\D/g, "").slice(0, 3) })), placeholder: "\u2014", inputMode: "numeric", style: { ...inp, textAlign: "center" } }))), rutWarn && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.warn } }, "Ese RUT no pasa el d\xEDgito verificador. Puedes guardarlo igual."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { value: f.phone, onChange: (e) => setF((s) => ({ ...s, phone: e.target.value })), placeholder: "+56 9 1234 5678", inputMode: "tel", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Correo"), /* @__PURE__ */ React.createElement("input", { value: f.email, onChange: (e) => setF((s) => ({ ...s, email: e.target.value })), placeholder: "correo@ejemplo.cl", inputMode: "email", style: inp })), !emailOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red } }, "Ese correo no parece v\xE1lido."), /* @__PURE__ */ React.createElement("textarea", { value: f.notas, onChange: (e) => setF((s) => ({ ...s, notas: e.target.value })), placeholder: "Notas (alergias, preferencias, etc.)", rows: 2, style: { ...inp, resize: "none" } }), !okSave && f.name.trim().length <= 2 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red } }, "El nombre es obligatorio."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
     setEdit(false);
-    setF({ phone: p.phone || "", email: p.email || "", notas: p.notas || "" });
-  }, style: { flex: 1, height: 38, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: save, style: { flex: 2, height: 38, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "Guardar"))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.phone || "Sin tel\xE9fono"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.email || "Sin correo"), p.notas && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 3, fontStyle: "italic" } }, p.notas))), p.phone && /* @__PURE__ */ React.createElement(
+    setF(fFrom(p));
+  }, style: { flex: 1, height: 38, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: save, disabled: !okSave, style: { flex: 2, height: 38, borderRadius: 8, border: "none", background: okSave ? T.accent : T.flatBorder, color: okSave ? T.onAccent : T.textFaint, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: okSave ? "pointer" : "not-allowed" } }, "Guardar"))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.rut || "Sin RUT", " \xB7 ", p.age ? p.age + " a\xF1os" : "Edad sin registrar"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.phone || "Sin tel\xE9fono"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.email || "Sin correo"), p.notas && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 3, fontStyle: "italic" } }, p.notas))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, "Consentimiento informado"), /* @__PURE__ */ React.createElement("button", { onClick: () => setFirmando(true), style: { background: "none", border: "none", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer" } }, "Firmar")), firmados.length ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } }, firmados.map((c, i) => /* @__PURE__ */ React.createElement("button", { key: c.ts || i, onClick: () => abrirConsentM(c, p), style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, width: "100%", background: "none", border: "none", padding: "7px 0", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, color: T.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.title || "Consentimiento"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, flexShrink: 0 } }, c.fecha || "", " \u203A")))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: p.paperConsent ? T.text : T.textMute } }, p.paperConsent ? p.consentInfo || "Firmado en papel" : "Sin consentimiento firmado."), !p.paperConsent && /* @__PURE__ */ React.createElement("button", { onClick: marcarPapel, style: { alignSelf: "flex-start", background: "none", border: "1px solid " + T.line, borderRadius: 8, padding: "7px 11px", color: T.textMute, fontFamily: T.sans, fontSize: 11.5, cursor: "pointer" } }, "Ya firm\xF3 en papel"))), p.phone && /* @__PURE__ */ React.createElement(
     "a",
     {
       href: "https://wa.me/56" + p.phone.replace(/\D/g, "").replace(/^(56|0)/, ""),
@@ -1299,7 +1758,7 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
     },
     /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "#1F8A5B" }, /* @__PURE__ */ React.createElement("path", { d: "M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.02z" })),
     "Escribir por WhatsApp"
-  ), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Pr\xF3ximas citas (", proximas.length, ")"), proximas.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin pr\xF3ximas citas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, proximas.map((a) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, a.fecha, " \xB7 ", a.time, " hrs"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, a.proc || "\u2014"))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Historial (", pasadas.length, ")"), pasadas.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin atenciones registradas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, pasadas.slice(0, 20).map((a) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px", opacity: a.status === "anulada" ? 0.55 : 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, a.fecha, " \xB7 ", a.proc || "\u2014"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, apptStateM(a, T).label))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Procedimientos del portal (", sesiones.length, ")"), sesiones.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin procedimientos registrados en el portal."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, sesiones.slice(0, 20).map((h, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, h.date || "\u2014", " \xB7 ", h.proc || "\u2014", h.units ? " \xB7 " + h.units : ""), h.resumen && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3, lineHeight: 1.4 } }, h.resumen), h.proName && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, fontStyle: "italic", marginTop: 3 } }, "Realizado por ", h.proName)))))));
+  ), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Pr\xF3ximas citas (", proximas.length, ")"), proximas.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin pr\xF3ximas citas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, proximas.map((a) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, a.fecha, " \xB7 ", a.time, " hrs"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, a.proc || "\u2014"))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Historial (", pasadas.length, ")"), pasadas.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin atenciones registradas."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, pasadas.slice(0, 20).map((a) => /* @__PURE__ */ React.createElement("div", { key: a.id, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px", opacity: a.status === "anulada" ? 0.55 : 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, a.fecha, " \xB7 ", a.proc || "\u2014"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, apptStateM(a, T).label))))), sesiones.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 11 } }, "Resumen de atenciones"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, marginBottom: porTrat.length ? 12 : 0 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, ...glassChip(T), borderRadius: 10, padding: "10px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 22, fontWeight: 600, color: T.text, lineHeight: 1.1 } }, sesiones.length), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 } }, sesiones.length === 1 ? "atenci\xF3n" : "atenciones")), /* @__PURE__ */ React.createElement("div", { style: { flex: 2, ...glassChip(T), borderRadius: 10, padding: "10px 12px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, ultimaSes ? fmtSesFecha(ultimaSes.date) : "\u2014"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "\xFAltima \xB7 ", ultimaSes && ultimaSes.proc ? ultimaSes.proc : "\u2014"))), porTrat.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.name, style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "6px 0", borderTop: "1px solid " + T.lineSoft } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.name), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.accent, flexShrink: 0 } }, t.n)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 } }, "Atenciones registradas (", sesiones.length, ")"), sesiones.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Sin atenciones registradas todav\xEDa."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, sesiones.slice(0, 20).map((h, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { ...glassChip(T), borderRadius: 9, padding: "9px 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, fmtSesFecha(h.date), " \xB7 ", h.proc || "\u2014", h.units ? " \xB7 " + h.units : ""), h.resumen && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3, lineHeight: 1.4 } }, h.resumen), h.recomendados && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3, lineHeight: 1.4 } }, "Recomendado: ", h.recomendados), h.proName && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, fontStyle: "italic", marginTop: 3 } }, "Realizado por ", h.proName))), sesiones.length > 20 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textFaint, textAlign: "center", padding: "4px 0" } }, "Mostrando las 20 m\xE1s recientes de ", sesiones.length, ".")))));
 }
 function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
   const [expanded, setExpanded] = useState(null);
@@ -1337,18 +1796,17 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     return { name: k, list, real, pend: list.length - real, n: list.length };
   }).sort((a, b) => b.n - a.n).slice(0, 5);
   const maxProc = topProc[0] ? topProc[0].n : 1;
-  const todayIso = todayISO();
-  const todayA = appts.filter((a) => (a.fecha || offToISO(a.day || 0)) === todayIso && a.status !== "anulada");
+  const mesA = monthAppts.filter((a) => a.status !== "anulada");
   const dayBars = [
-    { label: "Agendadas", color: "#6EA8E8", count: todayA.filter((a) => !(a.status === "confirmada" || a.status === "atendida" || a.attended || a.status === "no_asistio")).length },
-    { label: "Confirmadas", color: "#46D27A", count: todayA.filter((a) => a.status === "confirmada").length },
-    { label: "Atendidas", color: "#F5B93D", count: todayA.filter((a) => a.status === "atendida" || a.attended).length },
-    { label: "No asisti\xF3", color: "#FF6B7D", count: todayA.filter((a) => a.status === "no_asistio").length }
+    { label: "Agendadas", color: "#6EA8E8", count: mesA.filter((a) => !(a.status === "confirmada" || a.status === "atendida" || a.attended || a.status === "no_asistio")).length },
+    { label: "Confirmadas", color: "#46D27A", count: mesA.filter((a) => a.status === "confirmada").length },
+    { label: "Atendidas", color: "#F5B93D", count: mesA.filter((a) => a.status === "atendida" || a.attended).length },
+    { label: "No asisti\xF3", color: "#FF6B7D", count: mesA.filter((a) => a.status === "no_asistio").length }
   ];
   const dayMax = Math.max(1, ...dayBars.map((b) => b.count));
   const todayLabelStr = (() => {
     const d = /* @__PURE__ */ new Date();
-    return WDS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()];
+    return MESES_LARGOS[d.getMonth()] + " " + d.getFullYear();
   })();
   const weekTotal = Math.max(1, weekAppts.filter((a) => a.status !== "anulada").length);
   const RIC = {
@@ -1359,10 +1817,10 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     pct: /* @__PURE__ */ React.createElement("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "9" }), /* @__PURE__ */ React.createElement("path", { d: "M8 15l8-6" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "9", r: "1" }), /* @__PURE__ */ React.createElement("circle", { cx: "15", cy: "15", r: "1" }))
   };
   const row = (icon, iconColor, label, val, valColor, last, barPct) => /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 0", borderBottom: last ? "none" : "1px solid " + T.divider } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: iconColor + "22", color: iconColor, display: "flex", alignItems: "center", justifyContent: "center" } }, icon), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontFamily: T.sans, fontSize: 15, color: T.text } }, label), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 17, fontWeight: 700, color: valColor || T.text } }, val)), barPct != null && /* @__PURE__ */ React.createElement("div", { style: { height: 6, borderRadius: 100, background: T.divider, overflow: "hidden", marginTop: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", borderRadius: 100, width: Math.max(0, Math.min(100, barPct)) + "%", background: iconColor } })));
-  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Reportes", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 16), padding: "14px 16px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 11.5, color: T.textMute, marginBottom: 10, textTransform: "capitalize" } }, "Resumen del d\xEDa \xB7 ", todayLabelStr), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 16, height: 44 } }, dayBars.map((b) => /* @__PURE__ */ React.createElement("div", { key: b.label, style: { display: "flex", flexDirection: "column", alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 16, borderRadius: "5px 5px 2px 2px", background: b.color, height: Math.round(b.count / dayMax * 100) + "%", minHeight: 4 } })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, marginTop: 8 } }, dayBars.map((b) => /* @__PURE__ */ React.createElement("div", { key: b.label, style: { flex: 1, textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontWeight: 600, fontSize: 14, color: T.text } }, b.count), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, color: T.textFaint, marginTop: 1 } }, b.label))))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 20), padding: "6px 16px 8px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, fontWeight: 600, padding: "14px 0 6px" } }, "Esta semana"), row(RIC.cal, "#7FA8E8", "Citas totales", weekAppts.filter((a) => a.status !== "anulada").length, null, false, 100), row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, (a) => a.status === "confirmada" || a.status === "atendida"), "#46D27A", false, countBy(weekAppts, (a) => a.status === "confirmada" || a.status === "atendida") / weekTotal * 100), row(RIC.user, T.accentStrong, "Atendidas", countBy(weekAppts, (a) => a.status === "atendida" || a.attended), T.accentStrong, false, countBy(weekAppts, (a) => a.status === "atendida" || a.attended) / weekTotal * 100), row(RIC.user, "#FF6B7D", "No asisti\xF3", countBy(weekAppts, (a) => a.status === "no_asistio"), "#FF6B7D", false, countBy(weekAppts, (a) => a.status === "no_asistio") / weekTotal * 100), row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, (a) => a.status === "anulada"), null, false, countBy(weekAppts, (a) => a.status === "anulada") / weekTotal * 100), row(RIC.pct, noShowRate > 15 ? "#FF6B7D" : "#46D27A", "Tasa de inasistencia", noShowRate + "%", noShowRate > 15 ? "#FF6B7D" : "#46D27A", true, noShowRate)), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 20), padding: "6px 16px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, fontWeight: 600, padding: "14px 0 2px" } }, "Procedimientos del mes"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, padding: "0 0 10px", lineHeight: 1.5 } }, "Incluye lo agendado para lo que resta del mes, no solo lo ya atendido \u2014 para anticipar stock."), topProc.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "6px 0 12px" } }, "Sin datos este mes."), topProc.map((t, i) => {
+  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Reportes", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 16), padding: "14px 16px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 11.5, color: T.textMute, marginBottom: 10 } }, "Resumen del mes \xB7 ", todayLabelStr), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 16, height: 44 } }, dayBars.map((b) => /* @__PURE__ */ React.createElement("div", { key: b.label, style: { display: "flex", flexDirection: "column", alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 16, borderRadius: "5px 5px 2px 2px", background: b.color, height: Math.round(b.count / dayMax * 100) + "%", minHeight: 4 } })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, marginTop: 8 } }, dayBars.map((b) => /* @__PURE__ */ React.createElement("div", { key: b.label, style: { flex: 1, textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontWeight: 600, fontSize: 14, color: T.text } }, b.count), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, color: T.textFaint, marginTop: 1 } }, b.label))))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 20), padding: "6px 16px 8px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, fontWeight: 600, padding: "14px 0 6px" } }, "Esta semana"), row(RIC.cal, "#7FA8E8", "Citas totales", weekAppts.filter((a) => a.status !== "anulada").length, null, false, 100), row(RIC.check, "#46D27A", "Confirmadas", countBy(weekAppts, (a) => a.status === "confirmada" || a.status === "atendida"), "#46D27A", false, countBy(weekAppts, (a) => a.status === "confirmada" || a.status === "atendida") / weekTotal * 100), row(RIC.user, T.accentStrong, "Atendidas", countBy(weekAppts, (a) => a.status === "atendida" || a.attended), T.accentStrong, false, countBy(weekAppts, (a) => a.status === "atendida" || a.attended) / weekTotal * 100), row(RIC.user, "#FF6B7D", "No asisti\xF3", countBy(weekAppts, (a) => a.status === "no_asistio"), "#FF6B7D", false, countBy(weekAppts, (a) => a.status === "no_asistio") / weekTotal * 100), row(RIC.xmark, "#9AA6B2", "Canceladas", countBy(weekAppts, (a) => a.status === "anulada"), null, false, countBy(weekAppts, (a) => a.status === "anulada") / weekTotal * 100), row(RIC.pct, noShowRate > 15 ? "#FF6B7D" : "#46D27A", "Tasa de inasistencia", noShowRate + "%", noShowRate > 15 ? "#FF6B7D" : "#46D27A", true, noShowRate)), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 20), padding: "6px 16px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: T.accent, fontWeight: 600, padding: "14px 0 2px" } }, "Procedimientos del mes"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, padding: "0 0 10px", lineHeight: 1.5 } }, "Incluye lo agendado para lo que resta del mes, no solo lo ya atendido \u2014 para anticipar stock."), topProc.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "6px 0 12px" } }, "Sin datos este mes."), topProc.map((t, i) => {
     const open = expanded === t.name;
     return /* @__PURE__ */ React.createElement("div", { key: t.name, style: { borderBottom: i === topProc.length - 1 && !open ? "none" : "1px solid " + T.divider } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setExpanded(open ? null : t.name), style: { display: "flex", alignItems: "center", gap: 13, padding: "11px 0", width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: T.accentSoft, color: T.accentStrong, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 13, fontWeight: 700 } }, i + 1), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 15, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, t.name), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 16, fontWeight: 700, color: T.text, marginLeft: 8, flexShrink: 0 } }, t.n)), /* @__PURE__ */ React.createElement("div", { style: { height: 6, borderRadius: 100, background: T.divider, overflow: "hidden", marginTop: 8, display: "flex" } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: Math.round(t.pend / maxProc * 100) + "%", background: T.accent } }), /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: Math.round(t.real / maxProc * 100) + "%", background: T.gold } })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 6 } }, t.pend, " agendados \xB7 ", t.real, " realizados")), /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: T.textFaint, strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), open && (() => {
-      const upcomingAg = t.list.filter((a) => !(a.status === "atendida" || a.attended) && (a.fecha || offToISO(a.day || 0)) >= todayIso);
+      const upcomingAg = t.list.filter((a) => !(a.status === "atendida" || a.attended) && (a.fecha || offToISO(a.day || 0)) >= todayISO());
       return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, padding: "0 0 12px 43px" } }, upcomingAg.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textFaint } }, "Sin pr\xF3ximos agendados"), upcomingAg.map((a) => /* @__PURE__ */ React.createElement("button", { key: a.id, onClick: () => onOpenAppt(a), style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer", background: "none", border: "none", padding: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11, color: T.textFaint, width: 56 } }, dayLabelM(a.fecha || offToISO(a.day || 0))), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0, fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, a.name || "Paciente"), /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.accentStrong } }, "Agendado"))));
     })());
   }))));
@@ -1512,6 +1970,14 @@ function SinPermisoM({ T }) {
 }
 function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   const [tab, setTab] = useState("citas");
+  const [nuevaFecha, setNuevaFecha] = useState(null);
+  const goNueva = (fecha) => {
+    setNuevaFecha(fecha || null);
+    setTab("nueva");
+  };
+  useEffect(() => {
+    if (tab !== "nueva" && nuevaFecha) setNuevaFecha(null);
+  }, [tab]);
   useEffect(() => {
     if (mobileCan(tab)) return;
     var order = ["citas", "agenda", "mas"];
@@ -1529,6 +1995,37 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   const [agShowAnuladas, setAgShowAnuladas] = useState(false);
   const [appts, setAppts] = useState(() => window.DB && window.DB.get("appointments") || []);
   const [patients, setPatients] = useState(() => window.DB && window.DB.get("patients") || []);
+  const [equipo, setEquipo] = useState(() => teamM());
+  useEffect(() => {
+    function recargar() {
+      setEquipo(teamM());
+    }
+    window.addEventListener("jcsaas:data", recargar);
+    return () => window.removeEventListener("jcsaas:data", recargar);
+  }, []);
+  const [selProf, setSelProf] = useState("");
+  useEffect(() => {
+    if (!equipo.length) {
+      if (selProf) setSelProf("");
+      return;
+    }
+    if (equipo.some((t) => t.name === selProf)) return;
+    const yo = miNombreProfM();
+    setSelProf(equipo.some((t) => t.name === yo) ? yo : equipo[0].name);
+  }, [equipo.map((t) => t.name).join("|")]);
+  const misAppts = useMemo(() => {
+    const yo = miNombreProfM().toLowerCase();
+    if (!soyProfesionalM() || !yo) return appts;
+    return (appts || []).filter((a) => {
+      const p = (a.prof || "").trim().toLowerCase();
+      if (!p) return !equipo.length || (equipo[0].name || "").toLowerCase() === yo;
+      return p === yo;
+    });
+  }, [appts, equipo]);
+  const apptsVista = useMemo(() => {
+    if (equipo.length < 2 || soyProfesionalM()) return misAppts;
+    return (misAppts || []).filter((a) => profMatchM(a, selProf, equipo));
+  }, [misAppts, selProf, equipo]);
   const edgeTouch = useRef(null);
   function onRootTouchStart(e) {
     if (!e.touches || e.touches.length !== 1) {
@@ -1600,19 +2097,21 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   }
   function updateAppt(id, patch) {
     const all = window.DB && window.DB.get("appointments") || [];
+    const antes = all.find((x) => x.id === id);
+    if (antes && antes.fecha && antes.time && (patch.fecha || patch.time)) {
+      const nf = patch.fecha || antes.fecha, nt = patch.time || antes.time;
+      if (nf !== antes.fecha || nt !== antes.time) {
+        liberarSlotM(antes.fecha, antes.time);
+        ocuparSlotM(nf, nt);
+      }
+    }
     saveAppts(all.map((x) => x.id === id ? { ...x, ...patch } : x));
   }
   function confirmPago(id) {
     const all = window.DB && window.DB.get("appointments") || [];
     const a = all.find((x) => x.id === id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = window.DB && window.DB.get("horarios_dates") || {};
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : [];
-        map[a.fecha] = cur.filter((s) => s !== a.time);
-        if (window.DB) window.DB.set("horarios_dates", map);
-      } catch (e) {
-      }
+      ocuparSlotM(a.fecha, a.time);
     }
     saveAppts(all.map((x) => x.id === id ? { ...x, status: "confirmada" } : x));
   }
@@ -1620,17 +2119,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     const all = window.DB && window.DB.get("appointments") || [];
     const a = all.find((x) => x.id === id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = window.DB && window.DB.get("horarios_dates") || {};
-        const cur = Array.isArray(map[a.fecha]) ? [...map[a.fecha]] : [];
-        if (!cur.includes(a.time)) {
-          cur.push(a.time);
-          cur.sort();
-          map[a.fecha] = cur;
-        }
-        if (window.DB) window.DB.set("horarios_dates", map);
-      } catch (e) {
-      }
+      liberarSlotM(a.fecha, a.time);
     }
     saveAppts(all.map((x) => x.id === id ? { ...x, status: "anulada", attended: false, anuladaAt: Date.now() } : x));
   }
@@ -1638,26 +2127,14 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     const all = window.DB && window.DB.get("appointments") || [];
     const a = all.find((x) => x.id === id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = window.DB && window.DB.get("horarios_dates") || {};
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : slotsM().slice();
-        map[a.fecha] = cur.filter((s) => s !== a.time);
-        if (window.DB) window.DB.set("horarios_dates", map);
-      } catch (e) {
-      }
+      ocuparSlotM(a.fecha, a.time);
     }
     saveAppts(all.map((x) => x.id === id ? { ...x, status: "pendiente", attended: false, anuladaAt: null } : x));
   }
   function addAppt(appt) {
     const all = window.DB && window.DB.get("appointments") || [];
     if (appt.fecha && appt.time) {
-      try {
-        const map = window.DB && window.DB.get("horarios_dates") || {};
-        const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : slotsM().slice();
-        map[appt.fecha] = cur.filter((s) => s !== appt.time);
-        if (window.DB) window.DB.set("horarios_dates", map);
-      } catch (e) {
-      }
+      ocuparSlotM(appt.fecha, appt.time);
     }
     saveAppts([...all, appt]);
   }
@@ -1714,7 +2191,10 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   ].filter(function(t) {
     return t.lbl === "Inicio" ? mobileCan("citas") : t.lbl === "Agenda" ? mobileCan("agenda") : true;
   });
-  return /* @__PURE__ */ React.createElement("div", { onTouchStart: onRootTouchStart, onTouchEnd: onRootTouchEnd, style: { height: "100dvh", overflow: "hidden", position: "relative", backgroundColor: T.bg, maxWidth: 480, margin: "0 auto" } }, /* @__PURE__ */ React.createElement(PhotoBgLayers, { T }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, height: "100%", display: "flex", flexDirection: "column" } }, tab !== "citas" && tab !== "mas" && /* @__PURE__ */ React.createElement("div", { style: { position: "sticky", top: 0, zIndex: 10, padding: "calc(6px + env(safe-area-inset-top,0px)) 14px 2px" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 4px", minHeight: 36 } }, renderHeader())), !online && /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, margin: "0 14px 6px", padding: "8px 12px", borderRadius: 12, background: "rgba(184,134,11,.22)", border: "1px solid rgba(184,134,11,.4)", display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "#E8B84D", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#F0D9A8", lineHeight: 1.35 } }, "Sin conexi\xF3n \xB7 mostrando datos guardados en este equipo")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: tab === "agenda" || tab === "citas" ? "hidden" : "auto" } }, tab === "citas" && (mobileCan("citas") ? /* @__PURE__ */ React.createElement(HomeTab, { T, appts, patients, onOpenAppt: setApptSheet, goTab: setTab, openOverlay: setOverlay, openNotif: () => setNotifOpen(true), bellCount }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "horarios" && (mobileCan("horarios") ? /* @__PURE__ */ React.createElement(HorariosTab, { T, appts }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "nueva" && (mobileCan("nueva") ? /* @__PURE__ */ React.createElement(NuevaWizard, { T, appts, patients, addAppt, addPatient, onDone: () => setTab("citas") }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "agenda" && (mobileCan("agenda") ? /* @__PURE__ */ React.createElement(AgendaTab, { T, appts, onOpenAppt: setApptSheet, goTab: setTab, showAnuladas: agShowAnuladas, setShowAnuladas: setAgShowAnuladas }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "mas" && /* @__PURE__ */ React.createElement(MasTab, { T, mode, toggleMode, openOverlay: setOverlay, onLogout, openNotif: () => setNotifOpen(true), goAnuladas: () => {
+  return /* @__PURE__ */ React.createElement("div", { onTouchStart: onRootTouchStart, onTouchEnd: onRootTouchEnd, style: { height: "100dvh", overflow: "hidden", position: "relative", backgroundColor: T.bg, maxWidth: 480, margin: "0 auto" } }, /* @__PURE__ */ React.createElement(PhotoBgLayers, { T }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, height: "100%", display: "flex", flexDirection: "column" } }, tab !== "citas" && tab !== "mas" && /* @__PURE__ */ React.createElement("div", { style: { position: "sticky", top: 0, zIndex: 10, padding: "calc(6px + env(safe-area-inset-top,0px)) 14px 2px" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 4px", minHeight: 36 } }, renderHeader())), /* @__PURE__ */ React.createElement(SyncBannerM, { T, online }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: tab === "agenda" || tab === "citas" ? "hidden" : "auto" } }, tab === "citas" && (mobileCan("citas") ? /* @__PURE__ */ React.createElement(HomeTab, { T, appts: apptsVista, patients, onOpenAppt: setApptSheet, goTab: setTab, openOverlay: setOverlay, openNotif: () => setNotifOpen(true), bellCount, equipo }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "horarios" && (mobileCan("horarios") ? /* @__PURE__ */ React.createElement(HorariosTab, { T, appts }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "nueva" && (mobileCan("nueva") ? /* @__PURE__ */ React.createElement(NuevaWizard, { T, appts, patients, addAppt, addPatient, initialFecha: nuevaFecha, onDone: () => {
+    setNuevaFecha(null);
+    setTab("citas");
+  } }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "agenda" && (mobileCan("agenda") ? /* @__PURE__ */ React.createElement(AgendaTab, { T, appts: apptsVista, onOpenAppt: setApptSheet, goTab: setTab, goNueva, showAnuladas: agShowAnuladas, setShowAnuladas: setAgShowAnuladas, equipo, selProf, setSelProf, soloMias: soyProfesionalM() }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "mas" && /* @__PURE__ */ React.createElement(MasTab, { T, mode, toggleMode, openOverlay: setOverlay, onLogout, openNotif: () => setNotifOpen(true), goAnuladas: () => {
     setOverlay(null);
     setAgShowAnuladas(true);
     setTab("agenda");
@@ -1728,7 +2208,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     /* @__PURE__ */ React.createElement("div", { style: { width: 38, height: 32, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textFaint, transition: "background .18s ease" } }, icon),
     /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 10, color: on ? T.accent : T.textFaint } }, lbl),
     /* @__PURE__ */ React.createElement("div", { style: { width: 4, height: 4, borderRadius: "50%", background: on ? T.accent : "transparent" } })
-  )))), overlay === "pacientes" && (mobileCan("pacientes") ? /* @__PURE__ */ React.createElement(PacientesOverlay, { T, patients, appts, addPatient, onBack: () => setOverlay(null), onOpenFicha: (id) => setOverlay({ type: "ficha", id }) }) : /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Pacientes", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(SinPermisoM, { T }))), overlay === "reportes" && (mobileCan("reportes") ? /* @__PURE__ */ React.createElement(ReportesOverlay, { T, appts, onBack: () => setOverlay(null), onOpenAppt: setApptSheet }) : /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Reportes", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(SinPermisoM, { T }))), overlay === "plantillas" && (mobileCan("plantillas") ? /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Plantillas de mensajes", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(MessageTemplatesView, { T })) : /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Plantillas de mensajes", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(SinPermisoM, { T }))), overlay && overlay.type === "ficha" && (mobileCan("ficha") ? /* @__PURE__ */ React.createElement(FichaOverlay, { T, patientId: overlay.id, patients, appts, updatePatient, onBack: () => setOverlay(null) }) : /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Ficha", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(SinPermisoM, { T }))), notifOpen && (() => {
+  )))), overlay === "pacientes" && (mobileCan("pacientes") ? /* @__PURE__ */ React.createElement(PacientesOverlay, { T, patients, appts: misAppts, addPatient, onBack: () => setOverlay(null), onOpenFicha: (id) => setOverlay({ type: "ficha", id }) }) : /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Pacientes", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(SinPermisoM, { T }))), overlay === "reportes" && (mobileCan("reportes") ? /* @__PURE__ */ React.createElement(ReportesOverlay, { T, appts: misAppts, onBack: () => setOverlay(null), onOpenAppt: setApptSheet }) : /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Reportes", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(SinPermisoM, { T }))), overlay === "plantillas" && (mobileCan("plantillas") ? /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Plantillas de mensajes", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(MessageTemplatesView, { T })) : /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Plantillas de mensajes", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(SinPermisoM, { T }))), overlay && overlay.type === "ficha" && (mobileCan("ficha") ? /* @__PURE__ */ React.createElement(FichaOverlay, { T, patientId: overlay.id, patients, appts: misAppts, updatePatient, onBack: () => setOverlay(null) }) : /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Ficha", onBack: () => setOverlay(null) }, /* @__PURE__ */ React.createElement(SinPermisoM, { T }))), notifOpen && (() => {
     const closeN = () => setNotifOpen(false);
     const openFichaN = (id) => {
       setNotifOpen(false);
@@ -1750,8 +2230,9 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     ApptSheet,
     {
       T,
-      appt: apptSheet,
+      appt: appts.find((x) => x.id === apptSheet.id) || apptSheet,
       patients,
+      appts,
       onClose: () => setApptSheet(null),
       updateAppt,
       cancelAppt,
@@ -1877,25 +2358,34 @@ function MobileSaasGate() {
     setBusy(false);
   }
   if (phase === "app") return /* @__PURE__ */ React.createElement(MobileShell, { T, D, mode, toggleMode, onLogout: () => window.JCSAAS.logout() });
-  const inp = { width: "100%", fontFamily: T.sans, fontSize: 16, padding: "14px 16px", borderRadius: 6, border: "1px solid rgba(255,255,255,.14)", background: "rgba(20,22,28,.85)", color: "#fff", outline: "none", boxSizing: "border-box" };
-  const btnSober = { width: "100%", background: "rgba(235,238,242,.92)", color: "#15181D", fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", border: "none", borderRadius: 6, padding: "14px", cursor: "pointer", marginTop: 4 };
-  const linkSober = { background: "none", border: "none", cursor: "pointer", color: T.accent, fontFamily: T.sans, fontSize: 12, textDecoration: "underline", padding: 6 };
-  const SERIF = FRAUNCES;
-  const eyebrow = { fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" };
-  const title = { fontFamily: SERIF, fontWeight: 300, fontSize: 34, color: "#fff", textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 };
-  const subtitle = { fontFamily: T.sans, fontSize: 12.5, color: ON_PHOTO.mute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" };
-  const center = (kids) => /* @__PURE__ */ React.createElement(LoginVideoBg, null, kids);
-  if (phase === "loading") return center(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, "Medique \xB7 Panel m\xF3vil"), /* @__PURE__ */ React.createElement("h1", { style: title }, "Conectando\u2026"), /* @__PURE__ */ React.createElement("p", { style: subtitle }, "Verificando tu sesi\xF3n.")));
-  if (phase === "blocked") return center(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("h1", { style: title }, "Plan inactivo"), /* @__PURE__ */ React.createElement("p", { style: subtitle }, "El acceso de tu cl\xEDnica no est\xE1 activo. Escr\xEDbenos para reactivarlo."), /* @__PURE__ */ React.createElement("button", { onClick: () => window.JCSAAS.logout(), style: { background: "none", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: T.sans, fontSize: 12, borderRadius: 6, padding: "12px 18px", cursor: "pointer" } }, "Cerrar sesi\xF3n")));
-  if (view === "recover") return center(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, "Medique \xB7 Panel m\xF3vil"), /* @__PURE__ */ React.createElement("h1", { style: title }, "Recuperar contrase\xF1a"), /* @__PURE__ */ React.createElement("p", { style: subtitle }, "Te enviaremos un enlace a tu correo para restablecerla."), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { placeholder: "Correo de tu cuenta", inputMode: "email", "data-nocap": "", value: email, onChange: (e) => setEmail(e.target.value), onKeyDown: (e) => e.key === "Enter" && doRecover(), style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.red, textAlign: "center" } }, err), msg && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#7CDDA8", textAlign: "center" } }, msg), /* @__PURE__ */ React.createElement("button", { onClick: doRecover, disabled: busy || !email.trim(), style: { ...btnSober, opacity: busy || !email.trim() ? 0.6 : 1 } }, busy ? "Enviando\u2026" : "Enviar enlace"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
-    setView("login");
-    setErr("");
-    setMsg("");
-  }, style: linkSober }, "\u2190 Volver")))));
-  return center(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, "Medique \xB7 Panel m\xF3vil"), /* @__PURE__ */ React.createElement("h1", { style: title }, "Confirmar citas"), /* @__PURE__ */ React.createElement("p", { style: subtitle }, "Accede al panel de tu cl\xEDnica."), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { placeholder: "Correo de tu cl\xEDnica", inputMode: "email", autoComplete: "email", "data-nocap": "", value: email, onChange: (e) => setEmail(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && doLogin(), autoComplete: "current-password", style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.red, textAlign: "center" } }, err), /* @__PURE__ */ React.createElement("button", { onClick: doLogin, disabled: busy, style: { ...btnSober, opacity: busy ? 0.6 : 1 } }, busy ? "\u2026" : "Entrar"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
-    setView("recover");
-    setErr("");
-  }, style: linkSober }, "\xBFOlvidaste tu contrase\xF1a?")))));
+  const wrapM = (ttl, sub, body, foot) => /* @__PURE__ */ React.createElement(LoginVideoBg, { title: ttl, subtitle: sub, footer: foot }, body);
+  const linkM = (txt, onClick) => /* @__PURE__ */ React.createElement("button", { className: "jcl-link", onClick }, txt);
+  if (phase === "loading") return wrapM("Conectando\u2026", "Estamos verificando tu sesi\xF3n.", /* @__PURE__ */ React.createElement("div", { style: { height: 8 } }), null);
+  if (phase === "blocked") return wrapM(
+    "Plan inactivo",
+    "El acceso de tu cl\xEDnica no est\xE1 activo. Escr\xEDbenos para reactivarlo.",
+    /* @__PURE__ */ React.createElement("button", { className: "jcl-ghost", onClick: () => window.JCSAAS.logout() }, "Cerrar sesi\xF3n"),
+    null
+  );
+  if (view === "recover") return wrapM(
+    "Recuperar contrase\xF1a",
+    "Te enviaremos un enlace a tu correo para restablecerla.",
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: email, autoFocus: true, onChange: (e) => setEmail(e.target.value), onKeyDown: (e) => e.key === "Enter" && doRecover(), placeholder: "Correo de tu cuenta", inputMode: "email", "data-nocap": "", className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), msg && /* @__PURE__ */ React.createElement("div", { className: "jcl-ok" }, msg), /* @__PURE__ */ React.createElement("button", { className: "jcl-btn", onClick: doRecover, disabled: busy || !email.trim() }, busy ? "Enviando\u2026" : "Enviar enlace"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, linkM("\u2190 Volver", () => {
+      setView("login");
+      setErr("");
+      setMsg("");
+    }))),
+    null
+  );
+  return wrapM(
+    "Iniciar sesi\xF3n",
+    "Entra al panel de tu cl\xEDnica.",
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: email, autoFocus: true, onChange: (e) => setEmail(e.target.value), placeholder: "Correo", inputMode: "email", autoComplete: "email", "data-nocap": "", className: "jcl-in" }), /* @__PURE__ */ React.createElement("input", { type: "password", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && doLogin(), placeholder: "Contrase\xF1a", autoComplete: "current-password", className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), /* @__PURE__ */ React.createElement("button", { className: "jcl-btn", onClick: doLogin, disabled: busy || !email || !pass }, busy ? "Entrando\u2026" : "Entrar"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, linkM("\xBFOlvidaste tu contrase\xF1a?", () => {
+      setView("recover");
+      setErr("");
+    }))),
+    null
+  );
 }
 ReactDOM.createRoot(document.getElementById("root")).render(
   window.JCSAAS && window.JCSAAS.enabled ? /* @__PURE__ */ React.createElement(MobileSaasGate, null) : /* @__PURE__ */ React.createElement(MobileAdmin, null)

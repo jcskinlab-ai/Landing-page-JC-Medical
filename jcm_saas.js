@@ -80,11 +80,17 @@
   function setDirty(k, on) { var m = dirtyAll(); if (on) { if (!m[k]) { m[k] = Date.now(); dirtySave(m); } } else if (m[k]) { delete m[k]; dirtySave(m); } }
   function isDirty(k) { return dirtyAll()[k] != null; }
   // Reintenta subir todas las claves pendientes (al iniciar sesión, al reconectar, etc.).
+  // NUNCA convierte un pendiente en un borrado: si el valor local no está o no se puede leer
+  // (Safari puede evictar el localStorage por sí solo, o la cuota puede corromperlo), antes se
+  // subía `null`, y `null` significa ref.delete() → borraba la sección ENTERA en la nube por una
+  // anomalía puramente local. Los borrados de verdad siguen su camino normal, DB.del → pushKey.
   function flushDirty() {
     var m = dirtyAll();
     Object.keys(m).forEach(function (k) {
       var raw = null; try { raw = localStorage.getItem(nsKey(k)); } catch (e) {}
-      var v = null; try { v = raw == null ? null : JSON.parse(raw); } catch (e) { v = null; }
+      if (raw == null) return;                       // no hay copia local: no hay nada que subir
+      var v; try { v = JSON.parse(raw); } catch (e) { return; } // ilegible: se deja pendiente
+      if (v == null) return;                          // nunca sintetizar un borrado remoto
       pushKey(k, v);
     });
   }
@@ -134,6 +140,51 @@
     try { console.warn('[JCM] tamaño kv/' + k + ' = ' + mb + ' MB (' + bytes + ' bytes)'); } catch (e) {}
   }
 
+  // ── FUSIÓN POR ELEMENTO ────────────────────────────────────────────────────────────────────
+  // Cada sección se guarda como UN documento con la lista entera dentro. Subirla con set() es
+  // "el último que escribe manda": si dos equipos tenían la agenda abierta y cada uno agrega una
+  // cita, el segundo en subir borra la cita del primero, sin aviso. Estas claves se suben ahora
+  // dentro de una transacción que fusiona la lista remota con la local, elemento por elemento.
+  var MERGE_BY_ID = { appointments: 1, patients: 1, cash_moves: 1, cash: 1, inv_items: 1, inventory: 1, crm_leads: 1, lab_orders: 1, users: 1 };
+  function idOf(o) { return (o && o.id != null) ? String(o.id) : null; }
+  // Ids que tenía la lista la última vez que equipo y nube estaban de acuerdo. Sirve para
+  // distinguir "esto lo agregó el otro equipo" de "esto lo borré yo" — sin esa referencia, una
+  // unión ciega resucitaría lo borrado. Se guardan solo los ids (no los objetos): pesa poco.
+  function baseKey(k) { return '__base_' + k; }
+  function baseIds(k) { try { var r = localStorage.getItem(nsKey(baseKey(k))); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  function baseSave(k, arr) {
+    if (!MERGE_BY_ID[k] || !Array.isArray(arr)) return;
+    try { localStorage.setItem(nsKey(baseKey(k)), JSON.stringify(arr.map(idOf).filter(function (x) { return x != null; }))); } catch (e) {}
+  }
+  function mergeById(local, remote, base) {
+    if (!Array.isArray(local) || !Array.isArray(remote)) return Array.isArray(local) ? local : remote;
+    var enBase = null;
+    if (Array.isArray(base)) { enBase = Object.create(null); base.forEach(function (id) { enBase[String(id)] = 1; }); }
+    var enRemoto = Object.create(null);
+    remote.forEach(function (o) { var id = idOf(o); if (id) enRemoto[id] = 1; });
+    var salida = [], puestos = Object.create(null);
+    local.forEach(function (o) {
+      var id = idOf(o);
+      if (!id) { salida.push(o); return; }          // sin id no se puede casar: se conserva
+      if (puestos[id]) return;
+      puestos[id] = 1;
+      // En ambos lados → se queda el local: es el cambio que el usuario acaba de hacer. (Si los dos
+      // equipos tocaron EL MISMO registro a la vez, gana el último que sube; lo que ya no se pierde
+      // es el trabajo sobre registros DISTINTOS, que era el caso que hacía desaparecer citas.)
+      if (enRemoto[id]) { salida.push(o); return; }
+      if (enBase && enBase[id]) return;             // estaba y el otro equipo lo borró
+      salida.push(o);                               // nuevo aquí
+    });
+    remote.forEach(function (o) {
+      var id = idOf(o);
+      if (!id || puestos[id]) return;
+      puestos[id] = 1;
+      if (enBase && enBase[id]) return;             // estaba y lo borré yo
+      salida.push(o);                               // lo agregó el otro equipo
+    });
+    return salida;
+  }
+
   function pushKey(k, v, attempt) {
     if (!db || !state.clinicId) return;
     attempt = attempt || 0;
@@ -153,7 +204,37 @@
             else if (bytes > 780000) warnBigKey(k, bytes, false);  // ~75%: avisar con tiempo
           } catch (e) {}
         }
-        var op = payloadStr == null ? ref.delete() : ref.set({ v: payloadStr, _ts: Date.now() });
+        var op;
+        if (payloadStr == null) {
+          op = ref.delete();
+        } else if (MERGE_BY_ID[k] && Array.isArray(v)) {
+          // Transacción: lee lo que hay en la nube AHORA y sube la fusión, no un pisotón.
+          op = db.runTransaction(function (tx) {
+            return tx.get(ref).then(function (doc) {
+              var remoto = null;
+              try { var d = doc.exists ? doc.data() : null; remoto = (d && d.v != null) ? JSON.parse(d.v) : null; } catch (e2) { remoto = null; }
+              var fusion = Array.isArray(remoto) ? mergeById(v, remoto, baseIds(k)) : v;
+              tx.set(ref, { v: JSON.stringify(fusion), _ts: Date.now() });
+              return fusion;
+            });
+          }).then(function (fusion) {
+            // Si la fusión trajo registros del otro equipo, este equipo se queda con el resultado
+            // (si no, la próxima subida volvería a partir de una lista incompleta). Solo si el
+            // usuario no escribió otra cosa entretanto — si escribió, manda lo suyo.
+            try {
+              if (pendingPush[k] === snapshot && fusion && fusion.length !== v.length) {
+                applyingRemote = true;
+                localStorage.setItem(nsKey(k), JSON.stringify(fusion));
+                applyingRemote = false;
+                emit('jcsaas:data', {});
+                if (k === 'appointments') emit('jcm:appts', {});
+              }
+              baseSave(k, fusion);
+            } catch (e3) { applyingRemote = false; noop(e3); }
+          });
+        } else {
+          op = ref.set({ v: payloadStr, _ts: Date.now() });
+        }
         op.then(function () {
           // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
           if (pendingPush[k] === snapshot) { delete pendingPush[k]; setDirty(k, false); }
@@ -192,6 +273,7 @@
           var data = doc.data();
           var val = data && data.v != null ? JSON.parse(data.v) : null;
           localStorage.setItem(nsKey(doc.id), JSON.stringify(val));
+          baseSave(doc.id, val); // referencia para fusionar: esto es lo que equipo y nube comparten
         } catch (e) { noop(e); }
       });
       applyingRemote = false;
@@ -212,12 +294,17 @@
           // No sobrescribir una clave con cambios locales pendientes o sin sincronizar (p. ej. un
           // consentimiento recién firmado): evita perder datos por el rollback de Firestore o tras recargar.
           if (pendingPush[ch.doc.id] != null || isDirty(ch.doc.id)) return;
+          // Eco de una escritura propia todavía sin confirmar (ahora que la caché en disco está
+          // activa, Firestore emite el cambio local al instante): ya lo tenemos, no hay que
+          // reaplicarlo. Igual que hacía la capa antigua de jcm_cloud.js.
+          try { if (ch.doc.metadata && ch.doc.metadata.hasPendingWrites) return; } catch (e) {}
           if (ch.type === 'removed') { localStorage.removeItem(nsKey(ch.doc.id)); changed = true; return; }
           try {
             var data = ch.doc.data();
             var val = data && data.v != null ? JSON.parse(data.v) : null;
             var cur = localStorage.getItem(nsKey(ch.doc.id));
             var next = JSON.stringify(val);
+            baseSave(ch.doc.id, val); // referencia para fusionar (aunque el valor no haya cambiado)
             if (cur !== next) {
               localStorage.setItem(nsKey(ch.doc.id), next);
               changed = true;
@@ -259,6 +346,15 @@
       // La reserva directa (agendar.html) muestra SOLO estos, no el catálogo de otra clínica.
       services: (typeof window.clinicServiceList === 'function') ? window.clinicServiceList() : [],
       collabForm: (window.DB && window.DB.get('collab_form')) || null,
+      // Equipo, para que la reserva directa deje elegir profesional. Se publican SOLO los campos
+      // que esa página necesita — nombre, color y horario de atención. Nunca correo, teléfono, PIN
+      // ni permisos: este documento es de lectura pública.
+      team: (function () {
+        var t = (window.DB && window.DB.get('team')) || [];
+        if (!Array.isArray(t)) return [];
+        return t.filter(function (m) { return m && m.name && m.active !== false; })
+                .map(function (m) { return { id: m.id || m.name, name: m.name, color: m.color || '', horario: m.horario || null }; });
+      })(),
       // Slots ocupados (expandidos por duración): un appointment de 60 min a las 13:00 bloquea
       // 13:00 y 13:30. La app pública los lee sin necesitar acceso al KV privado.
       busySlots: (function () {
@@ -275,7 +371,9 @@
           var durMin = a.durMin || parseInt(a.dur) || 30;
           for (var t = startMin; t < startMin + durMin; t += 30) {
             var hh = Math.floor(t / 60), mm = t % 60;
-            slots.push({ fecha: a.fecha, time: (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm });
+            // `prof` viaja con cada hora ocupada: sin esto, la cita de UN profesional bloqueaba
+            // esa hora para TODOS en la reserva directa. Vacío = cita sin profesional asignado.
+            slots.push({ fecha: a.fecha, time: (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm, prof: (a.prof || '') });
           }
         });
         return slots;
@@ -342,6 +440,16 @@
       }
       auth = fb.auth();
       db = fb.firestore();
+      // OFFLINE · Caché en disco (IndexedDB). Sin esto, abrir la app SIN SEÑAL se quedaba colgada:
+      // resolver la clínica (users/{uid} + clinics/{id}) son lecturas a Firestore y, sin caché
+      // persistente, en frío no hay de dónde leerlas. Con la caché en disco esas lecturas se
+      // resuelven al instante desde el dispositivo y además Firestore encola por su cuenta las
+      // escrituras hechas sin señal y las sube cuando vuelve. `synchronizeTabs` permite tener el
+      // panel abierto en varias pestañas; si el navegador no lo soporta, se sigue sin caché (la
+      // app funciona igual, solo pierde el arranque offline) — nunca debe romper el arranque.
+      try {
+        db.enablePersistence({ synchronizeTabs: true }).catch(function (e) { noop(e); });
+      } catch (e) { noop(e); }
       try { storage = fb.storage(); } catch (e) { noop(e); }
       try { auth.setPersistence(fb.auth.Auth.Persistence.LOCAL); } catch (e) {}
     });
@@ -369,34 +477,77 @@
     });
   }
 
+  // OFFLINE · Sesión recordada en el dispositivo (clínica, rol y permisos del último login que sí
+  // llegó al servidor), por uid. Es lo que permite ABRIR LA APP SIN SEÑAL: resolver la clínica son
+  // dos lecturas a Firestore y sin red se quedaban esperando para siempre, dejando la pantalla de
+  // carga colgada. Con esto se entra al instante con lo último conocido y, cuando vuelve la señal,
+  // se confirma contra el servidor. Se borra al cerrar sesión, junto con los datos clínicos.
+  function sessKey(uid) { return 'jcm_sess_' + uid; }
+  function sessSave(uid, info) { try { localStorage.setItem(sessKey(uid), JSON.stringify(info)); } catch (e) {} }
+  function sessLoad(uid) { try { var r = localStorage.getItem(sessKey(uid)); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+
   function onAuthChange(user) {
     if (!user) {
+      var prev = state.user && state.user.uid;
       teardown();
+      if (prev) { try { localStorage.removeItem(sessKey(prev)); } catch (e) {} }
       state.user = null; state.clinicId = null; state.clinic = null; state.role = null; state.perms = null;
       fire(null);
       return;
     }
     state.user = user;
-    // Reintenta: al registrarse, Auth avisa del usuario ANTES de que se escriban
-    // los docs clinics/{}/users/{}; reintentamos unas veces para no marcar "incompleto".
+
+    var aplicada = null; // clinicId ya activo (venga de la caché o del servidor)
+    function aplicar(info, deCache, sinAvisar) {
+      if (!info || !info.clinicId) return;
+      if (aplicada && aplicada !== info.clinicId) state.bound = false; // cambió de clínica → re-bindear
+      var yaEstaba = aplicada === info.clinicId;
+      aplicada = info.clinicId;
+      state.clinicId = info.clinicId; state.clinic = info.clinic;
+      state.role = info.role; state.perms = info.perms; state.userName = info.name;
+      bindDB();
+      idleStart(); // SEG · temporizador de inactividad (4 h) con la sesión ya resuelta
+      // Si el servidor confirma exactamente lo mismo que ya estábamos usando, no se vuelve a
+      // avisar: re-emitir haría re-montar el panel entero por nada.
+      if (!yaEstaba && !sinAvisar) fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role, fromCache: !!deCache });
+    }
+
+    // 1) Entrada inmediata con la sesión recordada — funciona con señal o sin ella.
+    var cache = sessLoad(user.uid);
+    if (cache && cache.clinicId) { aplicar(cache, true); liveKv(); flushDirty(); }
+
+    // 2) En paralelo, confirmar contra el servidor. Reintenta: al registrarse, Auth avisa del
+    //    usuario ANTES de que se escriban los docs clinics/{}/users/{}.
     loadUserClinicRetry(user, 5).then(function (info) {
       if (!info) { // usuario auth sin clínica (registro realmente incompleto)
+        if (aplicada) return; // ya estamos trabajando con la caché: no cortar la sesión
         fire({ user: user, clinic: null, incomplete: true });
         return;
       }
-      state.clinicId = info.clinicId;
-      state.clinic = info.clinic;
-      state.role = info.role; state.perms = info.perms; state.userName = info.name;
-      bindDB();
-      idleStart(); // SEG · arranca el temporizador de inactividad (4 h) con la sesión ya resuelta
-      pullAll().then(function () {
-        liveKv();
-        flushDirty(); // reintenta subir lo que quedó sin sincronizar en sesiones anteriores
-        setTimeout(publishProfile, 1500); // publica/actualiza el perfil público de la clínica
-        fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role });
-      });
+      sessSave(user.uid, info);
+      var cambio = aplicada !== info.clinicId;
+      if (cache) {
+        // Ya se entró con la sesión recordada: el servidor solo confirma y refresca por detrás.
+        aplicar(info, false);
+        pullAll().then(function () {
+          if (cambio) liveKv();
+          flushDirty(); // sube lo que quedó pendiente de sesiones anteriores
+          setTimeout(publishProfile, 1500); // publica/actualiza el perfil público de la clínica
+        });
+      } else {
+        // PRIMER arranque en este equipo: no hay nada guardado que mostrar, así que se entra
+        // cuando los datos ya bajaron — igual que antes, sin parpadeo de panel vacío.
+        aplicar(info, false, true);
+        pullAll().then(function () {
+          liveKv();
+          flushDirty();
+          setTimeout(publishProfile, 1500);
+          fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role });
+        });
+      }
     }).catch(function (e) {
       noop(e);
+      if (aplicada) return; // sin señal pero con sesión recordada: se sigue trabajando local
       // No dejar la pantalla de login colgada para siempre si algo falló (red, permisos, etc.).
       fire({ user: user, clinic: null, incomplete: true, error: true });
     });
@@ -611,8 +762,17 @@
       return true;
     }).catch(function (e) { noop(e); state.enabled = false; return false; });
   }
-  // Al recuperar conexión, reintenta subir lo que quedó sin sincronizar.
-  if (typeof window !== 'undefined') window.addEventListener('online', function () { try { if (state.clinicId) flushDirty(); } catch (e) {} });
+  // OFFLINE · Reintento de subida. El evento 'online' por sí solo NO alcanza en el celular: iOS no
+  // siempre lo dispara al salir del modo avión o al recuperar cobertura, y navigator.onLine dice
+  // "true" con wifi conectado aunque no haya internet de verdad. Por eso se reintenta también:
+  //   · al volver a primer plano (el caso real: guardas en el gimnasio y abres la app al salir),
+  //   · cada 60 s mientras quede algo sin subir — barato, porque solo corre si hay pendientes.
+  if (typeof window !== 'undefined') {
+    var reintentar = function () { try { if (state.clinicId && Object.keys(dirtyAll()).length) flushDirty(); } catch (e) {} };
+    window.addEventListener('online', reintentar);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) reintentar(); });
+    setInterval(reintentar, 60000);
+  }
 
   window.JCSAAS = {
     get enabled() { return state.enabled; },
@@ -688,6 +848,9 @@
     },
     // Reintenta subir TODO lo que quedó pendiente (seguro: solo empuja, no borra).
     retrySync: function () { try { flushDirty(); return true; } catch (e) { return false; } },
+    // Secciones guardadas en el equipo que aún no están confirmadas en la nube. Versión barata de
+    // syncStatus() (que además mide tamaños), pensada para que la UI la consulte cada pocos segundos.
+    pendingKeys: function () { try { return Object.keys(dirtyAll()); } catch (e) { return []; } },
     isFreshClinic: function () { return state.kvEmpty; },
     getPublic: function () { return state.publicProfile || null; },
     publishProfile: publishProfile,
@@ -731,7 +894,7 @@
     // La página de reserva (sin login) deja la reserva en la clínica activa (modo público).
     submitBooking: function (data) {
       if (!db || !state.clinicId) return Promise.reject({ msg: 'Clínica no disponible.' });
-      var doc = { name: '', phone: '', email: '', proc: '', fecha: '', time: '', dur: '', procs: [], note: '', source: 'web', createdAt: Date.now() };
+      var doc = { name: '', phone: '', email: '', proc: '', prof: '', fecha: '', time: '', dur: '', procs: [], note: '', source: 'web', createdAt: Date.now() };
       Object.keys(data || {}).forEach(function (k) { if (k in doc) doc[k] = data[k]; });
       return db.collection('tenants').doc(state.clinicId).collection('bookings').add(doc);
     },
@@ -761,7 +924,9 @@
           var dayOff = 0;
           try { dayOff = Math.round((new Date(b.fecha + 'T00:00:00') - new Date().setHours(0, 0, 0, 0)) / 86400000); } catch (e) {}
           appts.push({
-            id: 'web' + d.id, _bk: d.id, name: b.name || '', phone: b.phone || '', email: b.email || '',
+            // `prof`: el profesional que el paciente eligió en la reserva directa. Sin esto la cita
+            // entraba sin dueño y caía siempre en la agenda del primero del equipo.
+            id: 'web' + d.id, _bk: d.id, name: b.name || '', phone: b.phone || '', email: b.email || '', prof: b.prof || undefined,
             proc: b.proc || '', dur: b.dur || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(b.proc) + ' minutos' : '30 minutos'), durMin: parseInt(b.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(b.proc) : 30), fecha: b.fecha || '', time: b.time || '',
             day: dayOff, status: 'pendiente_pago', origen: 'Reserva web', ts: new Date(b.createdAt || Date.now()).toISOString()
           });

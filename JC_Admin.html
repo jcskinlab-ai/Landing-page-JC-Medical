@@ -97,25 +97,28 @@
 })();
 </script>
 
-<script src="/jc-proto/jc-theme.js?v=81"></script>
+<script src="/jc-proto/jc-theme.js?v=82"></script>
 <script src="/jc-proto/jc-data.js?v=83"></script>
 <script src="/jc-admin/jc-admin-data.js?v=75"></script>
 <script src="/jcm_shared.js?v=94"></script>
 <script src="/jcm_cloud.js?v=71"></script>
 <!-- SaaS multi-clínica (Firebase Auth + Firestore). Config vacía = modo local. -->
 <script src="/jcm_saas_config.js?v=7"></script>
-<script src="/jcm_saas.js?v=35"></script>
+<script src="/jcm_saas.js?v=38"></script>
 
 <script src="/dist/jc-sign.js?v=2"></script>
 <script src="/dist/jc-face.js?v=8"></script>
 <!-- Odontograma (vertical dental). Va DESPUÉS de jc-face porque reutiliza su capa de
      imágenes (faceGetPhoto/faceSetPhoto/fileToDataURL) y sus helpers de botón. -->
 <script src="/dist/jc-dental.js?v=4"></script>
-<script src="/dist/jc-admin-b.js?v=73"></script>
-<script src="/dist/jc-admin-c.js?v=103"></script>
+<!-- Texto legal del consentimiento (compartido con el panel móvil). Va ANTES de jc-admin-b,
+     que lo usa para mostrar e imprimir el documento firmado. -->
+<script src="/dist/jc-consent-doc.js?v=2"></script>
+<script src="/dist/jc-admin-b.js?v=77"></script>
+<script src="/dist/jc-admin-c.js?v=107"></script>
 <script src="/dist/jc-copilot.js?v=8"></script>
 <script src="/dist/jc-jcm.js?v=4"></script>
-<script src="/dist/jc-admin.js?v=188"></script>
+<script src="/dist/jc-admin.js?v=191"></script>
 
 <script>
 window.jcmHardRefresh = function() {
