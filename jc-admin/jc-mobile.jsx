@@ -120,6 +120,89 @@ function jcmConfirmAsistMsgM(a, clinNombre) {
   return window.fillMsgTpl(tpl, { nombre:a.name||"", primernombre:jcmFirstNameM(a.name), clinica:clinNombre, fecha:fecha||"", hora:a.time||"", tratamiento:a.proc||"", mapa:maps||"" });
 }
 
+/* ═══════════ Equipo / profesionales ═══════════
+   Mismo origen y mismo criterio que el panel de escritorio (DB.get("team") y el `prof` de la cita,
+   que guarda el NOMBRE del profesional, no su id). El móvil no leía nada de esto: las citas que
+   creaba nacían sin dueño y en el escritorio se le atribuían al primero del equipo. */
+function teamM() {
+  try {
+    const t = window.DB && window.DB.get("team");
+    if (Array.isArray(t)) return t.filter(x => x && x.name && x.active !== false);
+  } catch (e) {}
+  return [];
+}
+// Dueño de una cita. Las que no traen profesional (reservas web, citas antiguas, o creadas por el
+// móvil antes de este cambio) se atribuyen al PRIMERO del equipo — mismo criterio que el
+// escritorio, para que ninguna cita quede invisible.
+function profDeM(a, team) {
+  const p = ((a && a.prof) || "").trim();
+  if (p) return p;
+  return (team && team[0] && team[0].name) || "";
+}
+function profMatchM(a, selProf, team) {
+  if (!team || team.length < 2) return true; // clínica de un solo profesional: no se filtra nada
+  return profDeM(a, team) === selProf;
+}
+// Color e iniciales del profesional, para distinguirlos de un vistazo en la agenda.
+function profColorM(nombre, team) {
+  const t = (team || []).find(x => x.name === nombre);
+  return (t && t.color) || "#8B9EB0";
+}
+function inicialesM(s) { return (s || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase(); }
+function primerNombreM(s) { return ((s || "").trim().split(/\s+/)[0]) || ""; }
+
+/* ═══════════ Horas disponibles de un día (horarios_dates) ═══════════
+   `horarios_dates[fecha]` es la EXCEPCIÓN de un día concreto; si no existe, manda el horario
+   semanal (horarios_v1). Varias funciones lo escribían partiendo de una base equivocada — de `[]`
+   (que significa "día cerrado") o de la grilla cruda 08:00-19:45 (que ignora el horario semanal).
+   Así, confirmar una transferencia cerraba el día entero, cancelar una cita dejaba el día con una
+   sola hora, y crear una cita abría domingos y feriados también en la reserva web. */
+function slotsSemanaM(iso) {
+  try {
+    const h = window.DB && window.DB.get("horarios_v1");
+    const wd = new Date(iso + "T12:00:00").getDay();
+    if (h && h[wd]) return h[wd].open === false ? [] : (h[wd].slots || slotsM().slice());
+  } catch (e) {}
+  return slotsM().slice();
+}
+function slotsEfectivosM(iso) {
+  try {
+    const map = (window.DB && window.DB.get("horarios_dates")) || {};
+    if (Array.isArray(map[iso])) return map[iso].slice();
+  } catch (e) {}
+  return slotsSemanaM(iso);
+}
+// En clínicas con VARIOS profesionales este mapa no se toca: es de toda la clínica, así que quitar
+// una hora porque la ocupó un profesional se la bloquearía a los demás (y a la reserva web). Ahí el
+// control de choques por profesional de la agenda es el que manda.
+function slotMapAplicaM() { return teamM().length < 2; }
+function liberarSlotM(iso, hora) {
+  if (!iso || !hora || !slotMapAplicaM()) return;
+  try {
+    const map = (window.DB && window.DB.get("horarios_dates")) || {};
+    const cur = slotsEfectivosM(iso);
+    if (!cur.includes(hora)) { cur.push(hora); cur.sort(); }
+    map[iso] = cur;
+    if (window.DB) window.DB.set("horarios_dates", map);
+  } catch (e) {}
+}
+function ocuparSlotM(iso, hora) {
+  if (!iso || !hora || !slotMapAplicaM()) return;
+  try {
+    const map = (window.DB && window.DB.get("horarios_dates")) || {};
+    map[iso] = slotsEfectivosM(iso).filter(s => s !== hora);
+    if (window.DB) window.DB.set("horarios_dates", map);
+  } catch (e) {}
+}
+// Nombre del profesional con la sesión iniciada (para la vista "mis citas" y el valor por defecto
+// al agendar). Viene del doc users/{uid}, igual que en el escritorio.
+function miNombreProfM() {
+  try { return ((window.JCSAAS && window.JCSAAS.currentUserName && window.JCSAAS.currentUserName()) || "").trim(); } catch (e) { return ""; }
+}
+function soyProfesionalM() {
+  try { return (window.JCSAAS && window.JCSAAS.currentRole && window.JCSAAS.currentRole()) === "professional"; } catch (e) { return false; }
+}
+
 // Nombre de persona: no se aceptan números (pedido — se colaban "123123" como nombre de paciente).
 function soloNombreM(v) { return (v || "").replace(/[0-9]/g, ""); }
 // Props del campo RUT en el CELULAR. Antes llevaba inputMode="numeric", que en iOS abre el teclado
@@ -472,10 +555,13 @@ function ApptSheet({ T, appt:a, patients, appts, onClose, updateAppt, cancelAppt
   const [edit, setEdit] = useState(false);
   const [ef, setEf] = useState({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
   const procOpts = (() => { try { return (window.JCDATA && window.JCDATA.catalog ? procList() : []) || []; } catch (e) { return []; } })();
-  // Mover una cita tampoco puede pisar a otra: se ignora ella misma para que no choque consigo.
+  // Mover una cita tampoco puede pisar a otra: se ignora ella misma para que no choque consigo, y
+  // solo se compara contra las citas del MISMO profesional.
   const efChoca = (() => {
     const s = minsM(ef.time), d = parseInt(ef.dur) || 30;
-    return !ef.time || overlapsM(s, s + d, busyRangesM(appts, ef.fecha, a.id));
+    const eq = teamM();
+    const mias = eq.length >= 2 ? (appts || []).filter(x => profDeM(x, eq) === profDeM(a, eq)) : appts;
+    return !ef.time || overlapsM(s, s + d, busyRangesM(mias, ef.fecha, a.id));
   })();
   const isPend = a.status === "pendiente_pago";
   const isAnulada = a.status === "anulada";
@@ -529,6 +615,19 @@ function ApptSheet({ T, appt:a, patients, appts, onClose, updateAppt, cancelAppt
             </span>
           </button>
         </div>
+
+        {/* Profesional que atiende — solo se muestra si la clínica tiene más de uno (si no, sobra). */}
+        {(() => {
+          const eq = teamM();
+          if (eq.length < 2) return null;
+          const quien = profDeM(a, eq), c = profColorM(quien, eq);
+          return (
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:14 }}>
+              <span style={{ width:22, height:22, borderRadius:"50%", background:c, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:9.5, fontWeight:700, flexShrink:0 }}>{inicialesM(quien)}</span>
+              <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Atiende <span style={{ color:T.text, fontWeight:600 }}>{quien}</span>{!((a.prof||"").trim()) && <span style={{ color:T.textFaint }}> · sin asignar</span>}</span>
+            </div>
+          );
+        })()}
 
         {isPend && (
           <button onClick={()=>{ confirmPago(a.id); onClose(); }}
@@ -1087,7 +1186,8 @@ function abbrevProcM(proc) {
   return proc.trim().charAt(0).toUpperCase();
 }
 
-function AgendaTab({ T, appts, onOpenAppt, goTab, goNueva, showAnuladas, setShowAnuladas }) {
+function AgendaTab({ T, appts, onOpenAppt, goTab, goNueva, showAnuladas, setShowAnuladas, equipo, selProf, setSelProf, soloMias }) {
+  equipo = equipo || [];
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
   // Buscador de pacientes (pedido): evita scrollear día por día para encontrar una cita. Busca en
@@ -1223,6 +1323,26 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, goNueva, showAnuladas, setShow
     );
   }
 
+  // Selector de profesional. Solo aparece en clínicas con dos o más, y no se muestra a un
+  // profesional (que ya ve únicamente su propia agenda). Se ve una agenda a la vez, igual que en
+  // el panel de escritorio, porque en el ancho de un teléfono no caben columnas por persona.
+  const profRow = (equipo.length >= 2 && !soloMias) ? (
+    <div className="no-sb" style={{ display:"flex", gap:6, padding:"2px 14px 4px", flexShrink:0, overflowX:"auto" }}>
+      {equipo.map(t => {
+        const on = t.name === selProf;
+        const c = t.color || "#8B9EB0";
+        return (
+          <button key={t.id||t.name} onClick={()=>setSelProf && setSelProf(t.name)}
+            style={{ flexShrink:0, display:"flex", alignItems:"center", gap:6, padding:"5px 10px 5px 5px", borderRadius:999,
+              cursor:"pointer", border:"1px solid "+(on ? c : T.flatBorder), background: on ? "color-mix(in srgb, "+c+" 20%, transparent)" : "transparent" }}>
+            <span style={{ width:20, height:20, borderRadius:"50%", background:c, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, fontSize:9, fontWeight:700, flexShrink:0 }}>{inicialesM(t.name)}</span>
+            <span style={{ fontFamily:T.sans, fontSize:12, fontWeight: on?600:500, color: on ? T.text : T.textMute, whiteSpace:"nowrap" }}>{primerNombreM(t.name)}</span>
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
   // Segmentado Día/Mes (el filtro de canceladas ahora vive en el icono del header, como la referencia).
   // Pedido: más chico, para dejar más protagonismo a la tira de días y las citas.
   const toggleRow = (
@@ -1300,6 +1420,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, goNueva, showAnuladas, setShow
     return (
       <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
         {toggleRow}
+        {profRow}
         {searchBar}
         {ql ? searchResultsBody : (<>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 16px 8px", flexShrink:0 }}>
@@ -1336,6 +1457,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, goNueva, showAnuladas, setShow
   return (
     <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
       {toggleRow}
+      {profRow}
       {searchBar}
       {ql ? searchResultsBody : (<>
         {/* Tira de días continua (pedido): scroll horizontal nativo y directo, sin paginar por semana.
@@ -1467,6 +1589,14 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
   const [time,  setTime]  = useState("10:00");
   const [proc,    setProc]    = useState(procs[0]||"Evaluación general");
   const [dur,     setDur]     = useState("30 minutos");
+  // Profesional que atiende. Por defecto el que tiene la sesión iniciada si es del equipo (lo más
+  // habitual: cada uno agenda lo suyo); si no, el primero — mismo criterio que el escritorio.
+  const equipo = teamM();
+  const [prof, setProf] = useState(() => {
+    const yo = miNombreProfM();
+    if (yo && equipo.some(t => t.name === yo)) return yo;
+    return (equipo[0] && equipo[0].name) || "";
+  });
   const [comment, setComment] = useState("");
   const [notifyWa, setNotifyWa] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -1496,7 +1626,10 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
   // Si el día está cerrado (avail vacío), no se ofrece ninguna hora.
   const slotGrid = clinicSeededM() ? slotsM() : avail;
   const durMin = parseInt(dur) || 30;
-  const busy = busyRangesM(appts, fecha);
+  // Los choques se miran SOLO contra las citas del mismo profesional: en una clínica con varios,
+  // dos personas sí pueden atender a la misma hora en boxes distintos.
+  const apptsProf = equipo.length >= 2 ? appts.filter(a => profDeM(a, equipo) === prof) : appts;
+  const busy = busyRangesM(apptsProf, fecha);
   // Las horas libres dependen de la DURACIÓN elegida: una cita de 60 min no cabe en un hueco de 30
   // y por eso deja de ofrecerse esa hora.
   const freeSlots15 = freeStartsM(slotGrid, avail, busy, durMin);
@@ -1517,7 +1650,12 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
     }
     // Pedido del usuario: crear la cita NO debe dejarla "Confirmada" — solo "Agendado" (pendiente).
     // Confirmar la asistencia del paciente es un paso aparte, que se hace desde la hoja de la cita.
-    addAppt({ id:Date.now().toString(36), patId, name:finalName.trim(), rut:(finalRut||"").trim(), phone:(finalPhone||"").trim(), email:(finalEmail||"").trim(), proc, dur, time, fecha, day:isoToDayOff(fecha), status:"pendiente", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
+    // `prof` (NOMBRE del profesional) es lo que usa el escritorio para repartir la agenda. Antes el
+    // móvil no lo guardaba, así que toda cita creada desde el celular caía bajo el primero del equipo.
+    // id con jcmUid (UUID), igual que el escritorio. Antes era solo Date.now(): dos equipos
+    // agendando en el mismo milisegundo generaban el MISMO id, y ahora que la nube fusiona por id
+    // eso haría que una cita se comiera a la otra.
+    addAppt({ id:(window.jcmUid ? window.jcmUid("a") : "a_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)), patId, name:finalName.trim(), rut:(finalRut||"").trim(), phone:(finalPhone||"").trim(), email:(finalEmail||"").trim(), proc, prof: prof || undefined, dur, time, fecha, day:isoToDayOff(fecha), status:"pendiente", source:"movil", comentario:comment.trim()||undefined, createdAt:new Date().toISOString() });
     if (notifyWa && finalPhone) {
       const waP = (finalPhone||"").replace(/\D/g,"");
       if (waP.length>=8) {
@@ -1689,6 +1827,16 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
           {["15 minutos","30 minutos","45 minutos","60 minutos","75 minutos","90 minutos","120 minutos"].map(d=><option key={d}>{d}</option>)}
         </select>
       </div>
+
+      {/* Profesional: solo tiene sentido preguntarlo si la clínica tiene más de uno. */}
+      {equipo.length >= 2 && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <span style={lbl}>Profesional</span>
+          <select value={prof} onChange={e=>setProf(e.target.value)} style={{ ...inp, width:"auto" }}>
+            {equipo.map(t=><option key={t.id||t.name} value={t.name}>{t.name}</option>)}
+          </select>
+        </div>
+      )}
 
       <div><div style={lbl}>Comentario (opcional)</div>
         <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ej. Control, seguimiento, evaluación…" rows={2} style={{...inp, resize:"none"}} />
@@ -2388,7 +2536,7 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
               {open && (() => {
                 // Al expandir: los próximos AGENDADOS de este procedimiento (fecha + nombre + "Agendado"),
                 // como en el prototipo — para saber a quién corresponde cada cita pendiente (real).
-                const upcomingAg = t.list.filter(a => !(a.status==="atendida"||a.attended) && (a.fecha||offToISO(a.day||0))>=todayIso);
+                const upcomingAg = t.list.filter(a => !(a.status==="atendida"||a.attended) && (a.fecha||offToISO(a.day||0))>=todayISO());
                 return (
                   <div style={{ display:"flex", flexDirection:"column", gap:7, padding:"0 0 12px 43px" }}>
                     {upcomingAg.length===0 && <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.textFaint }}>Sin próximos agendados</div>}
@@ -2638,6 +2786,43 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   const [appts, setAppts] = useState(() => (window.DB&&window.DB.get("appointments"))||[]);
   const [patients, setPatients] = useState(() => (window.DB&&window.DB.get("patients"))||[]);
 
+  // ── Multi-profesional ──────────────────────────────────────────────────────────────────────
+  // Equipo de la clínica y profesional elegido en la agenda. Se recalcula cuando llegan datos
+  // nuevos (un miembro puede agregarse desde el escritorio con la app abierta).
+  const [equipo, setEquipo] = useState(() => teamM());
+  useEffect(() => {
+    function recargar() { setEquipo(teamM()); }
+    window.addEventListener("jcsaas:data", recargar);
+    return () => window.removeEventListener("jcsaas:data", recargar);
+  }, []);
+  const [selProf, setSelProf] = useState("");
+  useEffect(() => {
+    if (!equipo.length) { if (selProf) setSelProf(""); return; }
+    if (equipo.some(t => t.name === selProf)) return;      // la selección sigue siendo válida
+    const yo = miNombreProfM();
+    setSelProf(equipo.some(t => t.name === yo) ? yo : equipo[0].name);
+  }, [equipo.map(t => t.name).join("|")]);
+  // SEG · Un profesional solo ve SUS citas y SUS pacientes, igual que en el panel de escritorio
+  // (jc-admin.jsx). Antes el móvil entregaba la agenda COMPLETA de la clínica a cualquiera del
+  // equipo que iniciara sesión. Dueño y recepción (staff) siguen viendo todo.
+  const misAppts = useMemo(() => {
+    const yo = miNombreProfM().toLowerCase();
+    if (!soyProfesionalM() || !yo) return appts;
+    return (appts || []).filter(a => {
+      const p = ((a.prof || "").trim()).toLowerCase();
+      // Cita sin profesional (reserva web o cita antigua): es del primero del equipo. Y si la
+      // clínica todavía no cargó su equipo, es de quien está usando la app — así nunca ocurre que
+      // un profesional abra la agenda y la vea vacía.
+      if (!p) return !equipo.length || (equipo[0].name || "").toLowerCase() === yo;
+      return p === yo;
+    });
+  }, [appts, equipo]);
+  // Vista de agenda: si la clínica tiene varios profesionales, se muestra uno a la vez.
+  const apptsVista = useMemo(() => {
+    if (equipo.length < 2 || soyProfesionalM()) return misAppts; // un solo profesional, o ya filtrado
+    return (misAppts || []).filter(a => profMatchM(a, selProf, equipo));
+  }, [misAppts, selProf, equipo]);
+
   // Gesto iOS: deslizar desde el BORDE IZQUIERDO hacia la derecha = "volver atrás" (como el pop
   // interactivo nativo). Solo cuenta si el toque EMPIEZA pegado al borde (≤24px), es un movimiento
   // horizontal claro (dx grande, dy chico) y hay algo a lo que volver. Cierra en orden: campana →
@@ -2695,18 +2880,23 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   }, []);
 
   function saveAppts(updated) { window.DB&&window.DB.set("appointments", updated); setAppts(updated); }
-  function updateAppt(id, patch) { const all=(window.DB&&window.DB.get("appointments"))||[]; saveAppts(all.map(x=>x.id===id?{...x,...patch}:x)); }
+  function updateAppt(id, patch) {
+    const all=(window.DB&&window.DB.get("appointments"))||[];
+    // Reprogramar debe liberar el hueco viejo y ocupar el nuevo. Antes no se hacía: la hora vieja
+    // quedaba ocupada para siempre y la nueva se seguía ofreciendo en la reserva web (doble reserva).
+    const antes = all.find(x=>x.id===id);
+    if (antes && antes.fecha && antes.time && (patch.fecha || patch.time)) {
+      const nf = patch.fecha || antes.fecha, nt = patch.time || antes.time;
+      if (nf !== antes.fecha || nt !== antes.time) { liberarSlotM(antes.fecha, antes.time); ocuparSlotM(nf, nt); }
+    }
+    saveAppts(all.map(x=>x.id===id?{...x,...patch}:x));
+  }
 
   function confirmPago(id) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : [];
-        map[a.fecha] = cur.filter(s=>s!==a.time);
-        if (window.DB) window.DB.set('horarios_dates', map);
-      } catch(e) {}
+      ocuparSlotM(a.fecha, a.time);
     }
     saveAppts(all.map(x=>x.id===id?{...x,status:"confirmada"}:x));
   }
@@ -2717,12 +2907,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[a.fecha]) ? [...map[a.fecha]] : [];
-        if (!cur.includes(a.time)) { cur.push(a.time); cur.sort(); map[a.fecha]=cur; }
-        if (window.DB) window.DB.set('horarios_dates', map);
-      } catch(e) {}
+      liberarSlotM(a.fecha, a.time);
     }
     saveAppts(all.map(x=>x.id===id?{...x,status:"anulada",attended:false,anuladaAt:Date.now()}:x));
   }
@@ -2731,12 +2916,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     const a = all.find(x=>x.id===id);
     if (a && a.fecha && a.time) {
-      try {
-        const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[a.fecha]) ? map[a.fecha] : slotsM().slice();
-        map[a.fecha] = cur.filter(s=>s!==a.time);
-        if (window.DB) window.DB.set('horarios_dates', map);
-      } catch(e) {}
+      ocuparSlotM(a.fecha, a.time);
     }
     saveAppts(all.map(x=>x.id===id?{...x,status:"pendiente",attended:false,anuladaAt:null}:x));
   }
@@ -2744,12 +2924,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   function addAppt(appt) {
     const all = (window.DB&&window.DB.get("appointments"))||[];
     if (appt.fecha && appt.time) {
-      try {
-        const map = (window.DB && window.DB.get('horarios_dates')) || {};
-        const cur = Array.isArray(map[appt.fecha]) ? map[appt.fecha] : slotsM().slice();
-        map[appt.fecha] = cur.filter(s=>s!==appt.time);
-        if (window.DB) window.DB.set('horarios_dates', map);
-      } catch(e) {}
+      ocuparSlotM(appt.fecha, appt.time);
     }
     saveAppts([...all, appt]);
   }
@@ -2840,10 +3015,10 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
             exterior NO tiene scroll propio para esas pestañas; cada una maneja su scroll interno. */}
         <div style={{ flex:1, minHeight:0, overflowY: (tab==="agenda"||tab==="citas") ? "hidden" : "auto" }}>
           {/* SEG · gate por permiso en el RENDER de cada pestaña (ver MOBILE_PERM / mobileCan). */}
-          {tab==="citas"    && (mobileCan("citas")    ? <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} openNotif={()=>setNotifOpen(true)} bellCount={bellCount} /> : <SinPermisoM T={T} />)}
+          {tab==="citas"    && (mobileCan("citas")    ? <HomeTab     T={T} appts={apptsVista} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} openNotif={()=>setNotifOpen(true)} bellCount={bellCount} equipo={equipo} /> : <SinPermisoM T={T} />)}
           {tab==="horarios" && (mobileCan("horarios") ? <HorariosTab T={T} appts={appts} /> : <SinPermisoM T={T} />)}
           {tab==="nueva"    && (mobileCan("nueva")    ? <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} initialFecha={nuevaFecha} onDone={()=>{ setNuevaFecha(null); setTab("citas"); }} /> : <SinPermisoM T={T} />)}
-          {tab==="agenda"   && (mobileCan("agenda")   ? <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} goNueva={goNueva} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} /> : <SinPermisoM T={T} />)}
+          {tab==="agenda"   && (mobileCan("agenda")   ? <AgendaTab   T={T} appts={apptsVista} onOpenAppt={setApptSheet} goTab={setTab} goNueva={goNueva} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} equipo={equipo} selProf={selProf} setSelProf={setSelProf} soloMias={soyProfesionalM()} /> : <SinPermisoM T={T} />)}
           {tab==="mas"      && <MasTab      T={T} mode={mode} toggleMode={toggleMode} openOverlay={setOverlay} onLogout={onLogout} openNotif={()=>setNotifOpen(true)} goAnuladas={()=>{ setOverlay(null); setAgShowAnuladas(true); setTab("agenda"); }} />}
         </div>
 
@@ -2864,11 +3039,11 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
 
       {/* Overlays de navegación tipo iOS push */}
       {/* SEG · los overlays también se gatean: son la vía por la que se llega a fichas y reportes. */}
-      {overlay==="pacientes" && (mobileCan("pacientes") ? <PacientesOverlay T={T} patients={patients} appts={appts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} /> : <OverlayShell T={T} title="Pacientes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
-      {overlay==="reportes" && (mobileCan("reportes") ? <ReportesOverlay T={T} appts={appts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} /> : <OverlayShell T={T} title="Reportes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
+      {overlay==="pacientes" && (mobileCan("pacientes") ? <PacientesOverlay T={T} patients={patients} appts={misAppts} addPatient={addPatient} onBack={()=>setOverlay(null)} onOpenFicha={(id)=>setOverlay({type:"ficha", id})} /> : <OverlayShell T={T} title="Pacientes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
+      {overlay==="reportes" && (mobileCan("reportes") ? <ReportesOverlay T={T} appts={misAppts} onBack={()=>setOverlay(null)} onOpenAppt={setApptSheet} /> : <OverlayShell T={T} title="Reportes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
       {/* Plantillas de mensajes: opción PROPIA (pedido: no es un reporte) — vive en Más y el menú lateral. */}
       {overlay==="plantillas" && (mobileCan("plantillas") ? <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setOverlay(null)}><MessageTemplatesView T={T} /></OverlayShell> : <OverlayShell T={T} title="Plantillas de mensajes" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
-      {overlay && overlay.type==="ficha" && (mobileCan("ficha") ? <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={appts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} /> : <OverlayShell T={T} title="Ficha" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
+      {overlay && overlay.type==="ficha" && (mobileCan("ficha") ? <FichaOverlay T={T} patientId={overlay.id} patients={patients} appts={misAppts} updatePatient={updatePatient} onBack={()=>setOverlay(null)} /> : <OverlayShell T={T} title="Ficha" onBack={()=>setOverlay(null)}><SinPermisoM T={T} /></OverlayShell>)}
 
       {/* Panel de PENDIENTES (campana): consentimientos por firmar + pagos por confirmar (datos reales). */}
       {notifOpen && (() => {
@@ -2912,8 +3087,11 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
       })()}
 
       {/* Hoja de acciones de una cita (estados oficiales) */}
+      {/* Se pasa la cita RECIÉN LEÍDA de la lista, no el objeto congelado al abrir la hoja: ese
+          quedaba obsoleto tras guardar y hacía, entre otras cosas, que al reabrir el editor de
+          comentarios el textarea saliera vacío y al salir borrara la nota recién escrita. */}
       {apptSheet && (
-        <ApptSheet T={T} appt={apptSheet} patients={patients} appts={appts} onClose={()=>setApptSheet(null)}
+        <ApptSheet T={T} appt={(appts.find(x=>x.id===apptSheet.id) || apptSheet)} patients={patients} appts={appts} onClose={()=>setApptSheet(null)}
           updateAppt={updateAppt} cancelAppt={cancelAppt} restoreAppt={restoreAppt} confirmPago={confirmPago}
           onOpenFicha={(id)=>{ setApptSheet(null); setOverlay({type:"ficha", id}); }} />
       )}

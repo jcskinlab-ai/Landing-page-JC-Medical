@@ -140,6 +140,51 @@
     try { console.warn('[JCM] tamaño kv/' + k + ' = ' + mb + ' MB (' + bytes + ' bytes)'); } catch (e) {}
   }
 
+  // ── FUSIÓN POR ELEMENTO ────────────────────────────────────────────────────────────────────
+  // Cada sección se guarda como UN documento con la lista entera dentro. Subirla con set() es
+  // "el último que escribe manda": si dos equipos tenían la agenda abierta y cada uno agrega una
+  // cita, el segundo en subir borra la cita del primero, sin aviso. Estas claves se suben ahora
+  // dentro de una transacción que fusiona la lista remota con la local, elemento por elemento.
+  var MERGE_BY_ID = { appointments: 1, patients: 1, cash_moves: 1, cash: 1, inv_items: 1, inventory: 1, crm_leads: 1, lab_orders: 1, users: 1 };
+  function idOf(o) { return (o && o.id != null) ? String(o.id) : null; }
+  // Ids que tenía la lista la última vez que equipo y nube estaban de acuerdo. Sirve para
+  // distinguir "esto lo agregó el otro equipo" de "esto lo borré yo" — sin esa referencia, una
+  // unión ciega resucitaría lo borrado. Se guardan solo los ids (no los objetos): pesa poco.
+  function baseKey(k) { return '__base_' + k; }
+  function baseIds(k) { try { var r = localStorage.getItem(nsKey(baseKey(k))); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  function baseSave(k, arr) {
+    if (!MERGE_BY_ID[k] || !Array.isArray(arr)) return;
+    try { localStorage.setItem(nsKey(baseKey(k)), JSON.stringify(arr.map(idOf).filter(function (x) { return x != null; }))); } catch (e) {}
+  }
+  function mergeById(local, remote, base) {
+    if (!Array.isArray(local) || !Array.isArray(remote)) return Array.isArray(local) ? local : remote;
+    var enBase = null;
+    if (Array.isArray(base)) { enBase = Object.create(null); base.forEach(function (id) { enBase[String(id)] = 1; }); }
+    var enRemoto = Object.create(null);
+    remote.forEach(function (o) { var id = idOf(o); if (id) enRemoto[id] = 1; });
+    var salida = [], puestos = Object.create(null);
+    local.forEach(function (o) {
+      var id = idOf(o);
+      if (!id) { salida.push(o); return; }          // sin id no se puede casar: se conserva
+      if (puestos[id]) return;
+      puestos[id] = 1;
+      // En ambos lados → se queda el local: es el cambio que el usuario acaba de hacer. (Si los dos
+      // equipos tocaron EL MISMO registro a la vez, gana el último que sube; lo que ya no se pierde
+      // es el trabajo sobre registros DISTINTOS, que era el caso que hacía desaparecer citas.)
+      if (enRemoto[id]) { salida.push(o); return; }
+      if (enBase && enBase[id]) return;             // estaba y el otro equipo lo borró
+      salida.push(o);                               // nuevo aquí
+    });
+    remote.forEach(function (o) {
+      var id = idOf(o);
+      if (!id || puestos[id]) return;
+      puestos[id] = 1;
+      if (enBase && enBase[id]) return;             // estaba y lo borré yo
+      salida.push(o);                               // lo agregó el otro equipo
+    });
+    return salida;
+  }
+
   function pushKey(k, v, attempt) {
     if (!db || !state.clinicId) return;
     attempt = attempt || 0;
@@ -159,7 +204,37 @@
             else if (bytes > 780000) warnBigKey(k, bytes, false);  // ~75%: avisar con tiempo
           } catch (e) {}
         }
-        var op = payloadStr == null ? ref.delete() : ref.set({ v: payloadStr, _ts: Date.now() });
+        var op;
+        if (payloadStr == null) {
+          op = ref.delete();
+        } else if (MERGE_BY_ID[k] && Array.isArray(v)) {
+          // Transacción: lee lo que hay en la nube AHORA y sube la fusión, no un pisotón.
+          op = db.runTransaction(function (tx) {
+            return tx.get(ref).then(function (doc) {
+              var remoto = null;
+              try { var d = doc.exists ? doc.data() : null; remoto = (d && d.v != null) ? JSON.parse(d.v) : null; } catch (e2) { remoto = null; }
+              var fusion = Array.isArray(remoto) ? mergeById(v, remoto, baseIds(k)) : v;
+              tx.set(ref, { v: JSON.stringify(fusion), _ts: Date.now() });
+              return fusion;
+            });
+          }).then(function (fusion) {
+            // Si la fusión trajo registros del otro equipo, este equipo se queda con el resultado
+            // (si no, la próxima subida volvería a partir de una lista incompleta). Solo si el
+            // usuario no escribió otra cosa entretanto — si escribió, manda lo suyo.
+            try {
+              if (pendingPush[k] === snapshot && fusion && fusion.length !== v.length) {
+                applyingRemote = true;
+                localStorage.setItem(nsKey(k), JSON.stringify(fusion));
+                applyingRemote = false;
+                emit('jcsaas:data', {});
+                if (k === 'appointments') emit('jcm:appts', {});
+              }
+              baseSave(k, fusion);
+            } catch (e3) { applyingRemote = false; noop(e3); }
+          });
+        } else {
+          op = ref.set({ v: payloadStr, _ts: Date.now() });
+        }
         op.then(function () {
           // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
           if (pendingPush[k] === snapshot) { delete pendingPush[k]; setDirty(k, false); }
@@ -198,6 +273,7 @@
           var data = doc.data();
           var val = data && data.v != null ? JSON.parse(data.v) : null;
           localStorage.setItem(nsKey(doc.id), JSON.stringify(val));
+          baseSave(doc.id, val); // referencia para fusionar: esto es lo que equipo y nube comparten
         } catch (e) { noop(e); }
       });
       applyingRemote = false;
@@ -228,6 +304,7 @@
             var val = data && data.v != null ? JSON.parse(data.v) : null;
             var cur = localStorage.getItem(nsKey(ch.doc.id));
             var next = JSON.stringify(val);
+            baseSave(ch.doc.id, val); // referencia para fusionar (aunque el valor no haya cambiado)
             if (cur !== next) {
               localStorage.setItem(nsKey(ch.doc.id), next);
               changed = true;
