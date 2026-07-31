@@ -120,6 +120,13 @@ function jcmConfirmAsistMsgM(a, clinNombre) {
   return window.fillMsgTpl(tpl, { nombre:a.name||"", primernombre:jcmFirstNameM(a.name), clinica:clinNombre, fecha:fecha||"", hora:a.time||"", tratamiento:a.proc||"", mapa:maps||"" });
 }
 
+// Nombre de persona: no se aceptan números (pedido — se colaban "123123" como nombre de paciente).
+function soloNombreM(v) { return (v || "").replace(/[0-9]/g, ""); }
+// Props del campo RUT en el CELULAR. Antes llevaba inputMode="numeric", que en iOS abre el teclado
+// numérico puro: no había forma de escribir la K del dígito verificador. Con "text" sale el teclado
+// completo; lo que se escriba lo filtra igual jcmFmtRut, que solo deja dígitos y la K (o X, el
+// verificador de los RUT provisorios). autoCapitalize evita tener que buscar la mayúscula.
+const RUT_INPUT_M = { inputMode: "text", autoCapitalize: "characters", autoCorrect: "off", spellCheck: false };
 function minsM(t) { if (!t) return 0; const [h,m] = t.split(":"); return parseInt(h)*60+parseInt(m||0); }
 // Minutos → "HH:MM" (la inversa de minsM). Hace falta para poder ofrecer horas que NO caen en la
 // grilla, como las 17:45 justo después de una cita de 15 min que empezó a las 17:30.
@@ -1599,8 +1606,8 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <div><div style={lbl}>Nombre completo</div><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido" style={inp} /></div>
-          <div><div style={lbl}>RUT</div><input value={rut} onChange={e=>onRut(e.target.value)} disabled={sinRut} inputMode="numeric" placeholder={sinRut?"Sin RUT":"12.345.678-9"} style={{...inp, opacity:sinRut?.5:1, borderColor: (sinRut || rutOk || !rut) ? T.inputBorder : T.red}} /></div>
+          <div><div style={lbl}>Nombre completo</div><input value={name} onChange={e=>setName(soloNombreM(e.target.value))} placeholder="Nombre y apellido" autoCapitalize="words" style={inp} /></div>
+          <div><div style={lbl}>RUT</div><input value={rut} onChange={e=>onRut(e.target.value)} disabled={sinRut} {...RUT_INPUT_M} placeholder={sinRut?"Sin RUT":"12.345.678-9"} style={{...inp, opacity:sinRut?.5:1, borderColor: (sinRut || rutOk || !rut) ? T.inputBorder : T.red}} /></div>
           {!sinRut && rut && !rutOk && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-6 }}>Revisa el RUT: el dígito verificador no coincide.</div>}
           <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", marginTop:-4 }}>
             <input type="checkbox" checked={sinRut} onChange={e=>{ setSinRut(e.target.checked); if (e.target.checked) setRut(""); }} />
@@ -1817,6 +1824,28 @@ function patConsentsM(p) { // espejo de patConsents() en jc-admin-b.jsx
   } catch (e) {}
   return p.consents || (p.consentDoc ? [p.consentDoc] : []);
 }
+// Abre un consentimiento ya firmado en una pestaña nueva, con el MISMO documento que genera el
+// escritorio (jcmConsentInnerHTML, en jc-consent-doc.jsx). En iOS la pestaña debe abrirse DENTRO
+// del gesto del usuario, así que se abre vacía y se rellena cuando terminan de recortarse las firmas.
+function abrirConsentM(doc, patient) {
+  const w = window.open("", "_blank");
+  if (w) { try { w.document.write("<!doctype html><meta charset='utf-8'><body style='font-family:-apple-system,sans-serif;padding:28px;color:#777'>Generando consentimiento…</body>"); } catch (e) {} }
+  const inner = window.jcmConsentInnerHTML
+    ? window.jcmConsentInnerHTML(doc, patient)
+    : Promise.reject(new Error("sin generador"));
+  inner.then(html => {
+    const page = "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+      + "<title>" + ((doc.title || "Consentimiento").replace(/</g, "&lt;")) + "</title></head>"
+      + "<body style='margin:0;padding:26px;font-family:-apple-system,Segoe UI,sans-serif;background:#fff;color:#111'>"
+      + "<h2 style='font-size:16px;margin:0 0 14px'>" + ((doc.title || "Consentimiento").replace(/</g, "&lt;")) + "</h2>"
+      + html + "</body></html>";
+    if (w) { try { w.document.open(); w.document.write(page); w.document.close(); return; } catch (e) {} }
+    if (window.jcmPrintHTML) window.jcmPrintHTML(page);
+  }).catch(() => {
+    if (w) { try { w.close(); } catch (e) {} }
+    try { window.jcmError ? window.jcmError("No se pudo abrir el consentimiento.") : alert("No se pudo abrir el consentimiento."); } catch (e) {}
+  });
+}
 function snapMedicoM() { // espejo de _snapMedicoResp() en jc-admin-b.jsx
   try { const ms = window.DB.get("medic_sigs"); if (ms && ms.length && ms[0]) { const m = ms[0]; return { name:m.name||"", rut:m.rut||"", registro:m.registro||"", sig:m.sig||"" }; } } catch (e) {}
   return null;
@@ -1895,9 +1924,9 @@ function ConsentSignM({ T, patient, onClose, onSaved }) {
             </div>
 
             <div style={{ ...glassPanel(T,12), padding:"13px 14px", display:"flex", flexDirection:"column", gap:9 }}>
-              <div><div style={miniLbl}>Nombre del paciente</div><input value={f.nombre} onChange={e=>setF(s=>({...s,nombre:e.target.value}))} style={inp} /></div>
+              <div><div style={miniLbl}>Nombre del paciente</div><input value={f.nombre} onChange={e=>setF(s=>({...s,nombre:soloNombreM(e.target.value)}))} autoCapitalize="words" style={inp} /></div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 84px", gap:8 }}>
-                <div><div style={miniLbl}>Cédula de identidad</div><input value={f.ci} onChange={e=>setF(s=>({...s,ci:window.jcmFmtRut?window.jcmFmtRut(e.target.value):e.target.value}))} style={inp} /></div>
+                <div><div style={miniLbl}>Cédula de identidad</div><input value={f.ci} onChange={e=>setF(s=>({...s,ci:window.jcmFmtRut?window.jcmFmtRut(e.target.value):e.target.value}))} {...RUT_INPUT_M} style={inp} /></div>
                 <div><div style={miniLbl}>Edad</div><input value={f.edad} onChange={e=>setF(s=>({...s,edad:e.target.value.replace(/\D/g,"").slice(0,3)}))} inputMode="numeric" style={{...inp, textAlign:"center"}} /></div>
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 108px", gap:8 }}>
@@ -1980,6 +2009,14 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
   const emailOk = !f.email.trim() || /\S+@\S+\.\S+/.test(f.email.trim());
   const rutWarn = !!f.rut.trim() && !!window.jcmValidRut && !window.jcmValidRut(f.rut);
   const okSave = f.name.trim().length > 2 && emailOk;
+  // Espejo de markPaper() del escritorio: quita al paciente de "consentimiento pendiente".
+  function marcarPapel() {
+    if (!window.confirm("Marcar el consentimiento de " + (p.name || "este paciente") + " como firmado en papel. Dejará de aparecer como pendiente. ¿Continuar?")) return;
+    const d = new Date();
+    const fch = ("0"+d.getDate()).slice(-2) + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2);
+    updatePatient(p.id, { consent: true, consentInfo: "Firmado en papel · " + fch, paperConsent: true });
+    try { window.jcmToast && window.jcmToast("Marcado como firmado en papel.", "ok"); } catch (e) {}
+  }
   function save() {
     if (!okSave) return;
     updatePatient(p.id, {
@@ -2010,13 +2047,13 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               <div>
                 <div style={miniLbl}>Nombre</div>
-                <input value={f.name} onChange={e=>setF(s=>({...s,name:e.target.value}))} placeholder="Nombre y apellidos" style={inp} />
+                <input value={f.name} onChange={e=>setF(s=>({...s,name:soloNombreM(e.target.value)}))} placeholder="Nombre y apellidos" autoCapitalize="words" style={inp} />
               </div>
               {/* RUT y edad juntos: la edad es el dato que más se corrige desde el celular. */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 96px", gap:8 }}>
                 <div>
                   <div style={miniLbl}>RUT</div>
-                  <input value={f.rut} onChange={e=>setF(s=>({...s,rut:window.jcmFmtRut?window.jcmFmtRut(e.target.value):e.target.value}))} placeholder="12.345.678-9" inputMode="text" style={inp} />
+                  <input value={f.rut} onChange={e=>setF(s=>({...s,rut:window.jcmFmtRut?window.jcmFmtRut(e.target.value):e.target.value}))} placeholder="12.345.678-9" {...RUT_INPUT_M} style={inp} />
                 </div>
                 <div>
                   <div style={miniLbl}>Edad</div>
@@ -2057,17 +2094,24 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
             <button onClick={()=>setFirmando(true)} style={{ background:"none", border:"none", color:T.accent, fontFamily:T.sans, fontSize:11.5, fontWeight:600, cursor:"pointer" }}>Firmar</button>
           </div>
           {firmados.length ? (
-            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+              {/* Tocar un consentimiento lo abre completo, con firmas, para leerlo o imprimirlo. */}
               {firmados.map((c,i)=>(
-                <div key={c.ts||i} style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10 }}>
+                <button key={c.ts||i} onClick={()=>abrirConsentM(c, p)} style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10, width:"100%", background:"none", border:"none", padding:"7px 0", cursor:"pointer", textAlign:"left" }}>
                   <span style={{ fontFamily:T.sans, fontSize:13, color:T.text, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.title||"Consentimiento"}</span>
-                  <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, flexShrink:0 }}>{c.fecha||""}</span>
-                </div>
+                  <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, flexShrink:0 }}>{c.fecha||""} ›</span>
+                </button>
               ))}
             </div>
           ) : (
-            <div style={{ fontFamily:T.sans, fontSize:12.5, color:p.paperConsent?T.text:T.textMute }}>
-              {p.paperConsent ? (p.consentInfo || "Firmado en papel") : "Sin consentimiento firmado."}
+            <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+              <div style={{ fontFamily:T.sans, fontSize:12.5, color:p.paperConsent?T.text:T.textMute }}>
+                {p.paperConsent ? (p.consentInfo || "Firmado en papel") : "Sin consentimiento firmado."}
+              </div>
+              {/* Igual que el escritorio: si ya lo firmó en papel, se marca y deja de salir como pendiente. */}
+              {!p.paperConsent && (
+                <button onClick={marcarPapel} style={{ alignSelf:"flex-start", background:"none", border:"1px solid "+T.line, borderRadius:8, padding:"7px 11px", color:T.textMute, fontFamily:T.sans, fontSize:11.5, cursor:"pointer" }}>Ya firmó en papel</button>
+              )}
             </div>
           )}
         </div>
