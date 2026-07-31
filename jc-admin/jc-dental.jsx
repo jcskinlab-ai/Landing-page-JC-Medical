@@ -250,10 +250,22 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
   function delRx(pieza) {
     if (readOnly) return;
     try { window.faceSetPhoto && window.faceSetPhoto(patient.id, odontoRxView(pieza), null); } catch (e) {}
+    saveMed(pieza, null);   // las medidas son de ESA imagen: sin imagen no significan nada
     setRxTick(function (t) { return t + 1; });
   }
   function getRx(pieza) {
     try { return (window.faceGetPhoto && window.faceGetPhoto(patient.id, odontoRxView(pieza))) || null; } catch (e) { return null; }
+  }
+  /* Mediciones de radiografía. Viven en el paciente (patient.rxMed), no en la capa de fotos:
+     son parte de la ficha clínica y tienen que viajar con ella, no con el archivo de imagen. */
+  function getMed(pieza) {
+    try { return (patient && patient.rxMed && patient.rxMed[odontoRxView(pieza)]) || null; } catch (e) { return null; }
+  }
+  function saveMed(pieza, m) {
+    if (readOnly || !patient || !patient.id) return;
+    const all = Object.assign({}, patient.rxMed || {});
+    if (m) all[odontoRxView(pieza)] = m; else delete all[odontoRxView(pieza)];
+    updatePatient(patient.id, { rxMed: all });
   }
 
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
@@ -367,7 +379,8 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
             {/* Radiografía panorámica: una sola por paciente, no depende de la pieza seleccionada. */}
             <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid " + T.line }}>
               <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.textMute, marginBottom: 7 }}>Radiografía panorámica</div>
-              <RxSlot T={T} url={getRx(null)} readOnly={readOnly} tick={rxTick}
+              <RxSlot T={T} url={getRx(null)} readOnly={readOnly} tick={rxTick} titulo="Radiografía panorámica"
+                      med={getMed(null)} onSaveMed={function (m) { saveMed(null, m); }}
                       onPick={function (f) { onRx(f, null); }} onDel={function () { delRx(null); }} />
             </div>
           </div>
@@ -419,7 +432,8 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
           {/* Radiografía periapical de la pieza */}
           <div style={{ marginBottom: 14 }}>
             <span style={lbl}>Radiografía periapical · pieza {sel}</span>
-            <RxSlot T={T} url={getRx(sel)} readOnly={readOnly} tick={rxTick}
+            <RxSlot T={T} url={getRx(sel)} readOnly={readOnly} tick={rxTick} titulo={"Periapical · pieza " + sel}
+                    med={getMed(sel)} onSaveMed={function (m) { saveMed(sel, m); }}
                     onPick={function (f) { onRx(f, sel); }} onDel={function () { delRx(sel); }} />
           </div>
 
@@ -454,15 +468,186 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
   );
 }
 
-/* Ranura de radiografía: previsualización + carga + borrado. */
-function RxSlot({ T, url, readOnly, onPick, onDel }) {
+/* ════════════════════════════════════════════════════════════════════════════
+ * MEDICIÓN SOBRE RADIOGRAFÍA
+ * ────────────────────────────────────────────────────────────────────────────
+ * Una radiografía NO trae escala: el archivo no sabe cuántos milímetros mide un
+ * píxel. Y además amplifica —entre 5% y 25% en una periapical según la técnica,
+ * y de forma desigual a lo largo del arco en una panorámica—.
+ *
+ * Por eso acá NO se estima la escala ni se le pregunta a un modelo: la fija el
+ * profesional trazando una línea sobre algo de largo conocido (un implante, una
+ * lima de endodoncia, el ancho de una corona) y escribiendo cuánto mide. Todo
+ * milímetro que muestre la herramienta sale de esa calibración y de nada más.
+ * Un número inventado en una ficha clínica es peor que no tener el número.
+ *
+ * Las coordenadas se guardan en PÍXELES DE LA IMAGEN, no de pantalla: así la
+ * medición sobrevive al zoom, a otro monitor y al móvil. El <svg> usa viewBox
+ * con el tamaño natural, de modo que dibujar y guardar ocurren en el mismo
+ * sistema de coordenadas y no hay conversiones sueltas dando vueltas.
+ * ════════════════════════════════════════════════════════════════════════════ */
+function rxDist(l) { return Math.sqrt(Math.pow(l.x2 - l.x1, 2) + Math.pow(l.y2 - l.y1, 2)); }
+function rxFmtMm(v) { return (Math.round(v * 10) / 10).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " mm"; }
+
+function RxMedir({ T, url, titulo, med, readOnly, onSave, onClose }) {
+  const imgRef = useRef(null);
+  const [nat, setNat] = useState(() => (med && med.w ? { w: med.w, h: med.h } : null));
+  const [cal, setCal] = useState(() => (med && med.cal) || null);
+  const [lineas, setLineas] = useState(() => (med && med.lineas) || []);
+  const [draft, setDraft] = useState(null);   // línea en curso (arrastre)
+  const [pend, setPend] = useState(null);     // línea de calibración esperando su medida
+  const [mmTxt, setMmTxt] = useState("");
+  const [suc, setSuc] = useState(false);
+
+  const modo = cal ? "medir" : "calibrar";
+  const mmPorPx = cal ? (cal.mm / rxDist(cal)) : null;
+
+  useEffect(function () {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return function () { window.removeEventListener("keydown", onKey); };
+  }, [onClose]);
+
+  // Coordenadas del puntero → píxeles de la imagen. Un solo lugar que hace la conversión.
+  function pt(ev) {
+    const el = imgRef.current; if (!el || !nat) return null;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    return {
+      x: Math.max(0, Math.min(nat.w, (ev.clientX - r.left) / r.width * nat.w)),
+      y: Math.max(0, Math.min(nat.h, (ev.clientY - r.top) / r.height * nat.h))
+    };
+  }
+  // Eventos de PUNTERO, no mouse+touch: un tap dispara los dos y la línea salía duplicada.
+  function down(ev) {
+    if (readOnly || pend) return;
+    const p = pt(ev); if (!p) return;
+    try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (e) {}
+    setDraft({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+  }
+  function move(ev) {
+    if (!draft) return;
+    const p = pt(ev); if (!p) return;
+    setDraft(function (d) { return d ? { x1: d.x1, y1: d.y1, x2: p.x, y2: p.y } : d; });
+  }
+  function up(ev) {
+    if (!draft) return;
+    // El extremo lo fija el pointerup, NO el último pointermove: al soltar, el puntero suele
+    // haberse movido un poco más, y en una medición clínica la línea tiene que terminar donde
+    // el profesional soltó. Con el último move la medida salía sistemáticamente corta.
+    const p = (ev && ev.clientX != null) ? pt(ev) : null;
+    const l = p ? { x1: draft.x1, y1: draft.y1, x2: p.x, y2: p.y } : draft;
+    setDraft(null); setSuc(false);
+    // Descarta el clic sin arrastre: 6 px de imagen es un toque, no una medición.
+    if (rxDist(l) < 6) return;
+    if (modo === "calibrar") { setPend(l); setMmTxt(""); }
+    else setLineas(function (ls) { return ls.concat([l]); });
+  }
+  function confirmarCal() {
+    const mm = parseFloat(String(mmTxt).replace(",", "."));
+    if (!isFinite(mm) || mm <= 0) { try { window.jcmError && window.jcmError("Escribe cuántos milímetros mide la línea de referencia."); } catch (e) {} return; }
+    setCal(Object.assign({}, pend, { mm: mm })); setPend(null); setMmTxt("");
+  }
+  function guardar() {
+    onSave(cal ? { w: nat.w, h: nat.h, cal: cal, lineas: lineas, ts: Date.now() } : null);
+    setSuc(true);
+  }
+
+  const btn = function (activo) {
+    return {
+      fontFamily: T.sans, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 999,
+      border: "1px solid " + (activo ? T.accent : "rgba(255,255,255,.24)"), cursor: "pointer",
+      background: activo ? T.accent : "transparent", color: activo ? (T.onAccent || "#fff") : "rgba(255,255,255,.86)"
+    };
+  };
+  const sw = nat ? Math.max(1.4, nat.w / 520) : 2;          // grosor de línea en px de imagen
+  const fs = nat ? Math.max(11, nat.w / 46) : 14;           // tamaño de etiqueta en px de imagen
+  const linea = function (l, i, color, texto) {
+    const mx = (l.x1 + l.x2) / 2, my = (l.y1 + l.y2) / 2;
+    return (
+      <g key={i}>
+        <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={color} strokeWidth={sw} strokeLinecap="round" />
+        <circle cx={l.x1} cy={l.y1} r={sw * 1.6} fill={color} />
+        <circle cx={l.x2} cy={l.y2} r={sw * 1.6} fill={color} />
+        {texto && <text x={mx} y={my - fs * 0.45} fill="#fff" fontSize={fs} fontFamily="system-ui, sans-serif" fontWeight="600"
+                        textAnchor="middle" stroke="rgba(0,0,0,.85)" strokeWidth={fs / 6} paintOrder="stroke">{texto}</text>}
+      </g>
+    );
+  };
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label={"Medir " + titulo}
+         style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,.9)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center", maxWidth: "94vw" }}>
+        <span style={{ fontFamily: T.sans, fontSize: 12, color: "rgba(255,255,255,.72)", marginRight: 4 }}>{titulo}</span>
+        {!readOnly && <button type="button" style={btn(modo === "calibrar")} onClick={function () { setCal(null); setPend(null); }}>
+          {cal ? "Recalibrar" : "1 · Calibrar"}
+        </button>}
+        {!readOnly && <button type="button" style={btn(false)} disabled={!lineas.length}
+                              onClick={function () { setLineas(function (ls) { return ls.slice(0, -1); }); setSuc(false); }}>Deshacer</button>}
+        {!readOnly && <button type="button" style={btn(false)} disabled={!lineas.length}
+                              onClick={function () { setLineas([]); setSuc(false); }}>Borrar medidas</button>}
+        {!readOnly && <button type="button" style={btn(true)} onClick={guardar}>{suc ? "✓ Guardado" : "Guardar en la ficha"}</button>}
+        <button type="button" style={btn(false)} onClick={onClose}>Cerrar</button>
+      </div>
+
+      <div style={{ position: "relative", lineHeight: 0, maxWidth: "94vw", maxHeight: "72vh", touchAction: "none" }}>
+        <img ref={imgRef} src={url} alt={titulo} draggable="false"
+             onLoad={function (e) { setNat({ w: e.target.naturalWidth || 1000, h: e.target.naturalHeight || 1000 }); }}
+             style={{ display: "block", maxWidth: "94vw", maxHeight: "72vh", userSelect: "none" }} />
+        {nat && (
+          <svg viewBox={"0 0 " + nat.w + " " + nat.h} preserveAspectRatio="none"
+               onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", cursor: readOnly ? "default" : "crosshair", touchAction: "none" }}>
+            {cal && linea(cal, "cal", "#F2C14E", rxFmtMm(cal.mm) + " · referencia")}
+            {lineas.map(function (l, i) { return linea(l, i, "#3FD2C7", mmPorPx ? rxFmtMm(rxDist(l) * mmPorPx) : null); })}
+            {pend && linea(pend, "pend", "#F2C14E", null)}
+            {draft && linea(draft, "draft", modo === "calibrar" ? "#F2C14E" : "#3FD2C7",
+                            mmPorPx && modo === "medir" ? rxFmtMm(rxDist(draft) * mmPorPx) : null)}
+          </svg>
+        )}
+      </div>
+
+      <div style={{ maxWidth: 620, textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: "rgba(255,255,255,.78)", lineHeight: 1.55 }}>
+        {pend ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
+            <span>¿Cuántos milímetros mide esa línea?</span>
+            <input value={mmTxt} onChange={function (e) { setMmTxt(e.target.value); }} inputMode="decimal" autoFocus placeholder="Ej. 10"
+                   onKeyDown={function (e) { if (e.key === "Enter") confirmarCal(); }}
+                   style={{ width: 90, padding: "7px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.08)", color: "#fff", fontFamily: T.sans, fontSize: 13, textAlign: "center", outline: "none" }} />
+            <button type="button" style={btn(true)} onClick={confirmarCal}>Confirmar</button>
+            <button type="button" style={btn(false)} onClick={function () { setPend(null); }}>Cancelar</button>
+          </div>
+        ) : modo === "calibrar" ? (
+          <span><b style={{ color: "#F2C14E" }}>Paso 1 · Calibrar.</b> Traza una línea sobre algo de largo conocido —un implante, una lima, el ancho de una corona— y escribe cuánto mide. Sin eso no se puede medir: la radiografía no trae escala.</span>
+        ) : (
+          <span><b style={{ color: "#3FD2C7" }}>Paso 2 · Medir.</b> Arrastra para trazar cada medida. Escala: 1 px = {(mmPorPx || 0).toFixed(4)} mm.
+            <br /><span style={{ color: "rgba(255,255,255,.5)", fontSize: 11.5 }}>Las medidas son relativas a tu referencia. La radiografía amplifica y distorsiona, así que sirven para comparar y seguir la evolución, no como medida absoluta.</span></span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Ranura de radiografía: previsualización + carga + borrado + medición. */
+function RxSlot({ T, url, readOnly, onPick, onDel, med, onSaveMed, titulo }) {
   const [zoom, setZoom] = useState(false);
+  const [medir, setMedir] = useState(false);
+  const nMed = (med && med.lineas && med.lineas.length) || 0;
   if (url) {
     return (
       <div>
         <img src={url} alt="Radiografía" onClick={function () { setZoom(!zoom); }}
              style={{ width: "100%", maxHeight: zoom ? "none" : 150, objectFit: zoom ? "contain" : "cover", borderRadius: 6, border: "1px solid " + T.line, cursor: "zoom-in", display: "block", background: "#000" }} />
-        {!readOnly && <button type="button" onClick={onDel} style={{ marginTop: 6, background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", fontFamily: T.sans, fontSize: 11 }}>Eliminar radiografía</button>}
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+          {onSaveMed && <button type="button" onClick={function () { setMedir(true); }}
+                                style={{ background: "transparent", border: "none", color: T.accent, cursor: "pointer", fontFamily: T.sans, fontSize: 11, fontWeight: 600, padding: 0 }}>
+            {nMed ? "Medir · " + nMed + (nMed === 1 ? " medida" : " medidas") : "Medir"}
+          </button>}
+          {!readOnly && <button type="button" onClick={onDel} style={{ background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", fontFamily: T.sans, fontSize: 11, padding: 0 }}>Eliminar radiografía</button>}
+        </div>
+        {medir && <RxMedir T={T} url={url} titulo={titulo || "Radiografía"} med={med} readOnly={readOnly}
+                           onSave={onSaveMed} onClose={function () { setMedir(false); }} />}
       </div>
     );
   }
@@ -788,7 +973,7 @@ function PlanFirmaModal({ T, patient, onClose, onSign }) {
 }
 
 Object.assign(window, {
-  Odontograma, ToothSVG, RxSlot, PlanDentalTab, PlanFirmaModal,
+  Odontograma, ToothSVG, RxSlot, RxMedir, PlanDentalTab, PlanFirmaModal,
   PLAN_PRIORIDADES, PLAN_ESTADOS, planGet, planTotales, planOrdenado, planPrioridad, planEstadoLabel, planPendientesPublicos,
   ODONTO_ESTADOS, ODONTO_DENTICION, odontoEstado, odontoTipo, odontoEsSuperior, odontoPiezasDe,
   odontoGet, odontoPieza, odontoSetPieza, odontoStats, odontoResumenTexto, odontoRxView

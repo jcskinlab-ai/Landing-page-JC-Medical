@@ -231,6 +231,7 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
       window.faceSetPhoto && window.faceSetPhoto(patient.id, odontoRxView(pieza), null);
     } catch (e) {
     }
+    saveMed(pieza, null);
     setRxTick(function(t) {
       return t + 1;
     });
@@ -241,6 +242,20 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
     } catch (e) {
       return null;
     }
+  }
+  function getMed(pieza) {
+    try {
+      return patient && patient.rxMed && patient.rxMed[odontoRxView(pieza)] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function saveMed(pieza, m) {
+    if (readOnly || !patient || !patient.id) return;
+    const all = Object.assign({}, patient.rxMed || {});
+    if (m) all[odontoRxView(pieza)] = m;
+    else delete all[odontoRxView(pieza)];
+    updatePatient(patient.id, { rxMed: all });
   }
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
   const inp = luxF ? Object.assign({}, DS.ctl(T), { width: "100%" }) : { width: "100%", padding: "10px 12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
@@ -319,6 +334,11 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
       url: getRx(null),
       readOnly,
       tick: rxTick,
+      titulo: "Radiograf\xEDa panor\xE1mica",
+      med: getMed(null),
+      onSaveMed: function(m) {
+        saveMed(null, m);
+      },
       onPick: function(f) {
         onRx(f, null);
       },
@@ -358,6 +378,11 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
       url: getRx(sel),
       readOnly,
       tick: rxTick,
+      titulo: "Periapical \xB7 pieza " + sel,
+      med: getMed(sel),
+      onSaveMed: function(m) {
+        saveMed(sel, m);
+      },
       onPick: function(f) {
         onRx(f, sel);
       },
@@ -381,8 +406,222 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
     ));
   })))));
 }
-function RxSlot({ T, url, readOnly, onPick, onDel }) {
+function rxDist(l) {
+  return Math.sqrt(Math.pow(l.x2 - l.x1, 2) + Math.pow(l.y2 - l.y1, 2));
+}
+function rxFmtMm(v) {
+  return (Math.round(v * 10) / 10).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " mm";
+}
+function RxMedir({ T, url, titulo, med, readOnly, onSave, onClose }) {
+  const imgRef = useRef(null);
+  const [nat, setNat] = useState(() => med && med.w ? { w: med.w, h: med.h } : null);
+  const [cal, setCal] = useState(() => med && med.cal || null);
+  const [lineas, setLineas] = useState(() => med && med.lineas || []);
+  const [draft, setDraft] = useState(null);
+  const [pend, setPend] = useState(null);
+  const [mmTxt, setMmTxt] = useState("");
+  const [suc, setSuc] = useState(false);
+  const modo = cal ? "medir" : "calibrar";
+  const mmPorPx = cal ? cal.mm / rxDist(cal) : null;
+  useEffect(function() {
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return function() {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+  function pt(ev) {
+    const el = imgRef.current;
+    if (!el || !nat) return null;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    return {
+      x: Math.max(0, Math.min(nat.w, (ev.clientX - r.left) / r.width * nat.w)),
+      y: Math.max(0, Math.min(nat.h, (ev.clientY - r.top) / r.height * nat.h))
+    };
+  }
+  function down(ev) {
+    if (readOnly || pend) return;
+    const p = pt(ev);
+    if (!p) return;
+    try {
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+    } catch (e) {
+    }
+    setDraft({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+  }
+  function move(ev) {
+    if (!draft) return;
+    const p = pt(ev);
+    if (!p) return;
+    setDraft(function(d) {
+      return d ? { x1: d.x1, y1: d.y1, x2: p.x, y2: p.y } : d;
+    });
+  }
+  function up(ev) {
+    if (!draft) return;
+    const p = ev && ev.clientX != null ? pt(ev) : null;
+    const l = p ? { x1: draft.x1, y1: draft.y1, x2: p.x, y2: p.y } : draft;
+    setDraft(null);
+    setSuc(false);
+    if (rxDist(l) < 6) return;
+    if (modo === "calibrar") {
+      setPend(l);
+      setMmTxt("");
+    } else setLineas(function(ls) {
+      return ls.concat([l]);
+    });
+  }
+  function confirmarCal() {
+    const mm = parseFloat(String(mmTxt).replace(",", "."));
+    if (!isFinite(mm) || mm <= 0) {
+      try {
+        window.jcmError && window.jcmError("Escribe cu\xE1ntos mil\xEDmetros mide la l\xEDnea de referencia.");
+      } catch (e) {
+      }
+      return;
+    }
+    setCal(Object.assign({}, pend, { mm }));
+    setPend(null);
+    setMmTxt("");
+  }
+  function guardar() {
+    onSave(cal ? { w: nat.w, h: nat.h, cal, lineas, ts: Date.now() } : null);
+    setSuc(true);
+  }
+  const btn = function(activo) {
+    return {
+      fontFamily: T.sans,
+      fontSize: 12,
+      fontWeight: 600,
+      padding: "8px 14px",
+      borderRadius: 999,
+      border: "1px solid " + (activo ? T.accent : "rgba(255,255,255,.24)"),
+      cursor: "pointer",
+      background: activo ? T.accent : "transparent",
+      color: activo ? T.onAccent || "#fff" : "rgba(255,255,255,.86)"
+    };
+  };
+  const sw = nat ? Math.max(1.4, nat.w / 520) : 2;
+  const fs = nat ? Math.max(11, nat.w / 46) : 14;
+  const linea = function(l, i, color, texto) {
+    const mx = (l.x1 + l.x2) / 2, my = (l.y1 + l.y2) / 2;
+    return /* @__PURE__ */ React.createElement("g", { key: i }, /* @__PURE__ */ React.createElement("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, stroke: color, strokeWidth: sw, strokeLinecap: "round" }), /* @__PURE__ */ React.createElement("circle", { cx: l.x1, cy: l.y1, r: sw * 1.6, fill: color }), /* @__PURE__ */ React.createElement("circle", { cx: l.x2, cy: l.y2, r: sw * 1.6, fill: color }), texto && /* @__PURE__ */ React.createElement(
+      "text",
+      {
+        x: mx,
+        y: my - fs * 0.45,
+        fill: "#fff",
+        fontSize: fs,
+        fontFamily: "system-ui, sans-serif",
+        fontWeight: "600",
+        textAnchor: "middle",
+        stroke: "rgba(0,0,0,.85)",
+        strokeWidth: fs / 6,
+        paintOrder: "stroke"
+      },
+      texto
+    ));
+  };
+  return /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-label": "Medir " + titulo,
+      style: { position: "fixed", inset: 0, zIndex: 9e3, background: "rgba(0,0,0,.9)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 16 }
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center", maxWidth: "94vw" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: "rgba(255,255,255,.72)", marginRight: 4 } }, titulo), !readOnly && /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(modo === "calibrar"), onClick: function() {
+      setCal(null);
+      setPend(null);
+    } }, cal ? "Recalibrar" : "1 \xB7 Calibrar"), !readOnly && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        style: btn(false),
+        disabled: !lineas.length,
+        onClick: function() {
+          setLineas(function(ls) {
+            return ls.slice(0, -1);
+          });
+          setSuc(false);
+        }
+      },
+      "Deshacer"
+    ), !readOnly && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        style: btn(false),
+        disabled: !lineas.length,
+        onClick: function() {
+          setLineas([]);
+          setSuc(false);
+        }
+      },
+      "Borrar medidas"
+    ), !readOnly && /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(true), onClick: guardar }, suc ? "\u2713 Guardado" : "Guardar en la ficha"), /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(false), onClick: onClose }, "Cerrar")),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "relative", lineHeight: 0, maxWidth: "94vw", maxHeight: "72vh", touchAction: "none" } }, /* @__PURE__ */ React.createElement(
+      "img",
+      {
+        ref: imgRef,
+        src: url,
+        alt: titulo,
+        draggable: "false",
+        onLoad: function(e) {
+          setNat({ w: e.target.naturalWidth || 1e3, h: e.target.naturalHeight || 1e3 });
+        },
+        style: { display: "block", maxWidth: "94vw", maxHeight: "72vh", userSelect: "none" }
+      }
+    ), nat && /* @__PURE__ */ React.createElement(
+      "svg",
+      {
+        viewBox: "0 0 " + nat.w + " " + nat.h,
+        preserveAspectRatio: "none",
+        onPointerDown: down,
+        onPointerMove: move,
+        onPointerUp: up,
+        onPointerCancel: up,
+        style: { position: "absolute", inset: 0, width: "100%", height: "100%", cursor: readOnly ? "default" : "crosshair", touchAction: "none" }
+      },
+      cal && linea(cal, "cal", "#F2C14E", rxFmtMm(cal.mm) + " \xB7 referencia"),
+      lineas.map(function(l, i) {
+        return linea(l, i, "#3FD2C7", mmPorPx ? rxFmtMm(rxDist(l) * mmPorPx) : null);
+      }),
+      pend && linea(pend, "pend", "#F2C14E", null),
+      draft && linea(
+        draft,
+        "draft",
+        modo === "calibrar" ? "#F2C14E" : "#3FD2C7",
+        mmPorPx && modo === "medir" ? rxFmtMm(rxDist(draft) * mmPorPx) : null
+      )
+    )),
+    /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 620, textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: "rgba(255,255,255,.78)", lineHeight: 1.55 } }, pend ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", justifyContent: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", null, "\xBFCu\xE1ntos mil\xEDmetros mide esa l\xEDnea?"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        value: mmTxt,
+        onChange: function(e) {
+          setMmTxt(e.target.value);
+        },
+        inputMode: "decimal",
+        autoFocus: true,
+        placeholder: "Ej. 10",
+        onKeyDown: function(e) {
+          if (e.key === "Enter") confirmarCal();
+        },
+        style: { width: 90, padding: "7px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.08)", color: "#fff", fontFamily: T.sans, fontSize: 13, textAlign: "center", outline: "none" }
+      }
+    ), /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(true), onClick: confirmarCal }, "Confirmar"), /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(false), onClick: function() {
+      setPend(null);
+    } }, "Cancelar")) : modo === "calibrar" ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("b", { style: { color: "#F2C14E" } }, "Paso 1 \xB7 Calibrar."), " Traza una l\xEDnea sobre algo de largo conocido \u2014un implante, una lima, el ancho de una corona\u2014 y escribe cu\xE1nto mide. Sin eso no se puede medir: la radiograf\xEDa no trae escala.") : /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("b", { style: { color: "#3FD2C7" } }, "Paso 2 \xB7 Medir."), " Arrastra para trazar cada medida. Escala: 1 px = ", (mmPorPx || 0).toFixed(4), " mm.", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { color: "rgba(255,255,255,.5)", fontSize: 11.5 } }, "Las medidas son relativas a tu referencia. La radiograf\xEDa amplifica y distorsiona, as\xED que sirven para comparar y seguir la evoluci\xF3n, no como medida absoluta.")))
+  );
+}
+function RxSlot({ T, url, readOnly, onPick, onDel, med, onSaveMed, titulo }) {
   const [zoom, setZoom] = useState(false);
+  const [medir, setMedir] = useState(false);
+  const nMed = med && med.lineas && med.lineas.length || 0;
   if (url) {
     return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
       "img",
@@ -394,7 +633,30 @@ function RxSlot({ T, url, readOnly, onPick, onDel }) {
         },
         style: { width: "100%", maxHeight: zoom ? "none" : 150, objectFit: zoom ? "contain" : "cover", borderRadius: 6, border: "1px solid " + T.line, cursor: "zoom-in", display: "block", background: "#000" }
       }
-    ), !readOnly && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: onDel, style: { marginTop: 6, background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", fontFamily: T.sans, fontSize: 11 } }, "Eliminar radiograf\xEDa"));
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center", marginTop: 6, flexWrap: "wrap" } }, onSaveMed && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: function() {
+          setMedir(true);
+        },
+        style: { background: "transparent", border: "none", color: T.accent, cursor: "pointer", fontFamily: T.sans, fontSize: 11, fontWeight: 600, padding: 0 }
+      },
+      nMed ? "Medir \xB7 " + nMed + (nMed === 1 ? " medida" : " medidas") : "Medir"
+    ), !readOnly && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: onDel, style: { background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", fontFamily: T.sans, fontSize: 11, padding: 0 } }, "Eliminar radiograf\xEDa")), medir && /* @__PURE__ */ React.createElement(
+      RxMedir,
+      {
+        T,
+        url,
+        titulo: titulo || "Radiograf\xEDa",
+        med,
+        readOnly,
+        onSave: onSaveMed,
+        onClose: function() {
+          setMedir(false);
+        }
+      }
+    ));
   }
   if (readOnly) return /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textFaint } }, "Sin radiograf\xEDa.");
   return /* @__PURE__ */ React.createElement("label", { style: { display: "block", padding: "14px 12px", borderRadius: 6, border: "1px dashed " + T.line, textAlign: "center", cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "Subir radiograf\xEDa", /* @__PURE__ */ React.createElement(
@@ -707,6 +969,7 @@ Object.assign(window, {
   Odontograma,
   ToothSVG,
   RxSlot,
+  RxMedir,
   PlanDentalTab,
   PlanFirmaModal,
   PLAN_PRIORIDADES,
