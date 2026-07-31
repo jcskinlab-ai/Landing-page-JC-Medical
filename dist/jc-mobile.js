@@ -125,6 +125,35 @@ function minsM(t) {
   const [h, m] = t.split(":");
   return parseInt(h) * 60 + parseInt(m || 0);
 }
+function hhmmM(m) {
+  const h = Math.floor(m / 60), r = m % 60;
+  return (h < 10 ? "0" : "") + h + ":" + (r < 10 ? "0" : "") + r;
+}
+function stepM() {
+  return clinicSeededM() ? 15 : 30;
+}
+function durOfM(a) {
+  return parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30);
+}
+function busyRangesM(appts, iso, ignoreId) {
+  return (appts || []).filter((a) => a.status !== "anulada" && a.id !== ignoreId && a.time && (a.fecha ? a.fecha : offToISO(a.day || 0)) === iso).map((a) => {
+    const s = minsM(a.time);
+    return { s, e: s + durOfM(a) };
+  });
+}
+function overlapsM(s, e, busy) {
+  return (busy || []).some((b) => s < b.e && b.s < e);
+}
+function freeStartsM(grid, avail, busy, durMin) {
+  if (!avail || !avail.length) return [];
+  const paso = stepM();
+  const gm = (grid || []).map(minsM);
+  const cands = new Set(gm);
+  (busy || []).forEach((b) => {
+    if (gm.some((m) => m <= b.e && b.e < m + paso)) cands.add(b.e);
+  });
+  return [...cands].sort((x, y) => x - y).filter((m) => !overlapsM(m, m + durMin, busy)).map(hhmmM);
+}
 const STATUS_STEPS = [
   { key: "pendiente", label: "Agendado" },
   { key: "confirmada", label: "Confirmado" },
@@ -419,7 +448,7 @@ function LoginScreen({ T, onAuth }) {
   }
   return /* @__PURE__ */ React.createElement(LoginVideoBg, { title: setup ? "Crea tu acceso" : "Iniciar sesi\xF3n", subtitle: setup ? "Define la contrase\xF1a del panel de tu cl\xEDnica." : "Entra al panel de tu cl\xEDnica." }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, setup && /* @__PURE__ */ React.createElement("input", { placeholder: "Usuario", value: user, onChange: (e) => setUser(e.target.value), className: "jcl-in" }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a del panel", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), /* @__PURE__ */ React.createElement("button", { className: "jcl-btn", onClick: submit, disabled: busy || !pass.trim() }, busy ? "Entrando\u2026" : setup ? "Crear acceso" : "Entrar")));
 }
-function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
+function ApptSheet({ T, appt: a, patients, appts, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [editCom, setEditCom] = useState(false);
   const [comTxt, setComTxt] = useState(a.comentario || "");
@@ -431,6 +460,10 @@ function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, rest
     } catch (e) {
       return [];
     }
+  })();
+  const efChoca = (() => {
+    const s = minsM(ef.time), d = parseInt(ef.dur) || 30;
+    return !ef.time || overlapsM(s, s + d, busyRangesM(appts, ef.fecha, a.id));
   })();
   const isPend = a.status === "pendiente_pago";
   const isAnulada = a.status === "anulada";
@@ -526,10 +559,11 @@ function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, rest
   ), /* @__PURE__ */ React.createElement("button", { onClick: () => {
     if (!edit) setEf({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
     setEdit((v) => !v);
-  }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 9, padding: "13px 14px", borderRadius: 14, background: T.flatFill, border: "1px solid " + T.flatBorder, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M4 20l4-1 10-10-3-3L5 16l-1 4Z" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text, flex: 1 } }, "Editar fecha, hora, duraci\xF3n o procedimiento")), edit && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, padding: 14, borderRadius: 14, background: T.flatFill, border: "1px solid " + T.flatBorder, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Fecha"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, stepBtn(-1, () => setEf((f) => ({ ...f, fecha: shiftDateM(f.fecha, -1) }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 12.5, color: T.text, minWidth: 88, textAlign: "center" } }, dayLabelM(ef.fecha)), stepBtn(1, () => setEf((f) => ({ ...f, fecha: shiftDateM(f.fecha, 1) }))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Hora"), /* @__PURE__ */ React.createElement("input", { type: "time", value: ef.time, onChange: (e) => setEf((f) => ({ ...f, time: e.target.value })), style: { ...inp, width: "auto" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: ef.dur, onChange: (e) => setEf((f) => ({ ...f, dur: e.target.value })), style: { ...inp, width: "auto" } }, ["15", "30", "45", "60", "90", "120"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d, " min")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, display: "block", marginBottom: 6 } }, "Procedimiento"), procOpts.length ? /* @__PURE__ */ React.createElement("select", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), style: inp }, [ef.proc, ...procOpts.filter((p) => p !== ef.proc)].filter(Boolean).map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p))) : /* @__PURE__ */ React.createElement("input", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), placeholder: "Procedimiento", style: inp })), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 9, padding: "13px 14px", borderRadius: 14, background: T.flatFill, border: "1px solid " + T.flatBorder, cursor: "pointer", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: T.accent, strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M4 20l4-1 10-10-3-3L5 16l-1 4Z" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13.5, color: T.text, flex: 1 } }, "Editar fecha, hora, duraci\xF3n o procedimiento")), edit && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, padding: 14, borderRadius: 14, background: T.flatFill, border: "1px solid " + T.flatBorder, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Fecha"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, stepBtn(-1, () => setEf((f) => ({ ...f, fecha: shiftDateM(f.fecha, -1) }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontWeight: 500, fontSize: 12.5, color: T.text, minWidth: 88, textAlign: "center" } }, dayLabelM(ef.fecha)), stepBtn(1, () => setEf((f) => ({ ...f, fecha: shiftDateM(f.fecha, 1) }))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Hora"), /* @__PURE__ */ React.createElement("input", { type: "time", value: ef.time, onChange: (e) => setEf((f) => ({ ...f, time: e.target.value })), style: { ...inp, width: "auto" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: ef.dur, onChange: (e) => setEf((f) => ({ ...f, dur: e.target.value })), style: { ...inp, width: "auto" } }, ["15", "30", "45", "60", "90", "120"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d, " min")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, display: "block", marginBottom: 6 } }, "Procedimiento"), procOpts.length ? /* @__PURE__ */ React.createElement("select", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), style: inp }, [ef.proc, ...procOpts.filter((p) => p !== ef.proc)].filter(Boolean).map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, p))) : /* @__PURE__ */ React.createElement("input", { value: ef.proc, onChange: (e) => setEf((f) => ({ ...f, proc: e.target.value })), placeholder: "Procedimiento", style: inp })), efChoca && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.red } }, "Ese horario se cruza con otra cita del mismo d\xEDa."), /* @__PURE__ */ React.createElement("button", { disabled: efChoca, onClick: () => {
+    if (efChoca) return;
     updateAppt(a.id, { fecha: ef.fecha, day: isoToDayOff(ef.fecha), time: ef.time, dur: ef.dur + " minutos", proc: ef.proc });
     setEdit(false);
-  }, style: { height: 44, borderRadius: 12, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, "Guardar cambios")), waPhone && // Mismo mensaje que el botón "Confirmar asistencia" del portal de escritorio
+  }, style: { height: 44, borderRadius: 12, border: "none", background: efChoca ? T.flatBorder : T.accent, color: efChoca ? T.textFaint : T.onAccent, fontFamily: T.sans, fontSize: 14, fontWeight: 600, cursor: efChoca ? "not-allowed" : "pointer" } }, "Guardar cambios")), waPhone && // Mismo mensaje que el botón "Confirmar asistencia" del portal de escritorio
   // (jcmConfirmAsistMsg): pide responder SÍ/NO, con fecha/hora en español y cómo llegar.
   /* @__PURE__ */ React.createElement(
     "a",
@@ -1087,7 +1121,6 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
   const finalRut = tipo === "existente" ? selectedPatient ? selectedPatient.rut : "" : rut;
   const finalEmail = tipo === "existente" ? selectedPatient ? selectedPatient.email : "" : email;
   const patientOk = tipo === "existente" ? !!selectedPatient : name.trim() && (sinRut || rutOk) && phoneOk;
-  const canSave = patientOk && !!proc && !!fecha && !!time;
   const slotsMap = window.DB && window.DB.get("horarios_dates") || {};
   const weeklyDef = (() => {
     try {
@@ -1100,10 +1133,15 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
     return slotsM().slice();
   })();
   const avail = slotsMap[fecha] != null ? slotsMap[fecha] : weeklyDef;
-  const occupied = new Set(appts.filter((a) => a.fecha === fecha && a.status !== "anulada").map((a) => a.time));
-  const freeSlots = avail.filter((s) => !occupied.has(s));
   const slotGrid = clinicSeededM() ? slotsM() : avail;
-  const freeSlots15 = avail.length === 0 ? [] : slotGrid.filter((s) => !occupied.has(s));
+  const durMin = parseInt(dur) || 30;
+  const busy = busyRangesM(appts, fecha);
+  const freeSlots15 = freeStartsM(slotGrid, avail, busy, durMin);
+  const choqueHora = !!time && overlapsM(minsM(time), minsM(time) + durMin, busy);
+  useEffect(() => {
+    if (freeSlots15.length && freeSlots15.indexOf(time) < 0) setTime(freeSlots15[0]);
+  }, [freeSlots15.join(","), time]);
+  const canSave = patientOk && !!proc && !!fecha && !!time && !choqueHora;
   function confirm() {
     if (!canSave || saved) return;
     let patId = pid;
@@ -1225,7 +1263,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
       const base = freeSlots15.length ? freeSlots15 : slotsM();
       const opts = base.indexOf(time) >= 0 ? base : [time, ...base];
       return opts.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s, " hrs"));
-    })())), freeSlots15.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -8 } }, "No hay horas marcadas como disponibles para este d\xEDa."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, width: "auto" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "75 minutos", "90 minutos", "120 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement("textarea", { value: comment, onChange: (e) => setComment(e.target.value), placeholder: "Ej. Control, seguimiento, evaluaci\xF3n\u2026", rows: 2, style: { ...inp, resize: "none" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "11px 13px", borderRadius: 12, background: T.flatFill, border: "1px solid " + T.flatBorder } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: notifyWa, onChange: (e) => setNotifyWa(e.target.checked) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, "Notificar al paciente por WhatsApp")), /* @__PURE__ */ React.createElement("button", { onClick: confirm, disabled: !canSave || saved, style: { marginTop: 4, height: 50, borderRadius: 14, border: "none", background: saved ? T.green : T.accent, color: saved ? "#fff" : T.onAccent, fontFamily: T.sans, fontSize: 15, fontWeight: 600, cursor: canSave && !saved ? "pointer" : "not-allowed", opacity: canSave || saved ? 1 : 0.5, transition: "background .3s" } }, saved ? "\u2713 Cita guardada" : "Guardar cita"))
+    })())), freeSlots15.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -8 } }, avail.length === 0 ? "No hay horas marcadas como disponibles para este d\xEDa." : "No queda ning\xFAn hueco de " + durMin + " min este d\xEDa. Prueba otra duraci\xF3n u otro d\xEDa."), choqueHora && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red, marginTop: -8 } }, "Esa hora se cruza con otra cita ya agendada."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Duraci\xF3n"), /* @__PURE__ */ React.createElement("select", { value: dur, onChange: (e) => setDur(e.target.value), style: { ...inp, width: "auto" } }, ["15 minutos", "30 minutos", "45 minutos", "60 minutos", "75 minutos", "90 minutos", "120 minutos"].map((d) => /* @__PURE__ */ React.createElement("option", { key: d }, d)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Comentario (opcional)"), /* @__PURE__ */ React.createElement("textarea", { value: comment, onChange: (e) => setComment(e.target.value), placeholder: "Ej. Control, seguimiento, evaluaci\xF3n\u2026", rows: 2, style: { ...inp, resize: "none" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "11px 13px", borderRadius: 12, background: T.flatFill, border: "1px solid " + T.flatBorder } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: notifyWa, onChange: (e) => setNotifyWa(e.target.checked) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, "Notificar al paciente por WhatsApp")), /* @__PURE__ */ React.createElement("button", { onClick: confirm, disabled: !canSave || saved, style: { marginTop: 4, height: 50, borderRadius: 14, border: "none", background: saved ? T.green : T.accent, color: saved ? "#fff" : T.onAccent, fontFamily: T.sans, fontSize: 15, fontWeight: 600, cursor: canSave && !saved ? "pointer" : "not-allowed", opacity: canSave || saved ? 1 : 0.5, transition: "background .3s" } }, saved ? "\u2713 Cita guardada" : "Guardar cita"))
   );
 }
 function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient }) {
@@ -1797,6 +1835,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
       T,
       appt: apptSheet,
       patients,
+      appts,
       onClose: () => setApptSheet(null),
       updateAppt,
       cancelAppt,

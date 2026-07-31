@@ -121,6 +121,36 @@ function jcmConfirmAsistMsgM(a, clinNombre) {
 }
 
 function minsM(t) { if (!t) return 0; const [h,m] = t.split(":"); return parseInt(h)*60+parseInt(m||0); }
+// Minutos → "HH:MM" (la inversa de minsM). Hace falta para poder ofrecer horas que NO caen en la
+// grilla, como las 17:45 justo después de una cita de 15 min que empezó a las 17:30.
+function hhmmM(m) { const h = Math.floor(m/60), r = m%60; return (h<10?"0":"")+h+":"+(r<10?"0":"")+r; }
+// Paso de la grilla en minutos (15 en JC Medical, 30 en el resto) — mismo criterio que slotsM().
+function stepM() { return clinicSeededM() ? 15 : 30; }
+// Duración real de una cita en minutos: la guardada, y si no la del catálogo del procedimiento.
+function durOfM(a) { return parseInt(a.dur) || (window.JCDATA && window.JCDATA.procMin ? window.JCDATA.procMin(a.proc) : 30); }
+// Tramos OCUPADOS de un día como intervalos [inicio, fin) en minutos. El fin es EXCLUYENTE: una
+// cita de 17:30 a 17:45 deja las 17:45 libres. Se ignora `ignoreId` para poder mover una cita sin
+// que choque consigo misma.
+function busyRangesM(appts, iso, ignoreId) {
+  return (appts||[])
+    .filter(a => a.status !== "anulada" && a.id !== ignoreId && a.time &&
+                 ((a.fecha ? a.fecha : offToISO(a.day||0)) === iso))
+    .map(a => { const s = minsM(a.time); return { s, e: s + durOfM(a) }; });
+}
+function overlapsM(s, e, busy) { return (busy||[]).some(b => s < b.e && b.s < e); }
+// Horas ofrecibles para una cita de `durMin` minutos. Dos cosas que antes no se hacían:
+//  · se descarta toda hora cuyo tramo PISE una cita existente — antes solo se tapaba la hora de
+//    inicio, así que una cita de 60 min dejaba libres los tres cuartos de hora siguientes;
+//  · se agregan las horas de TÉRMINO de las citas del día, para poder agendar justo después de una
+//    cita que no cierra en la grilla (17:45 tras una de 17:30 a 17:45).
+function freeStartsM(grid, avail, busy, durMin) {
+  if (!avail || !avail.length) return []; // día cerrado
+  const paso = stepM();
+  const gm = (grid||[]).map(minsM);
+  const cands = new Set(gm);
+  (busy||[]).forEach(b => { if (gm.some(m => m <= b.e && b.e < m + paso)) cands.add(b.e); });
+  return [...cands].sort((x,y)=>x-y).filter(m => !overlapsM(m, m + durMin, busy)).map(hhmmM);
+}
 // Estados OFICIALES de una cita (pedido explícito del usuario): Agendado · Confirmado · Atendido ·
 // No asistió · Cancelada. "Agendado" es el estado por defecto (antes se mostraba "Pendiente").
 const STATUS_STEPS = [
@@ -428,13 +458,18 @@ function LoginScreen({ T, onAuth }) {
    Reemplaza el antiguo acordeón inline: se abre al tocar CUALQUIER cita (Inicio, Agenda) y permite
    cambiar entre los 5 estados oficiales, editar, comentar, restaurar si está cancelada y abrir la
    ficha del paciente. Un solo componente para toda la app — nada de lógica duplicada. */
-function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
+function ApptSheet({ T, appt:a, patients, appts, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [editCom, setEditCom] = useState(false);
   const [comTxt, setComTxt] = useState(a.comentario||"");
   const [edit, setEdit] = useState(false);
   const [ef, setEf] = useState({ fecha: a.fecha || todayISO(), time: a.time || "10:00", dur: (parseInt(a.dur) || 30) + "", proc: a.proc || "" });
   const procOpts = (() => { try { return (window.JCDATA && window.JCDATA.catalog ? procList() : []) || []; } catch (e) { return []; } })();
+  // Mover una cita tampoco puede pisar a otra: se ignora ella misma para que no choque consigo.
+  const efChoca = (() => {
+    const s = minsM(ef.time), d = parseInt(ef.dur) || 30;
+    return !ef.time || overlapsM(s, s + d, busyRangesM(appts, ef.fecha, a.id));
+  })();
   const isPend = a.status === "pendiente_pago";
   const isAnulada = a.status === "anulada";
   const st = apptStateM(a, T);
@@ -571,7 +606,8 @@ function ApptSheet({ T, appt:a, patients, onClose, updateAppt, cancelAppt, resto
                 ? <select value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} style={inp}>{[ef.proc, ...procOpts.filter(p=>p!==ef.proc)].filter(Boolean).map(p=><option key={p} value={p}>{p}</option>)}</select>
                 : <input value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} placeholder="Procedimiento" style={inp} />}
             </div>
-            <button onClick={()=>{ updateAppt(a.id,{ fecha:ef.fecha, day:isoToDayOff(ef.fecha), time:ef.time, dur:ef.dur+" minutos", proc:ef.proc }); setEdit(false); }} style={{ height:44, borderRadius:12, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:14, fontWeight:600, cursor:"pointer" }}>Guardar cambios</button>
+            {efChoca && <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.red }}>Ese horario se cruza con otra cita del mismo día.</div>}
+            <button disabled={efChoca} onClick={()=>{ if (efChoca) return; updateAppt(a.id,{ fecha:ef.fecha, day:isoToDayOff(ef.fecha), time:ef.time, dur:ef.dur+" minutos", proc:ef.proc }); setEdit(false); }} style={{ height:44, borderRadius:12, border:"none", background:efChoca?T.flatBorder:T.accent, color:efChoca?T.textFaint:T.onAccent, fontFamily:T.sans, fontSize:14, fontWeight:600, cursor:efChoca?"not-allowed":"pointer" }}>Guardar cambios</button>
           </div>
         )}
 
@@ -1440,7 +1476,6 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
   const finalEmail = tipo==="existente" ? (selectedPatient?selectedPatient.email:"") : email;
 
   const patientOk = tipo==="existente" ? !!selectedPatient : (name.trim() && (sinRut || rutOk) && phoneOk);
-  const canSave = patientOk && !!proc && !!fecha && !!time;
 
   const slotsMap = (window.DB && window.DB.get('horarios_dates')) || {};
   const weeklyDef = (() => {
@@ -1448,14 +1483,23 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
     return slotsM().slice();
   })();
   const avail = slotsMap[fecha]!=null ? slotsMap[fecha] : weeklyDef;
-  const occupied = new Set(appts.filter(a=>a.fecha===fecha && a.status!=="anulada").map(a=>a.time));
-  const freeSlots = avail.filter(s=>!occupied.has(s));
   // Opciones de hora del selector: en JC Medical (modo 15 min) se ofrece la grilla completa cada
   // 15 min —igual que el portal de escritorio, que ignora la granularidad guardada en horarios_v1—
   // para poder agendar a las y cuarto/menos cuarto. El resto de clínicas mantiene su configuración.
   // Si el día está cerrado (avail vacío), no se ofrece ninguna hora.
   const slotGrid = clinicSeededM() ? slotsM() : avail;
-  const freeSlots15 = (avail.length === 0) ? [] : slotGrid.filter(s => !occupied.has(s));
+  const durMin = parseInt(dur) || 30;
+  const busy = busyRangesM(appts, fecha);
+  // Las horas libres dependen de la DURACIÓN elegida: una cita de 60 min no cabe en un hueco de 30
+  // y por eso deja de ofrecerse esa hora.
+  const freeSlots15 = freeStartsM(slotGrid, avail, busy, durMin);
+  const choqueHora = !!time && overlapsM(minsM(time), minsM(time) + durMin, busy);
+  // Si la hora elegida deja de caber (cambió el día, el procedimiento o la duración), se mueve sola
+  // a la primera libre en vez de quedar seleccionada una que pisaría otra cita.
+  useEffect(() => {
+    if (freeSlots15.length && freeSlots15.indexOf(time) < 0) setTime(freeSlots15[0]);
+  }, [freeSlots15.join(","), time]);
+  const canSave = patientOk && !!proc && !!fecha && !!time && !choqueHora;
 
   function confirm() {
     if (!canSave || saved) return;
@@ -1629,7 +1673,8 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialF
           {(() => { const base = freeSlots15.length ? freeSlots15 : slotsM(); const opts = base.indexOf(time)>=0 ? base : [time, ...base]; return opts.map(s=><option key={s} value={s}>{s} hrs</option>); })()}
         </select>
       </div>
-      {freeSlots15.length===0 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>No hay horas marcadas como disponibles para este día.</div>}
+      {freeSlots15.length===0 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>{avail.length===0 ? "No hay horas marcadas como disponibles para este día." : "No queda ningún hueco de "+durMin+" min este día. Prueba otra duración u otro día."}</div>}
+      {choqueHora && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red, marginTop:-8 }}>Esa hora se cruza con otra cita ya agendada.</div>}
 
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <span style={lbl}>Duración</span>
@@ -2564,7 +2609,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
 
       {/* Hoja de acciones de una cita (estados oficiales) */}
       {apptSheet && (
-        <ApptSheet T={T} appt={apptSheet} patients={patients} onClose={()=>setApptSheet(null)}
+        <ApptSheet T={T} appt={apptSheet} patients={patients} appts={appts} onClose={()=>setApptSheet(null)}
           updateAppt={updateAppt} cancelAppt={cancelAppt} restoreAppt={restoreAppt} confirmPago={confirmPago}
           onOpenFicha={(id)=>{ setApptSheet(null); setOverlay({type:"ficha", id}); }} />
       )}
