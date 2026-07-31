@@ -220,7 +220,8 @@ function endTimeM(a) {
    una paleta "sobre foto": texto claro + glass translúcido de verdad (frost, deja ver la montaña),
    sin importar el tema día/noche del resto del sistema. photoTheme() lo aplica una sola vez en los
    entry points y TODA la app hereda el mismo lenguaje. */
-const ON_PHOTO = { text: "#F5F7FB", mute: "rgba(235,242,252,.72)", faint: "rgba(235,242,252,.5)" };
+// (ON_PHOTO se eliminó: solo lo usaba el login antiguo del móvil, ahora reemplazado por las
+//  clases jcl-* del acceso compartido con el panel de escritorio.)
 // Fuente sans del panel móvil = Jost (la del prototipo aprobado "Claude Design", 10-jul-2026).
 // Reemplaza a SF Pro: el mockup nuevo usa Jost en todo el cuerpo/labels/botones y Fraunces en
 // títulos/números/nombres (ver FRAUNCES más abajo). Cargada en JC_Mobile.html junto a Fraunces.
@@ -306,13 +307,36 @@ function PhotoBgLayers({ T, hero }) {
 // que se vea la montaña + velo navy en degradado (más suave arriba, donde está el cielo, y más
 // denso hacia el centro/abajo donde vive el formulario) para mantener el texto/los inputs legibles.
 // Esta foto vive SOLO en el login; el resto del panel usa su propio fondo (PhotoBgLayers).
-function LoginVideoBg({ children }) {
-  const overlay = "linear-gradient(180deg, rgba(9,11,15,.42) 0%, rgba(9,11,15,.62) 45%, rgba(9,11,15,.82) 100%)";
+// Acceso al panel móvil: EL MISMO login del panel de escritorio (SaasGate) — tarjeta de cristal
+// sobre el video de cumbres, con las clases jcl-*. El CSS es compartido (window.JCM_LOGIN_CSS, en
+// jc-proto/jc-theme.js, que cargan ambos paneles) para que no se desincronicen. Antes el móvil
+// tenía su propio fondo plano y otra tipografía, y entrar se sentía como otro producto.
+const LOGIN_STILL_M = (function () {
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return !!(c && c.saveData);
+  } catch (e) { return false; }
+})();
+function LoginVideoBg({ children, title, subtitle, footer }) {
   return (
-    <div style={{ position:"relative", minHeight:"100dvh", overflow:"hidden", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"30px 24px", backgroundColor:"#070707" }}>
-      <div style={{ position:"absolute", inset:0, backgroundImage:"url('/assets/evapp-login.jpg?v=1')", backgroundSize:"cover", backgroundPosition:"center top", backgroundRepeat:"no-repeat" }} />
-      <div style={{ position:"absolute", inset:0, backgroundImage:overlay }} />
-      <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:340, display:"flex", flexDirection:"column", alignItems:"center" }}>{children}</div>
+    <div className="jcl-stage" style={{ backgroundImage: "url('/assets/login-cumbres.jpg')", backgroundColor: "#070707" }}>
+      <style dangerouslySetInnerHTML={{ __html: (typeof window !== "undefined" && window.JCM_LOGIN_CSS) || "" }} />
+      {!LOGIN_STILL_M && (
+        <video className="jcl-video" autoPlay muted loop playsInline preload="auto" aria-hidden="true" tabIndex={-1} poster="/assets/login-cumbres.jpg">
+          <source src="/assets/login-cumbres.mp4" type="video/mp4" />
+        </video>
+      )}
+      <div className="jcl-veil" />
+      <div className="jcl-halo" />
+      <div className="jcl-card" key={title}>
+        <div className="jcl-sheen" />
+        <div className="jcl-st jcl-eyebrow" style={{ animationDelay: ".05s" }}>Medique · Panel clínico</div>
+        {title && <h1 className="jcl-st jcl-title" style={{ animationDelay: ".12s" }}>{title}</h1>}
+        {subtitle && <p className="jcl-st jcl-sub" style={{ animationDelay: ".18s" }}>{subtitle}</p>}
+        <div className="jcl-st" style={{ animationDelay: ".24s" }}>{children}</div>
+        {footer && <div className="jcl-st jcl-foot" style={{ animationDelay: ".3s" }}>{footer}</div>}
+      </div>
     </div>
   );
 }
@@ -385,21 +409,15 @@ function LoginScreen({ T, onAuth }) {
     } catch(e) { setErr("Error de conexión"); setBusy(false); }
   }
   // Aspecto IDÉNTICO al login del portal de escritorio (SaasGate, jc-admin.jsx): sin logo, eyebrow
-  // en el color de acento, serif fina, inputs opacos con radio 6 (no glass translúcido).
-  const SERIF = FRAUNCES; // la serif real del portal (Fraunces), no Marcellus
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid rgba(255,255,255,.14)", background:"rgba(20,22,28,.85)", color:"#fff", outline:"none", boxSizing:"border-box" };
-  const btnSober = { width:"100%", background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:500, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"14px", cursor:"pointer", marginTop:4 };
+  // Mismo acceso que el panel de escritorio: tarjeta de cristal y clases jcl-* (LoginVideoBg).
   return (
-    <LoginVideoBg>
-      <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".28em", textTransform:"uppercase", color:T.accent, textAlign:"center" }}>Medique · Panel móvil</div>
-      <h1 style={{ fontFamily:SERIF, fontWeight:300, fontSize:34, color:"#fff", textAlign:"center", margin:"12px 0 6px", lineHeight:1.05 }}>Acceso privado</h1>
-      <p style={{ fontFamily:T.sans, fontSize:12.5, color:ON_PHOTO.mute, textAlign:"center", lineHeight:1.6, margin:"0 0 22px" }}>Accede al panel de tu clínica.</p>
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
-        {setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} style={inp} />}
-        <input type="password" placeholder="Contraseña del panel" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp} />
-        {err && <div style={{ fontFamily:T.sans, fontSize:12, color:T.red, textAlign:"center" }}>{err}</div>}
-        <button onClick={submit} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>
-          {busy?"…":(setup?"Crear acceso":"Entrar")}
+    <LoginVideoBg title={setup ? "Crea tu acceso" : "Iniciar sesión"} subtitle={setup ? "Define la contraseña del panel de tu clínica." : "Entra al panel de tu clínica."}>
+      <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+        {setup && <input placeholder="Usuario" value={user} onChange={e=>setUser(e.target.value)} className="jcl-in" />}
+        <input type="password" placeholder="Contraseña del panel" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} className="jcl-in" />
+        {err && <div className="jcl-err">{err}</div>}
+        <button className="jcl-btn" onClick={submit} disabled={busy||!pass.trim()}>
+          {busy?"Entrando…":(setup?"Crear acceso":"Entrar")}
         </button>
       </div>
     </LoginVideoBg>
@@ -2666,55 +2684,34 @@ function MobileSaasGate() {
 
   if (phase === "app") return <MobileShell T={T} D={D} mode={mode} toggleMode={toggleMode} onLogout={() => window.JCSAAS.logout()} />;
 
-  // Aspecto IDÉNTICO al login del portal de escritorio (SaasGate, jc-admin.jsx): sin logo, eyebrow
-  // en el color de acento, serif fina centrada, inputs opacos con radio 6 (no glass translúcido).
-  const inp = { width:"100%", fontFamily:T.sans, fontSize:16, padding:"14px 16px", borderRadius:6, border:"1px solid rgba(255,255,255,.14)", background:"rgba(20,22,28,.85)", color:"#fff", outline:"none", boxSizing:"border-box" };
-  const btnSober = { width:"100%", background:"rgba(235,238,242,.92)", color:"#15181D", fontFamily:T.sans, fontSize:12, fontWeight:500, letterSpacing:".14em", textTransform:"uppercase", border:"none", borderRadius:6, padding:"14px", cursor:"pointer", marginTop:4 };
-  const linkSober = { background:"none", border:"none", cursor:"pointer", color:T.accent, fontFamily:T.sans, fontSize:12, textDecoration:"underline", padding:6 };
-  const SERIF = FRAUNCES; // la serif real del portal (Fraunces), no Marcellus
-  const eyebrow = { fontFamily:T.sans, fontSize:10, letterSpacing:".28em", textTransform:"uppercase", color:T.accent, textAlign:"center" };
-  const title = { fontFamily:SERIF, fontWeight:300, fontSize:34, color:"#fff", textAlign:"center", margin:"12px 0 6px", lineHeight:1.05 };
-  const subtitle = { fontFamily:T.sans, fontSize:12.5, color:ON_PHOTO.mute, textAlign:"center", lineHeight:1.6, margin:"0 0 22px" };
-  // Toda la "zona de login" (cargando/entrar/bloqueado/recuperar) comparte el mismo fondo.
-  const center = (kids) => <LoginVideoBg>{kids}</LoginVideoBg>;
+  // Los estilos del acceso ya no se declaran aquí: son las clases jcl-* del CSS compartido
+  // (window.JCM_LOGIN_CSS), las mismas que usa el panel de escritorio.
+  // Mismo envoltorio (título + subtítulo + cuerpo + pie) y las mismas clases jcl-* que el escritorio.
+  const wrapM = (ttl, sub, body, foot) => <LoginVideoBg title={ttl} subtitle={sub} footer={foot}>{body}</LoginVideoBg>;
+  const linkM = (txt, onClick) => <button className="jcl-link" onClick={onClick}>{txt}</button>;
 
-  if (phase === "loading") return center(<>
-    <div style={eyebrow}>Medique · Panel móvil</div>
-    <h1 style={title}>Conectando…</h1>
-    <p style={subtitle}>Verificando tu sesión.</p>
-  </>);
+  if (phase === "loading") return wrapM("Conectando…", "Estamos verificando tu sesión.", <div style={{ height:8 }} />, null);
 
-  if (phase === "blocked") return center(<>
-    <h1 style={title}>Plan inactivo</h1>
-    <p style={subtitle}>El acceso de tu clínica no está activo. Escríbenos para reactivarlo.</p>
-    <button onClick={()=>window.JCSAAS.logout()} style={{ background:"none", border:"1px solid rgba(255,255,255,.25)", color:"#fff", fontFamily:T.sans, fontSize:12, borderRadius:6, padding:"12px 18px", cursor:"pointer" }}>Cerrar sesión</button>
-  </>);
+  if (phase === "blocked") return wrapM("Plan inactivo", "El acceso de tu clínica no está activo. Escríbenos para reactivarlo.",
+    <button className="jcl-ghost" onClick={()=>window.JCSAAS.logout()}>Cerrar sesión</button>, null);
 
-  if (view === "recover") return center(<>
-    <div style={eyebrow}>Medique · Panel móvil</div>
-    <h1 style={title}>Recuperar contraseña</h1>
-    <p style={subtitle}>Te enviaremos un enlace a tu correo para restablecerla.</p>
-    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
-      <input placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRecover()} style={inp} />
-      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:T.red, textAlign:"center" }}>{err}</div>}
-      {msg && <div style={{ fontFamily:T.sans, fontSize:12, color:"#7CDDA8", textAlign:"center" }}>{msg}</div>}
-      <button onClick={doRecover} disabled={busy||!email.trim()} style={{ ...btnSober, opacity:(busy||!email.trim())?.6:1 }}>{busy?"Enviando…":"Enviar enlace"}</button>
-      <div style={{ textAlign:"center" }}><button onClick={()=>{ setView("login"); setErr(""); setMsg(""); }} style={linkSober}>← Volver</button></div>
-    </div>
-  </>);
+  if (view === "recover") return wrapM("Recuperar contraseña", "Te enviaremos un enlace a tu correo para restablecerla.",
+    <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+      <input value={email} autoFocus onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRecover()} placeholder="Correo de tu cuenta" inputMode="email" data-nocap="" className="jcl-in" />
+      {err && <div className="jcl-err">{err}</div>}
+      {msg && <div className="jcl-ok">{msg}</div>}
+      <button className="jcl-btn" onClick={doRecover} disabled={busy||!email.trim()}>{busy?"Enviando…":"Enviar enlace"}</button>
+      <div style={{ textAlign:"center" }}>{linkM("← Volver", ()=>{ setView("login"); setErr(""); setMsg(""); })}</div>
+    </div>, null);
 
-  return center(<>
-    <div style={eyebrow}>Medique · Panel móvil</div>
-    <h1 style={title}>Confirmar citas</h1>
-    <p style={subtitle}>Accede al panel de tu clínica.</p>
-    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:11 }}>
-      <input placeholder="Correo de tu clínica" inputMode="email" autoComplete="email" data-nocap="" value={email} onChange={e=>setEmail(e.target.value)} style={inp} />
-      <input type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} autoComplete="current-password" style={inp} />
-      {err && <div style={{ fontFamily:T.sans, fontSize:12, color:T.red, textAlign:"center" }}>{err}</div>}
-      <button onClick={doLogin} disabled={busy} style={{ ...btnSober, opacity:busy?.6:1 }}>{busy?"…":"Entrar"}</button>
-      <div style={{ textAlign:"center" }}><button onClick={()=>{ setView("recover"); setErr(""); }} style={linkSober}>¿Olvidaste tu contraseña?</button></div>
-    </div>
-  </>);
+  return wrapM("Iniciar sesión", "Entra al panel de tu clínica.",
+    <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+      <input value={email} autoFocus onChange={e=>setEmail(e.target.value)} placeholder="Correo" inputMode="email" autoComplete="email" data-nocap="" className="jcl-in" />
+      <input type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Contraseña" autoComplete="current-password" className="jcl-in" />
+      {err && <div className="jcl-err">{err}</div>}
+      <button className="jcl-btn" onClick={doLogin} disabled={busy||!email||!pass}>{busy?"Entrando…":"Entrar"}</button>
+      <div style={{ textAlign:"center" }}>{linkM("¿Olvidaste tu contraseña?", ()=>{ setView("recover"); setErr(""); })}</div>
+    </div>, null);
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(

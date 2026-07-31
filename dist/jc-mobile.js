@@ -209,7 +209,6 @@ function endTimeM(a) {
   const e = start + dur, hh = Math.floor(e / 60) % 24, mm = (e % 60 + 60) % 60;
   return (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
 }
-const ON_PHOTO = { text: "#F5F7FB", mute: "rgba(235,242,252,.72)", faint: "rgba(235,242,252,.5)" };
 const JOST = "'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif";
 const FRAUNCES = "'Fraunces', Georgia, serif";
 const MOBILE_THEME_KEY = "jcm_mobile_theme";
@@ -316,9 +315,17 @@ function glassChip(T) {
 function PhotoBgLayers({ T, hero }) {
   return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, background: hero ? T.heroBg : T.bgRadial } });
 }
-function LoginVideoBg({ children }) {
-  const overlay = "linear-gradient(180deg, rgba(9,11,15,.42) 0%, rgba(9,11,15,.62) 45%, rgba(9,11,15,.82) 100%)";
-  return /* @__PURE__ */ React.createElement("div", { style: { position: "relative", minHeight: "100dvh", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 24px", backgroundColor: "#070707" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: "url('/assets/evapp-login.jpg?v=1')", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: overlay } }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", alignItems: "center" } }, children));
+const LOGIN_STILL_M = function() {
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return !!(c && c.saveData);
+  } catch (e) {
+    return false;
+  }
+}();
+function LoginVideoBg({ children, title, subtitle, footer }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "jcl-stage", style: { backgroundImage: "url('/assets/login-cumbres.jpg')", backgroundColor: "#070707" } }, /* @__PURE__ */ React.createElement("style", { dangerouslySetInnerHTML: { __html: typeof window !== "undefined" && window.JCM_LOGIN_CSS || "" } }), !LOGIN_STILL_M && /* @__PURE__ */ React.createElement("video", { className: "jcl-video", autoPlay: true, muted: true, loop: true, playsInline: true, preload: "auto", "aria-hidden": "true", tabIndex: -1, poster: "/assets/login-cumbres.jpg" }, /* @__PURE__ */ React.createElement("source", { src: "/assets/login-cumbres.mp4", type: "video/mp4" })), /* @__PURE__ */ React.createElement("div", { className: "jcl-veil" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-halo" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-card", key: title }, /* @__PURE__ */ React.createElement("div", { className: "jcl-sheen" }), /* @__PURE__ */ React.createElement("div", { className: "jcl-st jcl-eyebrow", style: { animationDelay: ".05s" } }, "Medique \xB7 Panel cl\xEDnico"), title && /* @__PURE__ */ React.createElement("h1", { className: "jcl-st jcl-title", style: { animationDelay: ".12s" } }, title), subtitle && /* @__PURE__ */ React.createElement("p", { className: "jcl-st jcl-sub", style: { animationDelay: ".18s" } }, subtitle), /* @__PURE__ */ React.createElement("div", { className: "jcl-st", style: { animationDelay: ".24s" } }, children), footer && /* @__PURE__ */ React.createElement("div", { className: "jcl-st jcl-foot", style: { animationDelay: ".3s" } }, footer)));
 }
 function consentPendingM(patients, appts) {
   appts = appts || [];
@@ -410,10 +417,7 @@ function LoginScreen({ T, onAuth }) {
       setBusy(false);
     }
   }
-  const SERIF = FRAUNCES;
-  const inp = { width: "100%", fontFamily: T.sans, fontSize: 16, padding: "14px 16px", borderRadius: 6, border: "1px solid rgba(255,255,255,.14)", background: "rgba(20,22,28,.85)", color: "#fff", outline: "none", boxSizing: "border-box" };
-  const btnSober = { width: "100%", background: "rgba(235,238,242,.92)", color: "#15181D", fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", border: "none", borderRadius: 6, padding: "14px", cursor: "pointer", marginTop: 4 };
-  return /* @__PURE__ */ React.createElement(LoginVideoBg, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" } }, "Medique \xB7 Panel m\xF3vil"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: SERIF, fontWeight: 300, fontSize: 34, color: "#fff", textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 } }, "Acceso privado"), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: T.sans, fontSize: 12.5, color: ON_PHOTO.mute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" } }, "Accede al panel de tu cl\xEDnica."), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", display: "flex", flexDirection: "column", gap: 11 } }, setup && /* @__PURE__ */ React.createElement("input", { placeholder: "Usuario", value: user, onChange: (e) => setUser(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a del panel", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.red, textAlign: "center" } }, err), /* @__PURE__ */ React.createElement("button", { onClick: submit, disabled: busy, style: { ...btnSober, opacity: busy ? 0.6 : 1 } }, busy ? "\u2026" : setup ? "Crear acceso" : "Entrar")));
+  return /* @__PURE__ */ React.createElement(LoginVideoBg, { title: setup ? "Crea tu acceso" : "Iniciar sesi\xF3n", subtitle: setup ? "Define la contrase\xF1a del panel de tu cl\xEDnica." : "Entra al panel de tu cl\xEDnica." }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, setup && /* @__PURE__ */ React.createElement("input", { placeholder: "Usuario", value: user, onChange: (e) => setUser(e.target.value), className: "jcl-in" }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a del panel", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), /* @__PURE__ */ React.createElement("button", { className: "jcl-btn", onClick: submit, disabled: busy || !pass.trim() }, busy ? "Entrando\u2026" : setup ? "Crear acceso" : "Entrar")));
 }
 function ApptSheet({ T, appt: a, patients, onClose, updateAppt, cancelAppt, restoreAppt, confirmPago, onOpenFicha }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -1918,25 +1922,34 @@ function MobileSaasGate() {
     setBusy(false);
   }
   if (phase === "app") return /* @__PURE__ */ React.createElement(MobileShell, { T, D, mode, toggleMode, onLogout: () => window.JCSAAS.logout() });
-  const inp = { width: "100%", fontFamily: T.sans, fontSize: 16, padding: "14px 16px", borderRadius: 6, border: "1px solid rgba(255,255,255,.14)", background: "rgba(20,22,28,.85)", color: "#fff", outline: "none", boxSizing: "border-box" };
-  const btnSober = { width: "100%", background: "rgba(235,238,242,.92)", color: "#15181D", fontFamily: T.sans, fontSize: 12, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", border: "none", borderRadius: 6, padding: "14px", cursor: "pointer", marginTop: 4 };
-  const linkSober = { background: "none", border: "none", cursor: "pointer", color: T.accent, fontFamily: T.sans, fontSize: 12, textDecoration: "underline", padding: 6 };
-  const SERIF = FRAUNCES;
-  const eyebrow = { fontFamily: T.sans, fontSize: 10, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent, textAlign: "center" };
-  const title = { fontFamily: SERIF, fontWeight: 300, fontSize: 34, color: "#fff", textAlign: "center", margin: "12px 0 6px", lineHeight: 1.05 };
-  const subtitle = { fontFamily: T.sans, fontSize: 12.5, color: ON_PHOTO.mute, textAlign: "center", lineHeight: 1.6, margin: "0 0 22px" };
-  const center = (kids) => /* @__PURE__ */ React.createElement(LoginVideoBg, null, kids);
-  if (phase === "loading") return center(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, "Medique \xB7 Panel m\xF3vil"), /* @__PURE__ */ React.createElement("h1", { style: title }, "Conectando\u2026"), /* @__PURE__ */ React.createElement("p", { style: subtitle }, "Verificando tu sesi\xF3n.")));
-  if (phase === "blocked") return center(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("h1", { style: title }, "Plan inactivo"), /* @__PURE__ */ React.createElement("p", { style: subtitle }, "El acceso de tu cl\xEDnica no est\xE1 activo. Escr\xEDbenos para reactivarlo."), /* @__PURE__ */ React.createElement("button", { onClick: () => window.JCSAAS.logout(), style: { background: "none", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: T.sans, fontSize: 12, borderRadius: 6, padding: "12px 18px", cursor: "pointer" } }, "Cerrar sesi\xF3n")));
-  if (view === "recover") return center(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, "Medique \xB7 Panel m\xF3vil"), /* @__PURE__ */ React.createElement("h1", { style: title }, "Recuperar contrase\xF1a"), /* @__PURE__ */ React.createElement("p", { style: subtitle }, "Te enviaremos un enlace a tu correo para restablecerla."), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { placeholder: "Correo de tu cuenta", inputMode: "email", "data-nocap": "", value: email, onChange: (e) => setEmail(e.target.value), onKeyDown: (e) => e.key === "Enter" && doRecover(), style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.red, textAlign: "center" } }, err), msg && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: "#7CDDA8", textAlign: "center" } }, msg), /* @__PURE__ */ React.createElement("button", { onClick: doRecover, disabled: busy || !email.trim(), style: { ...btnSober, opacity: busy || !email.trim() ? 0.6 : 1 } }, busy ? "Enviando\u2026" : "Enviar enlace"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
-    setView("login");
-    setErr("");
-    setMsg("");
-  }, style: linkSober }, "\u2190 Volver")))));
-  return center(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: eyebrow }, "Medique \xB7 Panel m\xF3vil"), /* @__PURE__ */ React.createElement("h1", { style: title }, "Confirmar citas"), /* @__PURE__ */ React.createElement("p", { style: subtitle }, "Accede al panel de tu cl\xEDnica."), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { placeholder: "Correo de tu cl\xEDnica", inputMode: "email", autoComplete: "email", "data-nocap": "", value: email, onChange: (e) => setEmail(e.target.value), style: inp }), /* @__PURE__ */ React.createElement("input", { type: "password", placeholder: "Contrase\xF1a", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && doLogin(), autoComplete: "current-password", style: inp }), err && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.red, textAlign: "center" } }, err), /* @__PURE__ */ React.createElement("button", { onClick: doLogin, disabled: busy, style: { ...btnSober, opacity: busy ? 0.6 : 1 } }, busy ? "\u2026" : "Entrar"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
-    setView("recover");
-    setErr("");
-  }, style: linkSober }, "\xBFOlvidaste tu contrase\xF1a?")))));
+  const wrapM = (ttl, sub, body, foot) => /* @__PURE__ */ React.createElement(LoginVideoBg, { title: ttl, subtitle: sub, footer: foot }, body);
+  const linkM = (txt, onClick) => /* @__PURE__ */ React.createElement("button", { className: "jcl-link", onClick }, txt);
+  if (phase === "loading") return wrapM("Conectando\u2026", "Estamos verificando tu sesi\xF3n.", /* @__PURE__ */ React.createElement("div", { style: { height: 8 } }), null);
+  if (phase === "blocked") return wrapM(
+    "Plan inactivo",
+    "El acceso de tu cl\xEDnica no est\xE1 activo. Escr\xEDbenos para reactivarlo.",
+    /* @__PURE__ */ React.createElement("button", { className: "jcl-ghost", onClick: () => window.JCSAAS.logout() }, "Cerrar sesi\xF3n"),
+    null
+  );
+  if (view === "recover") return wrapM(
+    "Recuperar contrase\xF1a",
+    "Te enviaremos un enlace a tu correo para restablecerla.",
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: email, autoFocus: true, onChange: (e) => setEmail(e.target.value), onKeyDown: (e) => e.key === "Enter" && doRecover(), placeholder: "Correo de tu cuenta", inputMode: "email", "data-nocap": "", className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), msg && /* @__PURE__ */ React.createElement("div", { className: "jcl-ok" }, msg), /* @__PURE__ */ React.createElement("button", { className: "jcl-btn", onClick: doRecover, disabled: busy || !email.trim() }, busy ? "Enviando\u2026" : "Enviar enlace"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, linkM("\u2190 Volver", () => {
+      setView("login");
+      setErr("");
+      setMsg("");
+    }))),
+    null
+  );
+  return wrapM(
+    "Iniciar sesi\xF3n",
+    "Entra al panel de tu cl\xEDnica.",
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 11 } }, /* @__PURE__ */ React.createElement("input", { value: email, autoFocus: true, onChange: (e) => setEmail(e.target.value), placeholder: "Correo", inputMode: "email", autoComplete: "email", "data-nocap": "", className: "jcl-in" }), /* @__PURE__ */ React.createElement("input", { type: "password", value: pass, onChange: (e) => setPass(e.target.value), onKeyDown: (e) => e.key === "Enter" && doLogin(), placeholder: "Contrase\xF1a", autoComplete: "current-password", className: "jcl-in" }), err && /* @__PURE__ */ React.createElement("div", { className: "jcl-err" }, err), /* @__PURE__ */ React.createElement("button", { className: "jcl-btn", onClick: doLogin, disabled: busy || !email || !pass }, busy ? "Entrando\u2026" : "Entrar"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, linkM("\xBFOlvidaste tu contrase\xF1a?", () => {
+      setView("recover");
+      setErr("");
+    }))),
+    null
+  );
 }
 ReactDOM.createRoot(document.getElementById("root")).render(
   window.JCSAAS && window.JCSAAS.enabled ? /* @__PURE__ */ React.createElement(MobileSaasGate, null) : /* @__PURE__ */ React.createElement(MobileAdmin, null)
