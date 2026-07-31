@@ -3422,7 +3422,13 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       </div>
     ); })}</div>;
   };
-  const tipo = f.tipo || "general";
+  // Vertical dental: la ficha de estetica (zonas faciales, piel, toxina, bloqueador solar) no
+  // aplica en odontologia. Se REEMPLAZA por la anamnesis dental, no se esconde: una ficha
+  // odontologica a la que solo le faltan campos seria peor que la actual.
+  const _dental = !!(window.isDental && window.isDental());
+  // En dental no hay facial ni corporal, asi que el tipo se fuerza: si una clinica cambio de
+  // vertical con una ficha guardada en "facial", el render no puede quedar en un tipo muerto.
+  const tipo = _dental ? "general" : (f.tipo || "general");
   const imc = calcIMC(f.peso, f.talla);
   // Secciones estéticas (piel/hábitos/evaluación facial) solo aplican a ficha General y Facial.
   // Los antecedentes médicos son compartidos y se muestran siempre (misma data clinica.*).
@@ -3450,9 +3456,9 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
         <AdBtn T={T} small primary onClick={() => { try { updatePatient(patient.id, { clinica: f }); setSaved(true); } catch(e) { if(window.jcmError) window.jcmError("Error al guardar la ficha. Intenta de nuevo."); } }}>{saved ? "✓ Guardada" : "Guardar ficha"}</AdBtn>
       </div>
       {/* Selector de tipo de ficha */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+      {!_dental && <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {FICHA_TIPOS.map(([k, l]) => <button key={k} type="button" onClick={() => setVal("tipo", k)} style={{ fontFamily: T.sans, fontSize: 12, fontWeight: tipo === k ? 600 : 500, padding: "8px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid " + (tipo === k ? T.accent : T.line), background: tipo === k ? T.accent : "transparent", color: tipo === k ? (T.onAccent || "#fff") : T.textMute }}>{l}</button>)}
-      </div>
+      </div>}
       {/* Antropometría (Corporal) — compacta y colapsable: peso/talla/IMC en una fila. */}
       {tipo === "corporal" && (
         <div style={{ background: T.surface, border: "1px solid " + T.line, borderRadius: 8, marginBottom: 14, overflow: "hidden" }}>
@@ -3492,10 +3498,14 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
       {(() => {
         const grid = (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
-            {chipField("Antecedentes mórbidos", "morbidos", ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
+            {chipField("Antecedentes mórbidos", "morbidos", _dental
+              ? ["Hipertensión", "Diabetes", "Cardiopatía", "Anticoagulantes", "Asma", "Epilepsia", "Bifosfonatos"]
+              : ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"], "Otro antecedente…")}
             {nrField("Alergias", "alergias", "Ej. Penicilina, AINEs…", "alpha")}
             {nrField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
-            {chipField("Procedimientos estéticos previos", "esteticos", ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
+            {_dental
+              ? chipField("Tratamientos odontológicos previos", "tratPrevios", ["Ortodoncia", "Endodoncia", "Implantes", "Extracciones", "Prótesis", "Blanqueamiento"], "Detalle (pieza, año, profesional…)")
+              : chipField("Procedimientos estéticos previos", "esteticos", ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"], "Producto / detalle (ej. mesoterapia con…)")}
             {nrField("Hospitalizaciones", "hospital", "—")}
             {nrField("Medicamentos de uso diario", "medicamentos", "—")}
           </div>
@@ -3516,15 +3526,23 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
 
       {showEstetica && <>
       {/* Piel y factores de riesgo — desplegable en facial (mismos datos que la general) */}
-      {sect("Piel y factores de riesgo", (
+      {sect(_dental ? "Factores de riesgo" : "Piel y factores de riesgo", (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
-          {nrField("Cicatriz hipertrófica / queloides", "cicatriz", "—")}
-          {chipField("Patología dérmica", "dermica", ["Dermatitis atópica", "Rosácea", "Sensibilidad indeterminada"], "Otra patología…")}
-          {nrField("Problemas de coagulación", "coagulacion", "—")}
-          {nrField("Enfermedades autoinmunes", "autoinmune", "—")}
-          {nrField("Historial de herpes labial", "herpes", "—")}
-          {field("Exposición solar", sel("expsolar", ["Alta", "Media", "Baja", "No refiere"]))}
-          {field("Uso de bloqueador", sel("bloqueador", ["Diario", "2 veces al día", "Cada 4 horas", "No uso", "No refiere"]))}
+          {_dental ? <>
+            {nrField("Problemas de coagulación", "coagulacion", "—")}
+            {nrField("Enfermedades autoinmunes", "autoinmune", "—")}
+            {chipField("Bruxismo", "bruxismo", ["Diurno", "Nocturno", "Usa férula"], "Detalle…")}
+            {chipField("Sangrado de encías", "encias", ["Al cepillar", "Espontáneo", "Con seda dental"], "Detalle…")}
+            {nrField("Historial de herpes labial", "herpes", "—")}
+          </> : <>
+            {nrField("Cicatriz hipertrófica / queloides", "cicatriz", "—")}
+            {chipField("Patología dérmica", "dermica", ["Dermatitis atópica", "Rosácea", "Sensibilidad indeterminada"], "Otra patología…")}
+            {nrField("Problemas de coagulación", "coagulacion", "—")}
+            {nrField("Enfermedades autoinmunes", "autoinmune", "—")}
+            {nrField("Historial de herpes labial", "herpes", "—")}
+            {field("Exposición solar", sel("expsolar", ["Alta", "Media", "Baja", "No refiere"]))}
+            {field("Uso de bloqueador", sel("bloqueador", ["Diario", "2 veces al día", "Cada 4 horas", "No uso", "No refiere"]))}
+          </>}
         </div>
       ), showPiel, setShowPiel)}
 
@@ -3547,15 +3565,19 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
           {field("Alimentación", sel("alimentacion", ["Balanceada", "No balanceada", "Hipocalórica", "Hipercalórica", "Hiperproteica"]))}
         </div>
         <div style={{ marginTop: 14 }}>
-          <span style={lbl}>Cuidados de la piel en casa</span>
-          {chips("skincare", ["Bloqueador", "Sérum", "Crema", "Contorno de ojos", "Vitamina C"])}
-          <div style={{ marginTop: 10 }}>{text("skincare", "Otros productos…")}</div>
+          <span style={lbl}>{_dental ? "Higiene oral" : "Cuidados de la piel en casa"}</span>
+          {_dental
+            ? chips("higieneOral", ["Cepillado 2× al día", "Cepillado 3× al día", "Seda dental", "Enjuague bucal", "Irrigador"])
+            : chips("skincare", ["Bloqueador", "Sérum", "Crema", "Contorno de ojos", "Vitamina C"])}
+          <div style={{ marginTop: 10 }}>{_dental
+            ? text("higieneOral", "Última limpieza, pasta que usa, observaciones…")
+            : text("skincare", "Otros productos…")}</div>
         </div>
       </>), showHabitos, setShowHabitos)}
 
       {/* Evaluación y plan — desplegable en facial (es lo que sí cambia por tipo de ficha) */}
       {sect("Evaluación y plan", (<>
-        {[["evaluacion", "Evaluación facial"], ["plan", "Tratamientos recomendados"]].map(([k, label]) => {
+        {[["evaluacion", _dental ? "Evaluación odontológica" : "Evaluación facial"], ["plan", "Tratamientos recomendados"]].map(([k, label]) => {
           const isPlan = k === "plan";
           const totalU = isPlan ? sumUnits(f.plan) : 0;
           // En "Tratamientos recomendados", al escribir "Total U:" el número se completa solo
@@ -3573,7 +3595,7 @@ function FichaClinicaForm({ T, patient, updatePatient }) {
                   {grabando ? "Detener" : "Dictar"}
                 </button>
               </div>
-              <textarea value={f[k] || ""} onChange={onCh} rows={3} placeholder={isPlan ? 'Ej: 20u frontal, 10u procerus… escribe "Total U:" y se suma solo' : "Escribe o dicta la evaluación…"} style={inp({ resize: "vertical" })} />
+              <textarea value={f[k] || ""} onChange={onCh} rows={3} placeholder={isPlan ? (_dental ? "Ej: obturación 3.6, endodoncia 2.6, destartraje…" : 'Ej: 20u frontal, 10u procerus… escribe "Total U:" y se suma solo') : "Escribe o dicta la evaluación…"} style={inp({ resize: "vertical" })} />
               {isPlan && totalU > 0 && <span style={{ display: "inline-block", marginTop: 7, fontFamily: T.sans, fontSize: 11, fontWeight: 500, color: T.accent, background: T.accentSoft || "rgba(84,112,127,.12)", border: "1px solid " + (T.accent + "44"), borderRadius: 999, padding: "4px 11px" }}>Σ Total detectado: {totalU} U</span>}
             </div>
           );
