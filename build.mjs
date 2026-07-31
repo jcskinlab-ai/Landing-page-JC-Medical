@@ -26,6 +26,8 @@ const FLAGS = '--bundle=false --jsx=transform --jsx-factory=React.createElement 
 const FILES = [
   // Admin panel
   ['jc-admin/jc-sign',     'dist/jc-sign'],
+  // Texto legal del consentimiento: lo comparten el panel de escritorio y el móvil.
+  ['jc-admin/jc-consent-doc', 'dist/jc-consent-doc'],
   ['jc-admin/jc-face',     'dist/jc-face'],
   ['jc-admin/jc-dental',   'dist/jc-dental'],
   ['jc-admin/jc-admin-b',  'dist/jc-admin-b'],

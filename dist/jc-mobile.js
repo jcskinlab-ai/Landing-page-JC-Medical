@@ -1326,14 +1326,159 @@ function sesionesDe(p) {
   if (!h.length && Array.isArray(p.history)) h = p.history;
   return h.slice().sort((a, b) => sesFechaISO(b.date).localeCompare(sesFechaISO(a.date)));
 }
+function patConsentsM(p) {
+  if (!p) return [];
+  try {
+    const man = window.DB && window.DB.get("pconsm_" + p.id);
+    if (Array.isArray(man) && man.length) {
+      const items = [];
+      man.forEach((ts) => {
+        try {
+          const c = window.DB.get("pcons_" + p.id + "_" + ts);
+          if (c) items.push(c);
+        } catch (e) {
+        }
+      });
+      if (items.length) return items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    }
+    const v = window.DB && window.DB.get("pcons_" + p.id);
+    if (Array.isArray(v) && v.length) return v;
+  } catch (e) {
+  }
+  return p.consents || (p.consentDoc ? [p.consentDoc] : []);
+}
+function snapMedicoM() {
+  try {
+    const ms = window.DB.get("medic_sigs");
+    if (ms && ms.length && ms[0]) {
+      const m = ms[0];
+      return { name: m.name || "", rut: m.rut || "", registro: m.registro || "", sig: m.sig || "" };
+    }
+  } catch (e) {
+  }
+  return null;
+}
+function consentCatalogM() {
+  let base = [];
+  try {
+    base = (window.JCADMIN && window.JCADMIN.consents || []).slice();
+  } catch (e) {
+  }
+  try {
+    const propias = window.DB && window.DB.get("consent_templates");
+    if (Array.isArray(propias)) propias.forEach((t) => base.push({ id: "tpl-" + (t.id || t.title), title: t.title || "Consentimiento", kind: "extra", proc: t.proc || "", cat: "Propio", body: t.body || "" }));
+  } catch (e) {
+  }
+  const dental = (() => {
+    try {
+      return !!(window.isDental && window.isDental());
+    } catch (e) {
+      return false;
+    }
+  })();
+  return base.filter((c) => !c.vertical || c.vertical === (dental ? "dental" : "estetica"));
+}
+function ConsentSignM({ T, patient, onClose, onSaved }) {
+  const cat = consentCatalogM();
+  const [tpl, setTpl] = useState(null);
+  const hoy = (() => {
+    const d = /* @__PURE__ */ new Date();
+    return ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + String(d.getFullYear()).slice(-2);
+  })();
+  const profDef = (() => {
+    try {
+      const p = window.DB && window.DB.cfg && window.DB.cfg().professional;
+      return p && ("" + p).trim() || "";
+    } catch (e) {
+      return "";
+    }
+  })();
+  const [f, setF] = useState({ nombre: patient.name || "", ci: patient.rut || "", edad: patient.age ? String(patient.age) : "", fecha: hoy, prof: profDef, aiPhotos: true });
+  const [body, setBody] = useState("");
+  const [sigPac, setSigPac] = useState(null);
+  const [sigPro, setSigPro] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const inp = { width: "100%", fontFamily: T.sans, fontSize: 14, padding: "11px 13px", borderRadius: 9, border: "1px solid " + T.inputBorder, background: T.inputFill, color: T.text, outline: "none", boxSizing: "border-box" };
+  const miniLbl = { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginBottom: 4 };
+  const listo = !!tpl && f.nombre.trim() && f.prof.trim() && sigPac && sigPro && !busy;
+  function guardar() {
+    if (!listo) return;
+    setBusy(true);
+    try {
+      const doc = {
+        kind: tpl.kind,
+        title: tpl.title,
+        cat: tpl.cat,
+        proc: tpl.proc,
+        proc4: tpl.proc4,
+        vascular: tpl.vascular,
+        body: tpl.kind === "extra" ? body : tpl.body,
+        paragraphs: tpl.paragraphs,
+        nombre: f.nombre.trim(),
+        ci: f.ci.trim(),
+        edad: f.edad.trim(),
+        prof: f.prof.trim(),
+        fecha: f.fecha,
+        aiPhotos: !!f.aiPhotos,
+        sigPac,
+        sigPro,
+        medico: snapMedicoM(),
+        ts: Date.now(),
+        source: "movil"
+      };
+      const lista = [doc, ...patConsentsM(patient)];
+      const man = [];
+      lista.forEach((c, i) => {
+        const ts = c.ts || Date.now() + i;
+        window.DB.set("pcons_" + patient.id + "_" + ts, c);
+        man.push(ts);
+      });
+      window.DB.set("pconsm_" + patient.id, man);
+      const edadNum = parseInt(f.edad, 10);
+      const parcheEdad = edadNum && !patient.age ? { age: edadNum } : {};
+      onSaved({ consent: true, consentTs: Date.now(), consentInfo: tpl.title + " \xB7 " + f.fecha, aiPhotoConsent: !!f.aiPhotos, ...parcheEdad });
+      try {
+        window.jcmToast && window.jcmToast("Consentimiento firmado y guardado.", "ok");
+      } catch (e) {
+      }
+      onClose();
+    } catch (e) {
+      setBusy(false);
+      try {
+        window.jcmError ? window.jcmError("No se pudo guardar el consentimiento.") : alert("No se pudo guardar el consentimiento.");
+      } catch (e2) {
+      }
+    }
+  }
+  const Pad = window.SignaturePad;
+  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Consentimiento", onBack: onClose }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 14 } }, !tpl ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "Elige el consentimiento que va a firmar ", patient.name, "."), cat.map((c) => /* @__PURE__ */ React.createElement("button", { key: c.id, onClick: () => setTpl(c), style: { textAlign: "left", padding: "14px 15px", borderRadius: 13, background: T.flatFill, border: "1px solid " + T.flatBorder, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14, fontWeight: 600, color: T.text } }, c.title), c.cat && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, c.cat))), !cat.length && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute } }, "No hay plantillas disponibles.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 18, color: T.text } }, tpl.title), /* @__PURE__ */ React.createElement("button", { onClick: () => setTpl(null), style: { background: "none", border: "none", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer", flexShrink: 0 } }, "Cambiar")), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px", display: "flex", flexDirection: "column", gap: 9 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Nombre del paciente"), /* @__PURE__ */ React.createElement("input", { value: f.nombre, onChange: (e) => setF((s) => ({ ...s, nombre: e.target.value })), style: inp })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 84px", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "C\xE9dula de identidad"), /* @__PURE__ */ React.createElement("input", { value: f.ci, onChange: (e) => setF((s) => ({ ...s, ci: window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value })), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Edad"), /* @__PURE__ */ React.createElement("input", { value: f.edad, onChange: (e) => setF((s) => ({ ...s, edad: e.target.value.replace(/\D/g, "").slice(0, 3) })), inputMode: "numeric", style: { ...inp, textAlign: "center" } }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 108px", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Profesional"), /* @__PURE__ */ React.createElement("input", { value: f.prof, onChange: (e) => setF((s) => ({ ...s, prof: e.target.value })), style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Fecha"), /* @__PURE__ */ React.createElement("input", { value: f.fecha, onChange: (e) => setF((s) => ({ ...s, fecha: e.target.value })), style: { ...inp, textAlign: "center" } }))), tpl.kind === "extra" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Texto del consentimiento"), /* @__PURE__ */ React.createElement("textarea", { value: body, onChange: (e) => setBody(e.target.value), rows: 5, placeholder: "Describe el procedimiento y lo que el paciente autoriza\u2026", style: { ...inp, resize: "none" } }))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "14px 15px", maxHeight: 300, overflowY: "auto", WebkitOverflowScrolling: "touch" } }, window.ConsentDoc ? /* @__PURE__ */ React.createElement(window.ConsentDoc, { T, tpl: tpl.kind === "extra" ? { ...tpl, body } : tpl, prof: f.prof }) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.red } }, "No se pudo cargar el texto del consentimiento. Revisa la conexi\xF3n y vuelve a entrar.")), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "11px 13px", borderRadius: 12, background: T.flatFill, border: "1px solid " + T.flatBorder } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: f.aiPhotos, onChange: (e) => setF((s) => ({ ...s, aiPhotos: e.target.checked })) }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.text } }, "Autoriza fotograf\xEDas con fines cl\xEDnicos y acad\xE9micos")), Pad ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Firma del paciente"), /* @__PURE__ */ React.createElement(Pad, { T, onChange: setSigPac, height: 150 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Firma del profesional"), /* @__PURE__ */ React.createElement(Pad, { T, onChange: setSigPro, height: 150 }))) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.red } }, "No se pudo cargar el m\xF3dulo de firma."), !listo && !busy && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, "Faltan: ", [!f.nombre.trim() && "nombre", !f.prof.trim() && "profesional", !sigPac && "firma del paciente", !sigPro && "firma del profesional"].filter(Boolean).join(", "), "."), /* @__PURE__ */ React.createElement("button", { onClick: guardar, disabled: !listo, style: { height: 48, borderRadius: 13, border: "none", background: listo ? T.accent : T.flatBorder, color: listo ? T.onAccent : T.textFaint, fontFamily: T.sans, fontSize: 14.5, fontWeight: 600, cursor: listo ? "pointer" : "not-allowed" } }, busy ? "Guardando\u2026" : "Firmar y guardar"))));
+}
 function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) {
   const p = patients.find((x) => x.id === patientId);
   const [edit, setEdit] = useState(false);
-  const [f, setF] = useState({ phone: p ? p.phone || "" : "", email: p ? p.email || "" : "", notas: p ? p.notas || "" : "" });
+  function fFrom(x) {
+    return { name: x ? x.name || "" : "", rut: x ? x.rut || "" : "", age: x && x.age ? String(x.age) : "", phone: x ? x.phone || "" : "", email: x ? x.email || "" : "", notas: x ? x.notas || "" : "" };
+  }
+  const [f, setF] = useState(() => fFrom(p));
   useEffect(() => {
-    if (p) setF({ phone: p.phone || "", email: p.email || "", notas: p.notas || "" });
+    if (p) setF(fFrom(p));
   }, [patientId]);
+  const [firmando, setFirmando] = useState(false);
+  const [consRev, setConsRev] = useState(0);
+  const firmados = useMemo(() => patConsentsM(p), [patientId, consRev, p && p.consentTs]);
   if (!p) return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Ficha", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: 30, textAlign: "center", fontFamily: T.sans, color: T.textMute } }, "Paciente no encontrado."));
+  if (firmando) return /* @__PURE__ */ React.createElement(
+    ConsentSignM,
+    {
+      T,
+      patient: p,
+      onClose: () => setFirmando(false),
+      onSaved: (patch) => {
+        updatePatient(p.id, patch);
+        setConsRev((v) => v + 1);
+      }
+    }
+  );
   const mine = appts.filter((a) => a.patId === p.id || a.name === p.name);
   const today = todayISO();
   const proximas = mine.filter((a) => a.status !== "anulada" && (a.fecha || offToISO(a.day || 0)) >= today).sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
@@ -1355,14 +1500,26 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
     return isNaN(d) ? iso || "\u2014" : d.getDate() + " " + MESES[d.getMonth()] + " " + d.getFullYear();
   };
   const inp = { width: "100%", fontFamily: T.sans, fontSize: 14, padding: "11px 13px", borderRadius: 9, border: "1px solid " + T.inputBorder, background: T.inputFill, color: T.text, outline: "none", boxSizing: "border-box" };
+  const miniLbl = { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginBottom: 4 };
+  const emailOk = !f.email.trim() || /\S+@\S+\.\S+/.test(f.email.trim());
+  const rutWarn = !!f.rut.trim() && !!window.jcmValidRut && !window.jcmValidRut(f.rut);
+  const okSave = f.name.trim().length > 2 && emailOk;
   function save() {
-    updatePatient(p.id, { phone: f.phone.trim(), email: f.email.trim(), notas: f.notas.trim() });
+    if (!okSave) return;
+    updatePatient(p.id, {
+      name: f.name.trim(),
+      rut: f.rut.trim(),
+      age: f.age.trim() === "" ? 0 : parseInt(f.age, 10) || 0,
+      phone: f.phone.trim(),
+      email: f.email.trim(),
+      notas: f.notas.trim()
+    });
     setEdit(false);
   }
-  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Ficha del paciente", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 56, height: 56, borderRadius: "50%", background: T.accentSoft, border: "1px solid " + T.accentBorder, color: T.accentStrong, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 19, fontWeight: 700, flexShrink: 0 } }, (p.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, [p.rut, p.age ? p.age + " a\xF1os" : ""].filter(Boolean).join(" \xB7 ")))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, "Contacto"), !edit && /* @__PURE__ */ React.createElement("button", { onClick: () => setEdit(true), style: { background: "none", border: "none", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer" } }, "Editar")), edit ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("input", { value: f.phone, onChange: (e) => setF((s) => ({ ...s, phone: e.target.value })), placeholder: "Tel\xE9fono", style: inp }), /* @__PURE__ */ React.createElement("input", { value: f.email, onChange: (e) => setF((s) => ({ ...s, email: e.target.value })), placeholder: "Correo", style: inp }), /* @__PURE__ */ React.createElement("textarea", { value: f.notas, onChange: (e) => setF((s) => ({ ...s, notas: e.target.value })), placeholder: "Notas (alergias, preferencias, etc.)", rows: 2, style: { ...inp, resize: "none" } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  return /* @__PURE__ */ React.createElement(OverlayShell, { T, title: "Ficha del paciente", onBack }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 40px", display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 56, height: 56, borderRadius: "50%", background: T.accentSoft, border: "1px solid " + T.accentBorder, color: T.accentStrong, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 19, fontWeight: 700, flexShrink: 0 } }, (p.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 19, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute } }, [p.rut, p.age ? p.age + " a\xF1os" : ""].filter(Boolean).join(" \xB7 ")))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, "Datos del paciente"), !edit && /* @__PURE__ */ React.createElement("button", { onClick: () => setEdit(true), style: { background: "none", border: "none", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer" } }, "Editar")), edit ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Nombre"), /* @__PURE__ */ React.createElement("input", { value: f.name, onChange: (e) => setF((s) => ({ ...s, name: e.target.value })), placeholder: "Nombre y apellidos", style: inp })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 96px", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "RUT"), /* @__PURE__ */ React.createElement("input", { value: f.rut, onChange: (e) => setF((s) => ({ ...s, rut: window.jcmFmtRut ? window.jcmFmtRut(e.target.value) : e.target.value })), placeholder: "12.345.678-9", inputMode: "text", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Edad"), /* @__PURE__ */ React.createElement("input", { value: f.age, onChange: (e) => setF((s) => ({ ...s, age: e.target.value.replace(/\D/g, "").slice(0, 3) })), placeholder: "\u2014", inputMode: "numeric", style: { ...inp, textAlign: "center" } }))), rutWarn && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.warn } }, "Ese RUT no pasa el d\xEDgito verificador. Puedes guardarlo igual."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("input", { value: f.phone, onChange: (e) => setF((s) => ({ ...s, phone: e.target.value })), placeholder: "+56 9 1234 5678", inputMode: "tel", style: inp })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: miniLbl }, "Correo"), /* @__PURE__ */ React.createElement("input", { value: f.email, onChange: (e) => setF((s) => ({ ...s, email: e.target.value })), placeholder: "correo@ejemplo.cl", inputMode: "email", style: inp })), !emailOk && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red } }, "Ese correo no parece v\xE1lido."), /* @__PURE__ */ React.createElement("textarea", { value: f.notas, onChange: (e) => setF((s) => ({ ...s, notas: e.target.value })), placeholder: "Notas (alergias, preferencias, etc.)", rows: 2, style: { ...inp, resize: "none" } }), !okSave && f.name.trim().length <= 2 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.red } }, "El nombre es obligatorio."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
     setEdit(false);
-    setF({ phone: p.phone || "", email: p.email || "", notas: p.notas || "" });
-  }, style: { flex: 1, height: 38, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: save, style: { flex: 2, height: 38, borderRadius: 8, border: "none", background: T.accent, color: T.onAccent, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "Guardar"))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.phone || "Sin tel\xE9fono"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.email || "Sin correo"), p.notas && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 3, fontStyle: "italic" } }, p.notas))), p.phone && /* @__PURE__ */ React.createElement(
+    setF(fFrom(p));
+  }, style: { flex: 1, height: 38, borderRadius: 8, border: "1px solid " + T.line, background: "transparent", color: T.textMute, fontFamily: T.sans, fontSize: 12, cursor: "pointer" } }, "Cancelar"), /* @__PURE__ */ React.createElement("button", { onClick: save, disabled: !okSave, style: { flex: 2, height: 38, borderRadius: 8, border: "none", background: okSave ? T.accent : T.flatBorder, color: okSave ? T.onAccent : T.textFaint, fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: okSave ? "pointer" : "not-allowed" } }, "Guardar"))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.rut || "Sin RUT", " \xB7 ", p.age ? p.age + " a\xF1os" : "Edad sin registrar"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.phone || "Sin tel\xE9fono"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, color: T.text } }, p.email || "Sin correo"), p.notas && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: T.textMute, marginTop: 3, fontStyle: "italic" } }, p.notas))), /* @__PURE__ */ React.createElement("div", { style: { ...glassPanel(T, 12), padding: "13px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, "Consentimiento informado"), /* @__PURE__ */ React.createElement("button", { onClick: () => setFirmando(true), style: { background: "none", border: "none", color: T.accent, fontFamily: T.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer" } }, "Firmar")), firmados.length ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7 } }, firmados.map((c, i) => /* @__PURE__ */ React.createElement("div", { key: c.ts || i, style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, color: T.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.title || "Consentimiento"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textMute, flexShrink: 0 } }, c.fecha || "")))) : /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, color: p.paperConsent ? T.text : T.textMute } }, p.paperConsent ? p.consentInfo || "Firmado en papel" : "Sin consentimiento firmado.")), p.phone && /* @__PURE__ */ React.createElement(
     "a",
     {
       href: "https://wa.me/56" + p.phone.replace(/\D/g, "").replace(/^(56|0)/, ""),

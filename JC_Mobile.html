@@ -78,7 +78,15 @@
 <script src="jcm_saas_config.js?v=7"></script>
 <script src="jcm_saas.js?v=35"></script>
 
-<script src="/dist/jc-mobile.js?v=100"></script>
+<!-- Consentimiento informado desde el celular. Se cargan los MISMOS archivos que usa el panel de
+     escritorio para no tener dos versiones del texto que firma el paciente:
+       · jc-admin-data.js  → window.JCADMIN.consents (catálogo de plantillas)
+       · jc-consent-doc.js → ConsentDoc (cuerpo legal), compartido con JC_Admin
+       · jc-sign.js        → SignaturePad + jcExportSignature (firma comprimida a JPEG) -->
+<script src="/jc-admin/jc-admin-data.js?v=75"></script>
+<script src="/dist/jc-consent-doc.js?v=1"></script>
+<script src="/dist/jc-sign.js?v=2"></script>
+<script src="/dist/jc-mobile.js?v=101"></script>
 
 <script>
   // Service Worker: abre la app agregada a la pantalla de inicio del iPhone al instante desde

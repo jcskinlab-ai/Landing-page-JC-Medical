@@ -1798,12 +1798,162 @@ function sesionesDe(p) {
   return h.slice().sort((a, b) => sesFechaISO(b.date).localeCompare(sesFechaISO(a.date)));
 }
 
+/* ═══════════ Consentimiento informado (móvil) ═══════════
+   Usa EXACTAMENTE las mismas plantillas (window.JCADMIN.consents), el mismo cuerpo legal
+   (window.ConsentDoc, en jc-consent-doc.jsx compartido con el escritorio) y el mismo almacenamiento
+   que jc-admin-b.jsx: cada documento en `pcons_<id>_<ts>` y el índice en `pconsm_<id>`. Así un
+   consentimiento firmado en el celular se abre idéntico en el PC, y al revés. */
+function patConsentsM(p) { // espejo de patConsents() en jc-admin-b.jsx
+  if (!p) return [];
+  try {
+    const man = window.DB && window.DB.get("pconsm_" + p.id);
+    if (Array.isArray(man) && man.length) {
+      const items = [];
+      man.forEach(ts => { try { const c = window.DB.get("pcons_" + p.id + "_" + ts); if (c) items.push(c); } catch (e) {} });
+      if (items.length) return items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    }
+    const v = window.DB && window.DB.get("pcons_" + p.id); // formato anterior (array completo)
+    if (Array.isArray(v) && v.length) return v;
+  } catch (e) {}
+  return p.consents || (p.consentDoc ? [p.consentDoc] : []);
+}
+function snapMedicoM() { // espejo de _snapMedicoResp() en jc-admin-b.jsx
+  try { const ms = window.DB.get("medic_sigs"); if (ms && ms.length && ms[0]) { const m = ms[0]; return { name:m.name||"", rut:m.rut||"", registro:m.registro||"", sig:m.sig||"" }; } } catch (e) {}
+  return null;
+}
+function consentCatalogM() {
+  let base = [];
+  try { base = ((window.JCADMIN && window.JCADMIN.consents) || []).slice(); } catch (e) {}
+  // Plantillas propias de la clínica (módulo Consentimientos del escritorio) → mismas que allá.
+  try {
+    const propias = window.DB && window.DB.get("consent_templates");
+    if (Array.isArray(propias)) propias.forEach(t => base.push({ id:"tpl-"+(t.id||t.title), title:t.title||"Consentimiento", kind:"extra", proc:t.proc||"", cat:"Propio", body:t.body||"" }));
+  } catch (e) {}
+  const dental = (() => { try { return !!(window.isDental && window.isDental()); } catch (e) { return false; } })();
+  return base.filter(c => !c.vertical || c.vertical === (dental ? "dental" : "estetica"));
+}
+function ConsentSignM({ T, patient, onClose, onSaved }) {
+  const cat = consentCatalogM();
+  const [tpl, setTpl] = useState(null);
+  const hoy = (() => { const d = new Date(); return ("0"+d.getDate()).slice(-2)+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+String(d.getFullYear()).slice(-2); })();
+  const profDef = (() => { try { const p = window.DB && window.DB.cfg && window.DB.cfg().professional; return (p && (""+p).trim()) || ""; } catch (e) { return ""; } })();
+  const [f, setF] = useState({ nombre:patient.name||"", ci:patient.rut||"", edad:patient.age?String(patient.age):"", fecha:hoy, prof:profDef, aiPhotos:true });
+  const [body, setBody] = useState("");           // solo para la plantilla "extraordinaria"
+  const [sigPac, setSigPac] = useState(null);
+  const [sigPro, setSigPro] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
+  const miniLbl = { fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginBottom:4 };
+  const listo = !!tpl && f.nombre.trim() && f.prof.trim() && sigPac && sigPro && !busy;
+
+  function guardar() {
+    if (!listo) return;
+    setBusy(true);
+    try {
+      const doc = { kind:tpl.kind, title:tpl.title, cat:tpl.cat, proc:tpl.proc, proc4:tpl.proc4, vascular:tpl.vascular,
+        body: tpl.kind === "extra" ? body : tpl.body, paragraphs:tpl.paragraphs,
+        nombre:f.nombre.trim(), ci:f.ci.trim(), edad:f.edad.trim(), prof:f.prof.trim(), fecha:f.fecha, aiPhotos:!!f.aiPhotos,
+        sigPac, sigPro, medico:snapMedicoM(), ts:Date.now(), source:"movil" };
+      // Mismo esquema que commitConsents() del escritorio: documento aparte + manifest.
+      const lista = [doc, ...patConsentsM(patient)];
+      const man = [];
+      lista.forEach((c, i) => { const ts = c.ts || (Date.now() + i); window.DB.set("pcons_" + patient.id + "_" + ts, c); man.push(ts); });
+      window.DB.set("pconsm_" + patient.id, man);
+      // En el paciente solo la marca liviana (sin firmas), para no inflar el bloque `patients`.
+      const edadNum = parseInt(f.edad, 10);
+      const parcheEdad = (edadNum && !patient.age) ? { age: edadNum } : {};
+      onSaved({ consent:true, consentTs:Date.now(), consentInfo:tpl.title + " · " + f.fecha, aiPhotoConsent:!!f.aiPhotos, ...parcheEdad });
+      try { window.jcmToast && window.jcmToast("Consentimiento firmado y guardado.", "ok"); } catch (e) {}
+      onClose();
+    } catch (e) {
+      setBusy(false);
+      try { window.jcmError ? window.jcmError("No se pudo guardar el consentimiento.") : alert("No se pudo guardar el consentimiento."); } catch (e2) {}
+    }
+  }
+
+  const Pad = window.SignaturePad;
+  return (
+    <OverlayShell T={T} title="Consentimiento" onBack={onClose}>
+      <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:14 }}>
+        {!tpl ? (
+          <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+            <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>Elige el consentimiento que va a firmar {patient.name}.</div>
+            {cat.map(c => (
+              <button key={c.id} onClick={()=>setTpl(c)} style={{ textAlign:"left", padding:"14px 15px", borderRadius:13, background:T.flatFill, border:"1px solid "+T.flatBorder, cursor:"pointer" }}>
+                <div style={{ fontFamily:T.sans, fontSize:14, fontWeight:600, color:T.text }}>{c.title}</div>
+                {c.cat && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:2 }}>{c.cat}</div>}
+              </button>
+            ))}
+            {!cat.length && <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute }}>No hay plantillas disponibles.</div>}
+          </div>
+        ) : (
+          <>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+              <div style={{ fontFamily:T.serif, fontSize:18, color:T.text }}>{tpl.title}</div>
+              <button onClick={()=>setTpl(null)} style={{ background:"none", border:"none", color:T.accent, fontFamily:T.sans, fontSize:11.5, fontWeight:600, cursor:"pointer", flexShrink:0 }}>Cambiar</button>
+            </div>
+
+            <div style={{ ...glassPanel(T,12), padding:"13px 14px", display:"flex", flexDirection:"column", gap:9 }}>
+              <div><div style={miniLbl}>Nombre del paciente</div><input value={f.nombre} onChange={e=>setF(s=>({...s,nombre:e.target.value}))} style={inp} /></div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 84px", gap:8 }}>
+                <div><div style={miniLbl}>Cédula de identidad</div><input value={f.ci} onChange={e=>setF(s=>({...s,ci:window.jcmFmtRut?window.jcmFmtRut(e.target.value):e.target.value}))} style={inp} /></div>
+                <div><div style={miniLbl}>Edad</div><input value={f.edad} onChange={e=>setF(s=>({...s,edad:e.target.value.replace(/\D/g,"").slice(0,3)}))} inputMode="numeric" style={{...inp, textAlign:"center"}} /></div>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 108px", gap:8 }}>
+                <div><div style={miniLbl}>Profesional</div><input value={f.prof} onChange={e=>setF(s=>({...s,prof:e.target.value}))} style={inp} /></div>
+                <div><div style={miniLbl}>Fecha</div><input value={f.fecha} onChange={e=>setF(s=>({...s,fecha:e.target.value}))} style={{...inp, textAlign:"center"}} /></div>
+              </div>
+              {tpl.kind === "extra" && (
+                <div><div style={miniLbl}>Texto del consentimiento</div>
+                  <textarea value={body} onChange={e=>setBody(e.target.value)} rows={5} placeholder="Describe el procedimiento y lo que el paciente autoriza…" style={{...inp, resize:"none"}} /></div>
+              )}
+            </div>
+
+            {/* Cuerpo legal: el MISMO componente que usa el panel de escritorio. */}
+            <div style={{ ...glassPanel(T,12), padding:"14px 15px", maxHeight:300, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
+              {window.ConsentDoc
+                ? <window.ConsentDoc T={T} tpl={tpl.kind === "extra" ? { ...tpl, body } : tpl} prof={f.prof} />
+                : <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.red }}>No se pudo cargar el texto del consentimiento. Revisa la conexión y vuelve a entrar.</div>}
+            </div>
+
+            <label style={{ display:"flex", alignItems:"center", gap:9, cursor:"pointer", padding:"11px 13px", borderRadius:12, background:T.flatFill, border:"1px solid "+T.flatBorder }}>
+              <input type="checkbox" checked={f.aiPhotos} onChange={e=>setF(s=>({...s,aiPhotos:e.target.checked}))} />
+              <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>Autoriza fotografías con fines clínicos y académicos</span>
+            </label>
+
+            {Pad ? (
+              <>
+                <div><div style={miniLbl}>Firma del paciente</div><Pad T={T} onChange={setSigPac} height={150} /></div>
+                <div><div style={miniLbl}>Firma del profesional</div><Pad T={T} onChange={setSigPro} height={150} /></div>
+              </>
+            ) : <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.red }}>No se pudo cargar el módulo de firma.</div>}
+
+            {!listo && !busy && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute }}>Faltan: {[!f.nombre.trim()&&"nombre", !f.prof.trim()&&"profesional", !sigPac&&"firma del paciente", !sigPro&&"firma del profesional"].filter(Boolean).join(", ")}.</div>}
+            <button onClick={guardar} disabled={!listo} style={{ height:48, borderRadius:13, border:"none", background:listo?T.accent:T.flatBorder, color:listo?T.onAccent:T.textFaint, fontFamily:T.sans, fontSize:14.5, fontWeight:600, cursor:listo?"pointer":"not-allowed" }}>
+              {busy ? "Guardando…" : "Firmar y guardar"}
+            </button>
+          </>
+        )}
+      </div>
+    </OverlayShell>
+  );
+}
+
 function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) {
   const p = patients.find(x=>x.id===patientId);
   const [edit, setEdit] = useState(false);
-  const [f, setF] = useState({ phone:p?p.phone||"":"", email:p?p.email||"":"", notas:p?p.notas||"":"" });
-  useEffect(()=>{ if(p) setF({ phone:p.phone||"", email:p.email||"", notas:p.notas||"" }); }, [patientId]);
+  // Datos básicos editables desde el celular (pedido: poder corregir la ficha sin el PC ni el iPad).
+  function fFrom(x) { return { name:x?x.name||"":"", rut:x?x.rut||"":"", age:(x&&x.age)?String(x.age):"", phone:x?x.phone||"":"", email:x?x.email||"":"", notas:x?x.notas||"":"" }; }
+  const [f, setF] = useState(() => fFrom(p));
+  useEffect(()=>{ if(p) setF(fFrom(p)); }, [patientId]);
+  const [firmando, setFirmando] = useState(false);
+  // Se releen los consentimientos tras firmar (viven en sus propias claves, no en el paciente).
+  const [consRev, setConsRev] = useState(0);
+  const firmados = useMemo(() => patConsentsM(p), [patientId, consRev, p && p.consentTs]);
   if (!p) return <OverlayShell T={T} title="Ficha" onBack={onBack}><div style={{ padding:30, textAlign:"center", fontFamily:T.sans, color:T.textMute }}>Paciente no encontrado.</div></OverlayShell>;
+  if (firmando) return <ConsentSignM T={T} patient={p} onClose={()=>setFirmando(false)}
+    onSaved={patch => { updatePatient(p.id, patch); setConsRev(v=>v+1); }} />;
 
   const mine = appts.filter(a => a.patId===p.id || a.name===p.name);
   const today = todayISO();
@@ -1821,8 +1971,24 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
   })();
   const fmtSesFecha = iso => { const s = sesFechaISO(iso); if (!s) return iso || "—"; const d = new Date(s + "T12:00:00"); return isNaN(d) ? (iso || "—") : d.getDate() + " " + MESES[d.getMonth()] + " " + d.getFullYear(); };
   const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
+  const miniLbl = { fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginBottom:4 };
 
-  function save() { updatePatient(p.id, { phone:f.phone.trim(), email:f.email.trim(), notas:f.notas.trim() }); setEdit(false); }
+  // Solo el NOMBRE bloquea el guardado. El teléfono y el RUT avisan pero no impiden guardar: en el
+  // portal de escritorio exigir siempre teléfono válido dejaba el botón muerto en fichas antiguas
+  // sin teléfono y no se podía agregar la edad (mismo motivo que la regla `phoneEmpty` de
+  // jc-admin-b.jsx). Aquí no se repite ese error.
+  const emailOk = !f.email.trim() || /\S+@\S+\.\S+/.test(f.email.trim());
+  const rutWarn = !!f.rut.trim() && !!window.jcmValidRut && !window.jcmValidRut(f.rut);
+  const okSave = f.name.trim().length > 2 && emailOk;
+  function save() {
+    if (!okSave) return;
+    updatePatient(p.id, {
+      name: f.name.trim(), rut: f.rut.trim(),
+      age: f.age.trim() === "" ? 0 : (parseInt(f.age, 10) || 0),
+      phone: f.phone.trim(), email: f.email.trim(), notas: f.notas.trim(),
+    });
+    setEdit(false);
+  }
 
   return (
     <OverlayShell T={T} title="Ficha del paciente" onBack={onBack}>
@@ -1837,24 +2003,71 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
 
         <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
-            <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Contacto</span>
+            <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Datos del paciente</span>
             {!edit && <button onClick={()=>setEdit(true)} style={{ background:"none", border:"none", color:T.accent, fontFamily:T.sans, fontSize:11.5, fontWeight:600, cursor:"pointer" }}>Editar</button>}
           </div>
           {edit ? (
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              <input value={f.phone} onChange={e=>setF(s=>({...s,phone:e.target.value}))} placeholder="Teléfono" style={inp} />
-              <input value={f.email} onChange={e=>setF(s=>({...s,email:e.target.value}))} placeholder="Correo" style={inp} />
+              <div>
+                <div style={miniLbl}>Nombre</div>
+                <input value={f.name} onChange={e=>setF(s=>({...s,name:e.target.value}))} placeholder="Nombre y apellidos" style={inp} />
+              </div>
+              {/* RUT y edad juntos: la edad es el dato que más se corrige desde el celular. */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 96px", gap:8 }}>
+                <div>
+                  <div style={miniLbl}>RUT</div>
+                  <input value={f.rut} onChange={e=>setF(s=>({...s,rut:window.jcmFmtRut?window.jcmFmtRut(e.target.value):e.target.value}))} placeholder="12.345.678-9" inputMode="text" style={inp} />
+                </div>
+                <div>
+                  <div style={miniLbl}>Edad</div>
+                  <input value={f.age} onChange={e=>setF(s=>({...s,age:e.target.value.replace(/\D/g,"").slice(0,3)}))} placeholder="—" inputMode="numeric" style={{...inp, textAlign:"center"}} />
+                </div>
+              </div>
+              {rutWarn && <div style={{ fontFamily:T.sans, fontSize:11, color:T.warn }}>Ese RUT no pasa el dígito verificador. Puedes guardarlo igual.</div>}
+              <div>
+                <div style={miniLbl}>Teléfono</div>
+                <input value={f.phone} onChange={e=>setF(s=>({...s,phone:e.target.value}))} placeholder="+56 9 1234 5678" inputMode="tel" style={inp} />
+              </div>
+              <div>
+                <div style={miniLbl}>Correo</div>
+                <input value={f.email} onChange={e=>setF(s=>({...s,email:e.target.value}))} placeholder="correo@ejemplo.cl" inputMode="email" style={inp} />
+              </div>
+              {!emailOk && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red }}>Ese correo no parece válido.</div>}
               <textarea value={f.notas} onChange={e=>setF(s=>({...s,notas:e.target.value}))} placeholder="Notas (alergias, preferencias, etc.)" rows={2} style={{...inp, resize:"none"}} />
+              {!okSave && f.name.trim().length<=2 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.red }}>El nombre es obligatorio.</div>}
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={()=>{ setEdit(false); setF({phone:p.phone||"",email:p.email||"",notas:p.notas||""}); }} style={{ flex:1, height:38, borderRadius:8, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Cancelar</button>
-                <button onClick={save} style={{ flex:2, height:38, borderRadius:8, border:"none", background:T.accent, color:T.onAccent, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:"pointer" }}>Guardar</button>
+                <button onClick={()=>{ setEdit(false); setF(fFrom(p)); }} style={{ flex:1, height:38, borderRadius:8, border:"1px solid "+T.line, background:"transparent", color:T.textMute, fontFamily:T.sans, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+                <button onClick={save} disabled={!okSave} style={{ flex:2, height:38, borderRadius:8, border:"none", background:okSave?T.accent:T.flatBorder, color:okSave?T.onAccent:T.textFaint, fontFamily:T.sans, fontSize:12, fontWeight:600, cursor:okSave?"pointer":"not-allowed" }}>Guardar</button>
               </div>
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <div style={{ fontFamily:T.sans, fontSize:13, color:T.text }}>{p.rut || "Sin RUT"} · {p.age ? p.age+" años" : "Edad sin registrar"}</div>
               <div style={{ fontFamily:T.sans, fontSize:13, color:T.text }}>{p.phone || "Sin teléfono"}</div>
               <div style={{ fontFamily:T.sans, fontSize:13, color:T.text }}>{p.email || "Sin correo"}</div>
               {p.notas && <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.textMute, marginTop:3, fontStyle:"italic" }}>{p.notas}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Consentimiento informado: mismas plantillas y mismo guardado que el panel de escritorio. */}
+        <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+            <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Consentimiento informado</span>
+            <button onClick={()=>setFirmando(true)} style={{ background:"none", border:"none", color:T.accent, fontFamily:T.sans, fontSize:11.5, fontWeight:600, cursor:"pointer" }}>Firmar</button>
+          </div>
+          {firmados.length ? (
+            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+              {firmados.map((c,i)=>(
+                <div key={c.ts||i} style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10 }}>
+                  <span style={{ fontFamily:T.sans, fontSize:13, color:T.text, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.title||"Consentimiento"}</span>
+                  <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute, flexShrink:0 }}>{c.fecha||""}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontFamily:T.sans, fontSize:12.5, color:p.paperConsent?T.text:T.textMute }}>
+              {p.paperConsent ? (p.consentInfo || "Firmado en papel") : "Sin consentimiento firmado."}
             </div>
           )}
         </div>
