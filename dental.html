@@ -6,7 +6,7 @@
 <link rel="icon" type="image/svg+xml" href="/assets/favicon-dental.svg" />
 <link rel="apple-touch-icon" href="/assets/favicon-dental.svg" />
 <title>Medique Dental — Software para consultorios odontológicos en Chile</title>
-<meta name="description" content="Odontograma digital FDI, presupuestos con firma y cuotas, agenda por sillón, IA clínica orientativa, portal del paciente y bot de WhatsApp. Para consultorios odontológicos de Chile. Desde $53.100 al mes." />
+<meta name="description" content="Odontograma digital FDI, presupuestos con firma y cuotas, agenda por sillón, IA clínica orientativa, portal del paciente y bot de WhatsApp. Para consultorios odontológicos de Chile. Desde $55.000 al mes." />
 <meta name="theme-color" content="#E9F1F4" />
 <meta name="robots" content="index,follow" />
 <link rel="canonical" href="https://dental.medique.cl/" />
@@ -352,6 +352,24 @@
   .plan .btn{width:100%;justify-content:center;margin-top:auto}
   .price-note{display:flex;justify-content:center;gap:8px;align-items:center;color:var(--tx-2);font-size:13px;margin-top:18px;text-align:center;flex-wrap:wrap}
   @media(max-width:880px){.planes{grid-template-columns:1fr}.plan.top{order:-1}}
+  /* ── Pago único, antes de la rejilla ── */
+  .pago-unico{margin-top:26px;background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:var(--r);padding:24px 26px}
+  .pu-tag{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    font-weight:700;color:var(--azul);margin-bottom:14px}
+  .pu-items{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .pu-item{border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .pu-nom{font-family:var(--sans);font-size:14px;font-weight:600;letter-spacing:-.01em;margin-bottom:2px}
+  .pu-val{font-size:26px;font-weight:600;letter-spacing:-.03em;line-height:1.15;margin-bottom:8px}
+  .pu-val span{font-size:12px;font-weight:400;color:var(--tx-2);letter-spacing:0;margin-left:5px}
+  .pu-item p{font-size:12.5px;color:var(--tx-2);line-height:1.55;margin:0;text-wrap:pretty}
+  .pu-pie{font-size:12px;color:var(--tx-2);margin:14px 0 0;line-height:1.55;text-wrap:pretty}
+  @media(max-width:760px){.pu-items{grid-template-columns:1fr}}
+  /* ── Doble CTA por plan: agendar demo arriba, contratar abajo ── */
+  .plan-ctas{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+  .plan-ctas .btn{width:100%;margin-top:0}
+  .btn-pagar{background:transparent;border:1px solid var(--azul);color:var(--azul);font-weight:600}
+  .btn-pagar:hover{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .btn-pagar[hidden]{display:none}
   /* ── Selector de ciclo de pago ── */
   .ciclo-wrap{display:flex;justify-content:center;margin-top:24px}
   .ciclo{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:rgba(0,0,0,.05);border:1px solid var(--line)}
@@ -794,7 +812,7 @@
       <a class="btn btn-p" href="#demo">Agendar demo</a>
       <a class="btn btn-s" href="#producto">Ver el odontograma ›</a>
     </div>
-    <p class="micro rev">Desde $53.100 al mes · sin permanencia · hecho en Chile</p>
+    <p class="micro rev">Desde $55.000 al mes · sin permanencia · hecho en Chile</p>
   </div>
   <div class="escena">
     <div class="marco" id="marco">
@@ -1218,15 +1236,32 @@
           <ul><li><b>&rsaquo;</b> Odontograma de 32 piezas</li><li><b>&rsaquo;</b> Plano de tratamiento firmado</li><li><b>&rsaquo;</b> Agenda por sill&oacute;n</li><li><b>&rsaquo;</b> Radiograf&iacute;as en la ficha</li><li><b>&rsaquo;</b> Resumen cl&iacute;nico con IA</li><li><b>&rsaquo;</b> Recordatorios por correo <b style="color:#7FD8D4;font-weight:600">· ya funciona</b></li><li><b>&rsaquo;</b> Portal del paciente</li><li><b>&rsaquo;</b> Caja y cuotas</li><li><b>&rsaquo;</b> 4 sillones y 8 profesionales</li><li><b>&rsaquo;</b> 45.000 cr&eacute;ditos al mes (se activan al liberar la mensajer&iacute;a)</li></ul>
         </div>
         <div class="caja">
-          <div class="precio-f">$98.000 <span>/ mes</span></div>
+          <div class="precio-f">$100.000 <span>/ mes</span></div>
           <div class="clp-f">Precio fundador: ya es el descuento, no se combina con el semestral.</div>
-          <div class="antes">Precio de lista: <s>$151.100</s></div>
+          <div class="antes">Precio de lista: <s>$150.000</s></div>
           <button class="btn" type="button" data-plan="Fundador" data-demo>Quiero ser fundador</button>
+          <a class="btn btn-pagar" data-plan="Fundador" href="#" hidden style="margin-top:8px;background:transparent;border-color:rgba(255,255,255,.45);color:#fff">Contratar Fundador</a>
           <p class="fino">Precio congelado 12 meses. Todo lo que liberemos en ese periodo &mdash;incluida la mensajer&iacute;a con WhatsApp e Instagram&mdash;
             entra en tu plan <b style="color:#fff;font-weight:600">sin costo adicional</b>, al mismo precio.
-            Sin permanencia: cancelas cuando quieras. La configuraci&oacute;n inicial ($347.200 por &uacute;nica vez) se cobra aparte.</p>
+            Sin permanencia: cancelas cuando quieras. La configuraci&oacute;n inicial ($350.000 por &uacute;nica vez) se cobra aparte.</p>
         </div>
       </div>
+    </div>
+    <div class="pago-unico rev">
+      <span class="pu-tag">Pago único &middot; una sola vez, al empezar</span>
+      <div class="pu-items">
+        <div class="pu-item">
+          <div class="pu-nom">Configuración inicial</div>
+          <div class="pu-val">$350.000 <span>pago único</span></div>
+          <p>La hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda funcionando y capacitamos al equipo.</p>
+        </div>
+        <div class="pu-item">
+          <div class="pu-nom">Migración desde Dentalink o Medilink</div>
+          <div class="pu-val">$350.000 <span>pago único</span></div>
+          <p>Traemos tus pacientes, su historial y su odontograma desde el sistema que uses hoy. Sin volver a digitar nada.</p>
+        </div>
+      </div>
+      <p class="pu-pie">Estos dos no se cobran nunca más: son de una sola vez, al inicio. Lo de abajo es el costo mensual del plan.</p>
     </div>
     <div class="ciclo-wrap rev">
       <div class="ciclo" role="group" aria-label="Ciclo de pago">
@@ -1238,7 +1273,7 @@
       <div class="plan rev">
         <h3>Consulta</h3>
         <p class="pd">Para el consultorio de un profesional que quiere dejar el papel y el Excel.</p>
-        <div class="price"><span class="v" data-m="$53.100" data-s="$42.500">$53.100</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $255.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
+        <div class="price"><span class="v" data-m="$55.000" data-s="$44.000">$55.000</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $264.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
         <ul>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>1 sillón · 1 profesional · 1 sede</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>8.000 créditos al mes (se activan al liberar la mensajería)</li>
@@ -1247,13 +1282,16 @@
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Agenda y reserva en línea 24/7</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Portal del paciente</li>
         </ul>
-        <button class="btn btn-s" type="button" data-plan="Consulta">Agendar demo</button>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Consulta">Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Consulta" href="#" hidden>Contratar Consulta</a>
+        </div>
       </div>
       <div class="plan top rev">
         <span class="et">Más elegido</span>
         <h3>Clínica</h3>
         <p class="pd">Para consultorios con varios sillones y un equipo que necesita coordinarse.</p>
-        <div class="price"><span class="v" data-m="$151.100" data-s="$120.900">$151.100</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $725.400 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
+        <div class="price"><span class="v" data-m="$150.000" data-s="$120.000">$150.000</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $720.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
         <ul>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Hasta 4 sillones y 8 profesionales</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>45.000 créditos al mes (se activan al liberar la mensajería)</li>
@@ -1263,12 +1301,15 @@
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Bot de WhatsApp de la clínica <span class="soon">Próximamente</span></li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Consentimientos, indicaciones y recetas</li>
         </ul>
-        <button class="btn btn-p" type="button" data-plan="Clínica">Agendar demo</button>
+        <div class="plan-ctas">
+          <button class="btn btn-p" type="button" data-plan="Clínica">Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Clínica" href="#" hidden>Contratar Clínica</a>
+        </div>
       </div>
       <div class="plan rev">
         <h3>Red</h3>
         <p class="pd">Para redes odontológicas con más de una sede y ambición de crecer.</p>
-        <div class="price"><span class="v" data-m="$347.200" data-s="$277.800">$347.200</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $1.666.800 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
+        <div class="price"><span class="v" data-m="$350.000" data-s="$280.000">$350.000</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $1.680.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
         <ul>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Sillones ilimitados · hasta 25 profesionales · 3 sedes</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>120.000 créditos al mes (se activan al liberar la mensajería)</li>
@@ -1278,7 +1319,10 @@
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Permisos por rol y datos aislados por sede</li>
           <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>Soporte prioritario</li>
         </ul>
-        <button class="btn btn-s" type="button" data-plan="Red">Agendar demo</button>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Red">Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Red" href="#" hidden>Contratar Red</a>
+        </div>
       </div>
     </div>
     <div class="card regla-user rev">
@@ -1298,16 +1342,14 @@
         <div class="dp-fila"><span>Recordatorio o plantilla suelta</span><span>5</span></div>
         <div class="dp-fila"><span>Reactivación de paciente <em>(mensaje saliente)</em></span><span>15</span></div>
         <div class="dp-fila"><span>Minuto de voz <em>(próximamente)</em></span><span>100</span></div>
-        <p class="dp-pie">Si superas el cupo, se carga un bloque de 10.000 créditos por $20.400 y seguimos andando. El odontograma, los presupuestos, la agenda y la caja no consumen créditos: solo la mensajería.</p>
+        <p class="dp-pie">Si superas el cupo, se carga un bloque de 10.000 créditos por $20.000 y seguimos andando. El odontograma, los presupuestos, la agenda y la caja no consumen créditos: solo la mensajería.</p>
       </div>
       <div class="card dp">
         <h3>Adicionales</h3>
-        <p>Todo en pesos, sin letra chica. Los pagos únicos se cobran una sola vez, al inicio.</p>
-        <div class="dp-fila"><span>Configuración inicial <em>(pago único)</em></span><span>$347.200</span></div>
-        <div class="dp-fila"><span>Migración desde Dentalink o Medilink <em>(pago único)</em></span><span>$347.200</span></div>
-        <div class="dp-fila"><span>Profesional adicional</span><span>$15.100 / mes</span></div>
-        <div class="dp-fila"><span>Sede adicional <em>(incluye 30.000 créditos)</em></span><span>$81.700 / mes</span></div>
-        <div class="dp-fila"><span>Bloque de 10.000 créditos</span><span>$20.400</span></div>
+        <p>Todo en pesos, sin letra chica. Se suman al plan y se cobran mes a mes, igual que él.</p>
+        <div class="dp-fila"><span>Profesional adicional</span><span>$15.000 / mes</span></div>
+        <div class="dp-fila"><span>Sede adicional <em>(incluye 30.000 créditos)</em></span><span>$80.000 / mes</span></div>
+        <div class="dp-fila"><span>Bloque de 10.000 créditos</span><span>$20.000</span></div>
         <p class="dp-pie">La configuración inicial la hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda por sillón funcionando y capacitamos al equipo. Pago semestral adelantado: 20% de descuento.</p>
       </div>
     </div>
@@ -1334,9 +1376,9 @@
       <div class="faq-item"><button class="faq-q" type="button">¿Puedo cobrar en cuotas?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. En el presupuesto defines un abono inicial y el saldo en cuotas. El sistema lleva el registro de lo pagado, lo pendiente y la próxima cuota, y el paciente ve lo mismo en su portal.</p></div></div>
       <div class="faq-item"><button class="faq-q" type="button">¿Sirve si tengo un solo sillón?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. El plan Consulta está pensado exactamente para eso: un profesional, un sillón, con el odontograma, los presupuestos y la reserva en línea completos. Cuando sumes sillones cambias de plan sin migrar nada.</p></div></div>
       <div class="faq-item"><button class="faq-q" type="button">¿Cómo se relaciona con el resto de Medique?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Medique Dental es la versión odontológica del mismo sistema. Comparte el panel, el bot de WhatsApp, la integración con Meta Ads y la IA. Si tu centro combina odontología con estética, funciona todo desde una sola cuenta.</p></div></div>
-      <div class="faq-item"><button class="faq-q" type="button">¿Hay costo de implementación o permanencia?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>No hay permanencia mínima: cambias de plan o cancelas cuando quieras. La configuración inicial sí se cobra, una sola vez ($347.200), y la hacemos nosotros contigo: cargamos tus pacientes, tu odontograma inicial, tus tratamientos y tus precios, dejamos la agenda por sillón funcionando y capacitamos al equipo.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Hay costo de implementación o permanencia?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>No hay permanencia mínima: cambias de plan o cancelas cuando quieras. La configuración inicial sí se cobra, una sola vez ($350.000), y la hacemos nosotros contigo: cargamos tus pacientes, tu odontograma inicial, tus tratamientos y tus precios, dejamos la agenda por sillón funcionando y capacitamos al equipo.</p></div></div>
       <div class="faq-item"><button class="faq-q" type="button">¿Qué gano pagando semestral?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Un 20% menos, todos los meses. Se cobra una vez cada seis meses por adelantado y no genera permanencia: si decides irte antes, te devolvemos los meses que no alcanzaste a usar. Puedes empezar mes a mes y cambiarte al semestral cuando quieras.</p></div></div>
-      <div class="faq-item"><button class="faq-q" type="button">¿Qué pasa si me quedo sin créditos?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Nada se corta. Te avisamos al 80% de consumo y, si igual lo superas, se carga automáticamente un bloque de 10.000 créditos por $20.400. El odontograma, los presupuestos, la agenda y la caja no consumen créditos: solo la mensajería y el agendamiento automático.</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">¿Qué pasa si me quedo sin créditos?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="faq-a"><p>Nada se corta. Te avisamos al 80% de consumo y, si igual lo superas, se carga automáticamente un bloque de 10.000 créditos por $20.000. El odontograma, los presupuestos, la agenda y la caja no consumen créditos: solo la mensajería y el agendamiento automático.</p></div></div>
     </div>
   </div>
 </section>
@@ -1428,7 +1470,10 @@
   /* Guarda global: se lee UNA vez y condiciona todos los comportamientos. */
   var quieto = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 
-  var MEDIQUE={ whatsapp:'56977636248', email:'hola@medique.cl', panel:'/panel', endpoint:'/api/email' };
+  var MEDIQUE={ whatsapp:'56977636248', email:'hola@medique.cl', panel:'/panel', endpoint:'/api/email',
+    // ← Pega acá el link de Mercado Pago de cada plan. En cuanto uno tenga URL,
+    //   su botón "Contratar" aparece solo en la tarjeta. Vacío = botón oculto.
+    checkout:{ 'Fundador':'', Consulta:'', 'Clínica':'', Red:'' } };
   function waLink(t){return 'https://wa.me/'+MEDIQUE.whatsapp+'?text='+encodeURIComponent(t);}
 
   /* ── odontograma INTERACTIVO: 32 piezas FDI ─────────
@@ -1743,8 +1788,22 @@
   document.querySelectorAll('a[href="#demo"],[data-demo]').forEach(function(a){
     a.addEventListener('click',function(e){ e.preventDefault(); openModal(a.getAttribute('data-plan')); });
   });
-  document.querySelectorAll('.plan .btn').forEach(function(b){
+  document.querySelectorAll('.plan .btn:not(.btn-pagar)').forEach(function(b){
     b.addEventListener('click',function(e){ e.preventDefault(); openModal(b.getAttribute('data-plan')); });
+  });
+
+  /* Botón "Contratar": aparece SOLO si ese plan tiene URL de pago cargada en
+     MEDIQUE.checkout. Un botón de pago que no lleva a ninguna parte es peor que
+     no tenerlo —el visitante hace clic, no pasa nada y se va—, así que se revela
+     cuando hay a dónde ir y no antes. Pegando el link de Mercado Pago en el
+     objeto de arriba, el botón sale solo: no hay que tocar nada más. */
+  document.querySelectorAll('.btn-pagar').forEach(function (b) {
+    var url = (MEDIQUE.checkout || {})[b.getAttribute('data-plan')];
+    if (!url) return;
+    b.setAttribute('href', url);
+    b.setAttribute('target', '_blank');
+    b.setAttribute('rel', 'noopener');
+    b.hidden = false;
   });
   modal.addEventListener('click',function(e){ if(e.target===modal||e.target.hasAttribute('data-close')) closeModal(); });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&modal.classList.contains('show')) closeModal(); });

@@ -24,13 +24,13 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
 {"@type":"Organization","name":"Medique","url":"https://www.medique.cl/","logo":"https://www.medique.cl/assets/og-medique.jpg","description":"Software de gestión para clínicas de medicina estética en Chile: agenda, fichas clínicas, marketing y agente de IA.","areaServed":"CL"},
-{"@type":"SoftwareApplication","name":"Medique","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://www.medique.cl/","description":"El sistema operativo para clínicas estéticas: agenda inteligente, fichas clínicas, inventario, caja, marketing y agente de IA.","offers":{"@type":"AggregateOffer","priceCurrency":"CLP","lowPrice":"24500","highPrice":"183800","offerCount":"4"}},
+{"@type":"SoftwareApplication","name":"Medique","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://www.medique.cl/","description":"El sistema operativo para clínicas estéticas: agenda inteligente, fichas clínicas, inventario, caja, marketing y agente de IA.","offers":{"@type":"AggregateOffer","priceCurrency":"CLP","lowPrice":"25000","highPrice":"185000","offerCount":"4"}},
 {"@type":"FAQPage","mainEntity":[
 {"@type":"Question","name":"¿Cómo se protege la información de mi clínica?","acceptedAnswer":{"@type":"Answer","text":"Cada clínica tiene sus datos aislados, cifrados y respaldados automáticamente. Los accesos se controlan por roles y sede, cumpliendo con la normativa chilena de protección de datos (Ley 19.628)."}},
 {"@type":"Question","name":"¿Puedo migrar mis datos desde Excel u otro sistema?","acceptedAnswer":{"@type":"Answer","text":"Sí. Puedes importar tus pacientes desde Excel o CSV, y te acompañamos en el proceso para que tu clínica quede operando sin perder información."}},
 {"@type":"Question","name":"¿Qué tipo de soporte ofrecen?","acceptedAnswer":{"@type":"Answer","text":"Todos los planes incluyen soporte. Desde el plan Pro sumas soporte prioritario, y el plan Marketing incluye un gerente de cuenta dedicado para tu red."}},
-{"@type":"Question","name":"¿Existe permanencia mínima o costos de implementación?","acceptedAnswer":{"@type":"Answer","text":"No hay permanencia mínima: cambias o cancelas cuando quieras. La configuración inicial se cobra una vez ($347.200) y la hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda funcionando y capacitamos al equipo."}},
-{"@type":"Question","name":"¿Puedo usar Medique en más de una clínica?","acceptedAnswer":{"@type":"Answer","text":"Sí. El plan Marketing incluye dos sucursales y en cualquier plan puedes sumar sedes por $81.700 al mes, cada una con sus datos aislados, sus propios permisos y 30.000 créditos, administradas desde un solo lugar."}}
+{"@type":"Question","name":"¿Existe permanencia mínima o costos de implementación?","acceptedAnswer":{"@type":"Answer","text":"No hay permanencia mínima: cambias o cancelas cuando quieras. La configuración inicial se cobra una vez ($350.000) y la hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda funcionando y capacitamos al equipo."}},
+{"@type":"Question","name":"¿Puedo usar Medique en más de una clínica?","acceptedAnswer":{"@type":"Answer","text":"Sí. El plan Marketing incluye dos sucursales y en cualquier plan puedes sumar sedes por $80.000 al mes, cada una con sus datos aislados, sus propios permisos y 30.000 créditos, administradas desde un solo lugar."}}
 ]}]}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -281,6 +281,24 @@
   .plan li{display:flex;gap:9px;align-items:flex-start;letter-spacing:-.01em}
   .plan li b{color:var(--azul);font-weight:700;flex:0 0 auto}
   .plan .btn{width:100%;margin-top:auto}
+  /* ── Pago único, antes de la rejilla ── */
+  .pago-unico{margin-top:26px;background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:var(--r);padding:24px 26px}
+  .pu-tag{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    font-weight:700;color:var(--azul);margin-bottom:14px}
+  .pu-items{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .pu-item{border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .pu-nom{font-family:var(--sans);font-size:14px;font-weight:600;letter-spacing:-.01em;margin-bottom:2px}
+  .pu-val{font-size:26px;font-weight:600;letter-spacing:-.03em;line-height:1.15;margin-bottom:8px}
+  .pu-val span{font-size:12px;font-weight:400;color:var(--tx-2);letter-spacing:0;margin-left:5px}
+  .pu-item p{font-size:12.5px;color:var(--tx-2);line-height:1.55;margin:0;text-wrap:pretty}
+  .pu-pie{font-size:12px;color:var(--tx-2);margin:14px 0 0;line-height:1.55;text-wrap:pretty}
+  @media(max-width:760px){.pu-items{grid-template-columns:1fr}}
+  /* ── Doble CTA por plan: agendar demo arriba, contratar abajo ── */
+  .plan-ctas{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+  .plan-ctas .btn{width:100%;margin-top:0}
+  .btn-pagar{background:transparent;border:1px solid var(--azul);color:var(--azul);font-weight:600}
+  .btn-pagar:hover{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .btn-pagar[hidden]{display:none}
   /* ── Selector de ciclo de pago ── */
   .ciclo-wrap{display:flex;justify-content:center;margin-top:24px}
   .ciclo{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:rgba(0,0,0,.05);border:1px solid var(--line)}
@@ -1394,15 +1412,32 @@
           <ul><li><b>&rsaquo;</b> Agenda y ficha cl&iacute;nica completas</li><li><b>&rsaquo;</b> Consentimientos firmados</li><li><b>&rsaquo;</b> Inventario y caja</li><li><b>&rsaquo;</b> Copiloto de IA en el panel</li><li><b>&rsaquo;</b> Recordatorios autom&aacute;ticos por correo <b style="color:#BBD3E6;font-weight:600">· ya funciona</b></li><li><b>&rsaquo;</b> Reservas online desde un enlace</li><li><b>&rsaquo;</b> Roles y permisos por equipo</li><li><b>&rsaquo;</b> Portal del paciente</li><li><b>&rsaquo;</b> Hasta 8 profesionales que atienden</li><li><b>&rsaquo;</b> 40.000 cr&eacute;ditos al mes (se activan al liberar la mensajer&iacute;a)</li></ul>
         </div>
         <div class="caja">
-          <div class="precio-f">$89.900 <span>/ mes</span></div>
+          <div class="precio-f">$90.000 <span>/ mes</span></div>
           <div class="clp-f">Precio fundador: ya es el descuento, no se combina con el semestral.</div>
-          <div class="antes">Precio de lista: <s>$138.900</s></div>
+          <div class="antes">Precio de lista: <s>$140.000</s></div>
           <button class="btn" type="button" data-plan="Fundador" data-demo>Quiero ser fundador</button>
+          <a class="btn btn-pagar" data-plan="Fundador" href="#" hidden style="margin-top:8px;background:transparent;border-color:rgba(255,255,255,.45);color:#fff">Contratar Fundador</a>
           <p class="fino">Precio congelado 12 meses. Todo lo que liberemos en ese periodo &mdash;incluida la mensajer&iacute;a con WhatsApp e Instagram&mdash;
             entra en tu plan <b style="color:#fff;font-weight:600">sin costo adicional</b>, al mismo precio.
-            Sin permanencia: cancelas cuando quieras. La configuraci&oacute;n inicial ($347.200 por &uacute;nica vez) se cobra aparte.</p>
+            Sin permanencia: cancelas cuando quieras. La configuraci&oacute;n inicial ($350.000 por &uacute;nica vez) se cobra aparte.</p>
         </div>
       </div>
+    </div>
+    <div class="pago-unico rev">
+      <span class="pu-tag">Pago único &middot; una sola vez, al empezar</span>
+      <div class="pu-items">
+        <div class="pu-item">
+          <div class="pu-nom">Configuración inicial</div>
+          <div class="pu-val">$350.000 <span>pago único</span></div>
+          <p>La hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda funcionando y capacitamos al equipo.</p>
+        </div>
+        <div class="pu-item">
+          <div class="pu-nom">Migración desde otro software</div>
+          <div class="pu-val">$350.000 <span>pago único</span></div>
+          <p>Traemos tu historial completo desde Excel, desde otro sistema o desde donde esté hoy. Sin perder fichas ni fotos.</p>
+        </div>
+      </div>
+      <p class="pu-pie">Estos dos no se cobran nunca más: son de una sola vez, al inicio. Lo de abajo es el costo mensual del plan.</p>
     </div>
     <div class="ciclo-wrap rev">
       <div class="ciclo" role="group" aria-label="Ciclo de pago">
@@ -1414,7 +1449,7 @@
       <div class="plan rev">
         <h3>Agenda</h3>
         <p class="p">Clínica unipersonal que quiere modernizar su agenda sin complejidad.</p>
-        <div class="price"><span class="v" data-m="$24.500" data-s="$19.600">$24.500</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $117.600 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
+        <div class="price"><span class="v" data-m="$25.000" data-s="$20.000">$25.000</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $120.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
         <ul>
           <li><b aria-hidden="true">›</b> Agenda diaria con estados de citas</li>
           <li><b aria-hidden="true">›</b> Panel móvil para el equipo</li>
@@ -1424,12 +1459,15 @@
           <li><b aria-hidden="true">›</b> 1 profesional · 1 sucursal</li>
           <li><b aria-hidden="true">›</b> 6.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
-        <a class="btn btn-s plan-cta" href="#demo" data-plan="Agenda">Empezar con Agenda</a>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Agenda" data-demo>Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Agenda" href="#" hidden>Contratar Agenda</a>
+        </div>
       </div>
       <div class="plan rev">
         <h3>Completo</h3>
         <p class="p">Clínica establecida con equipo y necesidad de trazabilidad clínica completa.</p>
-        <div class="price"><span class="v" data-m="$61.300" data-s="$49.000">$61.300</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $294.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
+        <div class="price"><span class="v" data-m="$60.000" data-s="$48.000">$60.000</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $288.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
         <ul>
           <li><b aria-hidden="true">›</b> Todo lo de Agenda</li>
           <li><b aria-hidden="true">›</b> Ficha clínica y galería de fotos</li>
@@ -1438,13 +1476,16 @@
           <li><b aria-hidden="true">›</b> Hasta 3 profesionales · 1 sucursal</li>
           <li><b aria-hidden="true">›</b> 15.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
-        <a class="btn btn-s plan-cta" href="#demo" data-plan="Completo">Elegir Completo</a>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Completo" data-demo>Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Completo" href="#" hidden>Contratar Completo</a>
+        </div>
       </div>
       <div class="plan top rev">
         <span class="et">Recomendado</span>
         <h3>Pro</h3>
         <p class="p">Clínica que quiere diferenciarse con IA y reducir trabajo administrativo.</p>
-        <div class="price"><span class="v" data-m="$138.900" data-s="$111.100">$138.900</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $666.600 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
+        <div class="price"><span class="v" data-m="$140.000" data-s="$112.000">$140.000</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $672.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
         <ul>
           <li><b aria-hidden="true">›</b> Todo lo de Completo</li>
           <li><b aria-hidden="true">›</b> Resumen y auditoría con IA</li>
@@ -1453,12 +1494,15 @@
           <li><b aria-hidden="true">›</b> Hasta 8 profesionales · 1 sucursal</li>
           <li><b aria-hidden="true">›</b> 40.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
-        <a class="btn btn-p plan-cta" href="#demo" data-plan="Pro">Probar Pro con una demo</a>
+        <div class="plan-ctas">
+          <button class="btn btn-p" type="button" data-plan="Pro" data-demo>Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Pro" href="#" hidden>Contratar Pro</a>
+        </div>
       </div>
       <div class="plan rev">
         <h3>Marketing</h3>
         <p class="p">Clínica que invierte en publicidad y quiere pacientes agendando solos por WhatsApp.</p>
-        <div class="price"><span class="v" data-m="$183.800" data-s="$147.000">$183.800</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $882.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
+        <div class="price"><span class="v" data-m="$185.000" data-s="$148.000">$185.000</span><span class="u">/mes</span><span class="clp" data-m="Sin permanencia &middot; cancelas cuando quieras" data-s="Se cobra $888.000 cada 6 meses">Sin permanencia &middot; cancelas cuando quieras</span></div>
         <ul>
           <li><b aria-hidden="true">›</b> Todo lo de Pro</li>
           <li><b aria-hidden="true">›</b> Bot de WhatsApp 24/7 (agenda solo) <span class="soon">Próximamente</span></li>
@@ -1467,8 +1511,11 @@
           <li><b aria-hidden="true">›</b> Hasta 15 profesionales · 2 sucursales</li>
           <li><b aria-hidden="true">›</b> 90.000 créditos al mes (se activan al liberar la mensajería)</li>
         </ul>
-        <p class="nota-plan">Precio de lanzamiento mientras el bot está en desarrollo. El precio de lista es $249.200 y entra en vigor cuando se libere la mensajería: si contratas ahora, mantienes $183.800 durante 12 meses.</p>
-        <a class="btn btn-s plan-cta" href="#demo" data-plan="Marketing">Quiero Marketing</a>
+        <p class="nota-plan">Precio de lanzamiento mientras el bot está en desarrollo. El precio de lista es $250.000 y entra en vigor cuando se libere la mensajería: si contratas ahora, mantienes $185.000 durante 12 meses.</p>
+        <div class="plan-ctas">
+          <button class="btn btn-s" type="button" data-plan="Marketing" data-demo>Agendar demo</button>
+          <a class="btn btn-pagar" data-plan="Marketing" href="#" hidden>Contratar Marketing</a>
+        </div>
       </div>
     </div>
 
@@ -1489,16 +1536,14 @@
         <div class="dp-fila"><span>Recordatorio o plantilla suelta</span><span>5</span></div>
         <div class="dp-fila"><span>Reactivación de paciente <em>(mensaje saliente)</em></span><span>15</span></div>
         <div class="dp-fila"><span>Minuto de voz <em>(próximamente)</em></span><span>100</span></div>
-        <p class="dp-pie">Si superas el cupo, se carga un bloque de 10.000 créditos por $20.400 y seguimos andando. El contador de créditos se activa junto con la mensajería de WhatsApp e Instagram; hasta entonces, ningún plan consume.</p>
+        <p class="dp-pie">Si superas el cupo, se carga un bloque de 10.000 créditos por $20.000 y seguimos andando. El contador de créditos se activa junto con la mensajería de WhatsApp e Instagram; hasta entonces, ningún plan consume.</p>
       </div>
       <div class="dp">
         <h3>Adicionales</h3>
-        <p>Todo en pesos, sin letra chica. Los pagos únicos se cobran una sola vez, al inicio.</p>
-        <div class="dp-fila"><span>Configuración inicial <em>(pago único)</em></span><span>$347.200</span></div>
-        <div class="dp-fila"><span>Migración desde otro software <em>(pago único)</em></span><span>$347.200</span></div>
-        <div class="dp-fila"><span>Profesional adicional</span><span>$15.100 / mes</span></div>
-        <div class="dp-fila"><span>Sede adicional <em>(incluye 30.000 créditos)</em></span><span>$81.700 / mes</span></div>
-        <div class="dp-fila"><span>Bloque de 10.000 créditos</span><span>$20.400</span></div>
+        <p>Todo en pesos, sin letra chica. Se suman al plan y se cobran mes a mes, igual que él.</p>
+        <div class="dp-fila"><span>Profesional adicional</span><span>$15.000 / mes</span></div>
+        <div class="dp-fila"><span>Sede adicional <em>(incluye 30.000 créditos)</em></span><span>$80.000 / mes</span></div>
+        <div class="dp-fila"><span>Bloque de 10.000 créditos</span><span>$20.000</span></div>
         <p class="dp-pie">La configuración inicial la hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda funcionando y capacitamos al equipo. Pago semestral adelantado: 20% de descuento.</p>
       </div>
     </div>
@@ -1518,7 +1563,7 @@
         </ul>
       </div>
       <div class="ps-cta">
-        <div class="ps-price">$1.000.700 <span style="font-weight:400;color:var(--tx-2);font-size:13px">/ mes</span></div>
+        <div class="ps-price">$1.000.000 <span style="font-weight:400;color:var(--tx-2);font-size:13px">/ mes</span></div>
         <p>Se suma a tu plan. <b>Máximo 5 clínicas a la vez</b>: es gestión humana todos los meses, no un panel más. El SLA de 2 horas existe porque el cupo está cerrado.</p>
         <a class="btn btn-p" href="#demo" data-plan="Full Service">Hablar con nosotros</a>
       </div>
@@ -1541,10 +1586,10 @@
       <div class="faq-item"><button class="faq-q">¿Cómo se protege la información de mi clínica? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>Cada clínica tiene sus datos aislados, cifrados y respaldados automáticamente. Los accesos se controlan por roles y sede, cumpliendo con la normativa chilena de protección de datos (Ley 19.628).</p></div></div>
       <div class="faq-item"><button class="faq-q">¿Puedo migrar mis datos desde Excel u otro sistema? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. Puedes importar tus pacientes desde Excel o CSV, y te acompañamos en el proceso para que tu clínica quede operando sin perder información.</p></div></div>
       <div class="faq-item"><button class="faq-q">¿Qué tipo de soporte ofrecen? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>Todos los planes incluyen soporte. Desde el plan Pro sumas soporte prioritario, y el plan Marketing incluye un gerente de cuenta dedicado para tu red.</p></div></div>
-      <div class="faq-item"><button class="faq-q">¿Existe permanencia mínima o costos de implementación? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>No hay permanencia mínima: cambias o cancelas cuando quieras. La configuración inicial sí se cobra, una sola vez ($347.200), y la hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda funcionando y capacitamos al equipo. Lo cobramos porque es la parte que decide si el sistema realmente se usa.</p></div></div>
+      <div class="faq-item"><button class="faq-q">¿Existe permanencia mínima o costos de implementación? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>No hay permanencia mínima: cambias o cancelas cuando quieras. La configuración inicial sí se cobra, una sola vez ($350.000), y la hacemos nosotros contigo: cargamos tus pacientes, tus tratamientos y tus precios, dejamos la agenda funcionando y capacitamos al equipo. Lo cobramos porque es la parte que decide si el sistema realmente se usa.</p></div></div>
       <div class="faq-item"><button class="faq-q">¿Qué gano pagando semestral? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>Un 20% menos, todos los meses. Se cobra una vez cada seis meses por adelantado y no genera permanencia: si decides irte antes, te devolvemos los meses que no alcanzaste a usar. Puedes empezar mes a mes y cambiarte al semestral cuando quieras.</p></div></div>
-      <div class="faq-item"><button class="faq-q">¿Qué pasa si me quedo sin créditos? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>Nada se corta. Te avisamos al 80% de consumo y, si igual lo superas, se carga automáticamente un bloque de 10.000 créditos por $20.400. La agenda, las fichas, la caja y el panel no consumen créditos: solo la mensajería y el agendamiento automático.</p></div></div>
-      <div class="faq-item"><button class="faq-q">¿Puedo usar Medique en más de una clínica? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. El plan Marketing incluye dos sucursales y en cualquier plan puedes sumar sedes por $81.700 al mes, cada una con sus datos aislados, sus propios permisos y 30.000 créditos, administradas desde un solo lugar.</p></div></div>
+      <div class="faq-item"><button class="faq-q">¿Qué pasa si me quedo sin créditos? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>Nada se corta. Te avisamos al 80% de consumo y, si igual lo superas, se carga automáticamente un bloque de 10.000 créditos por $20.000. La agenda, las fichas, la caja y el panel no consumen créditos: solo la mensajería y el agendamiento automático.</p></div></div>
+      <div class="faq-item"><button class="faq-q">¿Puedo usar Medique en más de una clínica? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="faq-a"><p>Sí. El plan Marketing incluye dos sucursales y en cualquier plan puedes sumar sedes por $80.000 al mes, cada una con sus datos aislados, sus propios permisos y 30.000 créditos, administradas desde un solo lugar.</p></div></div>
     </div>
   </div>
 </section>
@@ -1640,7 +1685,9 @@
     portal:'https://portal.medique.cl',
     endpoint:'/api/email',                  // ← solicitudes de demo → correo a medique.cl@gmail.com (api/email.js, action:'lead')
     checkout:{
-      'Fundador':'',Agenda:'',Completo:'',Pro:'',Marketing:'','Full Service':''}  // ← URLs de pago (Stripe/MercadoPago) por plan
+      // ← Pega acá el link de Mercado Pago de cada plan. En cuanto uno tenga URL,
+      //   su botón "Contratar" aparece solo en la tarjeta. Vacío = botón oculto.
+      'Fundador':'',Agenda:'',Completo:'',Pro:'',Marketing:'','Full Service':''}
   };
   function waLink(t){return 'https://wa.me/'+MEDIQUE.whatsapp+'?text='+encodeURIComponent(t);}
 
@@ -1677,18 +1724,23 @@
     setTimeout(function(){var f=form.querySelector('input');if(f)f.focus();},80);
   }
   function closeModal(){modal.classList.remove('show');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';setInert(false);var mm=document.getElementById('mm');if(mm)mm.classList.remove('show');if(lastFocus)lastFocus.focus();}
-  // open: any link to #demo or [data-demo] (los .plan-cta tienen su propio handler)
-  document.querySelectorAll('a[href="#demo"]:not(.plan-cta),[data-demo]').forEach(function(a){
+  // open: cualquier enlace a #demo o [data-demo]. Los .btn-pagar se excluyen: llevan a la pasarela.
+  document.querySelectorAll('a[href="#demo"]:not(.btn-pagar),[data-demo]').forEach(function(a){
     a.addEventListener('click',function(e){e.preventDefault();openModal(a.getAttribute('data-plan'));});
   });
-  // plan CTAs → checkout URL if defined, else open modal with the plan
-  document.querySelectorAll('.plan .btn').forEach(function(b){
-    b.addEventListener('click',function(e){
-      e.preventDefault();
-      var plan=b.getAttribute('data-plan')||b.closest('.plan').querySelector('h3').textContent.trim();
-      var url=MEDIQUE.checkout[plan];
-      if(url){window.location.href=url;}else{openModal(plan);}
-    });
+
+  /* Botón "Contratar": aparece SOLO si ese plan tiene URL de pago cargada en
+     MEDIQUE.checkout. Un botón de pago que no lleva a ninguna parte es peor que
+     no tenerlo —el visitante hace clic, no pasa nada y se va—, así que se revela
+     cuando hay a dónde ir y no antes. Pegando el link de Mercado Pago en el
+     objeto de arriba, el botón sale solo: no hay que tocar nada más. */
+  document.querySelectorAll('.btn-pagar').forEach(function (b) {
+    var url = (MEDIQUE.checkout || {})[b.getAttribute('data-plan')];
+    if (!url) return;
+    b.setAttribute('href', url);
+    b.setAttribute('target', '_blank');
+    b.setAttribute('rel', 'noopener');
+    b.hidden = false;
   });
   // close: overlay / x / Esc
   modal.addEventListener('click',function(e){if(e.target===modal||e.target.hasAttribute('data-close'))closeModal();});
