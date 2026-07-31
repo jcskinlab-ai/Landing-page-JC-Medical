@@ -245,7 +245,28 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
     if (readOnly || !file || !patient || !patient.id) return;
     const f = window.fileToDataURL, set = window.faceSetPhoto;
     if (!f || !set) { try { window.jcmError && window.jcmError("No se pudo cargar el módulo de imágenes."); } catch (e) {} return; }
-    f(file, 1400, function (dataUrl) { set(patient.id, odontoRxView(pieza), dataUrl); setRxTick(function (t) { return t + 1; }); });
+    const guardar = function (dataUrl, escala) {
+      set(patient.id, odontoRxView(pieza), dataUrl);
+      // Las medidas son de ESA imagen: al reemplazarla, las viejas no valen. Si el
+      // archivo trae escala del sensor, queda lista y no hay que calibrar nada.
+      if (escala) saveMed(pieza, { cal: null, auto: escala, lineas: [], ts: Date.now() });
+      else if (getMed(pieza)) saveMed(pieza, null);
+      setRxTick(function (t) { return t + 1; });
+    };
+    // Se olfatean los primeros 132 bytes en vez de mirar la extensión: el "DICM" vive
+    // en el offset 128 y hay sensores que exportan sin extensión .dcm.
+    const rd = new FileReader();
+    const porImagen = function () { f(file, 1400, function (dataUrl) { guardar(dataUrl, null); }); };
+    rd.onerror = porImagen;
+    rd.onload = function () {
+      if (!dcmEs(rd.result)) { porImagen(); return; }
+      dcmADataURL(file, 1400, function (dataUrl, escala, err) {
+        if (!dataUrl) { try { window.jcmError && window.jcmError(err || "No se pudo abrir el DICOM."); } catch (e) {} return; }
+        if (err) { try { window.jcmToast && window.jcmToast(err, "warn"); } catch (e) {} }
+        guardar(dataUrl, escala);
+      });
+    };
+    rd.readAsArrayBuffer(file.slice(0, 132));
   }
   function delRx(pieza) {
     if (readOnly) return;
@@ -486,6 +507,166 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
  * con el tamaño natural, de modo que dibujar y guardar ocurren en el mismo
  * sistema de coordenadas y no hay conversiones sueltas dando vueltas.
  * ════════════════════════════════════════════════════════════════════════════ */
+/* ── Lectura de DICOM ────────────────────────────────────────────────────────
+ * Los sensores radiográficos dentales no producen JPG: producen DICOM, y ese
+ * formato SÍ trae la escala, puesta por el fabricante del sensor. Leyéndola, la
+ * medición deja de necesitar calibración manual y los milímetros salen exactos.
+ *
+ * Se lee a mano en vez de traer una librería: hacen falta seis etiquetas y un
+ * decodificador para los dos casos que el navegador ya sabe abrir. Meter
+ * cornerstone por CDN serían ~300 KB y una dependencia externa en el camino
+ * crítico de una ficha clínica.
+ *
+ * Cobertura, sin adornos:
+ *   · Sin comprimir (1.2.840.10008.1.2 / .1) → se pinta acá, aplicando ventana.
+ *   · JPEG baseline y extendido (.4.50/.51)  → el fragmento ES un JPEG; se lo
+ *     pasamos al navegador, que lo decodifica nativo.
+ *   · JPEG sin pérdida, JPEG-LS, JPEG 2000   → NO se puede sin librería. Se
+ *     avisa y se cae a la calibración manual, que sigue funcionando igual.
+ * ─────────────────────────────────────────────────────────────────────────── */
+const DCM_TS_PLANO = ["1.2.840.10008.1.2", "1.2.840.10008.1.2.1"];
+const DCM_TS_JPEG_NATIVO = ["1.2.840.10008.1.2.4.50", "1.2.840.10008.1.2.4.51"];
+
+function dcmEs(buf) {
+  if (!buf || buf.byteLength < 132) return false;
+  const v = new Uint8Array(buf, 128, 4);
+  return v[0] === 68 && v[1] === 73 && v[2] === 67 && v[3] === 77;   // "DICM"
+}
+
+function dcmParse(buf) {
+  const dv = new DataView(buf);
+  let off = 132, ts = "", explicito = true;
+  const out = { spacing: null, rows: 0, cols: 0, bits: 16, signed: false, mono1: false, wc: null, ww: null, px: null, ts: "" };
+  const txt = function (o, len) {
+    let s = ""; for (let i = 0; i < len && o + i < dv.byteLength; i++) { const c = dv.getUint8(o + i); if (c) s += String.fromCharCode(c); }
+    return s.replace(/\0+$/, "").trim();
+  };
+  while (off + 8 <= dv.byteLength) {
+    const grupo = dv.getUint16(off, true), elem = dv.getUint16(off + 2, true);
+    // El grupo 0002 (meta) SIEMPRE es explicit VR little endian, aunque el dataset
+    // no lo sea. Recién al salir de él manda lo que diga el transfer syntax.
+    const exp = (grupo === 0x0002) ? true : explicito;
+    let vr = "", largo = 0, datos = off + 8;
+    if (exp) {
+      vr = String.fromCharCode(dv.getUint8(off + 4), dv.getUint8(off + 5));
+      if (["OB", "OW", "OF", "SQ", "UT", "UN"].indexOf(vr) >= 0) { largo = dv.getUint32(off + 8, true); datos = off + 12; }
+      else largo = dv.getUint16(off + 6, true);
+    } else largo = dv.getUint32(off + 4, true);
+
+    const tag = ((grupo << 16) >>> 0) + elem;
+    if (tag === 0x00020010) { ts = txt(datos, largo); out.ts = ts; explicito = (ts !== "1.2.840.10008.1.2"); }
+    else if (tag === 0x00181164 || tag === 0x00280030) {
+      // ImagerPixelSpacing (0018,1164) es el del plano del detector y manda sobre
+      // PixelSpacing en radiografía de proyección; por eso no se pisa si ya está.
+      const esImager = tag === 0x00181164;
+      if (esImager || !out.spacing || out.spacing.tag !== "ImagerPixelSpacing") {
+        const p = txt(datos, largo).split("\\").map(parseFloat);
+        if (p.length >= 2 && isFinite(p[0]) && isFinite(p[1]) && p[0] > 0)
+          out.spacing = { fila: p[0], col: p[1], tag: esImager ? "ImagerPixelSpacing" : "PixelSpacing" };
+      }
+    }
+    else if (tag === 0x00280010) out.rows = dv.getUint16(datos, true);
+    else if (tag === 0x00280011) out.cols = dv.getUint16(datos, true);
+    else if (tag === 0x00280100) out.bits = dv.getUint16(datos, true);
+    else if (tag === 0x00280103) out.signed = dv.getUint16(datos, true) === 1;
+    else if (tag === 0x00280004) out.mono1 = /MONOCHROME1/.test(txt(datos, largo));
+    else if (tag === 0x00281050) out.wc = parseFloat(txt(datos, largo).split("\\")[0]);
+    else if (tag === 0x00281051) out.ww = parseFloat(txt(datos, largo).split("\\")[0]);
+    else if (tag === 0x7FE00010) { out.px = { off: datos, len: largo === 0xFFFFFFFF ? -1 : largo }; break; }
+
+    if (largo === 0xFFFFFFFF) break;              // largo indefinido fuera de PixelData: no seguimos a ciegas
+    off = datos + largo + (largo % 2);            // los elementos arrancan en offset par
+  }
+  return out;
+}
+
+/* Extrae y concatena los fragmentos de un PixelData encapsulado.
+   En JPEG baseline el resultado es un JPEG válido que el navegador abre solo. */
+function dcmFragmentos(buf, desde) {
+  const dv = new DataView(buf); let o = desde, trozos = [], primero = true;
+  while (o + 8 <= dv.byteLength) {
+    const g = dv.getUint16(o, true), e = dv.getUint16(o + 2, true), len = dv.getUint32(o + 4, true);
+    if (g !== 0xFFFE || e === 0xE0DD) break;                   // fin de la secuencia
+    if (e === 0xE000) {
+      if (primero) primero = false;                            // el primer ítem es la tabla de offsets
+      else if (len > 0 && o + 8 + len <= buf.byteLength) trozos.push(new Uint8Array(buf, o + 8, len));
+    }
+    o += 8 + len;
+  }
+  if (!trozos.length) return null;
+  const total = trozos.reduce(function (a, t) { return a + t.length; }, 0);
+  const salida = new Uint8Array(total); let p = 0;
+  trozos.forEach(function (t) { salida.set(t, p); p += t.length; });
+  return salida;
+}
+
+/* DICOM → dataURL, con el mismo tope de 1400 px que el resto de las imágenes.
+   Devuelve además cuánto mide un píxel de la imagen YA REDUCIDA, que es la que
+   se guarda y sobre la que se mide: sin ese ajuste la escala quedaría mal. */
+function dcmADataURL(file, maxDim, cb) {
+  const rd = new FileReader();
+  rd.onerror = function () { cb(null, null, "No se pudo leer el archivo."); };
+  rd.onload = function () {
+    let meta;
+    try { meta = dcmParse(rd.result); } catch (e) { cb(null, null, "El DICOM está corrupto o usa una estructura que no reconozco."); return; }
+    if (!meta.px || !meta.rows || !meta.cols) { cb(null, null, "El DICOM no trae una imagen legible."); return; }
+
+    const entregar = function (canvas) {
+      const sc = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+      let out = canvas;
+      if (sc < 1) {
+        const c2 = document.createElement("canvas");
+        c2.width = Math.round(canvas.width * sc); c2.height = Math.round(canvas.height * sc);
+        c2.getContext("2d").drawImage(canvas, 0, 0, c2.width, c2.height);
+        out = c2;
+      }
+      const mmPorPx = meta.spacing ? (meta.spacing.col * (meta.cols / out.width)) : null;
+      cb(out.toDataURL("image/jpeg", 0.9),
+         meta.spacing ? { mmPorPx: mmPorPx, tag: meta.spacing.tag, origCols: meta.cols } : null,
+         meta.spacing ? null : "El DICOM no trae la escala del sensor. Puedes calibrar a mano.");
+    };
+
+    if (meta.px.len === -1 || DCM_TS_JPEG_NATIVO.indexOf(meta.ts) >= 0) {
+      const jpg = dcmFragmentos(rd.result, meta.px.off);
+      if (!jpg) { cb(null, null, "El DICOM viene comprimido en un formato que el navegador no abre. Expórtalo como JPG y calibra a mano."); return; }
+      const url = URL.createObjectURL(new Blob([jpg], { type: "image/jpeg" }));
+      const im = new Image();
+      im.onload = function () {
+        const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+        c.getContext("2d").drawImage(im, 0, 0); URL.revokeObjectURL(url); entregar(c);
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); cb(null, null, "El DICOM usa una compresión que el navegador no abre (JPEG sin pérdida o JPEG 2000). Expórtalo como JPG y calibra a mano."); };
+      im.src = url;
+      return;
+    }
+    if (meta.ts && DCM_TS_PLANO.indexOf(meta.ts) < 0) {
+      cb(null, null, "El DICOM usa una compresión que no puedo abrir (" + meta.ts + "). Expórtalo como JPG y calibra a mano."); return;
+    }
+
+    // Sin comprimir: aplicar ventana y bajar a gris de 8 bits.
+    const n = meta.rows * meta.cols;
+    let lee;
+    try {
+      if (meta.bits > 8) { const a = new (meta.signed ? Int16Array : Uint16Array)(rd.result, meta.px.off, Math.min(n, (meta.px.len / 2) | 0)); lee = function (i) { return a[i] || 0; }; }
+      else { const a = new Uint8Array(rd.result, meta.px.off, Math.min(n, meta.px.len)); lee = function (i) { return a[i] || 0; }; }
+    } catch (e) { cb(null, null, "Los píxeles del DICOM no calzan con lo que declara la cabecera."); return; }
+    let lo, hi;
+    if (isFinite(meta.wc) && isFinite(meta.ww) && meta.ww > 0) { lo = meta.wc - meta.ww / 2; hi = meta.wc + meta.ww / 2; }
+    else { lo = Infinity; hi = -Infinity; for (let i = 0; i < n; i++) { const v = lee(i); if (v < lo) lo = v; if (v > hi) hi = v; } }
+    const rango = (hi - lo) || 1;
+    const c = document.createElement("canvas"); c.width = meta.cols; c.height = meta.rows;
+    const ctx = c.getContext("2d"), img = ctx.createImageData(meta.cols, meta.rows), d = img.data;
+    for (let i = 0; i < n; i++) {
+      let g = Math.round(((lee(i) - lo) / rango) * 255);
+      g = g < 0 ? 0 : g > 255 ? 255 : g;
+      if (meta.mono1) g = 255 - g;                 // MONOCHROME1: el 0 es blanco
+      const j = i * 4; d[j] = d[j + 1] = d[j + 2] = g; d[j + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0); entregar(c);
+  };
+  rd.readAsArrayBuffer(file);
+}
+
 function rxDist(l) { return Math.sqrt(Math.pow(l.x2 - l.x1, 2) + Math.pow(l.y2 - l.y1, 2)); }
 function rxFmtMm(v) { return (Math.round(v * 10) / 10).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " mm"; }
 
@@ -493,14 +674,18 @@ function RxMedir({ T, url, titulo, med, readOnly, onSave, onClose }) {
   const imgRef = useRef(null);
   const [nat, setNat] = useState(() => (med && med.w ? { w: med.w, h: med.h } : null));
   const [cal, setCal] = useState(() => (med && med.cal) || null);
+  const [auto, setAuto] = useState(() => (med && med.auto) || null);   // escala leída del DICOM
   const [lineas, setLineas] = useState(() => (med && med.lineas) || []);
   const [draft, setDraft] = useState(null);   // línea en curso (arrastre)
   const [pend, setPend] = useState(null);     // línea de calibración esperando su medida
   const [mmTxt, setMmTxt] = useState("");
+  const [pidiendoCal, setPidiendoCal] = useState(false);
   const [suc, setSuc] = useState(false);
 
-  const modo = cal ? "medir" : "calibrar";
-  const mmPorPx = cal ? (cal.mm / rxDist(cal)) : null;
+  // La calibración a mano MANDA sobre la del sensor: si el profesional se tomó el trabajo
+  // de trazar una referencia, es porque no se fía de la del archivo.
+  const mmPorPx = cal ? (cal.mm / rxDist(cal)) : (auto ? auto.mmPorPx : null);
+  const modo = (pidiendoCal || mmPorPx == null) ? "calibrar" : "medir";
 
   useEffect(function () {
     function onKey(e) { if (e.key === "Escape") onClose(); }
@@ -546,10 +731,10 @@ function RxMedir({ T, url, titulo, med, readOnly, onSave, onClose }) {
   function confirmarCal() {
     const mm = parseFloat(String(mmTxt).replace(",", "."));
     if (!isFinite(mm) || mm <= 0) { try { window.jcmError && window.jcmError("Escribe cuántos milímetros mide la línea de referencia."); } catch (e) {} return; }
-    setCal(Object.assign({}, pend, { mm: mm })); setPend(null); setMmTxt("");
+    setCal(Object.assign({}, pend, { mm: mm })); setPend(null); setMmTxt(""); setPidiendoCal(false);
   }
   function guardar() {
-    onSave(cal ? { w: nat.w, h: nat.h, cal: cal, lineas: lineas, ts: Date.now() } : null);
+    onSave(mmPorPx != null ? { w: nat.w, h: nat.h, cal: cal, auto: auto, lineas: lineas, ts: Date.now() } : null);
     setSuc(true);
   }
 
@@ -580,9 +765,12 @@ function RxMedir({ T, url, titulo, med, readOnly, onSave, onClose }) {
          style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,.9)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center", maxWidth: "94vw" }}>
         <span style={{ fontFamily: T.sans, fontSize: 12, color: "rgba(255,255,255,.72)", marginRight: 4 }}>{titulo}</span>
-        {!readOnly && <button type="button" style={btn(modo === "calibrar")} onClick={function () { setCal(null); setPend(null); }}>
-          {cal ? "Recalibrar" : "1 · Calibrar"}
+        {!readOnly && <button type="button" style={btn(modo === "calibrar")}
+                              onClick={function () { setCal(null); setPend(null); setPidiendoCal(true); }}>
+          {cal ? "Recalibrar" : (auto ? "Calibrar a mano" : "1 · Calibrar")}
         </button>}
+        {!readOnly && auto && cal && <button type="button" style={btn(false)}
+                              onClick={function () { setCal(null); setPidiendoCal(false); setSuc(false); }}>Volver a la escala del sensor</button>}
         {!readOnly && <button type="button" style={btn(false)} disabled={!lineas.length}
                               onClick={function () { setLineas(function (ls) { return ls.slice(0, -1); }); setSuc(false); }}>Deshacer</button>}
         {!readOnly && <button type="button" style={btn(false)} disabled={!lineas.length}
@@ -619,10 +807,18 @@ function RxMedir({ T, url, titulo, med, readOnly, onSave, onClose }) {
             <button type="button" style={btn(false)} onClick={function () { setPend(null); }}>Cancelar</button>
           </div>
         ) : modo === "calibrar" ? (
-          <span><b style={{ color: "#F2C14E" }}>Paso 1 · Calibrar.</b> Traza una línea sobre algo de largo conocido —un implante, una lima, el ancho de una corona— y escribe cuánto mide. Sin eso no se puede medir: la radiografía no trae escala.</span>
+          <span><b style={{ color: "#F2C14E" }}>Paso 1 · Calibrar.</b> Traza una línea sobre algo de largo conocido —un implante, una lima, el ancho de una corona— y escribe cuánto mide. Sin eso no se puede medir: un JPG de radiografía no trae escala.</span>
         ) : (
-          <span><b style={{ color: "#3FD2C7" }}>Paso 2 · Medir.</b> Arrastra para trazar cada medida. Escala: 1 px = {(mmPorPx || 0).toFixed(4)} mm.
-            <br /><span style={{ color: "rgba(255,255,255,.5)", fontSize: 11.5 }}>Las medidas son relativas a tu referencia. La radiografía amplifica y distorsiona, así que sirven para comparar y seguir la evolución, no como medida absoluta.</span></span>
+          <span>
+            {cal
+              ? <span><b style={{ color: "#3FD2C7" }}>Paso 2 · Medir.</b> Escala de tu calibración: 1 px = {(mmPorPx || 0).toFixed(4)} mm.</span>
+              : <span><b style={{ color: "#3FD2C7" }}>Medir.</b> Escala leída del sensor (<code style={{ fontSize: 11.5 }}>{auto.tag}</code>): 1 px = {(mmPorPx || 0).toFixed(4)} mm. No hace falta calibrar.</span>}
+            <br /><span style={{ color: "rgba(255,255,255,.5)", fontSize: 11.5 }}>
+              {cal
+                ? "Las medidas son relativas a tu referencia. "
+                : "La escala viene del fabricante del sensor, no de una estimación. "}
+              La radiografía amplifica y distorsiona —la panorámica de forma desigual a lo largo del arco—, así que la medida es del plano de la imagen: sirve para comparar y seguir evolución, no como medida absoluta en boca.</span>
+          </span>
         )}
       </div>
     </div>
@@ -655,7 +851,8 @@ function RxSlot({ T, url, readOnly, onPick, onDel, med, onSaveMed, titulo }) {
   return (
     <label style={{ display: "block", padding: "14px 12px", borderRadius: 6, border: "1px dashed " + T.line, textAlign: "center", cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
       Subir radiografía
-      <input type="file" accept="image/*" style={{ display: "none" }}
+      <span style={{ display: "block", fontSize: 10.5, color: T.textFaint, marginTop: 3 }}>JPG, PNG o DICOM · el DICOM trae la escala del sensor</span>
+      <input type="file" accept="image/*,.dcm,.dicom,application/dicom" style={{ display: "none" }}
              onChange={function (ev) { const f = ev.target.files && ev.target.files[0]; if (f) onPick(f); ev.target.value = ""; }} />
     </label>
   );
@@ -974,6 +1171,7 @@ function PlanFirmaModal({ T, patient, onClose, onSign }) {
 
 Object.assign(window, {
   Odontograma, ToothSVG, RxSlot, RxMedir, PlanDentalTab, PlanFirmaModal,
+  dcmEs, dcmParse, dcmADataURL,
   PLAN_PRIORIDADES, PLAN_ESTADOS, planGet, planTotales, planOrdenado, planPrioridad, planEstadoLabel, planPendientesPublicos,
   ODONTO_ESTADOS, ODONTO_DENTICION, odontoEstado, odontoTipo, odontoEsSuperior, odontoPiezasDe,
   odontoGet, odontoPieza, odontoSetPieza, odontoStats, odontoResumenTexto, odontoRxView
