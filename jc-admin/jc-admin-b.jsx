@@ -1088,14 +1088,17 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
               const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
               try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: newSessionId }); } catch (e3) {}
             }
-            // Al registrar una sesión NUEVA, si el paciente tiene una cita agendada HOY (y todavía no
-            // está marcada como atendida/anulada), la pasa a "atendida" automáticamente — antes había
-            // que ir a la Agenda y marcarla a mano, y quedaba pendiente aunque ya se hubiera atendido.
+            // Al registrar una sesión NUEVA, la cita de ese paciente EN LA FECHA DE LA SESIÓN (no la de
+            // hoy) pasa a "atendida" automáticamente — antes se comparaba contra el día actual, así que
+            // registrar hoy un procedimiento hecho ayer dejaba la cita colgada como pendiente.
             if (!editing && updateAppt) {
               try {
                 const d0 = new Date(); const isoHoy = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
-                const apptHoy = (appts || []).find(a => a.patId === patient.id && a.fecha === isoHoy && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida");
-                if (apptHoy) updateAppt(apptHoy.id, { status: "atendida", attended: true });
+                const fechaSes = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "") ? e.date : isoHoy;
+                const libre = a => a.patId === patient.id && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida";
+                // Prioriza la cita del día de la sesión; si no hay, cae a la de hoy (registro en el momento).
+                const apptSes = (appts || []).find(a => a.fecha === fechaSes && libre(a)) || (appts || []).find(a => a.fecha === isoHoy && libre(a));
+                if (apptSes) updateAppt(apptSes.id, { status: "atendida", attended: true });
               } catch (e5) {}
             }
             try { window.jcmToast && window.jcmToast(editing ? "Sesión actualizada." : ((e.cobro || 0) > 0 ? "Sesión registrada · " + (window.JCDATA ? window.JCDATA.fmt(e.cobro) : "$" + e.cobro) + " a Caja." : "Sesión registrada."), "ok"); } catch (e2) {}
@@ -1533,7 +1536,9 @@ function NewEntryModal({ T, entry, onClose, onSave, patient, updatePatient, star
             <div style={{ background: T.surface2, border: "1px solid " + T.line, borderRadius: 8, padding: "13px 14px" }}>
               <div style={{ fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.accent, marginBottom: 11 }}>Producto aplicado</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: v })} placeholder="Ej. AB1234" />
+                {/* El lote va SIEMPRE en mayúsculas (así viene impreso en la caja del producto y evita
+                    que el mismo lote quede escrito de dos formas distintas al buscarlo o auditarlo). */}
+                <AdField T={T} label="Lote del producto" value={f.lote} onChange={v => setF({ ...f, lote: (v || "").toUpperCase() })} placeholder="Ej. AB1234" />
                 <AdField T={T} label="Fecha de vencimiento" value={f.venc} onChange={v => { let d = v.replace(/\D/g, "").slice(0, 8); let fmt = d.length > 6 ? d.slice(0,4)+"-"+d.slice(4,6)+"-"+d.slice(6) : d.length > 4 ? d.slice(0,4)+"-"+d.slice(4) : d; setF({ ...f, venc: fmt }); }} inputMode="numeric" placeholder="2027-03-15 (AAAA-MM-DD)" />
                 <label style={{ display: "block" }}>
                   <span style={lblS}>Temperatura conserv.</span>

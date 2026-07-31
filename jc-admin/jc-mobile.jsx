@@ -1026,7 +1026,7 @@ function abbrevProcM(proc) {
   return proc.trim().charAt(0).toUpperCase();
 }
 
-function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas }) {
+function AgendaTab({ T, appts, onOpenAppt, goTab, goNueva, showAnuladas, setShowAnuladas }) {
   const today = todayISO();
   const [selDay, setSelDay] = useState(today);
   // Buscador de pacientes (pedido): evita scrollear día por día para encontrar una cita. Busca en
@@ -1225,7 +1225,7 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
   // blur/saturación más altos, no solo un tinte plano. zIndex alto: siempre queda SOBRE la lista de
   // citas que scrollea detrás — nunca la tapa a ella, pero ella tampoco lo tapa a él.
   const fab = (
-    <button onClick={()=>goTab("nueva")} title="Nueva cita" aria-label="Nueva cita"
+    <button onClick={()=>(goNueva ? goNueva(selDay) : goTab("nueva"))} title="Nueva cita" aria-label="Nueva cita"
       style={{ position:"absolute", right:16, bottom:16+"px", width:56, height:56, borderRadius:"50%",
         background:T.accent, border:"none", color:T.onAccent, cursor:"pointer",
         boxShadow:"0 12px 28px -10px rgba(10,25,55,.5)",
@@ -1378,7 +1378,9 @@ function AgendaTab({ T, appts, onOpenAppt, goTab, showAnuladas, setShowAnuladas 
 // capacidad real de crear un PACIENTE NUEVO (toggle segmentado existente/nuevo con RUT validado). El
 // guardado usa la lógica real: addAppt (status pendiente), addPatient si es nuevo, y el flujo real de
 // WhatsApp de confirmación (jcmCitaConfirmMsgM). Reemplaza al antiguo asistente de 3 pasos.
-function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
+// initialFecha: día preseleccionado en la Agenda (al tocar "+" con un día abierto se agenda EN ese
+// día, no en hoy). Sigue siendo editable con los steppers ‹ › y el calendario desplegable.
+function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone, initialFecha }) {
   const [tipo, setTipo] = useState("existente"); // existente | nuevo
   const [pid, setPid] = useState("");
   const [pq, setPq] = useState(""); // buscador de paciente existente (por nombre/RUT)
@@ -1396,7 +1398,7 @@ function NuevaWizard({ T, appts, patients, addAppt, addPatient, onDone }) {
   const [email, setEmail] = useState("");
   // Detalles de la cita
   const procs = procList();
-  const [fecha, setFecha] = useState(todayISO());
+  const [fecha, setFecha] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initialFecha || "") ? initialFecha : todayISO());
   const [calOpen, setCalOpen] = useState(false); // calendario desplegable al tocar la fecha
   const [calMonth, setCalMonth] = useState(() => new Date((todayISO())+"T12:00:00"));
   // Al mover la fecha (steppers o al elegir un día), el calendario sigue mostrando ese mes.
@@ -1715,6 +1717,24 @@ function PacientesOverlay({ T, patients, appts, onBack, onOpenFicha, addPatient 
 }
 
 /* ═══════════ Overlay: Ficha del paciente (vista + edición básica) ═══════════ */
+// Fecha de una sesión clínica → ISO ordenable. El historial trae "YYYY-MM-DD" (formato actual) y
+// fichas antiguas pueden traer "DD-MM-YYYY"; sin normalizar, ordenar por texto mezclaba ambas.
+function sesFechaISO(d) {
+  const s = String(d || "");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  return m ? m[3] + "-" + m[2] + "-" + m[1] : "";
+}
+// Historial clínico del paciente. NO está en el índice "patients" (liviano): vive en su propia clave
+// phist_<id> para no topar el límite de 1 MB por documento en la nube. El móvil lo leía de p.history
+// y por eso siempre mostraba 0 atenciones. Se cae a p.history para fichas en formato antiguo (inline).
+function sesionesDe(p) {
+  let h = [];
+  try { const ph = window.DB && window.DB.get("phist_" + p.id); if (Array.isArray(ph)) h = ph; } catch (e) {}
+  if (!h.length && Array.isArray(p.history)) h = p.history;
+  return h.slice().sort((a, b) => sesFechaISO(b.date).localeCompare(sesFechaISO(a.date)));
+}
+
 function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) {
   const p = patients.find(x=>x.id===patientId);
   const [edit, setEdit] = useState(false);
@@ -1726,10 +1746,17 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
   const today = todayISO();
   const proximas = mine.filter(a=>a.status!=="anulada" && (a.fecha||offToISO(a.day||0))>=today).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   const pasadas = mine.filter(a=>(a.fecha||offToISO(a.day||0))<today || a.status==="atendida").sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
-  // Procedimientos registrados en el portal (pedido): el panel móvil no los registra, pero sí debe
-  // mostrarlos — es el mismo campo patient.history que usa la ficha clínica del portal, así queda
-  // el mismo registro visible en ambos lados sin duplicar la captura.
-  const sesiones = (p.history || []).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  // Atenciones clínicas registradas (las mismas que el portal): solo lectura en el móvil.
+  const sesiones = sesionesDe(p);
+  // Resumen: cuántas atenciones, cuándo fue la última y el desglose por tratamiento (lo que el
+  // profesional necesita ver de un vistazo antes de entrar a atender).
+  const ultimaSes = sesiones[0] || null;
+  const porTrat = (() => {
+    const m = {};
+    sesiones.forEach(h => { const k = (h.proc || "Sin especificar").trim(); m[k] = (m[k] || 0) + 1; });
+    return Object.keys(m).map(k => ({ name: k, n: m[k] })).sort((a, b) => b.n - a.n);
+  })();
+  const fmtSesFecha = iso => { const s = sesFechaISO(iso); if (!s) return iso || "—"; const d = new Date(s + "T12:00:00"); return isNaN(d) ? (iso || "—") : d.getDate() + " " + MESES[d.getMonth()] + " " + d.getFullYear(); };
   const inp = { width:"100%", fontFamily:T.sans, fontSize:14, padding:"11px 13px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none", boxSizing:"border-box" };
 
   function save() { updatePatient(p.id, { phone:f.phone.trim(), email:f.email.trim(), notas:f.notas.trim() }); setEdit(false); }
@@ -1803,20 +1830,43 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
           </div>
         </div>
 
-        {/* Procedimientos del portal (pedido): solo lectura — el panel móvil no registra sesiones
-            clínicas, pero muestra las que ya se cargaron desde el portal para tener el mismo registro
-            visible en ambas partes. */}
+        {/* Atenciones registradas: resumen (cuántas · última · por tratamiento) + el detalle. Solo
+            lectura — el móvil no registra sesiones clínicas, pero el profesional necesita ver de un
+            vistazo qué se le ha hecho al paciente antes de atenderlo. */}
+        {sesiones.length > 0 && (
+          <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
+            <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:11 }}>Resumen de atenciones</div>
+            <div style={{ display:"flex", gap:10, marginBottom: porTrat.length ? 12 : 0 }}>
+              <div style={{ flex:1, ...glassChip(T), borderRadius:10, padding:"10px 12px" }}>
+                <div style={{ fontFamily:T.serif, fontSize:22, fontWeight:600, color:T.text, lineHeight:1.1 }}>{sesiones.length}</div>
+                <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginTop:2 }}>{sesiones.length===1 ? "atención" : "atenciones"}</div>
+              </div>
+              <div style={{ flex:2, ...glassChip(T), borderRadius:10, padding:"10px 12px", minWidth:0 }}>
+                <div style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{ultimaSes ? fmtSesFecha(ultimaSes.date) : "—"}</div>
+                <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>última · {ultimaSes && ultimaSes.proc ? ultimaSes.proc : "—"}</div>
+              </div>
+            </div>
+            {porTrat.map(t => (
+              <div key={t.name} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, padding:"6px 0", borderTop:"1px solid "+T.lineSoft }}>
+                <span style={{ fontFamily:T.sans, fontSize:12.5, color:T.text, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</span>
+                <span style={{ fontFamily:T.sans, fontSize:12.5, fontWeight:600, color:T.accent, flexShrink:0 }}>{t.n}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div>
-          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Procedimientos del portal ({sesiones.length})</div>
-          {sesiones.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin procedimientos registrados en el portal.</div>}
+          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Atenciones registradas ({sesiones.length})</div>
+          {sesiones.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin atenciones registradas todavía.</div>}
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {sesiones.slice(0,20).map((h,i) => (
               <div key={i} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px" }}>
-                <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{h.date||"—"} · {h.proc||"—"}{h.units ? " · "+h.units : ""}</div>
+                <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{fmtSesFecha(h.date)} · {h.proc||"—"}{h.units ? " · "+h.units : ""}</div>
                 {h.resumen && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>{h.resumen}</div>}
+                {h.recomendados && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>Recomendado: {h.recomendados}</div>}
                 {h.proName && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, fontStyle:"italic", marginTop:3 }}>Realizado por {h.proName}</div>}
               </div>
             ))}
+            {sesiones.length > 20 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint, textAlign:"center", padding:"4px 0" }}>Mostrando las 20 más recientes de {sesiones.length}.</div>}
           </div>
         </div>
       </div>
@@ -1863,19 +1913,19 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
     .sort((a,b)=>b.n-a.n).slice(0,5);
   const maxProc = topProc[0] ? topProc[0].n : 1;
 
-  // Resumen del día (prototipo, líneas ~410-428): barras verticales por estado de las citas de HOY,
-  // con los colores OFICIALES de apptStateM (agendado azul · confirmada verde · atendida dorado ·
-  // no asistió rojo) y su conteo debajo. Excluye canceladas (no consumen agenda).
-  const todayIso = todayISO();
-  const todayA = appts.filter(a => (a.fecha||offToISO(a.day||0))===todayIso && a.status!=="anulada");
+  // Resumen del MES: barras verticales por estado de las citas del mes en curso, con los colores
+  // OFICIALES de apptStateM (agendado azul · confirmada verde · atendida dorado · no asistió rojo).
+  // Antes eran las citas de HOY, pero al abrir Reportes temprano salía todo en 0 y no daba lectura
+  // del negocio; el mes es la unidad con la que se mide la clínica (pedido del usuario).
+  const mesA = monthAppts.filter(a => a.status!=="anulada");
   const dayBars = [
-    { label:"Agendadas",  color:"#6EA8E8", count: todayA.filter(a=>!(a.status==="confirmada"||a.status==="atendida"||a.attended||a.status==="no_asistio")).length },
-    { label:"Confirmadas",color:"#46D27A", count: todayA.filter(a=>a.status==="confirmada").length },
-    { label:"Atendidas",  color:"#F5B93D", count: todayA.filter(a=>a.status==="atendida"||a.attended).length },
-    { label:"No asistió", color:"#FF6B7D", count: todayA.filter(a=>a.status==="no_asistio").length },
+    { label:"Agendadas",  color:"#6EA8E8", count: mesA.filter(a=>!(a.status==="confirmada"||a.status==="atendida"||a.attended||a.status==="no_asistio")).length },
+    { label:"Confirmadas",color:"#46D27A", count: mesA.filter(a=>a.status==="confirmada").length },
+    { label:"Atendidas",  color:"#F5B93D", count: mesA.filter(a=>a.status==="atendida"||a.attended).length },
+    { label:"No asistió", color:"#FF6B7D", count: mesA.filter(a=>a.status==="no_asistio").length },
   ];
   const dayMax = Math.max(1, ...dayBars.map(b=>b.count));
-  const todayLabelStr = (() => { const d=new Date(); return WDS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; })();
+  const todayLabelStr = (() => { const d=new Date(); return MESES_LARGOS[d.getMonth()]+" "+d.getFullYear(); })();
   const weekTotal = Math.max(1, weekAppts.filter(a=>a.status!=="anulada").length);
 
   // Fila con ícono en círculo de color + valor coloreado + barra de progreso (prototipo reportRows).
@@ -1906,9 +1956,10 @@ function ReportesOverlay({ T, appts, onBack, onOpenAppt }) {
   return (
     <OverlayShell T={T} title="Reportes" onBack={onBack}>
       <div style={{ padding:"14px 16px 40px", display:"flex", flexDirection:"column", gap:16 }}>
-        {/* Resumen del día (prototipo): barras verticales por estado + conteos. */}
+        {/* Resumen del mes: barras verticales por estado + conteos. */}
         <div style={{ ...glassPanel(T,16), padding:"14px 16px" }}>
-          <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:11.5, color:T.textMute, marginBottom:10, textTransform:"capitalize" }}>Resumen del día · {todayLabelStr}</div>
+          {/* Sin textTransform:capitalize — escribía "Resumen Del Mes"; la etiqueta ya viene bien escrita. */}
+          <div style={{ fontFamily:T.sans, fontWeight:500, fontSize:11.5, color:T.textMute, marginBottom:10 }}>Resumen del mes · {todayLabelStr}</div>
           <div style={{ display:"flex", alignItems:"flex-end", gap:16, height:44 }}>
             {dayBars.map(b => (
               <div key={b.label} style={{ display:"flex", flexDirection:"column", alignItems:"center", flex:1, height:"100%", justifyContent:"flex-end" }}>
@@ -2193,6 +2244,13 @@ function SinPermisoM({ T }) {
 }
 function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   const [tab, setTab] = useState("citas");
+  // Día con el que se abre "Nueva cita": si se entra desde la Agenda con un día seleccionado, se
+  // agenda EN ese día (editable); desde cualquier otro lado queda null → hoy.
+  const [nuevaFecha, setNuevaFecha] = useState(null);
+  const goNueva = (fecha) => { setNuevaFecha(fecha || null); setTab("nueva"); };
+  // Al salir del formulario por CUALQUIER vía (atrás, cerrar, barra de pestañas, menú) se olvida el
+  // día preseleccionado, para que la próxima "Nueva cita" desde Inicio vuelva a abrir en hoy.
+  useEffect(() => { if (tab !== "nueva" && nuevaFecha) setNuevaFecha(null); }, [tab]);
   // SEG · Si la pestaña actual no está permitida, aterrizar en la primera que sí lo esté. El gate
   // de render (más abajo) es la barrera dura; esto solo evita que el usuario choque contra un muro.
   useEffect(() => {
@@ -2417,8 +2475,8 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
           {/* SEG · gate por permiso en el RENDER de cada pestaña (ver MOBILE_PERM / mobileCan). */}
           {tab==="citas"    && (mobileCan("citas")    ? <HomeTab     T={T} appts={appts} patients={patients} onOpenAppt={setApptSheet} goTab={setTab} openOverlay={setOverlay} openNotif={()=>setNotifOpen(true)} bellCount={bellCount} /> : <SinPermisoM T={T} />)}
           {tab==="horarios" && (mobileCan("horarios") ? <HorariosTab T={T} appts={appts} /> : <SinPermisoM T={T} />)}
-          {tab==="nueva"    && (mobileCan("nueva")    ? <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} onDone={()=>setTab("citas")} /> : <SinPermisoM T={T} />)}
-          {tab==="agenda"   && (mobileCan("agenda")   ? <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} /> : <SinPermisoM T={T} />)}
+          {tab==="nueva"    && (mobileCan("nueva")    ? <NuevaWizard T={T} appts={appts} patients={patients} addAppt={addAppt} addPatient={addPatient} initialFecha={nuevaFecha} onDone={()=>{ setNuevaFecha(null); setTab("citas"); }} /> : <SinPermisoM T={T} />)}
+          {tab==="agenda"   && (mobileCan("agenda")   ? <AgendaTab   T={T} appts={appts} onOpenAppt={setApptSheet} goTab={setTab} goNueva={goNueva} showAnuladas={agShowAnuladas} setShowAnuladas={setAgShowAnuladas} /> : <SinPermisoM T={T} />)}
           {tab==="mas"      && <MasTab      T={T} mode={mode} toggleMode={toggleMode} openOverlay={setOverlay} onLogout={onLogout} openNotif={()=>setNotifOpen(true)} goAnuladas={()=>{ setOverlay(null); setAgShowAnuladas(true); setTab("agenda"); }} />}
         </div>
 
