@@ -242,13 +242,14 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
     children
   );
 }
-function AdField({ T, label, value, onChange, placeholder, inputMode, error }) {
+function AdField({ T, label, value, onChange, placeholder, inputMode, error, type }) {
   const nocap = inputMode === "email" || inputMode === "url";
   const DS = window.JCDS;
   if (!(DS && jcdsLux())) return /* @__PURE__ */ React.createElement("label", { style: { display: "block" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 } }, label), /* @__PURE__ */ React.createElement(
     "input",
     {
       value,
+      type,
       inputMode,
       onChange: (e) => onChange(e.target.value),
       placeholder,
@@ -260,6 +261,7 @@ function AdField({ T, label, value, onChange, placeholder, inputMode, error }) {
     "input",
     {
       value,
+      type,
       inputMode,
       onChange: (e) => onChange(e.target.value),
       placeholder,
@@ -921,10 +923,18 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     setNewEntry(false);
     setEditIdx(null);
     setViewMode(false);
-    if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
+    {
       const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
+      const _sesId = editing ? e.id || newSessionId : newSessionId;
+      const _mov = { type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atenci\xF3n").trim() + " \xB7 " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: _sesId };
       try {
-        window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atenci\xF3n").trim() + " \xB7 " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: newSessionId });
+        const _prev = editing && window.cashAll && _sesId ? (window.cashAll() || []).find((m) => m.sessionId === _sesId) : null;
+        if ((e.cobro || 0) > 0) {
+          if (_prev && window.cashUpdate) window.cashUpdate(_prev.id, { amount: e.cobro, cost: _cost, method: _mov.method, concept: _mov.concept, prof: _mov.prof });
+          else if (window.cashAdd) window.cashAdd(_mov);
+        } else if (_prev && window.cashDelete) {
+          window.cashDelete(_prev.id);
+        }
       } catch (e3) {
       }
     }
@@ -1872,8 +1882,13 @@ function ImagenesTab({ T, patient, updatePatient }) {
     }
   }
   function deleteImg(im) {
-    commitImgs(imgs.filter((x) => x.id !== im.id));
-    if (im.storPath && window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage(im.storPath);
+    const q = "\xBFEliminar esta foto" + (im.label ? " (" + im.label + ")" : "") + "? No se puede deshacer.";
+    const seguir = window.jcmConfirm ? window.jcmConfirm(q) : Promise.resolve(window.confirm(q));
+    Promise.resolve(seguir).then((ok) => {
+      if (!ok) return;
+      commitImgs(imgs.filter((x) => x.id !== im.id));
+      if (im.storPath && window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage(im.storPath);
+    });
   }
   const groups = {};
   imgs.forEach((im) => {
@@ -1923,8 +1938,15 @@ function FacturacionTab({ T, patient, updatePatient, onOpenSession }) {
   const metodos = ["Transferencia", "Efectivo", "Tarjeta d\xE9bito", "Tarjeta cr\xE9dito", "Otro"];
   const items = (patient.history || []).map((h, hi) => ({ h, hi })).filter((x) => (x.h.cobro || 0) > 0).map(({ h, hi }) => ({ concept: h.proc || "Atenci\xF3n", metodo: h.metodo || "\u2014", amount: h.cobro || 0, date: h.date || "", hi }));
   function removeAtencion(hi) {
+    const ses = (patient.history || [])[hi] || null;
     const hist = (patient.history || []).map((h, i) => i === hi ? { ...h, cobro: 0, metodo: "", comprobante: "" } : h);
     updatePatient(patient.id, { history: hist });
+    try {
+      if (ses && ses.id && window.cashAll && window.cashDelete) {
+        (window.cashAll() || []).filter((m) => m.sessionId === ses.id).forEach((m) => window.cashDelete(m.id));
+      }
+    } catch (e) {
+    }
     setDelAt(null);
   }
   const total = items.reduce((s, i) => s + (i.amount || 0), 0);

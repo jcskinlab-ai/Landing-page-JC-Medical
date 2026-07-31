@@ -797,7 +797,10 @@ function ProfesionalForm({ T, member, onClose, onSave, onDelete }) {
               </div>
             </div>
             <div>
-              <AdField T={T} label="Clave de confirmación (4–6 dígitos)" value={f.pin || ""} onChange={v => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} inputMode="numeric" placeholder="••••" />
+              {/* type="password": es la credencial con la que ese profesional autoriza borrar SUS
+                  sesiones clínicas. Se mostraba en texto plano, así que cualquiera con acceso a
+                  Equipo podía leer el PIN de un colega y borrar sesiones en su nombre. */}
+              <AdField T={T} label="Clave de confirmación (4–6 dígitos)" value={f.pin || ""} onChange={v => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} type="password" inputMode="numeric" placeholder="••••" />
               <p style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 7, lineHeight: 1.5 }}>Clave personal del profesional. Se pide para confirmar cambios en las sesiones que él/ella realizó.</p>
             </div>
             {togRow("Profesional activo", f.active, () => setF({ ...f, active: !f.active }))}
@@ -4628,12 +4631,21 @@ function _billDay(dateStr) {
 }
 // Actualiza un movimiento de caja (p.ej. cambiar el método de pago).
 function cashUpdate(id, patch) { cashSave(cashAll().map(m => m.id === id ? { ...m, ...patch } : m)); }
+// Estas dos escriben `patients` DIRECTO en DB, sin pasar por el estado de React del panel. Sin
+// avisar, el panel se quedaba con la lista vieja en memoria y el siguiente updatePatient (guardar
+// una nota, cambiar un teléfono) volcaba esa lista obsoleta completa: el cobro borrado REAPARECÍA
+// y el método de pago volvía al anterior. "jcsaas:data" es justo el evento que hace que el panel
+// vuelva a leer pacientes y citas desde DB.
+function patientsChangedExternally() {
+  cashNotify();
+  try { window.dispatchEvent(new CustomEvent("jcsaas:data", { detail: {} })); } catch (e) {}
+}
 // Cambia el método de pago de una atención de la ficha (patient.billing) desde Caja.
 function billingUpdateMethod(patId, billId, metodo) {
   try {
     const pts = (window.DB && DB.get("patients")) || [];
     DB.set("patients", pts.map(p => p.id === patId ? { ...p, billing: (p.billing || []).map(b => b.id === billId ? { ...b, metodo: metodo } : b) } : p));
-    cashNotify();
+    patientsChangedExternally();
   } catch (e) {}
 }
 // Quita una atención del registro de Caja (p.billing). NO toca la sesión del historial clínico.
@@ -4641,7 +4653,7 @@ function billingDelete(patId, billId) {
   try {
     const pts = (window.DB && DB.get("patients")) || [];
     DB.set("patients", pts.map(p => p.id === patId ? { ...p, billing: (p.billing || []).filter(b => b.id !== billId) } : p));
-    cashNotify();
+    patientsChangedExternally();
   } catch (e) {}
 }
 // Movimientos de caja del período + las atenciones PAGADAS de las fichas (que no pasan por "sesión con cobro").
@@ -5918,7 +5930,17 @@ function CajaView({ T }) {
         onClose={() => setDelMov(null)}
         onOk={() => { if (delMov._src === "billing") billingDelete(delMov._patId, delMov._billId); else cashDelete(delMov.id); setDelMov(null); setTick(t => t + 1); }} />}
       {mov && <NuevoMovModal T={T} onClose={() => setMov(false)} onSave={mv => { cashAdd({ ...mv, kind: "manual" }); setMov(false); setTick(tick + 1); }} />}
-      {cierre && <CierreModal T={T} ingresos={ingresos} egresos={egresos} costoIns={costoIns} neto={neto} fecha={fechaTxt} onClose={() => setCierre(false)} />}
+      {/* El cierre es SIEMPRE del día de hoy, así que sus totales se calculan aparte del chip de
+          período. Antes recibía los del período mirado: estando en "Este mes" el botón guardaba
+          $8.400.000 en cierres_caja con la fecha de hoy, como si fuera la caja de un solo día. */}
+      {cierre && (() => {
+        const mHoy = cashMovimientos().filter(m => m._day === hoyDay);
+        const iHoy = mHoy.filter(m => m.type === "ingreso").reduce((s, m) => s + (m.amount || 0), 0);
+        const eHoy = mHoy.filter(m => m.type === "egreso").reduce((s, m) => s + (m.amount || 0), 0);
+        const cHoy = mHoy.reduce((s, m) => s + (m.cost || 0), 0);
+        const nHoy = iHoy - eHoy - (mHoy.filter(m => m.kind === "atencion").length * adCost);
+        return <CierreModal T={T} ingresos={iHoy} egresos={eHoy} costoIns={cHoy} neto={nHoy} fecha={fechaTxt} dia={hoyDay} onClose={() => setCierre(false)} />;
+      })()}
       {editMov && <MetodoPagoModal T={T} mov={editMov} onClose={() => setEditMov(null)} onSave={metodo => {
         if (editMov._src === "billing") billingUpdateMethod(editMov._patId, editMov._billId, metodo);
         else cashUpdate(editMov.id, { method: metodo });
@@ -5981,14 +6003,17 @@ function NuevoMovModal({ T, onClose, onSave }) {
     </AdModal>
   );
 }
-function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, onClose }) {
+function CierreModal({ T, ingresos, egresos, costoIns, neto, fecha, dia, onClose }) {
   const D = window.JCDATA;
   const [done, setDone] = useState(false);
   function confirmarCierre() {
     try {
       const cierres = (window.DB && window.DB.get("cierres_caja")) || [];
-      cierres.unshift({ fecha, ingresos, egresos, costoIns, neto, ts: new Date().toISOString() });
-      window.DB && window.DB.set("cierres_caja", cierres.slice(0, 90));
+      // Un cierre por día: dos clics generaban dos registros de la misma fecha y la caja aparecía
+      // cuadrada dos veces. Se reemplaza el del día en vez de apilar otro.
+      const restantes = dia ? cierres.filter(c => c.dia !== dia) : cierres;
+      restantes.unshift({ fecha, dia, ingresos, egresos, costoIns, neto, ts: new Date().toISOString() });
+      window.DB && window.DB.set("cierres_caja", restantes.slice(0, 90));
       setDone(true);
       try { window.jcmToast && window.jcmToast("Cierre del día registrado.", "ok"); } catch (e2) {}
     } catch (e) {

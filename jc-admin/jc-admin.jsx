@@ -243,13 +243,17 @@ var PERM_NAV = {
   // no algo que un profesional individual deba ver — solo el dueño/staff la usa.
   "Agenda": ["agenda", "pendientes"],
   "Pacientes": ["pacientes"],
-  "Servicios": ["servicios", "equipo", "sucursales"],
+  // "equipo" y "sucursales" salen de aquí a propósito: dar "Servicios" a un profesional para que
+  // mantenga el catálogo de tratamientos le abría también la administración del EQUIPO, donde
+  // podía leer la clave personal de sus colegas —la misma que autoriza borrar sus sesiones
+  // clínicas— y desactivarlos o eliminarlos. Pasan a "Configuración", que es del dueño.
+  "Servicios": ["servicios"],
   "Inventario": ["inventario"],
   "Reportes": ["reportes", "resumen", "caja"],
   // "copilot" (Asistente IA) NO se incluye aquí a propósito: solo lo configura el dueño/admin
   // de la clínica, nunca un profesional aunque tenga el permiso "Marketing" activado.
   "Marketing": ["marketing", "crm", "difusiones", "agenteia", "automatizaciones", "fidelidad", "colaboracion"],
-  "Configuración": ["config", "administracion", "consentimientos", "fichaeditor", "tutoriales", "integraciones"]
+  "Configuración": ["config", "administracion", "consentimientos", "fichaeditor", "tutoriales", "integraciones", "equipo", "sucursales"]
 };
 function adminNavItems() {
   var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled)
@@ -654,7 +658,17 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const hoy = appts.filter(a => apptDayOff(a) === 0 && a.status !== "anulada");
 // Ingresos de hoy = suma de los movimientos de caja tipo "ingreso" (los egresos no cuentan como ingreso).
   const ingresosHoy = (typeof window.cashToday === "function") ? (window.cashToday() || []).filter(m => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
-  const nuevosMes = patients.length;
+  // Pacientes dados de alta ESTE MES. Antes era patients.length: una clínica que importaba 800
+  // fichas veía "Nuevos pacientes: 800 · añadidos este mes" y el dato de captación quedaba inútil.
+  const nuevosMes = (function () {
+    const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+    return (patients || []).filter(p => {
+      const ts = p && p.fechaTs;
+      if (!ts) return false;                       // ficha antigua sin fecha de alta: no se cuenta
+      const f = new Date(ts);
+      return !isNaN(f) && f.getFullYear() === y && f.getMonth() === m;
+    }).length;
+  })();
   const green = "#1F8A5B";
   // ── Sistema "glass" (lux · ref. dashboard tipo Sophie): paneles flotantes translúcidos con blur.
   //    Oscuro = blanco translúcido sobre negro · Claro = off-white translúcido (blanco+gris, NO blanco crudo).
@@ -787,8 +801,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const [funnelAnim, setFunnelAnim] = useState(false);
   useEffect(() => { const t = setTimeout(() => setFunnelAnim(true), 750); return () => clearTimeout(t); }, []);
   const funnel = (function () {
-    const mes = new Date().toISOString().slice(0, 7);
-    const inMonth = ts => (ts || "").slice(0, 7) === mes;
+    // Mes LOCAL, no UTC. Con toISOString() un cobro del 31 de julio a las 21:30 en Chile (UTC-4)
+    // se convertía en "2026-08-01" y el embudo lo contaba en agosto, mientras Caja —que sí usa día
+    // local— lo contaba en julio: la liquidación del mes no cuadraba con el registro de ventas.
+    const _mesLocal = d => { const x = new Date(d); return isNaN(x) ? "" : x.getFullYear() + "-" + ("0" + (x.getMonth() + 1)).slice(-2); };
+    const mes = _mesLocal(new Date());
+    const inMonth = ts => !!ts && _mesLocal(ts) === mes;
     let cash = []; try { cash = (typeof window.cashAll === "function") ? (window.cashAll() || []) : ((window.DB && DB.get("cash_moves")) || []); } catch (e) {}
     // Un procedimiento NO es una evaluación (se filtran del embudo).
     const esProc = s => !/evaluaci/i.test(s || "");
@@ -997,15 +1015,20 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       ));
     } else if (kpiPopup === "ingresos") {
       title = "Ingresos de hoy";
-      const pagadas = hoy.filter(a => a.paid);
-      if (!pagadas.length) rows = [<div key="0" style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "16px 0" }}>No hay pagos registrados hoy.</div>];
-      else rows = pagadas.map((a, i) => (
-        <div key={i} style={rowStyle}>
+      // La lista sale de los MOVIMIENTOS DE CAJA del día, la misma fuente que el total de abajo.
+      // Antes listaba citas con `paid: true`, un campo que no lo pone nadie (solo se escribe
+      // `paid: false` al crear la cita), así que el popup decía "No hay pagos registrados hoy"
+      // justo encima de "Total hoy $600.000".
+      let movsHoy = [];
+      try { movsHoy = ((typeof window.cashToday === "function" ? window.cashToday() : []) || []).filter(m => m.type !== "egreso"); } catch (e) { movsHoy = []; }
+      if (!movsHoy.length) rows = [<div key="0" style={{ fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "16px 0" }}>No hay pagos registrados hoy.</div>];
+      else rows = movsHoy.map((m, i) => (
+        <div key={m.id || i} style={rowStyle}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{a.name}</div>
-            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{a.proc} · {a.time || "—"}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text }}>{m.patient || m.concept || "Cobro"}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute }}>{[m.concept, m.method].filter(Boolean).join(" · ") || "—"}</div>
           </div>
-          <span style={{ fontFamily: T.serif, fontSize: 15, color: green }}>Pagado</span>
+          <span style={{ fontFamily: T.serif, fontSize: 15, color: green }}>{fmt(m.amount || 0)}</span>
         </div>
       ));
       rows.push(
@@ -4547,10 +4570,6 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   // Un slot de HOY que ya pasó no debe poder verse ni agendarse (ilógico). nowMin = minutos del día actual.
   const nowMin = b0.getHours() * 60 + b0.getMinutes();
   const slotPast = (off, h) => off === 0 && mins(h) < nowMin;
-  const slotBlk = (off, h) => (appts || []).some(a => { if (a.status === "anulada" || a.status === "cancelada") return false; if (apptDayOff(a) !== off) return false; const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(h); return ts >= as && ts < as + ad; });
-  // Próximo hueco disponible (primer slot futuro y libre, recorriendo día a día). Base de la recomendación
-  // y del fallback cuando se abre desde un día cuyos horarios ya vencieron (muestra el día siguiente).
-  const nextFree = (() => { for (const w of week) { for (const h of adminSlots()) { if (!slotPast(w.off, h) && !slotBlk(w.off, h)) return { dayOff: w.off, time: h }; } } return null; })();
   // Si el prellenado apunta a una hora ya pasada, se descarta y se usa el próximo hueco real.
   const pfValid = pf.time && !slotPast(pf.day || 0, pf.time);
   const [step, setStep] = useState(pfValid ? 2 : 1);
@@ -4566,6 +4585,27 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [camilla, setCamilla] = useState(() => dentalOn ? (sillonOpts[0] || "Box 1") : "Box 1");
   const [tipoDental, setTipoDental] = useState(dentalOn ? JCM_TIPOS_DENTAL[0] : "");
   const [dur, setDur] = useState("30 minutos");
+  // slotBlk y nextFree van DESPUÉS de `dur` y `prof` porque ahora dependen de ellos.
+  // Un slot está bloqueado si el tramo de la cita QUE SE VA A CREAR se cruza con una existente del
+  // MISMO profesional. Antes solo se miraba si la hora de inicio caía dentro de otra cita: con una
+  // cita de 30 min a las 10:30, elegir 60 min a las 10:00 no se marcaba y se agendaban dos
+  // pacientes encima. Y como no se filtraba por profesional, la cita de uno tapaba la hora del otro.
+  const slotBlk = (off, h) => {
+    const ts = mins(h), te = ts + (parseInt(dur) || 30);
+    return (appts || []).some(a => {
+      if (a.status === "anulada" || a.status === "cancelada") return false;
+      if (apptDayOff(a) !== off) return false;
+      if (team.length >= 2) {
+        const duenio = ((a.prof || "").trim()) || (team[0] && team[0].name) || "";
+        if (duenio !== prof) return false; // otro profesional: no bloquea esta agenda
+      }
+      const as = mins(a.time), ae = as + (parseInt(a.dur) || 60);
+      return ts < ae && as < te; // solapamiento real de tramos
+    });
+  };
+  // Próximo hueco disponible (primer slot futuro y libre, recorriendo día a día). Base de la recomendación
+  // y del fallback cuando se abre desde un día cuyos horarios ya vencieron (muestra el día siguiente).
+  const nextFree = (() => { for (const w of week) { for (const h of adminSlots()) { if (!slotPast(w.off, h) && !slotBlk(w.off, h)) return { dayOff: w.off, time: h }; } } return null; })();
   // Si el usuario tocó la duración a mano, el tipo de atención ya NO la pisa.
   const durTouched = useRef(false);
   function pickTipoDental(v) {
@@ -4635,11 +4675,22 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
         }
       }
       onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, ...dentalFields, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
-      // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente
+      // Bloquear el slot en jcm_horarios_dates para que no aparezca disponible en la app del paciente.
+      // Se hace para la cita Y para cada repetición semanal: antes solo se bloqueaba la primera
+      // fecha, así que el link público seguía ofreciendo esa hora las semanas siguientes y un
+      // paciente podía reservar encima. Se parte de la excepción del día si existe, y si no del
+      // horario semanal (partir de [] dejaba el día con una sola hora disponible).
       try {
-        const dt = new Date(apptFecha + "T00:00:00");
-        const curr = D.availability(dt.getDay());
-        D.saveDateSlots(apptFecha, (curr.slots || []).filter(s => s !== pick.time));
+        const fechas = [apptFecha];
+        for (var _b = 1; _b <= (repetir || 0); _b++) {
+          fechas.push(new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff + 7 * _b).toISOString().slice(0, 10));
+        }
+        const mapa = (window.DB && window.DB.get("horarios_dates")) || {};
+        fechas.forEach(function (f) {
+          let base = Array.isArray(mapa[f]) ? mapa[f] : null;
+          if (!base) { try { base = ((D.availability(new Date(f + "T00:00:00").getDay()) || {}).slots || []); } catch (e2) { base = []; } }
+          D.saveDateSlots(f, base.filter(s => s !== pick.time));
+        });
       } catch (e) {}
       // Auto-abrir WhatsApp si el checkbox estaba marcado y hay teléfono
       if (sendMail) {

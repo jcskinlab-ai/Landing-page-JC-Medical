@@ -280,13 +280,17 @@ var PERM_NAV = {
   // no algo que un profesional individual deba ver — solo el dueño/staff la usa.
   "Agenda": ["agenda", "pendientes"],
   "Pacientes": ["pacientes"],
-  "Servicios": ["servicios", "equipo", "sucursales"],
+  // "equipo" y "sucursales" salen de aquí a propósito: dar "Servicios" a un profesional para que
+  // mantenga el catálogo de tratamientos le abría también la administración del EQUIPO, donde
+  // podía leer la clave personal de sus colegas —la misma que autoriza borrar sus sesiones
+  // clínicas— y desactivarlos o eliminarlos. Pasan a "Configuración", que es del dueño.
+  "Servicios": ["servicios"],
   "Inventario": ["inventario"],
   "Reportes": ["reportes", "resumen", "caja"],
   // "copilot" (Asistente IA) NO se incluye aquí a propósito: solo lo configura el dueño/admin
   // de la clínica, nunca un profesional aunque tenga el permiso "Marketing" activado.
   "Marketing": ["marketing", "crm", "difusiones", "agenteia", "automatizaciones", "fidelidad", "colaboracion"],
-  "Configuraci\xF3n": ["config", "administracion", "consentimientos", "fichaeditor", "tutoriales", "integraciones"]
+  "Configuraci\xF3n": ["config", "administracion", "consentimientos", "fichaeditor", "tutoriales", "integraciones", "equipo", "sucursales"]
 };
 function adminNavItems() {
   var showJcApp = !(window.JCSAAS && window.JCSAAS.enabled) || (window.JCSAAS.currentClinic && window.JCSAAS.currentClinic() || {}).jcApp === true;
@@ -702,7 +706,15 @@ function DashboardView({ T, D, A, appts, patients, go }) {
   const navyAccent = lux ? T.dark ? "#7891A6" : "#5C7488" : T.accent;
   const hoy = appts.filter((a) => apptDayOff(a) === 0 && a.status !== "anulada");
   const ingresosHoy = typeof window.cashToday === "function" ? (window.cashToday() || []).filter((m) => m.type !== "egreso").reduce((s, m) => s + (m.amount || 0), 0) : 0;
-  const nuevosMes = patients.length;
+  const nuevosMes = function() {
+    const d = /* @__PURE__ */ new Date(), y = d.getFullYear(), m = d.getMonth();
+    return (patients || []).filter((p) => {
+      const ts = p && p.fechaTs;
+      if (!ts) return false;
+      const f = new Date(ts);
+      return !isNaN(f) && f.getFullYear() === y && f.getMonth() === m;
+    }).length;
+  }();
   const green = "#1F8A5B";
   const glassPanel = !lux ? { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow } : window.JCDS._glass(T, window.JCDS.r.panel);
   const glassFill = T.dark ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.38)";
@@ -852,8 +864,12 @@ function DashboardView({ T, D, A, appts, patients, go }) {
     return () => clearTimeout(t);
   }, []);
   const funnel = function() {
-    const mes = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
-    const inMonth = (ts) => (ts || "").slice(0, 7) === mes;
+    const _mesLocal = (d) => {
+      const x = new Date(d);
+      return isNaN(x) ? "" : x.getFullYear() + "-" + ("0" + (x.getMonth() + 1)).slice(-2);
+    };
+    const mes = _mesLocal(/* @__PURE__ */ new Date());
+    const inMonth = (ts) => !!ts && _mesLocal(ts) === mes;
     let cash = [];
     try {
       cash = typeof window.cashAll === "function" ? window.cashAll() || [] : window.DB && DB.get("cash_moves") || [];
@@ -944,9 +960,14 @@ function DashboardView({ T, D, A, appts, patients, go }) {
       else rows = nuevos.slice(0, 15).map((p, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: rowStyle }, Avatar({ T, name: p.name, size: 32 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, p.phone || "\u2014"))));
     } else if (kpiPopup === "ingresos") {
       title = "Ingresos de hoy";
-      const pagadas = hoy.filter((a) => a.paid);
-      if (!pagadas.length) rows = [/* @__PURE__ */ React.createElement("div", { key: "0", style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "16px 0" } }, "No hay pagos registrados hoy.")];
-      else rows = pagadas.map((a, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: rowStyle }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, a.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, a.proc, " \xB7 ", a.time || "\u2014")), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 15, color: green } }, "Pagado")));
+      let movsHoy = [];
+      try {
+        movsHoy = ((typeof window.cashToday === "function" ? window.cashToday() : []) || []).filter((m) => m.type !== "egreso");
+      } catch (e) {
+        movsHoy = [];
+      }
+      if (!movsHoy.length) rows = [/* @__PURE__ */ React.createElement("div", { key: "0", style: { fontFamily: T.sans, fontSize: 13, color: T.textMute, padding: "16px 0" } }, "No hay pagos registrados hoy.")];
+      else rows = movsHoy.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: m.id || i, style: rowStyle }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.text } }, m.patient || m.concept || "Cobro"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute } }, [m.concept, m.method].filter(Boolean).join(" \xB7 ") || "\u2014")), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 15, color: green } }, fmt(m.amount || 0))));
       rows.push(
         /* @__PURE__ */ React.createElement("div", { key: "total", style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0 4px", marginTop: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMute } }, "Total hoy"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: 20, color: T.text } }, fmt(ingresosHoy)))
       );
@@ -3754,20 +3775,6 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   };
   const nowMin = b0.getHours() * 60 + b0.getMinutes();
   const slotPast = (off, h) => off === 0 && mins(h) < nowMin;
-  const slotBlk = (off, h) => (appts || []).some((a) => {
-    if (a.status === "anulada" || a.status === "cancelada") return false;
-    if (apptDayOff(a) !== off) return false;
-    const as = mins(a.time), ad = parseInt(a.dur) || 60, ts = mins(h);
-    return ts >= as && ts < as + ad;
-  });
-  const nextFree = (() => {
-    for (const w of week) {
-      for (const h of adminSlots()) {
-        if (!slotPast(w.off, h) && !slotBlk(w.off, h)) return { dayOff: w.off, time: h };
-      }
-    }
-    return null;
-  })();
   const pfValid = pf.time && !slotPast(pf.day || 0, pf.time);
   const [step, setStep] = useState(pfValid ? 2 : 1);
   const [esp, setEsp] = useState("Todas");
@@ -3779,6 +3786,27 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
   const [camilla, setCamilla] = useState(() => dentalOn ? sillonOpts[0] || "Box 1" : "Box 1");
   const [tipoDental, setTipoDental] = useState(dentalOn ? JCM_TIPOS_DENTAL[0] : "");
   const [dur, setDur] = useState("30 minutos");
+  const slotBlk = (off, h) => {
+    const ts = mins(h), te = ts + (parseInt(dur) || 30);
+    return (appts || []).some((a) => {
+      if (a.status === "anulada" || a.status === "cancelada") return false;
+      if (apptDayOff(a) !== off) return false;
+      if (team.length >= 2) {
+        const duenio = (a.prof || "").trim() || team[0] && team[0].name || "";
+        if (duenio !== prof) return false;
+      }
+      const as = mins(a.time), ae = as + (parseInt(a.dur) || 60);
+      return ts < ae && as < te;
+    });
+  };
+  const nextFree = (() => {
+    for (const w of week) {
+      for (const h of adminSlots()) {
+        if (!slotPast(w.off, h) && !slotBlk(w.off, h)) return { dayOff: w.off, time: h };
+      }
+    }
+    return null;
+  })();
   const durTouched = useRef(false);
   function pickTipoDental(v) {
     setTipoDental(v);
@@ -3837,9 +3865,22 @@ function NewCitaModal({ T, patients, addPatient, time, day, onClose, onSave, pre
       }
       onSave({ name: finalName, patId: resolvedPatId, rut: pat ? pat.rut : rut, phone: finalPhone, email: finalEmail, proc, prof, sucursal, recurso, camilla, ...dentalFields, dur, origen, comentario: notas, time: pick.time, day: pick.dayOff, fecha: apptFecha, status: "pendiente", paid: false });
       try {
-        const dt = /* @__PURE__ */ new Date(apptFecha + "T00:00:00");
-        const curr = D.availability(dt.getDay());
-        D.saveDateSlots(apptFecha, (curr.slots || []).filter((s) => s !== pick.time));
+        const fechas = [apptFecha];
+        for (var _b = 1; _b <= (repetir || 0); _b++) {
+          fechas.push(new Date(b0.getFullYear(), b0.getMonth(), b0.getDate() + pick.dayOff + 7 * _b).toISOString().slice(0, 10));
+        }
+        const mapa = window.DB && window.DB.get("horarios_dates") || {};
+        fechas.forEach(function(f) {
+          let base = Array.isArray(mapa[f]) ? mapa[f] : null;
+          if (!base) {
+            try {
+              base = (D.availability((/* @__PURE__ */ new Date(f + "T00:00:00")).getDay()) || {}).slots || [];
+            } catch (e2) {
+              base = [];
+            }
+          }
+          D.saveDateSlots(f, base.filter((s) => s !== pick.time));
+        });
       } catch (e) {
       }
       if (sendMail) {

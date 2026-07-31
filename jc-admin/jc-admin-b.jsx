@@ -185,18 +185,18 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
     }}>{children}</button>;
 }
 
-function AdField({ T, label, value, onChange, placeholder, inputMode, error }) {
+function AdField({ T, label, value, onChange, placeholder, inputMode, error, type }) {
   const nocap = inputMode === "email" || inputMode === "url";
   const DS = window.JCDS;
   if (!(DS && jcdsLux())) return <label style={{ display: "block" }}>
     <span style={{ display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 }}>{label}</span>
-    <input value={value} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    <input value={value} type={type} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       data-nocap={nocap ? "" : undefined}
       style={{ width: "100%", padding: "12px 13px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13.5, outline: "none" }} />
   </label>;
   return <label style={{ display: "block" }}>
     <span style={{ ...DS.text(T, "label"), display: "block", textTransform: "uppercase", marginBottom: 6 }}>{label}</span>
-    <input value={value} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    <input value={value} type={type} inputMode={inputMode} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       data-nocap={nocap ? "" : undefined}
       onFocus={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.boxShadow = DS.focus(T); }}
       onBlur={e => { e.currentTarget.style.borderColor = error ? DS.danger : T.line; e.currentTarget.style.boxShadow = ""; }}
@@ -1055,10 +1055,24 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
             // de modo que el procedimiento de la ficha aparece en Caja, Reportes y el Dashboard. Se guarda
             // sessionId en el movimiento para poder ofrecer eliminarlo si la sesión se borra después — antes
             // el borrado de una sesión dejaba el cobro huérfano en Caja, sin ninguna sesión asociada.
-            if (!editing && (e.cobro || 0) > 0 && window.cashAdd) {
-              // Descuenta el costo de insumos del procedimiento (config de inventario) para el líquido.
+            // Descuenta el costo de insumos del procedimiento (config de inventario) para el líquido.
+            {
               const _cost = window.jcmInsumoCost ? window.jcmInsumoCost(e.proc) : 0;
-              try { window.cashAdd({ type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: newSessionId }); } catch (e3) {}
+              const _sesId = editing ? (e.id || newSessionId) : newSessionId;
+              const _mov = { type: "ingreso", kind: "atencion", amount: e.cobro, cost: _cost, method: e.metodo || "Efectivo", concept: (e.proc || "Atención").trim() + " · " + (patient.name || ""), patient: patient.name, prof: e.proName || "", sessionId: _sesId };
+              try {
+                // EDITAR una sesión también tiene que llegar a Caja. Antes el movimiento solo se
+                // creaba en el alta: corregir un cobro de $150.000 a $80.000 dejaba Caja en
+                // $150.000 para siempre, y ponerle precio a una sesión guardada sin cobro no
+                // generaba NUNCA el ingreso (aparecía en la ficha pero no en el cierre del día).
+                const _prev = (editing && window.cashAll && _sesId) ? (window.cashAll() || []).find(m => m.sessionId === _sesId) : null;
+                if ((e.cobro || 0) > 0) {
+                  if (_prev && window.cashUpdate) window.cashUpdate(_prev.id, { amount: e.cobro, cost: _cost, method: _mov.method, concept: _mov.concept, prof: _mov.prof });
+                  else if (window.cashAdd) window.cashAdd(_mov);
+                } else if (_prev && window.cashDelete) {
+                  window.cashDelete(_prev.id); // se le quitó el cobro a la sesión → sale de Caja
+                }
+              } catch (e3) {}
             }
             // Al registrar una sesión NUEVA, la cita de ese paciente EN LA FECHA DE LA SESIÓN (no la de
             // hoy) pasa a "atendida" automáticamente — antes se comparaba contra el día actual, así que
@@ -2172,9 +2186,17 @@ function ImagenesTab({ T, patient, updatePatient }) {
     }
   }
 
+  // Confirmación obligatoria: era el ÚNICO borrado destructivo del panel sin ninguna — una "×" de
+  // 13 px pegada a la fecha borraba la foto del registro Y del almacenamiento, sin deshacer. Son
+  // fotos antes/después: respaldo médico-legal del tratamiento.
   function deleteImg(im) {
-    commitImgs(imgs.filter(x => x.id !== im.id));
-    if (im.storPath && window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage(im.storPath);
+    const q = "¿Eliminar esta foto" + (im.label ? " (" + im.label + ")" : "") + "? No se puede deshacer.";
+    const seguir = window.jcmConfirm ? window.jcmConfirm(q) : Promise.resolve(window.confirm(q));
+    Promise.resolve(seguir).then(ok => {
+      if (!ok) return;
+      commitImgs(imgs.filter(x => x.id !== im.id));
+      if (im.storPath && window.JCSAAS && window.JCSAAS.deleteImage) window.JCSAAS.deleteImage(im.storPath);
+    });
   }
   // Agrupa por procedimiento y, dentro, ordena por fecha (más reciente primero).
   const groups = {};
@@ -2270,8 +2292,18 @@ function FacturacionTab({ T, patient, updatePatient, onOpenSession }) {
   // Eliminar una atención = quitar el cobro de esa sesión (protegido con clave de admin).
   // La sesión clínica (procedimiento) se conserva; se borra aparte en Procedimientos con el PIN del profesional.
   function removeAtencion(hi) {
+    const ses = (patient.history || [])[hi] || null;
     const hist = (patient.history || []).map((h, i) => i === hi ? { ...h, cobro: 0, metodo: "", comprobante: "" } : h);
     updatePatient(patient.id, { history: hist });
+    // El ingreso real vive en cash_moves, no en la ficha: poner cobro:0 aquí dejaba el dinero
+    // contando en Caja, Reportes, Flujo de caja y Remuneraciones para siempre, aunque el aviso
+    // prometía que dejaba de contar en las ventas. Se borra el movimiento por sessionId, igual
+    // que ya hacía SesionDeleteModal.
+    try {
+      if (ses && ses.id && window.cashAll && window.cashDelete) {
+        (window.cashAll() || []).filter(m => m.sessionId === ses.id).forEach(m => window.cashDelete(m.id));
+      }
+    } catch (e) {}
     setDelAt(null);
   }
   const total = items.reduce((s, i) => s + (i.amount || 0), 0);
