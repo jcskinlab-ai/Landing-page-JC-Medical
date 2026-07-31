@@ -1330,6 +1330,64 @@ function sesionesDe(p) {
   if (!h.length && Array.isArray(p.history)) h = p.history;
   return h.slice().sort((a, b) => sesFechaISO(b.date).localeCompare(sesFechaISO(a.date)));
 }
+function SyncBannerM({ T, online }) {
+  const [pend, setPend] = useState(0);
+  const [listo, setListo] = useState(false);
+  const previo = useRef(0);
+  useEffect(() => {
+    let vivo = true;
+    function mirar() {
+      if (!vivo) return;
+      let n = 0;
+      try {
+        n = window.JCSAAS && window.JCSAAS.pendingKeys ? window.JCSAAS.pendingKeys().length : 0;
+      } catch (e) {
+      }
+      setPend(n);
+      if (previo.current > 0 && n === 0) {
+        setListo(true);
+        setTimeout(() => vivo && setListo(false), 4e3);
+      }
+      previo.current = n;
+    }
+    mirar();
+    const t = setInterval(mirar, 3e3);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, []);
+  if (online && !pend && !listo) return null;
+  const tono = !online || pend ? { bg: "rgba(184,134,11,.22)", bd: "rgba(184,134,11,.4)", ic: "#E8B84D", tx: "#F0D9A8" } : { bg: "rgba(31,138,91,.20)", bd: "rgba(31,138,91,.42)", ic: "#5FCE9B", tx: "#BFEBD5" };
+  const texto = !online ? pend ? "Sin conexi\xF3n \xB7 " + pend + (pend === 1 ? " cambio guardado aqu\xED, se subir\xE1 solo" : " cambios guardados aqu\xED, se subir\xE1n solos") : "Sin conexi\xF3n \xB7 trabajando con los datos de este equipo" : pend ? "Subiendo " + pend + (pend === 1 ? " cambio\u2026" : " cambios\u2026") : "Todo sincronizado";
+  return /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => {
+        try {
+          window.JCSAAS && window.JCSAAS.retrySync && window.JCSAAS.retrySync();
+        } catch (e) {
+        }
+      },
+      style: {
+        flexShrink: 0,
+        width: "calc(100% - 28px)",
+        margin: "0 14px 6px",
+        padding: "8px 12px",
+        borderRadius: 12,
+        background: tono.bg,
+        border: "1px solid " + tono.bd,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        cursor: "pointer",
+        textAlign: "left"
+      }
+    },
+    !online ? /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: tono.ic, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5" })) : pend ? /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: tono.ic, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M12 19V5M5 12l7-7 7 7" })) : /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: tono.ic, strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M20 6L9 17l-5-5" })),
+    /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: tono.tx, lineHeight: 1.35 } }, texto)
+  );
+}
 function patConsentsM(p) {
   if (!p) return [];
   try {
@@ -1999,7 +2057,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
   ].filter(function(t) {
     return t.lbl === "Inicio" ? mobileCan("citas") : t.lbl === "Agenda" ? mobileCan("agenda") : true;
   });
-  return /* @__PURE__ */ React.createElement("div", { onTouchStart: onRootTouchStart, onTouchEnd: onRootTouchEnd, style: { height: "100dvh", overflow: "hidden", position: "relative", backgroundColor: T.bg, maxWidth: 480, margin: "0 auto" } }, /* @__PURE__ */ React.createElement(PhotoBgLayers, { T }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, height: "100%", display: "flex", flexDirection: "column" } }, tab !== "citas" && tab !== "mas" && /* @__PURE__ */ React.createElement("div", { style: { position: "sticky", top: 0, zIndex: 10, padding: "calc(6px + env(safe-area-inset-top,0px)) 14px 2px" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 4px", minHeight: 36 } }, renderHeader())), !online && /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0, margin: "0 14px 6px", padding: "8px 12px", borderRadius: 12, background: "rgba(184,134,11,.22)", border: "1px solid rgba(184,134,11,.4)", display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "#E8B84D", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#F0D9A8", lineHeight: 1.35 } }, "Sin conexi\xF3n \xB7 mostrando datos guardados en este equipo")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: tab === "agenda" || tab === "citas" ? "hidden" : "auto" } }, tab === "citas" && (mobileCan("citas") ? /* @__PURE__ */ React.createElement(HomeTab, { T, appts, patients, onOpenAppt: setApptSheet, goTab: setTab, openOverlay: setOverlay, openNotif: () => setNotifOpen(true), bellCount }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "horarios" && (mobileCan("horarios") ? /* @__PURE__ */ React.createElement(HorariosTab, { T, appts }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "nueva" && (mobileCan("nueva") ? /* @__PURE__ */ React.createElement(NuevaWizard, { T, appts, patients, addAppt, addPatient, initialFecha: nuevaFecha, onDone: () => {
+  return /* @__PURE__ */ React.createElement("div", { onTouchStart: onRootTouchStart, onTouchEnd: onRootTouchEnd, style: { height: "100dvh", overflow: "hidden", position: "relative", backgroundColor: T.bg, maxWidth: 480, margin: "0 auto" } }, /* @__PURE__ */ React.createElement(PhotoBgLayers, { T }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", zIndex: 1, height: "100%", display: "flex", flexDirection: "column" } }, tab !== "citas" && tab !== "mas" && /* @__PURE__ */ React.createElement("div", { style: { position: "sticky", top: 0, zIndex: 10, padding: "calc(6px + env(safe-area-inset-top,0px)) 14px 2px" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 4px", minHeight: 36 } }, renderHeader())), /* @__PURE__ */ React.createElement(SyncBannerM, { T, online }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: tab === "agenda" || tab === "citas" ? "hidden" : "auto" } }, tab === "citas" && (mobileCan("citas") ? /* @__PURE__ */ React.createElement(HomeTab, { T, appts, patients, onOpenAppt: setApptSheet, goTab: setTab, openOverlay: setOverlay, openNotif: () => setNotifOpen(true), bellCount }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "horarios" && (mobileCan("horarios") ? /* @__PURE__ */ React.createElement(HorariosTab, { T, appts }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "nueva" && (mobileCan("nueva") ? /* @__PURE__ */ React.createElement(NuevaWizard, { T, appts, patients, addAppt, addPatient, initialFecha: nuevaFecha, onDone: () => {
     setNuevaFecha(null);
     setTab("citas");
   } }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "agenda" && (mobileCan("agenda") ? /* @__PURE__ */ React.createElement(AgendaTab, { T, appts, onOpenAppt: setApptSheet, goTab: setTab, goNueva, showAnuladas: agShowAnuladas, setShowAnuladas: setAgShowAnuladas }) : /* @__PURE__ */ React.createElement(SinPermisoM, { T })), tab === "mas" && /* @__PURE__ */ React.createElement(MasTab, { T, mode, toggleMode, openOverlay: setOverlay, onLogout, openNotif: () => setNotifOpen(true), goAnuladas: () => {

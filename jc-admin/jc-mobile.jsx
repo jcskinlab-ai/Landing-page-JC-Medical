@@ -1805,6 +1805,58 @@ function sesionesDe(p) {
   return h.slice().sort((a, b) => sesFechaISO(b.date).localeCompare(sesFechaISO(a.date)));
 }
 
+/* ═══════════ Estado de sincronización ═══════════
+   Trabajar sin señal ya funcionaba (todo se guarda primero en el equipo), pero desde el celular no
+   había forma de SABERLO: ni si algo quedó sin subir, ni cuándo terminó de subir. Este banner lo
+   dice con todas sus letras y solo aparece cuando hay algo que contar. */
+function SyncBannerM({ T, online }) {
+  const [pend, setPend] = useState(0);
+  const [listo, setListo] = useState(false); // confirmación breve al terminar de subir
+  const previo = useRef(0);
+  useEffect(() => {
+    let vivo = true;
+    function mirar() {
+      if (!vivo) return;
+      let n = 0;
+      try { n = (window.JCSAAS && window.JCSAAS.pendingKeys) ? window.JCSAAS.pendingKeys().length : 0; } catch (e) {}
+      setPend(n);
+      if (previo.current > 0 && n === 0) { setListo(true); setTimeout(() => vivo && setListo(false), 4000); }
+      previo.current = n;
+    }
+    mirar();
+    const t = setInterval(mirar, 3000);
+    return () => { vivo = false; clearInterval(t); };
+  }, []);
+
+  if (online && !pend && !listo) return null; // todo al día: no molestar
+
+  const tono = (!online || pend)
+    ? { bg:"rgba(184,134,11,.22)", bd:"rgba(184,134,11,.4)", ic:"#E8B84D", tx:"#F0D9A8" }
+    : { bg:"rgba(31,138,91,.20)",  bd:"rgba(31,138,91,.42)", ic:"#5FCE9B", tx:"#BFEBD5" };
+  const texto = !online
+    ? (pend ? "Sin conexión · " + pend + (pend === 1 ? " cambio guardado aquí, se subirá solo" : " cambios guardados aquí, se subirán solos")
+            : "Sin conexión · trabajando con los datos de este equipo")
+    : (pend ? "Subiendo " + pend + (pend === 1 ? " cambio…" : " cambios…") : "Todo sincronizado");
+
+  return (
+    <button onClick={() => { try { window.JCSAAS && window.JCSAAS.retrySync && window.JCSAAS.retrySync(); } catch (e) {} }}
+      style={{ flexShrink:0, width:"calc(100% - 28px)", margin:"0 14px 6px", padding:"8px 12px", borderRadius:12,
+        background:tono.bg, border:"1px solid "+tono.bd, display:"flex", alignItems:"center", gap:8,
+        cursor:"pointer", textAlign:"left" }}>
+      {/* Un icono por estado: sin señal (wifi tachado), subiendo (flecha) y al día (visto). Con
+          conexión el wifi tachado despistaba, porque justamente sí hay conexión. */}
+      {!online ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tono.ic} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5"/></svg>
+      ) : pend ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tono.ic} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      ) : (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tono.ic} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M20 6L9 17l-5-5"/></svg>
+      )}
+      <span style={{ fontFamily:T.sans, fontSize:11.5, color:tono.tx, lineHeight:1.35 }}>{texto}</span>
+    </button>
+  );
+}
+
 /* ═══════════ Consentimiento informado (móvil) ═══════════
    Usa EXACTAMENTE las mismas plantillas (window.JCADMIN.consents), el mismo cuerpo legal
    (window.ConsentDoc, en jc-consent-doc.jsx compartido con el escritorio) y el mismo almacenamiento
@@ -2780,12 +2832,7 @@ function MobileShell({ T, D, onLogout, mode, toggleMode }) {
 
         {/* Aviso de sin conexión (pedido): visible y persistente mientras dure — no un toast que
             desaparece solo, porque el riesgo (datos desactualizados) sigue mientras siga offline. */}
-        {!online && (
-          <div style={{ flexShrink:0, margin:"0 14px 6px", padding:"8px 12px", borderRadius:12, background:"rgba(184,134,11,.22)", border:"1px solid rgba(184,134,11,.4)", display:"flex", alignItems:"center", gap:8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E8B84D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 3.5-2.5M12 20h.01M19 12.5a10 10 0 0 0-2.5-2.2M2 8.5a15 15 0 0 1 4-2.5"/></svg>
-            <span style={{ fontFamily:T.sans, fontSize:11.5, color:"#F0D9A8", lineHeight:1.35 }}>Sin conexión · mostrando datos guardados en este equipo</span>
-          </div>
-        )}
+        <SyncBannerM T={T} online={online} />
 
         {/* Content */}
         {/* Pedido: en Agenda y en Inicio la pantalla queda fija (KPI/accesos/encabezados no se mueven)

@@ -80,11 +80,17 @@
   function setDirty(k, on) { var m = dirtyAll(); if (on) { if (!m[k]) { m[k] = Date.now(); dirtySave(m); } } else if (m[k]) { delete m[k]; dirtySave(m); } }
   function isDirty(k) { return dirtyAll()[k] != null; }
   // Reintenta subir todas las claves pendientes (al iniciar sesión, al reconectar, etc.).
+  // NUNCA convierte un pendiente en un borrado: si el valor local no está o no se puede leer
+  // (Safari puede evictar el localStorage por sí solo, o la cuota puede corromperlo), antes se
+  // subía `null`, y `null` significa ref.delete() → borraba la sección ENTERA en la nube por una
+  // anomalía puramente local. Los borrados de verdad siguen su camino normal, DB.del → pushKey.
   function flushDirty() {
     var m = dirtyAll();
     Object.keys(m).forEach(function (k) {
       var raw = null; try { raw = localStorage.getItem(nsKey(k)); } catch (e) {}
-      var v = null; try { v = raw == null ? null : JSON.parse(raw); } catch (e) { v = null; }
+      if (raw == null) return;                       // no hay copia local: no hay nada que subir
+      var v; try { v = JSON.parse(raw); } catch (e) { return; } // ilegible: se deja pendiente
+      if (v == null) return;                          // nunca sintetizar un borrado remoto
       pushKey(k, v);
     });
   }
@@ -212,6 +218,10 @@
           // No sobrescribir una clave con cambios locales pendientes o sin sincronizar (p. ej. un
           // consentimiento recién firmado): evita perder datos por el rollback de Firestore o tras recargar.
           if (pendingPush[ch.doc.id] != null || isDirty(ch.doc.id)) return;
+          // Eco de una escritura propia todavía sin confirmar (ahora que la caché en disco está
+          // activa, Firestore emite el cambio local al instante): ya lo tenemos, no hay que
+          // reaplicarlo. Igual que hacía la capa antigua de jcm_cloud.js.
+          try { if (ch.doc.metadata && ch.doc.metadata.hasPendingWrites) return; } catch (e) {}
           if (ch.type === 'removed') { localStorage.removeItem(nsKey(ch.doc.id)); changed = true; return; }
           try {
             var data = ch.doc.data();
@@ -342,6 +352,16 @@
       }
       auth = fb.auth();
       db = fb.firestore();
+      // OFFLINE · Caché en disco (IndexedDB). Sin esto, abrir la app SIN SEÑAL se quedaba colgada:
+      // resolver la clínica (users/{uid} + clinics/{id}) son lecturas a Firestore y, sin caché
+      // persistente, en frío no hay de dónde leerlas. Con la caché en disco esas lecturas se
+      // resuelven al instante desde el dispositivo y además Firestore encola por su cuenta las
+      // escrituras hechas sin señal y las sube cuando vuelve. `synchronizeTabs` permite tener el
+      // panel abierto en varias pestañas; si el navegador no lo soporta, se sigue sin caché (la
+      // app funciona igual, solo pierde el arranque offline) — nunca debe romper el arranque.
+      try {
+        db.enablePersistence({ synchronizeTabs: true }).catch(function (e) { noop(e); });
+      } catch (e) { noop(e); }
       try { storage = fb.storage(); } catch (e) { noop(e); }
       try { auth.setPersistence(fb.auth.Auth.Persistence.LOCAL); } catch (e) {}
     });
@@ -369,34 +389,77 @@
     });
   }
 
+  // OFFLINE · Sesión recordada en el dispositivo (clínica, rol y permisos del último login que sí
+  // llegó al servidor), por uid. Es lo que permite ABRIR LA APP SIN SEÑAL: resolver la clínica son
+  // dos lecturas a Firestore y sin red se quedaban esperando para siempre, dejando la pantalla de
+  // carga colgada. Con esto se entra al instante con lo último conocido y, cuando vuelve la señal,
+  // se confirma contra el servidor. Se borra al cerrar sesión, junto con los datos clínicos.
+  function sessKey(uid) { return 'jcm_sess_' + uid; }
+  function sessSave(uid, info) { try { localStorage.setItem(sessKey(uid), JSON.stringify(info)); } catch (e) {} }
+  function sessLoad(uid) { try { var r = localStorage.getItem(sessKey(uid)); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+
   function onAuthChange(user) {
     if (!user) {
+      var prev = state.user && state.user.uid;
       teardown();
+      if (prev) { try { localStorage.removeItem(sessKey(prev)); } catch (e) {} }
       state.user = null; state.clinicId = null; state.clinic = null; state.role = null; state.perms = null;
       fire(null);
       return;
     }
     state.user = user;
-    // Reintenta: al registrarse, Auth avisa del usuario ANTES de que se escriban
-    // los docs clinics/{}/users/{}; reintentamos unas veces para no marcar "incompleto".
+
+    var aplicada = null; // clinicId ya activo (venga de la caché o del servidor)
+    function aplicar(info, deCache, sinAvisar) {
+      if (!info || !info.clinicId) return;
+      if (aplicada && aplicada !== info.clinicId) state.bound = false; // cambió de clínica → re-bindear
+      var yaEstaba = aplicada === info.clinicId;
+      aplicada = info.clinicId;
+      state.clinicId = info.clinicId; state.clinic = info.clinic;
+      state.role = info.role; state.perms = info.perms; state.userName = info.name;
+      bindDB();
+      idleStart(); // SEG · temporizador de inactividad (4 h) con la sesión ya resuelta
+      // Si el servidor confirma exactamente lo mismo que ya estábamos usando, no se vuelve a
+      // avisar: re-emitir haría re-montar el panel entero por nada.
+      if (!yaEstaba && !sinAvisar) fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role, fromCache: !!deCache });
+    }
+
+    // 1) Entrada inmediata con la sesión recordada — funciona con señal o sin ella.
+    var cache = sessLoad(user.uid);
+    if (cache && cache.clinicId) { aplicar(cache, true); liveKv(); flushDirty(); }
+
+    // 2) En paralelo, confirmar contra el servidor. Reintenta: al registrarse, Auth avisa del
+    //    usuario ANTES de que se escriban los docs clinics/{}/users/{}.
     loadUserClinicRetry(user, 5).then(function (info) {
       if (!info) { // usuario auth sin clínica (registro realmente incompleto)
+        if (aplicada) return; // ya estamos trabajando con la caché: no cortar la sesión
         fire({ user: user, clinic: null, incomplete: true });
         return;
       }
-      state.clinicId = info.clinicId;
-      state.clinic = info.clinic;
-      state.role = info.role; state.perms = info.perms; state.userName = info.name;
-      bindDB();
-      idleStart(); // SEG · arranca el temporizador de inactividad (4 h) con la sesión ya resuelta
-      pullAll().then(function () {
-        liveKv();
-        flushDirty(); // reintenta subir lo que quedó sin sincronizar en sesiones anteriores
-        setTimeout(publishProfile, 1500); // publica/actualiza el perfil público de la clínica
-        fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role });
-      });
+      sessSave(user.uid, info);
+      var cambio = aplicada !== info.clinicId;
+      if (cache) {
+        // Ya se entró con la sesión recordada: el servidor solo confirma y refresca por detrás.
+        aplicar(info, false);
+        pullAll().then(function () {
+          if (cambio) liveKv();
+          flushDirty(); // sube lo que quedó pendiente de sesiones anteriores
+          setTimeout(publishProfile, 1500); // publica/actualiza el perfil público de la clínica
+        });
+      } else {
+        // PRIMER arranque en este equipo: no hay nada guardado que mostrar, así que se entra
+        // cuando los datos ya bajaron — igual que antes, sin parpadeo de panel vacío.
+        aplicar(info, false, true);
+        pullAll().then(function () {
+          liveKv();
+          flushDirty();
+          setTimeout(publishProfile, 1500);
+          fire({ user: user, clinicId: info.clinicId, clinic: info.clinic, role: info.role });
+        });
+      }
     }).catch(function (e) {
       noop(e);
+      if (aplicada) return; // sin señal pero con sesión recordada: se sigue trabajando local
       // No dejar la pantalla de login colgada para siempre si algo falló (red, permisos, etc.).
       fire({ user: user, clinic: null, incomplete: true, error: true });
     });
@@ -611,8 +674,17 @@
       return true;
     }).catch(function (e) { noop(e); state.enabled = false; return false; });
   }
-  // Al recuperar conexión, reintenta subir lo que quedó sin sincronizar.
-  if (typeof window !== 'undefined') window.addEventListener('online', function () { try { if (state.clinicId) flushDirty(); } catch (e) {} });
+  // OFFLINE · Reintento de subida. El evento 'online' por sí solo NO alcanza en el celular: iOS no
+  // siempre lo dispara al salir del modo avión o al recuperar cobertura, y navigator.onLine dice
+  // "true" con wifi conectado aunque no haya internet de verdad. Por eso se reintenta también:
+  //   · al volver a primer plano (el caso real: guardas en el gimnasio y abres la app al salir),
+  //   · cada 60 s mientras quede algo sin subir — barato, porque solo corre si hay pendientes.
+  if (typeof window !== 'undefined') {
+    var reintentar = function () { try { if (state.clinicId && Object.keys(dirtyAll()).length) flushDirty(); } catch (e) {} };
+    window.addEventListener('online', reintentar);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) reintentar(); });
+    setInterval(reintentar, 60000);
+  }
 
   window.JCSAAS = {
     get enabled() { return state.enabled; },
@@ -688,6 +760,9 @@
     },
     // Reintenta subir TODO lo que quedó pendiente (seguro: solo empuja, no borra).
     retrySync: function () { try { flushDirty(); return true; } catch (e) { return false; } },
+    // Secciones guardadas en el equipo que aún no están confirmadas en la nube. Versión barata de
+    // syncStatus() (que además mide tamaños), pensada para que la UI la consulte cada pocos segundos.
+    pendingKeys: function () { try { return Object.keys(dirtyAll()); } catch (e) { return []; } },
     isFreshClinic: function () { return state.kvEmpty; },
     getPublic: function () { return state.publicProfile || null; },
     publishProfile: publishProfile,
