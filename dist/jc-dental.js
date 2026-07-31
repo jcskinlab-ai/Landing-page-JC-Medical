@@ -218,12 +218,44 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
       }
       return;
     }
-    f(file, 1400, function(dataUrl) {
+    const guardar = function(dataUrl, escala) {
       set(patient.id, odontoRxView(pieza), dataUrl);
+      if (escala) saveMed(pieza, { cal: null, auto: escala, lineas: [], ts: Date.now() });
+      else if (getMed(pieza)) saveMed(pieza, null);
       setRxTick(function(t) {
         return t + 1;
       });
-    });
+    };
+    const rd = new FileReader();
+    const porImagen = function() {
+      f(file, 1400, function(dataUrl) {
+        guardar(dataUrl, null);
+      });
+    };
+    rd.onerror = porImagen;
+    rd.onload = function() {
+      if (!dcmEs(rd.result)) {
+        porImagen();
+        return;
+      }
+      dcmADataURL(file, 1400, function(dataUrl, escala, err) {
+        if (!dataUrl) {
+          try {
+            window.jcmError && window.jcmError(err || "No se pudo abrir el DICOM.");
+          } catch (e) {
+          }
+          return;
+        }
+        if (err) {
+          try {
+            window.jcmToast && window.jcmToast(err, "warn");
+          } catch (e) {
+          }
+        }
+        guardar(dataUrl, escala);
+      });
+    };
+    rd.readAsArrayBuffer(file.slice(0, 132));
   }
   function delRx(pieza) {
     if (readOnly) return;
@@ -231,6 +263,7 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
       window.faceSetPhoto && window.faceSetPhoto(patient.id, odontoRxView(pieza), null);
     } catch (e) {
     }
+    saveMed(pieza, null);
     setRxTick(function(t) {
       return t + 1;
     });
@@ -241,6 +274,20 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
     } catch (e) {
       return null;
     }
+  }
+  function getMed(pieza) {
+    try {
+      return patient && patient.rxMed && patient.rxMed[odontoRxView(pieza)] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function saveMed(pieza, m) {
+    if (readOnly || !patient || !patient.id) return;
+    const all = Object.assign({}, patient.rxMed || {});
+    if (m) all[odontoRxView(pieza)] = m;
+    else delete all[odontoRxView(pieza)];
+    updatePatient(patient.id, { rxMed: all });
   }
   const lbl = { display: "block", fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".16em", textTransform: "uppercase", color: T.textMute, marginBottom: 6 };
   const inp = luxF ? Object.assign({}, DS.ctl(T), { width: "100%" }) : { width: "100%", padding: "10px 12px", borderRadius: 4, border: "1px solid " + T.line, background: T.surface, color: T.text, fontFamily: T.sans, fontSize: 13, outline: "none", boxSizing: "border-box" };
@@ -319,6 +366,11 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
       url: getRx(null),
       readOnly,
       tick: rxTick,
+      titulo: "Radiograf\xEDa panor\xE1mica",
+      med: getMed(null),
+      onSaveMed: function(m) {
+        saveMed(null, m);
+      },
       onPick: function(f) {
         onRx(f, null);
       },
@@ -358,6 +410,11 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
       url: getRx(sel),
       readOnly,
       tick: rxTick,
+      titulo: "Periapical \xB7 pieza " + sel,
+      med: getMed(sel),
+      onSaveMed: function(m) {
+        saveMed(sel, m);
+      },
       onPick: function(f) {
         onRx(f, sel);
       },
@@ -381,8 +438,438 @@ function Odontograma({ T, patient, updatePatient, readOnly }) {
     ));
   })))));
 }
-function RxSlot({ T, url, readOnly, onPick, onDel }) {
+const DCM_TS_PLANO = ["1.2.840.10008.1.2", "1.2.840.10008.1.2.1"];
+const DCM_TS_JPEG_NATIVO = ["1.2.840.10008.1.2.4.50", "1.2.840.10008.1.2.4.51"];
+function dcmEs(buf) {
+  if (!buf || buf.byteLength < 132) return false;
+  const v = new Uint8Array(buf, 128, 4);
+  return v[0] === 68 && v[1] === 73 && v[2] === 67 && v[3] === 77;
+}
+function dcmParse(buf) {
+  const dv = new DataView(buf);
+  let off = 132, ts = "", explicito = true;
+  const out = { spacing: null, rows: 0, cols: 0, bits: 16, signed: false, mono1: false, wc: null, ww: null, px: null, ts: "" };
+  const txt = function(o, len) {
+    let s = "";
+    for (let i = 0; i < len && o + i < dv.byteLength; i++) {
+      const c = dv.getUint8(o + i);
+      if (c) s += String.fromCharCode(c);
+    }
+    return s.replace(/\0+$/, "").trim();
+  };
+  while (off + 8 <= dv.byteLength) {
+    const grupo = dv.getUint16(off, true), elem = dv.getUint16(off + 2, true);
+    const exp = grupo === 2 ? true : explicito;
+    let vr = "", largo = 0, datos = off + 8;
+    if (exp) {
+      vr = String.fromCharCode(dv.getUint8(off + 4), dv.getUint8(off + 5));
+      if (["OB", "OW", "OF", "SQ", "UT", "UN"].indexOf(vr) >= 0) {
+        largo = dv.getUint32(off + 8, true);
+        datos = off + 12;
+      } else largo = dv.getUint16(off + 6, true);
+    } else largo = dv.getUint32(off + 4, true);
+    const tag = (grupo << 16 >>> 0) + elem;
+    if (tag === 131088) {
+      ts = txt(datos, largo);
+      out.ts = ts;
+      explicito = ts !== "1.2.840.10008.1.2";
+    } else if (tag === 1577316 || tag === 2621488) {
+      const esImager = tag === 1577316;
+      if (esImager || !out.spacing || out.spacing.tag !== "ImagerPixelSpacing") {
+        const p = txt(datos, largo).split("\\").map(parseFloat);
+        if (p.length >= 2 && isFinite(p[0]) && isFinite(p[1]) && p[0] > 0)
+          out.spacing = { fila: p[0], col: p[1], tag: esImager ? "ImagerPixelSpacing" : "PixelSpacing" };
+      }
+    } else if (tag === 2621456) out.rows = dv.getUint16(datos, true);
+    else if (tag === 2621457) out.cols = dv.getUint16(datos, true);
+    else if (tag === 2621696) out.bits = dv.getUint16(datos, true);
+    else if (tag === 2621699) out.signed = dv.getUint16(datos, true) === 1;
+    else if (tag === 2621444) out.mono1 = /MONOCHROME1/.test(txt(datos, largo));
+    else if (tag === 2625616) out.wc = parseFloat(txt(datos, largo).split("\\")[0]);
+    else if (tag === 2625617) out.ww = parseFloat(txt(datos, largo).split("\\")[0]);
+    else if (tag === 2145386512) {
+      out.px = { off: datos, len: largo === 4294967295 ? -1 : largo };
+      break;
+    }
+    if (largo === 4294967295) break;
+    off = datos + largo + largo % 2;
+  }
+  return out;
+}
+function dcmFragmentos(buf, desde) {
+  const dv = new DataView(buf);
+  let o = desde, trozos = [], primero = true;
+  while (o + 8 <= dv.byteLength) {
+    const g = dv.getUint16(o, true), e = dv.getUint16(o + 2, true), len = dv.getUint32(o + 4, true);
+    if (g !== 65534 || e === 57565) break;
+    if (e === 57344) {
+      if (primero) primero = false;
+      else if (len > 0 && o + 8 + len <= buf.byteLength) trozos.push(new Uint8Array(buf, o + 8, len));
+    }
+    o += 8 + len;
+  }
+  if (!trozos.length) return null;
+  const total = trozos.reduce(function(a, t) {
+    return a + t.length;
+  }, 0);
+  const salida = new Uint8Array(total);
+  let p = 0;
+  trozos.forEach(function(t) {
+    salida.set(t, p);
+    p += t.length;
+  });
+  return salida;
+}
+function dcmADataURL(file, maxDim, cb) {
+  const rd = new FileReader();
+  rd.onerror = function() {
+    cb(null, null, "No se pudo leer el archivo.");
+  };
+  rd.onload = function() {
+    let meta;
+    try {
+      meta = dcmParse(rd.result);
+    } catch (e) {
+      cb(null, null, "El DICOM est\xE1 corrupto o usa una estructura que no reconozco.");
+      return;
+    }
+    if (!meta.px || !meta.rows || !meta.cols) {
+      cb(null, null, "El DICOM no trae una imagen legible.");
+      return;
+    }
+    const entregar = function(canvas) {
+      const sc = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+      let out = canvas;
+      if (sc < 1) {
+        const c2 = document.createElement("canvas");
+        c2.width = Math.round(canvas.width * sc);
+        c2.height = Math.round(canvas.height * sc);
+        c2.getContext("2d").drawImage(canvas, 0, 0, c2.width, c2.height);
+        out = c2;
+      }
+      const mmPorPx = meta.spacing ? meta.spacing.col * (meta.cols / out.width) : null;
+      cb(
+        out.toDataURL("image/jpeg", 0.9),
+        meta.spacing ? { mmPorPx, tag: meta.spacing.tag, origCols: meta.cols } : null,
+        meta.spacing ? null : "El DICOM no trae la escala del sensor. Puedes calibrar a mano."
+      );
+    };
+    if (meta.px.len === -1 || DCM_TS_JPEG_NATIVO.indexOf(meta.ts) >= 0) {
+      const jpg = dcmFragmentos(rd.result, meta.px.off);
+      if (!jpg) {
+        cb(null, null, "El DICOM viene comprimido en un formato que el navegador no abre. Exp\xF3rtalo como JPG y calibra a mano.");
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([jpg], { type: "image/jpeg" }));
+      const im = new Image();
+      im.onload = function() {
+        const c2 = document.createElement("canvas");
+        c2.width = im.width;
+        c2.height = im.height;
+        c2.getContext("2d").drawImage(im, 0, 0);
+        URL.revokeObjectURL(url);
+        entregar(c2);
+      };
+      im.onerror = function() {
+        URL.revokeObjectURL(url);
+        cb(null, null, "El DICOM usa una compresi\xF3n que el navegador no abre (JPEG sin p\xE9rdida o JPEG 2000). Exp\xF3rtalo como JPG y calibra a mano.");
+      };
+      im.src = url;
+      return;
+    }
+    if (meta.ts && DCM_TS_PLANO.indexOf(meta.ts) < 0) {
+      cb(null, null, "El DICOM usa una compresi\xF3n que no puedo abrir (" + meta.ts + "). Exp\xF3rtalo como JPG y calibra a mano.");
+      return;
+    }
+    const n = meta.rows * meta.cols;
+    let lee;
+    try {
+      if (meta.bits > 8) {
+        const a = new (meta.signed ? Int16Array : Uint16Array)(rd.result, meta.px.off, Math.min(n, meta.px.len / 2 | 0));
+        lee = function(i) {
+          return a[i] || 0;
+        };
+      } else {
+        const a = new Uint8Array(rd.result, meta.px.off, Math.min(n, meta.px.len));
+        lee = function(i) {
+          return a[i] || 0;
+        };
+      }
+    } catch (e) {
+      cb(null, null, "Los p\xEDxeles del DICOM no calzan con lo que declara la cabecera.");
+      return;
+    }
+    let lo, hi;
+    if (isFinite(meta.wc) && isFinite(meta.ww) && meta.ww > 0) {
+      lo = meta.wc - meta.ww / 2;
+      hi = meta.wc + meta.ww / 2;
+    } else {
+      lo = Infinity;
+      hi = -Infinity;
+      for (let i = 0; i < n; i++) {
+        const v = lee(i);
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    }
+    const rango = hi - lo || 1;
+    const c = document.createElement("canvas");
+    c.width = meta.cols;
+    c.height = meta.rows;
+    const ctx = c.getContext("2d"), img = ctx.createImageData(meta.cols, meta.rows), d = img.data;
+    for (let i = 0; i < n; i++) {
+      let g = Math.round((lee(i) - lo) / rango * 255);
+      g = g < 0 ? 0 : g > 255 ? 255 : g;
+      if (meta.mono1) g = 255 - g;
+      const j = i * 4;
+      d[j] = d[j + 1] = d[j + 2] = g;
+      d[j + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    entregar(c);
+  };
+  rd.readAsArrayBuffer(file);
+}
+function rxDist(l) {
+  return Math.sqrt(Math.pow(l.x2 - l.x1, 2) + Math.pow(l.y2 - l.y1, 2));
+}
+function rxFmtMm(v) {
+  return (Math.round(v * 10) / 10).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " mm";
+}
+function RxMedir({ T, url, titulo, med, readOnly, onSave, onClose }) {
+  const imgRef = useRef(null);
+  const [nat, setNat] = useState(() => med && med.w ? { w: med.w, h: med.h } : null);
+  const [cal, setCal] = useState(() => med && med.cal || null);
+  const [auto, setAuto] = useState(() => med && med.auto || null);
+  const [lineas, setLineas] = useState(() => med && med.lineas || []);
+  const [draft, setDraft] = useState(null);
+  const [pend, setPend] = useState(null);
+  const [mmTxt, setMmTxt] = useState("");
+  const [pidiendoCal, setPidiendoCal] = useState(false);
+  const [suc, setSuc] = useState(false);
+  const mmPorPx = cal ? cal.mm / rxDist(cal) : auto ? auto.mmPorPx : null;
+  const modo = pidiendoCal || mmPorPx == null ? "calibrar" : "medir";
+  useEffect(function() {
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return function() {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+  function pt(ev) {
+    const el = imgRef.current;
+    if (!el || !nat) return null;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    return {
+      x: Math.max(0, Math.min(nat.w, (ev.clientX - r.left) / r.width * nat.w)),
+      y: Math.max(0, Math.min(nat.h, (ev.clientY - r.top) / r.height * nat.h))
+    };
+  }
+  function down(ev) {
+    if (readOnly || pend) return;
+    const p = pt(ev);
+    if (!p) return;
+    try {
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+    } catch (e) {
+    }
+    setDraft({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+  }
+  function move(ev) {
+    if (!draft) return;
+    const p = pt(ev);
+    if (!p) return;
+    setDraft(function(d) {
+      return d ? { x1: d.x1, y1: d.y1, x2: p.x, y2: p.y } : d;
+    });
+  }
+  function up(ev) {
+    if (!draft) return;
+    const p = ev && ev.clientX != null ? pt(ev) : null;
+    const l = p ? { x1: draft.x1, y1: draft.y1, x2: p.x, y2: p.y } : draft;
+    setDraft(null);
+    setSuc(false);
+    if (rxDist(l) < 6) return;
+    if (modo === "calibrar") {
+      setPend(l);
+      setMmTxt("");
+    } else setLineas(function(ls) {
+      return ls.concat([l]);
+    });
+  }
+  function confirmarCal() {
+    const mm = parseFloat(String(mmTxt).replace(",", "."));
+    if (!isFinite(mm) || mm <= 0) {
+      try {
+        window.jcmError && window.jcmError("Escribe cu\xE1ntos mil\xEDmetros mide la l\xEDnea de referencia.");
+      } catch (e) {
+      }
+      return;
+    }
+    setCal(Object.assign({}, pend, { mm }));
+    setPend(null);
+    setMmTxt("");
+    setPidiendoCal(false);
+  }
+  function guardar() {
+    onSave(mmPorPx != null ? { w: nat.w, h: nat.h, cal, auto, lineas, ts: Date.now() } : null);
+    setSuc(true);
+  }
+  const btn = function(activo) {
+    return {
+      fontFamily: T.sans,
+      fontSize: 12,
+      fontWeight: 600,
+      padding: "8px 14px",
+      borderRadius: 999,
+      border: "1px solid " + (activo ? T.accent : "rgba(255,255,255,.24)"),
+      cursor: "pointer",
+      background: activo ? T.accent : "transparent",
+      color: activo ? T.onAccent || "#fff" : "rgba(255,255,255,.86)"
+    };
+  };
+  const sw = nat ? Math.max(1.4, nat.w / 520) : 2;
+  const fs = nat ? Math.max(11, nat.w / 46) : 14;
+  const linea = function(l, i, color, texto) {
+    const mx = (l.x1 + l.x2) / 2, my = (l.y1 + l.y2) / 2;
+    return /* @__PURE__ */ React.createElement("g", { key: i }, /* @__PURE__ */ React.createElement("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, stroke: color, strokeWidth: sw, strokeLinecap: "round" }), /* @__PURE__ */ React.createElement("circle", { cx: l.x1, cy: l.y1, r: sw * 1.6, fill: color }), /* @__PURE__ */ React.createElement("circle", { cx: l.x2, cy: l.y2, r: sw * 1.6, fill: color }), texto && /* @__PURE__ */ React.createElement(
+      "text",
+      {
+        x: mx,
+        y: my - fs * 0.45,
+        fill: "#fff",
+        fontSize: fs,
+        fontFamily: "system-ui, sans-serif",
+        fontWeight: "600",
+        textAnchor: "middle",
+        stroke: "rgba(0,0,0,.85)",
+        strokeWidth: fs / 6,
+        paintOrder: "stroke"
+      },
+      texto
+    ));
+  };
+  return /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-label": "Medir " + titulo,
+      style: { position: "fixed", inset: 0, zIndex: 9e3, background: "rgba(0,0,0,.9)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 16 }
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center", maxWidth: "94vw" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: "rgba(255,255,255,.72)", marginRight: 4 } }, titulo), !readOnly && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        style: btn(modo === "calibrar"),
+        onClick: function() {
+          setCal(null);
+          setPend(null);
+          setPidiendoCal(true);
+        }
+      },
+      cal ? "Recalibrar" : auto ? "Calibrar a mano" : "1 \xB7 Calibrar"
+    ), !readOnly && auto && cal && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        style: btn(false),
+        onClick: function() {
+          setCal(null);
+          setPidiendoCal(false);
+          setSuc(false);
+        }
+      },
+      "Volver a la escala del sensor"
+    ), !readOnly && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        style: btn(false),
+        disabled: !lineas.length,
+        onClick: function() {
+          setLineas(function(ls) {
+            return ls.slice(0, -1);
+          });
+          setSuc(false);
+        }
+      },
+      "Deshacer"
+    ), !readOnly && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        style: btn(false),
+        disabled: !lineas.length,
+        onClick: function() {
+          setLineas([]);
+          setSuc(false);
+        }
+      },
+      "Borrar medidas"
+    ), !readOnly && /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(true), onClick: guardar }, suc ? "\u2713 Guardado" : "Guardar en la ficha"), /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(false), onClick: onClose }, "Cerrar")),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "relative", lineHeight: 0, maxWidth: "94vw", maxHeight: "72vh", touchAction: "none" } }, /* @__PURE__ */ React.createElement(
+      "img",
+      {
+        ref: imgRef,
+        src: url,
+        alt: titulo,
+        draggable: "false",
+        onLoad: function(e) {
+          setNat({ w: e.target.naturalWidth || 1e3, h: e.target.naturalHeight || 1e3 });
+        },
+        style: { display: "block", maxWidth: "94vw", maxHeight: "72vh", userSelect: "none" }
+      }
+    ), nat && /* @__PURE__ */ React.createElement(
+      "svg",
+      {
+        viewBox: "0 0 " + nat.w + " " + nat.h,
+        preserveAspectRatio: "none",
+        onPointerDown: down,
+        onPointerMove: move,
+        onPointerUp: up,
+        onPointerCancel: up,
+        style: { position: "absolute", inset: 0, width: "100%", height: "100%", cursor: readOnly ? "default" : "crosshair", touchAction: "none" }
+      },
+      cal && linea(cal, "cal", "#F2C14E", rxFmtMm(cal.mm) + " \xB7 referencia"),
+      lineas.map(function(l, i) {
+        return linea(l, i, "#3FD2C7", mmPorPx ? rxFmtMm(rxDist(l) * mmPorPx) : null);
+      }),
+      pend && linea(pend, "pend", "#F2C14E", null),
+      draft && linea(
+        draft,
+        "draft",
+        modo === "calibrar" ? "#F2C14E" : "#3FD2C7",
+        mmPorPx && modo === "medir" ? rxFmtMm(rxDist(draft) * mmPorPx) : null
+      )
+    )),
+    /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 620, textAlign: "center", fontFamily: T.sans, fontSize: 12.5, color: "rgba(255,255,255,.78)", lineHeight: 1.55 } }, pend ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", justifyContent: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", null, "\xBFCu\xE1ntos mil\xEDmetros mide esa l\xEDnea?"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        value: mmTxt,
+        onChange: function(e) {
+          setMmTxt(e.target.value);
+        },
+        inputMode: "decimal",
+        autoFocus: true,
+        placeholder: "Ej. 10",
+        onKeyDown: function(e) {
+          if (e.key === "Enter") confirmarCal();
+        },
+        style: { width: 90, padding: "7px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.08)", color: "#fff", fontFamily: T.sans, fontSize: 13, textAlign: "center", outline: "none" }
+      }
+    ), /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(true), onClick: confirmarCal }, "Confirmar"), /* @__PURE__ */ React.createElement("button", { type: "button", style: btn(false), onClick: function() {
+      setPend(null);
+    } }, "Cancelar")) : modo === "calibrar" ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("b", { style: { color: "#F2C14E" } }, "Paso 1 \xB7 Calibrar."), " Traza una l\xEDnea sobre algo de largo conocido \u2014un implante, una lima, el ancho de una corona\u2014 y escribe cu\xE1nto mide. Sin eso no se puede medir: un JPG de radiograf\xEDa no trae escala.") : /* @__PURE__ */ React.createElement("span", null, cal ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("b", { style: { color: "#3FD2C7" } }, "Paso 2 \xB7 Medir."), " Escala de tu calibraci\xF3n: 1 px = ", (mmPorPx || 0).toFixed(4), " mm.") : /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("b", { style: { color: "#3FD2C7" } }, "Medir."), " Escala le\xEDda del sensor (", /* @__PURE__ */ React.createElement("code", { style: { fontSize: 11.5 } }, auto.tag), "): 1 px = ", (mmPorPx || 0).toFixed(4), " mm. No hace falta calibrar."), /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { color: "rgba(255,255,255,.5)", fontSize: 11.5 } }, cal ? "Las medidas son relativas a tu referencia. " : "La escala viene del fabricante del sensor, no de una estimaci\xF3n. ", "La radiograf\xEDa amplifica y distorsiona \u2014la panor\xE1mica de forma desigual a lo largo del arco\u2014, as\xED que la medida es del plano de la imagen: sirve para comparar y seguir evoluci\xF3n, no como medida absoluta en boca.")))
+  );
+}
+function RxSlot({ T, url, readOnly, onPick, onDel, med, onSaveMed, titulo }) {
   const [zoom, setZoom] = useState(false);
+  const [medir, setMedir] = useState(false);
+  const nMed = med && med.lineas && med.lineas.length || 0;
   if (url) {
     return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
       "img",
@@ -394,14 +881,37 @@ function RxSlot({ T, url, readOnly, onPick, onDel }) {
         },
         style: { width: "100%", maxHeight: zoom ? "none" : 150, objectFit: zoom ? "contain" : "cover", borderRadius: 6, border: "1px solid " + T.line, cursor: "zoom-in", display: "block", background: "#000" }
       }
-    ), !readOnly && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: onDel, style: { marginTop: 6, background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", fontFamily: T.sans, fontSize: 11 } }, "Eliminar radiograf\xEDa"));
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center", marginTop: 6, flexWrap: "wrap" } }, onSaveMed && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: function() {
+          setMedir(true);
+        },
+        style: { background: "transparent", border: "none", color: T.accent, cursor: "pointer", fontFamily: T.sans, fontSize: 11, fontWeight: 600, padding: 0 }
+      },
+      nMed ? "Medir \xB7 " + nMed + (nMed === 1 ? " medida" : " medidas") : "Medir"
+    ), !readOnly && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: onDel, style: { background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", fontFamily: T.sans, fontSize: 11, padding: 0 } }, "Eliminar radiograf\xEDa")), medir && /* @__PURE__ */ React.createElement(
+      RxMedir,
+      {
+        T,
+        url,
+        titulo: titulo || "Radiograf\xEDa",
+        med,
+        readOnly,
+        onSave: onSaveMed,
+        onClose: function() {
+          setMedir(false);
+        }
+      }
+    ));
   }
   if (readOnly) return /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11.5, color: T.textFaint } }, "Sin radiograf\xEDa.");
-  return /* @__PURE__ */ React.createElement("label", { style: { display: "block", padding: "14px 12px", borderRadius: 6, border: "1px dashed " + T.line, textAlign: "center", cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "Subir radiograf\xEDa", /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("label", { style: { display: "block", padding: "14px 12px", borderRadius: 6, border: "1px dashed " + T.line, textAlign: "center", cursor: "pointer", fontFamily: T.sans, fontSize: 11.5, color: T.textMute } }, "Subir radiograf\xEDa", /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 10.5, color: T.textFaint, marginTop: 3 } }, "JPG, PNG o DICOM \xB7 el DICOM trae la escala del sensor"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "file",
-      accept: "image/*",
+      accept: "image/*,.dcm,.dicom,application/dicom",
       style: { display: "none" },
       onChange: function(ev) {
         const f = ev.target.files && ev.target.files[0];
@@ -707,8 +1217,12 @@ Object.assign(window, {
   Odontograma,
   ToothSVG,
   RxSlot,
+  RxMedir,
   PlanDentalTab,
   PlanFirmaModal,
+  dcmEs,
+  dcmParse,
+  dcmADataURL,
   PLAN_PRIORIDADES,
   PLAN_ESTADOS,
   planGet,
