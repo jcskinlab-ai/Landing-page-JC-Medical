@@ -5785,6 +5785,9 @@ function CajaView({ T }) {
           </div>
         ))}
       </div>
+      {/* Proyección del mes: va ANTES del histórico porque responde la pregunta que el dueño se hace
+          al abrir Ventas ("¿cómo voy a cerrar?"), y el gráfico de 6 meses queda como respaldo. */}
+      <ProyeccionVentasIA T={T} />
       {/* Flujo de caja + Tratamientos que más venden lado a lado (referencia): el gráfico se lleva
           el espacio ancho y el ranking queda como tarjeta destacada compacta (top 1 + expandir). */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(240px,1fr)", gap: 16, alignItems: "start", marginBottom: 2 }}>
@@ -6465,6 +6468,150 @@ function ChatInternoView({ T }) {
 }
 
 /* ── N9 · Flujo de caja (ingresos vs egresos por mes) ── */
+/* ═══ Proyección de venta del mes + recomendaciones con IA (Registro de Ventas) ═══
+   IMPORTANTE: la CIFRA proyectada NO la inventa la IA. Se calcula aquí con el ritmo real de
+   ingresos del mes en curso y el historial de los meses anteriores, así es auditable y no cambia
+   entre consultas. La IA solo INTERPRETA esos números y propone acciones concretas. Usa
+   window.mediqueAI (/api/ai) — no se crea ningún endpoint nuevo (tope de 12 funciones en Vercel). */
+function ProyeccionVentasIA({ T }) {
+  const D = window.JCDATA;
+  const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" && jcdsLux());
+  const [busy, setBusy] = useState(false);
+  const [out, setOut] = useState(null);
+  const [err, setErr] = useState("");
+  const MESL = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+  let cash = []; try { cash = (window.cashMovimientos && window.cashMovimientos()) || (window.cashAll && window.cashAll()) || []; } catch (e) {}
+  const now = new Date();
+  const curKey = _localDay(now).slice(0, 7);
+  const keyOf = x => ((x._day || x.ts || "")).slice(0, 7);
+  const ingDe = k => cash.filter(x => keyOf(x) === k && x.type !== "egreso").reduce((s, x) => s + (x.amount || 0), 0);
+  // 5 meses anteriores (cerrados) + el mes en curso aparte.
+  const hist = []; for (let i = 5; i >= 1; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); hist.push({ key: _localDay(d).slice(0, 7), lbl: MESL[d.getMonth()], ing: ingDe(_localDay(d).slice(0, 7)) }); }
+
+  const ingMes = ingDe(curKey);
+  const ventasMes = cash.filter(x => keyOf(x) === curKey && x.type !== "egreso" && x.kind === "atencion").length;
+  const diaHoy = now.getDate();
+  const diasMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const diasRest = Math.max(0, diasMes - diaHoy);
+  const ritmoDia = diaHoy > 0 ? ingMes / diaHoy : 0;
+  const proy = Math.round(ritmoDia * diasMes);                     // cierre estimado al ritmo actual
+  const ticket = ventasMes > 0 ? Math.round(ingMes / ventasMes) : 0;
+  const conDatos = hist.filter(h => h.ing > 0);
+  const promHist = conDatos.length ? Math.round(conDatos.reduce((s, h) => s + h.ing, 0) / conDatos.length) : 0;
+  const mesAnt = hist.length ? hist[hist.length - 1].ing : 0;
+  const deltaAnt = mesAnt > 0 ? Math.round((proy - mesAnt) / mesAnt * 100) : null;
+  // Agenda por venir: citas ya agendadas de aquí a fin de mes (ingreso probable aún no cobrado).
+  let citasRest = 0;
+  try {
+    const hoyISO = _localDay(now);
+    citasRest = ((window.DB && DB.get("appointments")) || []).filter(a => {
+      const f = a.fecha || ""; return f.slice(0, 7) === curKey && f >= hoyISO && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida";
+    }).length;
+  } catch (e) {}
+  const maxBar = Math.max(1, proy, ...hist.map(h => h.ing));
+  const sinHistorial = conDatos.length === 0 && ingMes === 0;
+
+  function analizar() {
+    if (busy) return;
+    if (!window.mediqueAI) { setErr("La IA no está disponible en este servidor."); return; }
+    setBusy(true); setErr(""); setOut(null);
+    const clinic = (function () { try { return { name: DB.cfg().clinic_name || "" }; } catch (e) { return {}; } })();
+    // Top tratamientos del mes (por monto), para que las recomendaciones sean del negocio real.
+    const porTrat = {};
+    cash.filter(x => keyOf(x) === curKey && x.kind === "atencion" && x.type !== "egreso")
+      .forEach(x => { const k = (x.concept || "").split("·")[0].trim() || "Sin especificar"; porTrat[k] = (porTrat[k] || 0) + (x.amount || 0); });
+    const top = Object.keys(porTrat).map(k => k + ": " + D.fmt(porTrat[k])).sort().slice(0, 6).join(" | ") || "sin ventas aún";
+    const histTxt = hist.map(h => h.lbl + " " + D.fmt(h.ing)).join(" | ");
+    const datos = [
+      "Clínica de medicina estética en Chile (moneda CLP).",
+      "Ingresos de los 5 meses anteriores: " + histTxt + ".",
+      "Mes en curso: lleva " + D.fmt(ingMes) + " en " + diaHoy + " de " + diasMes + " días (" + ventasMes + " ventas, ticket promedio " + D.fmt(ticket) + ").",
+      "Proyección de cierre calculada al ritmo actual: " + D.fmt(proy) + (deltaAnt != null ? " (" + (deltaAnt >= 0 ? "+" : "") + deltaAnt + "% vs el mes anterior)" : "") + ".",
+      "Promedio de los meses anteriores: " + D.fmt(promHist) + ".",
+      "Quedan " + diasRest + (diasRest === 1 ? " día" : " días") + " y hay " + citasRest + (citasRest === 1 ? " cita ya agendada" : " citas ya agendadas") + " por atender este mes.",
+      "Tratamientos que más facturan este mes: " + top + "."
+    ].join("\n");
+    const system = "Eres un analista de negocio para clínicas de medicina estética en Chile. Te dan cifras YA CALCULADAS: no las recalcules ni inventes otras, úsalas tal cual. "
+      + "Responde en español de Chile, directo y sin adornos, en máximo 220 palabras, con esta estructura exacta:\n"
+      + "LECTURA: dos o tres frases interpretando la proyección (¿va bien, va corto, de qué depende?).\n"
+      + "ACCIONES: 4 viñetas para AUMENTAR INGRESOS este mes, cada una concreta y accionable con la agenda y los tratamientos que te dieron (nada genérico tipo 'mejorar el marketing').\n"
+      + "CAPTACIÓN: 2 viñetas para atraer pacientes nuevos.\n"
+      + "No prometas resultados garantizados ni des consejos médicos. No uses markdown ni asteriscos.";
+    window.mediqueAI([{ role: "user", content: datos }], clinic, { system: system, max_tokens: 700 }).then(function (r) {
+      setBusy(false);
+      if (r && r.ok && r.reply) setOut(r.reply);
+      else if (r && r.configured === false) setErr("La IA no está configurada en el servidor (falta GROQ_API_KEY).");
+      else setErr((r && r.error) || "La IA no respondió. Intenta de nuevo.");
+    }).catch(function () { setBusy(false); setErr("No se pudo contactar la IA."); });
+  }
+
+  const card = luxF ? { ...DS.card(T), padding: "18px 20px", marginBottom: 16 } : { background: T.surface, border: "1px solid " + T.line, borderRadius: 14, padding: "18px 20px", marginBottom: 16 };
+  const deltaCol = deltaAnt == null ? T.textMute : deltaAnt >= 0 ? "#1F8A5B" : "#C0285A";
+  return (
+    <div style={card}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>Proyección del mes</div>
+          <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 }}>Al ritmo de {D.fmt(Math.round(ritmoDia))} por día · quedan {diasRest} día{diasRest === 1 ? "" : "s"}</div>
+        </div>
+        <button onClick={analizar} disabled={busy || sinHistorial} title={sinHistorial ? "Aún no hay ventas registradas para analizar" : "Analizar con IA"}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 34, padding: "0 14px", borderRadius: luxF ? DS.r.ctl : 8, border: "1px solid " + T.accent, background: busy ? "transparent" : T.accent, color: busy ? T.accent : (T.onAccent || "#fff"), fontFamily: T.sans, fontSize: 12, fontWeight: 600, cursor: (busy || sinHistorial) ? "not-allowed" : "pointer", opacity: sinHistorial ? .5 : 1 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4.5" y="8" width="15" height="10" rx="3" /><path d="M12 4.5V8" /><circle cx="12" cy="3.4" r="1.3" /></svg>
+          {busy ? "Analizando…" : (out ? "Volver a analizar" : "Analizar con IA")}
+        </button>
+      </div>
+
+      {/* Cifra proyectada + comparativas */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontFamily: T.serif, fontSize: 32, color: T.text, lineHeight: 1.05 }}>{D.fmt(proy)}</div>
+          <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 3 }}>cierre estimado de {MESL[now.getMonth()]}</div>
+        </div>
+        {deltaAnt != null && (
+          <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: deltaCol, paddingBottom: 4 }}>
+            {deltaAnt >= 0 ? "▲ " : "▼ "}{Math.abs(deltaAnt)}% <span style={{ color: T.textFaint, fontWeight: 400 }}>vs mes anterior</span>
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 14 }}>
+        {[["Van este mes", D.fmt(ingMes)], ["Ventas", String(ventasMes)], ["Ticket promedio", D.fmt(ticket)], ["Citas por atender", String(citasRest)], ["Promedio meses previos", D.fmt(promHist)]].map(([l, v]) => (
+          <div key={l}>
+            <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 600, color: T.text }}>{v}</div>
+            <div style={{ fontFamily: T.sans, fontSize: 10, color: T.textFaint, marginTop: 1 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Historial + la proyección como última barra (punteada = aún no ocurre) */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 82, marginBottom: 4 }}>
+        {hist.concat([{ key: "proy", lbl: MESL[now.getMonth()], ing: proy, esProy: true }]).map(m => (
+          <div key={m.key} title={(m.esProy ? "Proyectado: " : "") + D.fmt(m.ing)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+            <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+              <div style={{ width: "62%", height: Math.round((m.ing / maxBar) * 58) + "px", minHeight: 2, borderRadius: "4px 4px 0 0",
+                background: m.esProy ? "transparent" : T.accent, border: m.esProy ? ("1.5px dashed " + T.accent) : "none", opacity: m.esProy ? 1 : .75 }} />
+            </div>
+            <span style={{ fontFamily: T.sans, fontSize: 9.5, color: m.esProy ? T.accent : T.textFaint, fontWeight: m.esProy ? 600 : 400 }}>{m.lbl}</span>
+          </div>
+        ))}
+      </div>
+
+      {err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: "#C0285A", marginTop: 10 }}>{err}</div>}
+      {sinHistorial && !err && <div style={{ fontFamily: T.sans, fontSize: 11.5, color: T.textMute, marginTop: 10 }}>Aún no hay ventas registradas: la proyección aparecerá cuando empieces a cobrar atenciones.</div>}
+
+      {out && (
+        <div style={{ marginTop: 14, paddingTop: 13, borderTop: "1px solid " + T.line }}>
+          <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: T.accent, marginBottom: 8 }}>Análisis y recomendaciones · IA</div>
+          <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.text, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{out}</div>
+        </div>
+      )}
+      <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textFaint, marginTop: 12, lineHeight: 1.5 }}>
+        La cifra se calcula con tus ingresos reales (ritmo del mes e historial), no la genera la IA. Es una estimación: cambia según lo que cobres los días que quedan.
+      </div>
+    </div>
+  );
+}
+
 // Gráfico de flujo de caja (6 meses) reutilizable — se usa en Flujo de caja y en Registro de Ventas.
 function FlujoCajaChart({ T, title }) {
   const D = window.JCDATA;
