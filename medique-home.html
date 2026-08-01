@@ -1729,18 +1729,41 @@
     a.addEventListener('click',function(e){e.preventDefault();openModal(a.getAttribute('data-plan'));});
   });
 
-  /* Botón "Contratar": aparece SOLO si ese plan tiene URL de pago cargada en
-     MEDIQUE.checkout. Un botón de pago que no lleva a ninguna parte es peor que
-     no tenerlo —el visitante hace clic, no pasa nada y se va—, así que se revela
-     cuando hay a dónde ir y no antes. Pegando el link de Mercado Pago en el
-     objeto de arriba, el botón sale solo: no hay que tocar nada más. */
+  /* Botón "Contratar", con dos destinos en cascada:
+       · Si ese plan tiene URL en MEDIQUE.checkout → va al checkout de la pasarela.
+       · Si no la tiene → va a WhatsApp con el plan y el precio ya escritos.
+
+     Antes se ocultaba cuando no había pasarela. El razonamiento era no dejar un
+     botón muerto, pero el efecto real era peor: el visitante que ya leyó el
+     precio y decidió comprar no tenía dónde hacer clic, y Mercado Pago todavía
+     está a semanas. El día que se peguen los links, cambia de destino solo.
+
+     El precio se lee de la tarjeta en el momento del clic, no al cargar, para
+     que respete el ciclo que el visitante tenga elegido en ese instante. */
+  function pagoPrecio(b) {
+    var card = b.closest('.plan');
+    var el = card ? card.querySelector('.price .v') : document.querySelector('.precio-f');
+    return el ? ((el.textContent.match(/\$[\d.]+/) || [''])[0]) : '';
+  }
+  function pagoSemestral() {
+    var on = document.querySelector('.ciclo button.on');
+    return !!(on && on.getAttribute('data-ciclo') === 's');
+  }
   document.querySelectorAll('.btn-pagar').forEach(function (b) {
-    var url = (MEDIQUE.checkout || {})[b.getAttribute('data-plan')];
-    if (!url) return;
-    b.setAttribute('href', url);
+    var plan = b.getAttribute('data-plan');
+    var url = (MEDIQUE.checkout || {})[plan];
     b.setAttribute('target', '_blank');
     b.setAttribute('rel', 'noopener');
     b.hidden = false;
+    if (url) { b.setAttribute('href', url); return; }
+    b.addEventListener('click', function (e) {
+      e.preventDefault();
+      var p = pagoPrecio(b);
+      var msg = 'Hola Medique \uD83D\uDC4B Quiero contratar el plan ' + plan +
+        (p ? ' (' + p + ' al mes' + ((pagoSemestral() && b.closest('.plan')) ? ', pagando semestral' : '') + ')' : '') +
+        '. \u00BFC\u00F3mo seguimos?';
+      window.open(waLink(msg), '_blank', 'noopener');
+    });
   });
   // close: overlay / x / Esc
   modal.addEventListener('click',function(e){if(e.target===modal||e.target.hasAttribute('data-close'))closeModal();});
