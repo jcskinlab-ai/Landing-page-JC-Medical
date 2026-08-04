@@ -203,6 +203,19 @@ function AdBtn({ T, children, onClick, primary, danger, subtle, full, small, dis
     }}>{children}</button>;
 }
 
+// ¿Esta cita es de este paciente? NO basta con comparar patId: las citas creadas rápido desde la
+// agenda, las importadas y las reservas web no lo traen, y ahí solo queda el nombre. El resto del
+// panel ya emparejaba así (historial de citas de la ficha); el auto-atendido no, y por eso una
+// cita sin patId nunca pasaba a "atendida" al registrar el procedimiento.
+// El guard `a.patId &&` es imprescindible: sin él, dos registros sin id se darían por iguales.
+function jcmApptDePaciente(a, p) {
+  if (!a || !p) return false;
+  if (a.patId && p.id) return a.patId === p.id;   // enlazada: manda el id, aunque el nombre difiera
+  const na = (a.name || "").trim().toLowerCase(), np = (p.name || "").trim().toLowerCase();
+  return !!na && na === np;
+}
+if (typeof window !== "undefined") window.jcmApptDePaciente = jcmApptDePaciente;
+
 function AdField({ T, label, value, onChange, placeholder, inputMode, error, type }) {
   const nocap = inputMode === "email" || inputMode === "url";
   const DS = window.JCDS;
@@ -535,21 +548,23 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
         <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 16 }}>
           {/* Solo pacientes que YA cumplieron su plazo de re-aplicación (toxina 3 m · Sculptra 2 m).
               No se muestran proyecciones de fechas futuras: la campaña se activa cuando llega el momento. */}
-          {recitasDue.length === 0 && (
+          {recitasPend.length === 0 && (
             <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, padding: "12px 13px", background: T.surface, border: "1px dashed " + T.line, borderRadius: 9, lineHeight: 1.5 }}>
-              Ningún paciente cumple hoy su plazo de re-aplicación. Cuando un paciente alcance su ventana
-              (toxina a los 3 meses · Sculptra a los 2 meses desde su última sesión), aparecerá aquí listo para contactar.
+              {recitasDue.length > 0
+                ? "Ya contactaste a los " + recitasDue.length + " paciente" + (recitasDue.length === 1 ? "" : "s") + " que cumplían plazo. Cuando otro alcance su ventana aparecerá aquí."
+                : "Ningún paciente cumple hoy su plazo de re-aplicación. Cuando un paciente alcance su ventana (toxina a los 3 meses · Sculptra a los 2 meses desde su última sesión), aparecerá aquí listo para contactar."}
             </div>
           )}
-          {recitasDue.sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => {
-            const sent = !!recitaSent[recitaSentKey(p, r)];
+          {/* Solo los que FALTAN por contactar: al tocar WhatsApp la fila desaparece de la lista.
+              Antes se quedaba marcada como "Enviado" y la campaña seguía igual de larga, así que no
+              se veía el avance ni quedaba claro a quién faltaba escribirle. */}
+          {recitasPend.slice().sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => {
             return (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 9, background: "rgba(31,138,91,.06)", border: "1px solid rgba(31,138,91,.4)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>{p.name}</div>
                 <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{r.motivo} · cumplió su plazo el {fmtD(r.due)}</div>
               </div>
-              <AdTag T={T} tone={sent ? "ok" : "warn"}>{sent ? "Enviado" : "Pendiente"}</AdTag>
               <a href={waLink(p, r)} target="_blank" rel="noopener" onClick={() => markRecitaSent(p, r)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px" }}>WhatsApp</a>
             </div>
             );
@@ -1099,7 +1114,7 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
               try {
                 const d0 = new Date(); const isoHoy = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
                 const fechaSes = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "") ? e.date : isoHoy;
-                const libre = a => a.patId === patient.id && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida";
+                const libre = a => jcmApptDePaciente(a, patient) && a.status !== "anulada" && a.status !== "cancelada" && !a.attended && a.status !== "atendida";
                 // Prioriza la cita del día de la sesión; si no hay, cae a la de hoy (registro en el momento).
                 const apptSes = (appts || []).find(a => a.fecha === fechaSes && libre(a)) || (appts || []).find(a => a.fecha === isoHoy && libre(a));
                 if (apptSes) updateAppt(apptSes.id, { status: "atendida", attended: true });

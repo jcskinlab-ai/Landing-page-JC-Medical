@@ -2714,6 +2714,14 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     }
     if (onConsumeApptId) onConsumeApptId();
   }, [initialApptId]);
+  const apptHref = (a) => {
+    try {
+      const p = (patients || []).find((x) => window.jcmApptDePaciente && window.jcmApptDePaciente(a, x));
+      if (p) return jcmPanelHref("pacientes", p.id);
+    } catch (e) {
+    }
+    return jcmPanelHref("agenda", null, a.id);
+  };
   const [nueva, setNueva] = useState(null);
   const [edit, setEdit] = useState(null);
   const [editOnly, setEditOnly] = useState(null);
@@ -2996,7 +3004,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
           }, style: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "9px 12px", background: on ? T.accent + "14" : "transparent", border: "none", borderRadius: 7, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, color: on ? T.accent : T.text } }, /* @__PURE__ */ React.createElement("span", { style: { width: 22, height: 22, borderRadius: "50%", background: c + "22", color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, flexShrink: 0 } }, iniOf(m.name)), m.name);
         }))));
       })(), icsBtnNode, nuevaBtnNode);
-    })(), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, icsBtn: icsBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: (appt, only) => {
+    })(), view === "semana" ? /* @__PURE__ */ React.createElement(SemanaGrid, { T, week, appts, apptHref, viewToggle: viewToggleNode, nuevaBtn: nuevaBtnNode, icsBtn: icsBtnNode, onNew: (off, time) => setNueva({ time, day: off, fromSlot: true }), onEdit: (appt, only) => {
       setEdit(appt);
       setEditOnly(only || null);
     }, updateAppt, removeAppt, onDay: (off) => {
@@ -3065,7 +3073,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
         {
           key: a.id,
           "data-appt": true,
-          href: jcmPanelHref("agenda", null, a.id),
+          href: apptHref(a),
           onClick: (e) => {
             if (!jcmPlainClick(e)) return;
             e.preventDefault();
@@ -3427,7 +3435,8 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, icsBt
     }));
   })());
 }
-function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn }) {
+function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn, apptHref }) {
+  apptHref = apptHref || ((a) => jcmPanelHref("agenda", null, a.id));
   const D = window.JCDATA;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [wkOff, setWkOff] = useState(0);
@@ -3624,7 +3633,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
         {
           key: a.id,
           className: "jc-appt",
-          href: jcmPanelHref("agenda", null, a.id),
+          href: apptHref(a),
           style: { position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2, textDecoration: "none", color: "inherit" },
           onMouseEnter: (e) => {
             if (hideT.current) clearTimeout(hideT.current);

@@ -3155,6 +3155,16 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
     if (a) { setDay(apptDayOff(a)); setView("dia"); setEdit(a); setEditOnly(null); }
     if (onConsumeApptId) onConsumeApptId();
   }, [initialApptId]);
+  // Destino de una cita al abrirla en OTRA pestaña: la ficha clínica del paciente, que es lo que
+  // se quiere consultar aparte. El clic normal sigue abriendo la cita aquí mismo. Si la cita no
+  // está enlazada a ninguna ficha (reserva web sin paciente creado), cae a la propia cita.
+  const apptHref = a => {
+    try {
+      const p = (patients || []).find(x => window.jcmApptDePaciente && window.jcmApptDePaciente(a, x));
+      if (p) return jcmPanelHref("pacientes", p.id);
+    } catch (e) {}
+    return jcmPanelHref("agenda", null, a.id);
+  };
   const [nueva, setNueva] = useState(null);
   const [edit, setEdit] = useState(null);
   const [editOnly, setEditOnly] = useState(null); // null = edición completa · "fecha" | "duracion" = solo ese campo
@@ -3479,7 +3489,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
       })()}
 
       {view === "semana" ? (
-        <SemanaGrid T={T} week={week} appts={appts} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} icsBtn={icsBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={(appt, only) => { setEdit(appt); setEditOnly(only || null); }} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
+        <SemanaGrid T={T} week={week} appts={appts} apptHref={apptHref} viewToggle={viewToggleNode} nuevaBtn={nuevaBtnNode} icsBtn={icsBtnNode} onNew={(off, time) => setNueva({ time, day: off, fromSlot: true })} onEdit={(appt, only) => { setEdit(appt); setEditOnly(only || null); }} updateAppt={updateAppt} removeAppt={removeAppt} onDay={(off) => { setDay(off); setView("dia"); }} onVerFicha={(appt) => {
           setFichaConfirm({ appt, patient: matchPatientForAppt(appt, patients) });
         }} />
       ) : view === "mes" ? (
@@ -3546,7 +3556,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                   // conviven las dos lecturas. En estética `tCol` es null y el bloque queda idéntico.
                   const tCol = dentalOn ? jcmTipoDentalColor(a.tipoDental, DS, T) : null;
                   return (
-                  <a key={a.id} data-appt href={jcmPanelHref("agenda", null, a.id)}
+                  <a key={a.id} data-appt href={apptHref(a)}
                     onClick={e => { if (!jcmPlainClick(e)) return; e.preventDefault(); e.stopPropagation(); if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } setHoverA(null); setEdit(a); setEditOnly(null); }}
                     onMouseEnter={e => {
                       if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
@@ -4098,7 +4108,10 @@ function MonthGrid({ T, appts, monthDate, setMonthDate, onDay, viewToggle, icsBt
     </div>
   );
 }
-function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn }) {
+function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onDay, onVerFicha, viewToggle, nuevaBtn, icsBtn, apptHref }) {
+  // Destino al abrir la cita en otra pestaña. Lo calcula Agenda (tiene la lista de pacientes);
+  // aquí solo se usa. Si no llega, se cae a la propia cita para no dejar el enlace vacío.
+  apptHref = apptHref || (a => jcmPanelHref("agenda", null, a.id));
   const D = window.JCDATA;
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   const [wkOff, setWkOff] = useState(0);
@@ -4395,7 +4408,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                     const horaFin = String(Math.floor(_endMin / 60)).padStart(2, "0") + ":" + String(_endMin % 60).padStart(2, "0");
                     const tall = a._h >= 38; // hay altura para la 2ª línea (servicio + hora fin)
                     return (
-                      <a key={a.id} className="jc-appt" href={jcmPanelHref("agenda", null, a.id)}
+                      <a key={a.id} className="jc-appt" href={apptHref(a)}
                         style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2, textDecoration: "none", color: "inherit" }}
                         onMouseEnter={e => {
                           if (hideT.current) clearTimeout(hideT.current);
