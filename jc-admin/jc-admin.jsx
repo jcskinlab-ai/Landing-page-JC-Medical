@@ -1682,7 +1682,10 @@ function AdminApp() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQ, setCmdQ] = useState("");
   const [cmdIdx, setCmdIdx] = useState(0);
-  const [openApptId, setOpenApptId] = useState(null); // deep-link desde Contralor IA a una cita puntual
+  // Cita abierta: deep-link desde el Contralor IA y, ahora, desde la propia URL /agenda/<idCita>.
+  // Eso es lo que permite abrir una cita en otra pestaña: la pestaña nueva carga esa ruta y sabe
+  // qué cita mostrar. La sub-ruta solo la usan vistas de configuración, así que aquí está libre.
+  const [openApptId, setOpenApptId] = useState(_initRoute.section === "agenda" ? (_initRoute.sub || null) : null);
   const [appts, setAppts] = useState(() => {
     // Citas por clínica desde la BD (Firebase). Las reservas web ya entran aquí vía importWebBookings.
     var saved = (window.DB && window.DB.get("appointments"));
@@ -2315,10 +2318,10 @@ function AdminApp() {
             <div onClick={() => setTopGrp(null)} style={{ position: "fixed", inset: 0, zIndex: 50 }} />
             <div className="jc-scroll" style={{ position: "fixed", top: topGrp.y, zIndex: 51, background: T.bg, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, padding: 5, minWidth: 190, maxHeight: "70vh", overflowY: "auto", ...(topGrp.right != null ? { right: topGrp.right } : { left: topGrp.x }) }}>
               {topGrp.keys.map(k => (
-                <button key={k} onClick={() => { nav(k); setTopGrp(null); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 13px", borderRadius: 7, border: "none", background: section === k ? T.accent : "transparent", color: section === k ? (T.onAccent || "#fff") : T.text, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, whiteSpace: "nowrap" }}>
+                <a key={k} {...jcmLinkProps(jcmPanelHref(k), () => { nav(k); setTopGrp(null); })} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "9px 13px", borderRadius: 7, border: "none", background: section === k ? T.accent : "transparent", color: section === k ? (T.onAccent || "#fff") : T.text, cursor: "pointer", fontFamily: T.sans, fontSize: 12.5, whiteSpace: "nowrap", textDecoration: "none" }}>
                   {k === "pendientes" && pendCount > 0 && <span style={{ width: 6, height: 6, borderRadius: "50%", background: section === k ? (T.onAccent || "#fff") : "#C0285A" }} />}
                   {topGrp.byKey[k]}
-                </button>
+                </a>
               ))}
             </div>
           </>)}
@@ -2561,7 +2564,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
     const eyebrow = { fontFamily: T.sans, fontSize: 9.5, letterSpacing: ".28em", textTransform: "uppercase", color: T.accent };
     const cardBase = { background: T.surface, border: "1px solid " + T.line, borderRadius: 16, boxShadow: T.shadow };
     const listRow = (a, showDay) => (
-      <button key={a.id} onClick={() => setEdit(a)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 4px", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer", textAlign: "left", width: "100%", transition: "background .18s " + T.ease }}
+      <a key={a.id} {...jcmLinkProps(jcmPanelHref('agenda', null, a.id), () => setEdit(a))} style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 4px", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer", textAlign: "left", width: "100%", boxSizing: "border-box", textDecoration: "none", color: "inherit", transition: "background .18s " + T.ease }}
         onMouseEnter={e => e.currentTarget.style.background = T.lineSoft} onMouseLeave={e => e.currentTarget.style.background = "none"}>
         <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
           <div style={{ fontFamily: T.serif, fontSize: 18, color: T.text, lineHeight: 1 }}>{a.time}</div>
@@ -2572,7 +2575,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
           <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 }}>{a.proc || "—"}</div>
         </div>
         <span style={{ flexShrink: 0, fontFamily: T.sans, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 999, color: a.status === "confirmada" ? "#1F8A5B" : T.textMute, border: "1px solid " + (a.status === "confirmada" ? "#1F8A5B55" : T.line) }}>{a.status === "confirmada" ? "Confirmada" : "Pendiente"}</span>
-      </button>
+      </a>
     );
     return (
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
@@ -2731,7 +2734,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {next3.map(a => (
-          <button key={a.id} onClick={() => setEdit(a)} style={{ display: "flex", alignItems: "center", gap: 13, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer", textAlign: "left", width: "100%" }}>
+          <a key={a.id} {...jcmLinkProps(jcmPanelHref('agenda', null, a.id), () => setEdit(a))} style={{ display: "flex", alignItems: "center", gap: 13, padding: "12px 14px", borderRadius: 8, background: T.surface, border: "1px solid " + T.line, cursor: "pointer", textAlign: "left", width: "100%", boxSizing: "border-box", textDecoration: "none", color: "inherit", }}>
             <div style={{ textAlign: "center", flexShrink: 0 }}>
               <div style={{ fontFamily: T.serif, fontSize: 19, color: T.text, lineHeight: 1 }}>{a.time}</div>
               <div style={{ fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".1em", textTransform: "uppercase", color: T.accent, marginTop: 3 }}>{apptDayOff(a) === 0 ? "Hoy" : "Mañana"}</div>
@@ -2742,7 +2745,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
             </div>
             {a.comentario ? <AdTag T={T} tone="warn">{a.comentario}</AdTag> : null}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>
-          </button>
+          </a>
         ))}
       </div>
 
@@ -2750,7 +2753,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
       <div style={{ fontFamily: T.sans, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.accent, margin: "24px 0 10px" }}>Agenda de hoy</div>
       <div style={{ display: "flex", flexDirection: "column" }}>
         {hoy.map(a => (
-          <button key={a.id} onClick={() => setEdit(a)} style={{ display: "flex", gap: 14, padding: "11px 0", borderBottom: "1px solid " + T.lineSoft, background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer", textAlign: "left", width: "100%", alignItems: "center" }}>
+          <a key={a.id} {...jcmLinkProps(jcmPanelHref('agenda', null, a.id), () => setEdit(a))} style={{ display: "flex", gap: 14, padding: "11px 0", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, cursor: "pointer", textAlign: "left", width: "100%", boxSizing: "border-box", alignItems: "center", textDecoration: "none", color: "inherit", }}>
             <div style={{ width: 46, fontFamily: T.serif, fontSize: 16, color: T.text }}>{a.time}</div>
             <div style={{ flex: 1, borderLeft: "1px solid " + T.line, paddingLeft: 13 }}>
               <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{a.name}</div>
@@ -2758,7 +2761,7 @@ function Resumen({ T, D, A, appts, patients, go, updateAppt, removeAppt, themeKe
             </div>
             <AdTag T={T} tone={a.status === "confirmada" ? "ok" : "warn"}>{a.status === "confirmada" ? "OK" : "Pend."}</AdTag>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.6" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>
-          </button>
+          </a>
         ))}
         {hoy.length === 0 && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, padding: "10px 0" }}>Sin citas hoy.</div>}
       </div>
@@ -3543,7 +3546,8 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                   // conviven las dos lecturas. En estética `tCol` es null y el bloque queda idéntico.
                   const tCol = dentalOn ? jcmTipoDentalColor(a.tipoDental, DS, T) : null;
                   return (
-                  <div key={a.id} data-appt onClick={e => { e.stopPropagation(); if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } setHoverA(null); setEdit(a); setEditOnly(null); }}
+                  <a key={a.id} data-appt href={jcmPanelHref("agenda", null, a.id)}
+                    onClick={e => { if (!jcmPlainClick(e)) return; e.preventDefault(); e.stopPropagation(); if (dayShowT.current) { clearTimeout(dayShowT.current); dayShowT.current = null; } setHoverA(null); setEdit(a); setEditOnly(null); }}
                     onMouseEnter={e => {
                       if (!(typeof isMediqueAdminPreview === "function" && isMediqueAdminPreview())) return;
                       if (dayHideT.current) clearTimeout(dayHideT.current);
@@ -3595,7 +3599,7 @@ function Agenda({ T, appts, patients, addAppt, addPatient, updateAppt, removeApp
                         </div>
                       </>
                     )}
-                  </div>
+                  </a>
                 ); })}
                 {showNow && (
                   <div style={{ position: "absolute", left: 54, right: 0, top: (nowMin - OPEN) * HPX / 60, height: 0, borderTop: "2px solid #C0285A", zIndex: 5, pointerEvents: "none" }}>
@@ -4391,7 +4395,8 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                     const horaFin = String(Math.floor(_endMin / 60)).padStart(2, "0") + ":" + String(_endMin % 60).padStart(2, "0");
                     const tall = a._h >= 38; // hay altura para la 2ª línea (servicio + hora fin)
                     return (
-                      <div key={a.id} className="jc-appt" style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2 }}
+                      <a key={a.id} className="jc-appt" href={jcmPanelHref("agenda", null, a.id)}
+                        style={{ position: "absolute", left: 1, right: 1, top: a._top, height: a._h, zIndex: 2, textDecoration: "none", color: "inherit" }}
                         onMouseEnter={e => {
                           if (hideT.current) clearTimeout(hideT.current);
                           if (showT.current) clearTimeout(showT.current);
@@ -4402,7 +4407,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                           }, 200);
                         }}
                         onMouseLeave={() => { if (showT.current) { clearTimeout(showT.current); showT.current = null; } if (v2) { if (hideT.current) clearTimeout(hideT.current); hideT.current = setTimeout(() => setHover(null), 160); } else setHover(null); }}
-                        onClick={e => { e.stopPropagation(); if (showT.current) { clearTimeout(showT.current); showT.current = null; } setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
+                        onClick={e => { if (!jcmPlainClick(e)) return; e.preventDefault(); e.stopPropagation(); if (showT.current) { clearTimeout(showT.current); showT.current = null; } setHover(null); const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ x: Math.min(r.left, window.innerWidth - 210), y: Math.min(r.bottom + 4, window.innerHeight - 290) }); setMenuDayOff(d.off); setMenu(menu === a.id ? null : a.id); }}>
                         {v2 ? (
                           /* Estilo "Medilink barra": tinte leve del color del estado (ya no barra lateral —
                              ban de impeccable, side-stripe border; el tinte + el badge de inicial ya bastan).
@@ -4436,7 +4441,7 @@ function SemanaGrid({ T, week, appts, onNew, onEdit, updateAppt, removeAppt, onD
                             {a._h > 26 && <div style={{ fontFamily: T.sans, fontSize: 9.5, color: T.textMute, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.time} · {(parseInt(a.dur) || 60)} min{a.proc ? " · " + (isPendPago ? "⏳ Pago pendiente" : a.proc) : ""}</div>}
                           </div>
                         )}
-                      </div>
+                      </a>
                     );
                   })}
                 </div>
