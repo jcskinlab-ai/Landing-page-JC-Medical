@@ -565,7 +565,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
           const icoPhone = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" /></svg>;
           const icoMail = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>;
           if (luxF) return (
-            <button key={p.id} onClick={() => openPatient(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "12px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background"), ...DS.reveal(pi) }}
+            <a key={p.id} {...window.jcmLinkProps(window.jcmPanelHref("pacientes", p.id), () => openPatient(p.id))} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "12px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background"), textDecoration: "none", color: "inherit", ...DS.reveal(pi) }}
               onMouseEnter={e => { e.currentTarget.style.background = T.surface2 || T.surface; }}
               onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
               <Avatar T={T} name={p.name} size={44} />
@@ -590,10 +590,10 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
                     ? <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" }}>{fmtFecha(calTs(p))}</span>
                     : <span style={{ fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" }}>—</span>)}
               </div>
-            </button>
+            </a>
           );
           return (
-            <button key={p.id} onClick={() => openPatient(p.id)} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft }}>
+            <a key={p.id} {...window.jcmLinkProps(window.jcmPanelHref("pacientes", p.id), () => openPatient(p.id))} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, textDecoration: "none", color: "inherit" }}>
               <Avatar T={T} name={p.name} size={44} />
               <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 14.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
@@ -618,7 +618,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
                 {p.tags && p.tags[0] && <AdTag T={T}>{p.tags[0]}</AdTag>}
                 {!p.consent && <AdTag T={T} tone="warn">Consent. pend.</AdTag>}
               </div>
-            </button>
+            </a>
           );
         })}
         {list.length === 0 && <div style={{ padding: "30px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12, color: T.textFaint }}>Sin resultados.</div>}

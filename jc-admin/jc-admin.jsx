@@ -108,11 +108,16 @@ function PatientSearch({ T, patients, onOpen, compact }) {
         placeholder="Buscar pacientes…" style={inpStyle} />
       {open && res.length > 0 && (
         <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, zIndex: 40, overflow: "hidden" }}>
+          {/* onMouseDown (no onClick) porque el desplegable se cierra al perder el foco el input,
+              antes de que llegara el click. El href deja que ⌘/Ctrl/central lo abran aparte. */}
           {res.map(p => (
-            <button key={p.id} onMouseDown={() => { onOpen(p.id); setQ(""); setOpen(false); }} style={{ width: "100%", textAlign: "left", display: "block", padding: "9px 13px", border: "none", borderBottom: "1px solid " + T.line, background: "transparent", cursor: "pointer" }}>
+            <a key={p.id} href={jcmPanelHref("pacientes", p.id)}
+              onMouseDown={e => { if (!jcmPlainClick(e)) return; e.preventDefault(); onOpen(p.id); setQ(""); setOpen(false); }}
+              onClick={e => { if (jcmPlainClick(e)) e.preventDefault(); }}
+              style={{ width: "100%", boxSizing: "border-box", textAlign: "left", display: "block", padding: "9px 13px", border: "none", borderBottom: "1px solid " + T.line, background: "transparent", cursor: "pointer", textDecoration: "none", color: "inherit" }}>
               <div style={{ fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text }}>{p.name}</div>
               <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute }}>{p.rut || p.phone || "Paciente"}</div>
-            </button>
+            </a>
           ))}
         </div>
       )}
@@ -489,6 +494,37 @@ function panelParseRoute() {
     var sub = (sec === "pacientes") ? (parts[2] ? decodeURIComponent(parts[2]) : null) : (parts[1] ? decodeURIComponent(parts[1]) : null);
     return { section: sec, pid: pid, sub: sub };
   } catch (e) { return { section: "dashboard", pid: null, sub: null }; }
+}
+/* ═══════════ Enlaces reales (abrir en pestaña nueva) ═══════════
+   El panel navega por estado, así que sus elementos eran <button> y el navegador no tenía ningún
+   destino que ofrecer: clic derecho → "Abrir en pestaña nueva" no hacía nada, ni ⌘/Ctrl+clic, ni
+   el clic central. Como las rutas ya existen (pushState + popstate), basta con que estos elementos
+   sean <a href> de verdad. El clic normal se sigue atendiendo dentro de la app (sin recargar).
+
+   jcmPanelHref: destino LIMPIO de una sección o ficha (a diferencia de panelRoutePath, que arrastra
+   la sub-pestaña actual — correcto al reescribir la URL, incorrecto en un enlace a otro sitio). */
+function jcmPanelHref(sec, pid, sub) {
+  try {
+    if (sec === "pacientes" && pid) return "/pacientes/" + encodeURIComponent(pid) + (sub ? "/" + encodeURIComponent(sub) : "");
+    if (!sec || sec === "dashboard") return "/";
+    return "/" + sec + (sub ? "/" + encodeURIComponent(sub) : "");
+  } catch (e) { return "/"; }
+}
+// ¿Es un clic "normal"? Si no lo es (⌘, Ctrl, Shift, Alt, o botón central), NO se intercepta: se
+// deja pasar para que el navegador abra la pestaña/ventana nueva con el href.
+function jcmPlainClick(e) {
+  return !!e && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+// Props listas para un <a> que navega dentro del panel. `go` es la navegación interna de siempre.
+function jcmLinkProps(href, go) {
+  return {
+    href: href,
+    onClick: function (e) {
+      if (!jcmPlainClick(e)) return;   // ⌘/Ctrl/central → lo abre el navegador en otra pestaña
+      e.preventDefault();
+      if (go) go();
+    }
+  };
 }
 // Segmentos actuales de la URL (sin el prefijo /panel), para preservar la sub-ruta.
 function _panelParts() {
@@ -2112,10 +2148,10 @@ function AdminApp() {
     const pins = NAV_PINNED.filter(k => byKey[k]).map(k => {
       const active = section === k;
       return (
-        <button key={"pin-" + k} onClick={() => nav(k)} style={btnStyle(active)}>
+        <a key={"pin-" + k} {...jcmLinkProps(jcmPanelHref(k), () => nav(k))} style={{ ...btnStyle(active), textDecoration: "none" }}>
           {k === "pendientes" && pendCount > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? (seg ? "#C0285A" : (T.onAccent || "#fff")) : "#C0285A" }} />}
           {byKey[k]}
-        </button>
+        </a>
       );
     });
     // Grupos desplegables con el resto (sin las fijas).
@@ -2147,12 +2183,12 @@ function AdminApp() {
         <div onMouseEnter={() => setNavOpen(true)} onMouseLeave={() => { setNavOpen(false); resetNavGroups(); }}
           style={{ width: RAIL, flexShrink: 0, background: shellLux ? "transparent" : SIDE_BG, position: "relative", zIndex: 20 }}>
           <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, ...SIDE_GLASS, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" }}>
-            <button onClick={() => nav("dashboard")} title="Ir al Dashboard" style={{ display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}>
+            <a {...jcmLinkProps(jcmPanelHref("dashboard"), () => nav("dashboard"))} title="Ir al Dashboard" style={{ display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0, textDecoration: "none", color: "inherit" }}>
               <span style={T.dark ? { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } : { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <img src={SIDE_LOGO} alt="Medique" style={{ width: 30, height: 30, objectFit: "contain" }} />
               </span>
               {navOpen && <span style={{ fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" }}>medique</span>}
-            </button>
+            </a>
             <div className="jc-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
               {(() => { let curGroup = null; return adminNavItems().map(n => {
                 if (SIDE_GROUP_HEAD[n.k]) curGroup = SIDE_GROUP_HEAD[n.k];
@@ -2170,16 +2206,16 @@ function AdminApp() {
                         {head}
                       </button>)}
                     {!navOpen && head && n.k !== "dashboard" && <div style={{ height: 1, background: SIDE_LINE, margin: "7px 14px" }} />}
-                    {!collapsed && <button onClick={() => nav(n.k)} title={n.l} aria-label={n.l} aria-current={active ? "page" : undefined} style={{
-                      display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 14, width: "100%", padding: navOpen ? "12px 19px" : "12px 0", background: active ? SIDE_ACT : "none",
-                      border: "none", borderLeft: "3px solid " + (active ? T.accent : "transparent"), cursor: "pointer", whiteSpace: "nowrap", position: "relative"
+                    {!collapsed && <a {...jcmLinkProps(jcmPanelHref(n.k), () => nav(n.k))} title={n.l} aria-label={n.l} aria-current={active ? "page" : undefined} style={{
+                      display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 14, width: "100%", boxSizing: "border-box", padding: navOpen ? "12px 19px" : "12px 0", background: active ? SIDE_ACT : "none",
+                      border: "none", borderLeft: "3px solid " + (active ? T.accent : "transparent"), cursor: "pointer", whiteSpace: "nowrap", position: "relative", textDecoration: "none", color: "inherit"
                     }}>
                       {nIcon(n.k, active ? SIDE_TX : SIDE_MUTE)}
                       {navOpen && <span style={{ fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE }}>{n.l}</span>}
                       {n.k === "pendientes" && pendCount > 0 && (navOpen
                         ? <span style={{ marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" }}>{pendCount}</span>
                         : <span style={{ position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" }} />)}
-                    </button>}
+                    </a>}
                   </React.Fragment>
                 );
               }); })()}
@@ -2193,11 +2229,11 @@ function AdminApp() {
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: shellLux ? (headerMerge ? "10px 18px" : "12px 18px 6px") : "13px 18px 10px", borderBottom: "1px solid " + ((shellLux && !headerMerge) ? "transparent" : T.line), background: shellLux ? "transparent" : T.navBg, backdropFilter: shellLux ? "none" : "blur(16px)", WebkitBackdropFilter: shellLux ? "none" : "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" }}>
             {/* Logo de la clínica (reubicado del sidebar quitado): ancla de marca arriba-izquierda +
                 atajo al Dashboard, para no perder la marca al desactivar el sidebar. */}
-            <button onClick={() => nav("dashboard")} title="Ir al Dashboard" style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            <a {...jcmLinkProps(jcmPanelHref("dashboard"), () => nav("dashboard"))} title="Ir al Dashboard" style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "none", color: "inherit" }}>
               <span style={T.dark ? { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } : { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <img src={SIDE_LOGO} alt="Medique" style={{ width: 30, height: 30, objectFit: "contain" }} />
               </span>
-            </button>
+            </a>
             {/* Izquierda: solo el buscador de pacientes (nombre, RUT, teléfono o correo).
                 Fusionado (headerMerge): más chico, ancho fijo, para dejar sitio a la barra de navegación. */}
             <div style={headerMerge ? { flexShrink: 0, width: 170 } : undefined}>

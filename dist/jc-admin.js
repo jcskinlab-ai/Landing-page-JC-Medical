@@ -125,11 +125,26 @@ function PatientSearch({ T, patients, onOpen, compact }) {
       placeholder: "Buscar pacientes\u2026",
       style: inpStyle
     }
-  ), open && res.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, zIndex: 40, overflow: "hidden" } }, res.map((p) => /* @__PURE__ */ React.createElement("button", { key: p.id, onMouseDown: () => {
-    onOpen(p.id);
-    setQ("");
-    setOpen(false);
-  }, style: { width: "100%", textAlign: "left", display: "block", padding: "9px 13px", border: "none", borderBottom: "1px solid " + T.line, background: "transparent", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, p.rut || p.phone || "Paciente")))));
+  ), open && res.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: T.surface, border: "1px solid " + T.line, borderRadius: 10, boxShadow: T.shadow, zIndex: 40, overflow: "hidden" } }, res.map((p) => /* @__PURE__ */ React.createElement(
+    "a",
+    {
+      key: p.id,
+      href: jcmPanelHref("pacientes", p.id),
+      onMouseDown: (e) => {
+        if (!jcmPlainClick(e)) return;
+        e.preventDefault();
+        onOpen(p.id);
+        setQ("");
+        setOpen(false);
+      },
+      onClick: (e) => {
+        if (jcmPlainClick(e)) e.preventDefault();
+      },
+      style: { width: "100%", boxSizing: "border-box", textAlign: "left", display: "block", padding: "9px 13px", border: "none", borderBottom: "1px solid " + T.line, background: "transparent", cursor: "pointer", textDecoration: "none", color: "inherit" }
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 500, color: T.text } }, p.name),
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute } }, p.rut || p.phone || "Paciente")
+  ))));
 }
 const ADMIN_NAV = [
   { k: "dashboard", l: "Dashboard" },
@@ -544,6 +559,28 @@ function panelParseRoute() {
   } catch (e) {
     return { section: "dashboard", pid: null, sub: null };
   }
+}
+function jcmPanelHref(sec, pid, sub) {
+  try {
+    if (sec === "pacientes" && pid) return "/pacientes/" + encodeURIComponent(pid) + (sub ? "/" + encodeURIComponent(sub) : "");
+    if (!sec || sec === "dashboard") return "/";
+    return "/" + sec + (sub ? "/" + encodeURIComponent(sub) : "");
+  } catch (e) {
+    return "/";
+  }
+}
+function jcmPlainClick(e) {
+  return !!e && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+function jcmLinkProps(href, go) {
+  return {
+    href,
+    onClick: function(e) {
+      if (!jcmPlainClick(e)) return;
+      e.preventDefault();
+      if (go) go();
+    }
+  };
 }
 function _panelParts() {
   var parts = (location.pathname || "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1950,7 +1987,7 @@ function AdminApp() {
     const btnStyle = (active) => seg ? { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 15px", borderRadius: 11, cursor: "pointer", border: "none", background: active ? segActive : "none", boxShadow: active ? "0 1px 3px rgba(0,0,0,.18)" : "none", color: active ? segTx : segMute, fontFamily: T.sans, fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .18s " + T.ease } : { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid " + (active ? T.accent : T.line), background: active ? T.accent : T.chipBg, color: active ? T.onAccent || "#fff" : T.textMute, fontFamily: T.sans, fontSize: 11.5, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", transition: "all .2s " + T.ease };
     const pins = NAV_PINNED.filter((k) => byKey[k]).map((k) => {
       const active = section === k;
-      return /* @__PURE__ */ React.createElement("button", { key: "pin-" + k, onClick: () => nav(k), style: btnStyle(active) }, k === "pendientes" && pendCount > 0 && /* @__PURE__ */ React.createElement("span", { style: { width: 5, height: 5, borderRadius: "50%", background: active ? seg ? "#C0285A" : T.onAccent || "#fff" : "#C0285A" } }), byKey[k]);
+      return /* @__PURE__ */ React.createElement("a", { key: "pin-" + k, ...jcmLinkProps(jcmPanelHref(k), () => nav(k)), style: { ...btnStyle(active), textDecoration: "none" } }, k === "pendientes" && pendCount > 0 && /* @__PURE__ */ React.createElement("span", { style: { width: 5, height: 5, borderRadius: "50%", background: active ? seg ? "#C0285A" : T.onAccent || "#fff" : "#C0285A" } }), byKey[k]);
     });
     const grps = NAV_TOP_GROUPS.map((g) => {
       const keys = g.keys.filter((k) => byKey[k] && NAV_PINNED.indexOf(k) < 0);
@@ -1989,7 +2026,7 @@ function AdminApp() {
       },
       style: { width: RAIL, flexShrink: 0, background: shellLux ? "transparent" : SIDE_BG, position: "relative", zIndex: 20 }
     },
-    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, ...SIDE_GLASS, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => nav("dashboard"), title: "Ir al Dashboard", style: { display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: T.dark ? { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } : { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } })), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" } }, "medique")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" } }, (() => {
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: navOpen ? EXP : RAIL, background: SIDE_BG, ...SIDE_GLASS, borderRight: "1px solid " + SIDE_LINE, transition: "width .22s " + T.ease, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: navOpen ? "8px 0 30px -10px rgba(0,0,0,.5)" : "none" } }, /* @__PURE__ */ React.createElement("a", { ...jcmLinkProps(jcmPanelHref("dashboard"), () => nav("dashboard")), title: "Ir al Dashboard", style: { display: "flex", alignItems: "center", justifyContent: navOpen ? "flex-start" : "center", gap: 12, padding: navOpen ? "16px 18px" : "16px 0", background: "none", border: "none", cursor: "pointer", flexShrink: 0, textDecoration: "none", color: "inherit" } }, /* @__PURE__ */ React.createElement("span", { style: T.dark ? { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } : { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } })), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 13, letterSpacing: ".34em", textTransform: "lowercase", color: SIDE_MUTE, whiteSpace: "nowrap" } }, "medique")), /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" } }, (() => {
       let curGroup = null;
       return adminNavItems().map((n) => {
         if (SIDE_GROUP_HEAD[n.k]) curGroup = SIDE_GROUP_HEAD[n.k];
@@ -1998,23 +2035,26 @@ function AdminApp() {
         const collapsed = navOpen && !locked && !!collapsedGroups[grp];
         const active = section === n.k;
         const head = SIDE_GROUP_HEAD[n.k];
-        return /* @__PURE__ */ React.createElement(React.Fragment, { key: n.k }, navOpen && head && (locked ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, width: "100%", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px" } }, head) : /* @__PURE__ */ React.createElement("button", { onClick: () => toggleGroup(grp), title: collapsedGroups[grp] ? "Mostrar" : "Ocultar", style: { display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", style: { transform: collapsedGroups[grp] ? "rotate(-90deg)" : "none", transition: "transform .18s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), head)), !navOpen && head && n.k !== "dashboard" && /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: SIDE_LINE, margin: "7px 14px" } }), !collapsed && /* @__PURE__ */ React.createElement("button", { onClick: () => nav(n.k), title: n.l, "aria-label": n.l, "aria-current": active ? "page" : void 0, style: {
+        return /* @__PURE__ */ React.createElement(React.Fragment, { key: n.k }, navOpen && head && (locked ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, width: "100%", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px" } }, head) : /* @__PURE__ */ React.createElement("button", { onClick: () => toggleGroup(grp), title: collapsedGroups[grp] ? "Mostrar" : "Ocultar", style: { display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", cursor: "pointer", fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: SIDE_MUTE, opacity: 0.7, padding: "14px 19px 5px", textAlign: "left" } }, /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", style: { transform: collapsedGroups[grp] ? "rotate(-90deg)" : "none", transition: "transform .18s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" })), head)), !navOpen && head && n.k !== "dashboard" && /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: SIDE_LINE, margin: "7px 14px" } }), !collapsed && /* @__PURE__ */ React.createElement("a", { ...jcmLinkProps(jcmPanelHref(n.k), () => nav(n.k)), title: n.l, "aria-label": n.l, "aria-current": active ? "page" : void 0, style: {
           display: "flex",
           alignItems: "center",
           justifyContent: navOpen ? "flex-start" : "center",
           gap: 14,
           width: "100%",
+          boxSizing: "border-box",
           padding: navOpen ? "12px 19px" : "12px 0",
           background: active ? SIDE_ACT : "none",
           border: "none",
           borderLeft: "3px solid " + (active ? T.accent : "transparent"),
           cursor: "pointer",
           whiteSpace: "nowrap",
-          position: "relative"
+          position: "relative",
+          textDecoration: "none",
+          color: "inherit"
         } }, nIcon(n.k, active ? SIDE_TX : SIDE_MUTE), navOpen && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12.5, letterSpacing: ".02em", color: active ? SIDE_TX : SIDE_MUTE } }, n.l), n.k === "pendientes" && pendCount > 0 && (navOpen ? /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: T.sans, fontSize: 10, background: "#C0285A", color: "#fff", borderRadius: 999, padding: "2px 7px" } }, pendCount) : /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 7, right: 11, width: 7, height: 7, borderRadius: "50%", background: "#C0285A" } }))));
       });
     })()))
-  ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: shellLux ? headerMerge ? "10px 18px" : "12px 18px 6px" : "13px 18px 10px", borderBottom: "1px solid " + (shellLux && !headerMerge ? "transparent" : T.line), background: shellLux ? "transparent" : T.navBg, backdropFilter: shellLux ? "none" : "blur(16px)", WebkitBackdropFilter: shellLux ? "none" : "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => nav("dashboard"), title: "Ir al Dashboard", style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", padding: 0 } }, /* @__PURE__ */ React.createElement("span", { style: T.dark ? { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } : { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } }))), /* @__PURE__ */ React.createElement("div", { style: headerMerge ? { flexShrink: 0, width: 170 } : void 0 }, /* @__PURE__ */ React.createElement(PatientSearch, { T, patients, compact: shellLux, onOpen: (id) => {
+  ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: shellLux ? headerMerge ? "10px 18px" : "12px 18px 6px" : "13px 18px 10px", borderBottom: "1px solid " + (shellLux && !headerMerge ? "transparent" : T.line), background: shellLux ? "transparent" : T.navBg, backdropFilter: shellLux ? "none" : "blur(16px)", WebkitBackdropFilter: shellLux ? "none" : "blur(16px)", position: "relative", zIndex: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("a", { ...jcmLinkProps(jcmPanelHref("dashboard"), () => nav("dashboard")), title: "Ir al Dashboard", style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "none", color: "inherit" } }, /* @__PURE__ */ React.createElement("span", { style: T.dark ? { width: 34, height: 34, borderRadius: 9, background: "#F2EDE6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px -2px rgba(0,0,0,.4)" } : { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("img", { src: SIDE_LOGO, alt: "Medique", style: { width: 30, height: 30, objectFit: "contain" } }))), /* @__PURE__ */ React.createElement("div", { style: headerMerge ? { flexShrink: 0, width: 170 } : void 0 }, /* @__PURE__ */ React.createElement(PatientSearch, { T, patients, compact: shellLux, onOpen: (id) => {
     setOpenPatient(id);
     setSection("pacientes");
   } })), headerMerge ? /* @__PURE__ */ React.createElement("div", { className: "jc-scroll", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, overflowX: "auto" } }, navBarInner) : /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement("div", { ref: profileRef, style: { position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setProfileOpen((o) => !o), style: { display: "flex", alignItems: "center", gap: 9, background: profileOpen ? T.chipBg || "rgba(0,0,0,.06)" : "none", border: "1px solid " + (profileOpen ? T.chipBorder : "transparent"), cursor: "pointer", padding: "5px 10px 5px 6px", borderRadius: 10, transition: "all .15s" } }, /* @__PURE__ */ React.createElement(Avatar, { T, name: clinicDisplayName(), src: clinicAvatarSrc(profilePic), size: 32 }), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0, textAlign: "left" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12.5, fontWeight: 600, color: T.text, lineHeight: 1.1, whiteSpace: "nowrap" } }, clinicDisplayName()), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10.5, color: T.textMute, lineHeight: 1.1 } }, "Mi perfil")), /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: T.textMute, strokeWidth: "2.2", style: { flexShrink: 0, transform: profileOpen ? "rotate(180deg)" : "none", transition: "transform .2s" } }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))), profileOpen && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 230, background: T.bg, border: "1px solid " + T.line, borderRadius: 14, boxShadow: "0 12px 40px -10px rgba(0,0,0,.4)", zIndex: 200, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "16px 18px 14px", borderBottom: "1px solid " + T.line } }, /* @__PURE__ */ React.createElement(Avatar, { T, name: clinicDisplayName(), src: clinicAvatarSrc(profilePic), size: 42 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 13.5, fontWeight: 600, color: T.text, lineHeight: 1.2 } }, clinicDisplayName()), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 2 } }, "Administrador"))), [
