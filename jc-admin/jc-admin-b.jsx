@@ -45,7 +45,25 @@ const JCM_DOC_CSS = "@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;pad
   + ".zgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:0 32px}.zrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(18,26,38,.14)}.zrow .zk{font-family:'Jost',sans-serif;font-size:11.5px;font-weight:300;color:#121A26;letter-spacing:.09em}.zrow .zv{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:15px;color:#5A748C;font-variant-numeric:tabular-nums}.totline{display:flex;justify-content:flex-end;align-items:baseline;gap:12px;margin-top:16px}.totline .tk{font-family:'Jost',sans-serif;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#8B9197;font-weight:500}.totline .tv{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:22px;color:#121A26;font-variant-numeric:tabular-nums}.totline .tv b{color:#5A748C;font-weight:600}"
   + ".signature{margin-top:34px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;position:relative;z-index:1}.sign-block{min-width:230px}.sign-line{height:1px;background:rgba(18,26,38,.30);margin-bottom:9px}.sign-name{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:18px;color:#121A26}.sign-role{font-family:'Jost',sans-serif;font-weight:400;font-size:8.5px;letter-spacing:.20em;text-transform:uppercase;color:#646A72;margin-top:3px}.sign-stamp{text-align:right}.sign-stamp .mark{height:30px;width:auto;opacity:.7}.sign-stamp .mono{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:30px;color:#D3D7DC;line-height:.8;letter-spacing:-.02em}"
   + ".docfooter{margin-top:14px;padding-top:11px;border-top:1px solid rgba(18,26,38,.14);display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;z-index:1}.docfooter .f-l,.docfooter .f-r{font-family:'Jost',sans-serif;font-weight:300;font-size:8.5px;letter-spacing:.09em;color:#8B9197}.docfooter .f-r{text-transform:uppercase;letter-spacing:.20em}.docfooter .f-l .fdate{color:#646A72}"
-  + ".sign-meta{font-family:'Jost',sans-serif;font-weight:300;font-size:8.5px;color:#8B9197;margin-top:3px;letter-spacing:.06em}";
+  + ".sign-meta{font-family:'Jost',sans-serif;font-weight:300;font-size:8.5px;color:#8B9197;margin-top:3px;letter-spacing:.06em}"
+  /* ── Documentos de MÁS DE UNA PÁGINA ──────────────────────────────────────────────────────
+     En pantalla la hoja es un bloque con su propio relleno, y eso servía mientras todo cabía en
+     una página. Al pasar a dos, el resultado impreso salía roto:
+       · @page{margin:0} + padding en .sheet → el relleno solo valía para la PRIMERA página; en la
+         segunda el texto arrancaba pegado al borde del papel y la primera línea salía cortada por
+         la mitad. Ahora el margen lo pone @page, así que lo respetan todas las páginas.
+       · Sin reglas de corte, una entrada se partía en dos: "10u corrugadores" al final de una
+         página y "8u orbiculares" al principio de la siguiente. Cada bloque que se lee como una
+         unidad (un procedimiento, una fila de datos, la firma) ya no se parte.
+       · overflow:hidden en un elemento que abarca varias páginas puede recortar lo que sobra. */
+  + "@media print{"
+  +   "@page{size:A4;margin:17mm 18mm 16mm}"
+  +   ".sheet{width:auto;min-height:0;padding:0;overflow:visible}"
+  +   ".dfull,.drow,.zrow,.trio .cell,.indlist li,.proc-head,.diag,.control-note,.empty-note,.pband,.signature,.docfooter,.titleblock,.masthead{break-inside:avoid;page-break-inside:avoid}"
+  +   ".section-head{break-after:avoid;page-break-after:avoid}"
+  +   ".textbox,.indlist .txt{orphans:3;widows:3}"
+  +   ".wm{display:none}"  /* decorativa (3% de opacidad): en papel no aporta y con overflow visible se saldría de la hoja */
+  + "}";
 function jcmMasthead(b) {
   const e = jcmDocEsc;
   const logoEl = b.logoUrl ? "<img class='mh-logo' src='" + b.logoUrl + "' alt=''>" : "<div class='mono'>" + e(b.clinName) + "</div>";
@@ -1936,7 +1954,7 @@ function ConsentTab({ T, patient, updatePatient }) {
       const numCols = medicoSig ? 3 : 2;
       const sigH = medicoSig ? 130 : 175;
       const html = "<!doctype html><html><head><meta charset='utf-8'><title>Consentimiento · " + esc(patient.name || "") + "</title>" +
-        "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:repeat(" + numCols + ",1fr);gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:" + sigH + "px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px}.sig-box img{max-height:100%;max-width:100%;object-fit:contain}</style>" +
+        "<style>@page{size:letter;margin:1.8cm}body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;color:#111;margin:0;padding:20px}.sigs{display:grid;grid-template-columns:repeat(" + numCols + ",1fr);gap:18px;margin-top:22px}.sig-label{font-size:12px;color:#444;margin-bottom:6px}.sig-box{height:" + sigH + "px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;padding:10px}.sig-box img{max-height:100%;max-width:100%;object-fit:contain}@media print{.sigs,.sig-box{break-inside:avoid;page-break-inside:avoid}li{break-inside:avoid;page-break-inside:avoid}p{orphans:3;widows:3}}</style>" +
         "</head><body>" +
         "<div style='text-align:right;font-size:11px;color:#666'>Fecha: " + esc(doc.fecha || "") + "</div>" +
         "<h2 style='text-align:center;font-family:Georgia,serif;font-weight:400;font-size:20px;color:#111;margin:2px 0 14px'>Consentimiento informado</h2>" +
