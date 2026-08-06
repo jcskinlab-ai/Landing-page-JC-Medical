@@ -521,7 +521,7 @@ function recitaFor(p) {
   })();
   const desc = descCfg.recita_desc_val ? descCfg.recita_desc_tipo === "pct" ? Math.max(0, Math.round(precio * (1 - descCfg.recita_desc_val / 100) / 1e3) * 1e3) : Math.max(0, precio - descCfg.recita_desc_val) : precio > 2e4 ? precio - 2e4 : precio;
   const due = new Date(refTs + umbral * 30.44 * 24 * 60 * 60 * 1e3);
-  return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
+  return { fam, refTs, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
 function recitaDue(patients) {
   return (patients || []).map((p) => ({ p, r: recitaFor(p) })).filter((x) => x.r && x.r.vence);
@@ -554,7 +554,17 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
     }
   });
   function recitaSentKey(p, r) {
-    return p.id + "_" + (r && r.due ? r.due.getTime() : 0);
+    return p.id + "_s" + (r && r.refTs ? r.refTs : 0);
+  }
+  function recitaYaEnviado(p, r) {
+    if (!r) return false;
+    if (recitaSent[recitaSentKey(p, r)]) return true;
+    const ref = r.refTs || 0, pre = p.id + "_";
+    return Object.keys(recitaSent).some((k) => {
+      if (k.indexOf(pre) !== 0 || k.indexOf(pre + "s") === 0) return false;
+      const marcadoEn = recitaSent[k];
+      return isFinite(marcadoEn) && marcadoEn > ref;
+    });
   }
   function markRecitaSent(p, r) {
     const key = recitaSentKey(p, r);
@@ -619,8 +629,8 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   })();
   const yaAgendado = (p) => (ax || []).some((a) => jcmApptDePaciente(a, p) && a.status !== "anulada" && a.status !== "cancelada" && (a.fecha || "") >= _hoyISO);
   const recitasDue = recitas.filter((x) => x.r.vence && !yaAgendado(x.p));
-  const recitasPend = recitasDue.filter(({ p, r }) => !recitaSent[recitaSentKey(p, r)]);
-  const recitasHechas = recitasDue.filter(({ p, r }) => !!recitaSent[recitaSentKey(p, r)]);
+  const recitasPend = recitasDue.filter(({ p, r }) => !recitaYaEnviado(p, r));
+  const recitasHechas = recitasDue.filter(({ p, r }) => recitaYaEnviado(p, r));
   const waLink = (p, r) => recitaWa(p, r);
   const recitaRow = (p, r, hecho) => /* @__PURE__ */ React.createElement("div", { key: p.id, style: {
     display: "flex",

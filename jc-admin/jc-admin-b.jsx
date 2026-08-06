@@ -451,7 +451,9 @@ function recitaFor(p) {
         : Math.max(0, precio - descCfg.recita_desc_val))
     : (precio > 20000 ? precio - 20000 : precio);
   const due = new Date(refTs + umbral * 30.44 * 24 * 60 * 60 * 1000);
-  return { fam, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
+  // refTs (fecha de la última sesión de esa familia) sale hacia fuera porque es lo que identifica el
+  // CICLO. La marca de "ya contactado" cuelga de él y no de `due`, que se mueve al reconfigurar plazos.
+  return { fam, refTs, motivo, msg, due, vence: meses >= umbral, precio, desc, precioFmt: fmtP(precio), descFmt: fmtP(desc) };
 }
 // Lista de pacientes cuyo plazo de re-cita ya se cumplió (para notificaciones / pendientes).
 function recitaDue(patients) { return (patients || []).map(p => ({ p, r: recitaFor(p) })).filter(x => x.r && x.r.vence); }
@@ -477,7 +479,27 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   // (r.due), así que si el paciente completa la sesión y entra a un ciclo nuevo, la etiqueta vuelve
   // sola a "Pendiente" (la clave cambia) en vez de quedar marcada "Enviado" para siempre.
   const [recitaSent, setRecitaSent] = useState(() => { try { return (window.DB && DB.get("recita_sent")) || {}; } catch (e) { return {}; } });
-  function recitaSentKey(p, r) { return p.id + "_" + (r && r.due ? r.due.getTime() : 0); }
+  // La clave cuelga de la FECHA DE LA ÚLTIMA SESIÓN, no de la de vencimiento. Antes usaba `due`,
+  // que se calcula sumándole el plazo configurado: al cambiar ese plazo (p. ej. toxina de 3 a 4
+  // meses) cambiaban TODAS las claves de golpe y el registro entero parecía borrado — pacientes ya
+  // contactados volvían a la lista de pendientes. Con la fecha de la sesión el ciclo queda fijo:
+  // solo se reinicia cuando el paciente vuelve y se le registra una sesión nueva, que es lo correcto.
+  function recitaSentKey(p, r) { return p.id + "_s" + (r && r.refTs ? r.refTs : 0); }
+  // ¿Ya se contactó en ESTE ciclo? Acepta también las marcas del formato ANTIGUO (colgadas de la
+  // fecha de vencimiento) para no perder lo ya registrado. Para saber si una marca vieja es de este
+  // ciclo se mira CUÁNDO se hizo —el valor guardado es la fecha del contacto—, no su clave: si se
+  // contactó DESPUÉS de la última sesión, es de este ciclo; si el paciente volvió y se le registró
+  // una sesión posterior al contacto, esa marca es de un ciclo cerrado y no debe silenciarlo.
+  function recitaYaEnviado(p, r) {
+    if (!r) return false;
+    if (recitaSent[recitaSentKey(p, r)]) return true;
+    const ref = r.refTs || 0, pre = p.id + "_";
+    return Object.keys(recitaSent).some(k => {
+      if (k.indexOf(pre) !== 0 || k.indexOf(pre + "s") === 0) return false; // formato nuevo: ya mirado
+      const marcadoEn = recitaSent[k];
+      return isFinite(marcadoEn) && marcadoEn > ref;
+    });
+  }
   function markRecitaSent(p, r) {
     const key = recitaSentKey(p, r);
     const m = { ...recitaSent, [key]: Date.now() };
@@ -532,10 +554,10 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const recitasDue = recitas.filter(x => x.r.vence && !yaAgendado(x.p));
   // "Para contactar hoy" = vencidos que AÚN no se han enviado. Al tocar WhatsApp se marca como
   // enviado (recitaSent) y la fila desaparece de la lista.
-  const recitasPend = recitasDue.filter(({ p, r }) => !recitaSent[recitaSentKey(p, r)]);
+  const recitasPend = recitasDue.filter(({ p, r }) => !recitaYaEnviado(p, r));
   // Los ya contactados no se pierden: bajan a su propio bloque plegable, para poder revisar a quién
   // se le escribió y volver a escribirle si hace falta, sin alargar la lista de lo que queda por hacer.
-  const recitasHechas = recitasDue.filter(({ p, r }) => !!recitaSent[recitaSentKey(p, r)]);
+  const recitasHechas = recitasDue.filter(({ p, r }) => recitaYaEnviado(p, r));
   const waLink = (p, r) => recitaWa(p, r);
   // Una sola fila para los dos bloques. `hecho` la deja en tono apagado (ya se escribió) y ofrece
   // "Volver a escribir" en vez de "WhatsApp", que es lo que se hace con un contactado.
