@@ -471,6 +471,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const [nuevo, setNuevo] = useState(false);
   const [filt, setFilt] = useState("recientes"); // Recientes es el filtro por defecto al entrar (a pedido del usuario)
   const [openCamp, setOpenCamp] = useState(false);
+  const [openSent, setOpenSent] = useState(false); // bloque plegado de "ya contactados"
   // Seguimiento de "ya se envió el WhatsApp de re-cita" (pedido): la etiqueta "Contactar" pasa a
   // "Enviado" al tocar el botón de WhatsApp. Clave = paciente + fecha de vencimiento de ESE ciclo
   // (r.due), así que si el paciente completa la sesión y entra a un ciclo nuevo, la etiqueta vuelve
@@ -532,7 +533,28 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   // "Para contactar hoy" = vencidos que AÚN no se han enviado. Al tocar WhatsApp se marca como
   // enviado (recitaSent) y la fila desaparece de la lista.
   const recitasPend = recitasDue.filter(({ p, r }) => !recitaSent[recitaSentKey(p, r)]);
+  // Los ya contactados no se pierden: bajan a su propio bloque plegable, para poder revisar a quién
+  // se le escribió y volver a escribirle si hace falta, sin alargar la lista de lo que queda por hacer.
+  const recitasHechas = recitasDue.filter(({ p, r }) => !!recitaSent[recitaSentKey(p, r)]);
   const waLink = (p, r) => recitaWa(p, r);
+  // Una sola fila para los dos bloques. `hecho` la deja en tono apagado (ya se escribió) y ofrece
+  // "Volver a escribir" en vez de "WhatsApp", que es lo que se hace con un contactado.
+  const recitaRow = (p, r, hecho) => (
+    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 9,
+      background: hecho ? T.surface : "rgba(31,138,91,.06)",
+      border: "1px solid " + (hecho ? T.line : "rgba(31,138,91,.4)"), opacity: hecho ? .75 : 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: hecho ? T.textMute : T.text }}>{p.name}</div>
+        <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textFaint, marginTop: 2 }}>{r.motivo} · cumplió su plazo el {fmtD(r.due)}</div>
+      </div>
+      <a href={waLink(p, r)} target="_blank" rel="noopener" onClick={() => markRecitaSent(p, r)}
+        style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, whiteSpace: "nowrap",
+          color: hecho ? T.textMute : "#1F8A5B", textDecoration: "none",
+          border: "1px solid " + (hecho ? T.line : "#1F8A5B"), borderRadius: 7, padding: "8px 11px" }}>
+        {hecho ? "Volver a escribir" : "WhatsApp"}
+      </a>
+    </div>
+  );
   const fmtD = d => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
   const DS = window.JCDS, luxF = DS && (typeof jcdsLux === "function" ? jcdsLux() : false);
   // Filtros como control segmentado rectangular (mismo estilo que Dashboard/Tratamientos), no píldoras sueltas.
@@ -573,20 +595,26 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
                 : "Ningún paciente cumple hoy su plazo de re-aplicación. Cuando un paciente alcance su ventana (toxina a los 3 meses · Sculptra a los 2 meses desde su última sesión), aparecerá aquí listo para contactar."}
             </div>
           )}
-          {/* Solo los que FALTAN por contactar: al tocar WhatsApp la fila desaparece de la lista.
-              Antes se quedaba marcada como "Enviado" y la campaña seguía igual de larga, así que no
-              se veía el avance ni quedaba claro a quién faltaba escribirle. */}
-          {recitasPend.slice().sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => {
-            return (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 9, background: "rgba(31,138,91,.06)", border: "1px solid rgba(31,138,91,.4)" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.text }}>{p.name}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 10.5, color: T.textMute, marginTop: 2 }}>{r.motivo} · cumplió su plazo el {fmtD(r.due)}</div>
-              </div>
-              <a href={waLink(p, r)} target="_blank" rel="noopener" onClick={() => markRecitaSent(p, r)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 10.5, color: "#1F8A5B", textDecoration: "none", border: "1px solid #1F8A5B", borderRadius: 7, padding: "8px 11px" }}>WhatsApp</a>
+          {/* Arriba, lo que queda POR HACER. Los ya contactados bajan al bloque plegable del final,
+              así la lista de pendientes se acorta a medida que avanzas sin perder el registro. */}
+          {recitasPend.slice().sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => recitaRow(p, r, false))}
+
+          {recitasHechas.length > 0 && (
+            <div style={{ marginTop: recitasPend.length ? 6 : 0 }}>
+              <button onClick={() => setOpenSent(!openSent)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", borderRadius: 9, cursor: "pointer", background: T.surface, border: "1px solid " + T.line }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                <span style={{ flex: 1, textAlign: "left", fontFamily: T.sans, fontSize: 11.5, color: T.textMute }}>
+                  Ya contactados · {recitasHechas.length} paciente{recitasHechas.length === 1 ? "" : "s"}
+                </span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.textMute} strokeWidth="1.6" style={{ transform: openSent ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              {openSent && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 7 }}>
+                  {recitasHechas.slice().sort((a, b) => a.r.due - b.r.due).map(({ p, r }) => recitaRow(p, r, true))}
+                </div>
+              )}
             </div>
-            );
-          })}
+          )}
         </div>
       )}
       {/* Encabezado de columnas (luxF): las etiquetas aparecen UNA vez arriba, no repetidas en cada
