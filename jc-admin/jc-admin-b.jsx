@@ -216,6 +216,17 @@ function jcmApptDePaciente(a, p) {
 }
 if (typeof window !== "undefined") window.jcmApptDePaciente = jcmApptDePaciente;
 
+// jcmPanelHref / jcmLinkProps (los enlaces internos del panel) se definen en jc-admin.jsx, que se
+// carga DESPUÉS de este archivo. En el panel real da igual —las listas se pintan con todo ya
+// cargado—, pero llamarlos sin red de seguridad hace que un render temprano tumbe la vista entera
+// por una función que aún no existe. Estos envoltorios usan los de verdad si están, y si no hacen
+// lo razonable: navegar dentro de la app como siempre.
+function jcbHref(sec, pid, sub) { try { return window.jcmPanelHref ? window.jcmPanelHref(sec, pid, sub) : "#"; } catch (e) { return "#"; } }
+function jcbLink(href, go) {
+  try { if (window.jcmLinkProps) return window.jcmLinkProps(href, go); } catch (e) {}
+  return { href: href, onClick: function (e) { e.preventDefault(); if (go) go(); } };
+}
+
 function AdField({ T, label, value, onChange, placeholder, inputMode, error, type }) {
   const nocap = inputMode === "email" || inputMode === "url";
   const DS = window.JCDS;
@@ -510,9 +521,16 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const fmtFecha = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" }) : "";
   const fmtVisto = ts => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) + ", " + new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "Sin abrir";
   const recitas = patients.map(p => ({ p, r: recitaFor(p) })).filter(x => x.r);
-  const recitasDue = recitas.filter(x => x.r.vence);
+  // Quien YA tiene hora agendada a futuro no entra en la campaña: es habitual que el paciente
+  // agende su control el mismo día que viene, y aparecer ahí llevaba a escribirle para pedirle algo
+  // que ya hizo. Se mira la agenda completa (no solo las citas enlazadas por patId, porque las
+  // creadas rápido o importadas no lo traen) y cuenta también la cita de hoy.
+  const _hoyISO = (() => { const d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); })();
+  const yaAgendado = p => (ax || []).some(a =>
+    jcmApptDePaciente(a, p) && a.status !== "anulada" && a.status !== "cancelada" && (a.fecha || "") >= _hoyISO);
+  const recitasDue = recitas.filter(x => x.r.vence && !yaAgendado(x.p));
   // "Para contactar hoy" = vencidos que AÚN no se han enviado. Al tocar WhatsApp se marca como
-  // enviado (recitaSent) y el contador del encabezado baja en vivo; la fila sigue visible como "Enviado".
+  // enviado (recitaSent) y la fila desaparece de la lista.
   const recitasPend = recitasDue.filter(({ p, r }) => !recitaSent[recitaSentKey(p, r)]);
   const waLink = (p, r) => recitaWa(p, r);
   const fmtD = d => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
@@ -598,7 +616,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
           const icoPhone = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" /></svg>;
           const icoMail = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.textFaint} strokeWidth="1.7" style={{ flexShrink: 0 }}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>;
           if (luxF) return (
-            <a key={p.id} {...window.jcmLinkProps(window.jcmPanelHref("pacientes", p.id), () => openPatient(p.id))} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "12px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background"), textDecoration: "none", color: "inherit", ...DS.reveal(pi) }}
+            <a key={p.id} {...jcbLink(jcbHref("pacientes", p.id), () => openPatient(p.id))} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "12px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background"), textDecoration: "none", color: "inherit", ...DS.reveal(pi) }}
               onMouseEnter={e => { e.currentTarget.style.background = T.surface2 || T.surface; }}
               onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
               <Avatar T={T} name={p.name} size={44} />
@@ -626,7 +644,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
             </a>
           );
           return (
-            <a key={p.id} {...window.jcmLinkProps(window.jcmPanelHref("pacientes", p.id), () => openPatient(p.id))} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, textDecoration: "none", color: "inherit" }}>
+            <a key={p.id} {...jcbLink(jcbHref("pacientes", p.id), () => openPatient(p.id))} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, textDecoration: "none", color: "inherit" }}>
               <Avatar T={T} name={p.name} size={44} />
               <div style={{ width: 210, flexShrink: 0, minWidth: 0 }}>
                 <div style={{ fontFamily: T.sans, fontSize: 14.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>

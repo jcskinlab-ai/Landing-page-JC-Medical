@@ -249,6 +249,23 @@ function jcmApptDePaciente(a, p) {
   return !!na && na === np;
 }
 if (typeof window !== "undefined") window.jcmApptDePaciente = jcmApptDePaciente;
+function jcbHref(sec, pid, sub) {
+  try {
+    return window.jcmPanelHref ? window.jcmPanelHref(sec, pid, sub) : "#";
+  } catch (e) {
+    return "#";
+  }
+}
+function jcbLink(href, go) {
+  try {
+    if (window.jcmLinkProps) return window.jcmLinkProps(href, go);
+  } catch (e) {
+  }
+  return { href, onClick: function(e) {
+    e.preventDefault();
+    if (go) go();
+  } };
+}
 function AdField({ T, label, value, onChange, placeholder, inputMode, error, type }) {
   const nocap = inputMode === "email" || inputMode === "url";
   const DS = window.JCDS;
@@ -595,7 +612,12 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
   const fmtFecha = (ts) => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" }) : "";
   const fmtVisto = (ts) => ts ? new Date(ts).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) + ", " + new Date(ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "Sin abrir";
   const recitas = patients.map((p) => ({ p, r: recitaFor(p) })).filter((x) => x.r);
-  const recitasDue = recitas.filter((x) => x.r.vence);
+  const _hoyISO = (() => {
+    const d = /* @__PURE__ */ new Date();
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  })();
+  const yaAgendado = (p) => (ax || []).some((a) => jcmApptDePaciente(a, p) && a.status !== "anulada" && a.status !== "cancelada" && (a.fecha || "") >= _hoyISO);
+  const recitasDue = recitas.filter((x) => x.r.vence && !yaAgendado(x.p));
   const recitasPend = recitasDue.filter(({ p, r }) => !recitaSent[recitaSentKey(p, r)]);
   const waLink = (p, r) => recitaWa(p, r);
   const fmtD = (d) => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
@@ -615,7 +637,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       "a",
       {
         key: p.id,
-        ...window.jcmLinkProps(window.jcmPanelHref("pacientes", p.id), () => openPatient(p.id)),
+        ...jcbLink(jcbHref("pacientes", p.id), () => openPatient(p.id)),
         style: { display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "12px 10px", margin: "0 -10px", borderRadius: DS.r.ctl, cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, transition: DS.trans("background"), textDecoration: "none", color: "inherit", ...DS.reveal(pi) },
         onMouseEnter: (e) => {
           e.currentTarget.style.background = T.surface2 || T.surface;
@@ -630,7 +652,7 @@ function PacientesView({ T, patients, appts, onOpen, updatePatient, addPatient }
       /* @__PURE__ */ React.createElement("div", { style: { width: 158, flexShrink: 0, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 5 } }, procChip, !p.consent && pill("Consent.", { fg: DS.warn, bg: DS.warn + "14", bd: DS.warn + "33", upper: true })),
       /* @__PURE__ */ React.createElement("div", { style: { width: 92, flexShrink: 0, textAlign: "right" } }, filt === "recientes" ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" } }, fmtVisto(opened[p.id])) : calTs(p) ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" } }, fmtFecha(calTs(p))) : /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" } }, "\u2014"))
     );
-    return /* @__PURE__ */ React.createElement("a", { key: p.id, ...window.jcmLinkProps(window.jcmPanelHref("pacientes", p.id), () => openPatient(p.id)), style: { display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, textDecoration: "none", color: "inherit" } }, /* @__PURE__ */ React.createElement(Avatar, { T, name: p.name, size: 44 }), /* @__PURE__ */ React.createElement("div", { style: { width: 210, flexShrink: 0, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 } }, p.rut, p.age ? " \xB7 " + p.age + " a\xF1os" : "")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", gap: 24, alignItems: "center" } }, p.phone && /* @__PURE__ */ React.createElement("div", { style: { width: 150, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 2 } }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap" } }, p.phone)), p.email && /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 2 } }, "Correo"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, p.email))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 } }, filt === "recientes" ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" } }, fmtVisto(opened[p.id])) : calTs(p) ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" } }, fmtFecha(calTs(p))) : filt === "calendario" ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" } }, "Sin fecha") : null, p.tags && p.tags[0] && /* @__PURE__ */ React.createElement(AdTag, { T }, p.tags[0]), !p.consent && /* @__PURE__ */ React.createElement(AdTag, { T, tone: "warn" }, "Consent. pend.")));
+    return /* @__PURE__ */ React.createElement("a", { key: p.id, ...jcbLink(jcbHref("pacientes", p.id), () => openPatient(p.id)), style: { display: "flex", alignItems: "center", gap: 14, width: "100%", boxSizing: "border-box", textAlign: "left", padding: "14px 6px", cursor: "pointer", background: "none", border: "none", borderBottom: "1px solid " + T.lineSoft, textDecoration: "none", color: "inherit" } }, /* @__PURE__ */ React.createElement(Avatar, { T, name: p.name, size: 44 }), /* @__PURE__ */ React.createElement("div", { style: { width: 210, flexShrink: 0, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 14.5, fontWeight: 500, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: T.textMute, marginTop: 3 } }, p.rut, p.age ? " \xB7 " + p.age + " a\xF1os" : "")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", gap: 24, alignItems: "center" } }, p.phone && /* @__PURE__ */ React.createElement("div", { style: { width: 150, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 2 } }, "Tel\xE9fono"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap" } }, p.phone)), p.email && /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.textFaint, marginBottom: 2 } }, "Correo"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 12, color: T.textMute, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, p.email))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 } }, filt === "recientes" ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: opened[p.id] ? T.accent : T.textFaint, whiteSpace: "nowrap" } }, fmtVisto(opened[p.id])) : calTs(p) ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.accent, whiteSpace: "nowrap" } }, fmtFecha(calTs(p))) : filt === "calendario" ? /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 12, color: T.textFaint, whiteSpace: "nowrap" } }, "Sin fecha") : null, p.tags && p.tags[0] && /* @__PURE__ */ React.createElement(AdTag, { T }, p.tags[0]), !p.consent && /* @__PURE__ */ React.createElement(AdTag, { T, tone: "warn" }, "Consent. pend.")));
   }), list.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "30px 0", textAlign: "center", fontFamily: T.sans, fontSize: 12, color: T.textFaint } }, "Sin resultados.")), nuevo && /* @__PURE__ */ React.createElement(NewPatientModal, { T, onClose: () => setNuevo(false), onSave: (p) => {
     addPatient(p);
     setNuevo(false);
