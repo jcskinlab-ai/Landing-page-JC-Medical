@@ -250,7 +250,64 @@
     '</table></div>'
   ));
 
-  // ── 5. Todo el desglose, de mayor a menor ──
+  // ── 5. Dentro del bloque más pesado ─────────────────────────────────────────
+  // Saber que "los consentimientos pesan 5 MB" no dice qué recortar: no es lo mismo que el bulto
+  // sean las firmas (van a Storage) que el texto legal repetido en cada copia (se deduplica contra
+  // la plantilla). Se abre el registro más grande y se pesa campo por campo.
+  // El registro a abrir es el mayor de la familia que más pesa EN TOTAL, no la clave más grande a
+  // secas: 70 consentimientos de 73 KB pesan más que una sola clave de fotos de 2.9 MB, y es el
+  // consentimiento el que hay que entender para saber qué recortar.
+  var famTop = famList[0] ? famList[0].f : null;
+  var mayor = null;
+  if (famTop) {
+    for (var q = 0; q < items.length; q++) {
+      var nq = items[q].k.replace(/^jcm_/, "").replace(cid ? new RegExp("^" + cid + "_") : /^$/, "");
+      if (familia(nq) === famTop) { mayor = items[q]; break; } // items ya viene de mayor a menor
+    }
+  }
+  if (mayor && mayor.bytes > 20 * 1024) {
+    var obj = null;
+    try { obj = JSON.parse(LS.getItem(mayor.k)); } catch (e) {}
+    // Solo tiene sentido en un registro con campos; un array grande (patients) no se desglosa así.
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+      var campos = Object.keys(obj).map(function (f) {
+        var b = 0;
+        try { b = (JSON.stringify(obj[f]) || "").length * 2; } catch (e) {}
+        var v = obj[f];
+        var esImagen = typeof v === "string" && v.indexOf("data:image") === 0;
+        // Una firma puede venir anidada (medico.sig), no solo suelta en la raíz.
+        if (!esImagen && v && typeof v === "object" && !Array.isArray(v)) {
+          try {
+            esImagen = Object.keys(v).some(function (sub) {
+              return typeof v[sub] === "string" && v[sub].indexOf("data:image") === 0;
+            });
+          } catch (e) {}
+        }
+        return { f: f, bytes: b, img: esImagen };
+      }).sort(function (a, b) { return b.bytes - a.bytes; });
+
+      var imgBytes = 0, txtBytes = 0;
+      campos.forEach(function (c) { if (c.img) imgBytes += c.bytes; else txtBytes += c.bytes; });
+
+      app.appendChild(el(
+        '<div class="card"><h2>Dentro del registro más pesado</h2>' +
+        '<div class="note"><span class="k" style="font-family:ui-monospace,monospace">' +
+        esc(mayor.k.replace(/^jcm_/, "").replace(cid ? new RegExp("^" + cid + "_") : /^$/, "")) +
+        '</span> · ' + kb(mayor.bytes) + '. Qué lo hace pesar:</div>' +
+        '<table style="margin-top:12px">' +
+        campos.slice(0, 12).map(function (c) {
+          return '<tr><td class="k">' + esc(c.f) +
+            (c.img ? '<span class="tag bad">imagen</span>' : "") +
+            '</td><td class="v">' + kb(c.bytes) + '</td></tr>';
+        }).join("") +
+        '</table>' +
+        '<div class="note" style="margin-top:12px">Imágenes/firmas: <strong>' + kb(imgBytes) +
+        '</strong> · texto y datos: <strong>' + kb(txtBytes) + '</strong>.</div></div>'
+      ));
+    }
+  }
+
+  // ── 6. Todo el desglose, de mayor a menor ──
   var top = items.slice(0, 30);
   app.appendChild(el(
     '<div class="card"><h2>Todo, de mayor a menor</h2><table>' +
