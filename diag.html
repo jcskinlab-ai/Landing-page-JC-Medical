@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diagnóstico de almacenamiento · Medique</title>
+<style>
+  :root{
+    --bg:#0B1220; --surface:#131C2E; --surface2:#0F1726; --line:#22304A;
+    --text:#E8EEF8; --mute:#8FA3C0; --accent:#6EA8FE;
+    --ok:#1F8A5B; --warn:#C9821F; --bad:#C0285A;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 40px);
+    -webkit-text-size-adjust:100%;
+  }
+  h1{font-size:19px; margin:0 0 4px; letter-spacing:-.2px}
+  .sub{font-size:13px; color:var(--mute); margin:0 0 18px; line-height:1.45}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:15px; margin-bottom:13px}
+  .card h2{font-size:13px; text-transform:uppercase; letter-spacing:.7px; color:var(--mute); margin:0 0 12px; font-weight:600}
+  .big{font-size:31px; font-weight:650; letter-spacing:-1px; line-height:1.1}
+  .big small{font-size:14px; font-weight:400; color:var(--mute); letter-spacing:0}
+  .bar{height:9px; background:var(--surface2); border-radius:99px; overflow:hidden; margin:13px 0 8px}
+  .bar i{display:block; height:100%; border-radius:99px}
+  .note{font-size:12.5px; color:var(--mute); line-height:1.5}
+  table{width:100%; border-collapse:collapse; font-size:13.5px}
+  td{padding:8px 0; border-bottom:1px solid var(--line); vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  td.k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; word-break:break-all; padding-right:10px}
+  td.v{text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:600}
+  .tag{display:inline-block; font-size:10.5px; padding:2px 7px; border-radius:99px; margin-left:6px; vertical-align:middle; font-weight:600; letter-spacing:.3px}
+  .tag.bad{background:rgba(192,40,90,.18); color:#FF8FB0}
+  .tag.ok{background:rgba(31,138,91,.18); color:#6FD9A6}
+  .tag.warn{background:rgba(201,130,31,.18); color:#F0BC6B}
+  button{
+    -webkit-appearance:none; width:100%; padding:13px; border-radius:11px; font-size:15px;
+    font-weight:600; border:1px solid var(--line); background:var(--surface2); color:var(--text);
+    font-family:inherit; cursor:pointer; margin-top:4px;
+  }
+  button:active{opacity:.65}
+  .alert{background:rgba(192,40,90,.12); border-radius:10px; padding:11px 13px; font-size:13px; line-height:1.5; color:#FFC2D4; margin-top:11px}
+  .okline{background:rgba(31,138,91,.12); border-radius:10px; padding:11px 13px; font-size:13px; line-height:1.5; color:#9FE3C2; margin-top:11px}
+  .foot{font-size:11.5px; color:var(--mute); text-align:center; margin-top:22px; line-height:1.6}
+</style>
+</head>
+<body>
+
+<h1>Diagnóstico de almacenamiento</h1>
+<p class="sub">Lee lo que este navegador tiene guardado y muestra qué está ocupando el espacio.
+<strong>No modifica ni borra nada.</strong></p>
+
+<div id="app"></div>
+
+<div class="foot">
+  Página interna de Medique · solo lectura<br>
+  Ábrela en el <strong>mismo navegador</strong> donde ves el error.
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var LS;
+  try { LS = window.localStorage; } catch (e) { LS = null; }
+
+  // Restos de un sondeo anterior interrumpido (pestaña cerrada a media medición). Si quedó, es una
+  // clave nuestra ocupando espacio de balde: se borra siempre, antes de medir nada.
+  try { LS.removeItem("__jcm_diag_probe__"); } catch (e) {}
+
+  var app = document.getElementById("app");
+  function el(html) { var d = document.createElement("div"); d.innerHTML = html; return d.firstElementChild; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+  function kb(bytes) {
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + " MB";
+    if (bytes >= 1024) return Math.round(bytes / 1024) + " KB";
+    return bytes + " B";
+  }
+
+  if (!LS) {
+    app.appendChild(el('<div class="card"><h2>Sin acceso</h2><div class="alert">' +
+      'Este navegador no permite leer el almacenamiento. Casi siempre es <strong>navegación privada</strong>. ' +
+      'Sal del modo privado y vuelve a abrir esta página.</div></div>'));
+    return;
+  }
+
+  // ── Inventario. WebKit cuenta la cuota en UTF-16: 2 bytes por carácter, clave incluida. ──
+  var items = [], total = 0;
+  try {
+    for (var i = 0; i < LS.length; i++) {
+      var k = LS.key(i);
+      var v = LS.getItem(k) || "";
+      var bytes = (k.length + v.length) * 2;
+      total += bytes;
+      items.push({ k: k, bytes: bytes, len: v.length });
+    }
+  } catch (e) {}
+  items.sort(function (a, b) { return b.bytes - a.bytes; });
+
+  // El clinicId se deduce de las claves presentes: no dependemos de que la app esté cargada.
+  var cid = null;
+  for (var j = 0; j < items.length; j++) {
+    var m = items[j].k.match(/^jcm_facephotos_(.+)$/);
+    if (m && m[1] !== "local") { cid = m[1]; break; }
+  }
+  if (!cid) {
+    for (var j2 = 0; j2 < items.length; j2++) {
+      var m2 = items[j2].k.match(/^jcm_([A-Za-z0-9]{6,})_config$/);
+      if (m2) { cid = m2[1]; break; }
+    }
+  }
+
+  // ── 1. Total usado ──
+  var LIMIT = 5 * 1024 * 1024; // Safari iOS: ~5 MB por dominio
+  var pct = Math.min(100, Math.round(total / LIMIT * 100));
+  var color = pct >= 85 ? "var(--bad)" : pct >= 60 ? "var(--warn)" : "var(--ok)";
+  app.appendChild(el(
+    '<div class="card"><h2>Espacio usado</h2>' +
+    '<div class="big" style="color:' + color + '">' + kb(total) + ' <small>de ~5 MB</small></div>' +
+    '<div class="bar"><i style="width:' + Math.max(2, pct) + '%; background:' + color + '"></i></div>' +
+    '<div class="note">' + pct + '% del límite que Safari da a este dominio. ' +
+    (pct >= 85
+      ? '<strong style="color:#FF8FB0">Está lleno o casi lleno: esa es la causa del error al guardar.</strong>'
+      : pct >= 60
+        ? 'Va alto, pero todavía hay margen.'
+        : 'Hay espacio de sobra. Si igual aparece el error, el problema es otro y hay que seguir buscando.') +
+    '</div>' +
+    '<div class="note" style="margin-top:8px">' + items.length + ' claves guardadas.</div></div>'
+  ));
+
+  // ── 2. Pendientes de sincronizar: lo primero que hay que saber antes de borrar nada ──
+  var dirty = {}, dirtyCount = 0;
+  try {
+    var dk = "jcm_" + (cid ? cid + "_" : "") + "__dirty__";
+    dirty = JSON.parse(LS.getItem(dk) || "{}") || {};
+    dirtyCount = Object.keys(dirty).length;
+  } catch (e) {}
+  app.appendChild(el(
+    '<div class="card"><h2>Pendientes de subir a la nube</h2>' +
+    (dirtyCount
+      ? '<div class="big" style="color:var(--bad)">' + dirtyCount + ' <small>' + (dirtyCount === 1 ? 'sección' : 'secciones') + '</small></div>' +
+        '<div class="alert"><strong>No borres los datos de este navegador.</strong> Estas secciones existen solo en este ' +
+        'aparato y aún no están respaldadas:<br><br>' +
+        Object.keys(dirty).map(function (x) { return "· " + esc(x); }).join("<br>") +
+        '<br><br>Conéctate a una red estable y espera a que el contador llegue a cero.</div>'
+      : '<div class="big" style="color:var(--ok)">0</div>' +
+        '<div class="okline">Todo lo de este aparato ya está respaldado en la nube.</div>') +
+    '</div>'
+  ));
+
+  // ── 3. Fotos faciales: el acumulador que sospechamos ──
+  var faceKey = "jcm_facephotos_" + (cid || "local");
+  var faceRaw = LS.getItem(faceKey);
+  if (!faceRaw) {
+    for (var f = 0; f < items.length; f++) {
+      if (items[f].k.indexOf("jcm_facephotos_") === 0) { faceKey = items[f].k; faceRaw = LS.getItem(faceKey); break; }
+    }
+  }
+  if (faceRaw) {
+    var faces = null;
+    try { faces = JSON.parse(faceRaw); } catch (e) {}
+    var faceBytes = (faceKey.length + faceRaw.length) * 2;
+    var rows = "", nPhotos = 0, nBackedUp = 0, bytesBackedUp = 0;
+    if (faces && typeof faces === "object") {
+      var pids = Object.keys(faces);
+      var per = pids.map(function (pid) {
+        var views = faces[pid] || {}, b = 0, n = 0;
+        Object.keys(views).forEach(function (vw) {
+          var val = views[vw];
+          if (typeof val === "string") { b += val.length * 2; n++; }
+        });
+        // ¿Está respaldada en Firebase Storage? La URL vive en el kv sincronizado.
+        var backed = false;
+        try {
+          var u = LS.getItem("jcm_" + (cid ? cid + "_" : "") + "fpurl_" + pid);
+          if (u) { var pu = JSON.parse(u); backed = !!(pu && Object.keys(pu).length >= n && n > 0); }
+        } catch (e) {}
+        nPhotos += n;
+        if (backed) { nBackedUp += n; bytesBackedUp += b; }
+        return { pid: pid, bytes: b, n: n, backed: backed };
+      }).sort(function (a, b) { return b.bytes - a.bytes; });
+
+      rows = per.map(function (p) {
+        return '<tr><td class="k">' + esc(p.pid.slice(0, 18)) + ' <span style="color:var(--mute)">· ' + p.n +
+          (p.n === 1 ? ' foto' : ' fotos') + '</span>' +
+          (p.backed ? '<span class="tag ok">en la nube</span>' : '<span class="tag bad">solo aquí</span>') +
+          '</td><td class="v">' + kb(p.bytes) + '</td></tr>';
+      }).join("");
+    }
+    var sharePct = total ? Math.round(faceBytes / total * 100) : 0;
+    app.appendChild(el(
+      '<div class="card"><h2>Fotos del rostro</h2>' +
+      '<div class="big" style="color:' + (sharePct >= 40 ? "var(--bad)" : "var(--text)") + '">' + kb(faceBytes) +
+      ' <small>= ' + sharePct + '% de todo</small></div>' +
+      '<div class="note" style="margin-top:9px">' + nPhotos + ' fotos guardadas en este aparato. ' +
+      '<strong>' + nBackedUp + '</strong> ya están respaldadas en la nube ' +
+      '(' + kb(bytesBackedUp) + ' que se podrían liberar sin perder nada).</div>' +
+      (rows ? '<table style="margin-top:12px">' + rows + '</table>' : "") +
+      '</div>'
+    ));
+  }
+
+  // ── 4. Todo el desglose, de mayor a menor ──
+  var top = items.slice(0, 30);
+  app.appendChild(el(
+    '<div class="card"><h2>Todo, de mayor a menor</h2><table>' +
+    top.map(function (it) {
+      var nice = it.k.replace(/^jcm_/, "").replace(cid ? new RegExp("^" + cid + "_") : /^$/, "");
+      var pc = total ? Math.round(it.bytes / total * 100) : 0;
+      return '<tr><td class="k">' + esc(nice) + (pc >= 10 ? ' <span class="tag warn">' + pc + '%</span>' : "") +
+        '</td><td class="v">' + kb(it.bytes) + '</td></tr>';
+    }).join("") +
+    '</table>' + (items.length > 30 ? '<div class="note" style="margin-top:10px">y ' + (items.length - 30) + ' claves más, todas pequeñas.</div>' : "") +
+    '</div>'
+  ));
+
+  // ── 5. Sondeo de espacio libre (opt-in): escribe y borra una clave propia, nunca toca datos ──
+  var probeCard = el(
+    '<div class="card"><h2>¿Cuánto espacio queda?</h2>' +
+    '<div class="note">Mide el margen real escribiendo una clave de prueba propia y borrándola enseguida. ' +
+    'No lee ni modifica ninguna clave de la clínica.</div>' +
+    '<button id="probe">Medir espacio libre</button><div id="probeout"></div></div>'
+  );
+  app.appendChild(probeCard);
+
+  document.getElementById("probe").addEventListener("click", function () {
+    var btn = this, out = document.getElementById("probeout");
+    btn.disabled = true; btn.textContent = "Midiendo…";
+    setTimeout(function () {
+      // Se corta en 6 MB: pasado el límite de Safari, seguir llenando no aporta nada al diagnóstico
+      // y dejaría la clave de prueba más grande de la cuenta si algo interrumpe la medición.
+      var PK = "__jcm_diag_probe__", free = 0, MAX = 6 * 1024 * 1024, tope = false;
+      try {
+        var chunk = new Array(1024 * 8 + 1).join("x"); // 8K chars = 16 KB UTF-16
+        var buf = "";
+        while (free < MAX) {
+          try { LS.setItem(PK, buf + chunk); buf += chunk; free = buf.length * 2; }
+          catch (e) { break; }
+        }
+        tope = free >= MAX;
+      } catch (e) {}
+      finally { try { LS.removeItem(PK); } catch (e) {} }
+
+      var cifra = (tope ? "más de " : "") + kb(free);
+      out.innerHTML = (!tope && free < 120 * 1024)
+        ? '<div class="alert" style="margin-top:13px"><strong>Quedan ' + cifra + ' libres.</strong><br>' +
+          'Es muy poco: por eso falla al guardar una cita. Hay que liberar espacio.</div>'
+        : '<div class="okline" style="margin-top:13px"><strong>Quedan ' + cifra + ' libres.</strong><br>' +
+          'Hay margen suficiente para guardar. Si el error igual aparece, la causa es otra.</div>';
+      btn.textContent = "Medir de nuevo"; btn.disabled = false;
+    }, 60);
+  });
+
+})();
+</script>
+
+</body>
+</html>

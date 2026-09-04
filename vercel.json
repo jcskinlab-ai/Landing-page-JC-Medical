@@ -17,6 +17,7 @@
     { "source": "/admin", "has": [{ "type": "host", "value": "(www\\.)?medique\\.cl" }], "destination": "https://admin.medique.cl/", "permanent": false }
   ],
   "rewrites": [
+    { "source": "/diag", "destination": "/diag.html" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "movil.medique.cl" }], "destination": "/JC_Mobile" },
     { "source": "/movil", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Mobile" },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "portal.medique.cl" }], "destination": "/JC_Admin" },
