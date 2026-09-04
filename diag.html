@@ -307,7 +307,49 @@
     }
   }
 
-  // ── 6. Todo el desglose, de mayor a menor ──
+  // ── 6. Restos de la migración de consentimientos ────────────────────────────
+  // Los consentimientos pasaron de "un array por paciente" (pcons_<pid>) a "un documento por
+  // consentimiento" (pcons_<pid>_<ts>) con índice en pconsm_<pid>. patConsents() (jc-admin-b.jsx)
+  // deja de mirar la clave vieja en cuanto existe el manifest, y la migración nunca la borra: queda
+  // ocupando espacio sin que nada la lea. Se listan solo las que tienen manifest — sin manifest la
+  // clave vieja SIGUE SIENDO la buena y tocarla perdería los consentimientos.
+  var restos = [], restosBytes = 0, huerfanas = 0;
+  items.forEach(function (it) {
+    var n = it.k.replace(/^jcm_/, "").replace(cid ? new RegExp("^" + cid + "_") : /^$/, "");
+    if (n.indexOf("pcons_") !== 0) return;
+    if (/_\d{13}$/.test(n)) return;             // formato nuevo: es el vivo
+    var pid = n.slice("pcons_".length);
+    var man = null;
+    try { man = JSON.parse(LS.getItem("jcm_" + (cid ? cid + "_" : "") + "pconsm_" + pid)); } catch (e) {}
+    if (Array.isArray(man) && man.length > 0) { restos.push({ pid: pid, bytes: it.bytes, n: man.length }); restosBytes += it.bytes; }
+    else huerfanas++;
+  });
+  if (restos.length || huerfanas) {
+    var pctR = total ? Math.round(restosBytes / total * 100) : 0;
+    app.appendChild(el(
+      '<div class="card"><h2>Restos de la migración</h2>' +
+      (restos.length
+        ? '<div class="big" style="color:var(--warn)">' + kb(restosBytes) + ' <small>= ' + pctR + '% de todo</small></div>' +
+          '<div class="note" style="margin-top:9px">' + restos.length +
+          (restos.length === 1 ? ' clave antigua de consentimientos que ya nadie lee' : ' claves antiguas de consentimientos que ya nadie lee') +
+          '. Sus consentimientos están guardados en el formato nuevo; esto es una copia que quedó atrás.</div>' +
+          '<table style="margin-top:12px">' +
+          restos.sort(function (a, b) { return b.bytes - a.bytes; }).slice(0, 12).map(function (r) {
+            return '<tr><td class="k">' + esc(r.pid.slice(0, 22)) +
+              ' <span style="color:var(--mute)">· ' + r.n + ' en el formato nuevo</span>' +
+              '</td><td class="v">' + kb(r.bytes) + '</td></tr>';
+          }).join("") + '</table>'
+        : '<div class="okline">No hay claves antiguas con copia nueva.</div>') +
+      (huerfanas
+        ? '<div class="alert" style="margin-top:12px"><strong>' + huerfanas +
+          (huerfanas === 1 ? ' clave antigua SIN copia nueva.</strong> ' : ' claves antiguas SIN copia nueva.</strong> ') +
+          'Esas siguen siendo las buenas: no se pueden borrar sin perder consentimientos.</div>'
+        : "") +
+      '</div>'
+    ));
+  }
+
+  // ── 7. Todo el desglose, de mayor a menor ──
   var top = items.slice(0, 30);
   app.appendChild(el(
     '<div class="card"><h2>Todo, de mayor a menor</h2><table>' +

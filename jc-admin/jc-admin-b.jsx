@@ -1922,6 +1922,17 @@ function ConsentTab({ T, patient, updatePatient }) {
           if (legacy.length > 0 && Array.isArray(window.DB.get("pconsm_" + patient.id))) {
             updatePatient(patient.id, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
           }
+          // Cerrar la migración soltando la clave vieja: desde que existe el manifest, patConsents()
+          // ya no la mira, pero seguía ocupando sitio en cada equipo y llegó a llenar el navegador
+          // (con los 10 MB al tope no se podía guardar ni una cita). Solo se suelta si TODOS los
+          // documentos nuevos quedaron escritos de verdad: si uno falló por falta de espacio, la
+          // clave vieja es la única copia de esos consentimientos y se conserva.
+          // Se borra solo del equipo, no de la nube: allá queda el respaldo, y jcm_saas ya sabe no
+          // volver a bajarla (ver esConsentObsoleto).
+          try {
+            var completo = mf.length > 0 && mf.every(function (t) { return !!window.DB.get("pcons_" + patient.id + "_" + t); });
+            if (completo && window.DB._k) localStorage.removeItem(window.DB._k(consKey));
+          } catch (e) {}
         }
       }
     } catch(e) {}

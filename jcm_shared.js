@@ -41,6 +41,94 @@
   } catch (e) {}
 })();
 
+// ── ESPACIO RECUPERABLE DEL NAVEGADOR ──────────────────────────────────────
+// El navegador da entre 5 MB (Safari) y 10 MB (Chrome) por dominio, y hasta ahora nada los
+// vigilaba: al llenarse, CUALQUIER guardado fallaba —incluida una cita— y lo único que pasaba era
+// un aviso. Dos cosas ocupan sitio sin hacer falta y se pueden soltar sin perder nada:
+//   1. Restos de la migración de consentimientos: la clave vieja pcons_<pid> que quedó atrás
+//      cuando pasaron a pcons_<pid>_<ts>. Nadie la lee desde que existe el manifest pconsm_<pid>.
+//   2. Fotos del rostro ya subidas a Firebase Storage: la copia en base64 se guardaba "por si
+//      acaso" para siempre, aunque faceGetPhoto sabe caer a la URL de fpurl_<pid>.
+// Reglas de oro: no se toca nada que siga sin subir a la nube (__dirty__), y ante cualquier duda
+// se conserva. Liberar de más aquí significa perder datos de un paciente.
+// ¿El guardado falló por falta de espacio, o por otra cosa? Solo en el primer caso tiene sentido
+// liberar y reintentar. Cada navegador lo reporta a su manera, y los códigos numéricos vienen de
+// versiones antiguas que no rellenan `name`. En navegación privada de Safari el error es el mismo
+// pero la cuota es cero: liberar no ayudará, el reintento fallará y se avisará igual que siempre.
+function _esCuotaLlena(e) {
+  if (!e) return false;
+  return e.name === 'QuotaExceededError' ||
+         e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+         e.code === 22 || e.code === 1014;
+}
+
+function jcmLiberarEspacio(objetivoBytes) {
+  var liberado = 0;
+  try {
+    var todas = [];
+    for (var i = 0; i < localStorage.length; i++) todas.push(localStorage.key(i));
+
+    // Lo que aún no está respaldado en la nube es intocable, venga de donde venga.
+    var pend = {};
+    todas.forEach(function (f) {
+      if (f.indexOf('__dirty__') < 0) return;
+      try {
+        var m = JSON.parse(localStorage.getItem(f)) || {};
+        Object.keys(m).forEach(function (k) { pend[k] = 1; });
+      } catch (e) {}
+    });
+
+    function soltar(clave) {
+      var n = ((localStorage.getItem(clave) || '').length + clave.length) * 2;
+      try { localStorage.removeItem(clave); liberado += n; } catch (e) {}
+    }
+
+    // 1. Restos de la migración de consentimientos.
+    todas.forEach(function (full) {
+      if (objetivoBytes && liberado >= objetivoBytes) return;
+      var i2 = full.indexOf('pcons_');
+      if (i2 < 0) return;
+      var pre = full.slice(0, i2), resto = full.slice(i2);
+      if (/_\d{13}$/.test(resto)) return;   // formato nuevo: ese es el que se usa
+      if (pend[resto]) return;              // sin subir todavía
+      var man = null;
+      try { man = JSON.parse(localStorage.getItem(pre + 'pconsm_' + resto.slice(6)) || 'null'); } catch (e) {}
+      if (!(Array.isArray(man) && man.length > 0)) return; // sin manifest, la vieja es la buena
+      soltar(full);
+    });
+
+    // 2. base64 de fotos con copia confirmada en Storage.
+    todas.forEach(function (full) {
+      if (objetivoBytes && liberado >= objetivoBytes) return;
+      if (full.indexOf('jcm_facephotos_') !== 0) return;
+      var cid = full.slice('jcm_facephotos_'.length);
+      var all = null;
+      try { all = JSON.parse(localStorage.getItem(full) || 'null'); } catch (e) {}
+      if (!all || typeof all !== 'object') return;
+      var antes = (localStorage.getItem(full) || '').length * 2, cambio = false;
+      Object.keys(all).forEach(function (pid) {
+        var urls = null;
+        try { urls = JSON.parse(localStorage.getItem('jcm_' + cid + '_fpurl_' + pid) || 'null'); } catch (e) {}
+        if (!urls) return;
+        Object.keys(all[pid] || {}).forEach(function (view) {
+          // Solo si ESA vista concreta tiene URL en la nube. Una foto sin subir se queda.
+          if (typeof urls[view] === 'string' && urls[view] && String(all[pid][view] || '').indexOf('data:') === 0) {
+            delete all[pid][view]; cambio = true;
+          }
+        });
+        if (!Object.keys(all[pid] || {}).length) delete all[pid];
+      });
+      if (!cambio) return;
+      try {
+        localStorage.setItem(full, JSON.stringify(all));
+        liberado += antes - (localStorage.getItem(full) || '').length * 2;
+      } catch (e) {}
+    });
+  } catch (e) {}
+  return liberado;
+}
+if (typeof window !== 'undefined') window.jcmLiberarEspacio = jcmLiberarEspacio;
+
 // ── CAPA DE DATOS (localStorage compartida entre app y admin) ──────────────
 const DB = {
   _k: k => 'jcm_' + k,
@@ -48,6 +136,22 @@ const DB = {
   set(k, v) {
     try { localStorage.setItem(this._k(k), JSON.stringify(v)); return v; }
     catch(e) {
+      // Cuota llena: antes se avisaba y se perdía el dato, y punto. Con la clínica trabajando eso
+      // significaba no poder agendar una cita hasta vaciar el navegador a mano. Ahora se sueltan
+      // primero los restos recuperables (consentimientos migrados, fotos ya en Storage) y se
+      // reintenta; solo si DESPUÉS de liberar sigue sin caber se avisa.
+      try {
+        if (_esCuotaLlena(e) && typeof jcmLiberarEspacio === 'function') {
+          var necesita = (JSON.stringify(v) || '').length * 2;
+          if (jcmLiberarEspacio(Math.max(necesita * 3, 512 * 1024)) > 0) {
+            try {
+              localStorage.setItem(this._k(k), JSON.stringify(v));
+              try { console.warn('[JCM] Espacio liberado: "' + k + '" sí quedó guardado.'); } catch(_) {}
+              return v;
+            } catch (e2) {}
+          }
+        }
+      } catch(_) {}
       // C-06: NO fallar en silencio. Antes se avisaba UNA sola vez (_storageWarned) → tras el primer
       // fallo todo guardado siguiente era 100% mudo y el "✓ Guardado" salía igual, con el dato perdido
       // (cuota llena / navegación privada). Ahora se avisa en CADA fallo (con un throttle corto para

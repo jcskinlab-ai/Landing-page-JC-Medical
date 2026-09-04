@@ -70,6 +70,27 @@
   var origK = null;
   function nsKey(k) { return 'jcm_' + (state.clinicId ? state.clinicId + '_' : '') + k; }
 
+  // ── Restos de la migración de consentimientos ────────────────────────────────
+  // Los consentimientos pasaron de "un array por paciente" (pcons_<pid>) a "un documento por
+  // consentimiento" (pcons_<pid>_<ts>) indexado en pconsm_<pid>. patConsents() deja de mirar la
+  // clave vieja en cuanto existe el manifest, pero nadie la borraba nunca: seguía bajando de la
+  // nube y ocupando localStorage en CADA dispositivo. En una clínica con dos años de uso llegó a
+  // llenar los 10 MB del navegador, y a partir de ahí no se podía guardar ni una cita.
+  // Se filtra al aplicar y se suelta la copia local, pero NO se borra de la nube: allá queda el
+  // respaldo por si alguna vez hay que recuperarlo.
+  function esConsentViejo(k) {
+    return typeof k === 'string' && k.indexOf('pcons_') === 0 && !/_\d{13}$/.test(k);
+  }
+  // Obsoleta = formato viejo Y con manifest no vacío. SIN manifest la clave vieja sigue siendo la
+  // única copia de esos consentimientos: tocarla sería perderlos. Ante cualquier duda, se conserva.
+  function esConsentObsoleto(k) {
+    if (!esConsentViejo(k)) return false;
+    try {
+      var man = JSON.parse(localStorage.getItem(nsKey('pconsm_' + k.slice(6))) || 'null');
+      return Array.isArray(man) && man.length > 0;
+    } catch (e) { return false; }
+  }
+
   // ── Registro de claves SIN SINCRONIZAR (persistente en localStorage) ──────────
   // Si un push a la nube falla (sin conexión, App Check, doc grande), la clave queda
   // marcada como "dirty". Mientras esté dirty, la sincronización remota (pullAll /
@@ -267,14 +288,26 @@
     return db.collection('tenants').doc(state.clinicId).collection('kv').get().then(function (snap) {
       state.kvEmpty = snap.empty;
       applyingRemote = true;
-      snap.forEach(function (doc) {
-        if (pendingPush[doc.id] != null || isDirty(doc.id)) return; // conserva cambios locales sin sincronizar (también tras recargar)
+      function aplicar(doc) {
         try {
           var data = doc.data();
           var val = data && data.v != null ? JSON.parse(data.v) : null;
           localStorage.setItem(nsKey(doc.id), JSON.stringify(val));
           baseSave(doc.id, val); // referencia para fusionar: esto es lo que equipo y nube comparten
         } catch (e) { noop(e); }
+      }
+      // Los consentimientos en formato viejo se dejan para una segunda pasada: decidir si sobran
+      // exige leer su manifest, y el manifest puede venir más adelante en este mismo snapshot.
+      var viejos = [];
+      snap.forEach(function (doc) {
+        if (pendingPush[doc.id] != null || isDirty(doc.id)) return; // conserva cambios locales sin sincronizar (también tras recargar)
+        if (esConsentViejo(doc.id)) { viejos.push(doc); return; }
+        aplicar(doc);
+      });
+      viejos.forEach(function (doc) {
+        // Con todos los manifests ya en localStorage, aquí la respuesta es fiable.
+        if (esConsentObsoleto(doc.id)) { try { localStorage.removeItem(nsKey(doc.id)); } catch (e) {} return; }
+        aplicar(doc);
       });
       applyingRemote = false;
       emit('jcsaas:data', {});
@@ -299,6 +332,9 @@
           // reaplicarlo. Igual que hacía la capa antigua de jcm_cloud.js.
           try { if (ch.doc.metadata && ch.doc.metadata.hasPendingWrites) return; } catch (e) {}
           if (ch.type === 'removed') { localStorage.removeItem(nsKey(ch.doc.id)); changed = true; return; }
+          // Resto de la migración de consentimientos: no volver a bajarlo. Aquí el manifest ya está
+          // en localStorage (lo dejó pullAll), así que la comprobación es fiable en una sola pasada.
+          if (esConsentObsoleto(ch.doc.id)) { try { localStorage.removeItem(nsKey(ch.doc.id)); } catch (e) {} return; }
           try {
             var data = ch.doc.data();
             var val = data && data.v != null ? JSON.parse(data.v) : null;

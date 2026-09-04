@@ -1554,6 +1554,13 @@ function ConsentTab({ T, patient, updatePatient }) {
           if (legacy.length > 0 && Array.isArray(window.DB.get("pconsm_" + patient.id))) {
             updatePatient(patient.id, { consents: null, consentDoc: null, consentSig: null, consentSigPro: null });
           }
+          try {
+            var completo = mf.length > 0 && mf.every(function(t) {
+              return !!window.DB.get("pcons_" + patient.id + "_" + t);
+            });
+            if (completo && window.DB._k) localStorage.removeItem(window.DB._k(consKey));
+          } catch (e) {
+          }
         }
       }
     } catch (e) {
