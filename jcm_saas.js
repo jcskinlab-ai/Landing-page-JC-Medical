@@ -296,19 +296,23 @@
           baseSave(doc.id, val); // referencia para fusionar: esto es lo que equipo y nube comparten
         } catch (e) { noop(e); }
       }
-      // Los consentimientos en formato viejo se dejan para una segunda pasada: decidir si sobran
-      // exige leer su manifest, y el manifest puede venir más adelante en este mismo snapshot.
-      var viejos = [];
+      // Tres pasadas, y el orden importa: si el navegador ya está lleno, escribir primero lo
+      // normal haría fallar la agenda y los pacientes recién traídos (aplicar() se traga el error
+      // y el usuario se queda mirando datos viejos). Así que primero se hace sitio y luego se
+      // escribe. Los manifests van antes de todo porque son los que deciden qué sobra, y pesan nada.
+      var viejos = [], resto = [];
       snap.forEach(function (doc) {
         if (pendingPush[doc.id] != null || isDirty(doc.id)) return; // conserva cambios locales sin sincronizar (también tras recargar)
         if (esConsentViejo(doc.id)) { viejos.push(doc); return; }
-        aplicar(doc);
+        if (doc.id.indexOf('pconsm_') === 0) { aplicar(doc); return; }
+        resto.push(doc);
       });
       viejos.forEach(function (doc) {
         // Con todos los manifests ya en localStorage, aquí la respuesta es fiable.
         if (esConsentObsoleto(doc.id)) { try { localStorage.removeItem(nsKey(doc.id)); } catch (e) {} return; }
         aplicar(doc);
       });
+      resto.forEach(aplicar);
       applyingRemote = false;
       emit('jcsaas:data', {});
     }).catch(function (e) { applyingRemote = false; noop(e); });
