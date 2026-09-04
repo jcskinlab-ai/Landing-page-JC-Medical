@@ -4672,20 +4672,42 @@ function SaasGate() {
       return "jcm_2fadev_";
     }
   }
+  function enterPanel() {
+    let done = false;
+    const go = function() {
+      if (!done) {
+        done = true;
+        setPhase("app");
+      }
+    };
+    setTimeout(go, 6e3);
+    try {
+      importAllWeb().finally(go);
+    } catch (e) {
+      go();
+    }
+  }
   function proceed() {
     setEntering(true);
-    if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) {
-      setPhase("migrate");
-      return;
-    }
-    scopeClinicData();
-    if (!window.JCM_BASE && !(window.DB && window.DB.get("onboarded_v1"))) {
-      setPhase("onboarding");
-      return;
-    }
-    importAllWeb().finally(function() {
+    try {
+      if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) {
+        setPhase("migrate");
+        return;
+      }
+      scopeClinicData();
+      if (!window.JCM_BASE && !(window.DB && window.DB.get("onboarded_v1"))) {
+        setPhase("onboarding");
+        return;
+      }
+    } catch (e) {
+      try {
+        console.error("[login] fall\xF3 la preparaci\xF3n del panel, se entra igual:", e);
+      } catch (_) {
+      }
       setPhase("app");
-    });
+      return;
+    }
+    enterPanel();
   }
   function otpSend() {
     setOtpErr("");
@@ -4800,10 +4822,11 @@ function SaasGate() {
       }
     }
     setBusy(false);
-    scopeClinicData();
-    importAllWeb().finally(function() {
-      setPhase("app");
-    });
+    try {
+      scopeClinicData();
+    } catch (e) {
+    }
+    enterPanel();
   }
   function authMsg(e) {
     const c = e && e.code || "";

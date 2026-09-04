@@ -5734,12 +5734,31 @@ function SaasGate() {
   const [otpInfo, setOtpInfo] = useState(null); const [otpCode, setOtpCode] = useState(""); const [otpErr, setOtpErr] = useState("");
   const MFA_ON = !!(window.JCSAAS_CONFIG && window.JCSAAS_CONFIG.mfa === true);
   function devKey() { try { return "jcm_2fadev_" + (window.JCSAAS.currentClinicId() || ""); } catch (e) { return "jcm_2fadev_"; } }
+  // Entrar al panel SIEMPRE, pase lo que pase con la importación de reservas web.
+  // Antes se hacía `importAllWeb().finally(→ app)`: si esa lectura a Firestore no resolvía nunca
+  // —no rechaza, se queda colgada: caché IndexedDB bloqueada entre pestañas, App Check sin token,
+  // red que acepta la conexión y no responde— la pantalla "Entrando a tu panel" se eternizaba con
+  // la sesión ya validada. El panel no puede depender de una lectura de red para montar: se entra
+  // a los 6 s como máximo y la importación sigue por su cuenta (lo que traiga aparece igual).
+  function enterPanel() {
+    let done = false;
+    const go = function () { if (!done) { done = true; setPhase("app"); } };
+    setTimeout(go, 6000);
+    try { importAllWeb().finally(go); } catch (e) { go(); }
+  }
   function proceed() {
     setEntering(true);
-    if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
-    scopeClinicData();
-    if (!window.JCM_BASE && !(window.DB && window.DB.get("onboarded_v1"))) { setPhase("onboarding"); return; }
-    importAllWeb().finally(function () { setPhase("app"); });
+    // Nada de la preparación previa puede dejar al usuario fuera: si algo revienta (localStorage
+    // lleno, datos corruptos), se entra igual en vez de quedarse en la pantalla de carga.
+    try {
+      if (window.JCSAAS.isFreshClinic() && window.JCSAAS.hasLegacyData()) { setPhase("migrate"); return; }
+      scopeClinicData();
+      if (!window.JCM_BASE && !(window.DB && window.DB.get("onboarded_v1"))) { setPhase("onboarding"); return; }
+    } catch (e) {
+      try { console.error("[login] falló la preparación del panel, se entra igual:", e); } catch (_) {}
+      setPhase("app"); return;
+    }
+    enterPanel();
   }
   function otpSend() {
     setOtpErr(""); setOtpCode("");
@@ -5816,7 +5835,7 @@ function SaasGate() {
   async function doMigrate(importing) {
     setBusy(true);
     if (importing) { try { await window.JCSAAS.migrateLocal(); } catch (e) {} }
-    setBusy(false); scopeClinicData(); importAllWeb().finally(function () { setPhase("app"); });
+    setBusy(false); try { scopeClinicData(); } catch (e) {} enterPanel();
   }
   function authMsg(e) {
     const c = (e && e.code) || "";
