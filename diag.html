@@ -113,14 +113,21 @@
   }
 
   // ── 1. Total usado ──
-  var LIMIT = 5 * 1024 * 1024; // Safari iOS: ~5 MB por dominio
+  // La cuota depende del navegador: WebKit (Safari, y todo navegador en iOS) da ~5 MB por dominio;
+  // Chrome/Firefox de escritorio dan ~10 MB. Asumir siempre 5 MB hacía que un Chrome topado a 10 MB
+  // se mostrara como "100%" — cifra correcta por casualidad, explicación equivocada.
+  var ua = navigator.userAgent || "";
+  var esIOS = /iP(hone|ad|od)/.test(ua);
+  var esSafari = esIOS || (/Safari/.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox/.test(ua));
+  var LIMIT = esSafari ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+  var navName = esSafari ? "Safari" : "este navegador";
   var pct = Math.min(100, Math.round(total / LIMIT * 100));
   var color = pct >= 85 ? "var(--bad)" : pct >= 60 ? "var(--warn)" : "var(--ok)";
   app.appendChild(el(
     '<div class="card"><h2>Espacio usado</h2>' +
-    '<div class="big" style="color:' + color + '">' + kb(total) + ' <small>de ~5 MB</small></div>' +
+    '<div class="big" style="color:' + color + '">' + kb(total) + ' <small>de ~' + (LIMIT / 1048576) + ' MB</small></div>' +
     '<div class="bar"><i style="width:' + Math.max(2, pct) + '%; background:' + color + '"></i></div>' +
-    '<div class="note">' + pct + '% del límite que Safari da a este dominio. ' +
+    '<div class="note">' + pct + '% del límite que ' + navName + ' da a este dominio. ' +
     (pct >= 85
       ? '<strong style="color:#FF8FB0">Está lleno o casi lleno: esa es la causa del error al guardar.</strong>'
       : pct >= 60
@@ -202,7 +209,48 @@
     ));
   }
 
-  // ── 4. Todo el desglose, de mayor a menor ──
+  // ── 4. Resumen por tipo de clave ────────────────────────────────────────────
+  // Con cientos de claves, la lista de las 30 más grandes engaña: 200 claves medianas del mismo
+  // tipo pesan más que la mayor de todas y no aparecen. Se agrupan por familia (fpurl_…, pcons_…)
+  // colapsando el id del paciente, que es lo que multiplica las claves.
+  function esId(p) {
+    return p === "p" || /^\d+$/.test(p) || /^[0-9a-f]{8,}$/i.test(p) ||
+           (/\d/.test(p) && /[a-z]/i.test(p) && p.length >= 6);
+  }
+  function familia(k) {
+    var partes = k.split("_"), out = [], corto = false;
+    for (var i = 0; i < partes.length; i++) {
+      if (esId(partes[i])) { corto = true; break; }
+      out.push(partes[i]);
+    }
+    return (corto && out.length) ? out.join("_") + "_…" : k;
+  }
+  var fams = {};
+  items.forEach(function (it) {
+    var nice = it.k.replace(/^jcm_/, "").replace(cid ? new RegExp("^" + cid + "_") : /^$/, "");
+    var f = familia(nice);
+    if (!fams[f]) fams[f] = { bytes: 0, n: 0 };
+    fams[f].bytes += it.bytes; fams[f].n++;
+  });
+  var famList = Object.keys(fams).map(function (f) {
+    return { f: f, bytes: fams[f].bytes, n: fams[f].n };
+  }).sort(function (a, b) { return b.bytes - a.bytes; });
+
+  app.appendChild(el(
+    '<div class="card"><h2>Resumen por tipo</h2>' +
+    '<div class="note">Agrupa las claves que se repiten por paciente. Aquí se ve el bulto real.</div>' +
+    '<table style="margin-top:12px">' +
+    famList.slice(0, 18).map(function (g) {
+      var pc = total ? Math.round(g.bytes / total * 100) : 0;
+      return '<tr><td class="k">' + esc(g.f) +
+        (g.n > 1 ? ' <span style="color:var(--mute)">× ' + g.n + '</span>' : "") +
+        (pc >= 10 ? '<span class="tag warn">' + pc + '%</span>' : "") +
+        '</td><td class="v">' + kb(g.bytes) + '</td></tr>';
+    }).join("") +
+    '</table></div>'
+  ));
+
+  // ── 5. Todo el desglose, de mayor a menor ──
   var top = items.slice(0, 30);
   app.appendChild(el(
     '<div class="card"><h2>Todo, de mayor a menor</h2><table>' +
