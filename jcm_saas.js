@@ -86,7 +86,7 @@
   function esConsentObsoleto(k) {
     if (!esConsentViejo(k)) return false;
     try {
-      var man = JSON.parse(localStorage.getItem(nsKey('pconsm_' + k.slice(6))) || 'null');
+      var man = JSON.parse(getLocalSeguro(nsKey('pconsm_' + k.slice(6))) || 'null');
       return Array.isArray(man) && man.length > 0;
     } catch (e) { return false; }
   }
@@ -98,28 +98,28 @@
   // en el teléfono no aparecía nada, sin un solo aviso. Aquí se libera y se reintenta igual que
   // en DB.set; si aun así no cabe, se avisa una vez en vez de perderlo callando.
   function setLocalSeguro(fullKey, texto) {
-    try { localStorage.setItem(fullKey, texto); return true; }
-    catch (e) {
-      try {
-        if (typeof window.jcmLiberarEspacio === 'function' &&
-            window.jcmLiberarEspacio(Math.max(texto.length * 2 * 3, 512 * 1024)) > 0) {
-          localStorage.setItem(fullKey, texto);
-          return true;
-        }
-      } catch (e2) {}
-      if (!setLocalSeguro._avisado) {
-        setLocalSeguro._avisado = true;
-        try { console.error('[JCM] Sin espacio para guardar lo que baja de la nube:', fullKey, e); } catch (_) {}
-        try {
-          var msg = 'Este dispositivo no tiene espacio libre y no pudo recibir los últimos cambios. ' +
-                    'Lo que agendes aquí sí se guarda, pero puede que no veas lo agendado en otro equipo. ' +
-                    'Abre /diag en este navegador para ver qué ocupa el espacio.';
-          if (window.jcmToast) window.jcmToast(msg, 'error');
-          else if (window.jcmError) window.jcmError(msg);
-        } catch (_) {}
+    // jcmStoreSet (jcm_shared) es quien sabe liberar espacio, reintentar y, si el navegador no
+    // deja escribir nada, quedarse con el dato en memoria para que la sesión siga funcionando.
+    try {
+      if (typeof window.jcmStoreSet === 'function') {
+        var r = window.jcmStoreSet(fullKey, texto);
+        if (r === 'memoria') { try { window.jcmAvisoMemoria && window.jcmAvisoMemoria(); } catch (_) {} }
+        return r === 'disco' || r === 'memoria';
       }
+      localStorage.setItem(fullKey, texto);
+      return true;
+    } catch (e) {
+      try { console.error('[JCM] No se pudo guardar lo que baja de la nube:', fullKey, e); } catch (_) {}
       return false;
     }
+  }
+  // Lectura con el mismo respaldo: si una clave acabó en memoria porque el disco estaba bloqueado,
+  // leerla directo de localStorage devolvería null y la sincronización creería que no existe.
+  function getLocalSeguro(fullKey) {
+    try {
+      if (typeof window.jcmStoreGet === 'function') return window.jcmStoreGet(fullKey);
+      return localStorage.getItem(fullKey);
+    } catch (e) { return null; }
   }
 
   // ── Registro de claves SIN SINCRONIZAR (persistente en localStorage) ──────────
@@ -127,8 +127,8 @@
   // marcada como "dirty". Mientras esté dirty, la sincronización remota (pullAll /
   // liveKv) NO la sobrescribe — ni siquiera tras recargar la página — para no perder
   // datos guardados localmente (p. ej. un consentimiento recién firmado).
-  function dirtyAll() { try { return JSON.parse(localStorage.getItem(nsKey('__dirty__')) || '{}') || {}; } catch (e) { return {}; } }
-  function dirtySave(m) { try { localStorage.setItem(nsKey('__dirty__'), JSON.stringify(m)); } catch (e) {} }
+  function dirtyAll() { try { return JSON.parse(getLocalSeguro(nsKey('__dirty__')) || '{}') || {}; } catch (e) { return {}; } }
+  function dirtySave(m) { try { setLocalSeguro(nsKey("__dirty__"), JSON.stringify(m)); } catch (e) {} }
   function setDirty(k, on) { var m = dirtyAll(); if (on) { if (!m[k]) { m[k] = Date.now(); dirtySave(m); } } else if (m[k]) { delete m[k]; dirtySave(m); } }
   function isDirty(k) { return dirtyAll()[k] != null; }
   // Reintenta subir todas las claves pendientes (al iniciar sesión, al reconectar, etc.).
@@ -139,7 +139,7 @@
   function flushDirty() {
     var m = dirtyAll();
     Object.keys(m).forEach(function (k) {
-      var raw = null; try { raw = localStorage.getItem(nsKey(k)); } catch (e) {}
+      var raw = null; try { raw = getLocalSeguro(nsKey(k)); } catch (e) {}
       if (raw == null) return;                       // no hay copia local: no hay nada que subir
       var v; try { v = JSON.parse(raw); } catch (e) { return; } // ilegible: se deja pendiente
       if (v == null) return;                          // nunca sintetizar un borrado remoto
@@ -203,10 +203,10 @@
   // distinguir "esto lo agregó el otro equipo" de "esto lo borré yo" — sin esa referencia, una
   // unión ciega resucitaría lo borrado. Se guardan solo los ids (no los objetos): pesa poco.
   function baseKey(k) { return '__base_' + k; }
-  function baseIds(k) { try { var r = localStorage.getItem(nsKey(baseKey(k))); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  function baseIds(k) { try { var r = getLocalSeguro(nsKey(baseKey(k))); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
   function baseSave(k, arr) {
     if (!MERGE_BY_ID[k] || !Array.isArray(arr)) return;
-    try { localStorage.setItem(nsKey(baseKey(k)), JSON.stringify(arr.map(idOf).filter(function (x) { return x != null; }))); } catch (e) {}
+    try { setLocalSeguro(nsKey(baseKey(k)), JSON.stringify(arr.map(idOf).filter(function (x) { return x != null; }))); } catch (e) {}
   }
   function mergeById(local, remote, base) {
     if (!Array.isArray(local) || !Array.isArray(remote)) return Array.isArray(local) ? local : remote;
@@ -377,7 +377,7 @@
           try {
             var data = ch.doc.data();
             var val = data && data.v != null ? JSON.parse(data.v) : null;
-            var cur = localStorage.getItem(nsKey(ch.doc.id));
+            var cur = getLocalSeguro(nsKey(ch.doc.id));
             var next = JSON.stringify(val);
             baseSave(ch.doc.id, val); // referencia para fusionar (aunque el valor no haya cambiado)
             if (cur !== next) {
@@ -561,8 +561,8 @@
   // carga colgada. Con esto se entra al instante con lo último conocido y, cuando vuelve la señal,
   // se confirma contra el servidor. Se borra al cerrar sesión, junto con los datos clínicos.
   function sessKey(uid) { return 'jcm_sess_' + uid; }
-  function sessSave(uid, info) { try { localStorage.setItem(sessKey(uid), JSON.stringify(info)); } catch (e) {} }
-  function sessLoad(uid) { try { var r = localStorage.getItem(sessKey(uid)); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  function sessSave(uid, info) { try { setLocalSeguro(sessKey(uid), JSON.stringify(info)); } catch (e) {} }
+  function sessLoad(uid) { try { var r = getLocalSeguro(sessKey(uid)); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
 
   function onAuthChange(user) {
     if (!user) {
@@ -798,7 +798,7 @@
         if (k.indexOf(state.clinicId + '_') === 0) return;
         if (NO_SYNC[k]) return;
         var raw = localStorage.getItem(full);
-        localStorage.setItem(nsKey(k), raw);
+        setLocalSeguro(nsKey(k), raw);
         try { pushKey(k, JSON.parse(raw)); } catch (e) {}
         moved++;
       });

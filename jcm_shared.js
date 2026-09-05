@@ -51,6 +51,88 @@
 //      acaso" para siempre, aunque faceGetPhoto sabe caer a la URL de fpurl_<pid>.
 // Reglas de oro: no se toca nada que siga sin subir a la nube (__dirty__), y ante cualquier duda
 // se conserva. Liberar de más aquí significa perder datos de un paciente.
+// ── ALMACENAMIENTO CON RESPALDO EN MEMORIA ─────────────────────────────────
+// En el iPhone el panel puede quedarse sin poder escribir NADA: además de los ~5 MB de cuota,
+// Safari bloquea el almacenamiento en navegación privada, con "Bloquear todas las cookies", o
+// cuando al teléfono no le queda espacio. Hasta ahora eso dejaba el panel a medias — mostraba lo
+// que bajaba de Firestore pero no podía guardar ni recordar nada, y cada intento moría en un
+// catch. Con el respaldo en memoria la sesión funciona entera y todo sigue subiendo a la nube,
+// que es la fuente de verdad: se pierde la caché al cerrar la pestaña, no los datos.
+var _mem = {};
+var _memActiva = false;
+function jcmStoreGet(k) {
+  try { var v = localStorage.getItem(k); if (v !== null) return v; } catch (e) {}
+  return Object.prototype.hasOwnProperty.call(_mem, k) ? _mem[k] : null;
+}
+function jcmStoreSet(k, texto) {
+  try {
+    localStorage.setItem(k, texto);
+    if (Object.prototype.hasOwnProperty.call(_mem, k)) delete _mem[k]; // ya está en disco
+    return 'disco';
+  } catch (e) {
+    if (!_esCuotaLlena(e)) return null; // un error que no es de espacio no se disimula
+    try {
+      if (jcmLiberarEspacio(Math.max((texto || '').length * 2 * 3, 512 * 1024)) > 0) {
+        localStorage.setItem(k, texto);
+        if (Object.prototype.hasOwnProperty.call(_mem, k)) delete _mem[k];
+        return 'disco';
+      }
+    } catch (e2) {}
+    _mem[k] = texto;              // el dato NO se pierde: vive en memoria y sube a la nube igual
+    _memActiva = true;
+    return 'memoria';
+  }
+}
+function jcmStoreRemove(k) {
+  try { localStorage.removeItem(k); } catch (e) {}
+  if (Object.prototype.hasOwnProperty.call(_mem, k)) delete _mem[k];
+}
+// ¿Este navegador nos deja guardar algo, aunque sea mínimo? Distingue "lleno" de "bloqueado":
+// son problemas distintos y se arreglan de forma distinta.
+function jcmPuedeEscribir() {
+  try { localStorage.setItem('__jcm_t__', '1'); localStorage.removeItem('__jcm_t__'); return true; }
+  catch (e) { return false; }
+}
+// Un solo aviso por sesión, con el motivo correcto. Desde dentro "no queda espacio" y "el
+// navegador no deja guardar" son el mismo error, pero para el usuario no se parecen en nada: uno
+// se arregla liberando sitio y el otro cambiando un ajuste de Safari. Y en ambos casos lo primero
+// que hay que decir es que puede seguir trabajando — el dato sí se guarda en la nube.
+// Con el disco al tope, la sonda de escritura también falla — así que "no puedo escribir" por sí
+// solo no distingue nada. La señal que sí distingue es si YA hay datos nuestros guardados: si los
+// hay, este navegador sí nos deja escribir y el problema es que no cabe más; con cero claves y sin
+// poder escribir, es que directamente no nos deja (privado, cookies bloqueadas, teléfono sin sitio).
+function jcmMotivoSinEscritura() {
+  var hay = 0;
+  try { hay = localStorage.length; } catch (e) { return 'bloqueado'; }
+  if (jcmPuedeEscribir()) return 'ok';
+  return hay > 0 ? 'lleno' : 'bloqueado';
+}
+var _memAvisado = false;
+function jcmAvisoMemoria() {
+  if (_memAvisado || typeof window === 'undefined') return;
+  _memAvisado = true;
+  var msg = jcmMotivoSinEscritura() === 'bloqueado'
+    ? 'Este navegador no permite guardar datos en el teléfono (suele ser navegación privada, ' +
+      '"Bloquear todas las cookies" en Ajustes → Safari, o el teléfono sin espacio libre). ' +
+      'Puedes seguir trabajando: todo se guarda en la nube. Al cerrar esta pestaña, el panel ' +
+      'volverá a descargarlo.'
+    : 'Este dispositivo se quedó sin espacio. Puedes seguir trabajando: todo se guarda en la ' +
+      'nube. Al cerrar esta pestaña, el panel volverá a descargarlo. Abre /diag en este ' +
+      'navegador para ver qué ocupa el espacio.';
+  try {
+    if (window.jcmToast) window.jcmToast(msg, 'info');
+    else if (window.jcmError) window.jcmError(msg);
+  } catch (e) {}
+}
+if (typeof window !== 'undefined') {
+  window.jcmStoreGet = jcmStoreGet;
+  window.jcmStoreSet = jcmStoreSet;
+  window.jcmStoreRemove = jcmStoreRemove;
+  window.jcmPuedeEscribir = jcmPuedeEscribir;
+  window.jcmAvisoMemoria = jcmAvisoMemoria;
+  window.jcmEnMemoria = function () { return _memActiva; };
+}
+
 // ¿El guardado falló por falta de espacio, o por otra cosa? Solo en el primer caso tiene sentido
 // liberar y reintentar. Cada navegador lo reporta a su manera, y los códigos numéricos vienen de
 // versiones antiguas que no rellenan `name`. En navegación privada de Safari el error es el mismo
@@ -132,42 +214,34 @@ if (typeof window !== 'undefined') window.jcmLiberarEspacio = jcmLiberarEspacio;
 // ── CAPA DE DATOS (localStorage compartida entre app y admin) ──────────────
 const DB = {
   _k: k => 'jcm_' + k,
-  get(k)    { try { return JSON.parse(localStorage.getItem(this._k(k))); } catch(e) { return null; } },
+  get(k)    { try { return JSON.parse(jcmStoreGet(this._k(k))); } catch(e) { return null; } },
   set(k, v) {
-    try { localStorage.setItem(this._k(k), JSON.stringify(v)); return v; }
-    catch(e) {
-      // Cuota llena: antes se avisaba y se perdía el dato, y punto. Con la clínica trabajando eso
-      // significaba no poder agendar una cita hasta vaciar el navegador a mano. Ahora se sueltan
-      // primero los restos recuperables (consentimientos migrados, fotos ya en Storage) y se
-      // reintenta; solo si DESPUÉS de liberar sigue sin caber se avisa.
-      try {
-        if (_esCuotaLlena(e) && typeof jcmLiberarEspacio === 'function') {
-          var necesita = (JSON.stringify(v) || '').length * 2;
-          if (jcmLiberarEspacio(Math.max(necesita * 3, 512 * 1024)) > 0) {
-            try {
-              localStorage.setItem(this._k(k), JSON.stringify(v));
-              try { console.warn('[JCM] Espacio liberado: "' + k + '" sí quedó guardado.'); } catch(_) {}
-              return v;
-            } catch (e2) {}
-          }
-        }
-      } catch(_) {}
-      // C-06: NO fallar en silencio. Antes se avisaba UNA sola vez (_storageWarned) → tras el primer
-      // fallo todo guardado siguiente era 100% mudo y el "✓ Guardado" salía igual, con el dato perdido
-      // (cuota llena / navegación privada). Ahora se avisa en CADA fallo (con un throttle corto para
-      // no spamear el alert) para que el usuario SIEMPRE sepa que ese dato NO quedó guardado.
-      try { console.error('[JCM] No se pudo guardar "' + k + '" en este dispositivo:', e); } catch(_) {}
-      try {
-        var _t = Date.now();
-        if (typeof window !== 'undefined' && window.alert && (_t - (this._lastStorageWarn || 0) > 4000)) {
-          this._lastStorageWarn = _t;
-          window.alert('⚠ No se pudo guardar "' + k + '" en este dispositivo (almacenamiento lleno o navegación privada). El dato NO quedó guardado: anótalo y reintenta, o usa otro navegador.');
-        }
-      } catch(_) {}
-      return null;
+    var texto;
+    try { texto = JSON.stringify(v); } catch(e) { return null; }
+    // jcmStoreSet ya libera espacio y reintenta; si aun así no cabe, deja el dato en memoria en
+    // vez de tirarlo. Antes esto acababa en un alert y el dato perdido: con la clínica trabajando,
+    // eso significaba no poder agendar una cita hasta vaciar el navegador a mano.
+    var r = jcmStoreSet(this._k(k), texto);
+    if (r === 'disco') return v;
+    if (r === 'memoria') {
+      // El dato NO se ha perdido: está en memoria y jcm_saas lo sube a la nube igual. Lo que no
+      // aguanta es cerrar la pestaña, y eso es lo que hay que contarle al usuario — muy distinto
+      // del viejo "no quedó guardado", que asustaba de más y encima no decía qué hacer.
+      try { console.warn('[JCM] Sin poder escribir en disco: "' + k + '" queda en memoria y sube a la nube.'); } catch(_) {}
+      jcmAvisoMemoria();
+      return v;
     }
+    try { console.error('[JCM] No se pudo guardar "' + k + '" en este dispositivo.'); } catch(_) {}
+    try {
+      var _t = Date.now();
+      if (typeof window !== 'undefined' && window.alert && (_t - (this._lastStorageWarn || 0) > 4000)) {
+        this._lastStorageWarn = _t;
+        window.alert('⚠ No se pudo guardar "' + k + '" en este dispositivo. El dato NO quedó guardado: anótalo y reintenta, o usa otro navegador.');
+      }
+    } catch(_) {}
+    return null;
   },
-  del(k)    { localStorage.removeItem(this._k(k)); },
+  del(k)    { jcmStoreRemove(this._k(k)); },
   cfg()     {
     const def = {
       pts_start:   500,

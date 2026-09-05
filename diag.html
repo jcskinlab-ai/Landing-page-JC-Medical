@@ -112,6 +112,29 @@
     }
   }
 
+  // ── 0. ¿Este navegador nos deja guardar? ────────────────────────────────────
+  // Sin esto, un teléfono donde Safari bloquea el almacenamiento mostraba "0 B · hay espacio de
+  // sobra" — literalmente cierto y completamente engañoso: el panel no podía guardar NADA. Es un
+  // problema distinto al de quedarse sin sitio, y se arregla en los ajustes, no liberando.
+  var puedeEscribir = (function () {
+    try { LS.setItem('__jcm_diag_t__', '1'); LS.removeItem('__jcm_diag_t__'); return true; }
+    catch (e) { return false; }
+  })();
+  if (!puedeEscribir) {
+    app.appendChild(el(
+      '<div class="card"><h2>Este navegador no deja guardar</h2>' +
+      '<div class="big" style="color:var(--bad)">Bloqueado</div>' +
+      '<div class="alert">El panel puede mostrar lo que baja de la nube, pero <strong>no puede ' +
+      'guardar nada en este teléfono</strong>. Sigue siendo seguro trabajar: todo se guarda en la ' +
+      'nube. Lo que no aguanta es cerrar la pestaña — al volver, el panel lo descarga otra vez.' +
+      '<br><br>Causas habituales, por orden:<br>' +
+      '· <strong>Navegación privada</strong> — sal del modo privado.<br>' +
+      '· <strong>Ajustes → Safari → Bloquear todas las cookies</strong> activado — desactívalo.<br>' +
+      '· <strong>El teléfono sin espacio libre</strong> — mira Ajustes → General → Almacenamiento.' +
+      '</div></div>'
+    ));
+  }
+
   // ── 1. Total usado ──
   // La cuota depende del navegador: WebKit (Safari, y todo navegador en iOS) da ~5 MB por dominio;
   // Chrome/Firefox de escritorio dan ~10 MB. Asumir siempre 5 MB hacía que un Chrome topado a 10 MB
@@ -132,7 +155,9 @@
       ? '<strong style="color:#FF8FB0">Está lleno o casi lleno: esa es la causa del error al guardar.</strong>'
       : pct >= 60
         ? 'Va alto, pero todavía hay margen.'
-        : 'Hay espacio de sobra. Si igual aparece el error, el problema es otro y hay que seguir buscando.') +
+        : !puedeEscribir
+          ? 'El espacio no es el problema aquí: este navegador no deja guardar nada (ver arriba).'
+          : 'Hay espacio de sobra. Si igual aparece el error, el problema es otro y hay que seguir buscando.') +
     '</div>' +
     '<div class="note" style="margin-top:8px">' + items.length + ' claves guardadas.</div></div>'
   ));
