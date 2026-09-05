@@ -708,8 +708,13 @@ function ApptSheet({ T, appt:a, patients, appts, onClose, updateAppt, cancelAppt
             </div>
             <div>
               <span style={{ fontFamily:T.sans, fontSize:12, color:T.textMute, display:"block", marginBottom:6 }}>Procedimiento</span>
+              {/* "Evaluación general" no está en el catálogo de servicios: al agendar se ofrece como
+                  opción fija, pero aquí la lista salía solo del catálogo, así que una cita ya
+                  creada no se podía cambiar a evaluación. Se ofrecen las mismas opciones que al
+                  agendar, con el procedimiento actual primero (aunque sea uno que ya no está en el
+                  catálogo, para no cambiarlo solo por abrir el editor) y sin repetidos. */}
               {procOpts.length
-                ? <select value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} style={inp}>{[ef.proc, ...procOpts.filter(p=>p!==ef.proc)].filter(Boolean).map(p=><option key={p} value={p}>{p}</option>)}</select>
+                ? <select value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} style={inp}>{[ef.proc, "Evaluación general"].concat(procOpts).filter((p,i,arr)=>p && arr.indexOf(p)===i).map(p=><option key={p} value={p}>{p}</option>)}</select>
                 : <input value={ef.proc} onChange={e=>setEf(f=>({...f,proc:e.target.value}))} placeholder="Procedimiento" style={inp} />}
             </div>
             {efChoca && <div style={{ fontFamily:T.sans, fontSize:11.5, color:T.red }}>Ese horario se cruza con otra cita del mismo día.</div>}

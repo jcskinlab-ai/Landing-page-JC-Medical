@@ -91,6 +91,37 @@
     } catch (e) { return false; }
   }
 
+  // Escritura de lo que BAJA de la nube. No puede ir por DB.set —eso volvería a subirlo y haría
+  // un bucle—, así que escribe directo… y por eso se quedaba fuera del manejo de cuota: en un
+  // equipo con el almacenamiento lleno las citas llegaban de Firestore y no se podían guardar,
+  // fallando en silencio. El síntoma era el peor posible: agendar en el computador funcionaba y
+  // en el teléfono no aparecía nada, sin un solo aviso. Aquí se libera y se reintenta igual que
+  // en DB.set; si aun así no cabe, se avisa una vez en vez de perderlo callando.
+  function setLocalSeguro(fullKey, texto) {
+    try { localStorage.setItem(fullKey, texto); return true; }
+    catch (e) {
+      try {
+        if (typeof window.jcmLiberarEspacio === 'function' &&
+            window.jcmLiberarEspacio(Math.max(texto.length * 2 * 3, 512 * 1024)) > 0) {
+          localStorage.setItem(fullKey, texto);
+          return true;
+        }
+      } catch (e2) {}
+      if (!setLocalSeguro._avisado) {
+        setLocalSeguro._avisado = true;
+        try { console.error('[JCM] Sin espacio para guardar lo que baja de la nube:', fullKey, e); } catch (_) {}
+        try {
+          var msg = 'Este dispositivo no tiene espacio libre y no pudo recibir los últimos cambios. ' +
+                    'Lo que agendes aquí sí se guarda, pero puede que no veas lo agendado en otro equipo. ' +
+                    'Abre /diag en este navegador para ver qué ocupa el espacio.';
+          if (window.jcmToast) window.jcmToast(msg, 'error');
+          else if (window.jcmError) window.jcmError(msg);
+        } catch (_) {}
+      }
+      return false;
+    }
+  }
+
   // ── Registro de claves SIN SINCRONIZAR (persistente en localStorage) ──────────
   // Si un push a la nube falla (sin conexión, App Check, doc grande), la clave queda
   // marcada como "dirty". Mientras esté dirty, la sincronización remota (pullAll /
@@ -245,8 +276,12 @@
             try {
               if (pendingPush[k] === snapshot && fusion && fusion.length !== v.length) {
                 applyingRemote = true;
-                localStorage.setItem(nsKey(k), JSON.stringify(fusion));
+                // Sin espacio aquí el daño es peor que no ver un cambio: este equipo se quedaría
+                // con la lista incompleta y la próxima subida la propagaría, borrando de la nube
+                // las citas del otro equipo. Si no cabe, se corta y se deja el aviso.
+                var okFusion = setLocalSeguro(nsKey(k), JSON.stringify(fusion));
                 applyingRemote = false;
+                if (!okFusion) return;
                 emit('jcsaas:data', {});
                 if (k === 'appointments') emit('jcm:appts', {});
               }
@@ -292,7 +327,7 @@
         try {
           var data = doc.data();
           var val = data && data.v != null ? JSON.parse(data.v) : null;
-          localStorage.setItem(nsKey(doc.id), JSON.stringify(val));
+          if (!setLocalSeguro(nsKey(doc.id), JSON.stringify(val))) return; // sin espacio: no marcar como sincronizado
           baseSave(doc.id, val); // referencia para fusionar: esto es lo que equipo y nube comparten
         } catch (e) { noop(e); }
       }
@@ -346,7 +381,10 @@
             var next = JSON.stringify(val);
             baseSave(ch.doc.id, val); // referencia para fusionar (aunque el valor no haya cambiado)
             if (cur !== next) {
-              localStorage.setItem(nsKey(ch.doc.id), next);
+              // Este es el camino de tiempo real: por aquí entra la cita agendada en otro equipo.
+              // Si no cabe, no se anuncia el cambio: la vista seguiría mostrando lo viejo y decir
+              // que cambió solo provocaría un refresco que no refleja nada.
+              if (!setLocalSeguro(nsKey(ch.doc.id), next)) return;
               changed = true;
               if (ch.doc.id === 'appointments') apptChanged = true;
             }
