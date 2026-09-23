@@ -61,8 +61,13 @@
 var _mem = {};
 var _memActiva = false;
 function jcmStoreGet(k) {
-  try { var v = localStorage.getItem(k); if (v !== null) return v; } catch (e) {}
-  return Object.prototype.hasOwnProperty.call(_mem, k) ? _mem[k] : null;
+  // La memoria manda si esta clave cayó ahí: es la copia MÁS NUEVA. Mirar el disco primero era el
+  // bug — cuando una clave ya existente (como "appointments", con meses de citas) no cabía y su
+  // actualización caía a memoria, la siguiente lectura devolvía la versión VIEJA del disco, y
+  // cualquier código que releyera esa clave (navegar, refrescar la lista) veía la cita recién
+  // creada DESAPARECER, aunque siguiera a salvo en memoria y camino a la nube.
+  if (Object.prototype.hasOwnProperty.call(_mem, k)) return _mem[k];
+  try { return localStorage.getItem(k); } catch (e) { return null; }
 }
 function jcmStoreSet(k, texto) {
   try {
