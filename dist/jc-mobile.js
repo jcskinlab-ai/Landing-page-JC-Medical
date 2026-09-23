@@ -1456,6 +1456,7 @@ function sesionesDe(p) {
 function SyncBannerM({ T, online }) {
   const [pend, setPend] = useState(0);
   const [listo, setListo] = useState(false);
+  const [enMemoria, setEnMemoria] = useState(false);
   const previo = useRef(0);
   useEffect(() => {
     let vivo = true;
@@ -1472,6 +1473,10 @@ function SyncBannerM({ T, online }) {
         setTimeout(() => vivo && setListo(false), 4e3);
       }
       previo.current = n;
+      try {
+        setEnMemoria(!!(window.jcmEnMemoria && window.jcmEnMemoria()));
+      } catch (e) {
+      }
     }
     mirar();
     const t = setInterval(mirar, 3e3);
@@ -1480,6 +1485,21 @@ function SyncBannerM({ T, online }) {
       clearInterval(t);
     };
   }, []);
+  if (enMemoria) {
+    return /* @__PURE__ */ React.createElement("div", { style: {
+      flexShrink: 0,
+      width: "calc(100% - 28px)",
+      margin: "0 14px 6px",
+      padding: "8px 12px",
+      borderRadius: 12,
+      background: "rgba(192,40,90,.16)",
+      border: "1px solid rgba(192,40,90,.4)",
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      textAlign: "left"
+    } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "#E88BA8", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 11.5, color: "#F5C6D6", lineHeight: 1.35 } }, "Este equipo se qued\xF3 sin espacio: sigue guardando en la nube, pero no cierres esta pesta\xF1a. Abre /diag para revisar."));
+  }
   if (online && !pend && !listo) return null;
   const tono = !online || pend ? { bg: "rgba(184,134,11,.22)", bd: "rgba(184,134,11,.4)", ic: "#E8B84D", tx: "#F0D9A8" } : { bg: "rgba(31,138,91,.20)", bd: "rgba(31,138,91,.42)", ic: "#5FCE9B", tx: "#BFEBD5" };
   const texto = !online ? pend ? "Sin conexi\xF3n \xB7 " + pend + (pend === 1 ? " cambio guardado aqu\xED, se subir\xE1 solo" : " cambios guardados aqu\xED, se subir\xE1n solos") : "Sin conexi\xF3n \xB7 trabajando con los datos de este equipo" : pend ? "Subiendo " + pend + (pend === 1 ? " cambio\u2026" : " cambios\u2026") : "Todo sincronizado";

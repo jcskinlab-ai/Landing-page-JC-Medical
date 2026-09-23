@@ -322,6 +322,30 @@ if (typeof window !== 'undefined') {
   window.jcmHydrateConsents = jcmHydrateConsents;
 }
 
+// ── PODA DE horarios_dates ──────────────────────────────────────────────────────────────────
+// horarios_dates[fecha] es la excepción de horario de UN día concreto (ver jc-mobile.jsx). Nada
+// la borraba nunca: una vez que un día pasaba, su entrada se quedaba ahí para siempre. No son
+// datos de pacientes (son configuración de agenda), así que podar lo pasado es seguro. Se llama
+// una sola vez por sesión, después de que la clínica ya sincronizó, para no pelear con pullAll.
+var _horariosPodado = false;
+function jcmPodarHorariosDates() {
+  if (_horariosPodado) return;
+  _horariosPodado = true;
+  try {
+    var map = window.DB && window.DB.get('horarios_dates');
+    if (!map || typeof map !== 'object') return;
+    var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    var hoyISO = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    var limpio = {}, cambio = false;
+    Object.keys(map).forEach(function (fecha) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fecha) && fecha < hoyISO) { cambio = true; return; } // fecha pasada: se descarta
+      limpio[fecha] = map[fecha];
+    });
+    if (cambio) window.DB.set('horarios_dates', limpio);
+  } catch (e) {}
+}
+if (typeof window !== 'undefined') window.jcmPodarHorariosDates = jcmPodarHorariosDates;
+
 // ── VERTICAL DE LA CLÍNICA (estética / dental) ─────────────────────────────
 // Medique no es dos softwares: es el mismo panel multi-tenant con una vertical que se activa POR
 // CLÍNICA. Todo lo dental cuelga de estos dos helpers, así que una clínica estética jamás ve nada

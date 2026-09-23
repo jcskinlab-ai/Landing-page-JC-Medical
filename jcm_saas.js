@@ -349,6 +349,10 @@
       });
       resto.forEach(aplicar);
       applyingRemote = false;
+      // Poda horarios_dates (fechas pasadas se acumulaban para siempre, ver jcm_shared.js). Aquí
+      // es el momento seguro: la clínica ya terminó de sincronizar, así que el mapa que se lee es
+      // el real, no uno a medio bajar.
+      try { if (window.jcmPodarHorariosDates) window.jcmPodarHorariosDates(); } catch (e2) {}
       emit('jcsaas:data', {});
     }).catch(function (e) { applyingRemote = false; noop(e); });
   }

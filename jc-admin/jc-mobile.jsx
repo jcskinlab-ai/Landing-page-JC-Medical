@@ -1965,6 +1965,12 @@ function sesionesDe(p) {
 function SyncBannerM({ T, online }) {
   const [pend, setPend] = useState(0);
   const [listo, setListo] = useState(false); // confirmación breve al terminar de subir
+  // Espacio del navegador agotado (o bloqueado): jcmStoreSet cae a memoria para no perder datos
+  // (ver jcm_shared.js), pero eso NO se ve en ningún otro lado del panel — sin este aviso, la
+  // única señal era el toast único que ya se disparó y desapareció al entrar. Este SÍ se queda
+  // fijo mientras dure la sesión, porque el riesgo (perder la caché al cerrar la pestaña) también
+  // dura toda la sesión.
+  const [enMemoria, setEnMemoria] = useState(false);
   const previo = useRef(0);
   useEffect(() => {
     let vivo = true;
@@ -1975,11 +1981,22 @@ function SyncBannerM({ T, online }) {
       setPend(n);
       if (previo.current > 0 && n === 0) { setListo(true); setTimeout(() => vivo && setListo(false), 4000); }
       previo.current = n;
+      try { setEnMemoria(!!(window.jcmEnMemoria && window.jcmEnMemoria())); } catch (e) {}
     }
     mirar();
     const t = setInterval(mirar, 3000);
     return () => { vivo = false; clearInterval(t); };
   }, []);
+
+  if (enMemoria) {
+    return (
+      <div style={{ flexShrink:0, width:"calc(100% - 28px)", margin:"0 14px 6px", padding:"8px 12px", borderRadius:12,
+        background:"rgba(192,40,90,.16)", border:"1px solid rgba(192,40,90,.4)", display:"flex", alignItems:"center", gap:8, textAlign:"left" }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E88BA8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <span style={{ fontFamily:T.sans, fontSize:11.5, color:"#F5C6D6", lineHeight:1.35 }}>Este equipo se quedó sin espacio: sigue guardando en la nube, pero no cierres esta pestaña. Abre /diag para revisar.</span>
+      </div>
+    );
+  }
 
   if (online && !pend && !listo) return null; // todo al día: no molestar
 
