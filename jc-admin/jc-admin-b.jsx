@@ -333,6 +333,12 @@ function patConsents(p) {
       manifest.forEach(function(ts) {
         try { var c = window.DB.get("pcons_" + p.id + "_" + ts); if (c) items.push(c); } catch(e2) {}
       });
+      // OJO: esto se usa tanto para MOSTRAR como para RE-GUARDAR (commitConsents reescribe toda
+      // la lista al firmar un consentimiento nuevo). Por eso NO se hidrata acá — si se hidratara
+      // aquí, cada firma nueva reinflaría con la firma completa TODOS los consentimientos
+      // anteriores del mismo paciente al volver a guardarlos, deshaciendo la caché. La
+      // hidratación vive solo en el punto donde se lee doc.medico.sig para mostrarla (imprimir /
+      // ver), nunca aquí.
       if (items.length > 0) return items.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
     }
     // Formato anterior: array completo en pcons_<id> (se migrará al abrir la ficha)
@@ -1800,7 +1806,16 @@ function ConsentView({ T, patients, updatePatient }) {
 function _snapMedicoResp() {
   try {
     var ms = window.DB.get("medic_sigs");
-    if (ms && ms.length && ms[0]) { var m = ms[0]; return { name: m.name || "", rut: m.rut || "", registro: m.registro || "", sig: m.sig || "" }; }
+    if (ms && ms.length && ms[0]) {
+      var m = ms[0];
+      var out = { name: m.name || "", rut: m.rut || "", registro: m.registro || "" };
+      // Firma cacheada por contenido (jcmSigCacheStore, jcm_shared.js): mismo hash = mismos bytes
+      // para siempre, así se evita copiar la firma completa en cada consentimiento del mismo
+      // médico sin renunciar al "congelado" legal de este comentario (C-05).
+      var ref = m.sig && window.jcmSigCacheStore ? window.jcmSigCacheStore(m.sig) : null;
+      if (ref) out.sigRef = ref; else out.sig = m.sig || ""; // sin caché disponible: igual que siempre
+      return out;
+    }
   } catch (_) {}
   return null;
 }
@@ -2043,6 +2058,10 @@ function ConsentTab({ T, patient, updatePatient }) {
     // respaldo para consentimientos antiguos firmados antes de congelarlo.
     var medicoSig = (doc && doc.medico) || null;
     if (!medicoSig) { try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {} }
+    // Solo para ESTA vista: si el médico quedó con sigRef (caché por contenido), resuelve la
+    // imagen. No toca `doc` de forma que afecte un guardado posterior — esta función solo
+    // imprime/abre, nunca escribe consentimientos.
+    else if (medicoSig.sigRef && !medicoSig.sig && window.jcmSigCacheGet) { medicoSig = Object.assign({}, medicoSig, { sig: window.jcmSigCacheGet(medicoSig.sigRef) }); }
     Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
       const sp = crops[0], spr = crops[1];
       const numCols = medicoSig ? 3 : 2;
@@ -2206,6 +2225,8 @@ function ConsentTab({ T, patient, updatePatient }) {
         try { window.jcmToast && window.jcmToast("Consentimiento guardado. Se abrió en una pestaña para tu respaldo.", "ok"); } catch (e) {}
         // Abre el consentimiento firmado en una PESTAÑA NUEVA (sin lanzar la impresión).
         // Se abre dentro del mismo gesto del usuario para que iOS no bloquee la pestaña.
+        // (imprimirConsentDoc hidrata medico.sigRef internamente, así que "nuevo" se muestra bien
+        // aunque su médico haya quedado con solo la referencia a la firma cacheada.)
         try { imprimirConsentDoc(nuevo, true); } catch (e) {}
       }} />}
     </div>

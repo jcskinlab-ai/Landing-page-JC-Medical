@@ -1471,7 +1471,11 @@ function _snapMedicoResp() {
     var ms = window.DB.get("medic_sigs");
     if (ms && ms.length && ms[0]) {
       var m = ms[0];
-      return { name: m.name || "", rut: m.rut || "", registro: m.registro || "", sig: m.sig || "" };
+      var out = { name: m.name || "", rut: m.rut || "", registro: m.registro || "" };
+      var ref = m.sig && window.jcmSigCacheStore ? window.jcmSigCacheStore(m.sig) : null;
+      if (ref) out.sigRef = ref;
+      else out.sig = m.sig || "";
+      return out;
     }
   } catch (_) {
   }
@@ -1729,6 +1733,8 @@ function ConsentTab({ T, patient, updatePatient }) {
         if (msList && msList.length) medicoSig = msList[0];
       } catch (_) {
       }
+    } else if (medicoSig.sigRef && !medicoSig.sig && window.jcmSigCacheGet) {
+      medicoSig = Object.assign({}, medicoSig, { sig: window.jcmSigCacheGet(medicoSig.sigRef) });
     }
     Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function(crops) {
       const sp = crops[0], spr = crops[1];

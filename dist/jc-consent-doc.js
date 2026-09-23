@@ -142,6 +142,8 @@ function jcmConsentInnerHTML(doc, patient) {
       if (msList && msList.length) medicoSig = msList[0];
     } catch (_) {
     }
+  } else if (medicoSig.sigRef && !medicoSig.sig && window.jcmSigCacheGet) {
+    medicoSig = Object.assign({}, medicoSig, { sig: window.jcmSigCacheGet(medicoSig.sigRef) });
   }
   return Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function(crops) {
     const sp = crops[0], spr = crops[1];

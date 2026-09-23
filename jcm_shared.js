@@ -274,6 +274,54 @@ const DB = {
   }
 };
 
+// ── CACHÉ DE FIRMAS POR CONTENIDO (dedup sin romper el "congelado" legal) ──────────────────
+// Cada consentimiento firmado guarda al médico responsable CONGELADO (ver C-05 en jc-admin-b.jsx):
+// a propósito, para que editar la firma del médico en Configuración no altere retroactivamente la
+// autoría de documentos ya firmados. Eso es correcto y no se toca. El problema es OTRO: esa firma
+// (los mismos bytes, siempre) se copiaba entera en CADA consentimiento nuevo del mismo médico —
+// en una clínica con 70 consentimientos, eran 70 copias del mismo archivo.
+// La caché resuelve esto sin tocar la garantía legal: el id es un hash del CONTENIDO, así que un
+// id determinado SIEMPRE resuelve a los mismos bytes exactos, para siempre — el mismo efecto de
+// "congelado" que ya tenía guardar la firma inline, pero compartiendo el archivo en vez de
+// copiarlo. Se guarda vía window.DB (no localStorage directo) para que sincronice entre PC y
+// celular igual que cualquier otro dato, y se beneficie del mismo respaldo en memoria si el
+// disco está lleno.
+function jcmSigCacheId(dataUrl) {
+  var s = String(dataUrl || ''), h = 0;
+  for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+  return 'h' + (h >>> 0).toString(36) + '_' + s.length.toString(36);
+}
+function jcmSigCacheStore(dataUrl) {
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  try {
+    var id = jcmSigCacheId(dataUrl);
+    if (window.DB.get('sigcache_' + id) == null) window.DB.set('sigcache_' + id, dataUrl);
+    return id;
+  } catch (e) { return null; } // si algo falla, el llamador conserva la firma inline (comportamiento de siempre)
+}
+function jcmSigCacheGet(id) {
+  if (!id) return '';
+  try { return window.DB.get('sigcache_' + id) || ''; } catch (e) { return ''; }
+}
+// Punto único de lectura: hidrata "medico.sigRef" de vuelta a "medico.sig" para que TODO el
+// código que ya lee doc.medico.sig (impresión, vista del portal, vista móvil) siga funcionando
+// sin cambiar una línea. Si la caché no tuviera el dato (caso extremo), sig queda vacío — el
+// mismo comportamiento que ya existía para un consentimiento sin firma de médico.
+function jcmHydrateConsent(c) {
+  try { if (c && c.medico && c.medico.sigRef && !c.medico.sig) c.medico.sig = jcmSigCacheGet(c.medico.sigRef) || ''; } catch (e) {}
+  return c;
+}
+function jcmHydrateConsents(list) {
+  try { (list || []).forEach(jcmHydrateConsent); } catch (e) {}
+  return list;
+}
+if (typeof window !== 'undefined') {
+  window.jcmSigCacheStore = jcmSigCacheStore;
+  window.jcmSigCacheGet = jcmSigCacheGet;
+  window.jcmHydrateConsent = jcmHydrateConsent;
+  window.jcmHydrateConsents = jcmHydrateConsents;
+}
+
 // ── VERTICAL DE LA CLÍNICA (estética / dental) ─────────────────────────────
 // Medique no es dos softwares: es el mismo panel multi-tenant con una vertical que se activa POR
 // CLÍNICA. Todo lo dental cuelga de estos dos helpers, así que una clínica estética jamás ve nada

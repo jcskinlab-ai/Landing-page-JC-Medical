@@ -1571,7 +1571,11 @@ function snapMedicoM() {
     const ms = window.DB.get("medic_sigs");
     if (ms && ms.length && ms[0]) {
       const m = ms[0];
-      return { name: m.name || "", rut: m.rut || "", registro: m.registro || "", sig: m.sig || "" };
+      const out = { name: m.name || "", rut: m.rut || "", registro: m.registro || "" };
+      const ref = m.sig && window.jcmSigCacheStore ? window.jcmSigCacheStore(m.sig) : null;
+      if (ref) out.sigRef = ref;
+      else out.sig = m.sig || "";
+      return out;
     }
   } catch (e) {
   }

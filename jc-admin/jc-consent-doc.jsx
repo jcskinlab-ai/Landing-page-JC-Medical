@@ -148,6 +148,10 @@ function jcmConsentInnerHTML(doc, patient) {
   // respaldo para consentimientos antiguos firmados antes de congelarlo.
   var medicoSig = (doc && doc.medico) || null;
   if (!medicoSig) { try { var msList = window.DB.get("medic_sigs"); if (msList && msList.length) medicoSig = msList[0]; } catch (_) {} }
+  // Solo para ESTA vista: si el médico quedó con sigRef (caché por contenido, jcm_shared.js),
+  // resuelve la imagen. jcmConsentInnerHTML solo genera HTML para mostrar/imprimir, nunca
+  // escribe consentimientos, así que no hay riesgo de que esto se re-guarde inflado.
+  else if (medicoSig.sigRef && !medicoSig.sig && window.jcmSigCacheGet) { medicoSig = Object.assign({}, medicoSig, { sig: window.jcmSigCacheGet(medicoSig.sigRef) }); }
   return Promise.all([cropSignatureDataUrl(doc.sigPac), cropSignatureDataUrl(doc.sigPro)]).then(function (crops) {
     const sp = crops[0], spr = crops[1];
     const numCols = medicoSig ? 3 : 2;

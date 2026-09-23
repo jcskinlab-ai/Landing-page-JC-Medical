@@ -2022,6 +2022,9 @@ function patConsentsM(p) { // espejo de patConsents() en jc-admin-b.jsx
     if (Array.isArray(man) && man.length) {
       const items = [];
       man.forEach(ts => { try { const c = window.DB.get("pcons_" + p.id + "_" + ts); if (c) items.push(c); } catch (e) {} });
+      // NO hidratar acá: esta lista también se usa para RE-GUARDAR al firmar un consentimiento
+      // nuevo (ver guardar() en ConsentSignM), y si viniera hidratada, cada firma nueva volvería
+      // a inflar con la firma completa TODOS los consentimientos anteriores del paciente.
       if (items.length) return items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     }
     const v = window.DB && window.DB.get("pcons_" + p.id); // formato anterior (array completo)
@@ -2051,8 +2054,17 @@ function abrirConsentM(doc, patient) {
     try { window.jcmError ? window.jcmError("No se pudo abrir el consentimiento.") : alert("No se pudo abrir el consentimiento."); } catch (e) {}
   });
 }
-function snapMedicoM() { // espejo de _snapMedicoResp() en jc-admin-b.jsx
-  try { const ms = window.DB.get("medic_sigs"); if (ms && ms.length && ms[0]) { const m = ms[0]; return { name:m.name||"", rut:m.rut||"", registro:m.registro||"", sig:m.sig||"" }; } } catch (e) {}
+function snapMedicoM() { // espejo de _snapMedicoResp() en jc-admin-b.jsx, misma caché por contenido
+  try {
+    const ms = window.DB.get("medic_sigs");
+    if (ms && ms.length && ms[0]) {
+      const m = ms[0];
+      const out = { name: m.name || "", rut: m.rut || "", registro: m.registro || "" };
+      const ref = m.sig && window.jcmSigCacheStore ? window.jcmSigCacheStore(m.sig) : null;
+      if (ref) out.sigRef = ref; else out.sig = m.sig || "";
+      return out;
+    }
+  } catch (e) {}
   return null;
 }
 function consentCatalogM() {
