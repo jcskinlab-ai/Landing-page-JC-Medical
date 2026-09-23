@@ -83,7 +83,9 @@ function SignaturePad({ T, onChange, height, maxW }) {
     img.onload = () => {
       const r = c.getBoundingClientRect();
       c._ctx.clearRect(0, 0, c.width, c.height);
-      c._ctx.drawImage(img, 0, 0, r.width, r.height);
+      const escala = Math.min(r.width / img.width, r.height / img.height);
+      const w = img.width * escala, h = img.height * escala;
+      c._ctx.drawImage(img, (r.width - w) / 2, (r.height - h) / 2, w, h);
       setHasInk(true);
     };
     img.src = data;

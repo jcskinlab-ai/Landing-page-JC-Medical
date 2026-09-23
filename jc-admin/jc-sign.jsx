@@ -52,11 +52,22 @@ function SignaturePad({ T, onChange, height, maxW }) {
   function clear() { const c = canRef.current; c._ctx.clearRect(0, 0, c.width, c.height); setHasInk(false); if (onChange) onChange(null); }
 
   // Recibe la firma hecha en pantalla completa: la dibuja en el pad pequeño y la entrega.
+  // El recuadro grande es alto y casi cuadrado; el chico es ancho y bajo. Antes se estiraba la
+  // imagen para llenar exactamente r.width×r.height, deformando el trazo (aplastado
+  // verticalmente, estirado horizontalmente). Ahora se encaja manteniendo la proporción, como
+  // "object-fit: contain", centrada — el trazo se ve igual de proporcionado en ambos recuadros.
   function applyBig(data) {
     setBig(false);
     if (!data) return;
     const c = canRef.current; const img = new Image();
-    img.onload = () => { const r = c.getBoundingClientRect(); c._ctx.clearRect(0, 0, c.width, c.height); c._ctx.drawImage(img, 0, 0, r.width, r.height); setHasInk(true); };
+    img.onload = () => {
+      const r = c.getBoundingClientRect();
+      c._ctx.clearRect(0, 0, c.width, c.height);
+      const escala = Math.min(r.width / img.width, r.height / img.height);
+      const w = img.width * escala, h = img.height * escala;
+      c._ctx.drawImage(img, (r.width - w) / 2, (r.height - h) / 2, w, h);
+      setHasInk(true);
+    };
     img.src = data;
     if (onChange) onChange(data);
   }
