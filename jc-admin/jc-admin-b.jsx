@@ -93,9 +93,15 @@ function jcmSignFoot(b, proName, docLabel, patientName, fechaLarga, medSig) {
       + (medMeta ? "<div class='sign-meta'>" + e(medMeta) + "</div>" : "")
       + "</div>";
   }
+  // Pedido: en la ficha clínica (varias secciones a la vez) la fecha de HOY —el día en que se
+  // imprime, sin relación con ningún dato del paciente— no debe aparecer. Las fechas que sí
+  // importan (cada sesión en "Procedimientos realizados", la del consentimiento) viven dentro del
+  // cuerpo del documento y no pasan por aquí. Los demás documentos (receta, presupuesto, orden de
+  // laboratorio) SÍ tienen sentido con su fecha de emisión y siguen mostrándola sin cambios.
+  const emitida = fechaLarga ? " · Emitida <span class='fdate'>" + e(fechaLarga) + "</span>" : "";
   return "<div class='signature'><div class='sign-block'><div class='sign-line'></div><div class='sign-name'>" + e(proName || b.clinName) + "</div>"
     + "<div class='sign-role'>" + e(b.proRole) + "</div></div>" + medBlock + "<div class='sign-stamp'>" + stamp + "</div></div>"
-    + "<footer class='docfooter'><span class='f-l'>" + e(docLabel) + " · " + e(patientName) + " · Emitida <span class='fdate'>" + e(fechaLarga) + "</span></span><span class='f-r'>" + e(b.handle || b.clinName) + "</span></footer>";
+    + "<footer class='docfooter'><span class='f-l'>" + e(docLabel) + " · " + e(patientName) + emitida + "</span><span class='f-r'>" + e(b.handle || b.clinName) + "</span></footer>";
 }
 // Envuelve el cuerpo en una hoja A4 completa y lo manda a imprimir.
 // Devuelve el HTML COMPLETO del documento (para imprimir o guardar a archivo).
@@ -889,7 +895,6 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
     const hist = patient.history || [];
     const e = jcmDocEsc;
     const b = jcmDocBrand((hist.find(h => h.proName) || {}).proName);
-    const hoy = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const drow = (k, v, tag) => "<div class='drow'><span class='dk'>" + k + "</span><span class='dv" + (tag ? " tag" : "") + "'>" + (v ? e(v) : "—") + "</span></div>";
     const textBlock = (label, v) => "<div class='dfull' style='flex-direction:column;align-items:stretch;gap:5px'><span class='dk'>" + label + "</span><div class='textbox' style='min-height:0;margin-top:0'>" + (v ? e(v) : "—") + "</div></div>";
     const sesion = h => "<div class='dfull' style='flex-direction:column;align-items:stretch;gap:5px'>"
@@ -923,7 +928,10 @@ function FichaMedica({ T, patient, updatePatient, removePatient, onBack, onAgend
       + "<div class='folio'><span class='k'>Expediente</span><span class='v'>" + (e((patient.id || "").replace(/[^a-z0-9]/gi, "").slice(-8).toUpperCase()) || "—") + "</span></div></div>"
       + jcmPband(patient, [["RUT", patient.rut], ["Edad", patient.age ? patient.age + " años" : ""], ["Teléfono", patient.phone]], patient.estado || "Activo")
       + "<div class='body'>" + body + "</div>"
-      + jcmSignFoot(b, b.proName, "Ficha clínica", patient.name, hoy);
+      // Sin fecha de hoy en el pie: el pedido es que la ficha general no lleve la fecha de la
+      // impresión — solo las fechas propias de cada sesión (arriba, en el cuerpo) y del
+      // consentimiento anexado (si se elige uno).
+      + jcmSignFoot(b, b.proName, "Ficha clínica", patient.name, "");
     // Consentimiento elegido: se anexa COMPLETO (texto legal + firmas) en página aparte tras la ficha.
     if (consentDoc) {
       const cInner = await jcmConsentInnerHTML(consentDoc, patient);
