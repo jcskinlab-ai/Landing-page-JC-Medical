@@ -2227,6 +2227,24 @@ function AntecedentesRapidosM({ T, patient, updatePatient }) {
   }
   const tokenOn = (key, tok) => (c[key] || "").split(",").map(s => s.trim()).includes(tok);
   const esNiega = (key) => (c[key] || "").trim().toLowerCase() === "no refiere";
+  // Fecha por procedimiento estético previo: clave NUEVA y aparte (esteticosFechas), no toca
+  // "esteticos" (el string de chips que ya lee el escritorio) — así un procedimiento marcado desde
+  // el celular se sigue viendo igual en el PC, y la fecha es un dato adicional que hoy solo
+  // consume esta ficha rápida, sin romper nada si más adelante el escritorio también la lee.
+  // OJO: una sola escritura, no dos setC() seguidos. patient.clinica no cambia hasta que React
+  // vuelve a renderizar con el paciente actualizado — dos setC() consecutivos leerían el mismo
+  // "clinica" viejo y el segundo pisaría lo que acababa de escribir el primero (se probó y pasaba
+  // exactamente eso: la fecha se limpiaba pero el chip volvía a quedar marcado).
+  function toggleEstetico(tok) {
+    const cur = (c.esteticos || "").split(",").map(s => s.trim()).filter(Boolean);
+    const i = cur.indexOf(tok);
+    const activo = i >= 0;
+    if (activo) cur.splice(i, 1); else cur.push(tok);
+    const fechas = { ...(c.esteticosFechas || {}) };
+    if (activo) delete fechas[tok]; // se está DESmarcando: limpia su fecha para no dejar basura suelta
+    updatePatient(patient.id, { clinica: { ...(patient.clinica || {}), esteticos: cur.join(", "), esteticosFechas: fechas } });
+  }
+  function setEstFecha(tok, fecha) { setC("esteticosFechas", { ...(c.esteticosFechas || {}), [tok]: fecha }); }
 
   const chipStyle = on => ({ fontFamily:T.sans, fontSize:12, padding:"8px 13px", borderRadius:999, cursor:"pointer", border:"1px solid "+(on?T.accent:T.line), background:on?T.accent:"transparent", color:on?(T.onAccent||"#fff"):T.textMute, whiteSpace:"nowrap" });
   const chipRow = (key, opciones, multi) => (
@@ -2265,14 +2283,25 @@ function AntecedentesRapidosM({ T, patient, updatePatient }) {
           {noRefiereField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
           <div>
             <div style={seccionLbl}>Procedimientos estéticos previos</div>
-            {chipRow("esteticos", ANTEC_ESTETICOS_M, true)}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+              {ANTEC_ESTETICOS_M.map(o => <button key={o} type="button" onClick={()=>toggleEstetico(o)} style={chipStyle(tokenOn("esteticos",o))}>{o}</button>)}
+            </div>
+            {/* Fecha por procedimiento: solo aparece para los ya marcados, para no pedir una fecha
+                que todavía no corresponde a nada. */}
+            {(c.esteticos||"").split(",").map(s=>s.trim()).filter(Boolean).map(tok => (
+              <div key={tok} style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
+                <span style={{ fontFamily:T.sans, fontSize:12, color:T.text, flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{tok}</span>
+                <input type="date" value={(c.esteticosFechas||{})[tok]||""} onChange={e=>setEstFecha(tok, e.target.value)} style={{ fontFamily:T.sans, fontSize:12.5, padding:"7px 9px", borderRadius:8, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" }} />
+              </div>
+            ))}
           </div>
           <div>
             <div style={seccionLbl}>Tabaco</div>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
               <button type="button" onClick={()=>setC("tabaco","0")} style={chipStyle(!fuma)}>No fuma</button>
               <button type="button" onClick={()=>setC("tabaco", fuma?c.tabaco:"1")} style={chipStyle(!!fuma)}>Fuma</button>
               {!!fuma && <>
+                <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>¿Cuántos?</span>
                 <input value={c.tabaco||""} onChange={e=>setC("tabaco", e.target.value.replace(/\D/g,"").slice(0,3))} inputMode="numeric" placeholder="0" style={{ width:52, textAlign:"center", fontFamily:T.sans, fontSize:13, padding:"9px 6px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" }} />
                 <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>cig/día</span>
               </>}
