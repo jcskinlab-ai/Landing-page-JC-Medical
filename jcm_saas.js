@@ -64,6 +64,15 @@
   var pushTimers = {};
   var applyingRemote = false;
   var unsubKv = null;
+  // Una subida (transacción o set) en curso por clave. Sin esto, dos ediciones de "appointments"
+  // separadas por más de 600ms pero cerca en el tiempo podían disparar DOS transacciones de fusión
+  // en paralelo: si la primera queda pendiente de red y Firestore la reintenta por conflicto
+  // (contention) cuando la segunda ya subió, el reintento fusiona su valor VIEJO (v, capturado al
+  // llamar pushKey) contra un __base_<key> que la segunda ya adelantó — y una cita agregada por la
+  // segunda, al no estar en ese "v" viejo pero sí en la base ya adelantada, se interpreta como
+  // "la borré yo" y desaparece de la nube. Esto es lo que causaba "agendo una cita nueva y una
+  // anterior desaparece". Con esta guarda solo hay una transacción de una clave viajando a la vez.
+  var inFlight = {};
 
   // ── window.DB: namespace por clínica + sincronización ─────────────────
   // Guardamos la implementación original de _k para poder anteponer el clinicId.
@@ -243,78 +252,96 @@
     pendingPush[k] = JSON.stringify(v == null ? null : v); // marca: hay cambio local sin confirmar
     setDirty(k, true); // persiste el "sin sincronizar" para que sobreviva a recargas
     clearTimeout(pushTimers[k]);
-    pushTimers[k] = setTimeout(function () {
-      try {
-        var snapshot = pendingPush[k]; // valor que estamos intentando subir
-        var ref = db.collection('tenants').doc(state.clinicId).collection('kv').doc(k);
-        var payloadStr = v == null ? null : JSON.stringify(v);
-        // Guard 1 MiB: medimos el tamaño real y avisamos antes del límite de la nube.
-        if (payloadStr != null) {
-          try {
-            var bytes = (typeof TextEncoder !== 'undefined') ? new TextEncoder().encode(payloadStr).length : payloadStr.length;
-            if (bytes > 950000) warnBigKey(k, bytes, true);        // ~1 MiB: el guardado en nube va a fallar
-            else if (bytes > 780000) warnBigKey(k, bytes, false);  // ~75%: avisar con tiempo
-          } catch (e) {}
-        }
-        var op;
-        if (payloadStr == null) {
-          op = ref.delete();
-        } else if (MERGE_BY_ID[k] && Array.isArray(v)) {
-          // Transacción: lee lo que hay en la nube AHORA y sube la fusión, no un pisotón.
-          op = db.runTransaction(function (tx) {
-            return tx.get(ref).then(function (doc) {
-              var remoto = null;
-              try { var d = doc.exists ? doc.data() : null; remoto = (d && d.v != null) ? JSON.parse(d.v) : null; } catch (e2) { remoto = null; }
-              var fusion = Array.isArray(remoto) ? mergeById(v, remoto, baseIds(k)) : v;
-              tx.set(ref, { v: JSON.stringify(fusion), _ts: Date.now() });
-              return fusion;
-            });
-          }).then(function (fusion) {
-            // Si la fusión trajo registros del otro equipo, este equipo se queda con el resultado
-            // (si no, la próxima subida volvería a partir de una lista incompleta). Solo si el
-            // usuario no escribió otra cosa entretanto — si escribió, manda lo suyo.
-            try {
-              if (pendingPush[k] === snapshot && fusion && fusion.length !== v.length) {
-                applyingRemote = true;
-                // Sin espacio aquí el daño es peor que no ver un cambio: este equipo se quedaría
-                // con la lista incompleta y la próxima subida la propagaría, borrando de la nube
-                // las citas del otro equipo. Si no cabe, se corta y se deja el aviso.
-                var okFusion = setLocalSeguro(nsKey(k), JSON.stringify(fusion));
-                applyingRemote = false;
-                if (!okFusion) return;
-                emit('jcsaas:data', {});
-                if (k === 'appointments') emit('jcm:appts', {});
-              }
-              baseSave(k, fusion);
-            } catch (e3) { applyingRemote = false; noop(e3); }
+    pushTimers[k] = setTimeout(function () { intentarPush(k, v, attempt); }, 600);
+  }
+
+  // Ejecuta la subida real de una clave. Si ya hay una subida de ESTA MISMA clave en curso
+  // (transacción/set esperando respuesta de red), no lanza una segunda en paralelo: se reintenta
+  // más tarde. Ver el comentario junto a `inFlight` arriba para el porqué (evita el reintento por
+  // conflicto de Firestore fusionando un valor viejo contra una base ya adelantada).
+  function intentarPush(k, v, attempt) {
+    if (inFlight[k]) { pushTimers[k] = setTimeout(function () { intentarPush(k, v, attempt); }, 300); return; }
+    inFlight[k] = true;
+    try {
+      var snapshot = pendingPush[k]; // valor que estamos intentando subir
+      var ref = db.collection('tenants').doc(state.clinicId).collection('kv').doc(k);
+      var payloadStr = v == null ? null : JSON.stringify(v);
+      // Guard 1 MiB: medimos el tamaño real y avisamos antes del límite de la nube.
+      if (payloadStr != null) {
+        try {
+          var bytes = (typeof TextEncoder !== 'undefined') ? new TextEncoder().encode(payloadStr).length : payloadStr.length;
+          if (bytes > 950000) warnBigKey(k, bytes, true);        // ~1 MiB: el guardado en nube va a fallar
+          else if (bytes > 780000) warnBigKey(k, bytes, false);  // ~75%: avisar con tiempo
+        } catch (e) {}
+      }
+      var op;
+      if (payloadStr == null) {
+        op = ref.delete();
+      } else if (MERGE_BY_ID[k] && Array.isArray(v)) {
+        // Transacción: lee lo que hay en la nube AHORA y sube la fusión, no un pisotón.
+        op = db.runTransaction(function (tx) {
+          return tx.get(ref).then(function (doc) {
+            var remoto = null;
+            try { var d = doc.exists ? doc.data() : null; remoto = (d && d.v != null) ? JSON.parse(d.v) : null; } catch (e2) { remoto = null; }
+            var fusion = Array.isArray(remoto) ? mergeById(v, remoto, baseIds(k)) : v;
+            tx.set(ref, { v: JSON.stringify(fusion), _ts: Date.now() });
+            return fusion;
           });
-        } else {
-          op = ref.set({ v: payloadStr, _ts: Date.now() });
-        }
-        op.then(function () {
-          // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
-          if (pendingPush[k] === snapshot) { delete pendingPush[k]; setDirty(k, false); }
-          lastSyncOk = Date.now(); delete syncErrors[k];
-        }).catch(function (e) {
-          noop(e);
-          var code = (e && e.code) || 'unknown';
-          syncErrors[k] = { code: code, at: Date.now() };
-          // La data sigue a salvo en localStorage y protegida de sobrescritura. Reintentamos.
-          if (attempt < 5) {
-            setTimeout(function () { if (pendingPush[k] === snapshot) pushKey(k, v, attempt + 1); }, Math.min(2000 * (attempt + 1), 15000));
-          }
-          // Aviso suave y tranquilizador (sin spam: 1 por tipo de error). NO se pierde nada.
-          if (!pushKey._warnedCodes) pushKey._warnedCodes = {};
-          if (!pushKey._warnedCodes[code]) {
-            pushKey._warnedCodes[code] = true;
-            var msg = 'Los datos están guardados en tu dispositivo local.';
-            if (window.jcmToast) window.jcmToast(msg, 'info');
-            else if (window.jcmError) window.jcmError(msg);
-            setTimeout(function () { if (pushKey._warnedCodes) delete pushKey._warnedCodes[code]; }, 30000);
-          }
+        }).then(function (fusion) {
+          // Si la fusión trajo registros del otro equipo, este equipo se queda con el resultado
+          // (si no, la próxima subida volvería a partir de una lista incompleta). Solo si el
+          // usuario no escribió otra cosa entretanto — si escribió, manda lo suyo.
+          try {
+            if (pendingPush[k] === snapshot && fusion && fusion.length !== v.length) {
+              applyingRemote = true;
+              // Sin espacio aquí el daño es peor que no ver un cambio: este equipo se quedaría
+              // con la lista incompleta y la próxima subida la propagaría, borrando de la nube
+              // las citas del otro equipo. Si no cabe, se corta y se deja el aviso.
+              var okFusion = setLocalSeguro(nsKey(k), JSON.stringify(fusion));
+              applyingRemote = false;
+              if (!okFusion) return;
+              emit('jcsaas:data', {});
+              if (k === 'appointments') emit('jcm:appts', {});
+            }
+            baseSave(k, fusion);
+          } catch (e3) { applyingRemote = false; noop(e3); }
         });
-      } catch (e) { noop(e); }
-    }, 600);
+      } else {
+        op = ref.set({ v: payloadStr, _ts: Date.now() });
+      }
+      op.then(function () {
+        inFlight[k] = false;
+        // Confirmado en la nube: si no hubo otro cambio local entretanto, deja de protegerla.
+        if (pendingPush[k] === snapshot) { delete pendingPush[k]; setDirty(k, false); }
+        else {
+          // Llegó una edición nueva mientras esta subida viajaba: subirla ahora, con el valor
+          // MÁS RECIENTE de disco (no el `v` de esta llamada, que ya quedó atrás).
+          try {
+            var fresco = getLocalSeguro(nsKey(k));
+            intentarPush(k, fresco == null ? null : JSON.parse(fresco), 0);
+          } catch (e4) { noop(e4); }
+        }
+        lastSyncOk = Date.now(); delete syncErrors[k];
+      }).catch(function (e) {
+        inFlight[k] = false;
+        noop(e);
+        var code = (e && e.code) || 'unknown';
+        syncErrors[k] = { code: code, at: Date.now() };
+        // La data sigue a salvo en localStorage y protegida de sobrescritura. Reintentamos.
+        if (attempt < 5) {
+          setTimeout(function () { if (pendingPush[k] === snapshot) intentarPush(k, v, attempt + 1); }, Math.min(2000 * (attempt + 1), 15000));
+        }
+        // Aviso suave y tranquilizador (sin spam: 1 por tipo de error). NO se pierde nada.
+        if (!pushKey._warnedCodes) pushKey._warnedCodes = {};
+        if (!pushKey._warnedCodes[code]) {
+          pushKey._warnedCodes[code] = true;
+          var msg = 'Los datos están guardados en tu dispositivo local.';
+          if (window.jcmToast) window.jcmToast(msg, 'info');
+          else if (window.jcmError) window.jcmError(msg);
+          setTimeout(function () { if (pushKey._warnedCodes) delete pushKey._warnedCodes[code]; }, 30000);
+        }
+      });
+    } catch (e) { inFlight[k] = false; noop(e); }
   }
 
   // Trae todos los kv de la clínica → localStorage namespaced (para que DB.get síncrono funcione).
