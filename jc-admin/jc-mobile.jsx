@@ -2218,6 +2218,13 @@ const ANTEC_ESTETICOS_M = ["Toxina botulínica", "Rinomodelación", "Sculptra", 
 function AntecedentesRapidosM({ T, patient, updatePatient }) {
   const c = patient.clinica || {};
   const [abierto, setAbierto] = useState(false);
+  // "¿Fuma?" es un interruptor aparte del NÚMERO de cigarros — antes se deducía de si c.tabaco
+  // tenía algo escrito, y al borrar el "1" para escribir otro número el campo quedaba vacío ("")
+  // un instante; "" es falsy, así que el input DESAPARECÍA de la pantalla en pleno tecleo (con el
+  // teclado abierto), lo que se sentía como que la app se cerraba. Ahora el interruptor es estado
+  // propio del componente: solo lo cambian los botones "Fuma"/"No fuma", nunca el tecleo del número.
+  const [fumaOn, setFumaOn] = useState(() => !!(patient.clinica && patient.clinica.tabaco !== undefined && patient.clinica.tabaco !== "0"));
+  useEffect(() => { setFumaOn(!!(patient.clinica && patient.clinica.tabaco !== undefined && patient.clinica.tabaco !== "0")); }, [patient.id]);
   function setC(key, value) { updatePatient(patient.id, { clinica: { ...(patient.clinica || {}), [key]: value } }); }
   function toggleToken(key, tok) {
     const cur = (c[key] || "").split(",").map(s => s.trim()).filter(Boolean);
@@ -2264,7 +2271,6 @@ function AntecedentesRapidosM({ T, patient, updatePatient }) {
     </div>
   );
   const seccionLbl = { fontFamily:T.sans, fontSize:11, color:T.textMute, marginBottom:6 };
-  const fuma = c.tabaco && c.tabaco !== "0";
 
   return (
     <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
@@ -2298,11 +2304,11 @@ function AntecedentesRapidosM({ T, patient, updatePatient }) {
           <div>
             <div style={seccionLbl}>Tabaco</div>
             <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-              <button type="button" onClick={()=>setC("tabaco","0")} style={chipStyle(!fuma)}>No fuma</button>
-              <button type="button" onClick={()=>setC("tabaco", fuma?c.tabaco:"1")} style={chipStyle(!!fuma)}>Fuma</button>
-              {!!fuma && <>
+              <button type="button" onClick={()=>{ setFumaOn(false); setC("tabaco","0"); }} style={chipStyle(!fumaOn)}>No fuma</button>
+              <button type="button" onClick={()=>{ setFumaOn(true); if (!c.tabaco || c.tabaco==="0") setC("tabaco","1"); }} style={chipStyle(fumaOn)}>Fuma</button>
+              {fumaOn && <>
                 <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>¿Cuántos?</span>
-                <input value={c.tabaco||""} onChange={e=>setC("tabaco", e.target.value.replace(/\D/g,"").slice(0,3))} inputMode="numeric" placeholder="0" style={{ width:52, textAlign:"center", fontFamily:T.sans, fontSize:13, padding:"9px 6px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" }} />
+                <input value={c.tabaco==="0"?"":(c.tabaco||"")} onChange={e=>setC("tabaco", e.target.value.replace(/\D/g,"").slice(0,3))} inputMode="numeric" placeholder="0" style={{ width:52, textAlign:"center", fontFamily:T.sans, fontSize:13, padding:"9px 6px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" }} />
                 <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>cig/día</span>
               </>}
             </div>
@@ -2346,6 +2352,11 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
   const [firmando, setFirmando] = useState(false);
   // Se releen los consentimientos tras firmar (viven en sus propias claves, no en el paciente).
   const [consRev, setConsRev] = useState(0);
+  // Historial y atenciones registradas: colapsados por defecto (pedido: la ficha del celular es
+  // para acceso rápido, y un paciente con años de historia hace scrollear mucho antes de llegar a
+  // nada más). Próximas citas y el resumen compacto se dejan siempre visibles, son cortos.
+  const [showHistorial, setShowHistorial] = useState(false);
+  const [showAtenciones, setShowAtenciones] = useState(false);
   const firmados = useMemo(() => patConsentsM(p), [patientId, consRev, p && p.consentTs]);
   if (!p) return <OverlayShell T={T} title="Ficha" onBack={onBack}><div style={{ padding:30, textAlign:"center", fontFamily:T.sans, color:T.textMute }}>Paciente no encontrado.</div></OverlayShell>;
   if (firmando) return <ConsentSignM T={T} patient={p} onClose={()=>setFirmando(false)}
@@ -2509,16 +2520,21 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
         </div>
 
         <div>
-          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Historial ({pasadas.length})</div>
-          {pasadas.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin atenciones registradas.</div>}
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            {pasadas.slice(0,20).map(a => (
-              <div key={a.id} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px", opacity:a.status==="anulada"?.55:1 }}>
-                <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{a.fecha} · {a.proc||"—"}</div>
-                <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{apptStateM(a,T).label}</div>
+          <button onClick={()=>setShowHistorial(v=>!v)} style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", background:"none", border:"none", padding:0, marginBottom:8, cursor:"pointer", textAlign:"left" }}>
+            <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Historial ({pasadas.length})</span>
+            <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.accent, fontWeight:600 }}>{showHistorial ? "Ocultar" : "Ver"}</span>
+          </button>
+          {showHistorial && (pasadas.length===0
+            ? <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin atenciones registradas.</div>
+            : <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {pasadas.slice(0,20).map(a => (
+                  <div key={a.id} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px", opacity:a.status==="anulada"?.55:1 }}>
+                    <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{a.fecha} · {a.proc||"—"}</div>
+                    <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textMute }}>{apptStateM(a,T).label}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+          )}
         </div>
 
         {/* Atenciones registradas: resumen (cuántas · última · por tratamiento) + el detalle. Solo
@@ -2546,19 +2562,24 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
           </div>
         )}
         <div>
-          <div style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute, marginBottom:8 }}>Atenciones registradas ({sesiones.length})</div>
-          {sesiones.length===0 && <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin atenciones registradas todavía.</div>}
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            {sesiones.slice(0,20).map((h,i) => (
-              <div key={i} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px" }}>
-                <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{fmtSesFecha(h.date)} · {h.proc||"—"}{h.units ? " · "+h.units : ""}</div>
-                {h.resumen && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>{h.resumen}</div>}
-                {h.recomendados && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>Recomendado: {h.recomendados}</div>}
-                {h.proName && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, fontStyle:"italic", marginTop:3 }}>Realizado por {h.proName}</div>}
+          <button onClick={()=>setShowAtenciones(v=>!v)} style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", background:"none", border:"none", padding:0, marginBottom:8, cursor:"pointer", textAlign:"left" }}>
+            <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Atenciones registradas ({sesiones.length})</span>
+            <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.accent, fontWeight:600 }}>{showAtenciones ? "Ocultar" : "Ver"}</span>
+          </button>
+          {showAtenciones && (sesiones.length===0
+            ? <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin atenciones registradas todavía.</div>
+            : <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {sesiones.slice(0,20).map((h,i) => (
+                  <div key={i} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px" }}>
+                    <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{fmtSesFecha(h.date)} · {h.proc||"—"}{h.units ? " · "+h.units : ""}</div>
+                    {h.resumen && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>{h.resumen}</div>}
+                    {h.recomendados && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>Recomendado: {h.recomendados}</div>}
+                    {h.proName && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, fontStyle:"italic", marginTop:3 }}>Realizado por {h.proName}</div>}
+                  </div>
+                ))}
+                {sesiones.length > 20 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint, textAlign:"center", padding:"4px 0" }}>Mostrando las 20 más recientes de {sesiones.length}.</div>}
               </div>
-            ))}
-            {sesiones.length > 20 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint, textAlign:"center", padding:"4px 0" }}>Mostrando las 20 más recientes de {sesiones.length}.</div>}
-          </div>
+          )}
         </div>
       </div>
     </OverlayShell>
