@@ -2569,14 +2569,23 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
           {showAtenciones && (sesiones.length===0
             ? <div style={{ fontFamily:T.sans, fontSize:12, color:T.textMute }}>Sin atenciones registradas todavía.</div>
             : <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                {sesiones.slice(0,20).map((h,i) => (
+                {/* La ficha completa (jc-admin-b.jsx) guarda más que resumen/recomendados: lote,
+                    vencimiento, temperatura, dilución, lo efectivamente realizado y el cobro. El
+                    móvil solo mostraba un resumen a medias — esta tarjeta muestra la sesión
+                    completa, igual que el detalle de escritorio, solo que de lectura. */}
+                {sesiones.slice(0,20).map((h,i) => {
+                  const meta = [h.lote && ("Lote "+h.lote), h.venc && ("Vence "+h.venc), h.temp && ("Temp. "+h.temp), h.dilucion && ("Dilución "+h.dilucion)].filter(Boolean);
+                  return (
                   <div key={i} style={{ ...glassChip(T), borderRadius:9, padding:"9px 12px" }}>
                     <div style={{ fontFamily:T.sans, fontSize:12.5, color:T.text }}>{fmtSesFecha(h.date)} · {h.proc||"—"}{h.units ? " · "+h.units : ""}</div>
-                    {h.resumen && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>{h.resumen}</div>}
-                    {h.recomendados && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:3, lineHeight:1.4 }}>Recomendado: {h.recomendados}</div>}
-                    {h.proName && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, fontStyle:"italic", marginTop:3 }}>Realizado por {h.proName}</div>}
+                    {meta.length>0 && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, marginTop:3 }}>{meta.join("  ·  ")}</div>}
+                    {h.resumen && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:5, lineHeight:1.4 }}>{h.resumen}</div>}
+                    {h.realizados && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:5, lineHeight:1.4 }}>Realizado: {h.realizados}</div>}
+                    {h.recomendados && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginTop:5, lineHeight:1.4 }}>Recomendado: {h.recomendados}</div>}
+                    {!!h.cobro && <div style={{ fontFamily:T.sans, fontSize:11, color:T.accent, marginTop:5 }}>${Number(h.cobro).toLocaleString("es-CL")}{h.metodo ? " · "+h.metodo : ""}</div>}
+                    {h.proName && <div style={{ fontFamily:T.sans, fontSize:10.5, color:T.textFaint, fontStyle:"italic", marginTop:5 }}>Realizado por {h.proName}</div>}
                   </div>
-                ))}
+                ); })}
                 {sesiones.length > 20 && <div style={{ fontFamily:T.sans, fontSize:11, color:T.textFaint, textAlign:"center", padding:"4px 0" }}>Mostrando las 20 más recientes de {sesiones.length}.</div>}
               </div>
           )}
