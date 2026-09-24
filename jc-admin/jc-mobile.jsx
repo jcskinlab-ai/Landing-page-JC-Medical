@@ -2203,6 +2203,110 @@ function ConsentSignM({ T, patient, onClose, onSaved }) {
   );
 }
 
+/* ═══════════ Antecedentes médicos — ficha rápida (v2, solo JC Medical) ═══════════
+   Pedido del dueño: en el celular necesita entrar y anotar rápido, tocando en vez de escribir —
+   el portal de escritorio (FichaClinicaForm, jc-admin-c.jsx) tiene mucha más profundidad
+   (dictado por voz, mapa facial, tipos de ficha) que en el celular no hace falta. Esta NO es una
+   ficha aparte ni reemplaza nada: es un bloque nuevo dentro de la misma FichaOverlay, gateado a
+   la clínica del dueño (clinicSeededM) — cualquier otra clínica del SaaS sigue viendo exactamente
+   la ficha de siempre, sin este bloque.
+   Escribe en patient.clinica con las MISMAS claves que usa el escritorio (morbidos, alergias,
+   tabaco, embarazo, etc.), así un antecedente anotado desde el celular se ve idéntico si alguien
+   lo abre después en el PC, y viceversa — son la misma ficha clínica, dos formas de llenarla. */
+const ANTEC_MORBIDOS_M = ["Hipertensión", "Hipotiroidismo", "Diabetes", "Asma", "Rosácea"];
+const ANTEC_ESTETICOS_M = ["Toxina botulínica", "Rinomodelación", "Sculptra", "Radiesse", "Mesoterapia", "Quemadores de grasa"];
+function AntecedentesRapidosM({ T, patient, updatePatient }) {
+  const c = patient.clinica || {};
+  const [abierto, setAbierto] = useState(false);
+  function setC(key, value) { updatePatient(patient.id, { clinica: { ...(patient.clinica || {}), [key]: value } }); }
+  function toggleToken(key, tok) {
+    const cur = (c[key] || "").split(",").map(s => s.trim()).filter(Boolean);
+    const i = cur.indexOf(tok);
+    if (i >= 0) cur.splice(i, 1); else cur.push(tok);
+    setC(key, cur.join(", "));
+  }
+  const tokenOn = (key, tok) => (c[key] || "").split(",").map(s => s.trim()).includes(tok);
+  const esNiega = (key) => (c[key] || "").trim().toLowerCase() === "no refiere";
+
+  const chipStyle = on => ({ fontFamily:T.sans, fontSize:12, padding:"8px 13px", borderRadius:999, cursor:"pointer", border:"1px solid "+(on?T.accent:T.line), background:on?T.accent:"transparent", color:on?(T.onAccent||"#fff"):T.textMute, whiteSpace:"nowrap" });
+  const chipRow = (key, opciones, multi) => (
+    <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+      {opciones.map(o => <button key={o} type="button" onClick={() => multi ? toggleToken(key, o) : setC(key, c[key]===o ? "" : o)} style={chipStyle(multi ? tokenOn(key,o) : c[key]===o)}>{o}</button>)}
+    </div>
+  );
+  // Campo de texto con un botón "No refiere" al lado: cubre alergias/medicamentos/quirúrgicos sin
+  // obligar a escribir cuando la respuesta más común es "nada que anotar".
+  const noRefiereField = (label, key, placeholder) => (
+    <div>
+      <div style={{ fontFamily:T.sans, fontSize:11, color:T.textMute, marginBottom:6 }}>{label}</div>
+      <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+        <button type="button" onClick={() => setC(key, esNiega(key) ? "" : "No refiere")} style={chipStyle(esNiega(key))}>No refiere</button>
+        {!esNiega(key) && <input value={c[key]||""} onChange={e=>setC(key, e.target.value)} placeholder={placeholder} style={{ flex:1, minWidth:140, fontFamily:T.sans, fontSize:13, padding:"9px 12px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" }} />}
+      </div>
+    </div>
+  );
+  const seccionLbl = { fontFamily:T.sans, fontSize:11, color:T.textMute, marginBottom:6 };
+  const fuma = c.tabaco && c.tabaco !== "0";
+
+  return (
+    <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
+      <button onClick={()=>setAbierto(v=>!v)} style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", background:"none", border:"none", padding:0, cursor:"pointer", textAlign:"left" }}>
+        <span style={{ fontFamily:T.sans, fontSize:10, letterSpacing:".1em", textTransform:"uppercase", color:T.textMute }}>Antecedentes médicos</span>
+        <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.accent, fontWeight:600 }}>{abierto ? "Ocultar" : "Ver / anotar"}</span>
+      </button>
+      {abierto && (
+        <div style={{ display:"flex", flexDirection:"column", gap:16, marginTop:14 }}>
+          <div>
+            <div style={seccionLbl}>Antecedentes mórbidos</div>
+            {chipRow("morbidos", ANTEC_MORBIDOS_M, true)}
+          </div>
+          {noRefiereField("Alergias", "alergias", "Ej. Penicilina, AINEs…")}
+          {noRefiereField("Medicamentos de uso diario", "medicamentos", "Cuáles y dosis…")}
+          {noRefiereField("Antecedentes quirúrgicos", "quirurgicos", "Cirugías previas…")}
+          <div>
+            <div style={seccionLbl}>Procedimientos estéticos previos</div>
+            {chipRow("esteticos", ANTEC_ESTETICOS_M, true)}
+          </div>
+          <div>
+            <div style={seccionLbl}>Tabaco</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <button type="button" onClick={()=>setC("tabaco","0")} style={chipStyle(!fuma)}>No fuma</button>
+              <button type="button" onClick={()=>setC("tabaco", fuma?c.tabaco:"1")} style={chipStyle(!!fuma)}>Fuma</button>
+              {!!fuma && <>
+                <input value={c.tabaco||""} onChange={e=>setC("tabaco", e.target.value.replace(/\D/g,"").slice(0,3))} inputMode="numeric" placeholder="0" style={{ width:52, textAlign:"center", fontFamily:T.sans, fontSize:13, padding:"9px 6px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" }} />
+                <span style={{ fontFamily:T.sans, fontSize:11.5, color:T.textMute }}>cig/día</span>
+              </>}
+            </div>
+          </div>
+          <div>
+            <div style={seccionLbl}>Alcohol</div>
+            {chipRow("alcohol", ["Diario","Fines de semana","Social","Nunca"])}
+          </div>
+          <div>
+            <div style={seccionLbl}>Embarazo / lactancia</div>
+            <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+              <button type="button" onClick={()=>setC("embarazo", c.embarazo==="Niega"?"":"Niega")} style={chipStyle(c.embarazo==="Niega")}>Niega</button>
+              {c.embarazo!=="Niega" && <input value={c.embarazo||""} onChange={e=>setC("embarazo", e.target.value)} placeholder="Semanas / detalle si aplica…" style={{ flex:1, minWidth:140, fontFamily:T.sans, fontSize:13, padding:"9px 12px", borderRadius:9, border:"1px solid "+T.inputBorder, background:T.inputFill, color:T.text, outline:"none" }} />}
+            </div>
+          </div>
+          <div>
+            <div style={seccionLbl}>Exposición solar</div>
+            {chipRow("expsolar", ["Alta","Media","Baja","No refiere"])}
+          </div>
+          <div>
+            <div style={seccionLbl}>Uso de bloqueador</div>
+            {chipRow("bloqueador", ["Diario","2 veces al día","Cada 4 horas","No uso","No refiere"])}
+          </div>
+          <div>
+            <div style={seccionLbl}>Actividad física</div>
+            {chipRow("actividad", ["Sedentario","1–3x semana","3–5x semana","Diario"])}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) {
   const p = patients.find(x=>x.id===patientId);
   const [edit, setEdit] = useState(false);
@@ -2320,6 +2424,10 @@ function FichaOverlay({ T, patientId, patients, appts, onBack, updatePatient }) 
             </div>
           )}
         </div>
+
+        {/* Ficha 2.0 — antecedentes por toques, solo para la clínica del dueño (JC Medical). El
+            resto de las clínicas del SaaS no ve este bloque: la ficha les queda exactamente igual. */}
+        {clinicSeededM() && <AntecedentesRapidosM T={T} patient={p} updatePatient={updatePatient} />}
 
         {/* Consentimiento informado: mismas plantillas y mismo guardado que el panel de escritorio. */}
         <div style={{ ...glassPanel(T,12), padding:"13px 14px" }}>
