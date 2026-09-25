@@ -1648,6 +1648,7 @@ function ConsentSignM({ T, patient, onClose, onSaved }) {
     if (!listo) return;
     setBusy(true);
     try {
+      const guardaTexto = tpl.kind === "custom" || tpl.kind === "extra";
       const doc = {
         kind: tpl.kind,
         title: tpl.title,
@@ -1655,8 +1656,7 @@ function ConsentSignM({ T, patient, onClose, onSaved }) {
         proc: tpl.proc,
         proc4: tpl.proc4,
         vascular: tpl.vascular,
-        body: tpl.kind === "extra" ? body : tpl.body,
-        paragraphs: tpl.paragraphs,
+        ...guardaTexto ? { body: tpl.kind === "extra" ? body : tpl.body, paragraphs: tpl.paragraphs } : {},
         nombre: f.nombre.trim(),
         ci: f.ci.trim(),
         edad: f.edad.trim(),

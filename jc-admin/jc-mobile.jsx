@@ -2114,8 +2114,12 @@ function ConsentSignM({ T, patient, onClose, onSaved }) {
     if (!listo) return;
     setBusy(true);
     try {
+      // "toxina"/"estandar" traen el texto legal fijo en jc-consent-doc.jsx (nunca leen body/
+      // paragraphs del documento guardado): repetirlo en cada firma es peso muerto, y es justo lo
+      // que llena el almacenamiento del celular. Solo "custom"/"extra" sí lo necesitan.
+      const guardaTexto = tpl.kind === "custom" || tpl.kind === "extra";
       const doc = { kind:tpl.kind, title:tpl.title, cat:tpl.cat, proc:tpl.proc, proc4:tpl.proc4, vascular:tpl.vascular,
-        body: tpl.kind === "extra" ? body : tpl.body, paragraphs:tpl.paragraphs,
+        ...(guardaTexto ? { body: tpl.kind === "extra" ? body : tpl.body, paragraphs:tpl.paragraphs } : {}),
         nombre:f.nombre.trim(), ci:f.ci.trim(), edad:f.edad.trim(), prof:f.prof.trim(), fecha:f.fecha, aiPhotos:!!f.aiPhotos,
         sigPac, sigPro, medico:snapMedicoM(), ts:Date.now(), source:"movil" };
       // Mismo esquema que commitConsents() del escritorio: documento aparte + manifest.

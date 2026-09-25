@@ -1452,7 +1452,8 @@ function ConsentView({ T, patients, updatePatient }) {
       onClose: () => setSigning(null),
       onSign: (r) => {
         const p = signing.patient;
-        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
+        var _guardaTexto = r.tpl.kind === "custom" || r.tpl.kind === "extra";
+        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ..._guardaTexto ? { body: r.tpl.body, paragraphs: r.tpl.paragraphs } : {}, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
         try {
           var _nts = nuevo.ts || Date.now();
           window.DB.set("pcons_" + p.id + "_" + _nts, nuevo);
@@ -1836,7 +1837,8 @@ function ConsentTab({ T, patient, updatePatient }) {
     const h = medSigModal ? 90 : 120;
     return /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: cols, gap: 16, marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma paciente"), openDoc.sigPac && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPac, alt: "firma paciente", style: { width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "Firma profesional \xB7 ", openDoc.prof), openDoc.sigPro && /* @__PURE__ */ React.createElement("img", { src: openDoc.sigPro, alt: "firma profesional", style: { width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })), medSigModal && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 11, color: "#444", marginBottom: 4 } }, "M\xE9dico responsable \xB7 ", medSigModal.name, medSigModal.rut ? " \xB7 RUT " + medSigModal.rut : "", medSigModal.registro ? " \xB7 Reg. " + medSigModal.registro : ""), medSigModal.sig && /* @__PURE__ */ React.createElement("img", { src: medSigModal.sig, alt: "firma m\xE9dico", style: { width: "100%", height: h, objectFit: "contain", background: "#fff", border: "1px solid #ddd", borderRadius: 6 } })));
   })())), signing && /* @__PURE__ */ React.createElement(SignConsentModal, { T, data: { patient, template: tpl0 || jcmConsentCatalog()[0] }, onClose: () => setSigning(false), onSign: (r) => {
-    const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
+    var _guardaTexto2 = r.tpl.kind === "custom" || r.tpl.kind === "extra";
+    const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ..._guardaTexto2 ? { body: r.tpl.body, paragraphs: r.tpl.paragraphs } : {}, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
     const lista = patConsents(patient).slice();
     lista.unshift(nuevo);
     commitConsents(lista);

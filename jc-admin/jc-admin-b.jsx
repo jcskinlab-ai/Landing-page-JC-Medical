@@ -1793,7 +1793,11 @@ function ConsentView({ T, patients, updatePatient }) {
       {signing && <SignConsentModal T={T} data={signing} onClose={() => setSigning(null)}
         onSign={(r) => {
           const p = signing.patient;
-          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
+          // "toxina"/"estandar" traen el texto legal fijo en jc-consent-doc.jsx (nunca leen body/
+          // paragraphs del documento guardado) — repetirlo en cada firma es puro peso muerto y es lo
+          // que llena el localStorage del celular. Solo "custom"/"extra" sí lo necesitan.
+          var _guardaTexto = r.tpl.kind === "custom" || r.tpl.kind === "extra";
+          const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ...(_guardaTexto ? { body: r.tpl.body, paragraphs: r.tpl.paragraphs } : {}), ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
           try {
             var _nts = nuevo.ts || Date.now();
             window.DB.set("pcons_" + p.id + "_" + _nts, nuevo);
@@ -2220,7 +2224,8 @@ function ConsentTab({ T, patient, updatePatient }) {
       )}
 
       {signing && <SignConsentModal T={T} data={{ patient: patient, template: tpl0 || jcmConsentCatalog()[0] }} onClose={() => setSigning(false)} onSign={(r) => {
-        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, body: r.tpl.body, paragraphs: r.tpl.paragraphs, ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
+        var _guardaTexto2 = r.tpl.kind === "custom" || r.tpl.kind === "extra";
+        const nuevo = { kind: r.tpl.kind, title: r.tpl.title, cat: r.tpl.cat, proc: r.tpl.proc, proc4: r.tpl.proc4, vascular: r.tpl.vascular, ...(_guardaTexto2 ? { body: r.tpl.body, paragraphs: r.tpl.paragraphs } : {}), ...r.fields, sigPac: r.sigPac, sigPro: r.sigPro, medico: _snapMedicoResp(), ts: Date.now() };
         const lista = patConsents(patient).slice();
         lista.unshift(nuevo);
         commitConsents(lista); // guarda el consentimiento en su propia clave (sube a la nube)
