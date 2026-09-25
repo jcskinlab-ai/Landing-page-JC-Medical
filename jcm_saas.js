@@ -380,6 +380,10 @@
       // es el momento seguro: la clínica ya terminó de sincronizar, así que el mapa que se lee es
       // el real, no uno a medio bajar.
       try { if (window.jcmPodarHorariosDates) window.jcmPodarHorariosDates(); } catch (e2) {}
+      // Poda del texto legal duplicado en consentimientos toxina/estándar (ver jcm_shared.js): igual
+      // que arriba, corre acá porque ya bajó todo — cada write pasa por window.DB.set y por lo tanto
+      // por pushKey, con la misma protección de fusión/reintento que el resto de la sincronización.
+      try { if (window.jcmPodarTextoConsentimientos) window.jcmPodarTextoConsentimientos(); } catch (e3) {}
       emit('jcsaas:data', {});
     }).catch(function (e) { applyingRemote = false; noop(e); });
   }

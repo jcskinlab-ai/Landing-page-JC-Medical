@@ -346,6 +346,44 @@ function jcmPodarHorariosDates() {
 }
 if (typeof window !== 'undefined') window.jcmPodarHorariosDates = jcmPodarHorariosDates;
 
+// ── PODA DE TEXTO LEGAL DUPLICADO EN CONSENTIMIENTOS ────────────────────────────────────────
+// Los consentimientos "toxina" y "estandar" (botox, ácido hialurónico, Sculptra) tienen su texto
+// legal escrito fijo en jc-consent-doc.jsx: ConsentDoc/jcmConsentLegalBody NUNCA leen los campos
+// body/paragraphs del documento guardado para esos dos tipos (verificado generando el HTML con y
+// sin esos campos: sale idéntico). Antes de este cambio SÍ se guardaban en cada firma — ~90-150KB
+// de peso muerto por documento, la causa principal de que el localStorage de un celular con Safari
+// (~5MB por sitio) se llene. Esto poda los YA GUARDADOS: les quita solo esos dos campos, deja todo
+// lo demás (firmas, fecha, nombre, procedimiento) intacto, y los re-sube por el canal normal
+// (window.DB.set) para que la nube y el resto de los equipos también se aligeren. "custom"/"extra"
+// no se tocan: a esos SÍ los lee la vista (uno es el texto de una plantilla propia por título/id,
+// el otro es redactado a mano por el profesional).
+var _textoConsentPodado = false;
+function jcmPodarTextoConsentimientos() {
+  if (_textoConsentPodado) return;
+  _textoConsentPodado = true;
+  try {
+    if (!window.DB || !window.DB._k) return;
+    var prefijo = window.DB._k('pcons_'), base = window.DB._k('');
+    // Primero se junta la lista de claves (localStorage no se toca todavía): escribir mientras se
+    // recorre con localStorage.key(i) es frágil si el motor reindexa: mejor resolver todo antes.
+    var claves = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf(prefijo) === 0 && /_\d{13}$/.test(k)) claves.push(k.slice(base.length));
+    }
+    claves.forEach(function (logico) {
+      var c = null;
+      try { c = window.DB.get(logico); } catch (e) { return; }
+      if (!c || typeof c !== 'object') return;
+      if (c.kind !== 'toxina' && c.kind !== 'estandar') return;
+      if (!('body' in c) && !('paragraphs' in c)) return; // ya podado antes: nada que hacer
+      var limpio = {}; for (var f in c) if (f !== 'body' && f !== 'paragraphs') limpio[f] = c[f];
+      try { window.DB.set(logico, limpio); } catch (e2) {}
+    });
+  } catch (e) {}
+}
+if (typeof window !== 'undefined') window.jcmPodarTextoConsentimientos = jcmPodarTextoConsentimientos;
+
 // ── VERTICAL DE LA CLÍNICA (estética / dental) ─────────────────────────────
 // Medique no es dos softwares: es el mismo panel multi-tenant con una vertical que se activa POR
 // CLÍNICA. Todo lo dental cuelga de estos dos helpers, así que una clínica estética jamás ve nada
